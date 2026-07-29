@@ -1,0 +1,14 @@
+# Fichiers système macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Configurations des éditeurs de code (Workspace racine)
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Fichiers de logs ou temporaires globaux
+*.log
+.temp/

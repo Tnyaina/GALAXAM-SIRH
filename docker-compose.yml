@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: galaxam-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sirh_galaxam
+      POSTGRES_USER: galaxam_admin
+      POSTGRES_PASSWORD: galaxam_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - galaxam_pg_data:/var/lib/postgresql/data
+    networks:
+      - galaxam_network
+volumes:
+  galaxam_pg_data:
+    name: galaxam_pg_data
+
+networks:
+  galaxam_network:
+    driver: bridge
