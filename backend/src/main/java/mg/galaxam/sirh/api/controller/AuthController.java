@@ -6,11 +6,16 @@ import mg.galaxam.sirh.securite.JournalConnexion;
 import mg.galaxam.sirh.securite.Utilisateur;
 import mg.galaxam.sirh.securite.JwtService;
 import mg.galaxam.sirh.securite.CustomUserDetailsService;
+import mg.galaxam.sirh.securite.CustomUserDetails;
+import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.referentiel.RefMenu;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,6 +23,8 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/auth")
@@ -148,6 +155,55 @@ public class AuthController {
                 .body("Déconnexion réussie.");
     }
 
+    @GetMapping("/menu")
+    public ResponseEntity<?> getMenu() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof CustomUserDetails)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Non authentifié.");
+        }
+        CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
+
+        try (Connection c = dataSource.getConnection()) {
+            Utilisateur u = Utilisateur.rechercherParIdentifiant(userDetails.getUsername(), c);
+            if (u == null || u.getIdRole() == null) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Utilisateur sans rôle assigné.");
+            }
+
+            List<RefMenu> flatMenus = RefMenu.rechercherParRole(u.getIdRole(), c);
+            List<RefMenu> menuTree = buildMenuTree(flatMenus);
+
+            return ResponseEntity.ok(menuTree);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de récupération du menu.");
+        }
+    }
+
+    private List<RefMenu> buildMenuTree(List<RefMenu> flatMenus) {
+        List<RefMenu> rootMenus = new ArrayList<>();
+        Map<String, RefMenu> menuMap = new HashMap<>();
+
+        for (RefMenu m : flatMenus) {
+            menuMap.put(m.getIdMenu(), m);
+        }
+
+        for (RefMenu m : flatMenus) {
+            if (m.getIdPere() == null) {
+                rootMenus.add(m);
+            } else {
+                RefMenu parent = menuMap.get(m.getIdPere());
+                if (parent != null) {
+                    parent.getSousMenus().add(m);
+                } else {
+                    if (m.getNiveau() == 1) {
+                        rootMenus.add(m);
+                    }
+                }
+            }
+        }
+        return rootMenus;
+    }
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
 
@@ -173,6 +229,10 @@ public class AuthController {
 
                 u.controler(c); 
                 u.save(c); 
+
+                // Test d'audit : Écriture de l'audit d'insertion utilisateur
+                AuditLog.audit(c, "INSERT", "utilisateur", String.valueOf(u.getIdUtilisateur()), null, u);
+
                 c.commit();
                 
                 return ResponseEntity.status(HttpStatus.CREATED)

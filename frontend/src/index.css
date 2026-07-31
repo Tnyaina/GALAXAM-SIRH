@@ -36,6 +36,11 @@
   --color-brand-900: #0d3a4e;
   --color-brand-950: #082431;
 
+  /* Teal distinct utilisé au hover du bouton "primary" (Button.jsx).
+     Volontairement différent de --color-brand-500 (focus des Input) —
+     c'est la valeur d'origine du composant, on la préserve telle quelle. */
+  --color-brand-hover: #1a9ab8;
+
   /* ---- Info / liens secondaires (Badge, Alert, Toggle) ----------------- */
   --color-info-50:  #eff6ff;
   --color-info-100: #dbeafe;
@@ -53,6 +58,7 @@
   --color-ink-600: #525252;
   --color-ink-500: #6b6b6b;
   --color-ink-400: #888888; /* texte secondaire / icônes */
+  --color-ink-350: #999999; /* texte désactivé / hint (Input) */
   --color-ink-300: #aaaaaa; /* placeholder / hover border */
   --color-ink-200: #d0d0d0; /* bordure par défaut des champs */
   --color-ink-150: #e5e5e5; /* bordure des cartes */

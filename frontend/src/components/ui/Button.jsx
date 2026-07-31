@@ -1,10 +1,23 @@
+// Couleurs pilotées par les tokens définis dans index.css (@theme).
+// Mêmes valeurs visuelles qu'avant en mode clair + un premier passage
+// dark: à affiner visuellement si besoin.
 const variants = {
-  primary: 'bg-[#2d2d2d] hover:bg-[#1a9ab8] text-white border border-[#2d2d2d] hover:border-[#1a9ab8]',
-  secondary: 'bg-[#2d2d2d] hover:bg-[#3a3a3a] text-white border border-[#2d2d2d]',
-  outline: 'border border-[#2d2d2d] text-[#2d2d2d] hover:bg-[#2d2d2d] hover:text-white bg-transparent',
-  ghost: 'hover:bg-[#f0f0f0] text-[#2d2d2d] border border-transparent',
-  danger: 'bg-[#c0392b] hover:bg-[#a93226] text-white border border-[#c0392b]',
-  success: 'bg-[#27ae60] hover:bg-[#1e8449] text-white border border-[#27ae60]',
+  primary:
+    'bg-ink-800 hover:bg-brand-hover text-white border border-ink-800 hover:border-brand-hover ' +
+    'dark:bg-brand-500 dark:hover:bg-brand-hover dark:border-brand-500 dark:hover:border-brand-hover',
+  secondary:
+    'bg-ink-800 hover:bg-ink-700 text-white border border-ink-800 ' +
+    'dark:bg-ink-700 dark:hover:bg-ink-600 dark:border-ink-700',
+  outline:
+    'border border-ink-800 text-ink-800 hover:bg-ink-800 hover:text-white bg-transparent ' +
+    'dark:border-ink-200 dark:text-ink-50 dark:hover:bg-ink-200 dark:hover:text-ink-900',
+  ghost:
+    'hover:bg-ink-100 text-ink-800 border border-transparent ' +
+    'dark:text-ink-50 dark:hover:bg-ink-800',
+  danger:
+    'bg-danger-500 hover:bg-danger-600 text-white border border-danger-500',
+  success:
+    'bg-success-500 hover:bg-success-600 text-white border border-success-500',
 };
 
 const sizes = {
@@ -32,7 +45,7 @@ export default function Button({
       className={`
         inline-flex items-center justify-center font-semibold tracking-wide uppercase text-[0.75em]
         transition-all duration-150 rounded-none
-        focus:outline-none focus:ring-2 focus:ring-[#1A82B1]/40 focus:ring-offset-0
+        focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:ring-offset-0
         disabled:opacity-40 disabled:cursor-not-allowed
         ${variants[variant]}
         ${sizes[size]}

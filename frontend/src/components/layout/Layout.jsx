@@ -1,87 +1,72 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '@/context/authContext.jsx';
-import { useCustomerAuth } from '@/context/customerAuthContext.jsx';
-import { CartProvider } from '@/context/cartContext.jsx';
+import { useAuth } from '@/context/AuthContext.jsx';
+import { useMenu } from '@/hooks/useMenu';
+import { findMenuTitleByHref } from '@/utils/menu';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
-import TopbarFO from './TopbarFO';
+import Footer from './Footer';
 
-const THEME_STORAGE_KEY = 'prestashop-theme';
+const THEME_STORAGE_KEY = 'galaxam-theme';
 
 const getInitialTheme = () => {
-  if (typeof window === 'undefined') return false;
-  const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return savedTheme === 'dark' ? true : (savedTheme === 'light' ? false : window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (typeof window === 'undefined') return false;
+    const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === 'dark') return true;
+    if (saved === 'light') return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
 };
 
-// On ne garde que les titres liés à ton projet
-const pageTitles = {
-  '/': 'Tableau de Bord',
-  '/products': 'Gestion des Produits',
-  '/categories': 'Gestion des Categories',
-  '/customers': 'Clients',
-  '/address': 'Address',
-  '/orderes': 'Commandes',
-  '/stock': 'Stock',
-  '/reset': 'Reset Data',
-  '/import': 'Import Data',
-  '/test': 'Zone de Test API',
-};
-
+/**
+ * Layout — back-office uniquement (admin + agent pointage), plus de mode
+ * Front Office / panier (ancien projet e-commerce PrestaShop).
+ *
+ * 4 zones : Topbar (fixe en haut) / Sidebar (scroll indépendant) /
+ * Main (scroll indépendant) / Footer (fixe en bas).
+ */
 export default function Layout({ children }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(getInitialTheme);
-  const { pathname } = useLocation();
-  const { token } = useAuth();
-  const customerAuth = useCustomerAuth();
-  const isCustomerAuthenticated = customerAuth?.isAuthenticated;
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(getInitialTheme);
+    const { pathname } = useLocation();
+    const { isAuthenticated } = useAuth();
+    const { menu, loading: menuLoading, error: menuError } = useMenu();
 
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.toggle('dark', isDarkMode);
-    window.localStorage.setItem(THEME_STORAGE_KEY, isDarkMode ? 'dark' : 'light');
-  }, [isDarkMode]);
+    useEffect(() => {
+        document.documentElement.classList.toggle('dark', isDarkMode);
+        window.localStorage.setItem(THEME_STORAGE_KEY, isDarkMode ? 'dark' : 'light');
+    }, [isDarkMode]);
 
-  // Si pas authentifié, afficher juste les enfants (page de login)
-  if (!token && !isCustomerAuthenticated) {
-    return <div>{children}</div>;
-  }
+    // Pas authentifié -> juste les enfants (page de login), sans le shell
+    if (!isAuthenticated) {
+        return <div>{children}</div>;
+    }
 
-  // Si client FO authentifié, afficher avec TopbarFO simple
-  if (isCustomerAuthenticated && pathname.startsWith('/FO')) {
+    const title = findMenuTitleByHref(menu, pathname) || 'Galaxam SIRH';
+
     return (
-      <CartProvider>
-        <div className={`min-h-screen flex flex-col ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}>
-          <TopbarFO isDarkMode={isDarkMode} />
-          <main className={`flex-1 p-6 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-            {children}
-          </main>
+        <div className="h-screen flex flex-col bg-ink-50 dark:bg-ink-950">
+            <Topbar
+                onMenuClick={() => setSidebarOpen(true)}
+                onThemeToggle={() => setIsDarkMode((prev) => !prev)}
+                isDarkMode={isDarkMode}
+                title={title}
+            />
+
+            <div className="flex-1 flex overflow-hidden">
+                <Sidebar
+                    open={sidebarOpen}
+                    onClose={() => setSidebarOpen(false)}
+                    menu={menu}
+                    loading={menuLoading}
+                    error={menuError}
+                />
+
+                <main className="flex-1 overflow-y-auto p-6 text-ink-800 dark:text-ink-50">
+                    {children}
+                </main>
+            </div>
+
+            <Footer />
         </div>
-      </CartProvider>
     );
-  }
-
-  // Si admin authentifié, afficher avec sidebar et topbar
-  if (token) {
-    return (
-      <div className={`min-h-screen flex ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}>
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-        <div className="flex-1 flex flex-col min-h-screen lg:ml-[260px]">
-          <Topbar
-            onMenuClick={() => setSidebarOpen(true)}
-            onThemeToggle={() => setIsDarkMode((prev) => !prev)}
-            isDarkMode={isDarkMode}
-            title={pageTitles[pathname] || 'PrestaShop Admin'}
-          />
-          <main className={`flex-1 p-6 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-            {children}
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  return <div>{children}</div>;
 }

@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import Layout from '@/components/layout/Layout';
 
 export default function ProtectedRoute({ allowedRoles, children }) {
     const { isAuthenticated, user, loading } = useAuth();
@@ -26,5 +27,9 @@ export default function ProtectedRoute({ allowedRoles, children }) {
         return <Navigate to="/non-autorise" replace />;
     }
 
-    return children ? children : <Outlet />;
+    return (
+        <Layout>
+            {children ? children : <Outlet />}
+        </Layout>
+    );
 }

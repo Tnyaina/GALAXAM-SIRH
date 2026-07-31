@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.securite;
+package mg.galaxam.sirh.referentiel;
 
 import bean.ClassMere;
 

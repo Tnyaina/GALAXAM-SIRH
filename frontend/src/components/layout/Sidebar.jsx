@@ -1,184 +1,151 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  Folder, LayoutDashboard, ShoppingBag, Terminal, Users, X, Zap,
-  ChevronDown, MapPin, Package, Tag, BarChart2,
-  Import
-} from 'lucide-react';
+import { X, ChevronDown } from 'lucide-react';
+import { getMenuIcon } from '@/utils/iconRegistry';
 
-const navItems = [
-  {
-    section: 'Boutique',
-    items: [
-      { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-      { to: '/stats', icon: LayoutDashboard, label: 'Stats' },
-  
-      {
-        icon: ShoppingBag,
-        label: 'Catalogue',
-        children: [
-          //{ to: '/products', icon: Package, label: 'Produits' },
-          //{ to: '/categories', icon: Folder, label: 'Catégories' },
-          { to: '/stock', icon: Tag, label: 'Stock' },
-        ]
-      },
-      // {
-      //   icon: Users,
-      //   label: 'Clients',
-      //   children: [
-      //     { to: '/customers', icon: Users, label: 'Clients' },
-      //     { to: '/address', icon: MapPin, label: 'Adresses' },
-      //   ]
-      // },
-      { to: '/orders', icon: ShoppingBag, label: 'Commandes' },
-    ]
-  },
-  {
-    section: 'Développement',
-    items: [
-      { to: '/reset', icon: Terminal, label: 'Reset data' },
-      {to : '/import' , icon: Import, label: 'Import data'}
-    ]
-  },
-];
-
-function NavItem({ item, onClose }) {
-  const [expanded, setExpanded] = useState(false);
-
-  if (item.children) {
-    return (
-      <li>
-        <button
-          onClick={() => setExpanded((p) => !p)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-[#b0b0b0] hover:bg-[#3a3a3a] hover:text-white transition-colors"
-        >
-          <item.icon size={16} className="shrink-0" />
-          <span className="flex-1 text-left">{item.label}</span>
-          <ChevronDown
-            size={14}
-            className={`shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
-          />
-        </button>
-
-        {expanded && (
-          <ul className="mt-0.5 border-l-2 border-[#4a4a4a] ml-[22px] space-y-0.5">
-            {item.children.map((child) => (
-              <li key={child.to}>
-                <NavLink
-                  to={child.to}
-                  end
-                  onClick={onClose}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 pl-4 pr-3 py-2 text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-[#2196f3] text-white border-l-2 border-[#64b5f6] -ml-[2px]'
-                        : 'text-[#999] hover:bg-[#3a3a3a] hover:text-white'
-                    }`
-                  }
-                >
-                  <child.icon size={14} className="shrink-0" />
-                  <span>{child.label}</span>
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        )}
-      </li>
-    );
-  }
-
-  return (
-    <li>
-      <NavLink
-        to={item.to}
-        end={item.to === '/'}
-        onClick={onClose}
-        className={({ isActive }) =>
-          `flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors ${
-            isActive
-              ? 'bg-[#2196f3] text-white'
-              : 'text-[#b0b0b0] hover:bg-[#3a3a3a] hover:text-white'
-          }`
-        }
-      >
-        <item.icon size={16} className="shrink-0" />
-        <span>{item.label}</span>
-      </NavLink>
-    </li>
-  );
+function sortByRang(items) {
+    return [...items].sort((a, b) => (a.rang ?? 0) - (b.rang ?? 0));
 }
 
-export default function Sidebar({ open, onClose }) {
-  return (
-    <>
-      {open && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={onClose}
-        />
-      )}
+function NavNode({ item, onClose, depth = 0 }) {
+    const [expanded, setExpanded] = useState(false);
+    const Icon = getMenuIcon(item.icone);
+    const hasChildren = item.sousMenus?.length > 0;
+    const paddingLeft = `${16 + depth * 16}px`;
 
-      <aside
-        className={`fixed top-0 left-0 h-full w-[260px] z-50 flex flex-col lg:translate-x-0 ${
-          open ? 'translate-x-0' : '-translate-x-full'
-        } transition-transform duration-300`}
-        style={{ backgroundColor: '#2d2d2d', borderRight: '1px solid #3a3a3a' }}
-      >
-        {/* Logo */}
-        <div
-          className="flex items-center justify-between px-5 py-4"
-          style={{ borderBottom: '1px solid #3a3a3a' }}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="w-8 h-8 flex items-center justify-center text-white"
-              style={{ backgroundColor: '#2196f3' }}
+    // Un item avec des enfants se comporte visuellement comme un en-tête
+    // de section (majuscules, plus discret) plutôt qu'un lien classique.
+    if (hasChildren) {
+        return (
+            <li>
+                <button
+                    onClick={() => setExpanded((p) => !p)}
+                    style={{ paddingLeft }}
+                    className={`
+                        w-full flex items-center gap-3 pr-4 py-2.5
+                        text-[13px] font-semibold uppercase tracking-wide
+                        transition-colors duration-150
+                        ${expanded ? 'text-white' : 'text-ink-400 hover:text-white'}
+                        hover:bg-white/5
+                    `}
+                >
+                    <Icon size={16} className="shrink-0" strokeWidth={2} />
+                    <span className="flex-1 text-left truncate">{item.libelle}</span>
+                    <ChevronDown
+                        size={14}
+                        className={`shrink-0 text-ink-500 transition-transform duration-200 ${
+                            expanded ? 'rotate-180 text-ink-300' : ''
+                        }`}
+                    />
+                </button>
+
+                <div
+                    className={`grid transition-all duration-200 ${
+                        expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                    }`}
+                >
+                    <ul className="overflow-hidden space-y-0.5 py-0.5">
+                        {sortByRang(item.sousMenus).map((child) => (
+                            <NavNode key={child.idMenu} item={child} onClose={onClose} depth={depth + 1} />
+                        ))}
+                    </ul>
+                </div>
+            </li>
+        );
+    }
+
+    return (
+        <li>
+            <NavLink
+                to={item.href || '#'}
+                end={item.href === '/'}
+                onClick={onClose}
+                className={({ isActive }) =>
+                    `group relative flex items-center gap-3 pr-4 py-2.5 text-sm font-medium
+                     border-l-2 transition-colors duration-150 ${
+                        isActive
+                            ? 'bg-white/10 text-white border-brand-500'
+                            : 'text-ink-300 border-transparent hover:bg-white/5 hover:text-white'
+                    }`
+                }
+                style={{ paddingLeft }}
             >
-              <Zap size={16} />
-            </div>
-            <span className="text-base font-bold text-white tracking-tight">
-              PrestaReact
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            className="lg:hidden p-1 text-[#888] hover:text-white transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
+                <Icon size={16} className="shrink-0 opacity-90 group-hover:opacity-100" strokeWidth={2} />
+                <span className="truncate">{item.libelle}</span>
+            </NavLink>
+        </li>
+    );
+}
 
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto py-3">
-          {navItems.map(({ section, items }) => (
-            <div key={section} className="mb-4">
-              <p
-                className="px-4 mb-1 text-[10px] font-bold uppercase tracking-widest"
-                style={{ color: '#666' }}
-              >
-                {section}
-              </p>
-              <ul className="space-y-0.5">
-                {items.map((item) => (
-                  <NavItem
-                    key={item.to || item.label}
-                    item={item}
-                    onClose={onClose}
-                  />
-                ))}
-              </ul>
-            </div>
-          ))}
-        </nav>
+/**
+ * Sidebar — reçoit le menu déjà chargé par Layout (via useMenu) plutôt que
+ * de le fetcher lui-même, pour éviter un double appel réseau.
+ *
+ * Desktop (lg+) : colonne statique dans le flux flex (hauteur héritée du parent).
+ * Mobile        : tiroir en position fixed, ouvert/fermé via `open`.
+ */
+export default function Sidebar({ open, onClose, menu = [], loading, error }) {
+    const sorted = sortByRang(menu);
 
-        {/* Footer */}
-        <div
-          className="px-4 py-3 text-[11px]"
-          style={{ borderTop: '1px solid #3a3a3a', color: '#555' }}
-        >
-          PrestaShop 8.2.6
-        </div>
-      </aside>
-    </>
-  );
+    return (
+        <>
+            {open && (
+                <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-40 lg:hidden"
+                    onClick={onClose}
+                />
+            )}
+
+            <aside
+                className={`
+                    fixed inset-y-0 left-0 z-50 w-[260px] flex flex-col
+                    bg-ink-800 border-r border-ink-700 shadow-lg
+                    transform transition-transform duration-300
+                    lg:static lg:translate-x-0 lg:shadow-none
+                    ${open ? 'translate-x-0' : '-translate-x-full'}
+                `}
+            >
+                {/* En-tête (marque) — ne scrolle pas */}
+                <div className="flex items-center justify-between px-5 h-16 border-b border-ink-700 shrink-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 flex items-center justify-center bg-brand-500 text-white font-bold text-sm shrink-0 shadow-sm">
+                            G
+                        </div>
+                        <span className="text-base font-bold text-white tracking-tight truncate">
+                            Galaxam SIRH
+                        </span>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="lg:hidden p-1 text-ink-400 hover:text-white transition-colors"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Navigation — seule zone qui scrolle */}
+                <nav className="flex-1 overflow-y-auto py-4">
+                    {loading && (
+                        <div className="px-4 space-y-2">
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} className="h-8 bg-white/5 animate-pulse" />
+                            ))}
+                        </div>
+                    )}
+                    {error && (
+                        <p className="px-4 text-xs text-danger-500">
+                            Impossible de charger le menu.
+                        </p>
+                    )}
+                    {!loading && !error && (
+                        <ul className="space-y-0.5">
+                            {sorted.map((item) => (
+                                <NavNode key={item.idMenu} item={item} onClose={onClose} />
+                            ))}
+                        </ul>
+                    )}
+                </nav>
+            </aside>
+        </>
+    );
 }

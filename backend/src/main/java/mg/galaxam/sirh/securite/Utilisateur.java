@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.securite;
 
 import bean.ClassMere;
+import mg.galaxam.sirh.referentiel.RefRole;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.sql.*;
