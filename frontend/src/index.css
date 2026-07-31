@@ -1,112 +1,261 @@
+/* ============================================================================
+   GALAXAM LOGISTICS — index.css
+   Fichier de base du design system. Tous les composants (Button, Input,
+   Card, Alert, Badge, Toggle, Loading...) doivent s'appuyer sur les tokens
+   définis ici plutôt que sur des couleurs "en dur".
+   ============================================================================ */
+
+/* Police — à remplacer/retirer si vous auto-hébergez les fontes */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
 @import "tailwindcss";
+
+/* Active la variante `dark:` pilotée par une classe .dark sur <html>,
+   plutôt que par prefers-color-scheme (permet un toggle utilisateur). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+
+/* ============================================================================
+   1. THEME TOKENS — palette, typographie, rayons, ombres, transitions
+   ============================================================================ */
+@theme {
+  /* ---- Typographie ---------------------------------------------------- */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ---- Marque — bleu Galaxam (CTA, focus, liens) ----------------------- */
+  --color-brand-50:  #eaf6fa;
+  --color-brand-100: #cbeaf1;
+  --color-brand-200: #9adbe6;
+  --color-brand-300: #64c1d6;
+  --color-brand-400: #3aa4c2;
+  --color-brand-500: #1a82b1; /* accent de référence (focus des Input) */
+  --color-brand-600: #156a92;
+  --color-brand-700: #125676;
+  --color-brand-800: #10465f;
+  --color-brand-900: #0d3a4e;
+  --color-brand-950: #082431;
+
+  /* ---- Info / liens secondaires (Badge, Alert, Toggle) ----------------- */
+  --color-info-50:  #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-200: #bfdbfe;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb; /* référence existante (Badge/Toggle) */
+  --color-info-700: #1d4ed8;
+  --color-info-900: #1e3a8a;
+
+  /* ---- Neutres "ink" — texte, bordures, fonds (repris de vos composants) */
+  --color-ink-950: #141414;
+  --color-ink-900: #1a1a1a;
+  --color-ink-800: #2d2d2d; /* texte principal / bouton primary */
+  --color-ink-700: #3a3a3a; /* hover bouton secondary */
+  --color-ink-600: #525252;
+  --color-ink-500: #6b6b6b;
+  --color-ink-400: #888888; /* texte secondaire / icônes */
+  --color-ink-300: #aaaaaa; /* placeholder / hover border */
+  --color-ink-200: #d0d0d0; /* bordure par défaut des champs */
+  --color-ink-150: #e5e5e5; /* bordure des cartes */
+  --color-ink-100: #f0f0f0; /* hover ghost */
+  --color-ink-50:  #f5f5f5; /* fond désactivé / fond page */
+
+  /* ---- Sémantique — statuts (repris de Button/Alert) ------------------- */
+  --color-success-500: #27ae60;
+  --color-success-600: #1e8449;
+  --color-danger-500:  #c0392b;
+  --color-danger-600:  #a93226;
+  --color-warning-500: #d97706;
+  --color-warning-600: #b45309;
+
+  /* ---- Rayons — l'identité Galaxam est anguleuse par défaut ------------ */
+  --radius-none: 0px;
+  --radius-sm:   2px;
+  --radius-md:   4px;
+  --radius-full: 9999px; /* réservé aux éléments circulaires (Toggle, dots) */
+
+  /* ---- Ombres douces, cohérentes avec Card ------------------------------ */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-md: 0 4px 10px -2px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 12px 24px -6px rgb(0 0 0 / 0.12);
+
+  /* ---- Rythme des transitions -------------------------------------------- */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration-base: 150ms;
+  --duration-slow: 250ms;
+}
+
+
+/* ============================================================================
+   2. SURFACES SÉMANTIQUES — clair / sombre
+   Ces variables décrivent des RÔLES (fond, texte, bordure...), pas des
+   couleurs brutes. Les composants doivent consommer ces rôles pour hériter
+   automatiquement du mode sombre.
+   ============================================================================ */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --color-bg:            #ffffff;
+  --color-bg-subtle:     var(--color-ink-50);
+  --color-surface:       #ffffff;
+  --color-surface-hover: var(--color-ink-50);
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --color-fg:            var(--color-ink-800);
+  --color-fg-muted:      var(--color-ink-400);
+  --color-fg-subtle:     var(--color-ink-300);
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --color-border:        var(--color-ink-200);
+  --color-border-subtle: var(--color-ink-150);
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
+  --color-accent:        var(--color-brand-500);
+  --color-accent-fg:     #ffffff;
+  --color-focus-ring:    color-mix(in oklab, var(--color-brand-500) 40%, transparent);
+}
+
+.dark {
+  --color-bg:            var(--color-ink-950);
+  --color-bg-subtle:     var(--color-ink-900);
+  --color-surface:       var(--color-ink-900);
+  --color-surface-hover: var(--color-ink-800);
+
+  --color-fg:            #f2f2f2;
+  --color-fg-muted:      #a6a6a6;
+  --color-fg-subtle:     #7a7a7a;
+
+  --color-border:        var(--color-ink-700);
+  --color-border-subtle: #2a2a2a;
+
+  --color-accent:        var(--color-brand-400);
+  --color-accent-fg:     var(--color-ink-950);
+  --color-focus-ring:    color-mix(in oklab, var(--color-brand-400) 45%, transparent);
+}
+
+
+/* ============================================================================
+   3. BASE — reset ergonomique, typographie, accessibilité
+   ============================================================================ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Échelle typographique — poids et tailles cohérents dans toute l'app */
+  h1 { @apply text-2xl font-bold tracking-tight; }
+  h2 { @apply text-xl font-bold tracking-tight; }
+  h3 { @apply text-lg font-semibold tracking-tight; }
+  h4 { @apply text-base font-semibold; }
+  small, .text-caption { @apply text-xs text-[var(--color-fg-muted)]; }
+
+  /* Le mono sert aux données "logistiques" : n° de suivi, dates, codes */
+  code, kbd, .font-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  a {
+    color: var(--color-accent);
+    text-decoration-line: none;
+  }
+  a:hover { text-decoration-line: underline; }
+
+  /* Focus clavier visible partout, jamais supprimé (accessibilité) */
+  :focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+  /* On masque l'anneau seulement pour la souris/tactile, jamais au clavier */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Sélection de texte à la couleur de marque */
+  ::selection {
+    background-color: var(--color-brand-100);
+    color: var(--color-brand-900);
+  }
+  .dark ::selection {
+    background-color: var(--color-brand-800);
+    color: #ffffff;
+  }
+
+  /* Champs de formulaire : hérite des surfaces, pas de style navigateur */
+  input, textarea, select, button {
+    font: inherit;
+    color: inherit;
+  }
+  input::placeholder, textarea::placeholder {
+    color: var(--color-fg-subtle);
+  }
+
+  /* Cible tactile minimale ergonomique (44px) pour tout élément interactif */
+  button, a[role="button"], input[type="checkbox"], input[type="radio"] {
+    min-height: 2.75rem;
+  }
+  input[type="checkbox"], input[type="radio"] {
+    min-height: 0; /* la case elle-même reste petite, la zone de clic est gérée par le <label> */
+  }
+
+  /* États désactivés cohérents dans toute l'app */
+  [disabled], .is-disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /* Scrollbar discrète, cohérente avec le mode sombre */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-ink-300);
+    border-radius: var(--radius-full);
+    border: 2px solid var(--color-bg);
+  }
+  .dark ::-webkit-scrollbar-thumb { background-color: var(--color-ink-600); }
+
+  /* Respect des préférences de mouvement réduit */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
+/* ============================================================================
+   4. UTILITAIRES MAISON
+   ============================================================================ */
+@utility skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background: var(--color-brand-500);
+  color: #ffffff;
 
-body {
-  margin: 0;
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+  &:focus {
+    left: 0.5rem;
+    top: 0.5rem;
   }
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+@utility surface {
+  background-color: var(--color-surface);
+  color: var(--color-fg);
+  border-color: var(--color-border);
 }

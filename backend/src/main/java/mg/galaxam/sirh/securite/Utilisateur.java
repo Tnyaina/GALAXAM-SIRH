@@ -241,4 +241,8 @@ public class Utilisateur extends ClassMere {
     public void setEstActif(boolean estActif) {
         this.estActif = estActif;
     }
+
+    public String getMotDePasseHache() {
+        return motDePasseHache;
+    }
 }

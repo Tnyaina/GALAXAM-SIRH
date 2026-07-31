@@ -1,0 +1,33 @@
+import { Routes, Route } from "react-router-dom";
+import Login from "@/pages/auth/Login";
+import Dashboard from "@/pages/Dashboard";
+import AdminPanel from "@/pages/AdminPanel";
+import Unauthorized from "@/pages/system/Unauthorized";
+import NotFound from "@/pages/system/NotFound";
+import ProtectedRoute from "@/routes/ProtectedRoute";
+import { AuthProvider } from "@/context/AuthContext";
+
+export default function Router() {
+    return (
+        <AuthProvider>
+            <Routes>
+                {/* Route publique d'authentification */}
+                <Route path="/" element={<Login />} />
+                <Route path="/non-autorise" element={<Unauthorized />} />
+
+                {/* Routes protégées standard (nécessite d'être connecté) */}
+                <Route element={<ProtectedRoute />}>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                </Route>
+
+                {/* Routes protégées admin (nécessite d'être ADMIN) */}
+                <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
+                    <Route path="/admin" element={<AdminPanel />} />
+                </Route>
+
+                {/* Page d'erreur 404 - Wildcard */}
+                <Route path="*" element={<NotFound />} />
+            </Routes>
+        </AuthProvider>
+    );
+}
