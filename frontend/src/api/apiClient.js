@@ -1,8 +1,22 @@
+// apiClient.js
 import axios from 'axios';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/';
 
 let _accessToken = null;
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach((prom) => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
 
 export const getAccessToken = () => _accessToken;
 export const setAccessToken = (token) => {
@@ -18,7 +32,6 @@ const apiClient = axios.create({
     },
 });
 
-// Intercepteur de requête : attacher l'Access Token s'il est présent
 apiClient.interceptors.request.use(
     (config) => {
         if (_accessToken) {
@@ -26,34 +39,38 @@ apiClient.interceptors.request.use(
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
-// Intercepteur de réponse : gérer l'expiration de session (401) et tenter un refresh automatique
 apiClient.interceptors.response.use(
-    (response) => {
-        return response;
-    },
+    (response) => response,
     async (error) => {
         const originalRequest = error.config;
 
-        // Évite une boucle infinie de rafraîchissement si la requête initiale est déjà le refresh ou le login
         if (
-            originalRequest.url.includes('/auth/refresh') || 
-            originalRequest.url.includes('/auth/login') ||
-            originalRequest.url.endsWith('auth/refresh') ||
-            originalRequest.url.endsWith('auth/login')
+            originalRequest.url.includes('/auth/refresh') ||
+            originalRequest.url.includes('/auth/login')
         ) {
             return Promise.reject(error);
         }
 
         if (error.response?.status === 401 && !originalRequest._retry) {
+            if (isRefreshing) {
+                // Si un refresh est DÉJÀ en cours, on met la requête en attente dans la file
+                return new Promise((resolve, reject) => {
+                    failedQueue.push({ resolve, reject });
+                })
+                    .then((token) => {
+                        originalRequest.headers['Authorization'] = `Bearer ${token}`;
+                        return apiClient(originalRequest);
+                    })
+                    .catch((err) => Promise.reject(err));
+            }
+
             originalRequest._retry = true;
+            isRefreshing = true;
 
             try {
-                // Utilise une instance Axios brute pour appeler /auth/refresh sans intercepteur
                 const response = await axios.post(
                     `${BASE_URL}auth/refresh`,
                     {},
@@ -63,13 +80,16 @@ apiClient.interceptors.response.use(
                 const { accessToken } = response.data;
                 setAccessToken(accessToken);
 
+                processQueue(null, accessToken);
                 originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
                 return apiClient(originalRequest);
             } catch (refreshError) {
-                // Si le rafraîchissement échoue (ex: cookie expiré), on nettoie et notifie l'application
+                processQueue(refreshError, null);
                 setAccessToken(null);
                 window.dispatchEvent(new Event('auth-expired'));
                 return Promise.reject(refreshError);
+            } finally {
+                isRefreshing = false;
             }
         }
 
