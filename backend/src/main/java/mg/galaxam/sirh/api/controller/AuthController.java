@@ -80,7 +80,7 @@ public class AuthController {
                                 .secure(true)
                                 .path("/api/auth")
                                 .maxAge(jwtService.getRefreshTokenExpirationMs() / 1000)
-                                .sameSite("Strict")
+                                .sameSite("None")
                                 .build();
 
                         Map<String, Object> responseBody = new HashMap<>();
@@ -147,7 +147,7 @@ public class AuthController {
                 .secure(true)
                 .path("/api/auth")
                 .maxAge(0)
-                .sameSite("Strict")
+                .sameSite("None")
                 .build();
 
         return ResponseEntity.ok()
