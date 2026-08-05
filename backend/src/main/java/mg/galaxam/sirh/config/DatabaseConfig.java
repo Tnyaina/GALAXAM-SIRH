@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.util.StringUtils;
 
 import javax.sql.DataSource;
+import java.net.URI;
 
 @Configuration
 public class DatabaseConfig {
@@ -35,16 +36,57 @@ public class DatabaseConfig {
             url = System.getenv("DATABASE_URL");
         }
 
-        url = normalizeJdbcUrl(url);
+        String finalUsername = username;
+        String finalPassword = password;
+        String jdbcUrl = url;
+
+        if (StringUtils.hasText(url)) {
+            String uriString = url.trim();
+            if (uriString.startsWith("jdbc:")) {
+                uriString = uriString.substring(5);
+            }
+
+            if (uriString.contains("@")) {
+                try {
+                    URI uri = URI.create(uriString);
+                    if (uri.getUserInfo() != null) {
+                        String[] userInfo = uri.getUserInfo().split(":", 2);
+                        if (!StringUtils.hasText(finalUsername)) {
+                            finalUsername = userInfo[0];
+                        }
+                        if (userInfo.length > 1 && !StringUtils.hasText(finalPassword)) {
+                            finalPassword = userInfo[1];
+                        }
+                    }
+                    String host = uri.getHost();
+                    int port = uri.getPort();
+                    String path = uri.getPath();
+
+                    StringBuilder sb = new StringBuilder("jdbc:postgresql://");
+                    sb.append(host);
+                    if (port > 0) {
+                        sb.append(":").append(port);
+                    }
+                    if (StringUtils.hasText(path)) {
+                        sb.append(path);
+                    }
+                    jdbcUrl = sb.toString();
+                } catch (Exception e) {
+                    jdbcUrl = normalizeJdbcUrl(url);
+                }
+            } else {
+                jdbcUrl = normalizeJdbcUrl(url);
+            }
+        }
 
         HikariDataSource dataSource = new HikariDataSource();
-        dataSource.setJdbcUrl(url);
+        dataSource.setJdbcUrl(jdbcUrl);
         dataSource.setDriverClassName(driverClassName);
-        if (StringUtils.hasText(username)) {
-            dataSource.setUsername(username);
+        if (StringUtils.hasText(finalUsername)) {
+            dataSource.setUsername(finalUsername);
         }
-        if (StringUtils.hasText(password)) {
-            dataSource.setPassword(password);
+        if (StringUtils.hasText(finalPassword)) {
+            dataSource.setPassword(finalPassword);
         }
         return dataSource;
     }
