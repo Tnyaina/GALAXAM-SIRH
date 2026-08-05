@@ -2,6 +2,8 @@ import { Routes, Route } from "react-router-dom";
 import Login from "@/pages/auth/Login";
 import Dashboard from "@/pages/Dashboard";
 import AdminPanel from "@/pages/admin/AdminPanel";
+import StructureAdminPanel from "@/pages/admin/StructureAdminPanel";
+import PaieConfigAdminPanel from "@/pages/admin/PaieConfigAdminPanel";
 import Unauthorized from "@/pages/system/Unauthorized";
 import NotFound from "@/pages/system/NotFound";
 import ProtectedRoute from "@/routes/ProtectedRoute";
@@ -23,6 +25,8 @@ export default function Router() {
                 {/* Routes protégées admin (nécessite d'être ADMIN) */}
                 <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
                     <Route path="/admin" element={<AdminPanel />} />
+                    <Route path="/admin/structure" element={<StructureAdminPanel />} />
+                    <Route path="/admin/paie-config" element={<PaieConfigAdminPanel />} />
                 </Route>
 
                 {/* Page d'erreur 404 - Wildcard */}

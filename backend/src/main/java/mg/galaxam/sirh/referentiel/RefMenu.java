@@ -150,13 +150,32 @@ public class RefMenu extends ClassMere {
 
     // Méthode de sélection par Rôle
     public static List<RefMenu> rechercherParRole(int idRole, Connection c) throws Exception {
-        String sql = "SELECT m.* FROM ref_menu m " +
-                     "JOIN role_menu rm ON m.id_menu = rm.id_menu " +
-                     "WHERE rm.id_role = ? " +
-                     "ORDER BY m.niveau, m.rang";
+        String checkAdminSql = "SELECT code_role FROM ref_role WHERE id_role = ?";
+        boolean isAdmin = false;
+        try (PreparedStatement psCheck = c.prepareStatement(checkAdminSql)) {
+            psCheck.setInt(1, idRole);
+            try (ResultSet rsCheck = psCheck.executeQuery()) {
+                if (rsCheck.next() && "ROLE_ADMIN".equalsIgnoreCase(rsCheck.getString("code_role"))) {
+                    isAdmin = true;
+                }
+            }
+        }
+
+        String sql;
+        if (isAdmin) {
+            sql = "SELECT * FROM ref_menu ORDER BY niveau, rang";
+        } else {
+            sql = "SELECT m.* FROM ref_menu m " +
+                  "JOIN role_menu rm ON m.id_menu = rm.id_menu " +
+                  "WHERE rm.id_role = ? " +
+                  "ORDER BY m.niveau, m.rang";
+        }
+
         List<RefMenu> list = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, idRole);
+            if (!isAdmin) {
+                ps.setInt(1, idRole);
+            }
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     RefMenu m = new RefMenu();

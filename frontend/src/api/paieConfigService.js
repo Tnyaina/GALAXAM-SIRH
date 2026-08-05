@@ -1,0 +1,137 @@
+import apiClient from './apiClient';
+
+const paieConfigService = {
+    // ----------------------------------------------------
+    // COTISATIONS SOCIALES & SANTE
+    // ----------------------------------------------------
+    getCotisations: async () => {
+        const response = await apiClient.get('/referentiel/cotisations');
+        return response.data;
+    },
+    createCotisation: async (data) => {
+        const response = await apiClient.post('/referentiel/cotisations', data);
+        return response.data;
+    },
+    updateCotisation: async (id, data) => {
+        const response = await apiClient.put(`/referentiel/cotisations/${id}`, data);
+        return response.data;
+    },
+    getSiteCotisations: async () => {
+        const response = await apiClient.get('/referentiel/cotisations/site-config');
+        return response.data;
+    },
+    createSiteCotisation: async (data) => {
+        const response = await apiClient.post('/referentiel/cotisations/site-config', data);
+        return response.data;
+    },
+    deleteSiteCotisation: async (id) => {
+        const response = await apiClient.delete(`/referentiel/cotisations/site-config/${id}`);
+        return response.data;
+    },
+
+    // ----------------------------------------------------
+    // BAREME IRSA
+    // ----------------------------------------------------
+    getBaremesIrsa: async () => {
+        const response = await apiClient.get('/referentiel/bareme-irsa');
+        return response.data;
+    },
+    createBaremeIrsa: async (data) => {
+        const response = await apiClient.post('/referentiel/bareme-irsa', data);
+        return response.data;
+    },
+    updateBaremeIrsa: async (id, data) => {
+        const response = await apiClient.put(`/referentiel/bareme-irsa/${id}`, data);
+        return response.data;
+    },
+
+    // ----------------------------------------------------
+    // TAUX DE MAJORATION (HEURES SUPP & NUIT)
+    // ----------------------------------------------------
+    getTauxMajoration: async () => {
+        const response = await apiClient.get('/referentiel/taux-majoration');
+        return response.data;
+    },
+    createTauxMajoration: async (data) => {
+        const response = await apiClient.post('/referentiel/taux-majoration', data);
+        return response.data;
+    },
+    updateTauxMajoration: async (id, data) => {
+        const response = await apiClient.put(`/referentiel/taux-majoration/${id}`, data);
+        return response.data;
+    },
+
+    // ----------------------------------------------------
+    // INDEMNITES & CONFIGURATION SITE
+    // ----------------------------------------------------
+    getIndemnites: async () => {
+        const response = await apiClient.get('/referentiel/indemnites');
+        return response.data;
+    },
+    createIndemnite: async (data) => {
+        const response = await apiClient.post('/referentiel/indemnites', data);
+        return response.data;
+    },
+    updateIndemnite: async (id, data) => {
+        const response = await apiClient.put(`/referentiel/indemnites/${id}`, data);
+        return response.data;
+    },
+    getSiteIndemnites: async () => {
+        const response = await apiClient.get('/referentiel/indemnites/site-config');
+        return response.data;
+    },
+    createSiteIndemnite: async (data) => {
+        const response = await apiClient.post('/referentiel/indemnites/site-config', data);
+        return response.data;
+    },
+    updateSiteIndemnite: async (id, data) => {
+        const response = await apiClient.put(`/referentiel/indemnites/site-config/${id}`, data);
+        return response.data;
+    },
+
+    // ----------------------------------------------------
+    // PARAMETRES GLOBAUX DE PAIE
+    // ----------------------------------------------------
+    getParametresGlobaux: async () => {
+        const response = await apiClient.get('/referentiel/parametres-globaux');
+        return response.data;
+    },
+    createParametreGlobal: async (data) => {
+        const response = await apiClient.post('/referentiel/parametres-globaux', data);
+        return response.data;
+    },
+    updateParametreGlobal: async (id, data) => {
+        const response = await apiClient.put(`/referentiel/parametres-globaux/${id}`, data);
+        return response.data;
+    },
+
+    // ----------------------------------------------------
+    // CALENDRIER DES JOURS FERIES & CHOMES
+    // ----------------------------------------------------
+    getCalendrierFerie: async () => {
+        const response = await apiClient.get('/referentiel/calendrier-ferie');
+        return response.data;
+    },
+    createCalendrierFerie: async (data) => {
+        const response = await apiClient.post('/referentiel/calendrier-ferie', data);
+        return response.data;
+    },
+    updateCalendrierFerie: async (id, data) => {
+        const response = await apiClient.put(`/referentiel/calendrier-ferie/${id}`, data);
+        return response.data;
+    },
+    getSiteFeries: async () => {
+        const response = await apiClient.get('/referentiel/calendrier-ferie/site-config');
+        return response.data;
+    },
+    createSiteFerie: async (data) => {
+        const response = await apiClient.post('/referentiel/calendrier-ferie/site-config', data);
+        return response.data;
+    },
+    deleteSiteFerie: async (id) => {
+        const response = await apiClient.delete(`/referentiel/calendrier-ferie/site-config/${id}`);
+        return response.data;
+    }
+};
+
+export default paieConfigService;
