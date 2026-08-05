@@ -2,6 +2,8 @@ package mg.galaxam.sirh.referentiel;
 
 import bean.ClassMere;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class RefModule extends ClassMere {
 
@@ -30,6 +32,11 @@ public class RefModule extends ClassMere {
             throw new IllegalArgumentException("Le libellé du module est obligatoire.");
         }
         this.codeModule = this.codeModule.trim().toUpperCase();
+
+        RefModule existant = rechercherParCode(this.codeModule, c);
+        if (existant != null && !existant.getIdModule().equals(this.idModule)) {
+            throw new IllegalArgumentException("Ce code de module est déjà utilisé.");
+        }
     }
 
     @Override
@@ -88,10 +95,50 @@ public class RefModule extends ClassMere {
         return null;
     }
 
+    // Méthodes de sélection
+    public static List<RefModule> lister(Connection c) throws Exception {
+        String sql = "SELECT * FROM ref_module ORDER BY code_module";
+        List<RefModule> liste = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                RefModule m = new RefModule();
+                m.idModule = rs.getInt("id_module");
+                m.codeModule = rs.getString("code_module");
+                m.libelle = rs.getString("libelle");
+                m.estActif = rs.getBoolean("est_actif");
+                liste.add(m);
+            }
+        }
+        return liste;
+    }
+
+    public static RefModule rechercherParCode(String code, Connection c) throws Exception {
+        if (code == null) return null;
+        String sql = "SELECT * FROM ref_module WHERE code_module = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, code.trim().toUpperCase());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    RefModule m = new RefModule();
+                    m.idModule = rs.getInt("id_module");
+                    m.codeModule = rs.getString("code_module");
+                    m.libelle = rs.getString("libelle");
+                    m.estActif = rs.getBoolean("est_actif");
+                    return m;
+                }
+            }
+        }
+        return null;
+    }
+
     // Getters & Setters
     public Integer getIdModule() { return idModule; }
+    public void setIdModule(Integer idModule) { this.idModule = idModule; }
     public String getCodeModule() { return codeModule; }
     public void setCodeModule(String codeModule) { this.codeModule = codeModule; }
     public String getLibelle() { return libelle; }
     public void setLibelle(String libelle) { this.libelle = libelle; }
+    public boolean isEstActif() { return estActif; }
+    public void setEstActif(boolean estActif) { this.estActif = estActif; }
 }

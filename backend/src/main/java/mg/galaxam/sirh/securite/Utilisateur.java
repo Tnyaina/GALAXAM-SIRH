@@ -5,6 +5,8 @@ import mg.galaxam.sirh.referentiel.RefRole;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Utilisateur extends ClassMere {
 
@@ -215,8 +217,26 @@ public class Utilisateur extends ClassMere {
     }
 
     // Getters & Setters
+    // Méthodes de sélection
+    public static List<Utilisateur> lister(Connection c) throws Exception {
+        String sql = "SELECT * FROM utilisateur ORDER BY identifiant";
+        List<Utilisateur> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(mapResultSet(rs));
+            }
+        }
+        return list;
+    }
+
+    // Getters & Setters
     public Integer getIdUtilisateur() {
         return idUtilisateur;
+    }
+
+    public void setIdUtilisateur(Integer idUtilisateur) {
+        this.idUtilisateur = idUtilisateur;
     }
 
     public String getIdentifiant() {
@@ -245,5 +265,25 @@ public class Utilisateur extends ClassMere {
 
     public String getMotDePasseHache() {
         return motDePasseHache;
+    }
+
+    public void setMotDePasseHache(String motDePasseHache) {
+        this.motDePasseHache = motDePasseHache;
+    }
+
+    public Timestamp getDateDesactivation() {
+        return dateDesactivation;
+    }
+
+    public void setDateDesactivation(Timestamp dateDesactivation) {
+        this.dateDesactivation = dateDesactivation;
+    }
+
+    public String getMotifDesactivation() {
+        return motifDesactivation;
+    }
+
+    public void setMotifDesactivation(String motifDesactivation) {
+        this.motifDesactivation = motifDesactivation;
     }
 }

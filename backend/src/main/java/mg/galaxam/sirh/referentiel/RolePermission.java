@@ -2,6 +2,8 @@ package mg.galaxam.sirh.referentiel;
 
 import bean.ClassMere;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class RolePermission extends ClassMere {
 
@@ -90,8 +92,39 @@ public class RolePermission extends ClassMere {
         return null;
     }
 
+    // Méthodes de sélection et suppression
+    public static List<RolePermission> rechercherParRole(int idRole, Connection c) throws Exception {
+        String sql = "SELECT * FROM role_permission WHERE id_role = ?";
+        List<RolePermission> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idRole);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    RolePermission p = new RolePermission();
+                    p.idPermission = rs.getInt("id_permission");
+                    p.idRole = rs.getInt("id_role");
+                    p.idModule = rs.getInt("id_module");
+                    p.droitLecture = rs.getBoolean("droit_lecture");
+                    p.droitEcriture = rs.getBoolean("droit_ecriture");
+                    p.droitValidation = rs.getBoolean("droit_validation");
+                    list.add(p);
+                }
+            }
+        }
+        return list;
+    }
+
+    public static void supprimerParRole(int idRole, Connection c) throws Exception {
+        String sql = "DELETE FROM role_permission WHERE id_role = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idRole);
+            ps.executeUpdate();
+        }
+    }
+
     // Getters & Setters
     public Integer getIdPermission() { return idPermission; }
+    public void setIdPermission(Integer idPermission) { this.idPermission = idPermission; }
     public Integer getIdRole() { return idRole; }
     public void setIdRole(Integer idRole) { this.idRole = idRole; }
     public Integer getIdModule() { return idModule; }

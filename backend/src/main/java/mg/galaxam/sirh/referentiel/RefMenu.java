@@ -105,6 +105,49 @@ public class RefMenu extends ClassMere {
         return null;
     }
 
+    // Méthodes de sélection
+    public static List<RefMenu> lister(Connection c) throws Exception {
+        String sql = "SELECT * FROM ref_menu ORDER BY niveau, rang";
+        List<RefMenu> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                RefMenu m = new RefMenu();
+                m.idMenu = rs.getString("id_menu");
+                m.libelle = rs.getString("libelle");
+                m.icone = rs.getString("icone");
+                m.href = rs.getString("href");
+                m.rang = rs.getInt("rang");
+                m.niveau = rs.getInt("niveau");
+                m.idPere = rs.getString("id_pere");
+                list.add(m);
+            }
+        }
+        return list;
+    }
+
+    public static RefMenu rechercherParIdMenu(String id, Connection c) throws Exception {
+        if (id == null) return null;
+        String sql = "SELECT * FROM ref_menu WHERE id_menu = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    RefMenu m = new RefMenu();
+                    m.idMenu = rs.getString("id_menu");
+                    m.libelle = rs.getString("libelle");
+                    m.icone = rs.getString("icone");
+                    m.href = rs.getString("href");
+                    m.rang = rs.getInt("rang");
+                    m.niveau = rs.getInt("niveau");
+                    m.idPere = rs.getString("id_pere");
+                    return m;
+                }
+            }
+        }
+        return null;
+    }
+
     // Méthode de sélection par Rôle
     public static List<RefMenu> rechercherParRole(int idRole, Connection c) throws Exception {
         String sql = "SELECT m.* FROM ref_menu m " +

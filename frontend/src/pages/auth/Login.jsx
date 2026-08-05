@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
+import { Lock, Eye, EyeOff, User } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 import Input from '@/components/ui/Input';
@@ -57,6 +57,9 @@ export default function Login() {
                                 src={galaxamLogo}
                                 alt="Galaxam Logistics"
                                 className="h-20 w-auto object-contain"
+                                loading="eager"
+                                fetchPriority="high"
+                                decoding="async"
                             />
                         </div>
 

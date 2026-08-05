@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, createElement } from 'react';
 import { NavLink } from 'react-router-dom';
 import { X, ChevronDown } from 'lucide-react';
 import { getMenuIcon } from '@/utils/iconRegistry';
@@ -9,7 +9,6 @@ function sortByRang(items) {
 
 function NavNode({ item, onClose, depth = 0 }) {
     const [expanded, setExpanded] = useState(false);
-    const Icon = getMenuIcon(item.icone);
     const hasChildren = item.sousMenus?.length > 0;
     const paddingLeft = `${16 + depth * 16}px`;
 
@@ -29,7 +28,11 @@ function NavNode({ item, onClose, depth = 0 }) {
                         hover:bg-white/5
                     `}
                 >
-                    <Icon size={16} className="shrink-0" strokeWidth={2} />
+                    {createElement(getMenuIcon(item.icone), {
+                        size: 16,
+                        className: 'shrink-0',
+                        strokeWidth: 2,
+                    })}
                     <span className="flex-1 text-left truncate">{item.libelle}</span>
                     <ChevronDown
                         size={14}
@@ -70,7 +73,11 @@ function NavNode({ item, onClose, depth = 0 }) {
                 }
                 style={{ paddingLeft }}
             >
-                <Icon size={16} className="shrink-0 opacity-90 group-hover:opacity-100" strokeWidth={2} />
+                {createElement(getMenuIcon(item.icone), {
+                    size: 16,
+                    className: 'shrink-0 opacity-90 group-hover:opacity-100',
+                    strokeWidth: 2,
+                })}
                 <span className="truncate">{item.libelle}</span>
             </NavLink>
         </li>

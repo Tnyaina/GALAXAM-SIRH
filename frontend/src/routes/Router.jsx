@@ -1,7 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import Login from "@/pages/auth/Login";
 import Dashboard from "@/pages/Dashboard";
-import AdminPanel from "@/pages/AdminPanel";
+import AdminPanel from "@/pages/admin/AdminPanel";
 import Unauthorized from "@/pages/system/Unauthorized";
 import NotFound from "@/pages/system/NotFound";
 import ProtectedRoute from "@/routes/ProtectedRoute";

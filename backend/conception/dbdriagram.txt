@@ -1,0 +1,508 @@
+// ==========================================
+// GALAXAM LOGISTICS — SIRH
+// SCHEMA CONSOLIDE FINAL — Socle Core RH + Configuration
+// (Structure entreprise -> Embauche intervenant -> Pointage/Indemnités)
+// Ne couvre PAS encore : Congés/Absences, Moteur de Paie détaillé, Bulletins
+// A coller sur https://dbdiagram.io
+// ==========================================
+
+// ==========================================
+// 1. CONFIGURATION STRUCTURE ENTREPRISE
+// ==========================================
+
+Table ref_filiale {
+  id_filiale integer [pk, increment]
+  code_filiale varchar(10) [unique, not null, note: 'ex: LOG, VA']
+  raison_sociale varchar(100) [not null]
+  nif varchar(30)
+  stat varchar(30)
+  seuil_effectif_alerte integer [default: 19, note: '0 si pas de seuil']
+  est_actif boolean [default: true]
+  date_desactivation timestamp
+  created_at timestamp
+}
+
+Table ref_departement {
+  id_departement integer [pk, increment]
+  code_departement varchar(10) [unique, not null, note: 'ex: LOG, LMD — retrouvé à l\'identique dans GALAXAM et Vina sy Asa']
+  libelle varchar(100) [not null]
+  date_fin_prevue date [note: 'NULL = département permanent (ex: LOG) ; renseigné si département créé pour la durée d\'un projet (ex: LMD, créé cette année)']
+  est_actif boolean [default: true]
+}
+
+Table ref_service {
+  id_service integer [pk, increment]
+  code_service varchar(10) [unique, not null, note: 'ex: ADM, OPE']
+  libelle varchar(100) [not null]
+}
+
+Table ref_fonction {
+  id_fonction integer [pk, increment]
+  code_fonction varchar(20) [unique, not null]
+  libelle varchar(100) [not null, note: 'Catalogue global: DG, DAF, OPE Manager, Chef Déclarant...']
+}
+
+Table ref_type_contrat {
+  id_type_contrat integer [pk, increment]
+  code varchar(20) [unique, not null, note: 'ex: CDI, CDD, PRESTATION']
+  libelle varchar(100) [not null]
+  exige_date_fin boolean [default: false]
+}
+
+Table ref_banque {
+  id_banque integer [pk, increment]
+  code_banque varchar(10) [unique, not null, note: 'ex: BOA, BNI, BFV']
+  nom_banque varchar(100) [not null]
+  code_swift varchar(20)
+}
+
+// ==========================================
+// 2. REGLES FISCALES & SOCIALES
+// ==========================================
+
+Table ref_type_cotisation {
+  id_type_cotisation integer [pk, increment]
+  code varchar(20) [unique, not null, note: 'ex: CNAPS, OSTIE, OMSI, ISI']
+  libelle varchar(100) [not null]
+  taux_salarial decimal(5,2) [note: 'ex: 1.00 pour OSTIE, 1.50 pour OMSI']
+  taux_patronal decimal(5,2) [note: 'ex: 5.00 pour OSTIE, 5.50 pour OMSI']
+  est_plafonee boolean [default: true, note: 'Plafonné à 8x SME']
+  date_debut date [not null, note: 'AJOUTE — historisation, un taux change dans le temps']
+  date_fin date [note: 'AJOUTE — NULL = taux actuellement en vigueur']
+}
+
+Table bareme_irsa {
+  id_tranche integer [pk, increment]
+  numero_tranche integer [not null, note: 'ordre de la tranche, ex: 1 à 6']
+  tranche_min decimal(12,2) [not null]
+  tranche_max decimal(12,2) [note: 'NULL = dernière tranche, sans plafond']
+  taux decimal(5,2) [not null, note: 'ex: 5.00 pour 5%']
+  date_debut date [not null]
+  date_fin date [note: 'NULL = barème actuellement en vigueur']
+
+  Note: 'AJOUTE — l\'IRSA est un barème progressif à tranches, ref_type_cotisation (taux unique) ne peut pas le représenter'
+}
+
+Table ref_indemnite {
+  id_indemnite integer [pk, increment]
+  code varchar(20) [unique, not null, note: 'ex: REPAS, DEPLACEMENT']
+  libelle varchar(100) [not null]
+  imposable_irsa boolean [default: false]
+}
+
+Table ref_type_intervenant {
+  id_type_intervenant integer [pk, increment]
+  code varchar(20) [unique, not null, note: 'PERMANENT, CONSULTANT, TEMPORAIRE']
+  libelle varchar(100) [not null]
+  soumis_irsa boolean [default: true]
+  soumis_isi_5 boolean [default: false]
+  soumis_cnaps boolean [default: true]
+  soumis_sante boolean [default: true]
+}
+
+// ==========================================
+// 3. CONFIGURATION DES SITES & CALENDRIERS
+// ==========================================
+
+Table ref_site {
+  id_site integer [pk, increment]
+  code_site varchar(10) [unique, not null, note: 'ex: TNR, TMM']
+  libelle varchar(100) [not null, note: 'ex: Antananarivo, Toamasina']
+  horaire_continu boolean [default: true, note: 'true=TNR (avec repas), false=TMM (sans repas par défaut)']
+  heure_debut_matin time
+  heure_fin_matin time
+  heure_debut_apres_midi time
+  heure_fin_apres_midi time
+}
+
+Table site_cotisation {
+  id_site_cotisation integer [pk, increment]
+  id_site integer [ref: > ref_site.id_site, not null]
+  id_type_cotisation integer [ref: > ref_type_cotisation.id_type_cotisation, not null]
+  est_actif boolean [default: true]
+}
+
+Table site_indemnite_config {
+  id_site_indemnite integer [pk, increment]
+  id_site integer [ref: > ref_site.id_site, not null]
+  id_indemnite integer [ref: > ref_indemnite.id_indemnite, not null]
+  montant_jour_reference decimal(12,2) [not null, note: 'Montant par jour ouvrable']
+  date_debut date [not null, note: 'AJOUTE — historisation du montant dans le temps']
+  date_fin date [note: 'AJOUTE — NULL = montant actuellement en vigueur']
+  est_actif boolean [default: true]
+
+  Note: 'NIVEAU 1 de la cascade indemnité : barème par défaut du site. Absence de ligne = indemnité indisponible à ce site (ex: pas de ligne Repas pour TMM).'
+}
+
+Table ref_calendrier_ferie {
+  id_ferie integer [pk, increment]
+  date_ferie date [not null]
+  libelle varchar(100) [not null, note: 'ex: Fête Nationale, Lundi de Pâques']
+  est_chome boolean [default: true]
+  est_national boolean [default: true, note: 'true = s\'applique à tous les sites']
+}
+
+Table site_calendrier_ferie {
+  id_site_ferie integer [pk, increment]
+  id_site integer [ref: > ref_site.id_site, not null]
+  id_ferie integer [ref: > ref_calendrier_ferie.id_ferie, not null]
+
+  Note: 'Dérogation locale — reste vide en pratique tant que les jours fériés sont communs à tous les sites'
+}
+
+Table parametre_global {
+  id_parametre integer [pk, increment]
+  code_parametre varchar(50) [unique, not null, note: 'ex: SEUIL_SECOND_REPAS, SME_COURANT']
+  valeur varchar(100) [not null, note: 'ex: 19:30, 300000']
+  description text
+  date_debut date [not null, note: 'AJOUTE — historisation, ex: le SME change dans le temps']
+  date_fin date [note: 'AJOUTE — NULL = valeur actuellement en vigueur']
+}
+
+// ==========================================
+// 4. EMPLOYE & TABLES SATELLITES
+// ==========================================
+
+Table employe {
+  id_employe integer [pk, increment]
+  matricule varchar(20) [unique, not null, note: 'Séquentiel unique']
+
+  nom varchar(100) [not null]
+  prenom varchar(100) [not null]
+  sexe char(1) [not null, note: 'M ou F']
+  date_naissance date [not null]
+  lieu_naissance varchar(100) [not null]
+  nationalite varchar(50) [default: 'Malgache']
+
+  pere_nom_prenom varchar(150)
+  mere_nom_prenom varchar(150)
+  situation_familiale varchar(20) [note: 'Célibataire, Marié(e), Divorcé(e), Veuf(ve)']
+
+  cin_numero varchar(30) [not null]
+  cin_date_delivrance date [not null]
+  cin_lieu_delivrance varchar(100) [not null]
+  cin_duplicata_date date
+  cin_duplicata_lieu varchar(100)
+  permis_conduire varchar(50)
+
+  adresse_actuelle text [not null]
+  telephone varchar(30) [not null]
+  num_cnaps_personnel varchar(30) [note: 'Personnel — pas de numéro OSTIE/OMSI ici, l\'adhésion est portée par l\'entreprise (cf. site_cotisation)']
+
+  id_responsable_hierarchique integer [ref: > employe.id_employe, note: 'N+1 direct']
+
+  est_actif boolean [default: true, note: 'MODIFIE — remplace is_deleted, homogène avec le reste du schéma']
+  date_desactivation timestamp [note: 'AJOUTE']
+  motif_desactivation varchar(100) [note: 'AJOUTE']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table employe_conjoint {
+  id_conjoint integer [pk, increment]
+  id_employe integer [ref: > employe.id_employe, not null]
+  nom_prenoms varchar(150) [not null]
+  date_naissance date
+  lieu_naissance varchar(100)
+  societe varchar(100)
+  fonction varchar(100)
+}
+
+Table employe_enfant {
+  id_enfant integer [pk, increment]
+  id_employe integer [ref: > employe.id_employe, not null]
+  nom_prenoms varchar(150) [not null]
+  sexe char(1)
+  date_naissance date [not null]
+  lieu_naissance varchar(100)
+  a_charge boolean [default: true, note: 'Impacte la réduction IRSA']
+}
+
+Table employe_contact_urgence {
+  id_contact integer [pk, increment]
+  id_employe integer [ref: > employe.id_employe, not null]
+  nom_prenoms varchar(150) [not null]
+  lien_parente varchar(50)
+  adresse text
+  telephone varchar(30) [not null]
+  societe varchar(100)
+}
+
+Table employe_exp_pro {
+  id_exp_pro integer [pk, increment]
+  id_employe integer [ref: > employe.id_employe, not null]
+  societe varchar(100) [not null]
+  poste_occupe varchar(100) [not null]
+  date_debut date
+  date_fin date
+}
+
+Table employe_compte_banque {
+  id_compte_banque integer [pk, increment]
+  id_employe integer [ref: > employe.id_employe, not null]
+  id_banque integer [ref: > ref_banque.id_banque, not null]
+  num_compte_rib varchar(50) [not null]
+  titulaire_compte varchar(150)
+  est_principal boolean [default: true]
+}
+
+// ==========================================
+// 5. CONTRATS & AFFECTATIONS CARRIERE
+// ==========================================
+
+Table contrat_travail {
+  id_contrat integer [pk, increment]
+  id_employe integer [ref: > employe.id_employe, not null]
+  id_filiale integer [ref: > ref_filiale.id_filiale, not null]
+
+  id_type_contrat integer [ref: > ref_type_contrat.id_type_contrat, not null]
+  id_type_intervenant integer [ref: > ref_type_intervenant.id_type_intervenant, not null]
+
+  id_contrat_precedent integer [ref: > contrat_travail.id_contrat, note: 'Chaînage — sert d\'historique de statut, pas de table séparée nécessaire']
+
+  date_debut date [not null]
+  date_fin date
+  date_fin_essai date
+  essai_renouvele boolean [default: false]
+
+  comptabilise_effectif boolean [default: true, note: 'Porte la réponse à la question du seuil 19/20 directement sur le contrat']
+  est_actif boolean [default: true]
+  motif_sortie varchar(50)
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table ref_motif_mouvement {
+  id_motif_mouvement integer [pk, increment]
+  code varchar(40) [unique, not null]
+  libelle varchar(100) [not null]
+}
+
+Table employe_affectation_carriere {
+  id_affectation integer [pk, increment]
+  id_employe integer [ref: > employe.id_employe, not null]
+  id_contrat integer [ref: > contrat_travail.id_contrat, not null]
+
+  id_motif_mouvement integer [ref: > ref_motif_mouvement.id_motif_mouvement, not null]
+
+  id_site integer [ref: > ref_site.id_site, not null]
+  id_departement integer [ref: > ref_departement.id_departement, not null]
+  id_service integer [ref: > ref_service.id_service, not null]
+  id_fonction integer [ref: > ref_fonction.id_fonction, not null]
+  id_responsable_hierarchique integer [ref: > employe.id_employe]
+
+  categorie_prof char(1) [not null, note: 'A (Agent = HS) ou C (Cadre = pas d\'HS)']
+  mode_calcul_paie varchar(20) [not null, note: 'MENSUEL, JOURNALIER, HORAIRE']
+  salaire_base decimal(12,2) [not null]
+
+  date_debut date [not null]
+  date_fin date
+  commentaire text
+
+  created_at timestamp
+}
+
+// ==========================================
+// 6. PROFILS POINTAGE, INDEMNITES & AUDIT
+// ==========================================
+
+Table employe_profil_pointage {
+  id_profil integer [pk, increment]
+  id_employe integer [ref: > employe.id_employe, not null]
+
+  statut_pointage varchar(20) [not null, default: 'OBLIGATOIRE', note: 'OBLIGATOIRE, FACULTATIF, EXEMPTE']
+
+  date_debut date [not null]
+  date_fin date [note: 'NULL = permanent ; renseigné si la dérogation est à durée déterminée (ex: intérim, détachement temporaire)']
+  motif text
+
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'SCINDE de l\'ancienne table employe_profil_pointage_indemnite — ne porte QUE le statut de pointage. Indépendant du droit à indemnité (cf. cas du double emploi : pointage obligatoire maintenu, indemnité retirée).'
+}
+
+Table employe_indemnite_derogation {
+  id_derogation integer [pk, increment]
+  id_employe integer [ref: > employe.id_employe, not null]
+  id_indemnite integer [ref: > ref_indemnite.id_indemnite, not null]
+
+  beneficie boolean [not null, note: 'true = accorde une indemnité que le site ne donne pas par défaut (ex: DAF + Repas) ; false = la retire (ex: double emploi)']
+
+  date_debut date [not null]
+  date_fin date [note: 'NULL = dérogation permanente']
+  motif text [note: 'ex: "Double emploi — activité principale hors GALAXAM"']
+
+  created_at timestamp
+
+  Note: 'NIVEAU 2 de la cascade indemnité. Généralisée via ref_indemnite (remplace les anciens booléens fixes droit_indemnite_repas/deplacement) — cohérent avec l\'existence du référentiel ref_indemnite.'
+}
+
+Table pointage_journalier {
+  id_pointage integer [pk, increment]
+  id_employe integer [ref: > employe.id_employe, not null]
+  id_affectation integer [ref: > employe_affectation_carriere.id_affectation, not null]
+
+  date_pointage date [not null]
+
+  heure_arrivee_matin time
+  heure_sortie_matin time
+  heure_arrivee_apres_midi time
+  heure_sortie_apres_midi time
+
+  heures_travaillees decimal(4,2) [default: 0.00]
+  heures_normales decimal(4,2) [default: 0.00]
+  heures_supplementaires decimal(4,2) [default: 0.00, note: 'Valeur BRUTE journalière — recalculée/compensée au niveau mensuel dans pointage_synthese_mensuelle, ne pas l\'utiliser telle quelle pour la paie']
+
+  statut_presence varchar(20) [default: 'PRESENT', note: 'PRESENT, ABSENT, CONGE, FERIE, EXEMPTE_PRESENT']
+
+  avec_indemnite_repas boolean [default: false, note: 'NIVEAU 3 de la cascade — pré-coché selon site+dérogation, modifiable manuellement (case à cocher)']
+  avec_indemnite_deplacement boolean [default: false, note: 'idem — décoché manuellement si venue en véhicule personnel ce jour']
+  avec_second_repas boolean [default: false, note: 'accordé si heure_sortie_apres_midi >= parametre_global(SEUIL_SECOND_REPAS), et seulement si avec_indemnite_repas = true']
+  motif_retrait_indemnite varchar(100) [note: 'AJOUTE — optionnel, renseigné uniquement quand une case est décochée/cochée manuellement à l\'encontre de la règle par défaut. Remplace mode_venue : la case à cocher suffit, ce champ ne sert qu\'à justifier une exception, pas à la calculer.']
+
+  origine_saisie varchar(20) [default: 'MANUEL', note: 'MANUEL, IMPORT, AUTOMATIQUE_EXEMPTE']
+  est_modifie_manuellement boolean [default: false]
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table pointage_synthese_mensuelle {
+  id_synthese integer [pk, increment]
+  id_employe integer [ref: > employe.id_employe, not null]
+  id_affectation integer [ref: > employe_affectation_carriere.id_affectation, not null]
+  mois integer [not null]
+  annee integer [not null]
+
+  total_heures_travaillees decimal(6,2) [not null]
+  total_retard_cumule decimal(6,2) [not null, default: 0]
+  total_surplus_cumule decimal(6,2) [not null, default: 0]
+  solde_net decimal(6,2) [not null, note: 'positif = heures sup à payer, négatif = absence à déduire — compensation retard/surplus au niveau mensuel']
+  heures_sup_validees decimal(6,2) [not null, default: 0, note: 'Forcé à 0 si employe_affectation_carriere.categorie_prof = C (Cadre), quel que soit le solde_net']
+  absence_valorisee decimal(6,2) [not null, default: 0]
+
+  statut_calcul varchar(20) [default: 'BROUILLON', note: 'BROUILLON, VALIDE, INTEGRE_PAIE']
+  id_utilisateur_validation integer
+  date_validation timestamp
+
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'AJOUTE — agrège pointage_journalier (saisie brute quotidienne) en un solde mensuel net, seul niveau où s\'applique la règle de compensation retard/heures sup et le blocage Cadre.'
+}
+
+Table pointage_journalier_audit {
+  id_audit integer [pk, increment]
+  id_pointage integer [ref: > pointage_journalier.id_pointage, not null]
+
+  heure_arrivee_matin_avant time
+  heure_sortie_apres_midi_avant time
+  avec_indemnite_repas_avant boolean
+  avec_indemnite_deplacement_avant boolean
+
+  heure_arrivee_matin_apres time
+  heure_sortie_apres_midi_apres time
+  avec_indemnite_repas_apres boolean
+  avec_indemnite_deplacement_apres boolean
+
+  id_utilisateur_modificateur integer [not null]
+  date_modification timestamp [not null]
+  motif_modification text [not null]
+}
+
+Table ref_taux_majoration {
+  id_taux_majoration integer [pk, increment]
+  type_majoration varchar(20) [not null, note: 'HS_30, HS_50, NUIT, DIMANCHE, FERIE']
+  taux decimal(5,2) [not null, note: 'ex: 0.30, 0.50, 0.40, 1.00']
+  date_debut date [not null]
+  date_fin date [note: 'NULL = taux actuellement en vigueur']
+}
+
+Table pointage_journalier_majoration {
+  id_detail_jour integer [pk, increment]
+  id_pointage integer [ref: > pointage_journalier.id_pointage, not null]
+  id_taux_majoration integer [ref: > ref_taux_majoration.id_taux_majoration, not null, note: 'limité à NUIT, DIMANCHE, FERIE ici']
+  nombre_heures decimal(4,2) [not null]
+
+  Note: 'Calculé automatiquement à la validation de la ligne de pointage (fait calendaire déterministe, pas de compensation nécessaire). Enfant direct de pointage_journalier.'
+}
+
+Table pointage_synthese_detail_majoration {
+  id_detail integer [pk, increment]
+  id_synthese integer [ref: > pointage_synthese_mensuelle.id_synthese, not null]
+  id_taux_majoration integer [ref: > ref_taux_majoration.id_taux_majoration, not null]
+  nombre_heures decimal(6,2) [not null]
+
+  Note: 'Pour NUIT/DIMANCHE/FERIE : somme de pointage_journalier_majoration sur le mois (traçable jour par jour). Pour HS_30/HS_50 : résultat du calcul de compensation mensuel, sans équivalent journalier.'
+}
+
+Table import_pointage_batch {
+  id_batch integer [pk, increment]
+  date_import timestamp [not null]
+  id_utilisateur integer [not null]
+  nom_fichier_source varchar(200) [not null]
+  nombre_lignes_importees integer [default: 0]
+  nombre_lignes_rejetees integer [default: 0]
+  statut varchar(20) [default: 'PREVISUALISE', note: 'PREVISUALISE, VALIDE, ANNULE']
+
+  Note: 'Trace chaque import USB de la pointeuse — prévisualisation obligatoire avant intégration définitive dans pointage_journalier.'
+}
+
+// ==========================================
+// MODULE 0 : UTILISATEUR, SÉCURITÉ & RBAC DYNAMIQUE
+// ==========================================
+
+Table ref_role {
+  id_role integer [pk, increment]
+  code_role varchar(50) [unique, not null, note: 'ex: ROLE_ADMIN, ROLE_AGENT']
+  libelle varchar(100) [not null]
+  
+  est_actif boolean [default: true]
+  date_desactivation timestamp
+  created_at timestamp [default: `now()`]
+}
+
+Table ref_module {
+  id_module integer [pk, increment]
+  code_module varchar(50) [unique, not null, note: 'ex: EMPLOYE, POINTAGE, PAIE']
+  libelle varchar(100) [not null]
+  
+  est_actif boolean [default: true]
+}
+
+Table role_permission {
+  id_permission integer [pk, increment]
+  id_role integer [ref: > ref_role.id_role, not null]
+  id_module integer [ref: > ref_module.id_module, not null]
+  
+  droit_lecture boolean [default: false]
+  droit_ecriture boolean [default: false]
+  droit_validation boolean [default: false]
+  
+  indexes {
+    (id_role, id_module) [unique, note: 'Un rôle n\'a qu\'une seule configuration par module']
+  }
+}
+
+Table utilisateur {
+  id_utilisateur integer [pk, increment]
+  identifiant varchar(50) [unique, not null]
+  mot_de_passe_hache varchar(255) [not null]
+  id_role integer [ref: > ref_role.id_role, not null]
+  
+  est_actif boolean [default: true]
+  date_desactivation timestamp
+  motif_desactivation varchar(100)
+  
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table journal_connexion {
+  id_journal integer [pk, increment]
+  id_utilisateur integer [ref: > utilisateur.id_utilisateur, not null]
+  date_heure timestamp [not null, default: `now()`]
+  statut varchar(20) [not null, note: 'SUCCES, ECHEC']
+}

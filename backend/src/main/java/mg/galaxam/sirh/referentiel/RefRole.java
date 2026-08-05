@@ -3,6 +3,8 @@ package mg.galaxam.sirh.referentiel;
 import bean.ClassMere;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class RefRole extends ClassMere {
 
@@ -36,6 +38,11 @@ public class RefRole extends ClassMere {
             throw new IllegalArgumentException("Le libellé du rôle est obligatoire.");
         }
         this.codeRole = this.codeRole.trim().toUpperCase();
+
+        RefRole existant = rechercherParCode(this.codeRole, c);
+        if (existant != null && !existant.getIdRole().equals(this.idRole)) {
+            throw new IllegalArgumentException("Ce code de rôle est déjà utilisé.");
+        }
     }
 
     @Override
@@ -99,11 +106,54 @@ public class RefRole extends ClassMere {
         return null;
     }
 
+    // Méthodes de sélection
+    public static List<RefRole> lister(Connection c) throws Exception {
+        String sql = "SELECT * FROM ref_role ORDER BY code_role";
+        List<RefRole> liste = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                RefRole r = new RefRole();
+                r.idRole = rs.getInt("id_role");
+                r.codeRole = rs.getString("code_role");
+                r.libelle = rs.getString("libelle");
+                r.estActif = rs.getBoolean("est_actif");
+                r.dateDesactivation = rs.getTimestamp("date_desactivation");
+                liste.add(r);
+            }
+        }
+        return liste;
+    }
+
+    public static RefRole rechercherParCode(String code, Connection c) throws Exception {
+        if (code == null) return null;
+        String sql = "SELECT * FROM ref_role WHERE code_role = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, code.trim().toUpperCase());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    RefRole r = new RefRole();
+                    r.idRole = rs.getInt("id_role");
+                    r.codeRole = rs.getString("code_role");
+                    r.libelle = rs.getString("libelle");
+                    r.estActif = rs.getBoolean("est_actif");
+                    r.dateDesactivation = rs.getTimestamp("date_desactivation");
+                    return r;
+                }
+            }
+        }
+        return null;
+    }
+
     // Getters / Setters
     public Integer getIdRole() { return idRole; }
+    public void setIdRole(Integer idRole) { this.idRole = idRole; }
     public String getCodeRole() { return codeRole; }
     public void setCodeRole(String codeRole) { this.codeRole = codeRole; }
     public String getLibelle() { return libelle; }
     public void setLibelle(String libelle) { this.libelle = libelle; }
     public boolean isEstActif() { return estActif; }
+    public void setEstActif(boolean estActif) { this.estActif = estActif; }
+    public Timestamp getDateDesactivation() { return dateDesactivation; }
+    public void setDateDesactivation(Timestamp dateDesactivation) { this.dateDesactivation = dateDesactivation; }
 }
