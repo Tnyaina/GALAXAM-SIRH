@@ -1,0 +1,188 @@
+package mg.galaxam.sirh.api.controller.referentiel.paie;
+
+import mg.galaxam.sirh.api.dto.referentiel.paie.IndemniteRequest;
+import mg.galaxam.sirh.api.dto.referentiel.paie.SiteIndemniteRequest;
+import mg.galaxam.sirh.referentiel.paie.RefIndemnite;
+import mg.galaxam.sirh.referentiel.paie.SiteIndemniteConfig;
+import mg.galaxam.sirh.securite.AuditLog;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.util.List;
+
+@RestController
+@RequestMapping("/referentiel/indemnites")
+public class IndemniteController {
+
+    @Autowired
+    private DataSource dataSource;
+
+    @GetMapping
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getAllIndemnites() {
+        try (Connection c = dataSource.getConnection()) {
+            List<RefIndemnite> list = RefIndemnite.listAll(c);
+            return ResponseEntity.ok(list);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la récupération des indemnités.");
+        }
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getIndemniteById(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            RefIndemnite ind = new RefIndemnite();
+            RefIndemnite found = (RefIndemnite) ind.rechercherParId(id, c);
+            if (found == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Indemnité non trouvée.");
+            }
+            return ResponseEntity.ok(found);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la recherche de l'indemnité.");
+        }
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> createIndemnite(@RequestBody IndemniteRequest request) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefIndemnite ind = new RefIndemnite();
+                ind.setCode(request.getCode());
+                ind.setLibelle(request.getLibelle());
+                ind.setImposableIrsa(request.isImposableIrsa());
+
+                ind.save(c);
+                AuditLog.audit(c, "CREATION", "ref_indemnite", String.valueOf(ind.getIdIndemnite()), null, ind);
+
+                c.commit();
+                return ResponseEntity.status(HttpStatus.CREATED).body(ind);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> updateIndemnite(@PathVariable int id, @RequestBody IndemniteRequest request) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefIndemnite ind = new RefIndemnite();
+                RefIndemnite existing = (RefIndemnite) ind.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Indemnité non trouvée.");
+                }
+
+                existing.setCode(request.getCode());
+                existing.setLibelle(request.getLibelle());
+                existing.setImposableIrsa(request.isImposableIrsa());
+
+                existing.update(c);
+                AuditLog.audit(c, "MODIFICATION", "ref_indemnite", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    // Config Indemnités par Site
+    @GetMapping("/site-config")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getAllSiteIndemnites() {
+        try (Connection c = dataSource.getConnection()) {
+            List<SiteIndemniteConfig> list = SiteIndemniteConfig.listAll(c);
+            return ResponseEntity.ok(list);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la récupération des indemnités par site.");
+        }
+    }
+
+    @PostMapping("/site-config")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> createSiteIndemnite(@RequestBody SiteIndemniteRequest request) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                SiteIndemniteConfig sic = new SiteIndemniteConfig();
+                sic.setIdSite(request.getIdSite());
+                sic.setIdIndemnite(request.getIdIndemnite());
+                sic.setPeriodicite(request.getPeriodicite());
+                sic.setMontantReference(request.getMontantReference());
+                sic.setDateDebut(request.getDateDebut());
+                sic.setDateFin(request.getDateFin());
+
+                sic.save(c);
+                AuditLog.audit(c, "CREATION", "site_indemnite_config", String.valueOf(sic.getIdSiteIndemnite()), null, sic);
+
+                c.commit();
+                return ResponseEntity.status(HttpStatus.CREATED).body(sic);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    @PutMapping("/site-config/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> updateSiteIndemnite(@PathVariable int id, @RequestBody SiteIndemniteRequest request) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                SiteIndemniteConfig sic = new SiteIndemniteConfig();
+                SiteIndemniteConfig existing = (SiteIndemniteConfig) sic.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Configuration d'indemnité site non trouvée.");
+                }
+
+                existing.setIdSite(request.getIdSite());
+                existing.setIdIndemnite(request.getIdIndemnite());
+                existing.setPeriodicite(request.getPeriodicite());
+                existing.setMontantReference(request.getMontantReference());
+                existing.setDateDebut(request.getDateDebut());
+                existing.setDateFin(request.getDateFin());
+
+                existing.update(c);
+                AuditLog.audit(c, "MODIFICATION", "site_indemnite_config", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+}

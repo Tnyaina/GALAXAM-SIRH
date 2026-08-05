@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -96,6 +97,13 @@ public class MenuController {
                 menu.setIdPere(request.getIdPere());
 
                 menu.save(c);
+
+                // Associer automatiquement le nouveau menu à ROLE_ADMIN
+                String autoAssignSql = "INSERT INTO role_menu (id_role, id_menu) SELECT id_role, ? FROM ref_role WHERE code_role = 'ROLE_ADMIN' ON CONFLICT DO NOTHING";
+                try (PreparedStatement psAuto = c.prepareStatement(autoAssignSql)) {
+                    psAuto.setString(1, menu.getIdMenu());
+                    psAuto.executeUpdate();
+                }
 
                 AuditLog.audit(c, "INSERT", "ref_menu", menu.getIdMenu(), null, menu);
 

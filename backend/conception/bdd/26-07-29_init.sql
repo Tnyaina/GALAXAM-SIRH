@@ -106,3 +106,11 @@ INSERT INTO role_permission (id_role, id_module, droit_lecture, droit_ecriture, 
 
 -- Aucun accès à la paie (confidentialité stricte)
 (2, 4, FALSE, FALSE, FALSE); -- PAIE
+
+-- ==========================================
+-- UTILISATEUR INITIAL (ADMIN)
+-- Identifiant: admin | Mot de passe: Pass1234
+-- ==========================================
+INSERT INTO utilisateur (identifiant, mot_de_passe_hache, id_role) VALUES
+('admin', '$2a$10$tQ1xT69eF/.PqP3g64lC/.c0yQnK54Nn7GvP0mO2sP3kO.Q6b0S7K', 1)
+ON CONFLICT (identifiant) DO NOTHING;
