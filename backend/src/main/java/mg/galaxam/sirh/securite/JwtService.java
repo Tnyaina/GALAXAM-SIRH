@@ -14,6 +14,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 @Service
 public class JwtService {
 
@@ -27,7 +31,20 @@ public class JwtService {
     private long refreshTokenExpirationMs;
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = Base64.getDecoder().decode(secretKeyString);
+        byte[] keyBytes;
+        try {
+            keyBytes = Base64.getDecoder().decode(secretKeyString);
+        } catch (Exception e) {
+            keyBytes = secretKeyString.getBytes(StandardCharsets.UTF_8);
+        }
+        if (keyBytes.length < 64) {
+            try {
+                MessageDigest md = MessageDigest.getInstance("SHA-512");
+                keyBytes = md.digest(keyBytes);
+            } catch (NoSuchAlgorithmException e) {
+                // Ignore fallback
+            }
+        }
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
