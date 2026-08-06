@@ -12,7 +12,7 @@ export const getFullPhotoUrl = (url) => {
     // Récupération de l'URL d'API configurée (Vite env)
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/';
 
-    let domain = '';
+    let domain;
     try {
         const parsed = new URL(apiBaseUrl);
         domain = parsed.origin;

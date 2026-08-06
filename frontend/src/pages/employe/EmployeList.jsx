@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { UserPlus, Search, Eye, Edit2, Power, Users, RefreshCw, CheckCircle, XCircle, ShieldAlert } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { UserPlus, Search, Eye, Edit2, Power, Users, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import employeService from '@/api/employeService';
 import EmployeFormModal from './EmployeFormModal';
 import Button from '@/components/ui/Button';
@@ -26,10 +26,6 @@ export default function EmployeList() {
     const [error, setError] = useState('');
     const [actionSuccess, setActionSuccess] = useState('');
 
-    useEffect(() => {
-        loadEmployes();
-    }, [searchQuery, statusFilter]);
-
     const loadEmployes = async () => {
         setLoading(true);
         try {
@@ -48,6 +44,10 @@ export default function EmployeList() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadEmployes();
+    }, [searchQuery, statusFilter]);
 
     const handleOpenCreate = () => {
         setSelectedEmployeForEdit(null);
@@ -127,11 +127,6 @@ export default function EmployeList() {
             console.error('Erreur réactivation:', err);
             setError(err.response?.data || 'Erreur lors de la réactivation.');
         }
-    };
-
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '-';
-        return new Date(dateStr).toLocaleDateString('fr-FR');
     };
 
     // Stats

@@ -32,16 +32,6 @@ export default function DepartementsServicesTab() {
         idDepartement: ''
     });
 
-    useEffect(() => {
-        loadDepartements();
-    }, []);
-
-    useEffect(() => {
-        if (selectedDepartement) {
-            loadServicesForDepartement(selectedDepartement.idDepartement);
-        }
-    }, [selectedDepartement]);
-
     const loadDepartements = async () => {
         setLoading(true);
         setError(null);
@@ -70,6 +60,16 @@ export default function DepartementsServicesTab() {
             setLoadingServices(false);
         }
     };
+
+    useEffect(() => {
+        loadDepartements();
+    }, []);
+
+    useEffect(() => {
+        if (selectedDepartement) {
+            loadServicesForDepartement(selectedDepartement.idDepartement);
+        }
+    }, [selectedDepartement]);
 
     // Department Handlers
     const handleOpenCreateDept = () => {
@@ -136,7 +136,7 @@ export default function DepartementsServicesTab() {
                 setActionSuccess(`Département "${dept.libelle}" réactivé.`);
             }
             loadDepartements();
-        } catch (err) {
+        } catch {
             setError("Erreur lors de la modification du statut.");
         }
     };
@@ -208,7 +208,7 @@ export default function DepartementsServicesTab() {
             if (selectedDepartement) {
                 loadServicesForDepartement(selectedDepartement.idDepartement);
             }
-        } catch (err) {
+        } catch {
             setError("Erreur lors de la modification du statut.");
         }
     };

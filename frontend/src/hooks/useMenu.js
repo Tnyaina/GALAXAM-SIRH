@@ -37,8 +37,28 @@ export function useMenu() {
     }, [isAuthenticated]);
 
     useEffect(() => {
-        fetchMenu();
-    }, [fetchMenu]);
+        let ignore = false;
+        if (!isAuthenticated) {
+            setMenu([]);
+            setLoading(false);
+            return;
+        }
+        apiClient.get('/auth/menu')
+            .then(response => {
+                if (!ignore) {
+                    setMenu(Array.isArray(response.data) ? response.data : []);
+                    setLoading(false);
+                }
+            })
+            .catch(err => {
+                if (!ignore) {
+                    setError(err);
+                    setMenu([]);
+                    setLoading(false);
+                }
+            });
+        return () => { ignore = true; };
+    }, [isAuthenticated]);
 
     return { menu, loading, error, refetch: fetchMenu };
 }

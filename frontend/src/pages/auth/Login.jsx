@@ -39,7 +39,7 @@ export default function Login() {
             } else {
                 setError(result.message || 'Identifiants incorrects.');
             }
-        } catch (err) {
+        } catch {
             setError('Une erreur inattendue est survenue. Veuillez réessayer.');
         } finally {
             setLoading(false);

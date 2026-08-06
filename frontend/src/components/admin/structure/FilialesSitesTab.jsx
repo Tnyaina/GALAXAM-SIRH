@@ -37,10 +37,6 @@ export default function FilialesSitesTab() {
         heureFinApresMidi: '17:00'
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -58,6 +54,10 @@ export default function FilialesSitesTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     // Filiale Handlers
     const handleOpenCreateFiliale = () => {

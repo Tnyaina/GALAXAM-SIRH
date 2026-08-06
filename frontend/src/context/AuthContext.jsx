@@ -16,7 +16,7 @@ const parseJwt = (token) => {
                 .join('')
         );
         return JSON.parse(jsonPayload);
-    } catch (e) {
+    } catch {
         return null;
     }
 };
@@ -77,7 +77,7 @@ export const AuthProvider = ({ children }) => {
                 const response = await apiClient.post('/auth/refresh');
                 const { accessToken } = response.data;
                 handleTokenUpdate(accessToken);
-            } catch (error) {
+            } catch {
                 // Pas de session valide ou pas de cookie
                 handleTokenUpdate(null);
             } finally {
@@ -109,6 +109,7 @@ export const AuthProvider = ({ children }) => {
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {

@@ -25,9 +25,9 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
     // Mettre à jour l'ouverture du menu parent quand l'URL change
     useEffect(() => {
         if (hasChildren && isChildActive(item)) {
-            setExpanded(true);
+            setExpanded(prev => (prev ? prev : true));
         }
-    }, [location.pathname]);
+    }, [location.pathname, hasChildren, item]);
 
     const handleParentClick = () => {
         // En mode replié (desktop), on redéplie d'abord la sidebar plutôt

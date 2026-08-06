@@ -27,10 +27,6 @@ export default function MajorationsParametresTab() {
         codeParametre: '', valeur: '', description: '', dateDebut: '2026-01-01', dateFin: ''
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -48,6 +44,10 @@ export default function MajorationsParametresTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     // Handlers Majoration
     const handleSaveMajoration = async (e) => {

@@ -1,6 +1,23 @@
-import { X, User, CreditCard, Phone, Users as UsersIcon, ShieldAlert, Building, Edit2, Power, Calendar, MapPin, Heart, Baby, Landmark } from 'lucide-react';
+import { X, User, CreditCard, Phone, ShieldAlert, Edit2, Power, Calendar, MapPin, Heart, Baby, Landmark } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+
+const InfoRow = ({ label, value, icon, mono = false }) => (
+    <div className="flex items-start gap-3 py-2">
+        {icon && <div className="text-ink-300 mt-0.5 flex-shrink-0">{icon}</div>}
+        <div className="flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400">{label}</p>
+            <p className={`text-sm text-ink-800 dark:text-ink-100 ${mono ? 'font-mono' : ''}`}>{value || '-'}</p>
+        </div>
+    </div>
+);
+
+const SectionTitle = ({ icon, children }) => (
+    <div className="flex items-center gap-2 py-3 border-b border-ink-150 dark:border-ink-700 mb-3">
+        <div className="text-brand-500">{icon}</div>
+        <h3 className="text-sm font-bold uppercase tracking-wider text-ink-800 dark:text-white">{children}</h3>
+    </div>
+);
 
 export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit, onToggleStatus }) {
     if (!isOpen || !detailData) return null;
@@ -15,23 +32,6 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
         if (!d) return '-';
         try { return new Date(d).toLocaleDateString('fr-FR'); } catch { return '-'; }
     };
-
-    const InfoRow = ({ label, value, icon, mono = false }) => (
-        <div className="flex items-start gap-3 py-2">
-            {icon && <div className="text-ink-300 mt-0.5 flex-shrink-0">{icon}</div>}
-            <div className="flex-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400">{label}</p>
-                <p className={`text-sm text-ink-800 dark:text-ink-100 ${mono ? 'font-mono' : ''}`}>{value || '-'}</p>
-            </div>
-        </div>
-    );
-
-    const SectionTitle = ({ icon, children }) => (
-        <div className="flex items-center gap-2 py-3 border-b border-ink-150 dark:border-ink-700 mb-3">
-            <div className="text-brand-500">{icon}</div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-ink-800 dark:text-white">{children}</h3>
-        </div>
-    );
 
     const getFullPhotoUrl = (url) => {
         if (!url) return null;

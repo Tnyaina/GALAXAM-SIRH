@@ -48,6 +48,16 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
 
     const [formData, setFormData] = useState({ ...emptyForm });
 
+    const fmtDate = (d) => { if (!d) return ''; try { return new Date(d).toISOString().split('T')[0]; } catch { return ''; } };
+    const loadBanques = async () => { 
+        try { 
+            const data = await referentielService.getBanques();
+            setBanques(data || []); 
+        } catch (err) {
+            console.error('Erreur chargement banques:', err);
+        } 
+    };
+
     useEffect(() => { loadBanques(); }, []);
 
     useEffect(() => {
@@ -114,9 +124,6 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
         setErrorMsg('');
         setActiveTab('civilite');
     }, [employeData, isOpen]);
-
-    const fmtDate = (d) => { if (!d) return ''; try { return new Date(d).toISOString().split('T')[0]; } catch { return ''; } };
-    const loadBanques = async () => { try { setBanques(await referentielService.getBanques() || []); } catch {} };
 
     if (!isOpen) return null;
 

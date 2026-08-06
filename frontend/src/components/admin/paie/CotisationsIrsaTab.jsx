@@ -39,10 +39,6 @@ export default function CotisationsIrsaTab() {
         numeroTranche: 1, trancheMin: 0, trancheMax: '', taux: 0, dateDebut: '2026-01-01', dateFin: ''
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -58,12 +54,16 @@ export default function CotisationsIrsaTab() {
             setSites(sitesData);
             setTranchesIrsa(irsaData);
         } catch (err) {
-            setError("Erreur lors du chargement des cotisations et du barème IRSA.");
+            setError("Erreur lors du chargement des données. Veuillez réessayer.");
             console.error(err);
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     // Handlers Cotisation
     const handleSaveCotisation = async (e) => {

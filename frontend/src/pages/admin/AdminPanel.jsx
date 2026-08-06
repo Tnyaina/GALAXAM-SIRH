@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Shield, Users, ArrowLeft, Menu, FileText } from 'lucide-react';
+import { Shield, Users, ArrowLeft, Menu, FileText, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import UserManagementTab from '@/components/admin/UserManagementTab';
 import RolesAndPermissionsTab from '@/components/admin/RolesAndPermissionsTab';
 import MenuManagementTab from '@/components/admin/MenuManagementTab';
 import DocumentTypeManagementTab from '@/components/admin/DocumentTypeManagementTab';
+import RefCarriereManagementTab from '@/components/admin/RefCarriereManagementTab';
 
 export default function AdminPanel() {
-    const [activeTab, setActiveTab] = useState('users'); // 'users' | 'roles' | 'menus' | 'docTypes'
+    const [activeTab, setActiveTab] = useState('users'); // 'users' | 'roles' | 'menus' | 'docTypes' | 'carriere'
 
     return (
         <div className="space-y-6">
@@ -25,7 +26,7 @@ export default function AdminPanel() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-ink-900 dark:text-white">Sécurité & Administration RH</h1>
-                        <p className="text-xs text-ink-400 dark:text-ink-300">Gestion des utilisateurs, des rôles, des menus et des référentiels de documents.</p>
+                        <p className="text-xs text-ink-400 dark:text-ink-300">Gestion des utilisateurs, des rôles, des menus et des référentiels de documents et de carrière.</p>
                     </div>
                 </div>
             </div>
@@ -85,6 +86,19 @@ export default function AdminPanel() {
                         <FileText size={16} />
                         Types de Documents RH
                     </button>
+                    <button
+                        onClick={() => setActiveTab('carriere')}
+                        className={`
+                            flex items-center gap-2 py-4 px-4 border-b-2 text-sm font-semibold transition-all cursor-pointer whitespace-nowrap
+                            ${activeTab === 'carriere'
+                                ? 'border-brand-500 text-brand-500'
+                                : 'border-transparent text-ink-400 hover:text-ink-900 dark:hover:text-white'
+                            }
+                        `}
+                    >
+                        <Award size={16} />
+                        Référentiels Carrière & Paie
+                    </button>
                 </div>
 
                 {/* Contenu de l'onglet actif */}
@@ -93,6 +107,7 @@ export default function AdminPanel() {
                     {activeTab === 'roles' && <RolesAndPermissionsTab />}
                     {activeTab === 'menus' && <MenuManagementTab />}
                     {activeTab === 'docTypes' && <DocumentTypeManagementTab />}
+                    {activeTab === 'carriere' && <RefCarriereManagementTab />}
                 </div>
             </div>
         </div>
