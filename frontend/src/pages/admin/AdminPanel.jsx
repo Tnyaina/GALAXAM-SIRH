@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Shield, Users, ArrowLeft, Menu } from 'lucide-react';
+import { Shield, Users, ArrowLeft, Menu, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import UserManagementTab from '@/components/admin/UserManagementTab';
 import RolesAndPermissionsTab from '@/components/admin/RolesAndPermissionsTab';
 import MenuManagementTab from '@/components/admin/MenuManagementTab';
+import DocumentTypeManagementTab from '@/components/admin/DocumentTypeManagementTab';
 
 export default function AdminPanel() {
-    const [activeTab, setActiveTab] = useState('users'); // 'users' | 'roles' | 'menus'
+    const [activeTab, setActiveTab] = useState('users'); // 'users' | 'roles' | 'menus' | 'docTypes'
 
     return (
         <div className="space-y-6">
@@ -23,19 +24,19 @@ export default function AdminPanel() {
                         <Shield size={24} />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-ink-900 dark:text-white">Sécurité & Habilitations</h1>
-                        <p className="text-xs text-ink-400 dark:text-ink-300">Gestion des utilisateurs, des rôles et des matrices de permissions d'accès.</p>
+                        <h1 className="text-2xl font-bold text-ink-900 dark:text-white">Sécurité & Administration RH</h1>
+                        <p className="text-xs text-ink-400 dark:text-ink-300">Gestion des utilisateurs, des rôles, des menus et des référentiels de documents.</p>
                     </div>
                 </div>
             </div>
 
             {/* Sélecteur d'onglets principal */}
             <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
-                <div className="flex border-b border-ink-150 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-950/20 px-4">
+                <div className="flex border-b border-ink-150 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-950/20 px-4 overflow-x-auto">
                     <button
                         onClick={() => setActiveTab('users')}
                         className={`
-                            flex items-center gap-2 py-4 px-4 border-b-2 text-sm font-semibold transition-all cursor-pointer
+                            flex items-center gap-2 py-4 px-4 border-b-2 text-sm font-semibold transition-all cursor-pointer whitespace-nowrap
                             ${activeTab === 'users'
                                 ? 'border-brand-500 text-brand-500'
                                 : 'border-transparent text-ink-400 hover:text-ink-900 dark:hover:text-white'
@@ -48,7 +49,7 @@ export default function AdminPanel() {
                     <button
                         onClick={() => setActiveTab('roles')}
                         className={`
-                            flex items-center gap-2 py-4 px-4 border-b-2 text-sm font-semibold transition-all cursor-pointer
+                            flex items-center gap-2 py-4 px-4 border-b-2 text-sm font-semibold transition-all cursor-pointer whitespace-nowrap
                             ${activeTab === 'roles'
                                 ? 'border-brand-500 text-brand-500'
                                 : 'border-transparent text-ink-400 hover:text-ink-900 dark:hover:text-white'
@@ -61,7 +62,7 @@ export default function AdminPanel() {
                     <button
                         onClick={() => setActiveTab('menus')}
                         className={`
-                            flex items-center gap-2 py-4 px-4 border-b-2 text-sm font-semibold transition-all cursor-pointer
+                            flex items-center gap-2 py-4 px-4 border-b-2 text-sm font-semibold transition-all cursor-pointer whitespace-nowrap
                             ${activeTab === 'menus'
                                 ? 'border-brand-500 text-brand-500'
                                 : 'border-transparent text-ink-400 hover:text-ink-900 dark:hover:text-white'
@@ -71,6 +72,19 @@ export default function AdminPanel() {
                         <Menu size={16} />
                         Gestion des Menus
                     </button>
+                    <button
+                        onClick={() => setActiveTab('docTypes')}
+                        className={`
+                            flex items-center gap-2 py-4 px-4 border-b-2 text-sm font-semibold transition-all cursor-pointer whitespace-nowrap
+                            ${activeTab === 'docTypes'
+                                ? 'border-brand-500 text-brand-500'
+                                : 'border-transparent text-ink-400 hover:text-ink-900 dark:hover:text-white'
+                            }
+                        `}
+                    >
+                        <FileText size={16} />
+                        Types de Documents RH
+                    </button>
                 </div>
 
                 {/* Contenu de l'onglet actif */}
@@ -78,6 +92,7 @@ export default function AdminPanel() {
                     {activeTab === 'users' && <UserManagementTab />}
                     {activeTab === 'roles' && <RolesAndPermissionsTab />}
                     {activeTab === 'menus' && <MenuManagementTab />}
+                    {activeTab === 'docTypes' && <DocumentTypeManagementTab />}
                 </div>
             </div>
         </div>
