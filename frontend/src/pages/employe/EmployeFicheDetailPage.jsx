@@ -3,13 +3,16 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
     ArrowLeft, User, CreditCard, Phone, Users, ShieldAlert, 
     Building, Edit2, Power, Calendar, MapPin, Heart, Baby, 
-    Landmark, Briefcase, FileText, CheckCircle, XCircle 
+    Landmark, Briefcase, FileText, CheckCircle, XCircle, Folder,
+    Upload, Download, Trash2, Plus, AlertTriangle, FileCheck
 } from 'lucide-react';
 import employeService from '@/api/employeService';
+import documentRhService from '@/api/documentRhService';
 import EmployeFormModal from './EmployeFormModal';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
+import Input, { Textarea, Select } from '@/components/ui/Input';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
 
 export default function EmployeFicheDetailPage() {
@@ -21,16 +24,34 @@ export default function EmployeFicheDetailPage() {
     const [error, setError] = useState('');
     const [actionSuccess, setActionSuccess] = useState('');
 
-    const [activeTab, setActiveTab] = useState('personnel'); // 'personnel', 'famille', 'carriere', 'historique'
+    const [activeTab, setActiveTab] = useState('personnel'); // 'personnel', 'documents', 'famille', 'carriere', 'historique'
 
-    // Modales
+    // État Documents RH
+    const [documentsData, setDocumentsData] = useState({ documents: [], obligatoiresManquants: [] });
+    const [loadingDocs, setLoadingDocs] = useState(false);
+    const [typesDoc, setTypesDoc] = useState([]);
+
+    // Modale Téléversement Document
+    const [isUploadDocModalOpen, setIsUploadDocModalOpen] = useState(false);
+    const [selectedTypeId, setSelectedTypeId] = useState('');
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [docDate, setDocDate] = useState('');
+    const [docCommentaire, setDocCommentaire] = useState('');
+    const [uploadingDoc, setUploadingDoc] = useState(false);
+    const [docErrorMsg, setDocErrorMsg] = useState('');
+
+    // Modale Édition Employé & Désactivation
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDesactivationModalOpen, setIsDesactivationModalOpen] = useState(false);
     const [motifDesactivation, setMotifDesactivation] = useState('Demission');
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
-        if (id) loadEmployeDetail();
+        if (id) {
+            loadEmployeDetail();
+            loadDocuments();
+            loadTypesDoc();
+        }
     }, [id]);
 
     const loadEmployeDetail = async () => {
@@ -44,6 +65,27 @@ export default function EmployeFicheDetailPage() {
             setError('Impossible de charger la fiche de cet employé.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadDocuments = async () => {
+        setLoadingDocs(true);
+        try {
+            const res = await documentRhService.getDocumentsByEmploye(id);
+            setDocumentsData(res || { documents: [], obligatoiresManquants: [] });
+        } catch (err) {
+            console.error('Erreur chargement documents RH:', err);
+        } finally {
+            setLoadingDocs(false);
+        }
+    };
+
+    const loadTypesDoc = async () => {
+        try {
+            const res = await documentRhService.getTypesDocument(true);
+            setTypesDoc(res || []);
+        } catch (err) {
+            console.error('Erreur chargement types documents:', err);
         }
     };
 
@@ -65,6 +107,7 @@ export default function EmployeFicheDetailPage() {
 
     const handleDesactiverConfirm = async (e) => {
         e.preventDefault();
+        setError('');
         try {
             await employeService.desactiverEmploye(id, motifDesactivation);
             setIsDesactivationModalOpen(false);
@@ -72,24 +115,91 @@ export default function EmployeFicheDetailPage() {
             loadEmployeDetail();
         } catch (err) {
             console.error('Erreur désactivation:', err);
-            setError('Erreur lors de la désactivation.');
+            setError(err.response?.data || 'Erreur lors de la désactivation.');
         }
     };
 
     const handleReactiver = async () => {
+        setError('');
         try {
             await employeService.reactiverEmploye(id);
             setActionSuccess('Employé réactivé avec succès.');
             loadEmployeDetail();
         } catch (err) {
             console.error('Erreur réactivation:', err);
-            setError('Erreur lors de la réactivation.');
+            setError(err.response?.data || 'Erreur lors de la réactivation.');
+        }
+    };
+
+    // Actions Documents RH
+    const handleOpenUploadModal = (typeId = '') => {
+        setSelectedTypeId(typeId || (typesDoc[0]?.idTypeDocument || ''));
+        setSelectedFile(null);
+        setDocDate('');
+        setDocCommentaire('');
+        setDocErrorMsg('');
+        setIsUploadDocModalOpen(true);
+    };
+
+    const handleUploadDocSubmit = async (e) => {
+        e.preventDefault();
+        setDocErrorMsg('');
+
+        if (!selectedTypeId) {
+            setDocErrorMsg('Veuillez sélectionner un type de document.');
+            return;
+        }
+        if (!selectedFile) {
+            setDocErrorMsg('Veuillez choisir un fichier à téléverser.');
+            return;
+        }
+
+        setUploadingDoc(true);
+        try {
+            await documentRhService.uploadDocument(id, selectedFile, selectedTypeId, docDate, docCommentaire);
+            setActionSuccess('Document RH téléversé avec succès.');
+            setIsUploadDocModalOpen(false);
+            loadDocuments();
+        } catch (err) {
+            console.error('Erreur upload document:', err);
+            setDocErrorMsg(err.response?.data || "Erreur lors du téléversement du document.");
+        } finally {
+            setUploadingDoc(false);
+        }
+    };
+
+    const handleDeleteDoc = async (idDoc, nomDoc) => {
+        if (!window.confirm(`Voulez-vous vraiment supprimer le document "${nomDoc}" ?`)) return;
+        try {
+            await documentRhService.deleteDocument(idDoc);
+            setActionSuccess(`Document "${nomDoc}" supprimé.`);
+            loadDocuments();
+        } catch (err) {
+            console.error('Erreur suppression document:', err);
+            setError('Erreur lors de la suppression du document.');
+        }
+    };
+
+    const handleDownloadDoc = async (idDoc, nomOriginal) => {
+        try {
+            await documentRhService.downloadDocument(idDoc, nomOriginal);
+        } catch (err) {
+            console.error('Erreur téléchargement document:', err);
+            setError('Erreur lors du téléchargement du document.');
         }
     };
 
     const fmtDate = (d) => {
         if (!d) return '-';
         try { return new Date(d).toLocaleDateString('fr-FR'); } catch { return '-'; }
+    };
+
+    const formatBytes = (bytes) => {
+        if (!bytes || bytes === 0) return '0 Octet';
+        const k = 1024;
+        const sizes = ['Octets', 'Ko', 'Mo', 'Go'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
     if (loading) {
@@ -213,11 +323,12 @@ export default function EmployeFicheDetailPage() {
                 </div>
             </div>
 
-            {/* Navigation par Onglets Structurés & Équilibrés */}
+            {/* Navigation par Onglets Structurés */}
             <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
                 <div className="flex border-b border-ink-150 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-950/20 px-4 overflow-x-auto">
                     {[
                         { id: 'personnel', label: 'Fiche Personnelle', icon: User },
+                        { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: Folder },
                         { id: 'famille', label: 'Famille & Contacts', icon: Users },
                         { id: 'carriere', label: 'Carrière & Contrats', icon: Briefcase },
                         { id: 'historique', label: 'Historique & Statut', icon: FileText }
@@ -243,7 +354,7 @@ export default function EmployeFicheDetailPage() {
                 {/* Contenu de l'onglet actif */}
                 <div className="p-6">
 
-                    {/* Onglet 1: Fiche Personnelle (Identité + Coordonnées + CNaPS & Banque) */}
+                    {/* Onglet 1: Fiche Personnelle */}
                     {activeTab === 'personnel' && (
                         <div className="space-y-8">
                             {/* Section État Civil & Identité */}
@@ -332,7 +443,138 @@ export default function EmployeFicheDetailPage() {
                         </div>
                     )}
 
-                    {/* Onglet 2: Famille & Contacts */}
+                    {/* Onglet 2: Documents RH (GED) */}
+                    {activeTab === 'documents' && (
+                        <div className="space-y-6">
+                            {/* Bannière Alerte Documents Obligatoires Manquants */}
+                            {documentsData.obligatoiresManquants && documentsData.obligatoiresManquants.length > 0 && (
+                                <div className="bg-warning-500/10 border border-warning-500/30 p-4 rounded-sm flex items-start gap-3">
+                                    <AlertTriangle size={20} className="text-warning-600 flex-shrink-0 mt-0.5" />
+                                    <div className="space-y-1">
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-warning-700">
+                                            Documents Obligatoires Manquants ({documentsData.obligatoiresManquants.length})
+                                        </h4>
+                                        <p className="text-xs text-warning-600">
+                                            Veuillez verser au dossier les pièces obligatoires manquantes pour compléter la conformité RH de cet employé :
+                                        </p>
+                                        <div className="flex flex-wrap gap-2 pt-1">
+                                            {documentsData.obligatoiresManquants.map(m => (
+                                                <button
+                                                    key={m.idTypeDocument}
+                                                    type="button"
+                                                    onClick={() => handleOpenUploadModal(m.idTypeDocument)}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-white dark:bg-ink-900 border border-warning-500/40 text-warning-700 hover:bg-warning-500/20 rounded-sm transition-all cursor-pointer"
+                                                >
+                                                    <Plus size={12} />
+                                                    {m.libelle}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Entête & Bouton Upload */}
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2 border-b border-ink-150 dark:border-ink-700">
+                                <div>
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2">
+                                        <Folder size={14} /> Documents RH Déposés ({documentsData.documents.length})
+                                    </h3>
+                                    <p className="text-xs text-ink-400">Consultez, téléchargez ou ajoutez les pièces justificatives de l'employé</p>
+                                </div>
+                                <Button
+                                    onClick={() => handleOpenUploadModal()}
+                                    variant="primary"
+                                    size="sm"
+                                    iconLeft={<Upload size={16} />}
+                                >
+                                    Téléverser un Document
+                                </Button>
+                            </div>
+
+                            {/* Grille/Tableau des Documents */}
+                            {loadingDocs ? (
+                                <div className="py-12 flex justify-center">
+                                    <Loading size="md" label="Chargement des documents..." />
+                                </div>
+                            ) : documentsData.documents.length === 0 ? (
+                                <div className="p-10 text-center bg-ink-50 dark:bg-ink-950 border border-dashed border-ink-200 dark:border-ink-700 space-y-2">
+                                    <Folder size={36} className="mx-auto text-ink-300" />
+                                    <p className="text-sm font-bold text-ink-800 dark:text-white">Aucun document RH déposé</p>
+                                    <p className="text-xs text-ink-400">Cliquez sur Téléverser un Document pour en ajouter un.</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
+                                    <table className="w-full text-sm text-left">
+                                        <thead>
+                                            <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
+                                                <th className="px-4 py-3">Document & Nom</th>
+                                                <th className="px-4 py-3">Type & Catégorie</th>
+                                                <th className="px-4 py-3">Taille</th>
+                                                <th className="px-4 py-3">Date Document</th>
+                                                <th className="px-4 py-3">Versé par</th>
+                                                <th className="px-4 py-3 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
+                                            {documentsData.documents.map((doc) => (
+                                                <tr key={doc.idDocument} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 bg-brand-500/10 text-brand-500 flex items-center justify-center rounded-sm font-bold text-xs">
+                                                                {doc.extension ? doc.extension.toUpperCase() : 'DOC'}
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-semibold text-ink-900 dark:text-white">{doc.nomOriginal}</p>
+                                                                {doc.commentaire && <p className="text-xs text-ink-400 italic">{doc.commentaire}</p>}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <Badge variant="primary" size="sm">{doc.typeDocumentLibelle}</Badge>
+                                                            {doc.typeDocumentObligatoire && (
+                                                                <Badge variant="warning" size="sm">Obligatoire</Badge>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-xs font-mono text-ink-500">
+                                                        {formatBytes(doc.tailleOctet)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-xs font-mono">
+                                                        {fmtDate(doc.dateDocument)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-xs text-ink-500">
+                                                        {doc.uploadedByIdentifiant || 'Admin'}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <button
+                                                                onClick={() => handleDownloadDoc(doc.idDocument, doc.nomOriginal)}
+                                                                className="p-1.5 text-brand-500 hover:bg-brand-500/10 rounded-sm transition-all cursor-pointer"
+                                                                title="Visualiser / Télécharger"
+                                                            >
+                                                                <Download size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteDoc(doc.idDocument, doc.nomOriginal)}
+                                                                className="p-1.5 text-danger-500 hover:bg-danger-500/10 rounded-sm transition-all cursor-pointer"
+                                                                title="Supprimer"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Onglet 3: Famille & Contacts */}
                     {activeTab === 'famille' && (
                         <div className="space-y-8">
                             {/* Conjoint */}
@@ -427,7 +669,7 @@ export default function EmployeFicheDetailPage() {
                         </div>
                     )}
 
-                    {/* Onglet 3: Carrière & Contrats (Espace réservé pour futurs sprints) */}
+                    {/* Onglet 4: Carrière & Contrats */}
                     {activeTab === 'carriere' && (
                         <div className="p-8 text-center bg-ink-50 dark:bg-ink-950 border border-dashed border-ink-200 dark:border-ink-700 space-y-3">
                             <Briefcase size={36} className="mx-auto text-ink-300" />
@@ -438,7 +680,7 @@ export default function EmployeFicheDetailPage() {
                         </div>
                     )}
 
-                    {/* Onglet 4: Historique & Statut */}
+                    {/* Onglet 5: Historique & Statut */}
                     {activeTab === 'historique' && (
                         <div className="space-y-6">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 flex items-center gap-2">
@@ -459,7 +701,77 @@ export default function EmployeFicheDetailPage() {
                 </div>
             </div>
 
-            {/* Modale d'édition */}
+            {/* Modale Téléversement Document RH */}
+            {isUploadDocModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
+                    <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
+                        <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
+                            <Upload size={18} className="text-brand-500" />
+                            Téléverser un Document RH
+                        </div>
+                        <form onSubmit={handleUploadDocSubmit}>
+                            <div className="p-6 space-y-4">
+                                {docErrorMsg && (
+                                    <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 rounded-sm p-3 text-xs flex items-center gap-1.5">
+                                        <ShieldAlert size={14} />
+                                        {docErrorMsg}
+                                    </div>
+                                )}
+                                <Select
+                                    label="Type de Document"
+                                    required
+                                    value={selectedTypeId}
+                                    onChange={(e) => setSelectedTypeId(e.target.value)}
+                                >
+                                    <option value="">-- Sélectionner --</option>
+                                    {typesDoc.map(t => (
+                                        <option key={t.idTypeDocument} value={t.idTypeDocument}>
+                                            {t.libelle} {t.obligatoire ? '(Obligatoire)' : ''} — [{t.categorie}]
+                                        </option>
+                                    ))}
+                                </Select>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-ink-800 dark:text-ink-50">
+                                        Fichier (PDF, JPG, PNG) <span className="text-danger-500">*</span>
+                                    </label>
+                                    <input
+                                        type="file"
+                                        required
+                                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                        className="w-full text-xs text-ink-700 dark:text-ink-300 border border-ink-200 dark:border-ink-700 p-2 rounded-sm bg-ink-50 dark:bg-ink-950"
+                                    />
+                                </div>
+
+                                <Input
+                                    label="Date du Document"
+                                    type="date"
+                                    value={docDate}
+                                    onChange={(e) => setDocDate(e.target.value)}
+                                />
+
+                                <Textarea
+                                    label="Commentaire / Remarque"
+                                    rows={2}
+                                    value={docCommentaire}
+                                    onChange={(e) => setDocCommentaire(e.target.value)}
+                                    placeholder="Remarque éventuelle (numéro de diplôme, version, etc.)"
+                                />
+                            </div>
+                            <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-end gap-3">
+                                <Button type="button" onClick={() => setIsUploadDocModalOpen(false)} variant="ghost" size="sm">
+                                    Annuler
+                                </Button>
+                                <Button type="submit" variant="primary" size="sm" loading={uploadingDoc}>
+                                    Téléverser
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modale d'édition Employé */}
             <EmployeFormModal
                 isOpen={isFormOpen}
                 onClose={() => setIsFormOpen(false)}
