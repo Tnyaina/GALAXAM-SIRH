@@ -10,6 +10,7 @@ import EmployeFormModal from './EmployeFormModal';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
+import { getFullPhotoUrl } from '@/utils/fileUtils';
 
 export default function EmployeFicheDetailPage() {
     const { id } = useParams();
@@ -89,13 +90,6 @@ export default function EmployeFicheDetailPage() {
     const fmtDate = (d) => {
         if (!d) return '-';
         try { return new Date(d).toLocaleDateString('fr-FR'); } catch { return '-'; }
-    };
-
-    const getFullPhotoUrl = (url) => {
-        if (!url) return null;
-        if (url.startsWith('http')) return url;
-        const cleanUrl = url.startsWith('/api') ? url : `/api${url.startsWith('/') ? '' : '/'}${url}`;
-        return `http://localhost:8080${cleanUrl}`;
     };
 
     if (loading) {

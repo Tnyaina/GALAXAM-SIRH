@@ -4,6 +4,7 @@ import referentielService from '@/api/referentielService';
 import employeService from '@/api/employeService';
 import Input, { Textarea, Select, Checkbox } from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import { getFullPhotoUrl } from '@/utils/fileUtils';
 
 // Liste standardisée des nationalités pour éviter les incohérences (Malgache, Malagasy, malgache...)
 const NATIONALITES_STANDARDS = [
@@ -195,13 +196,6 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
         { id: 'urgence', label: 'Urgence', icon: ShieldAlert },
         { id: 'banque', label: 'CNaPS & Banque', icon: Building }
     ];
-
-    const getFullPhotoUrl = (url) => {
-        if (!url) return null;
-        if (url.startsWith('http')) return url;
-        const cleanUrl = url.startsWith('/api') ? url : `/api${url.startsWith('/') ? '' : '/'}${url}`;
-        return `http://localhost:8080${cleanUrl}`;
-    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto">
