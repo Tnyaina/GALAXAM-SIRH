@@ -45,6 +45,25 @@ export default function Dashboard() {
                     </div>
                 </div>
 
+                {/* Carte Fiches Employés */}
+                <div className="bg-white dark:bg-ink-900 rounded-xl shadow-sm border border-ink-150 dark:border-ink-700 p-6">
+                    <h3 className="text-md font-bold text-ink-900 dark:text-white mb-4 flex items-center gap-2">
+                        <User className="text-blue-500" size={18} />
+                        Gestion du Personnel
+                    </h3>
+                    <p className="text-ink-500 dark:text-ink-400 text-sm mb-6 leading-relaxed">
+                        Accédez au répertoire complet des employés, consultez leurs fiches individuelles (état civil, CIN, conjoint, enfants, banques) et gérez leurs statuts.
+                    </p>
+                    <div className="flex">
+                        <Link
+                            to="/employes"
+                            className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors shadow-sm"
+                        >
+                            Accéder aux Fiches Employés
+                        </Link>
+                    </div>
+                </div>
+
                 {/* Carte Test Autorisation */}
                 <div className="bg-white dark:bg-ink-900 rounded-xl shadow-sm border border-ink-150 dark:border-ink-700 p-6">
                     <h3 className="text-md font-bold text-ink-900 dark:text-white mb-4 flex items-center gap-2">

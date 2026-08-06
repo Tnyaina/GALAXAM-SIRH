@@ -57,8 +57,8 @@ public class AuditLog extends ClassMere {
             ps.setString(2, action);
             ps.setString(3, nomTable);
             ps.setString(4, idEnregistrement);
-            ps.setString(5, anciennesValeurs);
-            ps.setString(6, nouvellesValeurs);
+            ps.setObject(5, anciennesValeurs, java.sql.Types.OTHER);
+            ps.setObject(6, nouvellesValeurs, java.sql.Types.OTHER);
             ps.setString(7, adresseIp);
 
             ps.executeUpdate();
@@ -93,7 +93,11 @@ public class AuditLog extends ClassMere {
             Object oldState,
             Object newState
     ) {
+        java.sql.Savepoint sp = null;
         try {
+            if (c != null && !c.getAutoCommit()) {
+                sp = c.setSavepoint("audit_sp");
+            }
             AuditLog log = new AuditLog();
             log.idUtilisateur = getCurrentUserId();
             log.action = action;
@@ -106,7 +110,9 @@ public class AuditLog extends ClassMere {
             log.save(c);
         } catch (Exception e) {
             System.err.println("Erreur d'audit log : " + e.getMessage());
-            e.printStackTrace();
+            if (sp != null && c != null) {
+                try { c.rollback(sp); } catch (Exception ignored) {}
+            }
         }
     }
 

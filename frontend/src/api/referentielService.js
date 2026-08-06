@@ -44,6 +44,14 @@ const referentielService = {
     },
 
     // ----------------------------------------------------
+    // BANQUES (REF_BANQUE)
+    // ----------------------------------------------------
+    getBanques: async () => {
+        const response = await apiClient.get('/referentiel/banques');
+        return response.data;
+    },
+
+    // ----------------------------------------------------
     // MENUS
     // ----------------------------------------------------
     getMenusTree: async () => {
