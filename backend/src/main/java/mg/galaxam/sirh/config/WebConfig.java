@@ -17,6 +17,9 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${app.upload.dir:uploads/photos}")
     private String uploadDir;
 
+    @Value("${app.upload.doc-dir:uploads/documents}")
+    private String uploadDocDir;
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
@@ -28,8 +31,10 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Servir les photos uploadées comme ressources statiques
+        // Servir les photos et documents uploadés comme ressources statiques
         registry.addResourceHandler("/uploads/photos/**")
                 .addResourceLocations("file:" + uploadDir + "/");
+        registry.addResourceHandler("/uploads/documents/**")
+                .addResourceLocations("file:" + uploadDocDir + "/");
     }
 }
