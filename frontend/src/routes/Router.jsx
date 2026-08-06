@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import Login from "@/pages/auth/Login";
 import Dashboard from "@/pages/Dashboard";
+import EmployeList from "@/pages/employe/EmployeList";
 import AdminPanel from "@/pages/admin/AdminPanel";
 import StructureAdminPanel from "@/pages/admin/StructureAdminPanel";
 import PaieConfigAdminPanel from "@/pages/admin/PaieConfigAdminPanel";
@@ -8,6 +9,7 @@ import Unauthorized from "@/pages/system/Unauthorized";
 import NotFound from "@/pages/system/NotFound";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import { AuthProvider } from "@/context/AuthContext";
+import EmployeFicheDetailPage from "@/pages/employe/EmployeFicheDetailPage";
 
 export default function Router() {
     return (
@@ -20,6 +22,8 @@ export default function Router() {
                 {/* Routes protégées standard (nécessite d'être connecté) */}
                 <Route element={<ProtectedRoute />}>
                     <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/employes" element={<EmployeList />} />
+                    <Route path="/employes/:id" element={<EmployeFicheDetailPage />} />
                 </Route>
 
                 {/* Routes protégées admin (nécessite d'être ADMIN) */}
