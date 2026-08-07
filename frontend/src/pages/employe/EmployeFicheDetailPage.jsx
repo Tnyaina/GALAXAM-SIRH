@@ -905,6 +905,85 @@ export default function EmployeFicheDetailPage() {
                                         </div>
                                     </div>
 
+                                    {/* Historique des Contrats de Travail */}
+                                    <div className="space-y-4 pt-4 border-t border-ink-150 dark:border-ink-700">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-xs font-bold uppercase tracking-wider text-ink-900 dark:text-white flex items-center gap-2">
+                                                <Briefcase size={14} className="text-brand-500" />
+                                                Historique des Contrats de Travail ({contrats.length})
+                                            </h4>
+                                            <Button
+                                                onClick={() => { setSelectedContratToEdit(null); setIsContratModalOpen(true); }}
+                                                variant="ghost"
+                                                size="sm"
+                                            >
+                                                + Nouveau Contrat
+                                            </Button>
+                                        </div>
+
+                                        {contrats.length === 0 ? (
+                                            <p className="text-xs text-ink-400 italic">Aucun contrat enregistré.</p>
+                                        ) : (
+                                            <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
+                                                <table className="w-full text-sm text-left">
+                                                    <thead>
+                                                        <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
+                                                            <th className="px-4 py-3">Réf / N° Contrat</th>
+                                                            <th className="px-4 py-3">Type & Intervenant</th>
+                                                            <th className="px-4 py-3">Filiale</th>
+                                                            <th className="px-4 py-3">Période du Contrat</th>
+                                                            <th className="px-4 py-3">Motif Sortie</th>
+                                                            <th className="px-4 py-3 text-center">Statut</th>
+                                                            <th className="px-4 py-3 text-right">Action</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
+                                                        {contrats.map((c) => (
+                                                            <tr key={c.idContrat} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
+                                                                <td className="px-4 py-3 font-mono font-semibold text-xs">
+                                                                    {c.numeroContrat || `CT-${c.idContrat}`}
+                                                                    {c.idContratPrecedent && (
+                                                                        <span className="block text-[10px] text-ink-400 font-normal">
+                                                                            ↳ Suite au Contrat #{c.idContratPrecedent}
+                                                                        </span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-4 py-3 font-semibold text-xs">
+                                                                    <Badge variant="primary" size="sm">{c.typeContratLibelle}</Badge>
+                                                                    <span className="block text-[11px] text-ink-400 font-normal mt-0.5">{c.typeIntervenantLibelle}</span>
+                                                                </td>
+                                                                <td className="px-4 py-3 text-xs">
+                                                                    {c.filialeRaisonSociale} ({c.filialeCode})
+                                                                </td>
+                                                                <td className="px-4 py-3 text-xs font-mono">
+                                                                    Du {fmtDate(c.dateDebut)} {c.dateFin ? `au ${fmtDate(c.dateFin)}` : '(Indéterminée)'}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-xs italic text-ink-400">
+                                                                    {c.motifSortieLibelle || '-'}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-center">
+                                                                    {c.estActif ? (
+                                                                        <Badge variant="success" size="sm">Actif</Badge>
+                                                                    ) : (
+                                                                        <Badge variant="default" size="sm">Inactif / Clôturé</Badge>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-right">
+                                                                    <button
+                                                                        onClick={() => { setSelectedContratToEdit(c); setIsContratModalOpen(true); }}
+                                                                        className="text-xs text-brand-500 font-semibold hover:underline"
+                                                                    >
+                                                                        Éditer
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     {/* Historique des Affectations & Avenants */}
                                     <div className="space-y-4 pt-4 border-t border-ink-150 dark:border-ink-700">
                                         <h4 className="text-xs font-bold uppercase tracking-wider text-ink-900 dark:text-white flex items-center gap-2">

@@ -128,7 +128,7 @@ public class EmployeAffectationCarriereCPL extends ClassMere {
     }
 
     public static EmployeAffectationCarriereCPL getAffectationCourante(Integer idEmploye, Connection c) throws Exception {
-        String sql = "SELECT * FROM v_affectation_carriere_cpl WHERE id_employe = ? AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) ORDER BY date_debut DESC LIMIT 1";
+        String sql = "SELECT a.* FROM v_affectation_carriere_cpl a JOIN contrat_travail ct ON a.id_contrat = ct.id_contrat WHERE a.id_employe = ? AND ct.est_actif = TRUE AND (a.date_fin IS NULL OR a.date_fin >= CURRENT_DATE) ORDER BY a.date_debut DESC LIMIT 1";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {

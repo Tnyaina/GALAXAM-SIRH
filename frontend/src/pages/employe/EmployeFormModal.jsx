@@ -48,7 +48,22 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
 
     const [formData, setFormData] = useState({ ...emptyForm });
 
-    const fmtDate = (d) => { if (!d) return ''; try { return new Date(d).toISOString().split('T')[0]; } catch { return ''; } };
+    const fmtDate = (d) => {
+        if (!d) return '';
+        if (typeof d === 'string') {
+            const s = d.trim();
+            if (s.includes('T')) return s.split('T')[0];
+            if (s.includes(' ')) return s.split(' ')[0];
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        }
+        try {
+            const dateObj = new Date(d);
+            if (isNaN(dateObj.getTime())) return '';
+            return dateObj.toISOString().split('T')[0];
+        } catch {
+            return '';
+        }
+    };
     const loadBanques = async () => { 
         try { 
             const data = await referentielService.getBanques();

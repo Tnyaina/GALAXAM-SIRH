@@ -63,11 +63,14 @@ public class ContratTravailController {
             try {
                 req.setIdEmploye(idEmploye);
 
-                // Si un contrat est marqué actif, désactiver les anciens contrats actifs
+                // Si un contrat est marqué actif, désactiver les anciens contrats actifs et lier le contrat précédent
                 if (req.isEstActif()) {
                     List<ContratTravail> anciens = ContratTravail.listByEmployeId(idEmploye, c);
                     for (ContratTravail ct : anciens) {
                         if (ct.isEstActif()) {
+                            if (req.getIdContratPrecedent() == null) {
+                                req.setIdContratPrecedent(ct.getIdContrat());
+                            }
                             ct.setEstActif(false);
                             ct.update(c);
                         }

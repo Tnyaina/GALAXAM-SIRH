@@ -66,25 +66,47 @@ export default function ContratFormModal({ isOpen, onClose, onSave, idEmploye: _
         }
     }, [contratData]);
 
+    const fmtDate = (d) => {
+        if (!d) return '';
+        if (typeof d === 'string') {
+            const s = d.trim();
+            if (s.includes('T')) return s.split('T')[0];
+            if (s.includes(' ')) return s.split(' ')[0];
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        }
+        try {
+            const dateObj = new Date(d);
+            if (isNaN(dateObj.getTime())) return '';
+            return dateObj.toISOString().split('T')[0];
+        } catch {
+            return '';
+        }
+    };
+
+    const [hasEssai, setHasEssai] = useState(false);
+
     useEffect(() => {
         if (isOpen) {
             loadReferentiels();
             if (contratData) {
+                const dateEssai = fmtDate(contratData.dateFinEssai);
+                setHasEssai(!!dateEssai || !!contratData.essaiRenouvele);
                 setFormData({
                     idFiliale: contratData.idFiliale || '',
                     idTypeContrat: contratData.idTypeContrat || '',
                     idTypeIntervenant: contratData.idTypeIntervenant || '',
                     numeroContrat: contratData.numeroContrat || '',
-                    dateSignature: contratData.dateSignature || '',
-                    dateDebut: contratData.dateDebut || '',
-                    dateFin: contratData.dateFin || '',
-                    dateFinEssai: contratData.dateFinEssai || '',
+                    dateSignature: fmtDate(contratData.dateSignature),
+                    dateDebut: fmtDate(contratData.dateDebut),
+                    dateFin: fmtDate(contratData.dateFin),
+                    dateFinEssai: dateEssai,
                     essaiRenouvele: !!contratData.essaiRenouvele,
                     comptabiliseEffectif: contratData.comptabiliseEffectif !== undefined ? !!contratData.comptabiliseEffectif : true,
                     estActif: contratData.estActif !== undefined ? !!contratData.estActif : true,
                     idMotifSortie: contratData.idMotifSortie || ''
                 });
             } else {
+                setHasEssai(false);
                 setFormData({ ...emptyForm });
             }
             setError('');
@@ -112,10 +134,21 @@ export default function ContratFormModal({ isOpen, onClose, onSave, idEmploye: _
             return;
         }
 
-        onSave(formData);
+        // Si pas de période d'essai, réinitialiser les champs d'essai
+        const payload = {
+            ...formData,
+            dateFinEssai: hasEssai ? formData.dateFinEssai : '',
+            essaiRenouvele: hasEssai ? formData.essaiRenouvele : false
+        };
+
+        onSave(payload);
     };
 
     if (!isOpen) return null;
+
+    // Vérifie si le type de contrat est à durée déterminée
+    const selectedType = typesContrat.find(t => String(t.idTypeContrat) === String(formData.idTypeContrat));
+    const isCDD = selectedType?.code?.toUpperCase().includes('CDD') || selectedType?.libelle?.toUpperCase().includes('DÉTERMINÉE');
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto">
@@ -127,7 +160,7 @@ export default function ContratFormModal({ isOpen, onClose, onSave, idEmploye: _
                 </div>
 
                 <form onSubmit={handleSubmit}>
-                    <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+                    <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
                         {error && (
                             <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 rounded-sm p-3 text-xs flex items-center gap-1.5">
                                 <ShieldAlert size={14} />
@@ -154,7 +187,7 @@ export default function ContratFormModal({ isOpen, onClose, onSave, idEmploye: _
                                 </Select>
 
                                 <Select
-                                    label="Type de Contrat"
+                                    label="Type de Contrat (CDI, CDD, Stage...)"
                                     required
                                     value={formData.idTypeContrat}
                                     onChange={e => setFormData({ ...formData, idTypeContrat: e.target.value })}
@@ -192,7 +225,7 @@ export default function ContratFormModal({ isOpen, onClose, onSave, idEmploye: _
 
                         {/* Section 2 : Dates clés */}
                         <div className="pt-4 border-t border-ink-150 dark:border-ink-700">
-                            <SectionHeader icon={CalendarDays}>Dates Clés</SectionHeader>
+                            <SectionHeader icon={CalendarDays}>Dates Clés du Contrat</SectionHeader>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Input
                                     label="Date de Signature"
@@ -209,31 +242,62 @@ export default function ContratFormModal({ isOpen, onClose, onSave, idEmploye: _
                                     onChange={e => setFormData({ ...formData, dateDebut: e.target.value })}
                                 />
 
-                                <Input
-                                    label="Date de Fin (Si CDD / Essai)"
-                                    type="date"
-                                    value={formData.dateFin}
-                                    onChange={e => setFormData({ ...formData, dateFin: e.target.value })}
-                                />
-
-                                <Input
-                                    label="Date Fin Période d'Essai"
-                                    type="date"
-                                    value={formData.dateFinEssai}
-                                    onChange={e => setFormData({ ...formData, dateFinEssai: e.target.value })}
-                                />
+                                <div className="space-y-1">
+                                    <Input
+                                        label={isCDD ? "Date de Fin (Obligatoire pour CDD)" : "Date de Fin (Vide si CDI)"}
+                                        type="date"
+                                        value={formData.dateFin}
+                                        onChange={e => setFormData({ ...formData, dateFin: e.target.value })}
+                                    />
+                                    <p className="text-[11px] text-ink-400">
+                                        {isCDD ? 'Indiquer la date d’échéance du CDD.' : 'Laisser vide pour un CDI à durée indéterminée.'}
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Section 3 : Statut & sortie */}
+                        {/* Section 3 : Option Période d'Essai */}
                         <div className="pt-4 border-t border-ink-150 dark:border-ink-700 space-y-3">
-                            <SectionHeader icon={Flag}>Statut & Sortie</SectionHeader>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="flex items-center justify-between bg-ink-50 dark:bg-ink-950 p-3 rounded-sm border border-ink-150 dark:border-ink-800">
+                                <div>
+                                    <p className="text-xs font-bold text-ink-900 dark:text-white">Ce contrat comporte-t-il une période d'essai ?</p>
+                                    <p className="text-[11px] text-ink-400">Activer uniquement si l'employé est en phase de test préalable.</p>
+                                </div>
                                 <Checkbox
-                                    label="Période d'essai renouvelée"
-                                    checked={formData.essaiRenouvele}
-                                    onChange={e => setFormData({ ...formData, essaiRenouvele: e.target.checked })}
+                                    checked={hasEssai}
+                                    onChange={e => {
+                                        setHasEssai(e.target.checked);
+                                        if (!e.target.checked) {
+                                            setFormData(prev => ({ ...prev, dateFinEssai: '', essaiRenouvele: false }));
+                                        }
+                                    }}
+                                    label={hasEssai ? 'Oui (Avec essai)' : 'Non (Sans essai)'}
                                 />
+                            </div>
+
+                            {hasEssai && (
+                                <div className="p-4 bg-brand-500/5 border border-brand-500/20 rounded-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <Input
+                                        label="Date Fin Période d'Essai"
+                                        type="date"
+                                        value={formData.dateFinEssai}
+                                        onChange={e => setFormData({ ...formData, dateFinEssai: e.target.value })}
+                                    />
+                                    <div className="flex items-center pt-5">
+                                        <Checkbox
+                                            label="Période d'essai renouvelée (Prolongée)"
+                                            checked={formData.essaiRenouvele}
+                                            onChange={e => setFormData({ ...formData, essaiRenouvele: e.target.checked })}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Section 4 : Statut & Motif de Sortie */}
+                        <div className="pt-4 border-t border-ink-150 dark:border-ink-700 space-y-3">
+                            <SectionHeader icon={Flag}>Statut & Clôture du Contrat</SectionHeader>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Checkbox
                                     label="Comptabilisé dans l'effectif"
                                     checked={formData.comptabiliseEffectif}
@@ -246,19 +310,21 @@ export default function ContratFormModal({ isOpen, onClose, onSave, idEmploye: _
                                 />
                             </div>
 
-                            {!formData.estActif && (
-                                <Select
-                                    label="Motif de Fin de Contrat / Sortie"
-                                    value={formData.idMotifSortie}
-                                    onChange={e => setFormData({ ...formData, idMotifSortie: e.target.value })}
-                                >
-                                    <option value="">-- Aucun motif spécifié --</option>
-                                    {motifsSortie.map(ms => (
-                                        <option key={ms.idMotifSortie} value={ms.idMotifSortie}>
-                                            {ms.libelle}
-                                        </option>
-                                    ))}
-                                </Select>
+                            {(!formData.estActif || formData.dateFin) && (
+                                <div className="pt-2">
+                                    <Select
+                                        label="Motif de Fin de Contrat / Sortie"
+                                        value={formData.idMotifSortie}
+                                        onChange={e => setFormData({ ...formData, idMotifSortie: e.target.value })}
+                                    >
+                                        <option value="">-- Sélectionner le motif de fin (Démission, Fin CDD...) --</option>
+                                        {motifsSortie.map(ms => (
+                                            <option key={ms.idMotifSortie} value={ms.idMotifSortie}>
+                                                {ms.libelle}
+                                            </option>
+                                        ))}
+                                    </Select>
+                                </div>
                             )}
                         </div>
                     </div>
