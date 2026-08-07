@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.api.controller;
+package mg.galaxam.sirh.api.controller.auth;
 
 import mg.galaxam.sirh.api.dto.LoginRequest;
 import mg.galaxam.sirh.api.dto.RegisterRequest;

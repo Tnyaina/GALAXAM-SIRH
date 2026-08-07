@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, CheckCircle, XCircle, ShieldAlert, FileText, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, CheckCircle, XCircle, ShieldAlert, FileText } from 'lucide-react';
 import documentRhService from '@/api/documentRhService';
 import Input, { Textarea, Select, Checkbox } from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
@@ -24,10 +24,6 @@ export default function DocumentTypeManagementTab() {
     };
     const [formData, setFormData] = useState({ ...emptyForm });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError('');
@@ -41,6 +37,10 @@ export default function DocumentTypeManagementTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     const handleOpenCreate = () => {
         setSelectedType(null);

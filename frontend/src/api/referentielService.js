@@ -133,6 +133,44 @@ const referentielService = {
     activateUser: async (id) => {
         const response = await apiClient.put(`/securite/utilisateurs/${id}/activer`);
         return response.data;
+    },
+
+    // ----------------------------------------------------
+    // ORGANISATION & STRUCTURE
+    // ----------------------------------------------------
+    getFiliales: async (actifUniquement = false) => {
+        const response = await apiClient.get('/referentiel/filiales', { params: { actifUniquement } });
+        return response.data;
+    },
+
+    getDepartements: async (actifUniquement = false) => {
+        const response = await apiClient.get('/referentiel/departements', { params: { actifUniquement } });
+        return response.data;
+    },
+
+    getServices: async (actifUniquement = false) => {
+        const response = await apiClient.get('/referentiel/services', { params: { actifUniquement } });
+        return response.data;
+    },
+
+    getFonctions: async (actifUniquement = false) => {
+        const response = await apiClient.get('/referentiel/fonctions', { params: { actifUniquement } });
+        return response.data;
+    },
+
+    getSites: async (actifUniquement = false) => {
+        const response = await apiClient.get('/referentiel/sites', { params: { actifUniquement } });
+        return response.data;
+    },
+
+    getTypesContrat: async (actifUniquement = false) => {
+        const response = await apiClient.get('/referentiel/types-contrat', { params: { actifUniquement } });
+        return response.data;
+    },
+
+    getTypesIntervenant: async (actifUniquement = false) => {
+        const response = await apiClient.get('/referentiel/types-intervenant', { params: { actifUniquement } });
+        return response.data;
     }
 };
 

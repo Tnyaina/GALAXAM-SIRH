@@ -29,10 +29,6 @@ export default function UserManagementTab() {
     // Formulaire désactivation
     const [deactivateMotif, setDeactivateMotif] = useState('');
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -50,6 +46,10 @@ export default function UserManagementTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     const handleOpenCreateModal = () => {
         setSelectedUser(null);

@@ -29,10 +29,6 @@ export default function IndemnitesSitesTab() {
         idSite: '', idIndemnite: '', periodicite: 'JOURNALIER', montantReference: 0, dateDebut: '2026-01-01', dateFin: ''
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -52,6 +48,10 @@ export default function IndemnitesSitesTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     // Handlers Indemnité
     const handleSaveIndemnite = async (e) => {

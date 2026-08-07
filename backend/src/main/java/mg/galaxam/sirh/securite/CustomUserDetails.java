@@ -15,12 +15,16 @@ public class CustomUserDetails implements UserDetails {
     private final Collection<? extends GrantedAuthority> authorities;
     private final boolean active;
 
-    public CustomUserDetails(Integer idUtilisateur, String username, String password, String role, boolean active) {
+    public CustomUserDetails(Integer idUtilisateur, String username, String password, Collection<? extends GrantedAuthority> authorities, boolean active) {
         this.idUtilisateur = idUtilisateur;
         this.username = username;
         this.password = password;
-        this.authorities = Collections.singletonList(new SimpleGrantedAuthority(role));
+        this.authorities = authorities;
         this.active = active;
+    }
+
+    public CustomUserDetails(Integer idUtilisateur, String username, String password, String role, boolean active) {
+        this(idUtilisateur, username, password, Collections.singletonList(new SimpleGrantedAuthority(role)), active);
     }
 
     public Integer getIdUtilisateur() {

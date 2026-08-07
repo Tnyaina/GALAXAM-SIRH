@@ -17,10 +17,6 @@ export default function FonctionsTab() {
         libelle: ''
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -34,6 +30,10 @@ export default function FonctionsTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     const handleOpenCreate = () => {
         setEditingFonction(null);
@@ -92,7 +92,7 @@ export default function FonctionsTab() {
                 setActionSuccess(`Poste "${fonction.libelle}" réactivé.`);
             }
             loadData();
-        } catch (err) {
+        } catch {
             setError("Erreur lors du changement de statut.");
         }
     };

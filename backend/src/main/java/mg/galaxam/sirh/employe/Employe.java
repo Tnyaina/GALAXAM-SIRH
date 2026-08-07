@@ -116,6 +116,14 @@ public class Employe extends ClassMere {
         }
     }
 
+    private void setNullableString(PreparedStatement ps, int index, String value) throws SQLException {
+        if (value == null || value.trim().isEmpty()) {
+            ps.setNull(index, java.sql.Types.VARCHAR);
+        } else {
+            ps.setString(index, value.trim());
+        }
+    }
+
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO employe (" +
@@ -132,28 +140,28 @@ public class Employe extends ClassMere {
             ps.setString(i++, prenom);
             ps.setString(i++, sexe);
             ps.setDate(i++, dateNaissance);
-            ps.setString(i++, lieuNaissance);
-            ps.setString(i++, nationalite);
-            ps.setString(i++, pereNomPrenom);
-            ps.setString(i++, mereNomPrenom);
-            ps.setString(i++, situationFamiliale);
+            setNullableString(ps, i++, lieuNaissance);
+            setNullableString(ps, i++, nationalite);
+            setNullableString(ps, i++, pereNomPrenom);
+            setNullableString(ps, i++, mereNomPrenom);
+            setNullableString(ps, i++, situationFamiliale);
 
-            ps.setString(i++, cinNumero);
+            setNullableString(ps, i++, cinNumero);
             ps.setDate(i++, cinDateDelivrance);
-            ps.setString(i++, cinLieuDelivrance);
+            setNullableString(ps, i++, cinLieuDelivrance);
             ps.setDate(i++, cinDuplicataDate);
-            ps.setString(i++, cinDuplicataLieu);
+            setNullableString(ps, i++, cinDuplicataLieu);
 
-            ps.setString(i++, permisConduireNumero);
+            setNullableString(ps, i++, permisConduireNumero);
             ps.setDate(i++, permisConduireDateDelivrance);
-            ps.setString(i++, permisConduireLieuDelivrance);
+            setNullableString(ps, i++, permisConduireLieuDelivrance);
 
-            ps.setString(i++, adresse);
-            ps.setString(i++, ville);
-            ps.setString(i++, telephone);
-            ps.setString(i++, email);
-            ps.setString(i++, numAffiliationCnaps);
-            ps.setString(i++, photoUrl);
+            setNullableString(ps, i++, adresse);
+            setNullableString(ps, i++, ville);
+            setNullableString(ps, i++, telephone);
+            setNullableString(ps, i++, email);
+            setNullableString(ps, i++, numAffiliationCnaps);
+            setNullableString(ps, i++, photoUrl);
             ps.setDate(i++, dateDeclaration);
             ps.setBoolean(i++, estActif);
 
@@ -185,28 +193,28 @@ public class Employe extends ClassMere {
             ps.setString(i++, prenom);
             ps.setString(i++, sexe);
             ps.setDate(i++, dateNaissance);
-            ps.setString(i++, lieuNaissance);
-            ps.setString(i++, nationalite);
-            ps.setString(i++, pereNomPrenom);
-            ps.setString(i++, mereNomPrenom);
-            ps.setString(i++, situationFamiliale);
+            setNullableString(ps, i++, lieuNaissance);
+            setNullableString(ps, i++, nationalite);
+            setNullableString(ps, i++, pereNomPrenom);
+            setNullableString(ps, i++, mereNomPrenom);
+            setNullableString(ps, i++, situationFamiliale);
 
-            ps.setString(i++, cinNumero);
+            setNullableString(ps, i++, cinNumero);
             ps.setDate(i++, cinDateDelivrance);
-            ps.setString(i++, cinLieuDelivrance);
+            setNullableString(ps, i++, cinLieuDelivrance);
             ps.setDate(i++, cinDuplicataDate);
-            ps.setString(i++, cinDuplicataLieu);
+            setNullableString(ps, i++, cinDuplicataLieu);
 
-            ps.setString(i++, permisConduireNumero);
+            setNullableString(ps, i++, permisConduireNumero);
             ps.setDate(i++, permisConduireDateDelivrance);
-            ps.setString(i++, permisConduireLieuDelivrance);
+            setNullableString(ps, i++, permisConduireLieuDelivrance);
 
-            ps.setString(i++, adresse);
-            ps.setString(i++, ville);
-            ps.setString(i++, telephone);
-            ps.setString(i++, email);
-            ps.setString(i++, numAffiliationCnaps);
-            ps.setString(i++, photoUrl);
+            setNullableString(ps, i++, adresse);
+            setNullableString(ps, i++, ville);
+            setNullableString(ps, i++, telephone);
+            setNullableString(ps, i++, email);
+            setNullableString(ps, i++, numAffiliationCnaps);
+            setNullableString(ps, i++, photoUrl);
             ps.setDate(i++, dateDeclaration);
 
             ps.setInt(i++, idEmploye);

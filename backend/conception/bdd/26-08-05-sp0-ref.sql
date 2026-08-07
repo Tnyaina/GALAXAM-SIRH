@@ -197,12 +197,12 @@ CREATE INDEX idx_site_indemnite_actif ON site_indemnite_config(id_site, id_indem
 
 -- 1. Filiales
 INSERT INTO ref_filiale (code_filiale, raison_sociale, nif, stat, seuil_effectif_alerte) VALUES
-('LOG', 'Galaxam Logistics', '1234567890', '9876543210', 19),
+('GLX', 'Galaxam Logistics', '1234567890', '9876543210', 19),
 ('VA', 'Vina sy Asa SARL', '0987654321', '0123456789', 0);
 
 -- 2. Départements
 INSERT INTO ref_departement (code_departement, libelle) VALUES
-('LOG', 'Galaxam Logistics'),
+('LOG', 'Logistics'),
 ('LMD', 'Projet LMD');
 
 -- 3. Services (Hierarchie Département)
@@ -212,12 +212,31 @@ INSERT INTO ref_service (code_service, libelle, id_departement) VALUES
 ('ADM', 'Administration Projet', 2),
 ('OPE', 'Opérations Terrain LMD', 2);
 
--- 4. Fonctions
+-- 4. Fonctions (Liste officielle de l'entreprise)
 INSERT INTO ref_fonction (code_fonction, libelle) VALUES
-('DG', 'Directeur Général'),
-('DAF', 'Directeur Administratif et Financier'),
-('OPE_MGR', 'Manager Opérations'),
-('CHEF_DECLARANT', 'Chef Déclarant Transit');
+('DG', 'DG'),
+('DAF', 'DAF'),
+('CHEF_COMPTABLE', 'Chef Comptable'),
+('AIDE_COMPTABLE', 'Aide-Comptable'),
+('OPE_MGR', 'OPE Manager'),
+('CHEF_DECLARANT', 'Chef Déclarant'),
+('AIDE_DECLARANT', 'Aide-Déclarant'),
+('PASSEUR_PIECES', 'Passeur de pièces'),
+('RESP_TOAMASINA', 'Resp bureau Toamasina'),
+('RESP_ENTREPOT', 'Resp Entrepôt'),
+('CHEF_ZONE', 'Chef de zone'),
+('AGENT_PLANIF', 'Agent de planification'),
+('MANUTENTIONNAIRE', 'Manutentionnaire'),
+('COMMERCIAL_EXEC', 'Commercial Executive'),
+('ASSIST_DIR', 'Assist de Direction'),
+('ASSIST_ADMIN', 'Assistante Admin'),
+('AGENT_B_D', 'Agent B à D'),
+('AGENT_TRANSMISSION', 'Agent de transmission'),
+('AGENT_TOUT_FAIRE', 'Agent à tout faire'),
+('AGENT_SURFACE', 'Agent de surface'),
+('GARDIEN', 'Gardien'),
+('AGENT_FORMATION', 'Agent en formation')
+ON CONFLICT (code_fonction) DO NOTHING;
 
 -- 5. Types de contrat & Intervenants
 INSERT INTO ref_type_contrat (code, libelle, exige_date_fin) VALUES
@@ -242,6 +261,8 @@ INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, da
 ('OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, '2026-01-01'),
 ('OMSI', 'Organisation Médicale Inter-entreprises', 1.50, 5.50, '2026-01-01'),
 ('ISI', 'Impôt Synthétique Intermédiaire', 0.00, 5.00, '2026-01-01');
+
+
 
 -- 8. Barème IRSA Officiel (6 Tranches - Loi de Finances 2026)
 INSERT INTO bareme_irsa (numero_tranche, tranche_min, tranche_max, taux, date_debut) VALUES
@@ -278,6 +299,16 @@ INSERT INTO site_indemnite_config (id_site, id_indemnite, periodicite, montant_r
 (1, 2, 'JOURNALIER', 2000.00, '2026-01-01'),
 -- TMM Repas Journalier : 0 Ar
 (2, 2, 'JOURNALIER', 0.00, '2026-01-01');
+
+-- Cotisations de Santé et Prévoyance rattachées par Site
+INSERT INTO site_cotisation (id_site, id_type_cotisation) VALUES
+-- Antananarivo - Siège (TNR) : CNaPS (1) + OSTIE (2)
+(1, 1),
+(1, 2),
+-- Toamasina - Agence (TMM) : CNaPS (1) + OMSI (3)
+(2, 1),
+(2, 3);
+
 
 -- 11. Paramètres Globaux Légaux et Opérationnels
 INSERT INTO parametre_global (code_parametre, valeur, description, date_debut) VALUES

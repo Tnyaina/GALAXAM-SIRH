@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createElement } from 'react';
 import { Search, Plus, Edit2, Trash2, ShieldAlert, CheckCircle, XCircle } from 'lucide-react';
 import referentielService from '@/api/referentielService';
 import { getMenuIcon } from '@/utils/iconRegistry';
@@ -33,10 +33,6 @@ export default function MenuManagementTab() {
         idPere: ''
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -50,6 +46,10 @@ export default function MenuManagementTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     const handleOpenCreateModal = () => {
         setSelectedMenu(null);
@@ -173,8 +173,6 @@ export default function MenuManagementTab() {
         m.idMenu.toLowerCase().includes(search.toLowerCase()) ||
         m.libelle.toLowerCase().includes(search.toLowerCase())
     );
-
-    const IconPreviewComponent = getMenuIcon(formData.icone);
 
     if (loading && menus.length === 0) {
         return (
@@ -416,7 +414,7 @@ export default function MenuManagementTab() {
                                             ))}
                                         </select>
                                         <div className="w-10 h-10 border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 flex items-center justify-center rounded-sm shrink-0">
-                                            <IconPreviewComponent size={20} className="text-brand-500" />
+                                            {createElement(getMenuIcon(formData.icone), { size: 20, className: "text-brand-500" })}
                                         </div>
                                     </div>
                                 </div>
