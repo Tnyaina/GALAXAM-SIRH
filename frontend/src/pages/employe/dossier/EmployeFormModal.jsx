@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, User, CreditCard, Phone, Users, ShieldAlert, Building, Plus, Trash2, Upload, Camera } from 'lucide-react';
-import referentielService from '@/api/referentielService';
-import employeService from '@/api/employeService';
+import referentielService from '@/api/admin/referentielService';
+import employeService from '@/api/employe/employeService';
 import Input, { Textarea, Select, Checkbox } from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
@@ -47,6 +47,31 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
     };
 
     const [formData, setFormData] = useState({ ...emptyForm });
+
+    const fmtDate = (d) => {
+        if (!d) return '';
+        if (typeof d === 'string') {
+            const s = d.trim();
+            if (s.includes('T')) return s.split('T')[0];
+            if (s.includes(' ')) return s.split(' ')[0];
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        }
+        try {
+            const dateObj = new Date(d);
+            if (isNaN(dateObj.getTime())) return '';
+            return dateObj.toISOString().split('T')[0];
+        } catch {
+            return '';
+        }
+    };
+    const loadBanques = async () => { 
+        try { 
+            const data = await referentielService.getBanques();
+            setBanques(data || []); 
+        } catch (err) {
+            console.error('Erreur chargement banques:', err);
+        } 
+    };
 
     useEffect(() => { loadBanques(); }, []);
 
@@ -115,9 +140,6 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
         setActiveTab('civilite');
     }, [employeData, isOpen]);
 
-    const fmtDate = (d) => { if (!d) return ''; try { return new Date(d).toISOString().split('T')[0]; } catch { return ''; } };
-    const loadBanques = async () => { try { setBanques(await referentielService.getBanques() || []); } catch {} };
-
     if (!isOpen) return null;
 
     const set = (name, value) => setFormData(prev => ({ ...prev, [name]: value }));
@@ -184,7 +206,11 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
 
         onSave({
             ...formData,
-            nationalite: finalNat
+            nationalite: finalNat,
+            numAffiliationCnaps: formData.numAffiliationCnaps?.trim() || null,
+            cinNumero: formData.cinNumero?.trim() || null,
+            permisConduireNumero: formData.permisConduireNumero?.trim() || null,
+            email: formData.email?.trim() || null
         });
     };
 
@@ -404,7 +430,8 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                                     <Input label="Nom Conjoint" value={formData.conjoint.nom} onChange={e => setNested('conjoint', 'nom', e.target.value)} placeholder="Nom" />
                                     <Input label="Prénom Conjoint" value={formData.conjoint.prenom} onChange={e => setNested('conjoint', 'prenom', e.target.value)} placeholder="Prénom" />
                                     <Input label="Date Naissance" type="date" value={formData.conjoint.dateNaissance} onChange={e => setNested('conjoint', 'dateNaissance', e.target.value)} />
-                                    <Input label="Société" value={formData.conjoint.societe} onChange={e => setNested('conjoint', 'societe', e.target.value)} placeholder="Employeur" />
+                                    <Input label="Société / Employeur" value={formData.conjoint.societe} onChange={e => setNested('conjoint', 'societe', e.target.value)} placeholder="Société du conjoint" />
+                                    <Input label="Fonction / Profession" value={formData.conjoint.fonction} onChange={e => setNested('conjoint', 'fonction', e.target.value)} placeholder="Poste / Profession du conjoint" />
                                 </div>
                             </div>
 

@@ -16,7 +16,7 @@ const parseJwt = (token) => {
                 .join('')
         );
         return JSON.parse(jsonPayload);
-    } catch (e) {
+    } catch {
         return null;
     }
 };
@@ -33,6 +33,7 @@ export const AuthProvider = ({ children }) => {
                 setUser({
                     identifiant: decoded.sub,
                     role: decoded.role,
+                    permissions: Array.isArray(decoded.permissions) ? decoded.permissions : [],
                 });
             } else {
                 setUser(null);
@@ -40,6 +41,13 @@ export const AuthProvider = ({ children }) => {
         } else {
             setUser(null);
         }
+    };
+
+    const hasPermission = (permissionCode) => {
+        if (!user) return false;
+        if (user.role === 'ROLE_ADMIN') return true;
+        if (!user.permissions) return false;
+        return user.permissions.includes(permissionCode);
     };
 
     // Connexion utilisateur
@@ -77,7 +85,7 @@ export const AuthProvider = ({ children }) => {
                 const response = await apiClient.post('/auth/refresh');
                 const { accessToken } = response.data;
                 handleTokenUpdate(accessToken);
-            } catch (error) {
+            } catch {
                 // Pas de session valide ou pas de cookie
                 handleTokenUpdate(null);
             } finally {
@@ -104,11 +112,13 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         logout,
+        hasPermission,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {

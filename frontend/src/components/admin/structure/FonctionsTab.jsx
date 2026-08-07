@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, CheckCircle, XCircle, Eye } from 'lucide-react';
-import organisationService from '@/api/organisationService';
+import organisationService from '@/api/admin/organisationService';
 
 export default function FonctionsTab() {
     const [fonctions, setFonctions] = useState([]);
@@ -17,10 +17,6 @@ export default function FonctionsTab() {
         libelle: ''
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -34,6 +30,10 @@ export default function FonctionsTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     const handleOpenCreate = () => {
         setEditingFonction(null);
@@ -92,7 +92,7 @@ export default function FonctionsTab() {
                 setActionSuccess(`Poste "${fonction.libelle}" réactivé.`);
             }
             loadData();
-        } catch (err) {
+        } catch {
             setError("Erreur lors du changement de statut.");
         }
     };

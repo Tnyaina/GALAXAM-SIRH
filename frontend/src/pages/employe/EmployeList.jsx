@@ -1,20 +1,29 @@
 import { useState, useEffect } from 'react';
-import { UserPlus, Search, Eye, Edit2, Power, Users, RefreshCw, CheckCircle, XCircle, ShieldAlert } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import employeService from '@/api/employeService';
-import EmployeFormModal from './EmployeFormModal';
+import { UserPlus, Search, Eye, Edit2, Users, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import employeService from '@/api/employe/employeService';
+import EmployeFormModal from './dossier/EmployeFormModal';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
+import Alert from '@/components/ui/Alert';
+import Input, { Select } from '@/components/ui/Input';
+import Card, { CardBody } from '@/components/ui/Card';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+
+import { useAuth } from '@/context/AuthContext';
 
 export default function EmployeList() {
     const navigate = useNavigate();
+    const { hasPermission } = useAuth();
+    const canWrite = hasPermission('EMPLOYE_WRITE');
+    const canValidate = hasPermission('EMPLOYE_VALIDATE');
     const [employes, setEmployes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'ACTIVE', 'INACTIVE'
 
-    // Modals
+    // Modales
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [selectedEmployeForEdit, setSelectedEmployeForEdit] = useState(null);
 
@@ -25,10 +34,6 @@ export default function EmployeList() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [actionSuccess, setActionSuccess] = useState('');
-
-    useEffect(() => {
-        loadEmployes();
-    }, [searchQuery, statusFilter]);
 
     const loadEmployes = async () => {
         setLoading(true);
@@ -48,6 +53,10 @@ export default function EmployeList() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadEmployes();
+    }, [searchQuery, statusFilter]);
 
     const handleOpenCreate = () => {
         setSelectedEmployeForEdit(null);
@@ -102,10 +111,10 @@ export default function EmployeList() {
         }
     };
 
-    const handleDesactiverConfirm = async (e) => {
-        e.preventDefault();
+    const handleDesactiverConfirm = async () => {
         if (!employeToDesactiver) return;
         setError('');
+        setSubmitting(true);
         try {
             await employeService.desactiverEmploye(employeToDesactiver.idEmploye, motifDesactivation);
             setIsDesactivationModalOpen(false);
@@ -114,6 +123,8 @@ export default function EmployeList() {
         } catch (err) {
             console.error('Erreur désactivation:', err);
             setError(err.response?.data || 'Erreur lors de la désactivation.');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -129,11 +140,6 @@ export default function EmployeList() {
         }
     };
 
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '-';
-        return new Date(dateStr).toLocaleDateString('fr-FR');
-    };
-
     // Stats
     const totalEmployes = employes.length;
     const totalActifs = employes.filter(e => e.estActif).length;
@@ -142,9 +148,9 @@ export default function EmployeList() {
     return (
         <div className="space-y-6">
             {/* En-tête de la page */}
-            <div className="bg-white dark:bg-ink-900 rounded-sm shadow-sm border border-ink-150 dark:border-ink-700 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-brand-500 text-white rounded-sm flex items-center justify-center shadow-md shadow-brand-500/10">
+                    <div className="w-12 h-12 bg-brand-500 text-white flex items-center justify-center">
                         <Users size={24} />
                     </div>
                     <div>
@@ -154,79 +160,85 @@ export default function EmployeList() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={loadEmployes}
-                        className="p-2.5 hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-400 rounded-sm transition-all cursor-pointer"
-                        title="Actualiser"
-                    >
-                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                    </button>
                     <Button
-                        onClick={handleOpenCreate}
-                        variant="primary"
+                        onClick={loadEmployes}
+                        variant="ghost"
                         size="sm"
-                        iconLeft={<UserPlus size={16} />}
+                        iconLeft={<RefreshCw size={16} className={loading ? 'animate-spin' : ''} />}
                     >
-                        Nouvel Employé
+                        Actualiser
                     </Button>
+                    {canWrite && (
+                        <Button
+                            onClick={handleOpenCreate}
+                            variant="primary"
+                            size="sm"
+                            iconLeft={<UserPlus size={16} />}
+                        >
+                            Nouvel Employé
+                        </Button>
+                    )}
                 </div>
             </div>
 
             {/* Notifications */}
             {actionSuccess && (
-                <div className="bg-success-500/10 text-success-600 dark:text-success-500 border border-success-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
+                <Alert type="success" onClose={() => setActionSuccess('')}>
                     {actionSuccess}
-                </div>
+                </Alert>
             )}
             {error && (
-                <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
+                <Alert type="error" onClose={() => setError('')}>
                     {error}
-                </div>
+                </Alert>
             )}
 
             {/* Stats rapides */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 shadow-sm p-5 flex items-center gap-4">
-                    <div className="w-11 h-11 bg-blue-50 text-[#2563EB] flex items-center justify-center">
-                        <Users size={20} />
-                    </div>
-                    <div>
-                        <p className="text-xs font-semibold uppercase tracking-widest text-ink-400">Total</p>
-                        <p className="text-2xl font-bold text-ink-800 dark:text-white">{totalEmployes}</p>
-                    </div>
-                </div>
-                <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 shadow-sm p-5 flex items-center gap-4">
-                    <div className="w-11 h-11 bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                        <CheckCircle size={20} />
-                    </div>
-                    <div>
-                        <p className="text-xs font-semibold uppercase tracking-widest text-ink-400">Actifs</p>
-                        <p className="text-2xl font-bold text-emerald-600">{totalActifs}</p>
-                    </div>
-                </div>
-                <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 shadow-sm p-5 flex items-center gap-4">
-                    <div className="w-11 h-11 bg-red-50 text-red-500 flex items-center justify-center">
-                        <XCircle size={20} />
-                    </div>
-                    <div>
-                        <p className="text-xs font-semibold uppercase tracking-widest text-ink-400">Inactifs</p>
-                        <p className="text-2xl font-bold text-red-500">{totalInactifs}</p>
-                    </div>
-                </div>
+                <Card bordered shadow="sm">
+                    <CardBody className="p-5 flex items-center gap-4">
+                        <div className="w-11 h-11 bg-brand-50 dark:bg-brand-900/30 text-brand-500 flex items-center justify-center">
+                            <Users size={20} />
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-widest text-ink-400">Total</p>
+                            <p className="text-2xl font-bold text-ink-800 dark:text-white">{totalEmployes}</p>
+                        </div>
+                    </CardBody>
+                </Card>
+                <Card bordered shadow="sm">
+                    <CardBody className="p-5 flex items-center gap-4">
+                        <div className="w-11 h-11 bg-success-500/10 text-success-500 flex items-center justify-center">
+                            <Users size={20} />
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-widest text-ink-400">Actifs</p>
+                            <p className="text-2xl font-bold text-success-500">{totalActifs}</p>
+                        </div>
+                    </CardBody>
+                </Card>
+                <Card bordered shadow="sm">
+                    <CardBody className="p-5 flex items-center gap-4">
+                        <div className="w-11 h-11 bg-danger-500/10 text-danger-500 flex items-center justify-center">
+                            <Users size={20} />
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-widest text-ink-400">Inactifs</p>
+                            <p className="text-2xl font-bold text-danger-500">{totalInactifs}</p>
+                        </div>
+                    </CardBody>
+                </Card>
             </div>
 
             {/* Barre d'outils : recherche + filtre */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-white dark:bg-ink-900 p-4 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm">
-                <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={18} />
-                    <input
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-white dark:bg-ink-900 p-4 border border-ink-150 dark:border-ink-700 shadow-sm">
+                <div className="flex-1 max-w-md">
+                    <Input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Rechercher par nom, matricule, CIN..."
-                        className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm text-ink-900 dark:text-white focus:outline-none focus:border-brand-500"
+                        icon={<Search size={18} />}
                     />
                 </div>
 
@@ -236,17 +248,14 @@ export default function EmployeList() {
                         { key: 'ACTIVE', label: 'Actifs' },
                         { key: 'INACTIVE', label: 'Inactifs' },
                     ].map(f => (
-                        <button
+                        <Button
                             key={f.key}
+                            size="xs"
+                            variant={statusFilter === f.key ? 'primary' : 'ghost'}
                             onClick={() => setStatusFilter(f.key)}
-                            className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-all cursor-pointer ${
-                                statusFilter === f.key
-                                    ? 'bg-white dark:bg-ink-800 text-brand-500 shadow-sm border border-ink-200 dark:border-ink-600'
-                                    : 'text-ink-400 hover:text-ink-800 dark:hover:text-white border border-transparent'
-                            }`}
                         >
                             {f.label}
-                        </button>
+                        </Button>
                     ))}
                 </div>
             </div>
@@ -263,11 +272,11 @@ export default function EmployeList() {
                     <p className="text-xs text-ink-400 mt-1">Aucun enregistrement ne correspond à vos critères.</p>
                 </div>
             ) : (
-                <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
+                <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse text-left text-sm">
                             <thead>
-                                <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 font-semibold uppercase text-xs">
+                                <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 font-bold uppercase text-[10px] tracking-widest">
                                     <th className="px-6 py-4">Matricule</th>
                                     <th className="px-6 py-4">Nom complet</th>
                                     <th className="px-6 py-4">CIN</th>
@@ -281,7 +290,7 @@ export default function EmployeList() {
                                 {employes.map((emp) => (
                                     <tr key={emp.idEmploye} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
                                         <td className="px-6 py-4">
-                                            <span className="font-mono font-semibold text-brand-500">{emp.matricule}</span>
+                                            <span className="font-mono font-bold text-brand-500">{emp.matricule}</span>
                                         </td>
                                         <td className="px-6 py-4 font-semibold">{emp.nomComplet}</td>
                                         <td className="px-6 py-4 font-mono text-xs">{emp.cinNumero}</td>
@@ -291,47 +300,47 @@ export default function EmployeList() {
                                         </td>
                                         <td className="px-6 py-4">
                                             {emp.estActif ? (
-                                                <span className="inline-flex items-center gap-1.5 text-success-500 font-semibold text-xs">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-success-500"></span>
-                                                    Actif
-                                                </span>
+                                                <Badge variant="success" size="sm" dot>Actif</Badge>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1.5 text-ink-400 font-semibold text-xs">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-ink-400"></span>
-                                                    Inactif
-                                                </span>
+                                                <Badge variant="default" size="sm" dot>Inactif</Badge>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
+                                            <div className="flex justify-end items-center gap-2">
                                                 <button
                                                     onClick={() => handleOpenDetail(emp)}
-                                                    className="p-1.5 text-ink-500 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-sm transition-all cursor-pointer"
+                                                    className="p-1.5 text-ink-400 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors cursor-pointer"
                                                     title="Voir la fiche"
                                                 >
                                                     <Eye size={16} />
                                                 </button>
-                                                <button
-                                                    onClick={() => handleOpenEdit(emp)}
-                                                    className="p-1.5 text-ink-500 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-sm transition-all cursor-pointer"
-                                                    title="Modifier"
-                                                >
-                                                    <Edit2 size={16} />
-                                                </button>
-                                                {emp.estActif ? (
+                                                {canWrite && (
                                                     <button
-                                                        onClick={() => handleToggleStatus(emp)}
-                                                        className="px-2 py-1.5 text-xs font-bold text-danger-500 hover:bg-danger-500/10 rounded-sm transition-all cursor-pointer"
+                                                        onClick={() => handleOpenEdit(emp)}
+                                                        className="p-1.5 text-ink-400 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors cursor-pointer"
+                                                        title="Modifier"
                                                     >
-                                                        Désactiver
+                                                        <Edit2 size={16} />
                                                     </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => handleToggleStatus(emp)}
-                                                        className="px-2 py-1.5 text-xs font-bold text-success-500 hover:bg-success-500/10 rounded-sm transition-all cursor-pointer"
-                                                    >
-                                                        Activer
-                                                    </button>
+                                                )}
+                                                {canValidate && (
+                                                    emp.estActif ? (
+                                                        <Button
+                                                            size="xs"
+                                                            variant="danger"
+                                                            onClick={() => handleToggleStatus(emp)}
+                                                        >
+                                                            Désactiver
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            size="xs"
+                                                            variant="success"
+                                                            onClick={() => handleToggleStatus(emp)}
+                                                        >
+                                                            Réactiver
+                                                        </Button>
+                                                    )
                                                 )}
                                             </div>
                                         </td>
@@ -343,7 +352,7 @@ export default function EmployeList() {
                 </div>
             )}
 
-            {/* Modals */}
+            {/* Modale d'édition / création d'employé */}
             <EmployeFormModal
                 isOpen={isFormOpen}
                 onClose={() => setIsFormOpen(false)}
@@ -352,56 +361,31 @@ export default function EmployeList() {
                 isSubmitting={submitting}
             />
 
-            {/* Modale de désactivation */}
-            {isDesactivationModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
-                    <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
-                            <Power size={18} className="text-danger-500" />
-                            Désactiver l'employé
-                        </div>
-                        <form onSubmit={handleDesactiverConfirm}>
-                            <div className="p-6 space-y-4">
-                                <p className="text-sm text-ink-500 dark:text-ink-400">
-                                    Veuillez spécifier le motif de désactivation de l'employé{' '}
-                                    <strong className="text-ink-800 dark:text-white">{employeToDesactiver?.nomComplet || employeToDesactiver?.matricule}</strong>.
-                                </p>
-
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-wider text-ink-800 dark:text-ink-50">Motif de Désactivation</label>
-                                    <select
-                                        value={motifDesactivation}
-                                        onChange={(e) => setMotifDesactivation(e.target.value)}
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                    >
-                                        <option value="Demission">Démission</option>
-                                        <option value="Licenciement">Licenciement</option>
-                                        <option value="Fin_contrat">Fin de contrat</option>
-                                        <option value="Retraite">Retraite</option>
-                                        <option value="Deces">Décès</option>
-                                        <option value="Autre">Autre</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsDesactivationModalOpen(false)}
-                                    className="px-4 py-2 text-sm font-semibold hover:bg-ink-200 dark:hover:bg-ink-850 rounded-sm transition-colors cursor-pointer"
-                                >
-                                    Annuler
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 text-sm font-semibold bg-danger-500 hover:bg-danger-600 text-white rounded-sm transition-colors cursor-pointer"
-                                >
-                                    Confirmer la Désactivation
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            {/* Modale de désactivation réutilisable */}
+            <ConfirmDialog
+                isOpen={isDesactivationModalOpen}
+                onClose={() => setIsDesactivationModalOpen(false)}
+                onConfirm={handleDesactiverConfirm}
+                title="Désactiver la fiche employé"
+                message={`Spécifiez le motif de désactivation de l'employé ${employeToDesactiver?.nomComplet || employeToDesactiver?.matricule || ''}.`}
+                confirmLabel="Confirmer la désactivation"
+                cancelLabel="Annuler"
+                variant="danger"
+                loading={submitting}
+            >
+                <Select
+                    label="Motif de Désactivation"
+                    value={motifDesactivation}
+                    onChange={(e) => setMotifDesactivation(e.target.value)}
+                >
+                    <option value="Demission">Démission</option>
+                    <option value="Licenciement">Licenciement</option>
+                    <option value="Fin_contrat">Fin de contrat</option>
+                    <option value="Retraite">Retraite</option>
+                    <option value="Deces">Décès</option>
+                    <option value="Autre">Autre</option>
+                </Select>
+            </ConfirmDialog>
         </div>
     );
 }

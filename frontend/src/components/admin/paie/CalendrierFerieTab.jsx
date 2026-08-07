@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, CheckCircle, XCircle, Calendar, MapPin, Search, Filter, Info } from 'lucide-react';
-import paieConfigService from '@/api/paieConfigService';
-import organisationService from '@/api/organisationService';
+import paieConfigService from '@/api/admin/paieConfigService';
+import organisationService from '@/api/admin/organisationService';
 
 function formatDateDisplay(dateStr) {
     if (!dateStr) return '-';
@@ -48,10 +48,6 @@ export default function CalendrierFerieTab() {
         idSite: '', idFerie: ''
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -71,6 +67,10 @@ export default function CalendrierFerieTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     // Handlers Férié
     const handleSaveFerie = async (e) => {
@@ -127,7 +127,7 @@ export default function CalendrierFerieTab() {
             await paieConfigService.deleteSiteFerie(id);
             setActionSuccess("Association du jour férié supprimée.");
             loadData();
-        } catch (err) {
+        } catch {
             setError("Erreur lors de la suppression.");
         }
     };

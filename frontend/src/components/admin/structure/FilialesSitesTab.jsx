@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, CheckCircle, XCircle, Building2, MapPin, Eye } from 'lucide-react';
-import organisationService from '@/api/organisationService';
+import organisationService from '@/api/admin/organisationService';
 
 export default function FilialesSitesTab() {
     const [filiales, setFiliales] = useState([]);
@@ -37,10 +37,6 @@ export default function FilialesSitesTab() {
         heureFinApresMidi: '17:00'
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -58,6 +54,10 @@ export default function FilialesSitesTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     // Filiale Handlers
     const handleOpenCreateFiliale = () => {

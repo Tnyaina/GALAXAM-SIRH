@@ -191,9 +191,9 @@ public class Utilisateur extends ClassMere {
     }
 
     public static Utilisateur rechercherParIdentifiant(String login, Connection c) throws Exception {
-        String sql = "SELECT * FROM utilisateur WHERE identifiant=?";
+        String sql = "SELECT * FROM utilisateur WHERE LOWER(identifiant) = LOWER(?)";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, login);
+            ps.setString(1, login != null ? login.trim() : "");
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return mapResultSet(rs);

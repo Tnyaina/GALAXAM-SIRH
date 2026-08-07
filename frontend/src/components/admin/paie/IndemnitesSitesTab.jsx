@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, CheckCircle, XCircle, Gift, MapPin } from 'lucide-react';
-import paieConfigService from '@/api/paieConfigService';
-import organisationService from '@/api/organisationService';
+import paieConfigService from '@/api/admin/paieConfigService';
+import organisationService from '@/api/admin/organisationService';
 
 export default function IndemnitesSitesTab() {
     const [subSection, setSubSection] = useState('indemnites'); // 'indemnites' | 'sites_config'
@@ -29,10 +29,6 @@ export default function IndemnitesSitesTab() {
         idSite: '', idIndemnite: '', periodicite: 'JOURNALIER', montantReference: 0, dateDebut: '2026-01-01', dateFin: ''
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -52,6 +48,10 @@ export default function IndemnitesSitesTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     // Handlers Indemnité
     const handleSaveIndemnite = async (e) => {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Shield, Plus, Edit2, CheckCircle, XCircle, ShieldCheck, ListTodo } from 'lucide-react';
-import referentielService from '@/api/referentielService';
+import referentielService from '@/api/admin/referentielService';
 
 export default function RolesAndPermissionsTab() {
     const [roles, setRoles] = useState([]);
@@ -28,16 +28,6 @@ export default function RolesAndPermissionsTab() {
     });
     const [editingRole, setEditingRole] = useState(null);
     const [roleModalError, setRoleModalError] = useState(null);
-
-    useEffect(() => {
-        loadMasterData();
-    }, []);
-
-    useEffect(() => {
-        if (selectedRole) {
-            loadRoleConfiguration(selectedRole.idRole);
-        }
-    }, [selectedRole]);
 
     const loadMasterData = async () => {
         setLoading(true);
@@ -74,11 +64,22 @@ export default function RolesAndPermissionsTab() {
             setRolePermissions(perms);
             setSelectedMenuIds(assignedMenus.map(m => m.idMenu));
         } catch (err) {
-            console.error("Erreur lors de la récupération de la configuration du rôle :", err);
+            setError("Erreur lors de la lecture des configurations du rôle.");
+            console.error(err);
         } finally {
             setLoadingDetails(false);
         }
     };
+
+    useEffect(() => {
+        loadMasterData();
+    }, []);
+
+    useEffect(() => {
+        if (selectedRole) {
+            loadRoleConfiguration(selectedRole.idRole);
+        }
+    }, [selectedRole]);
 
     // Gestion du rôle (Créer / Modifier)
     const handleOpenCreateRole = () => {
@@ -151,7 +152,7 @@ export default function RolesAndPermissionsTab() {
             setRoles(rolesData);
             const currentSelected = rolesData.find(r => r.idRole === selectedRole?.idRole);
             if (currentSelected) setSelectedRole(currentSelected);
-        } catch (err) {
+        } catch {
             setError("Erreur lors de la modification du statut du rôle.");
         }
     };
@@ -227,7 +228,7 @@ export default function RolesAndPermissionsTab() {
             await referentielService.updateRolePermissions(selectedRole.idRole, cleanPermissions);
             setSuccessMessage("Permissions mises à jour avec succès.");
             loadRoleConfiguration(selectedRole.idRole);
-        } catch (err) {
+        } catch {
             setError("Erreur lors de l'enregistrement des permissions.");
         }
     };
@@ -294,7 +295,7 @@ export default function RolesAndPermissionsTab() {
             await referentielService.updateRoleMenus(selectedRole.idRole, selectedMenuIds);
             setSuccessMessage("Accès aux menus enregistré avec succès.");
             loadRoleConfiguration(selectedRole.idRole);
-        } catch (err) {
+        } catch {
             setError("Erreur lors de la mise à jour de l'accès aux menus.");
         }
     };

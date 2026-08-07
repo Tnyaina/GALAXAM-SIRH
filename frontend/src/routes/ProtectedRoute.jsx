@@ -2,8 +2,8 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/layout/Layout';
 
-export default function ProtectedRoute({ allowedRoles, children }) {
-    const { isAuthenticated, user, loading } = useAuth();
+export default function ProtectedRoute({ allowedRoles, requiredPermission, children }) {
+    const { isAuthenticated, user, hasPermission, loading } = useAuth();
 
     // Écran de chargement lors de la récupération de la session
     if (loading) {
@@ -22,8 +22,12 @@ export default function ProtectedRoute({ allowedRoles, children }) {
         return <Navigate to="/" replace />;
     }
 
-    // Redirige vers la page non autorisée si le rôle n'est pas suffisant
+    // Redirige vers la page non autorisée si le rôle ou la permission est insuffisante
     if (allowedRoles && !allowedRoles.includes(user?.role)) {
+        return <Navigate to="/non-autorise" replace />;
+    }
+
+    if (requiredPermission && !hasPermission(requiredPermission)) {
         return <Navigate to="/non-autorise" replace />;
     }
 

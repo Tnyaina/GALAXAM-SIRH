@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, UserPlus, Edit2, ShieldAlert, CheckCircle, XCircle } from 'lucide-react';
-import referentielService from '@/api/referentielService';
+import referentielService from '@/api/admin/referentielService';
 
 export default function UserManagementTab() {
     const [users, setUsers] = useState([]);
@@ -29,10 +29,6 @@ export default function UserManagementTab() {
     // Formulaire désactivation
     const [deactivateMotif, setDeactivateMotif] = useState('');
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -50,6 +46,10 @@ export default function UserManagementTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     const handleOpenCreateModal = () => {
         setSelectedUser(null);

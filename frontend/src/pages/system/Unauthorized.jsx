@@ -4,10 +4,10 @@ import StatusPage from '@/components/system/StatusPage';
 export default function Unauthorized() {
     return (
         <StatusPage
-            code="401"
+            code="403"
             icon={ShieldAlert}
-            title="Accès refusé"
-            description="Vous ne disposez pas des permissions requises pour accéder à cette ressource."
+            title="Accès refusé (403)"
+            description="Vos droits d'accès actuels ne vous permettent pas d'accéder à cette page ou d'effectuer cette opération."
             tone="danger"
             actionLabel="Retour au tableau de bord"
             actionHref="/dashboard"

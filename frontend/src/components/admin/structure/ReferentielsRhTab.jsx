@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, CheckCircle, XCircle, FileText, UserCheck, Landmark } from 'lucide-react';
-import organisationService from '@/api/organisationService';
+import organisationService from '@/api/admin/organisationService';
 
 export default function ReferentielsRhTab() {
     const [activeSection, setActiveSection] = useState('contrats'); // 'contrats' | 'intervenants' | 'banques'
@@ -29,10 +29,6 @@ export default function ReferentielsRhTab() {
     const [editingBanque, setEditingBanque] = useState(null);
     const [banqueFormData, setBanqueFormData] = useState({ codeBanque: '', nomBanque: '', codeSwift: '' });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -52,6 +48,10 @@ export default function ReferentielsRhTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     // Contrat Handlers
     const handleSaveContrat = async (e) => {

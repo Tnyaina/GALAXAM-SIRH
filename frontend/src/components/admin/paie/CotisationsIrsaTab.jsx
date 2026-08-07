@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, CheckCircle, XCircle, ShieldCheck, Percent, MapPin, Eye } from 'lucide-react';
-import paieConfigService from '@/api/paieConfigService';
-import organisationService from '@/api/organisationService';
+import paieConfigService from '@/api/admin/paieConfigService';
+import organisationService from '@/api/admin/organisationService';
 
 export default function CotisationsIrsaTab() {
     const [subSection, setSubSection] = useState('cotisations'); // 'cotisations' | 'site_cotisations' | 'irsa'
@@ -39,10 +39,6 @@ export default function CotisationsIrsaTab() {
         numeroTranche: 1, trancheMin: 0, trancheMax: '', taux: 0, dateDebut: '2026-01-01', dateFin: ''
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -58,12 +54,16 @@ export default function CotisationsIrsaTab() {
             setSites(sitesData);
             setTranchesIrsa(irsaData);
         } catch (err) {
-            setError("Erreur lors du chargement des cotisations et du barème IRSA.");
+            setError("Erreur lors du chargement des données. Veuillez réessayer.");
             console.error(err);
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadData();
+    }, []);
 
     // Handlers Cotisation
     const handleSaveCotisation = async (e) => {
@@ -415,7 +415,7 @@ export default function CotisationsIrsaTab() {
                                         <td className="px-4 py-3 font-mono font-bold text-brand-500">Tranche {t.numeroTranche}</td>
                                         <td className="px-4 py-3 font-mono">{t.trancheMin?.toLocaleString()} Ar</td>
                                         <td className="px-4 py-3 font-mono font-semibold">
-                                            {t.trancheMax ? `${t.trancheMax.toLocaleString()} Ar` : <span className="text-amber-500 italic">Au-delà (Infini)</span>}
+                                            {t.trancheMax ? `${t.trancheMax.toLocaleString()} Ar` : <span className="text-amber-500">Au-delà </span>}
                                         </td>
                                         <td className="px-4 py-3 text-right font-mono font-bold text-brand-500 text-base">{t.taux}%</td>
                                         <td className="px-4 py-3 text-right">

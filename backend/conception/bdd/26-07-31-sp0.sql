@@ -60,9 +60,7 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 
 -- 2. Sous-menus de Niveau 2 - Gestion du Personnel
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-('PERS_EMPLOYES', 'Fiches Employés', 'Users', '/employes', 1, 2, 'GESTION_PERSONNEL'),
-('PERS_CONTRATS', 'Dossiers & Contrats', 'UserCheck', '/employes/contrats', 2, 2, 'GESTION_PERSONNEL');
-
+('PERS_EMPLOYES', 'Fiches Employés', 'Users', '/employes', 1, 2, 'GESTION_PERSONNEL');
 -- 3. Sous-menus de Niveau 2 - Administration & Paramétrage
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
 ('ADMIN_STRUCT', 'Structure Organisationnelle', 'Boxes', '/admin/structure', 1, 2, 'ADMIN_MODULE'),
@@ -76,7 +74,6 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'DASHBOARD'),
 (1, 'GESTION_PERSONNEL'),
 (1, 'PERS_EMPLOYES'),
-(1, 'PERS_CONTRATS'),
 (1, 'POINTAGE'),
 (1, 'PAIE_MODULE'),
 (1, 'ADMIN_MODULE'),
