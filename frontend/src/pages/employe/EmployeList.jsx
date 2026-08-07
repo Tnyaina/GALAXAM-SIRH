@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { UserPlus, Search, Eye, Edit2, Users, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import employeService from '@/api/employeService';
-import EmployeFormModal from './EmployeFormModal';
+import EmployeFormModal from './dossier/EmployeFormModal';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';

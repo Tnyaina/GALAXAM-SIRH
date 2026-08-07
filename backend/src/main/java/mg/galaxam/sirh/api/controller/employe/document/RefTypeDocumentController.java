@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.api.controller.employe;
+package mg.galaxam.sirh.api.controller.employe.document;
 
 import mg.galaxam.sirh.employe.RefTypeDocument;
 import mg.galaxam.sirh.securite.AuditLog;

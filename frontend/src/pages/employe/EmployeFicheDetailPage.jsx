@@ -10,11 +10,11 @@ import {
 import employeService from '@/api/employeService';
 import documentRhService from '@/api/documentRhService';
 import contratService from '@/api/contratService';
-import EmployeFormModal from './EmployeFormModal';
-import ContratFormModal from './ContratFormModal';
-import AffectationFormModal from './AffectationFormModal';
-import ContratAffectationWizard from './ContratAffectationWizard';
-import ClotureContratModal from './ClotureContratModal';
+import EmployeFormModal from './dossier/EmployeFormModal';
+import ContratFormModal from './contrat/ContratFormModal';
+import AffectationFormModal from './affectation/AffectationFormModal';
+import ContratAffectationWizard from './contrat/ContratAffectationWizard';
+import ClotureContratModal from './contrat/ClotureContratModal';
 import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';

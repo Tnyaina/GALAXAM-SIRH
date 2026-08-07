@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.api.controller.employe;
+package mg.galaxam.sirh.api.controller.employe.affectation;
 
 import mg.galaxam.sirh.employe.RefCategorieProfessionnelle;
 import mg.galaxam.sirh.employe.RefModeCalculPaie;

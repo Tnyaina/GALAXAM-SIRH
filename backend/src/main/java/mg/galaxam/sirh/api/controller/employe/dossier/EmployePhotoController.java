@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.api.controller.employe;
+package mg.galaxam.sirh.api.controller.employe.dossier;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;

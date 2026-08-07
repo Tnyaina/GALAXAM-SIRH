@@ -1,4 +1,4 @@
-package mg.galaxam.sirh.api.controller.employe;
+package mg.galaxam.sirh.api.controller.employe.dossier;
 
 import mg.galaxam.sirh.api.dto.employe.DesactivationRequest;
 import mg.galaxam.sirh.api.dto.employe.EmployeFicheDetailDTO;
