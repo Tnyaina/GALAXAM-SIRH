@@ -11,8 +11,12 @@ import Input, { Select } from '@/components/ui/Input';
 import Card, { CardBody } from '@/components/ui/Card';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
+import { useAuth } from '@/context/AuthContext';
+
 export default function EmployeList() {
     const navigate = useNavigate();
+    const { hasPermission } = useAuth();
+    const canWrite = hasPermission('EMPLOYE_WRITE');
     const [employes, setEmployes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -163,14 +167,16 @@ export default function EmployeList() {
                     >
                         Actualiser
                     </Button>
-                    <Button
-                        onClick={handleOpenCreate}
-                        variant="primary"
-                        size="sm"
-                        iconLeft={<UserPlus size={16} />}
-                    >
-                        Nouvel Employé
-                    </Button>
+                    {canWrite && (
+                        <Button
+                            onClick={handleOpenCreate}
+                            variant="primary"
+                            size="sm"
+                            iconLeft={<UserPlus size={16} />}
+                        >
+                            Nouvel Employé
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -307,29 +313,33 @@ export default function EmployeList() {
                                                 >
                                                     <Eye size={16} />
                                                 </button>
-                                                <button
-                                                    onClick={() => handleOpenEdit(emp)}
-                                                    className="p-1.5 text-ink-400 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors cursor-pointer"
-                                                    title="Modifier"
-                                                >
-                                                    <Edit2 size={16} />
-                                                </button>
-                                                {emp.estActif ? (
-                                                    <Button
-                                                        size="xs"
-                                                        variant="danger"
-                                                        onClick={() => handleToggleStatus(emp)}
-                                                    >
-                                                        Désactiver
-                                                    </Button>
-                                                ) : (
-                                                    <Button
-                                                        size="xs"
-                                                        variant="success"
-                                                        onClick={() => handleToggleStatus(emp)}
-                                                    >
-                                                        Activer
-                                                    </Button>
+                                                {canWrite && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleOpenEdit(emp)}
+                                                            className="p-1.5 text-ink-400 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors cursor-pointer"
+                                                            title="Modifier"
+                                                        >
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                        {emp.estActif ? (
+                                                            <Button
+                                                                size="xs"
+                                                                variant="danger"
+                                                                onClick={() => handleToggleStatus(emp)}
+                                                            >
+                                                                Désactiver
+                                                            </Button>
+                                                        ) : (
+                                                            <Button
+                                                                size="xs"
+                                                                variant="success"
+                                                                onClick={() => handleToggleStatus(emp)}
+                                                            >
+                                                                Réactiver
+                                                            </Button>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                         </td>

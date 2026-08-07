@@ -26,7 +26,7 @@ public class EmployeAffectationCarriereController {
      * Historique des affectations de carrière d'un employé.
      */
     @GetMapping("/employes/{idEmploye}/affectations")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAffectationsByEmploye(@PathVariable int idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             List<EmployeAffectationCarriereCPL> list = EmployeAffectationCarriereCPL.listByEmployeId(idEmploye, c);
@@ -42,7 +42,7 @@ public class EmployeAffectationCarriereController {
      * Affectation & poste courant d'un employé.
      */
     @GetMapping("/employes/{idEmploye}/affectation-courante")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAffectationCourante(@PathVariable int idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             EmployeAffectationCarriereCPL aff = EmployeAffectationCarriereCPL.getAffectationCourante(idEmploye, c);
@@ -59,7 +59,7 @@ public class EmployeAffectationCarriereController {
      * Clôture automatiquement l'ancienne affectation active la veille du début de la nouvelle.
      */
     @PostMapping("/employes/{idEmploye}/affectations")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createAffectation(@PathVariable int idEmploye, @RequestBody EmployeAffectationCarriere req) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -93,7 +93,7 @@ public class EmployeAffectationCarriereController {
      * Modification d'une affectation de carrière.
      */
     @PutMapping("/affectations-carriere/{idAffectation}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateAffectation(@PathVariable int idAffectation, @RequestBody EmployeAffectationCarriere req) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

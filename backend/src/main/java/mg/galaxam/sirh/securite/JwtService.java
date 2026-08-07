@@ -61,11 +61,16 @@ public class JwtService {
         Map<String, Object> extraClaims = new HashMap<>();
         String role = userDetails.getAuthorities().stream()
                 .map(auth -> auth.getAuthority())
+                .filter(a -> a.startsWith("ROLE_"))
                 .findFirst()
-                .orElse(null);
-        if (role != null) {
-            extraClaims.put("role", role);
-        }
+                .orElse("ROLE_USER");
+
+        java.util.List<String> permissions = userDetails.getAuthorities().stream()
+                .map(auth -> auth.getAuthority())
+                .collect(java.util.stream.Collectors.toList());
+
+        extraClaims.put("role", role);
+        extraClaims.put("permissions", permissions);
         return generateAccessToken(extraClaims, userDetails);
     }
 

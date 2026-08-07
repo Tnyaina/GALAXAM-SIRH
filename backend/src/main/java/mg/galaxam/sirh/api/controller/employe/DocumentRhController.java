@@ -41,7 +41,7 @@ public class DocumentRhController {
      * Récupère la liste des documents RH d'un employé + la synthèse des documents obligatoires manquants.
      */
     @GetMapping("/employes/{idEmploye}/documents")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getDocumentsByEmploye(@PathVariable int idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             List<DocumentRhCPL> docs = DocumentRhCPL.listByEmployeId(idEmploye, c);
@@ -76,8 +76,8 @@ public class DocumentRhController {
     /**
      * Téléversement d'un document RH pour un employé.
      */
-    @PostMapping("/employes/{idEmploye}/documents")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PostMapping(value = "/employes/{idEmploye}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> uploadDocument(
             @PathVariable int idEmploye,
             @RequestParam("file") MultipartFile file,
@@ -159,8 +159,8 @@ public class DocumentRhController {
     /**
      * Téléchargement / Visualisation d'un document RH par son ID.
      */
-    @GetMapping("/documents-rh/{idDocument}/download")
-    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/documents-rh/{idDocument}/telecharger")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> downloadDocument(@PathVariable int idDocument) {
         try (Connection c = dataSource.getConnection()) {
             DocumentRh doc = new DocumentRh().rechercherParId(idDocument, c);
@@ -195,7 +195,7 @@ public class DocumentRhController {
      * Suppression d'un document RH.
      */
     @DeleteMapping("/documents-rh/{idDocument}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deleteDocument(@PathVariable int idDocument) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

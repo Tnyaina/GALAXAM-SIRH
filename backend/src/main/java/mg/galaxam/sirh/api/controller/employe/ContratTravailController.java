@@ -24,7 +24,7 @@ public class ContratTravailController {
      * Historique des contrats de travail d'un employé.
      */
     @GetMapping("/employes/{idEmploye}/contrats")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getContratsByEmploye(@PathVariable int idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             List<ContratTravailCPL> list = ContratTravailCPL.listByEmployeId(idEmploye, c);
@@ -40,7 +40,7 @@ public class ContratTravailController {
      * Contrat de travail actif d'un employé.
      */
     @GetMapping("/employes/{idEmploye}/contrat-actif")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getContratActif(@PathVariable int idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             ContratTravailCPL ct = ContratTravailCPL.getContratActif(idEmploye, c);
@@ -56,7 +56,7 @@ public class ContratTravailController {
      * Création / Établissement d'un contrat de travail.
      */
     @PostMapping("/employes/{idEmploye}/contrats")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createContrat(@PathVariable int idEmploye, @RequestBody ContratTravail req) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -98,7 +98,7 @@ public class ContratTravailController {
      * Modification d'un contrat de travail.
      */
     @PutMapping("/contrats-travail/{idContrat}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateContrat(@PathVariable int idContrat, @RequestBody ContratTravail req) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -153,7 +153,7 @@ public class ContratTravailController {
      * Clôture / Désactivation d'un contrat de travail.
      */
     @DeleteMapping("/contrats-travail/{idContrat}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deleteContrat(@PathVariable int idContrat) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

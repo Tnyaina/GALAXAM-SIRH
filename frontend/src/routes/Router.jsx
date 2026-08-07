@@ -19,9 +19,13 @@ export default function Router() {
                 <Route path="/" element={<Login />} />
                 <Route path="/non-autorise" element={<Unauthorized />} />
 
-                {/* Routes protégées standard (nécessite d'être connecté) */}
+                {/* Routes protégées standard */}
                 <Route element={<ProtectedRoute />}>
                     <Route path="/dashboard" element={<Dashboard />} />
+                </Route>
+
+                {/* Module Employé : Nécessite la permission EMPLOYE_READ */}
+                <Route element={<ProtectedRoute requiredPermission="EMPLOYE_READ" />}>
                     <Route path="/employes" element={<EmployeList />} />
                     <Route path="/employes/:id" element={<EmployeFicheDetailPage />} />
                 </Route>

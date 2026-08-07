@@ -23,7 +23,7 @@ public class EmployeController {
     private DataSource dataSource;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getEmployes(@RequestParam(required = false) String q,
                                          @RequestParam(required = false) Boolean actif) {
         try (Connection c = dataSource.getConnection()) {
@@ -37,7 +37,7 @@ public class EmployeController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getEmployeFicheDetail(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             EmployeCPL empView = new EmployeCPL().rechercherParId(id, c);
@@ -60,7 +60,7 @@ public class EmployeController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createEmploye(@RequestBody EmployeRequest req) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -175,7 +175,7 @@ public class EmployeController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateEmploye(@PathVariable int id, @RequestBody EmployeRequest req) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -296,7 +296,7 @@ public class EmployeController {
     }
 
     @PutMapping("/{id}/desactiver")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('EMPLOYE_VALIDATE') or hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> desactiverEmploye(@PathVariable int id, @RequestBody(required = false) DesactivationRequest req) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -328,7 +328,7 @@ public class EmployeController {
     }
 
     @PutMapping("/{id}/activer")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('EMPLOYE_VALIDATE') or hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> reactiverEmploye(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

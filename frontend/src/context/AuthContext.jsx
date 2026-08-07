@@ -33,6 +33,7 @@ export const AuthProvider = ({ children }) => {
                 setUser({
                     identifiant: decoded.sub,
                     role: decoded.role,
+                    permissions: Array.isArray(decoded.permissions) ? decoded.permissions : [],
                 });
             } else {
                 setUser(null);
@@ -40,6 +41,13 @@ export const AuthProvider = ({ children }) => {
         } else {
             setUser(null);
         }
+    };
+
+    const hasPermission = (permissionCode) => {
+        if (!user) return false;
+        if (user.role === 'ROLE_ADMIN') return true;
+        if (!user.permissions) return false;
+        return user.permissions.includes(permissionCode);
     };
 
     // Connexion utilisateur
@@ -104,6 +112,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         logout,
+        hasPermission,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -15,6 +15,7 @@ import ContratFormModal from './ContratFormModal';
 import AffectationFormModal from './AffectationFormModal';
 import ContratAffectationWizard from './ContratAffectationWizard';
 import ClotureContratModal from './ClotureContratModal';
+import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
@@ -34,6 +35,8 @@ const InfoBlock = ({ label, value, mono = false, icon }) => (
 export default function EmployeFicheDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { hasPermission } = useAuth();
+    const canWrite = hasPermission('EMPLOYE_WRITE');
 
     const [detailData, setDetailData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -775,24 +778,26 @@ export default function EmployeFicheDetailPage() {
                                     </h3>
                                     <p className="text-xs text-ink-400">Suivi contractuel, affectations de poste et salaire de base de l'employé</p>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <Button
-                                        onClick={() => { setSelectedAffectationToEdit(null); setIsAffectationModalOpen(true); }}
-                                        variant="outline"
-                                        size="sm"
-                                        iconLeft={<TrendingUp size={16} />}
-                                    >
-                                        + Nouvel Avenant / Poste seul
-                                    </Button>
-                                    <Button
-                                        onClick={() => setIsWizardOpen(true)}
-                                        variant="primary"
-                                        size="sm"
-                                        iconLeft={<Plus size={16} />}
-                                    >
-                                        + Évolution de Carrière (Assistant Contrat & Poste)
-                                    </Button>
-                                </div>
+                                {canWrite && (
+                                    <div className="flex items-center gap-3">
+                                        <Button
+                                            onClick={() => { setSelectedAffectationToEdit(null); setIsAffectationModalOpen(true); }}
+                                            variant="outline"
+                                            size="sm"
+                                            iconLeft={<TrendingUp size={16} />}
+                                        >
+                                            + Nouvel Avenant / Poste seul
+                                        </Button>
+                                        <Button
+                                            onClick={() => setIsWizardOpen(true)}
+                                            variant="primary"
+                                            size="sm"
+                                            iconLeft={<Plus size={16} />}
+                                        >
+                                            + Évolution de Carrière (Assistant Contrat & Poste)
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
 
                             {loadingCarriere ? (
@@ -810,7 +815,7 @@ export default function EmployeFicheDetailPage() {
                                                     <Briefcase size={16} className="text-brand-500" />
                                                     Contrat de Travail Actif
                                                 </h4>
-                                                {contratActif && (
+                                                {contratActif && canWrite && (
                                                     <div className="flex items-center gap-3">
                                                         <button
                                                             onClick={() => { setSelectedContratToEdit(contratActif); setIsContratModalOpen(true); }}
@@ -856,13 +861,15 @@ export default function EmployeFicheDetailPage() {
                                             ) : (
                                                 <div className="py-8 text-center bg-ink-50/50 dark:bg-ink-950/20 border border-dashed border-ink-200 dark:border-ink-700 space-y-2">
                                                     <p className="text-xs font-bold text-ink-600 dark:text-ink-300">Aucun contrat actif enregistré</p>
-                                                    <Button
-                                                        onClick={() => setIsWizardOpen(true)}
-                                                        variant="primary"
-                                                        size="sm"
-                                                    >
-                                                        + Créer un contrat de travail
-                                                    </Button>
+                                                    {canWrite && (
+                                                        <Button
+                                                            onClick={() => setIsWizardOpen(true)}
+                                                            variant="primary"
+                                                            size="sm"
+                                                        >
+                                                            + Créer un contrat de travail
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -874,7 +881,7 @@ export default function EmployeFicheDetailPage() {
                                                     <UserCheck size={16} className="text-brand-500" />
                                                     Affectation & Poste Courant
                                                 </h4>
-                                                {affectationCourante && (
+                                                {affectationCourante && canWrite && (
                                                     <button
                                                         onClick={() => { setSelectedAffectationToEdit(affectationCourante); setIsAffectationModalOpen(true); }}
                                                         className="text-xs text-brand-500 font-semibold hover:underline flex items-center gap-1 cursor-pointer"

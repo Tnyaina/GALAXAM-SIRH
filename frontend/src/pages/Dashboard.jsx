@@ -3,7 +3,8 @@ import { User, ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
+    const canReadEmployes = hasPermission('EMPLOYE_READ');
 
     return (
         <div className="space-y-6">
@@ -55,12 +56,18 @@ export default function Dashboard() {
                         Accédez au répertoire complet des employés, consultez leurs fiches individuelles (état civil, CIN, conjoint, enfants, banques) et gérez leurs statuts.
                     </p>
                     <div className="flex">
-                        <Link
-                            to="/employes"
-                            className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors shadow-sm"
-                        >
-                            Accéder aux Fiches Employés
-                        </Link>
+                        {canReadEmployes ? (
+                            <Link
+                                to="/employes"
+                                className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors shadow-sm"
+                            >
+                                Accéder aux Fiches Employés
+                            </Link>
+                        ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-ink-100 dark:bg-ink-800 text-ink-500 rounded">
+                                Accès au module restreint par votre rôle
+                            </span>
+                        )}
                     </div>
                 </div>
 
