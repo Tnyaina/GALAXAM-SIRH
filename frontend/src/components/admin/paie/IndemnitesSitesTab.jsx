@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, CheckCircle, XCircle, Gift, MapPin } from 'lucide-react';
-import paieConfigService from '@/api/paieConfigService';
-import organisationService from '@/api/organisationService';
+import paieConfigService from '@/api/admin/paieConfigService';
+import organisationService from '@/api/admin/organisationService';
 
 export default function IndemnitesSitesTab() {
     const [subSection, setSubSection] = useState('indemnites'); // 'indemnites' | 'sites_config'

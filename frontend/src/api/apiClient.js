@@ -94,8 +94,8 @@ apiClient.interceptors.response.use(
         }
 
         if (error.response?.status === 403) {
-            const defaultMsg = "Accès refusé (403) : Vos droits d'accès actuels ne vous permettent pas d'effectuer cette opération (Droits d'administration requis).";
-            if (!error.response.data || typeof error.response.data === 'object') {
+            const defaultMsg = "Accès refusé (403) : Vous ne disposez pas des autorisations nécessaires pour effectuer cette opération.";
+            if (!error.response?.data || typeof error.response.data === 'object') {
                 error.response.data = defaultMsg;
             }
         }

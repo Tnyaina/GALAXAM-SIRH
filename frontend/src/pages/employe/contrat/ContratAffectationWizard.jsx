@@ -6,9 +6,9 @@ import Button from '@/components/ui/Button';
 import Input, { Select, Textarea, Checkbox } from '@/components/ui/Input';
 import Badge from '@/components/ui/Badge';
 import Alert from '@/components/ui/Alert';
-import referentielService from '@/api/referentielService';
-import contratService from '@/api/contratService';
-import employeService from '@/api/employeService';
+import referentielService from '@/api/admin/referentielService';
+import contratService from '@/api/employe/contratService';
+import employeService from '@/api/employe/employeService';
 
 const WIZARD_STEPS = [
     { id: 'contrat', label: '1. Contrat de travail' },

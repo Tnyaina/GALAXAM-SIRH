@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Briefcase, ShieldAlert, IdCard, CalendarDays, Flag } from 'lucide-react';
-import contratService from '@/api/contratService';
-import referentielService from '@/api/referentielService';
+import contratService from '@/api/employe/contratService';
+import referentielService from '@/api/admin/referentielService';
 import Input, { Select, Checkbox } from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 

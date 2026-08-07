@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, CheckCircle, XCircle, Clock, Sliders } from 'lucide-react';
-import paieConfigService from '@/api/paieConfigService';
+import paieConfigService from '@/api/admin/paieConfigService';
 
 export default function MajorationsParametresTab() {
     const [subSection, setSubSection] = useState('majorations'); // 'majorations' | 'parametres'

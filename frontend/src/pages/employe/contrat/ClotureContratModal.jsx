@@ -3,7 +3,7 @@ import { ShieldAlert, XCircle } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input, { Select } from '@/components/ui/Input';
 import Alert from '@/components/ui/Alert';
-import contratService from '@/api/contratService';
+import contratService from '@/api/employe/contratService';
 
 export default function ClotureContratModal({
     isOpen,

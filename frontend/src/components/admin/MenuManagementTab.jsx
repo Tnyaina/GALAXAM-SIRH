@@ -1,6 +1,6 @@
 import { useState, useEffect, createElement } from 'react';
 import { Search, Plus, Edit2, Trash2, ShieldAlert, CheckCircle, XCircle } from 'lucide-react';
-import referentielService from '@/api/referentielService';
+import referentielService from '@/api/admin/referentielService';
 import { getMenuIcon } from '@/utils/iconRegistry';
 
 const AVAILABLE_ICONS = [

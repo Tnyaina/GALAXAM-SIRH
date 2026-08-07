@@ -7,9 +7,9 @@ import {
     Upload, Download, Trash2, Plus, AlertTriangle, 
     UserCheck, TrendingUp, Building2
 } from 'lucide-react';
-import employeService from '@/api/employeService';
-import documentRhService from '@/api/documentRhService';
-import contratService from '@/api/contratService';
+import employeService from '@/api/employe/employeService';
+import documentRhService from '@/api/employe/documentRhService';
+import contratService from '@/api/employe/contratService';
 import EmployeFormModal from './dossier/EmployeFormModal';
 import ContratFormModal from './contrat/ContratFormModal';
 import AffectationFormModal from './affectation/AffectationFormModal';
@@ -37,6 +37,7 @@ export default function EmployeFicheDetailPage() {
     const navigate = useNavigate();
     const { hasPermission } = useAuth();
     const canWrite = hasPermission('EMPLOYE_WRITE');
+    const canValidate = hasPermission('EMPLOYE_VALIDATE');
 
     const [detailData, setDetailData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -815,20 +816,24 @@ export default function EmployeFicheDetailPage() {
                                                     <Briefcase size={16} className="text-brand-500" />
                                                     Contrat de Travail Actif
                                                 </h4>
-                                                {contratActif && canWrite && (
+                                                {contratActif && (canWrite || canValidate) && (
                                                     <div className="flex items-center gap-3">
-                                                        <button
-                                                            onClick={() => { setSelectedContratToEdit(contratActif); setIsContratModalOpen(true); }}
-                                                            className="text-xs text-brand-500 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
-                                                        >
-                                                            <Edit2 size={12} /> Modifier
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setIsClotureModalOpen(true)}
-                                                            className="text-xs text-danger-500 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
-                                                        >
-                                                            <XCircle size={12} /> Clôturer
-                                                        </button>
+                                                        {canWrite && (
+                                                            <button
+                                                                onClick={() => { setSelectedContratToEdit(contratActif); setIsContratModalOpen(true); }}
+                                                                className="text-xs text-brand-500 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                                                            >
+                                                                <Edit2 size={12} /> Modifier
+                                                            </button>
+                                                        )}
+                                                        {canValidate && (
+                                                            <button
+                                                                onClick={() => setIsClotureModalOpen(true)}
+                                                                className="text-xs text-danger-500 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                                                            >
+                                                                <XCircle size={12} /> Clôturer
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>

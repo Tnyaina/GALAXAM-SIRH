@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, User, CreditCard, Phone, Users, ShieldAlert, Building, Plus, Trash2, Upload, Camera } from 'lucide-react';
-import referentielService from '@/api/referentielService';
-import employeService from '@/api/employeService';
+import referentielService from '@/api/admin/referentielService';
+import employeService from '@/api/employe/employeService';
 import Input, { Textarea, Select, Checkbox } from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { getFullPhotoUrl } from '@/utils/fileUtils';

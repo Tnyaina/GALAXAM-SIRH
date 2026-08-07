@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Shield, Plus, Edit2, CheckCircle, XCircle, ShieldCheck, ListTodo } from 'lucide-react';
-import referentielService from '@/api/referentielService';
+import referentielService from '@/api/admin/referentielService';
 
 export default function RolesAndPermissionsTab() {
     const [roles, setRoles] = useState([]);

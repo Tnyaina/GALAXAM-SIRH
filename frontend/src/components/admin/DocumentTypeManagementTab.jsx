@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, CheckCircle, XCircle, ShieldAlert, FileText } from 'lucide-react';
-import documentRhService from '@/api/documentRhService';
+import documentRhService from '@/api/employe/documentRhService';
 import Input, { Textarea, Select, Checkbox } from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, CheckCircle, XCircle, ShieldCheck, Percent, MapPin, Eye } from 'lucide-react';
-import paieConfigService from '@/api/paieConfigService';
-import organisationService from '@/api/organisationService';
+import paieConfigService from '@/api/admin/paieConfigService';
+import organisationService from '@/api/admin/organisationService';
 
 export default function CotisationsIrsaTab() {
     const [subSection, setSubSection] = useState('cotisations'); // 'cotisations' | 'site_cotisations' | 'irsa'

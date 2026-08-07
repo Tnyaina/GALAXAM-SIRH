@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, CheckCircle, XCircle, ShieldAlert, Award, CreditCard, ArrowUpRight } from 'lucide-react';
-import contratService from '@/api/contratService';
+import contratService from '@/api/employe/contratService';
 import Input, { Textarea } from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';

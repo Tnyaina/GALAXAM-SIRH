@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { UserPlus, Search, Eye, Edit2, Users, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import employeService from '@/api/employeService';
+import employeService from '@/api/employe/employeService';
 import EmployeFormModal from './dossier/EmployeFormModal';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -17,6 +17,7 @@ export default function EmployeList() {
     const navigate = useNavigate();
     const { hasPermission } = useAuth();
     const canWrite = hasPermission('EMPLOYE_WRITE');
+    const canValidate = hasPermission('EMPLOYE_VALIDATE');
     const [employes, setEmployes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -314,32 +315,32 @@ export default function EmployeList() {
                                                     <Eye size={16} />
                                                 </button>
                                                 {canWrite && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleOpenEdit(emp)}
-                                                            className="p-1.5 text-ink-400 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors cursor-pointer"
-                                                            title="Modifier"
+                                                    <button
+                                                        onClick={() => handleOpenEdit(emp)}
+                                                        className="p-1.5 text-ink-400 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors cursor-pointer"
+                                                        title="Modifier"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </button>
+                                                )}
+                                                {canValidate && (
+                                                    emp.estActif ? (
+                                                        <Button
+                                                            size="xs"
+                                                            variant="danger"
+                                                            onClick={() => handleToggleStatus(emp)}
                                                         >
-                                                            <Edit2 size={16} />
-                                                        </button>
-                                                        {emp.estActif ? (
-                                                            <Button
-                                                                size="xs"
-                                                                variant="danger"
-                                                                onClick={() => handleToggleStatus(emp)}
-                                                            >
-                                                                Désactiver
-                                                            </Button>
-                                                        ) : (
-                                                            <Button
-                                                                size="xs"
-                                                                variant="success"
-                                                                onClick={() => handleToggleStatus(emp)}
-                                                            >
-                                                                Réactiver
-                                                            </Button>
-                                                        )}
-                                                    </>
+                                                            Désactiver
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            size="xs"
+                                                            variant="success"
+                                                            onClick={() => handleToggleStatus(emp)}
+                                                        >
+                                                            Réactiver
+                                                        </Button>
+                                                    )
                                                 )}
                                             </div>
                                         </td>

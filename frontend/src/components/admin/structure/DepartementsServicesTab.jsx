@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, CheckCircle, XCircle, Building, Layers, Eye } from 'lucide-react';
-import organisationService from '@/api/organisationService';
+import organisationService from '@/api/admin/organisationService';
 
 export default function DepartementsServicesTab() {
     const [departements, setDepartements] = useState([]);

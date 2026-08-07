@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, CheckCircle, XCircle, Building2, MapPin, Eye } from 'lucide-react';
-import organisationService from '@/api/organisationService';
+import organisationService from '@/api/admin/organisationService';
 
 export default function FilialesSitesTab() {
     const [filiales, setFiliales] = useState([]);
