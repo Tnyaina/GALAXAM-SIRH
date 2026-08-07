@@ -13,6 +13,8 @@ import contratService from '@/api/contratService';
 import EmployeFormModal from './EmployeFormModal';
 import ContratFormModal from './ContratFormModal';
 import AffectationFormModal from './AffectationFormModal';
+import ContratAffectationWizard from './ContratAffectationWizard';
+import ClotureContratModal from './ClotureContratModal';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
@@ -55,6 +57,7 @@ export default function EmployeFicheDetailPage() {
     const [docErrorMsg, setDocErrorMsg] = useState('');
 
     // État Contrats & Affectations
+    const [carriereViewMode, setCarriereViewMode] = useState('timeline'); // 'timeline' | 'tables'
     const [contrats, setContrats] = useState([]);
     const [contratActif, setContratActif] = useState(null);
     const [affectations, setAffectations] = useState([]);
@@ -62,6 +65,8 @@ export default function EmployeFicheDetailPage() {
     const [loadingCarriere, setLoadingCarriere] = useState(false);
 
     // Modales Contrat & Affectation
+    const [isWizardOpen, setIsWizardOpen] = useState(false);
+    const [isClotureModalOpen, setIsClotureModalOpen] = useState(false);
     const [isContratModalOpen, setIsContratModalOpen] = useState(false);
     const [selectedContratToEdit, setSelectedContratToEdit] = useState(null);
 
@@ -766,26 +771,26 @@ export default function EmployeFicheDetailPage() {
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2 border-b border-ink-150 dark:border-ink-700">
                                 <div>
                                     <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2">
-                                        <Briefcase size={14} /> Synthèse Contrat & Carrière
+                                        <Briefcase size={14} /> Dossier Contrat & Carrière
                                     </h3>
-                                    <p className="text-xs text-ink-400">Gérez le contrat de travail actif, le poste courant et le salaire de base</p>
+                                    <p className="text-xs text-ink-400">Suivi contractuel, affectations de poste et salaire de base de l'employé</p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <Button
-                                        onClick={() => { setSelectedContratToEdit(null); setIsContratModalOpen(true); }}
-                                        variant="outline"
-                                        size="sm"
-                                        iconLeft={<Plus size={16} />}
-                                    >
-                                        Établir un Contrat
-                                    </Button>
-                                    <Button
                                         onClick={() => { setSelectedAffectationToEdit(null); setIsAffectationModalOpen(true); }}
-                                        variant="primary"
+                                        variant="outline"
                                         size="sm"
                                         iconLeft={<TrendingUp size={16} />}
                                     >
-                                        Nouvelle Affectation / Avenant
+                                        + Nouvel Avenant / Poste seul
+                                    </Button>
+                                    <Button
+                                        onClick={() => setIsWizardOpen(true)}
+                                        variant="primary"
+                                        size="sm"
+                                        iconLeft={<Plus size={16} />}
+                                    >
+                                        + Évolution de Carrière (Assistant Contrat & Poste)
                                     </Button>
                                 </div>
                             </div>
@@ -806,12 +811,20 @@ export default function EmployeFicheDetailPage() {
                                                     Contrat de Travail Actif
                                                 </h4>
                                                 {contratActif && (
-                                                    <button
-                                                        onClick={() => { setSelectedContratToEdit(contratActif); setIsContratModalOpen(true); }}
-                                                        className="text-xs text-brand-500 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
-                                                    >
-                                                        <Edit2 size={12} /> Modifier
-                                                    </button>
+                                                    <div className="flex items-center gap-3">
+                                                        <button
+                                                            onClick={() => { setSelectedContratToEdit(contratActif); setIsContratModalOpen(true); }}
+                                                            className="text-xs text-brand-500 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                                                        >
+                                                            <Edit2 size={12} /> Modifier
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setIsClotureModalOpen(true)}
+                                                            className="text-xs text-danger-500 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                                                        >
+                                                            <XCircle size={12} /> Clôturer
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
 
@@ -819,7 +832,7 @@ export default function EmployeFicheDetailPage() {
                                                 <div className="space-y-4 pt-1">
                                                     <div className="flex items-center justify-between bg-ink-50 dark:bg-ink-950 p-3 border border-ink-150 dark:border-ink-800">
                                                         <div>
-                                                            <p className="text-[10px] font-bold uppercase text-ink-400">Filiale d'Emboche</p>
+                                                            <p className="text-[10px] font-bold uppercase text-ink-400">Filiale d'Embauche</p>
                                                             <p className="text-sm font-bold text-ink-900 dark:text-white flex items-center gap-1.5">
                                                                 <Building2 size={14} className="text-brand-500" />
                                                                 {contratActif.filialeRaisonSociale} ({contratActif.filialeCode})
@@ -831,18 +844,21 @@ export default function EmployeFicheDetailPage() {
                                                     <div className="grid grid-cols-2 gap-4">
                                                         <InfoBlock label="N° de Contrat" value={contratActif.numeroContrat || `N°${contratActif.idContrat}`} mono />
                                                         <InfoBlock label="Type d'Intervenant" value={contratActif.typeIntervenantLibelle} />
-                                                        <InfoBlock label="Date de Début" value={fmtDate(contratActif.dateDebut)} icon={<Calendar size={14} />} />
+                                                        <InfoBlock label="Date Prise d'Effet" value={fmtDate(contratActif.dateDebut)} icon={<Calendar size={14} />} />
                                                         <InfoBlock label="Date de Fin (CDD)" value={fmtDate(contratActif.dateFin)} icon={<Calendar size={14} />} />
-                                                        <InfoBlock label="Date Fin Période d'Essai" value={fmtDate(contratActif.dateFinEssai)} />
-                                                        <InfoBlock label="Période d'Essai Renouvelée" value={contratActif.essaiRenouvele ? 'Oui (Renouvelée)' : 'Non'} />
+                                                        <InfoBlock
+                                                            label="Période d'Essai"
+                                                            value={contratActif.dateFinEssai ? `Jusqu'au ${fmtDate(contratActif.dateFinEssai)} ${contratActif.essaiRenouvele ? '(Renouvelée)' : ''}` : 'Sans essai'}
+                                                            icon={<Calendar size={14} />}
+                                                        />
                                                     </div>
                                                 </div>
                                             ) : (
                                                 <div className="py-8 text-center bg-ink-50/50 dark:bg-ink-950/20 border border-dashed border-ink-200 dark:border-ink-700 space-y-2">
                                                     <p className="text-xs font-bold text-ink-600 dark:text-ink-300">Aucun contrat actif enregistré</p>
                                                     <Button
-                                                        onClick={() => { setSelectedContratToEdit(null); setIsContratModalOpen(true); }}
-                                                        variant="ghost"
+                                                        onClick={() => setIsWizardOpen(true)}
+                                                        variant="primary"
                                                         size="sm"
                                                     >
                                                         + Créer un contrat de travail
@@ -894,7 +910,7 @@ export default function EmployeFicheDetailPage() {
                                                 <div className="py-8 text-center bg-ink-50/50 dark:bg-ink-950/20 border border-dashed border-ink-200 dark:border-ink-700 space-y-2">
                                                     <p className="text-xs font-bold text-ink-600 dark:text-ink-300">Aucune affectation de poste courante</p>
                                                     <Button
-                                                        onClick={() => { setSelectedAffectationToEdit(null); setIsAffectationModalOpen(true); }}
+                                                        onClick={() => setIsWizardOpen(true)}
                                                         variant="ghost"
                                                         size="sm"
                                                     >
@@ -905,142 +921,276 @@ export default function EmployeFicheDetailPage() {
                                         </div>
                                     </div>
 
-                                    {/* Historique des Contrats de Travail */}
-                                    <div className="space-y-4 pt-4 border-t border-ink-150 dark:border-ink-700">
-                                        <div className="flex items-center justify-between">
+                                    {/* Barre de Commutateur de Vue (Frise Chronologique vs Tableaux) */}
+                                    <div className="pt-6 border-t border-ink-150 dark:border-ink-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                        <div>
                                             <h4 className="text-xs font-bold uppercase tracking-wider text-ink-900 dark:text-white flex items-center gap-2">
-                                                <Briefcase size={14} className="text-brand-500" />
-                                                Historique des Contrats de Travail ({contrats.length})
+                                                <TrendingUp size={16} className="text-brand-500" />
+                                                Historique & Trajectoire de Carrière
                                             </h4>
-                                            <Button
-                                                onClick={() => { setSelectedContratToEdit(null); setIsContratModalOpen(true); }}
-                                                variant="ghost"
-                                                size="sm"
-                                            >
-                                                + Nouveau Contrat
-                                            </Button>
+                                            <p className="text-xs text-ink-400 mt-0.5">Retracez l'évolution des contrats, postes et mouvements successifs</p>
                                         </div>
 
-                                        {contrats.length === 0 ? (
-                                            <p className="text-xs text-ink-400 italic">Aucun contrat enregistré.</p>
-                                        ) : (
-                                            <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
-                                                <table className="w-full text-sm text-left">
-                                                    <thead>
-                                                        <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
-                                                            <th className="px-4 py-3">Réf / N° Contrat</th>
-                                                            <th className="px-4 py-3">Type & Intervenant</th>
-                                                            <th className="px-4 py-3">Filiale</th>
-                                                            <th className="px-4 py-3">Période du Contrat</th>
-                                                            <th className="px-4 py-3">Motif Sortie</th>
-                                                            <th className="px-4 py-3 text-center">Statut</th>
-                                                            <th className="px-4 py-3 text-right">Action</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                                                        {contrats.map((c) => (
-                                                            <tr key={c.idContrat} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
-                                                                <td className="px-4 py-3 font-mono font-semibold text-xs">
-                                                                    {c.numeroContrat || `CT-${c.idContrat}`}
-                                                                    {c.idContratPrecedent && (
-                                                                        <span className="block text-[10px] text-ink-400 font-normal">
-                                                                            ↳ Suite au Contrat #{c.idContratPrecedent}
-                                                                        </span>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-4 py-3 font-semibold text-xs">
-                                                                    <Badge variant="primary" size="sm">{c.typeContratLibelle}</Badge>
-                                                                    <span className="block text-[11px] text-ink-400 font-normal mt-0.5">{c.typeIntervenantLibelle}</span>
-                                                                </td>
-                                                                <td className="px-4 py-3 text-xs">
-                                                                    {c.filialeRaisonSociale} ({c.filialeCode})
-                                                                </td>
-                                                                <td className="px-4 py-3 text-xs font-mono">
-                                                                    Du {fmtDate(c.dateDebut)} {c.dateFin ? `au ${fmtDate(c.dateFin)}` : '(Indéterminée)'}
-                                                                </td>
-                                                                <td className="px-4 py-3 text-xs italic text-ink-400">
-                                                                    {c.motifSortieLibelle || '-'}
-                                                                </td>
-                                                                <td className="px-4 py-3 text-center">
-                                                                    {c.estActif ? (
-                                                                        <Badge variant="success" size="sm">Actif</Badge>
-                                                                    ) : (
-                                                                        <Badge variant="default" size="sm">Inactif / Clôturé</Badge>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-4 py-3 text-right">
-                                                                    <button
-                                                                        onClick={() => { setSelectedContratToEdit(c); setIsContratModalOpen(true); }}
-                                                                        className="text-xs text-brand-500 font-semibold hover:underline"
-                                                                    >
-                                                                        Éditer
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
+                                        <div className="flex items-center bg-ink-100 dark:bg-ink-800 p-1 rounded-sm text-xs border border-ink-200 dark:border-ink-700">
+                                            <button
+                                                type="button"
+                                                onClick={() => setCarriereViewMode('timeline')}
+                                                className={`px-3 py-1.5 font-bold transition-colors cursor-pointer ${carriereViewMode === 'timeline' ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs' : 'text-ink-500 hover:text-ink-900 dark:hover:text-white'}`}
+                                            >
+                                                Frise Chronologique
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setCarriereViewMode('tables')}
+                                                className={`px-3 py-1.5 font-bold transition-colors cursor-pointer ${carriereViewMode === 'tables' ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs' : 'text-ink-500 hover:text-ink-900 dark:hover:text-white'}`}
+                                            >
+                                                Tableaux Détaillés
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    {/* Historique des Affectations & Avenants */}
-                                    <div className="space-y-4 pt-4 border-t border-ink-150 dark:border-ink-700">
-                                        <h4 className="text-xs font-bold uppercase tracking-wider text-ink-900 dark:text-white flex items-center gap-2">
-                                            <TrendingUp size={14} className="text-brand-500" />
-                                            Historique des Affectations & Mouvements de Carrière ({affectations.length})
-                                        </h4>
+                                    {/* MODE 1 : FRISE CHRONOLOGIQUE (TIMELINE) */}
+                                    {carriereViewMode === 'timeline' && (
+                                        <div className="space-y-6 pt-2">
+                                            {affectations.length === 0 && contrats.length === 0 ? (
+                                                <div className="py-12 text-center bg-ink-50/50 dark:bg-ink-950/20 border border-dashed border-ink-200 dark:border-ink-700">
+                                                    <p className="text-xs text-ink-400 italic">Aucun événement de carrière enregistré dans l'historique.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="relative pl-6 space-y-8 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-ink-200 dark:before:bg-ink-700">
+                                                    {affectations.map((aff, index) => {
+                                                        const matchingContrat = contrats.find(c => String(c.idContrat) === String(aff.idContrat));
+                                                        const isCourante = Boolean(aff.estAffectationCourante && (matchingContrat ? matchingContrat.estActif : true));
+                                                        return (
+                                                            <div key={aff.idAffectation || index} className="relative group">
+                                                                {/* Nœud de la timeline */}
+                                                                <div className={`absolute -left-6 top-1.5 w-5 h-5 rounded-full border-2 bg-white dark:bg-ink-900 flex items-center justify-center ${isCourante ? 'border-brand-500 text-brand-500 shadow-sm' : 'border-ink-300 dark:border-ink-600 text-ink-400'}`}>
+                                                                    <div className={`w-2 h-2 rounded-full ${isCourante ? 'bg-brand-500' : 'bg-ink-400'}`} />
+                                                                </div>
 
-                                        {affectations.length === 0 ? (
-                                            <p className="text-xs text-ink-400 italic">Aucun mouvement enregistré dans l'historique.</p>
-                                        ) : (
-                                            <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
-                                                <table className="w-full text-sm text-left">
-                                                    <thead>
-                                                        <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
-                                                            <th className="px-4 py-3">Motif Mouvement</th>
-                                                            <th className="px-4 py-3">Poste & Fonction</th>
-                                                            <th className="px-4 py-3">Structure (Dépt/Service)</th>
-                                                            <th className="px-4 py-3">Salaire de Base</th>
-                                                            <th className="px-4 py-3">Période</th>
-                                                            <th className="px-4 py-3 text-right">Statut</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                                                        {affectations.map((aff) => (
-                                                            <tr key={aff.idAffectation} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
-                                                                <td className="px-4 py-3">
-                                                                    <Badge variant="primary" size="sm">{aff.motifMouvementLibelle}</Badge>
-                                                                    {aff.commentaire && <p className="text-xs text-ink-400 italic mt-0.5">{aff.commentaire}</p>}
-                                                                </td>
-                                                                <td className="px-4 py-3 font-semibold">
-                                                                    {aff.fonctionLibelle}
-                                                                    <span className="block text-xs text-ink-400 font-normal">{aff.categorieLibelle}</span>
-                                                                </td>
-                                                                <td className="px-4 py-3 text-xs">
-                                                                    {aff.departementLibelle} ➔ {aff.serviceLibelle}
-                                                                    <span className="block text-ink-400">Site : {aff.siteLibelle}</span>
-                                                                </td>
-                                                                <td className="px-4 py-3 font-mono font-bold text-brand-500 text-xs">
-                                                                    {formatAriary(aff.salaireBase)}
-                                                                </td>
-                                                                <td className="px-4 py-3 text-xs font-mono">
-                                                                    Du {fmtDate(aff.dateDebut)} {aff.dateFin ? `au ${fmtDate(aff.dateFin)}` : 'à ce jour'}
-                                                                </td>
-                                                                <td className="px-4 py-3 text-right">
-                                                                    {aff.estAffectationCourante ? (
-                                                                        <Badge variant="success" size="sm">Courante</Badge>
-                                                                    ) : (
-                                                                        <Badge variant="default" size="sm">Clôturée</Badge>
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
+                                                                {/* Carte d'événement de la frise */}
+                                                                <div className={`border p-5 space-y-4 bg-white dark:bg-ink-900 transition-all ${isCourante ? 'border-brand-500/40 shadow-sm ring-1 ring-brand-500/20' : 'border-ink-150 dark:border-ink-700 hover:border-ink-300'}`}>
+                                                                    {/* En-tête de l'événement */}
+                                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-ink-150 dark:border-ink-700">
+                                                                        <div className="space-y-1">
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <Badge variant={isCourante ? 'success' : 'primary'} size="sm">
+                                                                                    {aff.motifMouvementLibelle || 'Mouvement'}
+                                                                                </Badge>
+                                                                                <h5 className="text-sm font-bold text-ink-900 dark:text-white">
+                                                                                    {aff.fonctionLibelle}
+                                                                                </h5>
+                                                                                {matchingContrat && (
+                                                                                    <Badge variant="outline" size="sm">
+                                                                                        {matchingContrat.typeContratLibelle}
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
+                                                                            {matchingContrat?.idContratPrecedent && (
+                                                                                <p className="text-[11px] text-brand-600 dark:text-brand-400 font-medium font-mono">
+                                                                                    ↳ Suite au Contrat {contrats.find(p => String(p.idContrat) === String(matchingContrat.idContratPrecedent))?.numeroContrat || `N°${matchingContrat.idContratPrecedent}`}
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div className="flex items-center gap-3 text-xs">
+                                                                            <span className="font-mono text-ink-400 bg-ink-50 dark:bg-ink-950 px-2 py-1 border border-ink-150 dark:border-ink-800">
+                                                                                Du {fmtDate(aff.dateDebut)} {aff.dateFin ? `au ${fmtDate(aff.dateFin)}` : (isCourante ? 'à ce jour' : '(Fin de contrat)')}
+                                                                            </span>
+                                                                            {isCourante ? (
+                                                                                <Badge variant="success" size="sm">Poste Actuel</Badge>
+                                                                            ) : (
+                                                                                <Badge variant="default" size="sm">Ancienne affectation</Badge>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Grille 3 colonnes d'informations détaillées */}
+                                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                                                                        {/* Col 1: Structure & Emplacement */}
+                                                                        <div className="space-y-1 bg-ink-50/50 dark:bg-ink-950/40 p-3 border border-ink-150 dark:border-ink-800">
+                                                                            <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">Poste & Structure</p>
+                                                                            <p><span className="text-ink-400">Fonction :</span> <strong>{aff.fonctionLibelle}</strong></p>
+                                                                            <p><span className="text-ink-400">Département :</span> <strong>{aff.departementLibelle}</strong></p>
+                                                                            <p><span className="text-ink-400">Service :</span> <strong>{aff.serviceLibelle}</strong></p>
+                                                                            <p><span className="text-ink-400">Site :</span> <strong>{aff.siteLibelle}</strong></p>
+                                                                        </div>
+
+                                                                        {/* Col 2: Contrat & Rattachement */}
+                                                                        <div className="space-y-1 bg-ink-50/50 dark:bg-ink-950/40 p-3 border border-ink-150 dark:border-ink-800">
+                                                                            <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">Contrat & Filiale</p>
+                                                                            <p><span className="text-ink-400">Type Contrat :</span> <strong>{matchingContrat?.typeContratLibelle || '-'}</strong></p>
+                                                                            <p><span className="text-ink-400">N° Contrat :</span> <strong className="font-mono">{matchingContrat?.numeroContrat || (aff.idContrat ? `CT-${aff.idContrat}` : '-')}</strong></p>
+                                                                            <p><span className="text-ink-400">Filiale :</span> <strong>{matchingContrat?.filialeRaisonSociale || '-'}</strong></p>
+                                                                            <p><span className="text-ink-400">Intervenant :</span> <strong>{matchingContrat?.typeIntervenantLibelle || '-'}</strong></p>
+                                                                        </div>
+
+                                                                        {/* Col 3: Rémunération & Notes */}
+                                                                        <div className="space-y-1 bg-ink-50/50 dark:bg-ink-950/40 p-3 border border-ink-150 dark:border-ink-800">
+                                                                            <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">Rémunération & Mode</p>
+                                                                            <p><span className="text-ink-400">Salaire de Base :</span> <strong className="font-mono text-brand-500 font-bold">{formatAriary(aff.salaireBase)}</strong></p>
+                                                                            <p><span className="text-ink-400">Mode de Paie :</span> <strong>{aff.modePaieLibelle || '-'}</strong></p>
+                                                                            <p><span className="text-ink-400">Classification :</span> <strong>{aff.categorieLibelle || '-'}</strong></p>
+                                                                            {aff.commentaire && <p className="text-ink-400 italic text-[11px] mt-1">{aff.commentaire}</p>}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Bouton action au bas de chaque étape de carrière */}
+                                                                    <div className="flex justify-end pt-1">
+                                                                        <button
+                                                                            onClick={() => { setSelectedAffectationToEdit(aff); setIsAffectationModalOpen(true); }}
+                                                                            className="text-xs text-brand-500 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                                                                        >
+                                                                            <Edit2 size={12} /> Éditer cette affectation
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* MODE 2 : TABLEAUX DÉTAILLÉS */}
+                                    {carriereViewMode === 'tables' && (
+                                        <div className="space-y-8 pt-2">
+                                            {/* Historique des Contrats de Travail */}
+                                            <div className="space-y-4">
+                                                <div className="flex items-center justify-between pb-2 border-b border-ink-150 dark:border-ink-700">
+                                                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink-900 dark:text-white flex items-center gap-2">
+                                                        <Briefcase size={14} className="text-brand-500" />
+                                                        Historique des Contrats de Travail ({contrats.length})
+                                                    </h4>
+                                                </div>
+
+                                                {contrats.length === 0 ? (
+                                                    <p className="text-xs text-ink-400 italic">Aucun contrat enregistré.</p>
+                                                ) : (
+                                                    <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
+                                                        <table className="w-full text-sm text-left">
+                                                            <thead>
+                                                                <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
+                                                                    <th className="px-4 py-3">Réf / N° Contrat</th>
+                                                                    <th className="px-4 py-3">Type & Intervenant</th>
+                                                                    <th className="px-4 py-3">Filiale</th>
+                                                                    <th className="px-4 py-3">Période du Contrat</th>
+                                                                    <th className="px-4 py-3">Motif Sortie</th>
+                                                                    <th className="px-4 py-3 text-center">Statut</th>
+                                                                    <th className="px-4 py-3 text-right">Action</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
+                                                                {contrats.map((c) => (
+                                                                    <tr key={c.idContrat} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
+                                                                        <td className="px-4 py-3 font-mono font-semibold text-xs">
+                                                                            {c.numeroContrat || `CT-${c.idContrat}`}
+                                                                            {c.idContratPrecedent && (
+                                                                                <span className="block text-[10px] text-ink-400 font-normal font-mono">
+                                                                                    ↳ Suite au Contrat {contrats.find(p => String(p.idContrat) === String(c.idContratPrecedent))?.numeroContrat || `N°${c.idContratPrecedent}`}
+                                                                                </span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-4 py-3 font-semibold text-xs">
+                                                                            <Badge variant="primary" size="sm">{c.typeContratLibelle}</Badge>
+                                                                            <span className="block text-[11px] text-ink-400 font-normal mt-0.5">{c.typeIntervenantLibelle}</span>
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-xs">
+                                                                            {c.filialeRaisonSociale} ({c.filialeCode})
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-xs font-mono">
+                                                                            Du {fmtDate(c.dateDebut)} {c.dateFin ? `au ${fmtDate(c.dateFin)}` : '(Indéterminée)'}
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-xs italic text-ink-400">
+                                                                            {c.motifSortieLibelle || '-'}
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-center">
+                                                                            {c.estActif ? (
+                                                                                <Badge variant="success" size="sm">Actif</Badge>
+                                                                            ) : (
+                                                                                <Badge variant="default" size="sm">Inactif / Clôturé</Badge>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-right">
+                                                                            <button
+                                                                                onClick={() => { setSelectedContratToEdit(c); setIsContratModalOpen(true); }}
+                                                                                className="text-xs text-brand-500 font-semibold hover:underline cursor-pointer"
+                                                                            >
+                                                                                Éditer
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
+
+                                            {/* Historique des Affectations & Avenants */}
+                                            <div className="space-y-4 pt-4 border-t border-ink-150 dark:border-ink-700">
+                                                <h4 className="text-xs font-bold uppercase tracking-wider text-ink-900 dark:text-white flex items-center gap-2">
+                                                    <TrendingUp size={14} className="text-brand-500" />
+                                                    Historique des Affectations & Mouvements de Carrière ({affectations.length})
+                                                </h4>
+
+                                                {affectations.length === 0 ? (
+                                                    <p className="text-xs text-ink-400 italic">Aucun mouvement enregistré dans l'historique.</p>
+                                                ) : (
+                                                    <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
+                                                        <table className="w-full text-sm text-left">
+                                                            <thead>
+                                                                <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
+                                                                    <th className="px-4 py-3">Motif Mouvement</th>
+                                                                    <th className="px-4 py-3">Poste & Fonction</th>
+                                                                    <th className="px-4 py-3">Structure (Dépt/Service)</th>
+                                                                    <th className="px-4 py-3">Salaire de Base</th>
+                                                                    <th className="px-4 py-3">Période</th>
+                                                                    <th className="px-4 py-3 text-right">Statut</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
+                                                                {affectations.map((aff) => {
+                                                                    const matchingContrat = contrats.find(c => String(c.idContrat) === String(aff.idContrat));
+                                                                    const isCourante = Boolean(aff.estAffectationCourante && (matchingContrat ? matchingContrat.estActif : true));
+                                                                    return (
+                                                                    <tr key={aff.idAffectation} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
+                                                                        <td className="px-4 py-3">
+                                                                            <Badge variant="primary" size="sm">{aff.motifMouvementLibelle}</Badge>
+                                                                            {aff.commentaire && <p className="text-xs text-ink-400 italic mt-0.5">{aff.commentaire}</p>}
+                                                                        </td>
+                                                                        <td className="px-4 py-3 font-semibold">
+                                                                            {aff.fonctionLibelle}
+                                                                            <span className="block text-xs text-ink-400 font-normal">{aff.categorieLibelle}</span>
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-xs">
+                                                                            {aff.departementLibelle} ➔ {aff.serviceLibelle}
+                                                                            <span className="block text-ink-400">Site : {aff.siteLibelle}</span>
+                                                                        </td>
+                                                                        <td className="px-4 py-3 font-mono font-bold text-brand-500 text-xs">
+                                                                            {formatAriary(aff.salaireBase)}
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-xs font-mono">
+                                                                            Du {fmtDate(aff.dateDebut)} {aff.dateFin ? `au ${fmtDate(aff.dateFin)}` : (isCourante ? 'à ce jour' : '(Fin de contrat)')}
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-right">
+                                                                            {isCourante ? (
+                                                                                <Badge variant="success" size="sm">Courante</Badge>
+                                                                            ) : (
+                                                                                <Badge variant="default" size="sm">Clôturée</Badge>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -1084,6 +1234,30 @@ export default function EmployeFicheDetailPage() {
                 idEmploye={id}
                 affectationData={selectedAffectationToEdit}
                 isSubmitting={submittingCarriere}
+            />
+
+            {/* Assistant Guidé Carrière & Contrat */}
+            <ContratAffectationWizard
+                isOpen={isWizardOpen}
+                onClose={() => setIsWizardOpen(false)}
+                onSuccess={() => {
+                    loadCarriere();
+                    setActionSuccess('Nouveau dossier contrat et affectation enregistré avec succès.');
+                }}
+                idEmploye={id}
+                employeNomComplet={`${detailData?.employe?.nom || ''} ${detailData?.employe?.prenom || ''}`}
+            />
+
+            {/* Modale Clôture de Contrat */}
+            <ClotureContratModal
+                isOpen={isClotureModalOpen}
+                onClose={() => setIsClotureModalOpen(false)}
+                onSuccess={() => {
+                    loadCarriere();
+                    setActionSuccess('Le contrat de travail a été clôturé avec succès.');
+                }}
+                contratActif={contratActif}
+                idEmploye={id}
             />
 
             {/* Modale Téléversement Document RH */}

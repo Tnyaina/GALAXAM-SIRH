@@ -148,7 +148,10 @@ export default function ContratFormModal({ isOpen, onClose, onSave, idEmploye: _
 
     // Vérifie si le type de contrat est à durée déterminée
     const selectedType = typesContrat.find(t => String(t.idTypeContrat) === String(formData.idTypeContrat));
-    const isCDD = selectedType?.code?.toUpperCase().includes('CDD') || selectedType?.libelle?.toUpperCase().includes('DÉTERMINÉE');
+    const codeUpper = (selectedType?.code || '').toUpperCase();
+    const libUpper = (selectedType?.libelle || '').toUpperCase();
+    const isCDI = codeUpper.includes('CDI') || libUpper.includes('INDÉTERMINÉE') || libUpper.includes('INDETERMINEE');
+    const isCDD = !isCDI && (codeUpper.includes('CDD') || libUpper.includes('DÉTERMINÉE') || libUpper.includes('DETERMINEE'));
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto">

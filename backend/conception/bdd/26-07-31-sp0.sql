@@ -74,7 +74,6 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'DASHBOARD'),
 (1, 'GESTION_PERSONNEL'),
 (1, 'PERS_EMPLOYES'),
-(1, 'PERS_CONTRATS'),
 (1, 'POINTAGE'),
 (1, 'PAIE_MODULE'),
 (1, 'ADMIN_MODULE'),

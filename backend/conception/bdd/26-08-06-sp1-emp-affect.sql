@@ -141,7 +141,7 @@ ON CONFLICT (code) DO NOTHING;
 INSERT INTO ref_mode_calcul_paie (code, libelle, description) VALUES
     ('MENSUEL', 'Mensuel fixe', 'Calcul sur base d un forfait mensuel standard (173.33h)'),
     ('HORAIRE', 'Taux horaire', 'Calcul sur le nombre d heures réellement effectuées'),
-    ('JOURNALIER', 'Forfait journalier / Pige', 'Calcul au tarif par jour travaillé')
+    ('JOURNALIER', 'Forfait journalier', 'Calcul au tarif par jour travaillé')
 ON CONFLICT (code) DO NOTHING;
 
 -- Catégories professionnelles

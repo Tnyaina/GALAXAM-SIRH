@@ -1,15 +1,15 @@
 /**
  * Card — composant de carte avec de bonnes valeurs par défaut.
- * Utilisation minimale : <Card><CardHeader><CardTitle>Titre</CardTitle></CardHeader><CardBody>Contenu</CardBody></Card>
+ * Respecte strictement les tokens de design system (ink-*, pas de slate).
  */
 
 export function Card({
   children,
   className = '',
   hover = false,
-  padding = false,     // active le padding direct sur la Card (sans CardBody)
-  bordered = true,     // bordure visible
-  shadow = 'sm',       // 'none' | 'sm' | 'md' | 'lg'
+  padding = false,
+  bordered = true,
+  shadow = 'sm',
   ...props
 }) {
   const shadows = {
@@ -22,8 +22,8 @@ export function Card({
   return (
     <div
       className={[
-        'bg-white',
-        bordered ? 'border border-slate-200' : '',
+        'bg-white dark:bg-ink-900',
+        bordered ? 'border border-ink-150 dark:border-ink-700' : '',
         shadows[shadow] ?? shadows.sm,
         hover ? 'transition-shadow hover:shadow-md cursor-pointer' : '',
         padding ? 'p-6' : '',
@@ -41,13 +41,13 @@ export function Card({
 export function CardHeader({
   children,
   className = '',
-  divided = true,      // séparateur bas par défaut
+  divided = true,
 }) {
   return (
     <div
       className={[
         'px-6 py-4',
-        divided ? 'border-b border-slate-200' : '',
+        divided ? 'border-b border-ink-150 dark:border-ink-700' : '',
         className,
       ]
         .filter(Boolean)
@@ -61,8 +61,8 @@ export function CardHeader({
 export function CardTitle({
   children,
   className = '',
-  size = 'base',       // 'sm' | 'base' | 'lg' | 'xl'
-  muted = false,       // texte secondaire
+  size = 'base',
+  muted = false,
 }) {
   const sizes = {
     sm: 'text-sm',
@@ -75,8 +75,8 @@ export function CardTitle({
     <h3
       className={[
         sizes[size] ?? sizes.base,
-        'font-semibold leading-snug',
-        muted ? 'text-slate-500' : 'text-slate-900',
+        'font-bold leading-snug',
+        muted ? 'text-ink-400' : 'text-ink-900 dark:text-white',
         className,
       ]
         .filter(Boolean)
@@ -89,14 +89,14 @@ export function CardTitle({
 
 export function CardSubtitle({ children, className = '' }) {
   return (
-    <p className={`mt-0.5 text-sm text-slate-500 ${className}`}>{children}</p>
+    <p className={`mt-0.5 text-xs text-ink-400 ${className}`}>{children}</p>
   );
 }
 
 export function CardBody({
   children,
   className = '',
-  flush = false,       // flush=true enlève le padding (ex: image plein format)
+  flush = false,
 }) {
   return (
     <div className={[flush ? '' : 'px-6 py-4', className].filter(Boolean).join(' ')}>
@@ -108,15 +108,15 @@ export function CardBody({
 export function CardFooter({
   children,
   className = '',
-  divided = true,      // séparateur haut par défaut
-  tinted = true,       // fond légèrement grisé par défaut
+  divided = true,
+  tinted = true,
 }) {
   return (
     <div
       className={[
         'px-6 py-3',
-        divided ? 'border-t border-slate-200' : '',
-        tinted ? 'bg-slate-50' : '',
+        divided ? 'border-t border-ink-150 dark:border-ink-700' : '',
+        tinted ? 'bg-ink-50 dark:bg-ink-950' : '',
         className,
       ]
         .filter(Boolean)
@@ -136,3 +136,5 @@ export function CardImage({ src, alt = '', className = '' }) {
     />
   );
 }
+
+export default Card;

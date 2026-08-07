@@ -415,7 +415,7 @@ export default function CotisationsIrsaTab() {
                                         <td className="px-4 py-3 font-mono font-bold text-brand-500">Tranche {t.numeroTranche}</td>
                                         <td className="px-4 py-3 font-mono">{t.trancheMin?.toLocaleString()} Ar</td>
                                         <td className="px-4 py-3 font-mono font-semibold">
-                                            {t.trancheMax ? `${t.trancheMax.toLocaleString()} Ar` : <span className="text-amber-500 italic">Au-delà (Infini)</span>}
+                                            {t.trancheMax ? `${t.trancheMax.toLocaleString()} Ar` : <span className="text-amber-500">Au-delà </span>}
                                         </td>
                                         <td className="px-4 py-3 text-right font-mono font-bold text-brand-500 text-base">{t.taux}%</td>
                                         <td className="px-4 py-3 text-right">

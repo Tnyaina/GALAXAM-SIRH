@@ -122,6 +122,17 @@ public class ContratTravailController {
                 existing.setIdMotifSortie(req.getIdMotifSortie());
 
                 existing.update(c);
+
+                // Si le contrat est clôturé/désactivé, clôturer automatiquement les affectations rattachées à ce contrat
+                if (!req.isEstActif()) {
+                    try (java.sql.PreparedStatement psAff = c.prepareStatement(
+                            "UPDATE employe_affectation_carriere SET date_fin = ?, updated_at = CURRENT_TIMESTAMP WHERE id_contrat = ? AND date_fin IS NULL")) {
+                        psAff.setDate(1, req.getDateFin() != null ? req.getDateFin() : new java.sql.Date(System.currentTimeMillis()));
+                        psAff.setInt(2, idContrat);
+                        psAff.executeUpdate();
+                    }
+                }
+
                 AuditLog.audit(c, "MODIFICATION", "contrat_travail", String.valueOf(idContrat), null, existing);
                 c.commit();
 
