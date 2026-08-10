@@ -46,6 +46,11 @@ const contratService = {
         return response.data;
     },
 
+    getTypesEvenementRh: async () => {
+        const response = await apiClient.get('/ref-carriere/types-evenements');
+        return response.data;
+    },
+
     // =========================================================================
     // WORKFLOWS RH
     // =========================================================================
@@ -59,6 +64,15 @@ const contratService = {
      */
     creerBrouillonEmbauche: async (idEmploye, data) => {
         const response = await apiClient.post(`/employes/${idEmploye}/workflows/embauche-initiale`, data);
+        return response.data;
+    },
+
+    /**
+     * ÉTAPE 1 (Transition) — Créer un brouillon de transition (Mutation, Promotion, Transformation CDI...).
+     * POST /employes/{idEmploye}/workflows/transition
+     */
+    creerBrouillonTransition: async (idEmploye, data) => {
+        const response = await apiClient.post(`/employes/${idEmploye}/workflows/transition`, data);
         return response.data;
     },
 
@@ -83,6 +97,17 @@ const contratService = {
      */
     annulerWorkflow: async (idWorkflow, motifAnnulation = null) => {
         const response = await apiClient.put(`/workflows/${idWorkflow}/annuler`, {
+            commentaireValidation: motifAnnulation,
+        });
+        return response.data;
+    },
+
+    /**
+     * Annuler un workflow planifié à date ultérieure (action DAF/RH).
+     * PUT /workflows/{idWorkflow}/annuler-planification
+     */
+    annulerWorkflowPlanifie: async (idWorkflow, motifAnnulation = null) => {
+        const response = await apiClient.put(`/workflows/${idWorkflow}/annuler-planification`, {
             commentaireValidation: motifAnnulation,
         });
         return response.data;

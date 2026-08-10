@@ -9,6 +9,7 @@ import mg.galaxam.sirh.model.referentiel.RefCategorieProfessionnelle;
 import mg.galaxam.sirh.model.referentiel.RefModeCalculPaie;
 import mg.galaxam.sirh.model.referentiel.RefMotifMouvement;
 import mg.galaxam.sirh.model.referentiel.RefMotifSortie;
+import mg.galaxam.sirh.model.referentiel.RefTypeEvenementRh;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -31,11 +32,24 @@ public class RefCarriereController {
             result.put("modesPaie", RefModeCalculPaie.listAll(c, true));
             result.put("motifsMouvement", RefMotifMouvement.listAll(c, true));
             result.put("motifsSortie", RefMotifSortie.listAll(c, true));
+            result.put("typesEvenement", RefTypeEvenementRh.listAll(c));
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Erreur lors de la récupération des référentiels carrière.");
+        }
+    }
+
+    @GetMapping("/types-evenements")
+    public ResponseEntity<?> getTypesEvenementRh() {
+        try (Connection c = dataSource.getConnection()) {
+            List<RefTypeEvenementRh> list = RefTypeEvenementRh.listAll(c);
+            return ResponseEntity.ok(list);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la récupération des types d'événements RH.");
         }
     }
 

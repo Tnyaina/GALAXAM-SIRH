@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
     Briefcase, Building, Landmark, Calendar, ShieldAlert, CheckCircle, 
-    Clock, Plus, FileText, Eye,
+    Clock, Plus, FileText, Eye, RefreshCw,
     DollarSign, MapPin, Award
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
@@ -9,7 +9,14 @@ import Badge from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
 import contratService from '@/api/employe/contratService';
 import EmbaucheModal from './EmbaucheModal';
+import TransitionModal from './TransitionModal';
 import RecapitulatifBrouillonModal from './RecapitulatifBrouillonModal';
+import ConfirmationEssaiModal from './ConfirmationEssaiModal';
+import RenouvellementEssaiModal from './RenouvellementEssaiModal';
+import { 
+    evaluerEtatEssai, estEssaiRenouvele,
+    trouverWorkflowPlanifieFutur 
+} from '@/utils/carriereUtils';
 
 function StatItem({ icon, label, value, highlight = false }) {
     return (
@@ -39,7 +46,10 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
 
     // Modales
     const [isEmbaucheModalOpen, setIsEmbaucheModalOpen] = useState(false);
+    const [isTransitionModalOpen, setIsTransitionModalOpen] = useState(false);
     const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
+    const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
+    const [isRenouvellementModalOpen, setIsRenouvellementModalOpen] = useState(false);
     const [selectedWfModal, setSelectedWfModal] = useState(null);
     const [editInitialData, setEditInitialData] = useState(null);
 
@@ -93,10 +103,14 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
         setIsEmbaucheModalOpen(true);
     };
 
-    const handleSuccessAction = (msg) => {
+    const handleSuccessAction = async (msg, createdWf = null) => {
         setActionSuccessMsg(msg);
         setTimeout(() => setActionSuccessMsg(''), 6000);
-        loadCarriereData();
+        await loadCarriereData();
+        if (createdWf) {
+            setSelectedWfModal(createdWf);
+            setIsRecapModalOpen(true);
+        }
     };
 
     const fmtDate = (d) => {
@@ -141,6 +155,11 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
               (wf) => wf.codeStatutWorkflow === 'VALIDE' && Number(wf.idContratCible) === Number(contratActif.idContrat)
           )
         : null;
+
+    const todayStr = new Date().toISOString().substring(0, 10);
+    const workflowPlanifieFutur = trouverWorkflowPlanifieFutur(workflowsList, todayStr);
+    const etatEssai = evaluerEtatEssai(contratActif, workflowCplActif, workflowsList, todayStr);
+    const estEssaiRenouveleFlag = estEssaiRenouvele(workflowsList);
 
     if (loading) {
         return (
@@ -234,7 +253,13 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
                                 <h4 className="text-sm font-bold text-ink-900 dark:text-white">
-                                    Brouillon d'Embauche en attente de Validation DAF
+                                    {brouillonWf.codeTypeEvenement === 'EMBAUCHE_INITIALE'
+                                        ? 'Brouillon d\'Embauche en attente de Validation'
+                                        : brouillonWf.codeTypeEvenement === 'CONFIRMATION_ESSAI'
+                                        ? 'Confirmation d\'Essai en attente de Validation'
+                                        : brouillonWf.codeTypeEvenement === 'RENOUVELLEMENT_ESSAI'
+                                        ? 'Renouvellement d\'Essai en attente de Validation'
+                                        : `${brouillonWf.libelleTypeEvenement || 'Mouvement RH'} en attente de Validation`}
                                 </h4>
                                 <Badge variant="warning" size="sm">BROUILLON</Badge>
                             </div>
@@ -266,6 +291,37 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
                 </div>
             )}
 
+            {/* 🔵 BANNIÈRE : MOUVEMENT RH PLANIFIÉ À DATE ULTÉRIEURE */}
+            {workflowPlanifieFutur && (
+                <div className="bg-brand-500/10 border border-brand-500/30 p-5 rounded-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-brand-500/20 text-brand-600 dark:text-brand-400 rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                            <Calendar size={20} />
+                        </div>
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-bold text-ink-900 dark:text-white">
+                                    Mouvement RH Planifié (Prendra effet le {fmtDate(workflowPlanifieFutur.dateEffet)})
+                                </h4>
+                                <Badge variant="primary" size="sm">VALIDÉ — PLANIFIÉ</Badge>
+                            </div>
+                            <p className="text-xs text-ink-500 dark:text-ink-300">
+                                {workflowPlanifieFutur.libelleTypeEvenementRh || 'Transition'} — Poste cible : <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowPlanifieFutur.libelleFonction || '-'}</span> à <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowPlanifieFutur.libelleSite || '-'}</span> (Nouveau salaire : <span className="font-mono font-semibold text-brand-500">{fmtMoney(workflowPlanifieFutur.salaireBase)}</span>)
+                            </p>
+                        </div>
+                    </div>
+
+                    <Button
+                        onClick={() => { setSelectedWfModal(workflowPlanifieFutur); setIsRecapModalOpen(true); }}
+                        variant="outline"
+                        size="sm"
+                        iconLeft={<Eye size={16} />}
+                    >
+                        Consulter le Mouvement
+                    </Button>
+                </div>
+            )}
+
             {/* 🟢 SECTION : CONTRAT ACTIF & AFFECTATION EN COURS */}
             {contratActif ? (
                 <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-sm shadow-sm p-6 space-y-6">
@@ -280,10 +336,26 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
                                         Contrat Actif N° {contratActif.numeroContrat}
                                     </h3>
                                     <Badge variant="success" size="sm">ACTIF</Badge>
+                                    {(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai) && !workflowsList.some(w => w.codeStatutWorkflow === 'VALIDE' && w.codeTypeEvenement === 'CONFIRMATION_ESSAI') && (
+                                        <Badge variant="warning" size="sm" icon={<Clock size={12} />}>
+                                            Période d'Essai (Fin le {fmtDate(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai)})
+                                        </Badge>
+                                    )}
                                 </div>
                                 <p className="text-xs text-ink-400">Relation contractuelle et juridique en cours d'exécution</p>
                             </div>
                         </div>
+
+                        {canWrite && !brouillonWf && (
+                            <Button
+                                onClick={() => setIsTransitionModalOpen(true)}
+                                variant="primary"
+                                size="sm"
+                                iconLeft={<RefreshCw size={16} />}
+                            >
+                                Mouvement / Transition RH
+                            </Button>
+                        )}
                     </div>
 
                     {/* Grille Contrat + Affectation */}
@@ -306,6 +378,45 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
                                 <span className="text-ink-400">Date de Début :</span>
                                 <span className="font-semibold text-ink-800 dark:text-ink-100">{fmtDate(contratActif.dateDebut)}</span>
                             </div>
+                            {etatEssai.isEssaiActif && (
+                                <div className="py-2 px-2.5 my-1.5 bg-warning-500/10 border border-warning-500/20 rounded space-y-2 text-warning-800 dark:text-warning-300">
+                                    <div className="flex justify-between items-center font-medium">
+                                        <span className="flex items-center gap-1.5 font-bold">
+                                            <Clock size={13} /> {etatEssai.isDernierJour ? 'Dernier Jour d\'Essai :' : 'Période d\'Essai :'}
+                                        </span>
+                                        <span className="font-bold">
+                                            {etatEssai.dureeEssaiMois} Mois 
+                                            {etatEssai.isDernierJour ? ' (Échéance ce soir à 23h59)' : ` (Fin le ${fmtDate(etatEssai.dateFinEssaiStr)})`}
+                                        </span>
+                                    </div>
+                                    {canWrite && !brouillonWf && !workflowPlanifieFutur && (
+                                        <div className="pt-1.5 border-t border-warning-500/20 flex flex-wrap items-center gap-2">
+                                            <Button
+                                                onClick={() => setIsConfirmationModalOpen(true)}
+                                                variant="success"
+                                                size="xs"
+                                                iconLeft={<CheckCircle size={13} />}
+                                            >
+                                                Confirmer l'Essai
+                                            </Button>
+                                            {!estEssaiRenouveleFlag ? (
+                                                <Button
+                                                    onClick={() => setIsRenouvellementModalOpen(true)}
+                                                    variant="outline"
+                                                    size="xs"
+                                                    iconLeft={<RefreshCw size={13} />}
+                                                >
+                                                    Renouveler l'Essai
+                                                </Button>
+                                            ) : (
+                                                <Badge variant="warning" size="sm">
+                                                    2ème Période (Renouvelée — Max légal d'essai atteint)
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <div className="py-1 flex justify-between">
                                 <span className="text-ink-400">Date de Fin :</span>
                                 <span className="font-semibold text-ink-800 dark:text-ink-100">{fmtDate(contratActif.dateFin)}</span>
@@ -393,7 +504,7 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
                     </h3>
 
                     {workflowsList.length === 0 ? (
-                        <p className="text-xs text-ink-400 italic">Aucun événement RH enregistré.</p>
+                        <p className="text-xs text-ink-400">Aucun événement RH enregistré.</p>
                     ) : (
                         <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
                             <table className="w-full text-xs text-left">
@@ -460,7 +571,7 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
                     </h3>
 
                     {contratsList.length === 0 ? (
-                        <p className="text-xs text-ink-400 italic">Aucun contrat dans l'historique.</p>
+                        <p className="text-xs text-ink-400">Aucun contrat dans l'historique.</p>
                     ) : (
                         <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
                             <table className="w-full text-xs text-left">
@@ -488,7 +599,7 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
                                             <td className="px-4 py-3">
                                                 {ct.comptabiliseEffectif ? 'Oui' : 'Non'}
                                             </td>
-                                            <td className="px-4 py-3 text-ink-500 italic">
+                                            <td className="px-4 py-3 text-ink-500">
                                                 {ct.description || '-'}
                                             </td>
                                         </tr>
@@ -508,7 +619,7 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
                     idEmploye={idEmploye}
                     nomEmploye={nomEmploye}
                     initialData={editInitialData}
-                    onSuccess={() => handleSuccessAction('Brouillon d\'embauche enregistré avec succès !')}
+                    onSuccess={(res) => handleSuccessAction('Brouillon d\'embauche enregistré avec succès !', res)}
                 />
             )}
 
@@ -520,6 +631,46 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
                     workflowCpl={selectedWfModal || brouillonWf}
                     onEdit={(wf) => handleOpenEditModal(wf)}
                     onActionSuccess={(msg) => handleSuccessAction(msg)}
+                />
+            )}
+
+            {/* Modale Slide-Over Transition / Mouvement RH (Sprint 2) */}
+            {isTransitionModalOpen && (
+                <TransitionModal
+                    isOpen={isTransitionModalOpen}
+                    onClose={() => setIsTransitionModalOpen(false)}
+                    idEmploye={idEmploye}
+                    nomEmploye={nomEmploye}
+                    contratActif={contratActif}
+                    affectationActive={affectationActive}
+                    workflowActif={workflowCplActif}
+                    onSuccess={(res) => handleSuccessAction('Brouillon de transition enregistré avec succès !', res)}
+                />
+            )}
+
+            {/* Modale de Confirmation Rapide Période d'Essai */}
+            {isConfirmationModalOpen && (
+                <ConfirmationEssaiModal
+                    isOpen={isConfirmationModalOpen}
+                    onClose={() => setIsConfirmationModalOpen(false)}
+                    idEmploye={idEmploye}
+                    nomEmploye={nomEmploye}
+                    contratActif={contratActif}
+                    affectationActive={affectationActive}
+                    onSuccess={(res) => handleSuccessAction('Demande de confirmation d\'essai créée avec succès !', res)}
+                />
+            )}
+
+            {/* Modale de Renouvellement Rapide Période d'Essai */}
+            {isRenouvellementModalOpen && (
+                <RenouvellementEssaiModal
+                    isOpen={isRenouvellementModalOpen}
+                    onClose={() => setIsRenouvellementModalOpen(false)}
+                    idEmploye={idEmploye}
+                    nomEmploye={nomEmploye}
+                    contratActif={contratActif}
+                    affectationActive={affectationActive}
+                    onSuccess={(res) => handleSuccessAction('Demande de renouvellement d\'essai créée avec succès !', res)}
                 />
             )}
         </div>

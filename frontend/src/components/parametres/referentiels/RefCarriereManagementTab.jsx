@@ -10,6 +10,7 @@ export default function RefCarriereManagementTab() {
     const [categoriesPro, setCategoriesPro] = useState([]);
     const [modesPaie, setModesPaie] = useState([]);
     const [motifsMouvement, setMotifsMouvement] = useState([]);
+    const [typesEvenement, setTypesEvenement] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -25,14 +26,16 @@ export default function RefCarriereManagementTab() {
         setLoading(true);
         setError('');
         try {
-            const [cpList, mpList, mmList] = await Promise.all([
+            const [cpList, mpList, mmList, tevList] = await Promise.all([
                 contratService.getCategoriesPro(false),
                 contratService.getModesPaie(),
-                contratService.getMotifsMouvement()
+                contratService.getMotifsMouvement(),
+                contratService.getTypesEvenementRh(),
             ]);
             setCategoriesPro(cpList || []);
             setModesPaie(mpList || []);
             setMotifsMouvement(mmList || []);
+            setTypesEvenement(tevList || []);
         } catch (err) {
             console.error('Erreur chargement référentiels carrière:', err);
             setError('Impossible de charger les référentiels de carrière.');
@@ -175,15 +178,15 @@ export default function RefCarriereManagementTab() {
                 )}
             </div>
 
-            {/* Section 2: Modes de calcul de paie et Motifs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Section 2: Modes de calcul de paie, Motifs et Types d'Événements RH */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Modes de Calcul Paie */}
                 <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 p-6 rounded-sm shadow-sm space-y-4">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-ink-900 dark:text-white flex items-center gap-2">
                         <CreditCard size={16} className="text-brand-500" />
-                        Modes de Calcul de Paie ({modesPaie.length})
+                        Modes de Paie ({modesPaie.length})
                     </h3>
-                    <div className="divide-y divide-ink-100 dark:divide-ink-800 border border-ink-150 dark:border-ink-700 rounded-sm">
+                    <div className="divide-y divide-ink-100 dark:divide-ink-800 border border-ink-150 dark:border-ink-700 rounded-sm max-h-[260px] overflow-y-auto">
                         {modesPaie.map((mp) => (
                             <div key={mp.idModeCalculPaie} className="p-3 flex items-center justify-between">
                                 <div>
@@ -200,13 +203,32 @@ export default function RefCarriereManagementTab() {
                 <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 p-6 rounded-sm shadow-sm space-y-4">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-ink-900 dark:text-white flex items-center gap-2">
                         <ArrowUpRight size={16} className="text-brand-500" />
-                        Motifs de Mouvements / Carrière ({motifsMouvement.length})
+                        Motifs de Mouvements ({motifsMouvement.length})
                     </h3>
-                    <div className="divide-y divide-ink-100 dark:divide-ink-800 border border-ink-150 dark:border-ink-700 rounded-sm max-h-[220px] overflow-y-auto">
+                    <div className="divide-y divide-ink-100 dark:divide-ink-800 border border-ink-150 dark:border-ink-700 rounded-sm max-h-[260px] overflow-y-auto">
                         {motifsMouvement.map((mm) => (
                             <div key={mm.idMotifMouvement} className="p-3 flex items-center justify-between">
                                 <p className="text-xs font-semibold text-ink-900 dark:text-white">{mm.libelle}</p>
                                 <span className="text-[10px] font-mono font-bold text-brand-500 uppercase">{mm.code}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Types d'Événements RH (Nouveau) */}
+                <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 p-6 rounded-sm shadow-sm space-y-4">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-ink-900 dark:text-white flex items-center gap-2">
+                        <Award size={16} className="text-brand-500" />
+                        Types d'Événements RH ({typesEvenement.length})
+                    </h3>
+                    <div className="divide-y divide-ink-100 dark:divide-ink-800 border border-ink-150 dark:border-ink-700 rounded-sm max-h-[260px] overflow-y-auto">
+                        {typesEvenement.map((te) => (
+                            <div key={te.idTypeEvenementRh || te.code} className="p-3 flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-semibold text-ink-900 dark:text-white">{te.libelle}</p>
+                                    <p className="text-[10px] font-mono text-brand-500">{te.code}</p>
+                                </div>
+                                <Badge variant="success" size="sm">Actif</Badge>
                             </div>
                         ))}
                     </div>

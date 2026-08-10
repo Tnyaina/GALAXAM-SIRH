@@ -196,6 +196,25 @@ public class WorkflowRh extends ClassMere {
         }
     }
 
+    /**
+     * Annule un workflow VALIDÉ dont le mouvement est encore PLANIFIÉ à date ultérieure (date_effet > CURRENT_DATE).
+     */
+    public void annulerPlanifie(Integer idValideurUtilisateur, String commentaireAnnulation, Connection c) throws Exception {
+        String sql = "UPDATE workflow_rh SET " +
+                "id_statut_workflow = (SELECT id_statut_workflow FROM ref_statut_workflow WHERE code = 'ANNULE'), " +
+                "commentaire = COALESCE(commentaire || ' | Annulation Planification : ' || ?, 'Annulation Planification : ' || ?), " +
+                "id_valideur = ?, " +
+                "updated_at = CURRENT_TIMESTAMP " +
+                "WHERE id_workflow = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            setNullableString(ps, 1, commentaireAnnulation);
+            setNullableString(ps, 2, commentaireAnnulation);
+            setNullableInt(ps, 3, idValideurUtilisateur);
+            ps.setInt(4, idWorkflow);
+            ps.executeUpdate();
+        }
+    }
+
     @Override
     protected ClassMere rechercherParId(String id, Connection c) throws Exception {
         if (id == null || id.isBlank()) return null;

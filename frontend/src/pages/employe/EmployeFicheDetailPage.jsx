@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
     ArrowLeft, User, Phone, Users, ShieldAlert, 
@@ -62,7 +62,7 @@ export default function EmployeFicheDetailPage() {
     const [motifDesactivation, setMotifDesactivation] = useState('Demission');
     const [submitting, setSubmitting] = useState(false);
 
-    const loadEmployeDetail = async () => {
+    const loadEmployeDetail = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
@@ -74,9 +74,9 @@ export default function EmployeFicheDetailPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
 
-    const loadDocuments = async () => {
+    const loadDocuments = useCallback(async () => {
         setLoadingDocs(true);
         try {
             const res = await documentRhService.getDocumentsByEmploye(id);
@@ -86,16 +86,16 @@ export default function EmployeFicheDetailPage() {
         } finally {
             setLoadingDocs(false);
         }
-    };
+    }, [id]);
 
-    const loadTypesDoc = async () => {
+    const loadTypesDoc = useCallback(async () => {
         try {
             const res = await documentRhService.getTypesDocument(true);
             setTypesDoc(res || []);
         } catch (err) {
             console.error('Erreur chargement types documents:', err);
         }
-    };
+    }, []);
 
     useEffect(() => {
         if (id && !isNaN(Number(id))) {
@@ -106,7 +106,7 @@ export default function EmployeFicheDetailPage() {
             setError("Identifiant d'employé invalide.");
             setLoading(false);
         }
-    }, [id]);
+    }, [id, loadEmployeDetail, loadDocuments, loadTypesDoc]);
 
     const handleSaveForm = async (formData) => {
         setSubmitting(true);
@@ -452,7 +452,7 @@ export default function EmployeFicheDetailPage() {
                                         </table>
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-ink-400 italic">Aucun compte bancaire enregistré.</p>
+                                    <p className="text-xs text-ink-400">Aucun compte bancaire enregistré.</p>
                                 )}
                             </div>
                         </div>
@@ -543,7 +543,7 @@ export default function EmployeFicheDetailPage() {
                                                             </div>
                                                             <div>
                                                                 <p className="font-semibold text-ink-900 dark:text-white">{doc.nomOriginal}</p>
-                                                                {doc.commentaire && <p className="text-xs text-ink-400 italic">{doc.commentaire}</p>}
+                                                                {doc.commentaire && <p className="text-xs text-ink-400">{doc.commentaire}</p>}
                                                             </div>
                                                         </div>
                                                     </td>
@@ -610,7 +610,7 @@ export default function EmployeFicheDetailPage() {
                                         <InfoBlock label="Fonction" value={conjoint.fonction} />
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-ink-400 italic">Aucun conjoint renseigné (Célibataire ou non déclaré).</p>
+                                    <p className="text-xs text-ink-400">Aucun conjoint renseigné (Célibataire ou non déclaré).</p>
                                 )}
                             </div>
 
@@ -651,7 +651,7 @@ export default function EmployeFicheDetailPage() {
                                         </table>
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-ink-400 italic">Aucun enfant enregistré.</p>
+                                    <p className="text-xs text-ink-400">Aucun enfant enregistré.</p>
                                 )}
                             </div>
 
@@ -682,7 +682,7 @@ export default function EmployeFicheDetailPage() {
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-ink-400 italic">Aucun contact d'urgence renseigné.</p>
+                                    <p className="text-xs text-ink-400">Aucun contact d'urgence renseigné.</p>
                                 )}
                             </div>
                         </div>

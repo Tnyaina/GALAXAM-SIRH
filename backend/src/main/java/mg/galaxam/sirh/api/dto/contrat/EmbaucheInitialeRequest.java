@@ -30,6 +30,12 @@ public class EmbaucheInitialeRequest {
     /** Date de signature du contrat (optionnel) */
     private Date dateSignature;
 
+    /** Durée de la période d'essai en mois */
+    private Integer dureeEssaiMois;
+
+    /** Date de fin de la période d'essai */
+    private Date dateFinEssai;
+
     /**
      * Si false, l'employé n'est pas comptabilisé dans les effectifs
      * (ex : stagiaires, consultants retraités).
@@ -105,6 +111,12 @@ public class EmbaucheInitialeRequest {
 
     public Date getDateSignature() { return dateSignature; }
     public void setDateSignature(Date dateSignature) { this.dateSignature = dateSignature; }
+
+    public Integer getDureeEssaiMois() { return dureeEssaiMois; }
+    public void setDureeEssaiMois(Integer dureeEssaiMois) { this.dureeEssaiMois = dureeEssaiMois; }
+
+    public Date getDateFinEssai() { return dateFinEssai; }
+    public void setDateFinEssai(Date dateFinEssai) { this.dateFinEssai = dateFinEssai; }
 
     public boolean isComptabiliseEffectif() { return comptabiliseEffectif; }
     public void setComptabiliseEffectif(boolean comptabiliseEffectif) { this.comptabiliseEffectif = comptabiliseEffectif; }

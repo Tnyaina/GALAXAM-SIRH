@@ -99,6 +99,8 @@ CREATE TABLE contrat_travail (
     date_signature DATE,
     date_debut DATE NOT NULL,
     date_fin DATE,
+    duree_essai_mois INTEGER,
+    date_fin_essai DATE,
     
     comptabilise_effectif BOOLEAN DEFAULT TRUE,
     id_motif_sortie INTEGER,
@@ -240,17 +242,6 @@ ALTER TABLE workflow_rh
     ADD CONSTRAINT fk_wf_aff_cbl FOREIGN KEY (id_affectation_cible) REFERENCES employe_affectation_carriere(id_affectation);
 
 -- ============================================================
--- 6. GESTION DOCUMENTAIRE RH (Script d'origine + ALTER TABLE)
--- ============================================================
-
--- Ajout des 2 clés étrangères optionnelles via ALTER TABLE
-ALTER TABLE document_rh
-    ADD COLUMN id_contrat INTEGER,
-    ADD COLUMN id_workflow INTEGER,
-    ADD CONSTRAINT fk_document_contrat FOREIGN KEY (id_contrat) REFERENCES contrat_travail(id_contrat) ON DELETE SET NULL,
-    ADD CONSTRAINT fk_document_workflow FOREIGN KEY (id_workflow) REFERENCES workflow_rh(id_workflow) ON DELETE SET NULL;
-
--- ============================================================
 -- 7. DONNÉES DE RÉFÉRENCE INITIALES (Seed Data)
 -- ============================================================
 
@@ -365,6 +356,8 @@ SELECT
     rf.raison_sociale             AS libelle_filiale,
     ct_cbl.date_debut             AS date_debut_contrat,
     ct_cbl.date_fin               AS date_fin_contrat,
+    ct_cbl.duree_essai_mois,
+    ct_cbl.date_fin_essai,
     ct_cbl.comptabilise_effectif,
 
     -- Affectation cible

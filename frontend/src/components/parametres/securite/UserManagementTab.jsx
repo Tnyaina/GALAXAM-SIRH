@@ -268,7 +268,7 @@ export default function UserManagementTab() {
                                             {!user.estActif && user.dateDesactivation ? (
                                                 <div>
                                                     <p>{new Date(user.dateDesactivation).toLocaleString()}</p>
-                                                    <p className="italic text-danger-500 font-medium">Motif : {user.motifDesactivation}</p>
+                                                    <p className="text-danger-500 font-medium">Motif : {user.motifDesactivation}</p>
                                                 </div>
                                             ) : (
                                                 <span className="text-ink-300">-</span>

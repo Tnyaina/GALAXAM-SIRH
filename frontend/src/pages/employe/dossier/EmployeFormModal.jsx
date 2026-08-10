@@ -23,6 +23,21 @@ const VILLES_STANDARDS = [
     'Mahajanga', 'Toliara', 'Antsiranana', 'Nosy Be', 'Taolagnaro', 'Morondava', 'Autre'
 ];
 
+const EMPTY_FORM = {
+    matricule: '', nom: '', prenom: '', sexe: 'M',
+    dateNaissance: '', lieuNaissance: 'Antananarivo', nationalite: 'Malgache',
+    pereNomPrenom: '', mereNomPrenom: '', situationFamiliale: 'Celibataire',
+    cinNumero: '', cinDateDelivrance: '', cinLieuDelivrance: 'Antananarivo',
+    cinDuplicataDate: '', cinDuplicataLieu: '',
+    permisConduireNumero: '', permisConduireDateDelivrance: '', permisConduireLieuDelivrance: '',
+    adresse: '', ville: 'Antananarivo', telephone: '', email: '',
+    numAffiliationCnaps: '', photoUrl: '', dateDeclaration: '',
+    conjoint: { nom: '', prenom: '', dateNaissance: '', lieuNaissance: '', societe: '', fonction: '' },
+    enfants: [],
+    contactsUrgence: [{ nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }],
+    compteBanquePrincipal: { idBanque: '', agence: '', numCompteRib: '', titulaireCompte: '' }
+};
+
 export default function EmployeFormModal({ isOpen, onClose, onSave, employeData, isSubmitting }) {
     const [activeTab, setActiveTab] = useState('civilite');
     const [banques, setBanques] = useState([]);
@@ -31,22 +46,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
     const [customNationalite, setCustomNationalite] = useState('');
     const [isCustomNat, setIsCustomNat] = useState(false);
 
-    const emptyForm = {
-        matricule: '', nom: '', prenom: '', sexe: 'M',
-        dateNaissance: '', lieuNaissance: 'Antananarivo', nationalite: 'Malgache',
-        pereNomPrenom: '', mereNomPrenom: '', situationFamiliale: 'Celibataire',
-        cinNumero: '', cinDateDelivrance: '', cinLieuDelivrance: 'Antananarivo',
-        cinDuplicataDate: '', cinDuplicataLieu: '',
-        permisConduireNumero: '', permisConduireDateDelivrance: '', permisConduireLieuDelivrance: '',
-        adresse: '', ville: 'Antananarivo', telephone: '', email: '',
-        numAffiliationCnaps: '', photoUrl: '', dateDeclaration: '',
-        conjoint: { nom: '', prenom: '', dateNaissance: '', lieuNaissance: '', societe: '', fonction: '' },
-        enfants: [],
-        contactsUrgence: [{ nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }],
-        compteBanquePrincipal: { idBanque: '', agence: '', numCompteRib: '', titulaireCompte: '' }
-    };
-
-    const [formData, setFormData] = useState({ ...emptyForm });
+    const [formData, setFormData] = useState({ ...EMPTY_FORM });
 
     const fmtDate = (d) => {
         if (!d) return '';
@@ -132,7 +132,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                 }
             });
         } else {
-            setFormData({ ...emptyForm });
+            setFormData({ ...EMPTY_FORM });
             setIsCustomNat(false);
             setCustomNationalite('');
         }
@@ -444,7 +444,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                                     </Button>
                                 </div>
                                 {formData.enfants.length === 0 ? (
-                                    <p className="text-xs text-ink-400 italic text-center py-6 bg-ink-50 dark:bg-ink-950 border border-ink-150 dark:border-ink-700">
+                                    <p className="text-xs text-ink-400 text-center py-6 bg-ink-50 dark:bg-ink-950 border border-ink-150 dark:border-ink-700">
                                         Aucun enfant enregistré.
                                     </p>
                                 ) : (

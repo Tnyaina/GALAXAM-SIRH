@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, CheckCircle, XCircle, Building, Layers, Eye } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 
@@ -32,7 +32,7 @@ export default function DepartementsServicesTab() {
         idDepartement: ''
     });
 
-    const loadDepartements = async () => {
+    const loadDepartements = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
@@ -47,7 +47,7 @@ export default function DepartementsServicesTab() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedDepartement]);
 
     const loadServicesForDepartement = async (idDept) => {
         setLoadingServices(true);
@@ -63,7 +63,7 @@ export default function DepartementsServicesTab() {
 
     useEffect(() => {
         loadDepartements();
-    }, []);
+    }, [loadDepartements]);
 
     useEffect(() => {
         if (selectedDepartement) {

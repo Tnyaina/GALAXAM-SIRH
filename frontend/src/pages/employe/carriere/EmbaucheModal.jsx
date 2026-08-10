@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Briefcase, Building, Landmark, ShieldAlert, Save, X, DollarSign } from 'lucide-react';
+import { Briefcase, Building, Landmark, ShieldAlert, Save, X, DollarSign, Clock } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input, { Textarea, Select } from '@/components/ui/Input';
 import Loading from '@/components/ui/Loading';
@@ -49,6 +49,10 @@ export default function EmbaucheModal({
         numeroContrat: '',
         description: '',
         commentaire: '',
+        // Période d'essai
+        aPeriodeEssai: false,
+        dureeEssaiMois: '3',
+        dateFinEssai: '',
         // Affectation
         idSite: '',
         idDepartement: '',
@@ -194,6 +198,11 @@ export default function EmbaucheModal({
             numeroContrat: initialData.numeroContratCible || initialData.numeroContrat || '',
             description: initialData.description || '',
             commentaire: initialData.commentaire || '',
+            // Période d'essai
+            aPeriodeEssai: Boolean(initialData.aPeriodeEssai || initialData.dureeEssaiMois || initialData.dateFinEssai),
+            dureeEssaiMois: initialData.dureeEssaiMois ? String(initialData.dureeEssaiMois) : '3',
+            dateFinEssai: fmtDateInput(initialData.dateFinEssai),
+
             // Affectation
             idSite: siteId ? String(siteId) : '',
             idDepartement: departementId ? String(departementId) : '',
@@ -216,10 +225,22 @@ export default function EmbaucheModal({
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value,
-        }));
+        setFormData(prev => {
+            const next = { ...prev, [name]: type === 'checkbox' ? checked : value };
+            // Calcul automatique de la date de fin d'essai si la période d'essai est cochée
+            if (next.aPeriodeEssai && (name === 'aPeriodeEssai' || name === 'dureeEssaiMois' || name === 'dateDebut')) {
+                const dateDeb = next.dateDebut || next.dateEffet;
+                const duree = Number(next.dureeEssaiMois || 3);
+                if (dateDeb && !isNaN(duree)) {
+                    const d = new Date(dateDeb);
+                    if (!isNaN(d.getTime())) {
+                        d.setMonth(d.getMonth() + duree);
+                        next.dateFinEssai = d.toISOString().substring(0, 10);
+                    }
+                }
+            }
+            return next;
+        });
     };
 
     // Services filtrés selon le département sélectionné
@@ -263,6 +284,9 @@ export default function EmbaucheModal({
                 dateDebut: formData.dateDebut,
                 dateFin: formData.dateFin || null,
                 dateSignature: formData.dateSignature || null,
+                // Période d'essai
+                dureeEssaiMois: formData.aPeriodeEssai && formData.dureeEssaiMois ? Number(formData.dureeEssaiMois) : null,
+                dateFinEssai: formData.aPeriodeEssai && formData.dateFinEssai ? formData.dateFinEssai : null,
                 comptabiliseEffectif: Boolean(formData.comptabiliseEffectif),
                 numeroContrat: formData.numeroContrat || null,
                 description: formData.description || null,
@@ -295,7 +319,11 @@ export default function EmbaucheModal({
             onClose();
         } catch (err) {
             console.error('Erreur soumission embauche:', err);
-            setErrorMsg(err.response?.data || 'Erreur lors de la sauvegarde de l\'embauche.');
+            const errData = err.response?.data;
+            const msg = typeof errData === 'string'
+                ? errData
+                : (errData?.message || errData?.error || err.message || 'Erreur lors de la sauvegarde de l\'embauche.');
+            setErrorMsg(msg);
         }
     };
 
@@ -439,12 +467,57 @@ export default function EmbaucheModal({
                                     />
                                 </div>
 
+                                {/* BLOC PERIODE D'ESSAI */}
+                                <div className="bg-brand-500/5 p-4 rounded-sm border border-brand-500/20 space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="aPeriodeEssai"
+                                            name="aPeriodeEssai"
+                                            checked={Boolean(formData.aPeriodeEssai)}
+                                            onChange={handleChange}
+                                            className="w-4 h-4 text-brand-500 rounded border-ink-300 focus:ring-brand-500 cursor-pointer"
+                                        />
+                                        <label htmlFor="aPeriodeEssai" className="text-xs font-bold text-ink-900 dark:text-white cursor-pointer flex items-center gap-1.5">
+                                            <Clock size={14} className="text-brand-500" />
+                                            Ce contrat est soumis à une Période d'Essai
+                                        </label>
+                                    </div>
+
+                                    {formData.aPeriodeEssai && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                                            <Select
+                                                id="dureeEssaiMois"
+                                                name="dureeEssaiMois"
+                                                label="Durée de l'essai *"
+                                                value={formData.dureeEssaiMois}
+                                                onChange={handleChange}
+                                            >
+                                                <option value="1">1 Mois</option>
+                                                <option value="2">2 Mois</option>
+                                                <option value="3">3 Mois</option>
+                                                <option value="4">4 Mois</option>
+                                                <option value="6">6 Mois</option>
+                                            </Select>
+
+                                            <Input
+                                                id="dateFinEssai"
+                                                name="dateFinEssai"
+                                                label="Date de Fin d'Essai"
+                                                type="date"
+                                                value={formData.dateFinEssai}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="flex items-center gap-2 pt-2">
                                     <input
                                         type="checkbox"
                                         id="comptabiliseEffectif"
                                         name="comptabiliseEffectif"
-                                        checked={formData.comptabiliseEffectif}
+                                        checked={Boolean(formData.comptabiliseEffectif)}
                                         onChange={handleChange}
                                         className="w-4 h-4 text-brand-500 rounded border-ink-300 focus:ring-brand-500"
                                     />
@@ -630,8 +703,8 @@ export default function EmbaucheModal({
 
                 {/* Footer Actions (fixe) */}
                 <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex-shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <p className="text-[11px] text-ink-400 italic">
-                        Ces données seront enregistrées à l'état <span className="font-bold text-warning-600">BROUILLON</span> et ne seront actives qu'après validation DAF.
+                    <p className="text-[11px] text-ink-400">
+                        Ces données seront enregistrées à l'état <span className="font-bold text-warning-600">BROUILLON</span> et ne seront actives qu'après validation RH / Direction.
                     </p>
                     <div className="flex justify-end gap-3 flex-shrink-0">
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">
@@ -646,7 +719,7 @@ export default function EmbaucheModal({
                             disabled={loadingRef}
                             iconLeft={<Save size={16} />}
                         >
-                            {isEditMode ? 'Enregistrer les Modifications' : 'Enregistrer le Brouillon DAF'}
+                            {isEditMode ? 'Enregistrer les Modifications' : 'Enregistrer le Brouillon'}
                         </Button>
                     </div>
                 </div>

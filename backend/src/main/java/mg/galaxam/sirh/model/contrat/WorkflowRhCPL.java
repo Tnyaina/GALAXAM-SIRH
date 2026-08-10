@@ -52,6 +52,8 @@ public class WorkflowRhCPL {
     private String  libelleFiliale;
     private Date    dateDebutContrat;
     private Date    dateFinContrat;
+    private Integer dureeEssaiMois;
+    private Date    dateFinEssai;
     private boolean comptabiliseEffectif;
 
     // ─── Affectation cible enrichie ─────────────────────────────────────────────
@@ -112,6 +114,14 @@ public class WorkflowRhCPL {
         }
     }
 
+    private static Date getDateSafe(ResultSet rs, String colName) {
+        try {
+            return rs.getDate(colName);
+        } catch (SQLException e) {
+            return null;
+        }
+    }
+
     // ─── Mapper ────────────────────────────────────────────────────────────────
 
     private static WorkflowRhCPL mapResultSet(ResultSet rs) throws SQLException {
@@ -136,8 +146,8 @@ public class WorkflowRhCPL {
         w.dateEffet = rs.getDate("date_effet");
         w.motif = rs.getString("motif");
         w.commentaire = rs.getString("commentaire");
-        int idDem = rs.getInt("id_demandeur"); w.idDemandeur = rs.wasNull() ? null : idDem;
-        int idVal = rs.getInt("id_valideur"); w.idValideur = rs.wasNull() ? null : idVal;
+        w.idDemandeur = getIntegerSafe(rs, "id_demandeur");
+        w.idValideur = getIntegerSafe(rs, "id_valideur");
         w.createdAt = rs.getTimestamp("created_at");
         w.updatedAt = rs.getTimestamp("updated_at");
 
@@ -149,6 +159,8 @@ public class WorkflowRhCPL {
         w.libelleFiliale = rs.getString("libelle_filiale");
         w.dateDebutContrat = rs.getDate("date_debut_contrat");
         w.dateFinContrat = rs.getDate("date_fin_contrat");
+        w.dureeEssaiMois = getIntegerSafe(rs, "duree_essai_mois");
+        w.dateFinEssai = getDateSafe(rs, "date_fin_essai");
         w.comptabiliseEffectif = rs.getBoolean("comptabilise_effectif");
 
         w.idSite = getIntegerSafe(rs, "id_site");
@@ -204,6 +216,8 @@ public class WorkflowRhCPL {
     public String getLibelleFiliale() { return libelleFiliale; }
     public Date getDateDebutContrat() { return dateDebutContrat; }
     public Date getDateFinContrat() { return dateFinContrat; }
+    public Integer getDureeEssaiMois() { return dureeEssaiMois; }
+    public Date getDateFinEssai() { return dateFinEssai; }
     public boolean isComptabiliseEffectif() { return comptabiliseEffectif; }
     public Integer getIdSite() { return idSite; }
     public Integer getIdDepartement() { return idDepartement; }

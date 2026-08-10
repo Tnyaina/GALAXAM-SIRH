@@ -9,22 +9,21 @@ function sortByRang(items) {
     return [...items].sort((a, b) => (a.rang ?? 0) - (b.rang ?? 0));
 }
 
+const isChildActive = (node, currentPath) => {
+    if (!node.sousMenus) return false;
+    return node.sousMenus.some(child => (child.href && currentPath === child.href) || isChildActive(child, currentPath));
+};
+
 function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }) {
     const location = useLocation();
     const hasChildren = item.sousMenus?.length > 0;
     const paddingLeft = `${16 + depth * 16}px`;
 
-    // Vérifie si un des sous-menus est actuellement actif dans l'URL
-    const isChildActive = (node) => {
-        if (!node.sousMenus) return false;
-        return node.sousMenus.some(child => (child.href && location.pathname === child.href) || isChildActive(child));
-    };
-
-    const [expanded, setExpanded] = useState(() => hasChildren && isChildActive(item));
+    const [expanded, setExpanded] = useState(() => hasChildren && isChildActive(item, location.pathname));
 
     // Mettre à jour l'ouverture du menu parent quand l'URL change
     useEffect(() => {
-        if (hasChildren && isChildActive(item)) {
+        if (hasChildren && isChildActive(item, location.pathname)) {
             setExpanded(prev => (prev ? prev : true));
         }
     }, [location.pathname, hasChildren, item]);

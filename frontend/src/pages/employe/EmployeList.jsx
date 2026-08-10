@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { UserPlus, Search, Eye, Edit2, Users, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import employeService from '@/api/employe/employeService';
@@ -35,7 +35,7 @@ export default function EmployeList() {
     const [error, setError] = useState('');
     const [actionSuccess, setActionSuccess] = useState('');
 
-    const loadEmployes = async () => {
+    const loadEmployes = useCallback(async () => {
         setLoading(true);
         try {
             const params = {};
@@ -52,11 +52,11 @@ export default function EmployeList() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchQuery, statusFilter]);
 
     useEffect(() => {
         loadEmployes();
-    }, [searchQuery, statusFilter]);
+    }, [loadEmployes]);
 
     const handleOpenCreate = () => {
         setSelectedEmployeForEdit(null);

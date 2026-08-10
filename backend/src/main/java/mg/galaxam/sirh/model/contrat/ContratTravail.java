@@ -36,6 +36,8 @@ public class ContratTravail extends ClassMere {
     private Date dateSignature;
     private Date dateDebut;
     private Date dateFin;
+    private Integer dureeEssaiMois;
+    private Date dateFinEssai;
 
     private boolean comptabiliseEffectif = true;
     private Integer idMotifSortie;
@@ -81,9 +83,9 @@ public class ContratTravail extends ClassMere {
         String sql = "INSERT INTO contrat_travail (" +
                 "id_employe, id_filiale, id_type_contrat, id_type_intervenant, id_statut_contrat, " +
                 "id_type_evenement_initial, id_contrat_precedent, " +
-                "numero_contrat, date_signature, date_debut, date_fin, " +
+                "numero_contrat, date_signature, date_debut, date_fin, duree_essai_mois, date_fin_essai, " +
                 "comptabilise_effectif, id_motif_sortie, description, commentaire" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             int i = 1;
@@ -98,6 +100,8 @@ public class ContratTravail extends ClassMere {
             setNullableDate(ps, i++, dateSignature);
             ps.setDate(i++, dateDebut);
             setNullableDate(ps, i++, dateFin);
+            setNullableInt(ps, i++, dureeEssaiMois);
+            setNullableDate(ps, i++, dateFinEssai);
             ps.setBoolean(i++, comptabiliseEffectif);
             setNullableInt(ps, i++, idMotifSortie);
             setNullableString(ps, i++, description);
@@ -117,6 +121,7 @@ public class ContratTravail extends ClassMere {
                 "id_filiale = ?, id_type_contrat = ?, id_type_intervenant = ?, id_statut_contrat = ?, " +
                 "id_type_evenement_initial = ?, id_contrat_precedent = ?, " +
                 "numero_contrat = ?, date_signature = ?, date_debut = ?, date_fin = ?, " +
+                "duree_essai_mois = ?, date_fin_essai = ?, " +
                 "comptabilise_effectif = ?, id_motif_sortie = ?, description = ?, commentaire = ?, " +
                 "updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_contrat = ?";
@@ -133,6 +138,8 @@ public class ContratTravail extends ClassMere {
             setNullableDate(ps, i++, dateSignature);
             ps.setDate(i++, dateDebut);
             setNullableDate(ps, i++, dateFin);
+            setNullableInt(ps, i++, dureeEssaiMois);
+            setNullableDate(ps, i++, dateFinEssai);
             ps.setBoolean(i++, comptabiliseEffectif);
             setNullableInt(ps, i++, idMotifSortie);
             setNullableString(ps, i++, description);
@@ -301,6 +308,8 @@ public class ContratTravail extends ClassMere {
         ct.setDateSignature(rs.getDate("date_signature"));
         ct.setDateDebut(rs.getDate("date_debut"));
         ct.setDateFin(rs.getDate("date_fin"));
+        ct.setDureeEssaiMois(getIntegerSafe(rs, "duree_essai_mois"));
+        ct.setDateFinEssai(getDateSafe(rs, "date_fin_essai"));
         ct.setComptabiliseEffectif(rs.getBoolean("comptabilise_effectif"));
 
         int idMotif = rs.getInt("id_motif_sortie");
@@ -314,6 +323,23 @@ public class ContratTravail extends ClassMere {
     }
 
     // ─── Helpers JDBC ──────────────────────────────────────────────────────────
+
+    private static Integer getIntegerSafe(ResultSet rs, String colName) {
+        try {
+            int val = rs.getInt(colName);
+            return rs.wasNull() ? null : val;
+        } catch (SQLException e) {
+            return null;
+        }
+    }
+
+    private static Date getDateSafe(ResultSet rs, String colName) {
+        try {
+            return rs.getDate(colName);
+        } catch (SQLException e) {
+            return null;
+        }
+    }
 
     private void setNullableInt(PreparedStatement ps, int index, Integer value) throws SQLException {
         if (value == null) ps.setNull(index, Types.INTEGER);
@@ -367,6 +393,12 @@ public class ContratTravail extends ClassMere {
 
     public Date getDateFin() { return dateFin; }
     public void setDateFin(Date dateFin) { this.dateFin = dateFin; }
+
+    public Integer getDureeEssaiMois() { return dureeEssaiMois; }
+    public void setDureeEssaiMois(Integer dureeEssaiMois) { this.dureeEssaiMois = dureeEssaiMois; }
+
+    public Date getDateFinEssai() { return dateFinEssai; }
+    public void setDateFinEssai(Date dateFinEssai) { this.dateFinEssai = dateFinEssai; }
 
     public boolean isComptabiliseEffectif() { return comptabiliseEffectif; }
     public void setComptabiliseEffectif(boolean comptabiliseEffectif) { this.comptabiliseEffectif = comptabiliseEffectif; }
