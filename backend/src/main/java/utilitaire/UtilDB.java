@@ -1,9 +1,9 @@
 package utilitaire;
 
-import org.springframework.stereotype.Component;
-import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import javax.sql.DataSource;
+import org.springframework.stereotype.Component;
 
 @Component
 public class UtilDB {

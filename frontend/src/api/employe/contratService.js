@@ -37,52 +37,6 @@ const contratService = {
         return response.data;
     },
 
-    // Contrats de travail
-    getContratsByEmploye: async (idEmploye) => {
-        const response = await apiClient.get(`/employes/${idEmploye}/contrats`);
-        return response.data;
-    },
-
-    getContratActif: async (idEmploye) => {
-        const response = await apiClient.get(`/employes/${idEmploye}/contrat-actif`);
-        return response.data;
-    },
-
-    createContrat: async (idEmploye, contratData) => {
-        const response = await apiClient.post(`/employes/${idEmploye}/contrats`, contratData);
-        return response.data;
-    },
-
-    updateContrat: async (idContrat, contratData) => {
-        const response = await apiClient.put(`/contrats-travail/${idContrat}`, contratData);
-        return response.data;
-    },
-
-    deleteContrat: async (idContrat) => {
-        const response = await apiClient.delete(`/contrats-travail/${idContrat}`);
-        return response.data;
-    },
-
-    // Affectations de carrière
-    getAffectationsByEmploye: async (idEmploye) => {
-        const response = await apiClient.get(`/employes/${idEmploye}/affectations`);
-        return response.data;
-    },
-
-    getAffectationCourante: async (idEmploye) => {
-        const response = await apiClient.get(`/employes/${idEmploye}/affectation-courante`);
-        return response.data;
-    },
-
-    createAffectation: async (idEmploye, affectationData) => {
-        const response = await apiClient.post(`/employes/${idEmploye}/affectations`, affectationData);
-        return response.data;
-    },
-
-    updateAffectation: async (idAffectation, affectationData) => {
-        const response = await apiClient.put(`/affectations-carriere/${idAffectation}`, affectationData);
-        return response.data;
-    }
 };
 
 export default contratService;

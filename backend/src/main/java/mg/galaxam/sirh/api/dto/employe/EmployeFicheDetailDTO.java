@@ -1,8 +1,11 @@
 package mg.galaxam.sirh.api.dto.employe;
 
-import mg.galaxam.sirh.employe.*;
-
 import java.util.List;
+import mg.galaxam.sirh.model.employe.EmployeCPL;
+import mg.galaxam.sirh.model.employe.EmployeCompteBanque;
+import mg.galaxam.sirh.model.employe.EmployeConjoint;
+import mg.galaxam.sirh.model.employe.EmployeContactUrgence;
+import mg.galaxam.sirh.model.employe.EmployeEnfant;
 
 public class EmployeFicheDetailDTO {
 

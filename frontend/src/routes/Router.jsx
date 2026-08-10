@@ -1,12 +1,12 @@
 import { Routes, Route } from "react-router-dom";
 import Login from "@/pages/auth/Login";
-import Dashboard from "@/pages/Dashboard";
+import Dashboard from "@/pages/dashboard/Dashboard";
 import EmployeList from "@/pages/employe/EmployeList";
-import AdminPanel from "@/pages/admin/AdminPanel";
-import StructureAdminPanel from "@/pages/admin/StructureAdminPanel";
-import PaieConfigAdminPanel from "@/pages/admin/PaieConfigAdminPanel";
-import Unauthorized from "@/pages/system/Unauthorized";
-import NotFound from "@/pages/system/NotFound";
+import SecuriteAdminPanel from "@/pages/parametres/securite/SecuriteAdminPanel";
+import StructureAdminPanel from "@/pages/parametres/structure/StructureAdminPanel";
+import PaieConfigAdminPanel from "@/pages/parametres/paie/PaieConfigAdminPanel";
+import Unauthorized from "@/pages/systeme/Unauthorized";
+import NotFound from "@/pages/systeme/NotFound";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import { AuthProvider } from "@/context/AuthContext";
 import EmployeFicheDetailPage from "@/pages/employe/EmployeFicheDetailPage";
@@ -32,7 +32,7 @@ export default function Router() {
 
                 {/* Routes protégées admin (nécessite d'être ADMIN) */}
                 <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
-                    <Route path="/admin" element={<AdminPanel />} />
+                    <Route path="/admin" element={<SecuriteAdminPanel />} />
                     <Route path="/admin/structure" element={<StructureAdminPanel />} />
                     <Route path="/admin/paie-config" element={<PaieConfigAdminPanel />} />
                 </Route>
