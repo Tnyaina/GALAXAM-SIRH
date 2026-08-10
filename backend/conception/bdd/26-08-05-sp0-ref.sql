@@ -242,12 +242,15 @@ ON CONFLICT (code_fonction) DO NOTHING;
 INSERT INTO ref_type_contrat (code, libelle, exige_date_fin) VALUES
 ('CDI', 'Contrat à Durée Indéterminée', FALSE),
 ('CDD', 'Contrat à Durée Déterminée', TRUE),
-('PRESTATION', 'Contrat de Prestation', TRUE);
+('PRESTATION', 'Contrat de Prestation', TRUE),
+('TEMPORAIRE', 'Contrat d Engagement Temporaire', TRUE),
+('STAGE', 'Convention / Contrat de Stage', TRUE);
 
 INSERT INTO ref_type_intervenant (code, libelle, soumis_irsa, soumis_isi_5, soumis_cnaps, soumis_sante) VALUES
 ('PERMANENT', 'Salarié Permanent', TRUE, FALSE, TRUE, TRUE),
 ('CONSULTANT', 'Consultant Indépendant (+60 ans)', FALSE, TRUE, FALSE, TRUE),
-('TEMPORAIRE', 'Travailleur Temporaire', FALSE, TRUE, FALSE, FALSE);
+('TEMPORAIRE', 'Travailleur Temporaire', FALSE, TRUE, FALSE, FALSE),
+('STAGIAIRE',  'Stagiaire (Gratification)',FALSE, FALSE, FALSE, FALSE);
 
 -- 6. Banques
 INSERT INTO ref_banque (code_banque, nom_banque, code_swift) VALUES

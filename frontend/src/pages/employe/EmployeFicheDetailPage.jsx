@@ -4,17 +4,18 @@ import {
     ArrowLeft, User, Phone, Users, ShieldAlert, 
     Edit2, Power, Calendar, MapPin, Heart, Baby, 
     Landmark, Briefcase, FileText, CheckCircle, XCircle, Folder,
-    Upload, Download, Trash2, Plus, AlertTriangle, 
-    Wrench
+    Upload, Download, Trash2, Plus, AlertTriangle
 } from 'lucide-react';
 import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
 import EmployeFormModal from './dossier/EmployeFormModal';
+import CarriereTab from './carriere/CarriereTab';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
 import Input, { Textarea, Select } from '@/components/ui/Input';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
+import { useAuth } from '@/context/AuthContext';
 
 const InfoBlock = ({ label, value, mono = false, icon }) => (
     <div className="py-2">
@@ -29,6 +30,8 @@ const InfoBlock = ({ label, value, mono = false, icon }) => (
 export default function EmployeFicheDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { hasPermission } = useAuth();
+    const canWrite = hasPermission('EMPLOYE_WRITE');
 
     const [detailData, setDetailData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -302,35 +305,37 @@ export default function EmployeFicheDetailPage() {
                 </div>
 
                 {/* Actions en-tête */}
-                <div className="flex items-center gap-3">
-                    <Button
-                        onClick={() => setIsFormOpen(true)}
-                        variant="primary"
-                        size="sm"
-                        iconLeft={<Edit2 size={16} />}
-                    >
-                        Modifier la Fiche
-                    </Button>
-                    {emp.estActif ? (
+                {canWrite && (
+                    <div className="flex items-center gap-3">
                         <Button
-                            onClick={() => setIsDesactivationModalOpen(true)}
-                            variant="danger"
+                            onClick={() => setIsFormOpen(true)}
+                            variant="primary"
                             size="sm"
-                            iconLeft={<Power size={16} />}
+                            iconLeft={<Edit2 size={16} />}
                         >
-                            Désactiver
+                            Modifier la Fiche
                         </Button>
-                    ) : (
-                        <Button
-                            onClick={handleReactiver}
-                            variant="success"
-                            size="sm"
-                            iconLeft={<Power size={16} />}
-                        >
-                            Réactiver
-                        </Button>
-                    )}
-                </div>
+                        {emp.estActif ? (
+                            <Button
+                                onClick={() => setIsDesactivationModalOpen(true)}
+                                variant="danger"
+                                size="sm"
+                                iconLeft={<Power size={16} />}
+                            >
+                                Désactiver
+                            </Button>
+                        ) : (
+                            <Button
+                                onClick={handleReactiver}
+                                variant="success"
+                                size="sm"
+                                iconLeft={<Power size={16} />}
+                            >
+                                Réactiver
+                            </Button>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Navigation par Onglets Structurés */}
@@ -457,7 +462,7 @@ export default function EmployeFicheDetailPage() {
                     {activeTab === 'documents' && (
                         <div className="space-y-6">
                             {/* Bannière Alerte Documents Obligatoires Manquants */}
-                            {documentsData.obligatoiresManquants && documentsData.obligatoiresManquants.length > 0 && (
+                            {canWrite && documentsData.obligatoiresManquants && documentsData.obligatoiresManquants.length > 0 && (
                                 <div className="bg-warning-500/10 border border-warning-500/30 p-4 rounded-sm flex items-start gap-3">
                                     <AlertTriangle size={20} className="text-warning-600 flex-shrink-0 mt-0.5" />
                                     <div className="space-y-1">
@@ -492,14 +497,16 @@ export default function EmployeFicheDetailPage() {
                                     </h3>
                                     <p className="text-xs text-ink-400">Consultez, téléchargez ou ajoutez les pièces justificatives de l'employé</p>
                                 </div>
-                                <Button
-                                    onClick={() => handleOpenUploadModal()}
-                                    variant="primary"
-                                    size="sm"
-                                    iconLeft={<Upload size={16} />}
-                                >
-                                    Téléverser un Document
-                                </Button>
+                                {canWrite && (
+                                    <Button
+                                        onClick={() => handleOpenUploadModal()}
+                                        variant="primary"
+                                        size="sm"
+                                        iconLeft={<Upload size={16} />}
+                                    >
+                                        Téléverser un Document
+                                    </Button>
+                                )}
                             </div>
 
                             {/* Grille/Tableau des Documents */}
@@ -566,13 +573,15 @@ export default function EmployeFicheDetailPage() {
                                                             >
                                                                 <Download size={16} />
                                                             </button>
-                                                            <button
-                                                                onClick={() => handleDeleteDoc(doc.idDocument, doc.nomOriginal)}
-                                                                className="p-1.5 text-danger-500 hover:bg-danger-500/10 rounded-sm transition-all cursor-pointer"
-                                                                title="Supprimer"
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
+                                                            {canWrite && (
+                                                                <button
+                                                                    onClick={() => handleDeleteDoc(doc.idDocument, doc.nomOriginal)}
+                                                                    className="p-1.5 text-danger-500 hover:bg-danger-500/10 rounded-sm transition-all cursor-pointer"
+                                                                    title="Supprimer"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -681,21 +690,11 @@ export default function EmployeFicheDetailPage() {
 
                     {/* Onglet 4: Carrière & Affectation */}
                     {activeTab === 'carriere' && (
-                        <div className="py-16 px-6 text-center bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-sm shadow-sm space-y-4">
-                            <div className="w-16 h-16 bg-brand-500/10 text-brand-500 rounded-full flex items-center justify-center mx-auto border border-brand-500/20 shadow-inner">
-                                <Wrench size={32} />
-                            </div>
-                            <div className="max-w-md mx-auto space-y-2">
-                                <div className="inline-flex items-center gap-2 justify-center">
-                                    <h3 className="text-lg font-bold text-ink-900 dark:text-white">Carrière & Affectation</h3>
-                                    <Badge variant="warning" size="sm">À implémenter</Badge>
-                                </div>
-                                <p className="text-xs text-ink-400 leading-relaxed">
-                                    Ce module est actuellement en cours de refonte et d'implémentation.
-                                    Il permettra la gestion centralisée du suivi de carrière et des affectations.
-                                </p>
-                            </div>
-                        </div>
+                        <CarriereTab
+                            idEmploye={id}
+                            nomEmploye={`${emp.nom || ''} ${emp.prenom || ''}`}
+                            canWrite={canWrite}
+                        />
                     )}
 
                     {/* Onglet 5: Historique & Statut */}
