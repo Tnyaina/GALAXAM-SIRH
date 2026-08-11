@@ -52,6 +52,7 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, au
     const [isRenouvellementModalOpen, setIsRenouvellementModalOpen] = useState(false);
     const [selectedWfModal, setSelectedWfModal] = useState(null);
     const [editInitialData, setEditInitialData] = useState(null);
+    const [isTransitioning, setIsTransitioning] = useState(false);
 
     const loadCarriereData = useCallback(async () => {
         setLoading(true);
@@ -129,12 +130,14 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, au
         setActionSuccessMsg(msg);
         setTimeout(() => setActionSuccessMsg(''), 6000);
 
-        // Ouvrir le récapitulatif immédiatement — les données sont déjà
-        // disponibles depuis la réponse API (WorkflowRhCPL complet).
-        // Pas besoin d'attendre le rechargement du tab.
+        // Si un workflow a été créé, on affiche une transition fluide avant d'ouvrir le récapitulatif
         if (createdWf) {
-            setSelectedWfModal(createdWf);
-            setIsRecapModalOpen(true);
+            setIsTransitioning(true);
+            setTimeout(() => {
+                setIsTransitioning(false);
+                setSelectedWfModal(createdWf);
+                setIsRecapModalOpen(true);
+            }, 800);
         }
 
         // Recharger les données du tab en arrière-plan (sans bloquer)
@@ -700,6 +703,18 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, au
                     affectationActive={affectationActive}
                     onSuccess={(res) => handleSuccessAction('Demande de renouvellement d\'essai créée avec succès !', res)}
                 />
+            )}
+
+            {/* Overlay d'attente/transition fluide */}
+            {isTransitioning && (
+                <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-ink-950/70 backdrop-blur-sm transition-all duration-300">
+                    <div className="flex flex-col items-center gap-4 p-6 bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-800 rounded-lg shadow-2xl max-w-sm w-full text-center">
+                        <Loading size="md" label="Enregistrement en cours..." />
+                        <p className="text-[11px] text-ink-400 -mt-2">
+                            Préparation du récapitulatif DAF...
+                        </p>
+                    </div>
+                </div>
             )}
         </div>
     );

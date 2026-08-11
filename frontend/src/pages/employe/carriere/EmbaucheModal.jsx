@@ -213,6 +213,16 @@ export default function EmbaucheModal({
         if (!formData.idFiliale) return setErrorMsg('Veuillez sélectionner la filiale.');
         if (!formData.idTypeContrat) return setErrorMsg('Veuillez sélectionner le type de contrat.');
         if (!formData.idTypeIntervenant) return setErrorMsg('Veuillez sélectionner le type d\'intervenant.');
+        
+        // Validation de cohérence Stagiaire / Stage
+        const selectedTypeIntervenantObj = typesIntervenant.find(t => String(t.idTypeIntervenant) === String(formData.idTypeIntervenant));
+        if (selectedTypeIntervenantObj?.code === 'STAGIAIRE' && selectedTypeContratObj?.code !== 'STAGE') {
+            return setErrorMsg('Un intervenant Stagiaire doit obligatoirement être sous un contrat de type Convention / Contrat de Stage.');
+        }
+        if (selectedTypeIntervenantObj?.code !== 'STAGIAIRE' && selectedTypeContratObj?.code === 'STAGE') {
+            return setErrorMsg('Le contrat de Stage est réservé aux stagiaires.');
+        }
+
         if (!formData.dateDebut) return setErrorMsg('La date de début de contrat est obligatoire.');
         if (exigeDateFin && !formData.dateFin) {
             return setErrorMsg(`La date de fin est obligatoire pour le type de contrat ${selectedTypeContratObj?.libelle || ''}.`);

@@ -228,7 +228,7 @@ public class WorkflowRhController {
 
                 switch (typeEvenementCode) {
                     case "EMBAUCHE_INITIALE" -> validerEmbaucheInitiale(workflow, req, c);
-                    case "RENOUVELLEMENT_CDD", "TRANSFORMATION_CDI", "EMBAUCHE_APRES_STAGE", "MUTATION", "PROMOTION", "REVALORISATION", "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI" -> validerTransition(workflow, req, c);
+                    case "RENOUVELLEMENT_CDD", "TRANSFORMATION_CDI", "EMBAUCHE_APRES_STAGE", "MUTATION", "PROMOTION", "REVALORISATION", "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI", "REPRISE_CONSULTANT" -> validerTransition(workflow, req, c);
                     default -> {
                         return ResponseEntity.badRequest()
                                 .body("Type d'événement '" + typeEvenementCode + "' non encore implémenté pour la validation.");
@@ -317,6 +317,44 @@ public class WorkflowRhController {
                 }
 
                 Integer idTypeEvenement = resolveTypeEvenement(req.getCodeTypeEvenement(), c);
+
+                // --- Règles de gestion Backend ---
+                boolean exigeNouveauContrat = List.of("TRANSFORMATION_CDI", "RENOUVELLEMENT_CDD", "EMBAUCHE_APRES_STAGE", "REPRISE_CONSULTANT")
+                        .contains(req.getCodeTypeEvenement());
+
+                if (exigeNouveauContrat) {
+                    if (req.getIdTypeContrat() == null) {
+                        return ResponseEntity.badRequest().body("Le type de contrat de destination est obligatoire pour cette transition.");
+                    }
+                    if (req.getIdTypeIntervenant() == null) {
+                        return ResponseEntity.badRequest().body("Le type d'intervenant est obligatoire pour cette transition.");
+                    }
+
+                    // Vérification de la cohérence Stagiaire / Stage
+                    String codeTypeContrat = "";
+                    try (var psTC = c.prepareStatement("SELECT code FROM ref_type_contrat WHERE id_type_contrat = ?")) {
+                        psTC.setInt(1, req.getIdTypeContrat());
+                        try (var rsTC = psTC.executeQuery()) {
+                            if (rsTC.next()) codeTypeContrat = rsTC.getString("code");
+                        }
+                    }
+
+                    String codeTypeIntervenant = "";
+                    try (var psTI = c.prepareStatement("SELECT code FROM ref_type_intervenant WHERE id_type_intervenant = ?")) {
+                        psTI.setInt(1, req.getIdTypeIntervenant());
+                        try (var rsTI = psTI.executeQuery()) {
+                            if (rsTI.next()) codeTypeIntervenant = rsTI.getString("code");
+                        }
+                    }
+
+                    if ("STAGIAIRE".equals(codeTypeIntervenant) && !"STAGE".equals(codeTypeContrat)) {
+                        return ResponseEntity.badRequest().body("Un intervenant Stagiaire doit obligatoirement être sous un contrat de type Convention / Contrat de Stage.");
+                    }
+                    if (!"STAGIAIRE".equals(codeTypeIntervenant) && "STAGE".equals(codeTypeContrat)) {
+                        return ResponseEntity.badRequest().body("Le contrat de Stage est réservé aux stagiaires.");
+                    }
+                }
+
                 Integer idStatutBrouillonContrat = resolveStatutContrat("BROUILLON", c);
                 Integer idStatutPlanifieeAffectation = resolveStatutAffectation("PLANIFIEE", c);
                 Integer idStatutBrouillonWorkflow = resolveStatutWorkflow("BROUILLON", c);
@@ -325,7 +363,7 @@ public class WorkflowRhController {
                     case "PROMOTION" -> "PROMOTION";
                     case "MUTATION" -> "MUTATION";
                     case "REVALORISATION" -> "REVALORISATION";
-                    case "RENOUVELLEMENT_CDD", "TRANSFORMATION_CDI", "EMBAUCHE_APRES_STAGE" -> "AVENANT";
+                    case "RENOUVELLEMENT_CDD", "TRANSFORMATION_CDI", "EMBAUCHE_APRES_STAGE", "REPRISE_CONSULTANT" -> "AVENANT";
                     default -> "AUTRE";
                 };
                 Integer idMotifMouvement = resolveMotifMouvement(codeMotif, c);

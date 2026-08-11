@@ -223,6 +223,37 @@ export default function TransitionModal({
             return;
         }
 
+        // Vérifications pour les transitions exigeant un nouveau contrat
+        if (exigeNouveauContrat) {
+            if (!formData.idTypeContrat) {
+                setErrorMsg('Le type de contrat de destination est obligatoire pour cette transition.');
+                return;
+            }
+            if (!formData.idTypeIntervenant) {
+                setErrorMsg('Le type d\'intervenant est obligatoire pour cette transition.');
+                return;
+            }
+
+            // Récupérer les objets sélectionnés pour valider la cohérence
+            const selectedTypeContrat = typesContrat.find(t => String(t.idTypeContrat) === String(formData.idTypeContrat));
+            const selectedTypeIntervenant = typesIntervenant?.find(t => String(t.idTypeIntervenant) === String(formData.idTypeIntervenant)) || { code: '' };
+
+            if (selectedTypeIntervenant.code === 'STAGIAIRE' && selectedTypeContrat?.code !== 'STAGE') {
+                setErrorMsg('Un intervenant Stagiaire doit obligatoirement être sous un contrat de type Convention / Contrat de Stage.');
+                return;
+            }
+            if (selectedTypeIntervenant.code !== 'STAGIAIRE' && selectedTypeContrat?.code === 'STAGE') {
+                setErrorMsg('Le contrat de Stage est réservé aux stagiaires.');
+                return;
+            }
+
+            // Validation date de fin obligatoire si le contrat l'exige
+            if (selectedTypeContrat?.exigeDateFin && !formData.dateFin) {
+                setErrorMsg(`La date de fin est obligatoire pour le type de contrat ${selectedTypeContrat.libelle}.`);
+                return;
+            }
+        }
+
         setSubmitting(true);
 
         try {

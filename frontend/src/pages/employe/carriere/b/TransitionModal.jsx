@@ -36,6 +36,7 @@ export default function TransitionModal({
     const [categoriesPro, setCategoriesPro] = useState([]);
     const [modesPaie, setModesPaie] = useState([]);
     const [responsables, setResponsables] = useState([]);
+    const [typesIntervenant, setTypesIntervenant] = useState([]);
 
     // Type de transition sélectionné
     const [codeTypeEvenement, setCodeTypeEvenement] = useState('MUTATION');
@@ -84,7 +85,7 @@ export default function TransitionModal({
         try {
             const [
                 siteRes, depRes, srvRes, fnRes,
-                tcRes, catRes, paieRes, empRes, tevRes
+                tcRes, catRes, paieRes, empRes, tevRes, tiRes
             ] = await Promise.all([
                 referentielService.getSites(true),
                 referentielService.getDepartements(true),
@@ -95,6 +96,7 @@ export default function TransitionModal({
                 contratService.getModesPaie(),
                 employeService.getEmployes(),
                 contratService.getTypesEvenementRh(),
+                referentielService.getTypesIntervenant(true),
             ]);
 
             setSites(siteRes || []);
@@ -104,10 +106,11 @@ export default function TransitionModal({
             setTypesContrat(tcRes || []);
             setCategoriesPro(catRes || []);
             setModesPaie(paieRes || []);
+            setTypesIntervenant(tiRes || []);
 
             // Garder uniquement les événements de type transition/mouvement
             const transitionsFiltrees = (tevRes || []).filter(t => 
-                !['EMBAUCHE_INITIALE', 'FIN_CONTRAT', 'DEPART_RETRAITE', 'RUPTURE_ESSAI'].includes(t.code)
+                !['EMBAUCHE_INITIALE', 'FIN_CONTRAT', 'DEPART_RETRAITE', 'RUPTURE_ESSAI', 'RENOUVELLEMENT_ESSAI', 'CONFIRMATION_ESSAI'].includes(t.code)
             );
             setTypesEvenement(transitionsFiltrees);
 
@@ -183,7 +186,7 @@ export default function TransitionModal({
     };
 
     // Détermine si un nouveau contrat est nécessaire pour ce type de transition
-    const exigeNouveauContrat = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE'].includes(codeTypeEvenement);
+    const exigeNouveauContrat = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT'].includes(codeTypeEvenement);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -469,6 +472,22 @@ export default function TransitionModal({
                                         >
                                             <option value="">-- Sélectionner le Contrat --</option>
                                             {typesContrat.map(tc => <option key={tc.idTypeContrat} value={tc.idTypeContrat}>{tc.libelle}</option>)}
+                                        </Select>
+
+                                        <Select
+                                            id="idTypeIntervenant"
+                                            name="idTypeIntervenant"
+                                            label="Nouveau Profil d'intervenant *"
+                                            required
+                                            value={formData.idTypeIntervenant}
+                                            onChange={handleChange}
+                                        >
+                                            <option value="">-- Sélectionner le profil --</option>
+                                            {typesIntervenant.map(ti => (
+                                                <option key={ti.idTypeIntervenant} value={ti.idTypeIntervenant}>
+                                                    {ti.libelle}
+                                                </option>
+                                            ))}
                                         </Select>
 
                                         <Input
