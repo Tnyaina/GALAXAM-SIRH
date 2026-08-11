@@ -1,17 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Building, Landmark, ShieldAlert, Save, X, ArrowRight, UserCheck, Clock } from 'lucide-react';
+import { RefreshCw, Building, Landmark, ShieldAlert, Save, X, ArrowRight, UserCheck, Clock, Eye, EyeOff, FileSignature } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input, { Textarea, Select } from '@/components/ui/Input';
 import Loading from '@/components/ui/Loading';
 import contratService from '@/api/employe/contratService';
 import referentielService from '@/api/admin/referentielService';
 import employeService from '@/api/employe/employeService';
-
-function fmtDateInput(d) {
-    if (!d) return '';
-    if (typeof d === 'string') return d.substring(0, 10);
-    return new Date(d).toISOString().substring(0, 10);
-}
+import { ClauseDiff, Clause, DocumentFrame, DocumentHeader, ArticleBlock, DocumentFooter } from '@/components/carriere/ContractDocument';
+import { fmtDateInput, fmtDateFr, fmtMoneyMGA as fmtMoney } from '@/utils/carriereUtils';
 
 export default function TransitionModal({
     isOpen,
@@ -76,6 +72,7 @@ export default function TransitionModal({
 
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
+    const [showPreviewMobile, setShowPreviewMobile] = useState(false);
 
     const [typesEvenement, setTypesEvenement] = useState([]);
 
@@ -185,6 +182,33 @@ export default function TransitionModal({
     // Détermine si un nouveau contrat est nécessaire pour ce type de transition
     const exigeNouveauContrat = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE'].includes(codeTypeEvenement);
 
+    // --- Libellés "après" dérivés des ids sélectionnés, pour l'aperçu avant/après ---
+    const apresSite = sites.find(s => String(s.idSite) === String(formData.idSite))?.libelle;
+    const apresDepartement = departements.find(d => String(d.idDepartement) === String(formData.idDepartement))?.libelle;
+    const apresService = services.find(s => String(s.idService) === String(formData.idService))?.libelle;
+    const apresFonction = fonctions.find(f => String(f.idFonction) === String(formData.idFonction))?.libelle;
+    const apresCategorie = categoriesPro.find(c => String(c.idCategorieProfessionnelle) === String(formData.idCategorieProfessionnelle))?.libelle;
+    const apresModePaie = modesPaie.find(m => String(m.idModeCalculPaie) === String(formData.idModeCalculPaie))?.libelle;
+    const apresResponsable = responsables.find(r => String(r.idEmploye) === String(formData.idResponsableHierarchique));
+    const apresTypeContrat = typesContrat.find(t => String(t.idTypeContrat) === String(formData.idTypeContrat))?.libelle;
+
+    const avantSite = affectationActive?.libelleSite || workflowActif?.libelleSite || '';
+    const avantDepartement = affectationActive?.libelleDepartement || workflowActif?.libelleDepartement || '';
+    const avantService = affectationActive?.libelleService || workflowActif?.libelleService || '';
+    const avantFonction = affectationActive?.libelleFonction || workflowActif?.libelleFonction || '';
+    const avantCategorie = affectationActive?.libelleCategoriePro || workflowActif?.libelleCategoriePro || '';
+    const avantModePaie = affectationActive?.libelleModeCalculPaie || workflowActif?.libelleModeCalculPaie || '';
+    const avantResponsable = affectationActive?.nomPrenomResponsable || workflowActif?.nomPrenomResponsable || '';
+    const avantSalaire = affectationActive?.salaireBase ?? workflowActif?.salaireBase ?? '';
+    const avantTypeContrat = contratActif?.libelleTypeContrat || workflowActif?.libelleTypeContrat || '';
+
+    const typeEvenementActuel = (typesEvenement.length > 0 ? typesEvenement : []).find(t => t.code === codeTypeEvenement);
+
+    // Complétude du formulaire pour la barre de progression
+    const champsObligatoires = [formData.dateEffet, formData.idSite, formData.idDepartement, formData.idService, formData.idFonction, formData.idCategorieProfessionnelle, formData.idModeCalculPaie, formData.salaireBase];
+    const nbRemplis = champsObligatoires.filter(v => v !== '' && v !== null && v !== undefined).length;
+    const progressPct = Math.round((nbRemplis / champsObligatoires.length) * 100);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setErrorMsg('');
@@ -253,6 +277,60 @@ export default function TransitionModal({
 
     if (!isOpen) return null;
 
+    const AvenantPreview = ({ className = '' }) => (
+        <DocumentFrame className={className} watermark="Avenant">
+            <DocumentHeader
+                eyebrow={typeEvenementActuel?.libelle || 'Mouvement RH'}
+                title="Avenant au Contrat de Travail"
+            />
+
+            <div className="pt-4 text-[13px] leading-relaxed space-y-3">
+                <p>
+                    Le présent avenant modifie les conditions applicables à <strong>{nomEmploye || '……………'}</strong>, à effet du{' '}
+                    <strong>{fmtDateFr(formData.dateEffet) || '……………'}</strong>.
+                </p>
+
+                {exigeNouveauContrat && (
+                    <ArticleBlock n="1" title="Nouveau Contrat">
+                        <ClauseDiff label="Type de contrat" before={avantTypeContrat} after={apresTypeContrat} />
+                        <Clause label="Prise d'effet" value={fmtDateFr(formData.dateDebut || formData.dateEffet)} />
+                        <Clause label="Terme" value={fmtDateFr(formData.dateFin)} placeholder="Durée indéterminée" />
+                        {formData.aPeriodeEssai && (
+                            <Clause label="Période d'essai" value={formData.dateFinEssai ? `Jusqu'au ${fmtDateFr(formData.dateFinEssai)}` : ''} />
+                        )}
+                    </ArticleBlock>
+                )}
+
+                <ArticleBlock n={exigeNouveauContrat ? '2' : '1'} title="Affectation">
+                    <ClauseDiff label="Site" before={avantSite} after={apresSite} />
+                    <ClauseDiff label="Département" before={avantDepartement} after={apresDepartement} />
+                    <ClauseDiff label="Service" before={avantService} after={apresService} />
+                    <ClauseDiff label="Fonction" before={avantFonction} after={apresFonction} />
+                    <ClauseDiff label="Catégorie pro." before={avantCategorie} after={apresCategorie} />
+                    <ClauseDiff label="Rattaché à" before={avantResponsable} after={apresResponsable ? `${apresResponsable.nom} ${apresResponsable.prenom}` : ''} />
+                </ArticleBlock>
+
+                <ArticleBlock n={exigeNouveauContrat ? '3' : '2'} title="Rémunération">
+                    <ClauseDiff label="Mode de calcul" before={avantModePaie} after={apresModePaie} />
+                    <ClauseDiff
+                        label="Salaire de base"
+                        before={avantSalaire ? fmtMoney(avantSalaire) : ''}
+                        after={formData.salaireBase ? fmtMoney(formData.salaireBase) : ''}
+                    />
+                </ArticleBlock>
+
+                {formData.motif && (
+                    <div className="pt-2">
+                        <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-brand-500">Motif</p>
+                        <p className="text-ink-600 dark:text-ink-300 italic text-[12.5px]">{formData.motif}</p>
+                    </div>
+                )}
+            </div>
+
+            <DocumentFooter status="Brouillon (en attente de validation)" />
+        </DocumentFrame>
+    );
+
     return (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-[2px]">
             <div className="absolute inset-0" onClick={onClose} />
@@ -260,27 +338,54 @@ export default function TransitionModal({
             <div
                 className={`
                     relative bg-white dark:bg-ink-900 border-l border-ink-150 dark:border-ink-700 shadow-2xl
-                    w-full max-w-4xl h-full overflow-hidden flex flex-col
+                    w-full max-w-6xl h-full overflow-hidden flex flex-col
                     transform transition-transform duration-300 ease-out
                     ${mounted ? 'translate-x-0' : 'translate-x-full'}
                 `}
             >
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 font-bold text-lg text-ink-900 dark:text-white flex items-center justify-between bg-ink-50/50 dark:bg-ink-950/40 flex-shrink-0">
-                    <div className="flex items-center gap-2">
-                        <RefreshCw className="text-brand-500" size={20} />
-                        <span>Mouvement de Carrière & Transition RH</span>
-                        {nomEmploye && (
-                            <span className="text-xs font-normal text-ink-400"> — {nomEmploye}</span>
-                        )}
+                <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-950/40 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 font-bold text-lg text-ink-900 dark:text-white">
+                            <RefreshCw className="text-brand-500" size={20} />
+                            <span>Mouvement de Carrière & Transition RH</span>
+                            {nomEmploye && (
+                                <span className="text-xs font-normal text-ink-400"> — {nomEmploye}</span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowPreviewMobile(v => !v)}
+                                className="lg:hidden flex items-center gap-1.5 text-xs font-semibold text-brand-500 border border-brand-500/30 rounded-sm px-2.5 py-1.5"
+                            >
+                                {showPreviewMobile ? <EyeOff size={14} /> : <Eye size={14} />}
+                                {showPreviewMobile ? 'Masquer l\'avenant' : 'Voir l\'avenant'}
+                            </button>
+                            <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-sm">
+                                <X size={20} />
+                            </button>
+                        </div>
                     </div>
-                    <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-sm">
-                        <X size={20} />
-                    </button>
+
+                    {!loadingRef && (
+                        <div className="mt-3 flex items-center gap-3">
+                            <div className="flex-1 h-1.5 bg-ink-100 dark:bg-ink-800 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-300 ${progressPct === 100 ? 'bg-success-500' : 'bg-brand-500'}`}
+                                    style={{ width: `${progressPct}%` }}
+                                />
+                            </div>
+                            <span className="text-[11px] font-semibold text-ink-400 whitespace-nowrap">
+                                {nbRemplis}/{champsObligatoires.length} champs obligatoires
+                            </span>
+                        </div>
+                    )}
                 </div>
 
-                {/* Body Form Scrollable */}
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Corps : formulaire + aperçu avenant côte à côte */}
+                <div className="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
+                <form onSubmit={handleSubmit} className="flex-1 min-w-0 overflow-y-auto p-6 space-y-6">
                     {errorMsg && (
                         <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-4 rounded-sm text-xs font-semibold flex items-center gap-2">
                             <ShieldAlert size={16} />
@@ -294,6 +399,8 @@ export default function TransitionModal({
                         </div>
                     ) : (
                         <>
+                            {showPreviewMobile && <AvenantPreview className="lg:hidden" />}
+
                             {/* ÉTAPE 1 : CHOIX DU TYPE DE TRANSITION */}
                             <div className="space-y-3">
                                 <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 flex items-center gap-2">
@@ -581,6 +688,15 @@ export default function TransitionModal({
                         </>
                     )}
                 </form>
+
+                {/* Colonne aperçu avenant (desktop) */}
+                <div className="hidden lg:block w-[400px] flex-shrink-0 border-l border-ink-150 dark:border-ink-700 bg-ink-50/60 dark:bg-ink-950/40 overflow-y-auto p-5">
+                    <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-ink-400">
+                        <FileSignature size={14} /> Aperçu de l'avenant en temps réel
+                    </div>
+                    <AvenantPreview />
+                </div>
+                </div>
 
                 {/* Footer Actions */}
                 <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex-shrink-0 flex items-center justify-between gap-3">

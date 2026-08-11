@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     ArrowLeft, User, Phone, Users, ShieldAlert, 
     Edit2, Power, Calendar, MapPin, Heart, Baby, 
@@ -38,7 +38,12 @@ export default function EmployeFicheDetailPage() {
     const [error, setError] = useState('');
     const [actionSuccess, setActionSuccess] = useState('');
 
-    const [activeTab, setActiveTab] = useState('personnel'); // 'personnel', 'documents', 'famille', 'carriere', 'historique'
+    const [searchParams] = useSearchParams();
+    const VALID_TABS = ['personnel', 'documents', 'famille', 'carriere', 'historique'];
+    const tabFromUrl = searchParams.get('tab');
+    const [activeTab, setActiveTab] = useState(
+        VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'personnel'
+    );
 
     // État Documents RH
     const [documentsData, setDocumentsData] = useState({ documents: [], obligatoiresManquants: [] });
@@ -694,6 +699,7 @@ export default function EmployeFicheDetailPage() {
                             idEmploye={id}
                             nomEmploye={`${emp.nom || ''} ${emp.prenom || ''}`}
                             canWrite={canWrite}
+                            autoOpenWorkflowId={searchParams.get('wf')}
                         />
                     )}
 

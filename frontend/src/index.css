@@ -66,12 +66,18 @@
   --color-ink-50:  #f5f5f5; /* fond désactivé / fond page */
 
   /* ---- Sémantique — statuts (repris de Button/Alert) ------------------- */
+  --color-success-400: #52c27a;
   --color-success-500: #27ae60;
   --color-success-600: #1e8449;
+  --color-success-700: #166638;
+  --color-danger-200:  #f5c6c2;
+  --color-danger-400:  #d9534f;
   --color-danger-500:  #c0392b;
   --color-danger-600:  #a93226;
+  --color-warning-400: #f0a830;
   --color-warning-500: #d97706;
   --color-warning-600: #b45309;
+  --color-warning-700: #92400e;
 
   /* ---- Rayons — l'identité Galaxam est anguleuse par défaut ------------ */
   --radius-none: 0px;

@@ -147,6 +147,26 @@ public class WorkflowRhController {
 
                 AuditLog.audit(c, "CREATION_BROUILLON_EMBAUCHE", "workflow_rh",
                         String.valueOf(workflow.getIdWorkflow()), null, workflow);
+
+                // Notification en temps réel de création d'un brouillon d'embauche
+                try (PreparedStatement psNotif = c.prepareStatement(
+                        "INSERT INTO notification_rh (id_utilisateur, type_alerte, priorite, titre, message, lien, id_employe_concerne) " +
+                        "VALUES (null, 'BROUILLON_CREE', 'HAUTE', ?, ?, ?, ?)")) {
+                    // Récupérer le nom de l'employé pour le message
+                    String empNom = "";
+                    try (var psEmp = c.prepareStatement("SELECT nom || ' ' || prenom FROM employe WHERE id_employe = ?")) {
+                        psEmp.setInt(1, idEmploye);
+                        try (var rsEmp = psEmp.executeQuery()) {
+                            if (rsEmp.next()) empNom = rsEmp.getString(1);
+                        }
+                    }
+                    psNotif.setString(1, "Nouveau brouillon d'embauche - " + empNom);
+                    psNotif.setString(2, "Un brouillon d'embauche initiale pour " + empNom + " a ete cree et attend votre validation.");
+                    psNotif.setString(3, "/employes/" + idEmploye + "?tab=carriere&wf=" + workflow.getIdWorkflow());
+                    psNotif.setInt(4, idEmploye);
+                    psNotif.executeUpdate();
+                }
+
                 c.commit();
 
                 // Retourne la vue enrichie pour la page de récapitulatif
@@ -384,6 +404,31 @@ public class WorkflowRhController {
                 AuditLog.audit(c, "CREATION_WORKFLOW_TRANSITION", "workflow_rh",
                         String.valueOf(workflow.getIdWorkflow()), null, workflow);
 
+                // Notification en temps réel de création d'un brouillon de transition
+                try (PreparedStatement psNotif = c.prepareStatement(
+                        "INSERT INTO notification_rh (id_utilisateur, type_alerte, priorite, titre, message, lien, id_employe_concerne) " +
+                        "VALUES (null, 'BROUILLON_CREE', 'HAUTE', ?, ?, ?, ?)")) {
+                    String empNom = "";
+                    try (var psEmp = c.prepareStatement("SELECT nom || ' ' || prenom FROM employe WHERE id_employe = ?")) {
+                        psEmp.setInt(1, idEmploye);
+                        try (var rsEmp = psEmp.executeQuery()) {
+                            if (rsEmp.next()) empNom = rsEmp.getString(1);
+                        }
+                    }
+                    String typeEvNom = "Transition";
+                    try (var psEv = c.prepareStatement("SELECT libelle FROM ref_type_evenement_rh WHERE id_type_evenement_rh = ?")) {
+                        psEv.setInt(1, idTypeEvenement);
+                        try (var rsEv = psEv.executeQuery()) {
+                            if (rsEv.next()) typeEvNom = rsEv.getString(1);
+                        }
+                    }
+                    psNotif.setString(1, "Nouveau brouillon : " + typeEvNom + " - " + empNom);
+                    psNotif.setString(2, "Un brouillon de type " + typeEvNom + " pour " + empNom + " a ete cree et attend votre validation.");
+                    psNotif.setString(3, "/employes/" + idEmploye + "?tab=carriere&wf=" + workflow.getIdWorkflow());
+                    psNotif.setInt(4, idEmploye);
+                    psNotif.executeUpdate();
+                }
+
                 c.commit();
                 WorkflowRhCPL detail = WorkflowRhCPL.rechercherParId(workflow.getIdWorkflow(), c);
                 return ResponseEntity.status(HttpStatus.CREATED).body(detail);
@@ -555,6 +600,35 @@ public class WorkflowRhController {
                     if (wf.getIdAffectationCible() != null) {
                         EmployeAffectationCarriere cbl = new EmployeAffectationCarriere().rechercherParId(wf.getIdAffectationCible(), c);
                         if (cbl != null) cbl.activer(c);
+                    }
+
+                    // Récupérer le nom de l'employé et le type d'événement pour la notification
+                    String nomPrenom = "";
+                    String typeEv = "Mouvement RH";
+                    try (var ps2 = c.prepareStatement(
+                            "SELECT e.nom || ' ' || e.prenom AS np, t.libelle AS ev " +
+                            "FROM employe e " +
+                            "JOIN workflow_rh w ON w.id_employe = e.id_employe " +
+                            "JOIN ref_type_evenement_rh t ON w.id_type_evenement_rh = t.id_type_evenement_rh " +
+                            "WHERE w.id_workflow = ?")) {
+                        ps2.setInt(1, wf.getIdWorkflow());
+                        try (var rs2 = ps2.executeQuery()) {
+                            if (rs2.next()) {
+                                nomPrenom = rs2.getString("np");
+                                typeEv = rs2.getString("ev");
+                            }
+                        }
+                    }
+
+                    // Insérer la notification de prise d'effet
+                    try (var psNotif = c.prepareStatement(
+                            "INSERT INTO notification_rh (id_utilisateur, type_alerte, priorite, titre, message, lien, id_employe_concerne) " +
+                            "VALUES (null, 'MOUVEMENT_APPLIQUE', 'NORMALE', ?, ?, ?, ?)")) {
+                        psNotif.setString(1, "Prise d'effet - " + typeEv + " - " + nomPrenom);
+                        psNotif.setString(2, "Le mouvement RH de type " + typeEv + " pour " + nomPrenom + " est désormais actif (sa date d'effet au " + (dateEffet != null ? dateEffet.toString() : "") + " a ete atteinte).");
+                        psNotif.setString(3, "/employes/" + wf.getIdEmploye() + "?tab=carriere");
+                        psNotif.setInt(4, wf.getIdEmploye());
+                        psNotif.executeUpdate();
                     }
                 }
             }

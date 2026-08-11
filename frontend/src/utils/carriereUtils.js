@@ -17,11 +17,38 @@ export function fmtDate(d) {
     }
 }
 
+export function fmtDateInput(d) {
+    if (!d) return '';
+    if (typeof d === 'string') return d.substring(0, 10);
+    return new Date(d).toISOString().substring(0, 10);
+}
+
+export function fmtDateFr(d) {
+    const str = fmtDateInput(d);
+    if (!str) return '';
+    const [yyyy, mm, dd] = str.split('-');
+    return `${dd}/${mm}/${yyyy}`;
+}
+
 export function fmtMoney(val) {
     if (val === null || val === undefined || val === '') return '-';
     const num = Number(val);
     if (isNaN(num)) return String(val);
     return num.toLocaleString('fr-FR') + ' Ar';
+}
+
+export function fmtMoneyMGA(amount) {
+    if (amount === undefined || amount === null || amount === '') return '';
+    return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA', maximumFractionDigits: 0 }).format(Number(amount));
+}
+
+export function resolveId(list, idDirect, idField, libelleDirect, libelleFields = ['libelle']) {
+    if (idDirect !== undefined && idDirect !== null && idDirect !== '') return String(idDirect);
+    if (!libelleDirect || !Array.isArray(list) || list.length === 0) return '';
+    const match = list.find((item) =>
+        libelleFields.some((lf) => item[lf] && String(item[lf]).trim().toLowerCase() === String(libelleDirect).trim().toLowerCase())
+    );
+    return match ? String(match[idField]) : '';
 }
 
 export function calculerDateFinEssai(dateDebutStr, dureeMoisStr) {

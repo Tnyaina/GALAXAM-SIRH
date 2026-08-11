@@ -8,11 +8,11 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
 import contratService from '@/api/employe/contratService';
-import EmbaucheModal from './EmbaucheModal';
-import TransitionModal from './TransitionModal';
+import EmbaucheModal from './b/EmbaucheModal';
+import TransitionModal from './b/TransitionModal';
 import RecapitulatifBrouillonModal from './RecapitulatifBrouillonModal';
-import ConfirmationEssaiModal from './ConfirmationEssaiModal';
-import RenouvellementEssaiModal from './RenouvellementEssaiModal';
+import ConfirmationEssaiModal from './b/ConfirmationEssaiModal';
+import RenouvellementEssaiModal from './b/RenouvellementEssaiModal';
 import { 
     evaluerEtatEssai, estEssaiRenouvele,
     trouverWorkflowPlanifieFutur 
@@ -32,7 +32,7 @@ function StatItem({ icon, label, value, highlight = false }) {
     );
 }
 
-export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) {
+export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, autoOpenWorkflowId = null }) {
     const [loading, setLoading] = useState(true);
     const [actionSuccessMsg, setActionSuccessMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
@@ -93,6 +93,28 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
         }
     }, [idEmploye, loadCarriereData]);
 
+    // Auto-ouverture du modal si un workflowId est passé via l'URL (?wf=)
+    // Se déclenche après le chargement des données, une seule fois.
+    useEffect(() => {
+        if (loading) return;
+        if (!autoOpenWorkflowId) return;
+        const targetId = Number(autoOpenWorkflowId);
+        if (isNaN(targetId)) return;
+
+        // Chercher d'abord dans la liste complète des workflows
+        const wfFound = workflowsList.find(wf => Number(wf.idWorkflow) === targetId);
+        if (wfFound) {
+            setSelectedWfModal(wfFound);
+            setIsRecapModalOpen(true);
+        }
+        // Si c'est le brouillon en cours
+        else if (brouillonWf && Number(brouillonWf.idWorkflow) === targetId) {
+            setSelectedWfModal(brouillonWf);
+            setIsRecapModalOpen(true);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loading, autoOpenWorkflowId]);
+
     const handleOpenCreateModal = () => {
         setEditInitialData(null);
         setIsEmbaucheModalOpen(true);
@@ -103,14 +125,20 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true }) 
         setIsEmbaucheModalOpen(true);
     };
 
-    const handleSuccessAction = async (msg, createdWf = null) => {
+    const handleSuccessAction = (msg, createdWf = null) => {
         setActionSuccessMsg(msg);
         setTimeout(() => setActionSuccessMsg(''), 6000);
-        await loadCarriereData();
+
+        // Ouvrir le récapitulatif immédiatement — les données sont déjà
+        // disponibles depuis la réponse API (WorkflowRhCPL complet).
+        // Pas besoin d'attendre le rechargement du tab.
         if (createdWf) {
             setSelectedWfModal(createdWf);
             setIsRecapModalOpen(true);
         }
+
+        // Recharger les données du tab en arrière-plan (sans bloquer)
+        loadCarriereData();
     };
 
     const fmtDate = (d) => {

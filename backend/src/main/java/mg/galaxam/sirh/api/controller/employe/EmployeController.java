@@ -164,6 +164,18 @@ public class EmployeController {
                 }
 
                 AuditLog.audit(c, "CREATION", "employe", String.valueOf(empId), null, emp);
+                
+                // Notification en temps réel de création d'employé (destinée à l'équipe RH)
+                try (PreparedStatement psNotif = c.prepareStatement(
+                        "INSERT INTO notification_rh (id_utilisateur, type_alerte, priorite, titre, message, lien, id_employe_concerne) " +
+                        "VALUES (null, 'EMPLOYE_CREE', 'INFO', ?, ?, ?, ?)")) {
+                    psNotif.setString(1, "Nouvel employe - " + emp.getNom() + " " + emp.getPrenom());
+                    psNotif.setString(2, "La fiche de l'employé " + emp.getNom() + " " + emp.getPrenom() + " a été cree. Pensez a ajouter un contrat et les documents obligatoires.");
+                    psNotif.setString(3, "/employes/" + empId + "?tab=personnel");
+                    psNotif.setInt(4, empId);
+                    psNotif.executeUpdate();
+                }
+
                 c.commit();
 
                 EmployeCPL createdView = new EmployeCPL().rechercherParId(empId, c);
