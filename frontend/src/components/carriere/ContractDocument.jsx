@@ -1,6 +1,8 @@
 // Briques d'UI partagées pour donner à tous les formulaires de carrière (Embauche,
 // Transition, Confirmation/Renouvellement d'essai) l'apparence d'un vrai document
 // contractuel plutôt que d'une simple suite de champs de saisie.
+
+import { fmtDateFr, fmtMoney } from '@/utils/carriereUtils';
 //
 // À placer par ex. dans src/components/carriere/ContractDocument.jsx et à importer
 // depuis les modaux : import { Clause, ArticleHeader, DocumentFrame } from '@/components/carriere/ContractDocument';
@@ -138,5 +140,76 @@ export function DocumentFooter({ status = 'Brouillon (non actif)' }) {
                 </span>
             </div>
         </div>
+    );
+}
+
+/** Composant Aperçu de Contrat standardisé pour toutes les modales de carrière */
+export function ContractPreview({
+    className = '',
+    libFiliale,
+    nomEmploye,
+    formData,
+    libTypeContrat,
+    libTypeIntervenant,
+    exigeDateFin,
+    libSite,
+    libDepartement,
+    libService,
+    libFonction,
+    libCategorie,
+    libModePaie,
+    libResponsable,
+}) {
+    return (
+        <DocumentFrame className={className}>
+            <DocumentHeader
+                eyebrow={libFiliale?.raisonSociale || libFiliale?.raison_sociale || 'Filiale employeuse'}
+                title="Contrat de Travail"
+                numero={formData?.numeroContrat}
+            />
+
+            <div className="pt-2 text-[13px] leading-relaxed space-y-3">
+                <p>
+                    Entre <strong>{libFiliale?.raisonSociale || libFiliale?.raison_sociale || '……………'}</strong>, ci-après « l'Employeur »,
+                    {' '}et <strong>{nomEmploye || '……………'}</strong>, ci-après « le Salarié », il est convenu ce qui suit :
+                </p>
+
+                <ArticleBlock n="1" title="Nature & Durée">
+                    <Clause label="Type de contrat" value={libTypeContrat?.libelle} />
+                    <Clause label="Profil d'intervenant" value={libTypeIntervenant?.libelle} />
+                    <Clause label="Prise d'effet" value={fmtDateFr(formData?.dateDebut)} />
+                    <Clause label="Terme" value={fmtDateFr(formData?.dateFin)} placeholder={exigeDateFin ? '……………………' : 'Durée indéterminée'} />
+                    <Clause label="Signature le" value={fmtDateFr(formData?.dateSignature)} />
+                    {formData?.aPeriodeEssai && (
+                        <Clause label="Période d'essai" value={`${formData?.dureeEssaiMois || 0} mois (Fin le ${fmtDateFr(formData?.dateFinEssai) || '…'})`} />
+                    )}
+                    <Clause label="Effectif légal" value={formData?.comptabiliseEffectif ? 'Salarié comptabilisé' : 'Hors effectif'} />
+                </ArticleBlock>
+
+                <ArticleBlock n="2" title="Affectation">
+                    <Clause label="Site" value={libSite?.libelle} />
+                    <Clause label="Département" value={libDepartement?.libelle} />
+                    <Clause label="Service" value={libService?.libelle} />
+                    <Clause label="Fonction occupée" value={libFonction?.libelle} />
+                    <Clause label="Catégorie pro." value={libCategorie?.libelle} />
+                    <Clause label="Rattaché à" value={libResponsable ? `${libResponsable.nom || ''} ${libResponsable.prenom || ''}` : ''} placeholder="Aucun N+1" />
+                </ArticleBlock>
+
+                <ArticleBlock n="3" title="Rémunération">
+                    <Clause label="Mode de calcul" value={libModePaie?.libelle} />
+                    <Clause label="Salaire de base" value={formData?.salaireBase ? fmtMoney(formData?.salaireBase) : ''} className="text-brand-500" />
+                    <Clause label="Date d'effet (dossier)" value={fmtDateFr(formData?.dateEffet || formData?.dateDebut)} />
+                </ArticleBlock>
+
+                {formData?.motif && (
+                    <div className="pt-2">
+                        <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-brand-500">Article 4 — Motif</p>
+                        <p className="text-ink-600 dark:text-ink-300 italic text-[12.5px]">{formData?.motif}</p>
+                    </div>
+                )}
+            </div>
+
+            <DocumentFooter />
+        </DocumentFrame>
     );
 }

@@ -1,89 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Briefcase, Building, Landmark, ShieldAlert, Save, X, DollarSign, Clock, FileSignature, Eye, EyeOff } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input, { Textarea, Select } from '@/components/ui/Input';
 import Loading from '@/components/ui/Loading';
 import contratService from '@/api/employe/contratService';
-import referentielService from '@/api/admin/referentielService';
-import employeService from '@/api/employe/employeService';
+import { useContractReferentiels } from '@/hooks/useContractReferentiels';
 import {
-    Clause, DocumentFrame, DocumentHeader, ArticleBlock, DocumentFooter,
+    Clause, DocumentFrame, DocumentHeader, ArticleBlock, DocumentFooter, ContractPreview
 } from '@/components/carriere/ContractDocument';
 
 import {
     fmtDateInput, fmtDateFr, fmtMoney,
 } from '@/utils/carriereUtils';
-
-// ── COMPOSANT APERÇU CONTRAT ────────────────────────────────────────────────
-function ContractPreview({
-    className = '',
-    libFiliale,
-    nomEmploye,
-    formData,
-    libTypeContrat,
-    libTypeIntervenant,
-    exigeDateFin,
-    libSite,
-    libDepartement,
-    libService,
-    libFonction,
-    libCategorie,
-    libResponsable,
-    libModePaie,
-}) {
-    return (
-        <DocumentFrame className={className}>
-            <DocumentHeader
-                eyebrow={libFiliale?.raisonSociale || libFiliale?.raison_sociale || 'Filiale employeuse'}
-                title="Contrat de Travail"
-                numero={formData.numeroContrat}
-            />
-
-            <div className="pt-2 text-[13px] leading-relaxed space-y-3">
-                <p>
-                    Entre <strong>{libFiliale?.raisonSociale || libFiliale?.raison_sociale || '……………'}</strong>, ci-après « l'Employeur »,
-                    {' '}et <strong>{nomEmploye || '……………'}</strong>, ci-après « le Salarié », il est convenu ce qui suit :
-                </p>
-
-                <ArticleBlock n="1" title="Nature & Durée">
-                    <Clause label="Type de contrat" value={libTypeContrat?.libelle} />
-                    <Clause label="Profil d'intervenant" value={libTypeIntervenant?.libelle} />
-                    <Clause label="Prise d'effet" value={fmtDateFr(formData.dateDebut)} />
-                    <Clause label="Terme" value={fmtDateFr(formData.dateFin)} placeholder={exigeDateFin ? '……………………' : 'Durée indéterminée'} />
-                    <Clause label="Signature le" value={fmtDateFr(formData.dateSignature)} />
-                    {formData.aPeriodeEssai && (
-                        <Clause label="Période d'essai" value={`${formData.dureeEssaiMois} mois (Fin le ${fmtDateFr(formData.dateFinEssai) || '…'})`} />
-                    )}
-                    <Clause label="Effectif légal" value={formData.comptabiliseEffectif ? 'Salarié comptabilisé' : 'Hors effectif'} />
-                </ArticleBlock>
-
-                <ArticleBlock n="2" title="Affectation">
-                    <Clause label="Site" value={libSite?.libelle} />
-                    <Clause label="Département" value={libDepartement?.libelle} />
-                    <Clause label="Service" value={libService?.libelle} />
-                    <Clause label="Fonction occupée" value={libFonction?.libelle} />
-                    <Clause label="Catégorie pro." value={libCategorie?.libelle} />
-                    <Clause label="Rattaché à" value={libResponsable ? `${libResponsable.nom} ${libResponsable.prenom}` : ''} placeholder="Aucun N+1" />
-                </ArticleBlock>
-
-                <ArticleBlock n="3" title="Rémunération">
-                    <Clause label="Mode de calcul" value={libModePaie?.libelle} />
-                    <Clause label="Salaire de base" value={formData.salaireBase ? fmtMoney(formData.salaireBase) : ''} className="text-brand-500" />
-                    <Clause label="Date d'effet (dossier)" value={fmtDateFr(formData.dateEffet || formData.dateDebut)} />
-                </ArticleBlock>
-
-                {formData.motif && (
-                    <div className="pt-2">
-                        <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-brand-500">Article 4 — Motif</p>
-                        <p className="text-ink-600 dark:text-ink-300 italic text-[12.5px]">{formData.motif}</p>
-                    </div>
-                )}
-            </div>
-
-            <DocumentFooter />
-        </DocumentFrame>
-    );
-}
 
 // ── COMPOSANT PRINCIPAL MODAL ────────────────────────────────────────────────
 export default function EmbaucheModal({
@@ -96,18 +24,21 @@ export default function EmbaucheModal({
 }) {
     const isEditMode = !!initialData;
 
-    // Référentiels
-    const [loadingRef, setLoadingRef] = useState(true);
-    const [filiales, setFiliales] = useState([]);
-    const [sites, setSites] = useState([]);
-    const [departements, setDepartements] = useState([]);
-    const [services, setServices] = useState([]);
-    const [fonctions, setFonctions] = useState([]);
-    const [typesContrat, setTypesContrat] = useState([]);
-    const [typesIntervenant, setTypesIntervenant] = useState([]);
-    const [categoriesPro, setCategoriesPro] = useState([]);
-    const [modesPaie, setModesPaie] = useState([]);
-    const [responsables, setResponsables] = useState([]);
+    // Référentiels via Custom Hook avec cache & lazy loading
+    const {
+        filiales,
+        sites,
+        departements,
+        services,
+        fonctions,
+        typesContrat,
+        typesIntervenant,
+        categoriesPro,
+        modesPaie,
+        responsables,
+        loading: loadingRef,
+        error: refError,
+    } = useContractReferentiels(isOpen, idEmploye);
 
     // Formulaire
     const [formData, setFormData] = useState({
@@ -144,53 +75,15 @@ export default function EmbaucheModal({
 
     const [mounted, setMounted] = useState(false);
 
-    const loadReferentiels = useCallback(async () => {
-        setLoadingRef(true);
-        try {
-            const [
-                filRes, siteRes, depRes, srvRes, fnRes,
-                tcRes, tiRes, catRes, paieRes, empRes
-            ] = await Promise.all([
-                referentielService.getFiliales(true),
-                referentielService.getSites(true),
-                referentielService.getDepartements(true),
-                referentielService.getServices(true),
-                referentielService.getFonctions(true),
-                referentielService.getTypesContrat(true),
-                referentielService.getTypesIntervenant(true),
-                contratService.getCategoriesPro(true),
-                contratService.getModesPaie(),
-                employeService.getEmployes(),
-            ]);
-
-            setFiliales(filRes || []);
-            setSites(siteRes || []);
-            setDepartements(depRes || []);
-            setServices(srvRes || []);
-            setFonctions(fnRes || []);
-            setTypesContrat(tcRes || []);
-            setTypesIntervenant(tiRes || []);
-            setCategoriesPro(catRes || []);
-            setModesPaie(paieRes || []);
-            const empArray = Array.isArray(empRes) ? empRes : (empRes?.content || []);
-            setResponsables(empArray.filter(e => Number(e.idEmploye || e.id_employe) !== Number(idEmploye)));
-        } catch (err) {
-            console.error('Erreur chargement référentiels carrière:', err);
-            setErrorMsg('Erreur lors du chargement des tables de référence.');
-        } finally {
-            setLoadingRef(false);
-        }
-    }, [idEmploye]);
-
     useEffect(() => {
         if (isOpen) {
-            loadReferentiels();
             const t = setTimeout(() => setMounted(true), 10);
             return () => clearTimeout(t);
         }
         setMounted(false);
         setShowPreviewMobile(false);
-    }, [isOpen, loadReferentiels]);
+    }, [isOpen]);
+
 
     useEffect(() => {
         if (!initialData) return;

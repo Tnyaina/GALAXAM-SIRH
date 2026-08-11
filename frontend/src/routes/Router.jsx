@@ -1,45 +1,57 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
-import Login from "@/pages/auth/Login";
-import Dashboard from "@/pages/dashboard/Dashboard";
-import EmployeList from "@/pages/employe/EmployeList";
-import SecuriteAdminPanel from "@/pages/parametres/securite/SecuriteAdminPanel";
-import StructureAdminPanel from "@/pages/parametres/structure/StructureAdminPanel";
-import PaieConfigAdminPanel from "@/pages/parametres/paie/PaieConfigAdminPanel";
-import Unauthorized from "@/pages/systeme/Unauthorized";
-import NotFound from "@/pages/systeme/NotFound";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import { AuthProvider } from "@/context/AuthContext";
-import EmployeFicheDetailPage from "@/pages/employe/EmployeFicheDetailPage";
+import Loading from "@/components/ui/Loading";
+
+// Code-splitting / Lazy loading des pages pour des performances optimales
+const Login = lazy(() => import("@/pages/auth/Login"));
+const Dashboard = lazy(() => import("@/pages/dashboard/Dashboard"));
+const EmployeList = lazy(() => import("@/pages/employe/EmployeList"));
+const EmployeFicheDetailPage = lazy(() => import("@/pages/employe/EmployeFicheDetailPage"));
+const SecuriteAdminPanel = lazy(() => import("@/pages/parametres/securite/SecuriteAdminPanel"));
+const StructureAdminPanel = lazy(() => import("@/pages/parametres/structure/StructureAdminPanel"));
+const PaieConfigAdminPanel = lazy(() => import("@/pages/parametres/paie/PaieConfigAdminPanel"));
+const Unauthorized = lazy(() => import("@/pages/systeme/Unauthorized"));
+const NotFound = lazy(() => import("@/pages/systeme/NotFound"));
+
+const PageLoader = () => (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
+        <Loading display="overlay" size="lg" label="Chargement de la page..." />
+    </div>
+);
 
 export default function Router() {
     return (
         <AuthProvider>
-            <Routes>
-                {/* Route publique d'authentification */}
-                <Route path="/" element={<Login />} />
-                <Route path="/non-autorise" element={<Unauthorized />} />
+            <Suspense fallback={<PageLoader />}>
+                <Routes>
+                    {/* Route publique d'authentification */}
+                    <Route path="/" element={<Login />} />
+                    <Route path="/non-autorise" element={<Unauthorized />} />
 
-                {/* Routes protégées standard */}
-                <Route element={<ProtectedRoute />}>
-                    <Route path="/dashboard" element={<Dashboard />} />
-                </Route>
+                    {/* Routes protégées standard */}
+                    <Route element={<ProtectedRoute />}>
+                        <Route path="/dashboard" element={<Dashboard />} />
+                    </Route>
 
-                {/* Module Employé : Nécessite la permission EMPLOYE_READ */}
-                <Route element={<ProtectedRoute requiredPermission="EMPLOYE_READ" />}>
-                    <Route path="/employes" element={<EmployeList />} />
-                    <Route path="/employes/:id" element={<EmployeFicheDetailPage />} />
-                </Route>
+                    {/* Module Employé : Nécessite la permission EMPLOYE_READ */}
+                    <Route element={<ProtectedRoute requiredPermission="EMPLOYE_READ" />}>
+                        <Route path="/employes" element={<EmployeList />} />
+                        <Route path="/employes/:id" element={<EmployeFicheDetailPage />} />
+                    </Route>
 
-                {/* Routes protégées admin (nécessite d'être ADMIN) */}
-                <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
-                    <Route path="/admin" element={<SecuriteAdminPanel />} />
-                    <Route path="/admin/structure" element={<StructureAdminPanel />} />
-                    <Route path="/admin/paie-config" element={<PaieConfigAdminPanel />} />
-                </Route>
+                    {/* Routes protégées admin (nécessite d'être ADMIN) */}
+                    <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
+                        <Route path="/admin" element={<SecuriteAdminPanel />} />
+                        <Route path="/admin/structure" element={<StructureAdminPanel />} />
+                        <Route path="/admin/paie-config" element={<PaieConfigAdminPanel />} />
+                    </Route>
 
-                {/* Page d'erreur 404 - Wildcard */}
-                <Route path="*" element={<NotFound />} />
-            </Routes>
+                    {/* Page d'erreur 404 - Wildcard */}
+                    <Route path="*" element={<NotFound />} />
+                </Routes>
+            </Suspense>
         </AuthProvider>
     );
 }

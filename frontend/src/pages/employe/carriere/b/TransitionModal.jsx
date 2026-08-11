@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { RefreshCw, Building, Landmark, ShieldAlert, Save, X, ArrowRight, UserCheck, Clock, Eye, EyeOff, FileSignature } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input, { Textarea, Select } from '@/components/ui/Input';
 import Loading from '@/components/ui/Loading';
 import contratService from '@/api/employe/contratService';
-import referentielService from '@/api/admin/referentielService';
-import employeService from '@/api/employe/employeService';
+import { useContractReferentiels } from '@/hooks/useContractReferentiels';
 import {
     DocumentFrame, DocumentHeader, Clause, ClauseDiff, ArticleBlock, DocumentFooter
 } from '@/components/carriere/ContractDocument';
@@ -112,17 +111,21 @@ export default function TransitionModal({
     const [mounted, setMounted] = useState(false);
     const errorAlertRef = useRef(null);
 
-    // Référentiels
-    const [loadingRef, setLoadingRef] = useState(true);
-    const [sites, setSites] = useState([]);
-    const [departements, setDepartements] = useState([]);
-    const [services, setServices] = useState([]);
-    const [fonctions, setFonctions] = useState([]);
-    const [typesContrat, setTypesContrat] = useState([]);
-    const [categoriesPro, setCategoriesPro] = useState([]);
-    const [modesPaie, setModesPaie] = useState([]);
-    const [responsables, setResponsables] = useState([]);
-    const [typesIntervenant, setTypesIntervenant] = useState([]);
+    // Référentiels via Custom Hook avec cache & lazy loading
+    const {
+        sites,
+        departements,
+        services,
+        fonctions,
+        typesContrat,
+        categoriesPro,
+        modesPaie,
+        responsables,
+        typesIntervenant,
+        typesEvenementRh,
+        loading: loadingRef,
+        error: refError,
+    } = useContractReferentiels(isOpen, idEmploye);
 
     // Type de transition sélectionné
     const [codeTypeEvenement, setCodeTypeEvenement] = useState('MUTATION');
@@ -161,60 +164,21 @@ export default function TransitionModal({
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
     const [showPreviewMobile, setShowPreviewMobile] = useState(false);
-    const [typesEvenement, setTypesEvenement] = useState([]);
 
-    const loadReferentiels = useCallback(async () => {
-        setLoadingRef(true);
-        try {
-            const [
-                siteRes, depRes, srvRes, fnRes,
-                tcRes, catRes, paieRes, empRes, tevRes, tiRes
-            ] = await Promise.all([
-                referentielService.getSites(true),
-                referentielService.getDepartements(true),
-                referentielService.getServices(true),
-                referentielService.getFonctions(true),
-                referentielService.getTypesContrat(true),
-                contratService.getCategoriesPro(true),
-                contratService.getModesPaie(),
-                employeService.getEmployes(),
-                contratService.getTypesEvenementRh(),
-                referentielService.getTypesIntervenant(true),
-            ]);
+    // Filtrer les événements de type transition
+    const typesEvenement = (typesEvenementRh || []).filter(t =>
+        !['EMBAUCHE_INITIALE', 'FIN_CONTRAT', 'DEPART_RETRAITE', 'RUPTURE_ESSAI', 'RENOUVELLEMENT_ESSAI', 'CONFIRMATION_ESSAI'].includes(t.code)
+    );
 
-            setSites(siteRes || []);
-            setDepartements(depRes || []);
-            setServices(srvRes || []);
-            setFonctions(fnRes || []);
-            setTypesContrat(tcRes || []);
-            setCategoriesPro(catRes || []);
-            setModesPaie(paieRes || []);
-            setTypesIntervenant(tiRes || []);
-
-            const transitionsFiltrees = (tevRes || []).filter(t => 
-                !['EMBAUCHE_INITIALE', 'FIN_CONTRAT', 'DEPART_RETRAITE', 'RUPTURE_ESSAI', 'RENOUVELLEMENT_ESSAI', 'CONFIRMATION_ESSAI'].includes(t.code)
-            );
-            setTypesEvenement(transitionsFiltrees);
-
-            const empArray = Array.isArray(empRes) ? empRes : (empRes?.content || []);
-            setResponsables(empArray.filter(e => Number(e.idEmploye || e.id_employe) !== Number(idEmploye)));
-        } catch (err) {
-            console.error('Erreur chargement référentiels transition:', err);
-            setErrorMsg('Erreur lors du chargement des données de référence.');
-        } finally {
-            setLoadingRef(false);
-        }
-    }, [idEmploye]);
 
     useEffect(() => {
         if (isOpen) {
-            loadReferentiels();
             const t = setTimeout(() => setMounted(true), 10);
             return () => clearTimeout(t);
         }
         setMounted(false);
         setShowPreviewMobile(false);
-    }, [isOpen, loadReferentiels]);
+    }, [isOpen]);
 
     // Scroll automatique vers l'erreur lorsqu'elle survient
     useEffect(() => {

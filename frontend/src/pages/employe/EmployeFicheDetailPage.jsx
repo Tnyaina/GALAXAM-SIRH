@@ -10,6 +10,7 @@ import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
 import EmployeFormModal from './dossier/EmployeFormModal';
 import CarriereTab from './carriere/CarriereTab';
+import EmployeHeaderCard from '@/components/employe/EmployeHeaderCard';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
@@ -287,69 +288,12 @@ export default function EmployeFicheDetailPage() {
             )}
 
             {/* En-tête Profil Employé */}
-            <div className="bg-white dark:bg-ink-900 rounded-sm shadow-sm border border-ink-150 dark:border-ink-700 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div className="flex items-center gap-5">
-                    <div className="w-20 h-20 bg-ink-50 dark:bg-ink-800 border-2 border-ink-200 dark:border-ink-700 rounded-sm overflow-hidden flex items-center justify-center text-ink-300 flex-shrink-0">
-                        {emp.photoUrl ? (
-                            <img src={getFullPhotoUrl(emp.photoUrl)} alt="Photo" className="w-full h-full object-cover" />
-                        ) : (
-                            <User size={36} />
-                        )}
-                    </div>
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-bold tracking-tight text-ink-900 dark:text-white">
-                                {emp.nom} {emp.prenom}
-                            </h1>
-                            {emp.estActif ? (
-                                <Badge variant="success" size="md" dot>Actif</Badge>
-                            ) : (
-                                <Badge variant="danger" size="md" dot>Inactif</Badge>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-ink-400">
-                            <span>Matricule : <strong className="font-mono text-brand-500">{emp.matricule}</strong></span>
-                            <span>•</span>
-                            <span>CIN : <strong className="font-mono text-ink-700 dark:text-ink-200">{emp.cinNumero || '-'}</strong></span>
-                            <span>•</span>
-                            <span>Nationalité : <strong>{emp.nationalite}</strong></span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Actions en-tête */}
-                {canWrite && (
-                    <div className="flex items-center gap-3">
-                        <Button
-                            onClick={() => setIsFormOpen(true)}
-                            variant="primary"
-                            size="sm"
-                            iconLeft={<Edit2 size={16} />}
-                        >
-                            Modifier la Fiche
-                        </Button>
-                        {emp.estActif ? (
-                            <Button
-                                onClick={() => setIsDesactivationModalOpen(true)}
-                                variant="danger"
-                                size="sm"
-                                iconLeft={<Power size={16} />}
-                            >
-                                Désactiver
-                            </Button>
-                        ) : (
-                            <Button
-                                onClick={handleReactiver}
-                                variant="success"
-                                size="sm"
-                                iconLeft={<Power size={16} />}
-                            >
-                                Réactiver
-                            </Button>
-                        )}
-                    </div>
-                )}
-            </div>
+            <EmployeHeaderCard
+                emp={emp}
+                canWrite={canWrite}
+                onEdit={() => setIsFormOpen(true)}
+                onDesactiver={() => setIsDesactivationModalOpen(true)}
+            />
 
             {/* Navigation par Onglets Structurés */}
             <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
