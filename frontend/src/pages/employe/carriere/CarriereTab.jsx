@@ -15,7 +15,7 @@ import ConfirmationEssaiModal from './b/ConfirmationEssaiModal';
 import RenouvellementEssaiModal from './b/RenouvellementEssaiModal';
 import { 
     evaluerEtatEssai, estEssaiRenouvele,
-    trouverWorkflowPlanifieFutur 
+    trouverWorkflowPlanifieFutur, fmtDate, fmtMoney 
 } from '@/utils/carriereUtils';
 
 function StatItem({ icon, label, value, highlight = false }) {
@@ -144,18 +144,6 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, au
         loadCarriereData();
     };
 
-    const fmtDate = (d) => {
-        if (!d) return '-';
-        const str = typeof d === 'string' ? d.substring(0, 10) : new Date(d).toISOString().substring(0, 10);
-        const [yyyy, mm, dd] = str.split('-');
-        return `${dd}/${mm}/${yyyy}`;
-    };
-
-    const fmtMoney = (amount) => {
-        if (amount === undefined || amount === null) return '-';
-        return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA', maximumFractionDigits: 0 }).format(amount);
-    };
-
     const getStatutBadge = (statutCode) => {
         switch (statutCode) {
             case 'ACTIF':
@@ -180,12 +168,13 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, au
     // Le contrat/l'affectation "actifs" (ContratTravail / EmployeAffectationCarriere) ne renvoient
     // que des IDs bruts (idSite, idDepartement, idFonction...), sans libellés.
     // On récupère les libellés déjà résolus sur le dernier WorkflowRhCPL VALIDE
-    // correspondant à ce contrat (workflowsList porte les vues enrichies libelleXxx).
-    const workflowCplActif = contratActif
-        ? workflowsList.find(
-              (wf) => wf.codeStatutWorkflow === 'VALIDE' && Number(wf.idContratCible) === Number(contratActif.idContrat)
-          )
-        : null;
+    // correspondant à ce contrat (workflowsList porte les vues enrichies libelleXxx), trié par date d'effet.
+    const workflowsValidesDuContrat = contratActif
+        ? workflowsList
+            .filter((wf) => wf.codeStatutWorkflow === 'VALIDE' && Number(wf.idContratCible) === Number(contratActif.idContrat))
+            .sort((a, b) => new Date(b.dateEffet || b.dateDemande || 0) - new Date(a.dateEffet || a.dateDemande || 0))
+        : [];
+    const workflowCplActif = workflowsValidesDuContrat[0] || null;
 
     const todayStr = new Date().toISOString().substring(0, 10);
     const workflowPlanifieFutur = trouverWorkflowPlanifieFutur(workflowsList, todayStr);
@@ -410,18 +399,29 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, au
                                 <span className="font-semibold text-ink-800 dark:text-ink-100">{fmtDate(contratActif.dateDebut)}</span>
                             </div>
                             {etatEssai.isEssaiActif && (
-                                <div className="py-2 px-2.5 my-1.5 bg-warning-500/10 border border-warning-500/20 rounded space-y-2 text-warning-800 dark:text-warning-300">
+                                <div className={`py-2 px-2.5 my-1.5 border rounded space-y-2 ${
+                                    etatEssai.isEssaiEchu 
+                                        ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300' 
+                                        : 'bg-warning-500/10 border-warning-500/20 text-warning-800 dark:text-warning-300'
+                                }`}>
                                     <div className="flex justify-between items-center font-medium">
                                         <span className="flex items-center gap-1.5 font-bold">
-                                            <Clock size={13} /> {etatEssai.isDernierJour ? 'Dernier Jour d\'Essai :' : 'Période d\'Essai :'}
+                                            <Clock size={13} /> {
+                                                etatEssai.isEssaiEchu 
+                                                    ? 'Période d\'Essai Échue (Action requise) :' 
+                                                    : (etatEssai.isDernierJour ? 'Dernier Jour d\'Essai :' : 'Période d\'Essai :')
+                                            }
                                         </span>
                                         <span className="font-bold">
                                             {etatEssai.dureeEssaiMois} Mois 
-                                            {etatEssai.isDernierJour ? ' (Échéance ce soir à 23h59)' : ` (Fin le ${fmtDate(etatEssai.dateFinEssaiStr)})`}
+                                            {etatEssai.isEssaiEchu 
+                                                ? ` (Finie le ${fmtDate(etatEssai.dateFinEssaiStr)})` 
+                                                : (etatEssai.isDernierJour ? ' (Échéance ce soir à 23h59)' : ` (Fin le ${fmtDate(etatEssai.dateFinEssaiStr)})`)
+                                            }
                                         </span>
                                     </div>
                                     {canWrite && !brouillonWf && !workflowPlanifieFutur && (
-                                        <div className="pt-1.5 border-t border-warning-500/20 flex flex-wrap items-center gap-2">
+                                        <div className="pt-1.5 border-t border-current/20 flex flex-wrap items-center gap-2">
                                             <Button
                                                 onClick={() => setIsConfirmationModalOpen(true)}
                                                 variant="success"

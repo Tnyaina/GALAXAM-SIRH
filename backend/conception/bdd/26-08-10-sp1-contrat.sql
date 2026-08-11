@@ -251,7 +251,8 @@ INSERT INTO ref_statut_contrat (code, libelle) VALUES
     ('ACTIF', 'Contrat actif'),
     ('SUSPENDU', 'Contrat suspendu'),
     ('CLOTURE', 'Contrat arrivé à terme'),
-    ('ROMPU', 'Contrat rompu anticipativement')
+    ('ROMPU', 'Contrat rompu anticipativement'),
+    ('ANNULE', 'Contrat annulé')
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO ref_statut_affectation (code, libelle) VALUES

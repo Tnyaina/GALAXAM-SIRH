@@ -11,15 +11,15 @@
 export function Clause({ label, value, placeholder = '……………………', className = '', strike = false }) {
     const hasValue = value !== undefined && value !== null && value !== '';
     return (
-        <div className={`flex items-baseline gap-2 py-1 text-[13px] ${className}`}>
+        <div className={`flex items-baseline gap-2 py-1.5 text-[13px] leading-snug ${className}`}>
             <span className="text-ink-500 dark:text-ink-400 whitespace-nowrap">{label}</span>
             <span className="flex-1 border-b border-dotted border-ink-300 dark:border-ink-700 translate-y-[-3px]" />
             <span className={
                 strike
-                    ? 'line-through text-ink-400 dark:text-ink-600 whitespace-nowrap text-right'
+                    ? 'line-through decoration-ink-400 text-ink-400 dark:text-ink-600 whitespace-nowrap text-right'
                     : hasValue
-                        ? 'font-semibold text-ink-900 dark:text-ink-50 whitespace-nowrap text-right'
-                        : 'font-normal italic text-ink-300 dark:text-ink-600 whitespace-nowrap text-right'
+                        ? 'font-semibold tabular-nums text-ink-900 dark:text-ink-50 whitespace-nowrap text-right'
+                        : 'font-normal text-ink-300 dark:text-ink-600 whitespace-nowrap text-right'
             }>
                 {hasValue ? value : placeholder}
             </span>
@@ -31,16 +31,16 @@ export function Clause({ label, value, placeholder = '……………………',
 export function ClauseDiff({ label, before, after, unit = '' }) {
     const changed = String(before ?? '') !== String(after ?? '') && after !== undefined && after !== '';
     return (
-        <div className="flex items-baseline gap-2 py-1 text-[13px]">
+        <div className="flex items-baseline gap-2 py-1.5 text-[13px] leading-snug">
             <span className="text-ink-500 dark:text-ink-400 whitespace-nowrap">{label}</span>
             <span className="flex-1 border-b border-dotted border-ink-300 dark:border-ink-700 translate-y-[-3px]" />
             {changed ? (
-                <span className="whitespace-nowrap text-right">
+                <span className="whitespace-nowrap text-right tabular-nums">
                     <span className="line-through text-ink-400 dark:text-ink-600 mr-1.5">{before || '—'}{unit}</span>
-                    <span className="font-bold text-brand-500">{after}{unit}</span>
+                    <span className="font-bold text-brand-600 dark:text-brand-400">{after}{unit}</span>
                 </span>
             ) : (
-                <span className={`whitespace-nowrap text-right ${after ? 'font-semibold text-ink-900 dark:text-ink-50' : 'italic text-ink-300 dark:text-ink-600'}`}>
+                <span className={`whitespace-nowrap text-right tabular-nums ${after ? 'font-semibold text-ink-900 dark:text-ink-50' : 'text-ink-300 dark:text-ink-600'}`}>
                     {after || before || '……………'}{unit}
                 </span>
             )}
@@ -51,12 +51,12 @@ export function ClauseDiff({ label, before, after, unit = '' }) {
 /** Titre d'article numéroté, réutilisé dans la colonne formulaire */
 export function ArticleHeader({ n, icon, title, subtitle }) {
     return (
-        <div className="flex items-start gap-3 pb-2 border-b border-ink-150 dark:border-ink-700">
-            <div className="w-6 h-6 rounded-full bg-brand-500/10 text-brand-500 flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">
+        <div className="flex items-start gap-3 pb-2.5 border-b border-ink-150 dark:border-ink-700">
+            <div className="w-6 h-6 border border-brand-500/40 text-brand-600 dark:text-brand-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
                 {n}
             </div>
             <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-ink-700 dark:text-ink-200 flex items-center gap-2">
                     {icon} {title}
                 </h3>
                 {subtitle && <p className="text-[11px] text-ink-400 mt-0.5">{subtitle}</p>}
@@ -65,16 +65,17 @@ export function ArticleHeader({ n, icon, title, subtitle }) {
     );
 }
 
-/** Cadre "papier" avec filigrane, utilisé pour tous les aperçus de document */
 export function DocumentFrame({ children, watermark = 'Brouillon', className = '' }) {
     return (
-        <div className={`relative bg-white dark:bg-ink-950 border border-ink-150 dark:border-ink-700 rounded-sm shadow-inner overflow-hidden ${className}`}>
+        <div className={`relative bg-white dark:bg-ink-950 border border-ink-200 dark:border-ink-700 rounded-sm shadow-md overflow-hidden ${className}`}>
+            {/* Filigrane d'arrière-plan */}
             <div className="pointer-events-none select-none absolute inset-0 flex items-center justify-center overflow-hidden">
-                <span className="text-[64px] font-black uppercase tracking-widest text-warning-500/[0.06] dark:text-warning-400/[0.05] rotate-[-25deg] whitespace-nowrap">
+                <span className="text-[52px] font-black uppercase tracking-[0.15em] text-ink-400/[0.05] dark:text-ink-300/[0.04] rotate-[-25deg] whitespace-nowrap">
                     {watermark}
                 </span>
             </div>
-            <div className="relative p-6 font-serif text-ink-900 dark:text-ink-100">
+
+            <div className="relative p-6 font-serif text-ink-900 dark:text-ink-100 space-y-4">
                 {children}
             </div>
         </div>
@@ -83,20 +84,32 @@ export function DocumentFrame({ children, watermark = 'Brouillon', className = '
 
 export function DocumentHeader({ eyebrow, title, numero }) {
     return (
-        <div className="text-center space-y-1 pb-4 border-b-2 border-double border-ink-300 dark:border-ink-700">
+        <div className="text-center space-y-1 pb-3 border-b-2 border-double border-ink-300 dark:border-ink-700">
             {eyebrow && (
-                <p className="text-[10px] tracking-[0.2em] uppercase text-ink-400 font-sans">{eyebrow}</p>
+                <p className="text-[10px] tracking-[0.25em] font-bold uppercase text-brand-600 dark:text-brand-400 font-sans">
+                    {eyebrow}
+                </p>
             )}
-            <h2 className="text-lg font-bold uppercase tracking-wide">{title}</h2>
-            {numero && <p className="text-xs font-sans text-brand-500 font-bold">N° {numero}</p>}
+            <h2 className="text-base font-bold uppercase tracking-wide text-ink-900 dark:text-white">
+                {title}
+            </h2>
+            {numero ? (
+                <p className="text-[11px] font-sans text-ink-500 dark:text-ink-400">
+                    Référence <span className="font-semibold text-ink-700 dark:text-ink-200 tabular-nums">N° {numero}</span>
+                </p>
+            ) : (
+                <p className="text-[10px] font-sans uppercase tracking-wide text-ink-400">Référence auto-générée à la validation</p>
+            )}
         </div>
     );
 }
 
 export function ArticleBlock({ n, title, children }) {
     return (
-        <div className="space-y-1.5 pt-2">
-            <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-brand-500">Article {n} — {title}</p>
+        <div className="space-y-1.5 pt-3 first:pt-0">
+            <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 border-b border-ink-150 dark:border-ink-800 pb-1">
+                Article {n} — {title}
+            </p>
             {children}
         </div>
     );
@@ -104,9 +117,26 @@ export function ArticleBlock({ n, title, children }) {
 
 export function DocumentFooter({ status = 'Brouillon (non actif)' }) {
     return (
-        <div className="pt-6 mt-4 border-t border-ink-150 dark:border-ink-800 flex justify-between text-[11px] font-sans text-ink-400">
-            <span>Fait en double exemplaire</span>
-            <span className="font-bold text-warning-600">Statut : {status}</span>
+        <div className="pt-5 mt-5 border-t border-ink-150 dark:border-ink-800 space-y-4">
+            {/* Bloc signatures, comme au bas d'un contrat papier */}
+            <div className="grid grid-cols-2 gap-6 font-sans text-[11px] text-ink-400">
+                <div className="space-y-6">
+                    <p>Pour l'employeur</p>
+                    <div className="border-b border-dotted border-ink-300 dark:border-ink-700 h-6" />
+                </div>
+                <div className="space-y-6">
+                    <p>Pour le salarié, précédé de « Lu et approuvé »</p>
+                    <div className="border-b border-dotted border-ink-300 dark:border-ink-700 h-6" />
+                </div>
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] font-sans text-ink-400 pt-1">
+                <span>Fait en double exemplaire</span>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-ink-300 dark:border-ink-600 uppercase tracking-wide text-[10px] font-bold text-ink-500 dark:text-ink-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />
+                    {status}
+                </span>
+            </div>
         </div>
     );
 }

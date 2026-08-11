@@ -27,6 +27,8 @@ const InfoBlock = ({ label, value, mono = false, icon }) => (
     </div>
 );
 
+const VALID_TABS = ['personnel', 'documents', 'famille', 'carriere', 'historique'];
+
 export default function EmployeFicheDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -39,7 +41,6 @@ export default function EmployeFicheDetailPage() {
     const [actionSuccess, setActionSuccess] = useState('');
 
     const [searchParams] = useSearchParams();
-    const VALID_TABS = ['personnel', 'documents', 'famille', 'carriere', 'historique'];
     const tabFromUrl = searchParams.get('tab');
     const [activeTab, setActiveTab] = useState(
         VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'personnel'
@@ -150,6 +151,7 @@ export default function EmployeFicheDetailPage() {
     };
 
     const handleReactiver = async () => {
+        if (!window.confirm(`Voulez-vous vraiment réactiver l'employé ${emp?.nom || ''} ${emp?.prenom || ''} ?`)) return;
         setError('');
         try {
             await employeService.reactiverEmploye(id);
@@ -825,6 +827,12 @@ export default function EmployeFicheDetailPage() {
                                     Spécifiez le motif de désactivation de l'employé{' '}
                                     <strong className="text-ink-800 dark:text-white">{emp.nom} {emp.prenom}</strong>.
                                 </p>
+                                <div className="bg-warning-500/10 border border-warning-500/30 p-3 rounded-sm text-xs text-warning-700 dark:text-warning-400 flex items-start gap-2">
+                                    <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+                                    <span>
+                                        <strong>Note RH :</strong> La désactivation passe le profil de l'employé en inactif. Veillez également à clôturer son contrat ou créer le mouvement RH de fin de contrat correspondant dans l'onglet <em>Carrière & Affectation</em>.
+                                    </span>
+                                </div>
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold uppercase tracking-wider text-ink-800 dark:text-ink-50">Motif de Désactivation</label>
                                     <select

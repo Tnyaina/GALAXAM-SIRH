@@ -33,9 +33,9 @@ export default function RecapitulatifBrouillonModal({
     onEdit,
     onActionSuccess,
 }) {
-    const [isValidating, setIsValidating] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [commentaireValidation, setCommentaireValidation] = useState('');
+    const [motifAnnulation, setMotifAnnulation] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
 
@@ -43,8 +43,7 @@ export default function RecapitulatifBrouillonModal({
         setSubmitting(true);
         setErrorMsg('');
         try {
-            await contratService.validerWorkflow(workflowCpl.idWorkflow, commentaireValidation || null);
-            setIsValidating(false);
+            await contratService.validerWorkflow(workflowCpl.idWorkflow, commentaireValidation.trim() || null);
             if (onActionSuccess) onActionSuccess('Workflow RH validé et appliqué avec succès !');
             onClose();
         } catch (err) {
@@ -56,10 +55,13 @@ export default function RecapitulatifBrouillonModal({
     };
 
     const handleAnnulerConfirm = async () => {
+        if (!motifAnnulation?.trim()) {
+            return setErrorMsg("Le motif d'annulation est obligatoire.");
+        }
         setSubmitting(true);
         setErrorMsg('');
         try {
-            await contratService.annulerWorkflow(workflowCpl.idWorkflow, commentaireValidation || null);
+            await contratService.annulerWorkflow(workflowCpl.idWorkflow, motifAnnulation.trim());
             setIsCancelling(false);
             if (onActionSuccess) onActionSuccess('Workflow RH annulé avec succès.');
             onClose();
@@ -72,10 +74,13 @@ export default function RecapitulatifBrouillonModal({
     };
 
     const handleAnnulerPlanificationConfirm = async () => {
+        if (!motifAnnulation?.trim()) {
+            return setErrorMsg("Le motif d'annulation est obligatoire.");
+        }
         setSubmitting(true);
         setErrorMsg('');
         try {
-            await contratService.annulerWorkflowPlanifie(workflowCpl.idWorkflow, commentaireValidation || null);
+            await contratService.annulerWorkflowPlanifie(workflowCpl.idWorkflow, motifAnnulation.trim());
             setIsCancelling(false);
             if (onActionSuccess) onActionSuccess('Planification RH annulée avec succès.');
             onClose();
@@ -137,7 +142,7 @@ export default function RecapitulatifBrouillonModal({
                                     Type d'événement : <span className="font-semibold text-ink-600 dark:text-ink-300">{workflowCpl.libelleTypeEvenement || workflowCpl.codeTypeEvenement || '-'}</span>
                                 </span>
                                 <span>
-                                    Date d'effet : <span className="font-mono font-semibold text-ink-600 dark:text-ink-300">{fmtDate(workflowCpl.dateEffet)}</span>
+                                    Date de prise d'effet : <span className="font-mono font-semibold text-ink-600 dark:text-ink-300">{fmtDate(workflowCpl.dateEffet)}</span>
                                 </span>
                             </p>
                         </div>
@@ -220,7 +225,7 @@ export default function RecapitulatifBrouillonModal({
                                     </span>
                                 </div>
                                 <div>
-                                    <span className="text-ink-400 text-[10px] block font-semibold uppercase">Date d'Effet Décision :</span>
+                                    <span className="text-ink-400 text-[10px] block font-semibold uppercase">Date de Prise d'Effet :</span>
                                     <span className="font-bold text-ink-800 dark:text-ink-100">{fmtDate(workflowCpl.dateEffet)}</span>
                                 </div>
                             </div>
@@ -266,7 +271,7 @@ export default function RecapitulatifBrouillonModal({
                                 <InfoRow label="Supérieur Hiérarchique" value={workflowCpl.nomPrenomResponsable} />
                                 <InfoRow label="Mode Calcul Paie" value={workflowCpl.libelleModeCalculPaie} />
                                 <InfoRow label="Salaire de Base" value={fmtMoney(workflowCpl.salaireBase)} highlight />
-                                <InfoRow label="Date d'Effet" value={fmtDate(workflowCpl.dateEffet)} />
+                                <InfoRow label="Date de Prise d'Effet" value={fmtDate(workflowCpl.dateEffet)} />
                             </div>
                         </div>
                     </div>
@@ -288,45 +293,51 @@ export default function RecapitulatifBrouillonModal({
                         </div>
                     )}
 
-                    {/* Zone de confirmation pour Validation ou Annulation */}
-                    {(isBrouillon || isPlanifieFutur) && (isValidating || isCancelling) && (
-                        <div className={`p-4 border rounded-sm space-y-3 ${
-                            isValidating ? 'bg-success-500/10 border-success-500/30' : 'bg-danger-500/10 border-danger-500/30'
-                        }`}>
-                            <h4 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
-                                isValidating ? 'text-success-700 dark:text-success-400' : 'text-danger-700 dark:text-danger-400'
-                            }`}>
-                                {isValidating ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
-                                {isValidating ? 'Confirmation de la validation RH' : 'Confirmation de l\'annulation de la planification RH'}
-                            </h4>
+                    {/* Commentaire de validation — visible en continu, pas d'étape intermédiaire pour valider */}
+                    {isBrouillon && !isCancelling && (
+                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-sm space-y-1">
                             <Textarea
                                 id="commentaireValidation"
                                 name="commentaireValidation"
-                                label={isValidating ? "Commentaire de validation (optionnel)" : "Motif de l'annulation (obligatoire)"}
+                                label="Commentaire de validation (optionnel)"
                                 rows={2}
                                 value={commentaireValidation}
                                 onChange={(e) => setCommentaireValidation(e.target.value)}
-                                placeholder={isValidating ? "Ex: Dossier vérifié et validé par la DAF..." : "Ex: Projet décalé ou annulé, rétractation RH..."}
+                                placeholder="Ex: Dossier vérifié et validé par la DAF..."
+                            />
+                        </div>
+                    )}
+
+                    {/* Zone de confirmation pour l'annulation — motif obligatoire, seule action qui justifie une étape dédiée */}
+                    {(isBrouillon || isPlanifieFutur) && isCancelling && (
+                        <div className="p-4 border rounded-sm space-y-3 bg-danger-500/10 border-danger-500/30">
+                            <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-danger-700 dark:text-danger-400">
+                                <AlertTriangle size={16} />
+                                {isPlanifieFutur ? 'Confirmation de l\'annulation de la planification RH' : 'Confirmation de l\'annulation du brouillon'}
+                            </h4>
+                            <Textarea
+                                id="motifAnnulation"
+                                name="motifAnnulation"
+                                label="Motif de l'annulation (obligatoire)"
+                                rows={2}
+                                value={motifAnnulation}
+                                onChange={(e) => setMotifAnnulation(e.target.value)}
+                                placeholder="Ex: Projet décalé ou annulé, rétractation RH..."
+                                autoFocus
                             />
                             <div className="flex justify-end gap-2 pt-1">
-                                <Button type="button" onClick={() => { setIsValidating(false); setIsCancelling(false); }} variant="ghost" size="sm">
-                                    Annuler
+                                <Button type="button" onClick={() => { setIsCancelling(false); setMotifAnnulation(''); setErrorMsg(''); }} variant="ghost" size="sm">
+                                    Retour
                                 </Button>
-                                {isValidating ? (
-                                    <Button type="button" onClick={handleValiderConfirm} variant="success" size="sm" loading={submitting}>
-                                        Confirmer la Validation
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        type="button"
-                                        onClick={isPlanifieFutur ? handleAnnulerPlanificationConfirm : handleAnnulerConfirm}
-                                        variant="danger"
-                                        size="sm"
-                                        loading={submitting}
-                                    >
-                                        Confirmer l'Annulation
-                                    </Button>
-                                )}
+                                <Button
+                                    type="button"
+                                    onClick={isPlanifieFutur ? handleAnnulerPlanificationConfirm : handleAnnulerConfirm}
+                                    variant="danger"
+                                    size="sm"
+                                    loading={submitting}
+                                >
+                                    Confirmer l'Annulation
+                                </Button>
                             </div>
                         </div>
                     )}
@@ -334,13 +345,13 @@ export default function RecapitulatifBrouillonModal({
 
                 {/* Footer Actions */}
                 {isBrouillon ? (
-                    !isValidating && !isCancelling && (
-                        <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center">
+                    !isCancelling && (
+                        <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center gap-3">
                             <Button
                                 type="button"
                                 onClick={() => setIsCancelling(true)}
                                 variant="danger"
-                                size="sm"
+                                size="md"
                                 iconLeft={<XCircle size={16} />}
                             >
                                 Annuler ce Brouillon
@@ -351,7 +362,7 @@ export default function RecapitulatifBrouillonModal({
                                     type="button"
                                     onClick={() => { onClose(); if (onEdit) onEdit(workflowCpl); }}
                                     variant="outline"
-                                    size="sm"
+                                    size="md"
                                     iconLeft={<Edit2 size={16} />}
                                 >
                                     Corriger / Modifier
@@ -359,10 +370,11 @@ export default function RecapitulatifBrouillonModal({
 
                                 <Button
                                     type="button"
-                                    onClick={() => setIsValidating(true)}
+                                    onClick={handleValiderConfirm}
                                     variant="success"
-                                    size="sm"
+                                    size="md"
                                     iconLeft={<CheckCircle size={16} />}
+                                    loading={submitting}
                                 >
                                     {isConfirmationEssai ? 'Valider la Confirmation d\'Essai' : isRenouvellementEssai ? 'Valider le Renouvellement d\'Essai' : isEmbauche ? 'Valider Définitivement (Activer)' : 'Valider le Mouvement RH'}
                                 </Button>
@@ -370,14 +382,14 @@ export default function RecapitulatifBrouillonModal({
                         </div>
                     )
                 ) : (
-                    !isValidating && !isCancelling && (
+                    !isCancelling && (
                         <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center">
                             {isPlanifieFutur ? (
                                 <Button
                                     type="button"
                                     onClick={() => setIsCancelling(true)}
                                     variant="danger"
-                                    size="sm"
+                                    size="md"
                                     iconLeft={<XCircle size={16} />}
                                 >
                                     Annuler la Planification RH
@@ -385,7 +397,7 @@ export default function RecapitulatifBrouillonModal({
                             ) : (
                                 <div />
                             )}
-                            <Button type="button" onClick={onClose} variant="ghost" size="sm">
+                            <Button type="button" onClick={onClose} variant="outline" size="md">
                                 Fermer
                             </Button>
                         </div>

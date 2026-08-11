@@ -251,6 +251,8 @@ public class NotificationRhScheduler {
                 );
             }
         }
+    }
+
     private void genererAlerteEssais15j(Connection c) throws Exception {
         String sql = "SELECT e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
                 "ct.date_fin_essai - CURRENT_DATE AS jours " +
@@ -342,6 +344,8 @@ public class NotificationRhScheduler {
                 );
             }
         }
+    }
+
     private void genererAlertePiecesManquantes(Connection c) throws Exception {
         // Sélectionner les employés actifs et regrouper la liste de leurs documents obligatoires manquants
         String sql = "SELECT e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +

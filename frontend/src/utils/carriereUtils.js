@@ -93,28 +93,32 @@ export function estEssaiRenouvele(workflowsList) {
 
 /**
  * RG : Évalue l'état actuel de la période d'essai pour l'IHM.
- * Retourne { isEssaiActif, isDernierJour, dateFinEssaiStr, dureeEssaiMois }
+ * Retourne { isEssaiActif, isDernierJour, isEssaiEchu, dateFinEssaiStr, dureeEssaiMois }
  */
 export function evaluerEtatEssai(contratActif, workflowCplActif, workflowsList, todayStr = new Date().toISOString().substring(0, 10)) {
-    if (!contratActif) return { isEssaiActif: false, isDernierJour: false, dateFinEssaiStr: null };
+    if (!contratActif) return { isEssaiActif: false, isDernierJour: false, isEssaiEchu: false, dateFinEssaiStr: null };
 
-    // Si déjà confirmé, plus d'essai actif
+    // Si déjà confirmé par workflow, l'essai n'est plus actif
     if (estEssaiConfirme(workflowsList)) {
-        return { isEssaiActif: false, isDernierJour: false, dateFinEssaiStr: null };
+        return { isEssaiActif: false, isDernierJour: false, isEssaiEchu: false, dateFinEssaiStr: null };
     }
 
     const dateFinEssaiStr = contratActif.dateFinEssai
         ? String(contratActif.dateFinEssai).substring(0, 10)
         : (workflowCplActif?.dateFinEssai ? String(workflowCplActif.dateFinEssai).substring(0, 10) : null);
 
-    // Si pas de date de fin d'essai ou date déjà expirée (antérieure à aujourd'hui)
-    if (!dateFinEssaiStr || dateFinEssaiStr < todayStr) {
-        return { isEssaiActif: false, isDernierJour: false, dateFinEssaiStr: null };
+    // Si aucune date de fin d'essai n'est configurée sur le contrat
+    if (!dateFinEssaiStr) {
+        return { isEssaiActif: false, isDernierJour: false, isEssaiEchu: false, dateFinEssaiStr: null };
     }
+
+    const isDernierJour = dateFinEssaiStr === todayStr;
+    const isEssaiEchu = dateFinEssaiStr < todayStr;
 
     return {
         isEssaiActif: true,
-        isDernierJour: dateFinEssaiStr === todayStr,
+        isDernierJour,
+        isEssaiEchu,
         dateFinEssaiStr: dateFinEssaiStr,
         dureeEssaiMois: contratActif.dureeEssaiMois || workflowCplActif?.dureeEssaiMois || '?',
     };
