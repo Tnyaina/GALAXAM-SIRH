@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { 
     Briefcase, Building, Landmark, Calendar, ShieldAlert, CheckCircle, 
     Clock, Plus, FileText, Eye, RefreshCw, UserMinus, Award,
@@ -15,8 +15,9 @@ import ConfirmationEssaiModal from './b/ConfirmationEssaiModal';
 import RenouvellementEssaiModal from './b/RenouvellementEssaiModal';
 import RuptureContratModal from './b/RuptureContratModal';
 import CertificatTravailModal from './b/CertificatTravailModal';
+import { useCarriere } from '@/hooks/useCarriere';
 import { 
-    evaluerEtatEssai, estEssaiRenouvele, isEmbaucheEvent, isRuptureEvent,
+    isEmbaucheEvent, isRuptureEvent,
     trouverWorkflowPlanifieFutur, fmtDate, fmtMoney 
 } from '@/utils/carriereUtils';
 
@@ -35,16 +36,19 @@ function StatItem({ icon, label, value, highlight = false }) {
 }
 
 export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeEmploye, canWrite = true, autoOpenWorkflowId = null, onEmployeUpdated }) {
-    const [loading, setLoading] = useState(true);
-    const [actionSuccessMsg, setActionSuccessMsg] = useState('');
-    const [errorMsg, setErrorMsg] = useState('');
+    const {
+        loading,
+        errorMsg,
+        brouillonWf,
+        contratActif,
+        affectationActive,
+        contratsList,
+        workflowsList,
+        etatEssai,
+        refreshData
+    } = useCarriere(idEmploye);
 
-    // Données Carrière
-    const [brouillonWf, setBrouillonWf] = useState(null);
-    const [contratActif, setContratActif] = useState(null);
-    const [affectationActive, setAffectationActive] = useState(null);
-    const [contratsList, setContratsList] = useState([]);
-    const [workflowsList, setWorkflowsList] = useState([]);
+    const [actionSuccessMsg, setActionSuccessMsg] = useState('');
 
     // Modales
     const [isEmbaucheModalOpen, setIsEmbaucheModalOpen] = useState(false);
@@ -64,67 +68,33 @@ export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeE
         setIsCertificatModalOpen(true);
     };
 
-    const loadCarriereData = useCallback(async () => {
-        setLoading(true);
-        setErrorMsg('');
-        try {
-            // Chargements parallèles
-            const [
-                brouillonRes,
-                actifContratRes,
-                activeAffRes,
-                contratsRes,
-                workflowsRes
-            ] = await Promise.allSettled([
-                contratService.getBrouillonEnCours(idEmploye),
-                contratService.getContratActif(idEmploye),
-                contratService.getAffectationActive(idEmploye),
-                contratService.getContratsParEmploye(idEmploye),
-                contratService.getWorkflowsParEmploye(idEmploye),
-            ]);
-
-            const brouillonData = brouillonRes.status === 'fulfilled' ? brouillonRes.value : null;
-            // Ne conserver le brouillon en cours que s'il a bien le statut BROUILLON
-            setBrouillonWf(brouillonData && brouillonData.codeStatutWorkflow === 'BROUILLON' ? brouillonData : null);
-            setContratActif(actifContratRes.status === 'fulfilled' ? actifContratRes.value : null);
-            setAffectationActive(activeAffRes.status === 'fulfilled' ? activeAffRes.value : null);
-            setContratsList(contratsRes.status === 'fulfilled' ? (contratsRes.value || []) : []);
-            setWorkflowsList(workflowsRes.status === 'fulfilled' ? (workflowsRes.value || []) : []);
-        } catch (err) {
-            console.error('Erreur chargement données carrière:', err);
-            setErrorMsg('Erreur lors du chargement du dossier carrière.');
-        } finally {
-            setLoading(false);
-        }
-    }, [idEmploye]);
-
-    useEffect(() => {
-        if (idEmploye) {
-            loadCarriereData();
-        }
-    }, [idEmploye, loadCarriereData]);
-
     // Auto-ouverture du modal si un workflowId est passé via l'URL (?wf=)
-    // Se déclenche après le chargement des données, une seule fois.
     useEffect(() => {
         if (loading) return;
         if (!autoOpenWorkflowId) return;
         const targetId = Number(autoOpenWorkflowId);
         if (isNaN(targetId)) return;
 
-        // Chercher d'abord dans la liste complète des workflows
         const wfFound = workflowsList.find(wf => Number(wf.idWorkflow) === targetId);
         if (wfFound) {
             setSelectedWfModal(wfFound);
             setIsRecapModalOpen(true);
-        }
-        // Si c'est le brouillon en cours
-        else if (brouillonWf && Number(brouillonWf.idWorkflow) === targetId) {
+        } else if (brouillonWf && Number(brouillonWf.idWorkflow) === targetId) {
             setSelectedWfModal(brouillonWf);
             setIsRecapModalOpen(true);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loading, autoOpenWorkflowId]);
+
+        // Nettoyer le paramètre `wf` de l'URL pour éviter la ré-ouverture au rafraîchissement (F5)
+        try {
+            const url = new URL(window.location.href);
+            if (url.searchParams.has('wf')) {
+                url.searchParams.delete('wf');
+                window.history.replaceState({}, '', url.pathname + url.search);
+            }
+        } catch (e) {
+            console.error('Erreur nettoyage URL wf:', e);
+        }
+    }, [loading, autoOpenWorkflowId, workflowsList, brouillonWf]);
 
     const handleOpenCreateModal = () => {
         setEditInitialData(null);
@@ -147,11 +117,9 @@ export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeE
         setActionSuccessMsg(msg);
         setTimeout(() => setActionSuccessMsg(''), 6000);
 
-        // Si un workflow a été créé, on affiche une transition fluide avant d'ouvrir le récapitulatif
         if (createdWf && createdWf.idWorkflow) {
             setIsTransitioning(true);
             try {
-                // Récupérer les données enrichies commises en BDD
                 const freshWf = await contratService.getWorkflow(createdWf.idWorkflow);
                 setSelectedWfModal(freshWf || createdWf);
             } catch {
@@ -162,8 +130,7 @@ export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeE
             }
         }
 
-        // Recharger les données du tab en arrière-plan et notifier le parent (Fiche Employé Header)
-        loadCarriereData();
+        refreshData();
         if (onEmployeUpdated) {
             onEmployeUpdated();
         }
@@ -190,21 +157,16 @@ export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeE
         }
     };
 
-    // Le contrat/l'affectation "actifs" (ContratTravail / EmployeAffectationCarriere) ne renvoient
-    // que des IDs bruts (idSite, idDepartement, idFonction...), sans libellés.
-    // On récupère les libellés déjà résolus sur le dernier WorkflowRhCPL VALIDE
-    // correspondant à ce contrat (workflowsList porte les vues enrichies libelleXxx), trié par date d'effet.
     const workflowsValidesDuContrat = contratActif
         ? workflowsList
-            .filter((wf) => wf.codeStatutWorkflow === 'VALIDE' && Number(wf.idContratCible) === Number(contratActif.idContrat))
+            .filter((wf) => wf.codeStatutWorkflow === 'VALIDE' && (Number(wf.idContratCible) === Number(contratActif.idContrat) || Number(wf.idContratSource) === Number(contratActif.idContrat)))
             .sort((a, b) => new Date(b.dateEffet || b.dateDemande || 0) - new Date(a.dateEffet || a.dateDemande || 0))
         : [];
     const workflowCplActif = workflowsValidesDuContrat[0] || null;
 
     const todayStr = new Date().toISOString().substring(0, 10);
-    const workflowPlanifieFutur = trouverWorkflowPlanifieFutur(workflowsList, todayStr);
-    const etatEssai = evaluerEtatEssai(contratActif, workflowCplActif, workflowsList, todayStr);
-    const estEssaiRenouveleFlag = estEssaiRenouvele(workflowsList);
+    const workflowPlanifieFutur = trouverWorkflowPlanifieFutur(workflowsList, contratActif?.idContrat, todayStr);
+    const estEssaiRenouveleFlag = etatEssai.estRenouvele;
 
     if (loading) {
         return (
@@ -241,12 +203,12 @@ export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeE
                     <StatItem
                         icon={<FileText size={16} />}
                         label="Type de Contrat"
-                        value={workflowCplActif?.libelleTypeContrat}
+                        value={contratActif?.libelleTypeContrat}
                     />
                     <StatItem
                         icon={<Award size={16} />}
                         label="Fonction Actuelle"
-                        value={workflowCplActif?.libelleFonction}
+                        value={affectationActive?.libelleFonction}
                     />
                     <StatItem
                         icon={<Calendar size={16} />}
@@ -257,8 +219,8 @@ export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeE
                         icon={<MapPin size={16} />}
                         label="Site / Département"
                         value={
-                            workflowCplActif
-                                ? `${workflowCplActif.libelleSite || '-'} / ${workflowCplActif.libelleDepartement || '-'}`
+                            affectationActive
+                                ? `${affectationActive.libelleSite || '-'} / ${affectationActive.libelleDepartement || '-'}`
                                 : null
                         }
                     />
@@ -381,7 +343,7 @@ export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeE
                                         Contrat Actif N° {contratActif.numeroContrat}
                                     </h3>
                                     <Badge variant="success" size="sm">ACTIF</Badge>
-                                    {(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai) && !workflowsList.some(w => w.codeStatutWorkflow === 'VALIDE' && w.codeTypeEvenement === 'CONFIRMATION_ESSAI') && (
+                                    {(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai) && !workflowsList.some(w => w.codeStatutWorkflow === 'VALIDE' && w.codeTypeEvenement === 'CONFIRMATION_ESSAI' && (Number(w.idContratCible) === Number(contratActif.idContrat) || Number(w.idContratSource) === Number(contratActif.idContrat))) && (
                                         <Badge variant="warning" size="sm" icon={<Clock size={12} />}>
                                             Période d'Essai (Fin le {fmtDate(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai)})
                                         </Badge>
@@ -455,7 +417,7 @@ export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeE
                                             }
                                         </span>
                                     </div>
-                                    {canWrite && !brouillonWf && !workflowPlanifieFutur && (
+                                    {canWrite && (!brouillonWf || !['CONFIRMATION_ESSAI', 'RENOUVELLEMENT_ESSAI'].includes(brouillonWf?.codeTypeEvenement)) && (
                                         <div className="pt-1.5 border-t border-current/20 flex flex-wrap items-center gap-2">
                                             <Button
                                                 onClick={() => setIsConfirmationModalOpen(true)}
@@ -670,14 +632,18 @@ export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeE
                                                 {ct.description || '-'}
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                <Button
-                                                    onClick={() => handleOpenCertificat(ct)}
-                                                    variant="outline"
-                                                    size="xs"
-                                                    iconLeft={<Award size={13} />}
-                                                >
-                                                    Certificat
-                                                </Button>
+                                                {(ct.codeStatutContrat === 'CLOTURE' || ct.codeStatutContrat === 'ROMPU' || (ct.dateFin && ct.codeStatutContrat !== 'ACTIF')) ? (
+                                                    <Button
+                                                        onClick={() => handleOpenCertificat(ct)}
+                                                        variant="outline"
+                                                        size="xs"
+                                                        iconLeft={<Award size={13} />}
+                                                    >
+                                                        Certificat
+                                                    </Button>
+                                                ) : (
+                                                    <span className="text-[11px] text-ink-400 italic">Contrat en cours</span>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -704,7 +670,19 @@ export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeE
             {isRecapModalOpen && (
                 <RecapitulatifBrouillonModal
                     isOpen={isRecapModalOpen}
-                    onClose={() => { setIsRecapModalOpen(false); setSelectedWfModal(null); }}
+                    onClose={() => {
+                        setIsRecapModalOpen(false);
+                        setSelectedWfModal(null);
+                        try {
+                            const url = new URL(window.location.href);
+                            if (url.searchParams.has('wf')) {
+                                url.searchParams.delete('wf');
+                                window.history.replaceState({}, '', url.pathname + url.search);
+                            }
+                        } catch (e) {
+                            console.error('Erreur nettoyage URL wf onClose:', e);
+                        }
+                    }}
                     workflowCpl={selectedWfModal || brouillonWf}
                     onEdit={(wf) => handleOpenEditModal(wf)}
                     onActionSuccess={(msg) => handleSuccessAction(msg)}
@@ -721,6 +699,7 @@ export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeE
                     contratActif={contratActif}
                     affectationActive={affectationActive}
                     workflowActif={workflowCplActif}
+                    initialData={editInitialData}
                     onSuccess={(res) => handleSuccessAction('Brouillon de transition enregistré avec succès !', res)}
                 />
             )}
@@ -775,6 +754,11 @@ export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeE
                     contrat={selectedCertificatContrat || contratActif || (contratsList.length > 0 ? contratsList[0] : null)}
                     affectation={affectationActive}
                     filiale={selectedCertificatContrat?.filiale || contratActif?.filiale}
+                    dateDebutInitiale={
+                        contratsList.length > 0
+                            ? [...contratsList].sort((a, b) => new Date(a.dateDebut || 0) - new Date(b.dateDebut || 0))[0]?.dateDebut
+                            : selectedCertificatContrat?.dateDebut
+                    }
                 />
             )}
 

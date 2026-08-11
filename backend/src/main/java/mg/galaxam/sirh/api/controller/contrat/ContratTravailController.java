@@ -3,7 +3,11 @@ package mg.galaxam.sirh.api.controller.contrat;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.model.contrat.ContratTravail;
 import mg.galaxam.sirh.model.contrat.EmployeAffectationCarriere;
@@ -52,7 +56,7 @@ public class ContratTravailController {
     }
 
     /**
-     * Retourne le contrat actif d'un employé.
+     * Retourne le contrat actif d'un employé enrichi avec les libellés (filiale, type_contrat, etc.).
      * GET /employes/{idEmploye}/contrats/actif
      */
     @GetMapping("/contrats/actif")
@@ -63,7 +67,103 @@ public class ContratTravailController {
             if (contrat == null) {
                 return ResponseEntity.ok(null);
             }
-            return ResponseEntity.ok(contrat);
+            Map<String, Object> map = enrichirContrat(contrat, c);
+            return ResponseEntity.ok(map);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
+        }
+    }
+
+    /**
+     * Évalue et retourne l'état de la période d'essai d'un employé.
+     * GET /employes/{idEmploye}/essai/etat
+     */
+    @GetMapping("/essai/etat")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getEtatEssaiEmploye(@PathVariable Integer idEmploye) {
+        try (Connection c = dataSource.getConnection()) {
+            ContratTravail contrat = ContratTravail.rechercherActifParEmploye(idEmploye, c);
+            List<WorkflowRhCPL> workflows = WorkflowRhCPL.listerParEmploye(idEmploye, c);
+
+            if (contrat == null) {
+                return ResponseEntity.ok(new EtatEssaiDTO(false, false, false, false, false, null, null, false, false));
+            }
+
+            final Integer activeContratId = contrat.getIdContrat();
+
+            boolean estConfirme = workflows.stream().anyMatch(w ->
+                "VALIDE".equals(w.getCodeStatutWorkflow()) &&
+                "CONFIRMATION_ESSAI".equals(w.getCodeTypeEvenement()) &&
+                (activeContratId.equals(w.getIdContratCible()) || activeContratId.equals(w.getIdContratSource()))
+            );
+
+            boolean estRenouvele = workflows.stream().anyMatch(w ->
+                ("VALIDE".equals(w.getCodeStatutWorkflow()) || "BROUILLON".equals(w.getCodeStatutWorkflow())) &&
+                "RENOUVELLEMENT_ESSAI".equals(w.getCodeTypeEvenement()) &&
+                (activeContratId.equals(w.getIdContratCible()) || activeContratId.equals(w.getIdContratSource()))
+            );
+
+            if (estConfirme) {
+                return ResponseEntity.ok(new EtatEssaiDTO(false, false, false, estConfirme, estRenouvele, null, null, false, false));
+            }
+
+            String dateFinEssaiStr = null;
+            Integer dureeEssai = contrat.getDureeEssaiMois();
+
+            if (contrat.getDateFinEssai() != null) {
+                dateFinEssaiStr = contrat.getDateFinEssai().toString();
+            }
+
+            // 1. Chercher dans contrat_periode_essai
+            if (dateFinEssaiStr == null) {
+                try (var psPe = c.prepareStatement(
+                        "SELECT date_fin_prevue FROM contrat_periode_essai WHERE id_contrat = ? AND statut IN ('EN_COURS', 'RENOUVELEE') ORDER BY numero_periode DESC LIMIT 1")) {
+                    psPe.setInt(1, contrat.getIdContrat());
+                    try (var rsPe = psPe.executeQuery()) {
+                        if (rsPe.next() && rsPe.getDate(1) != null) {
+                            dateFinEssaiStr = rsPe.getDate(1).toString();
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            // 2. Chercher d'après contrat.getDateDebut() + dureeEssai
+            if (dateFinEssaiStr == null && contrat.getDateDebut() != null && dureeEssai != null && dureeEssai > 0) {
+                dateFinEssaiStr = contrat.getDateDebut().toLocalDate().plusMonths(dureeEssai).minusDays(1).toString();
+            }
+
+            // 3. Fallback workflow_rh / workflow_rh_cpl
+            if (dateFinEssaiStr == null) {
+                WorkflowRhCPL wfWithEssai = workflows.stream()
+                    .filter(w -> "VALIDE".equals(w.getCodeStatutWorkflow()) && (w.getDateFinEssai() != null || w.getDureeEssaiMois() != null))
+                    .findFirst().orElse(null);
+                if (wfWithEssai != null) {
+                    if (wfWithEssai.getDateFinEssai() != null) {
+                        dateFinEssaiStr = wfWithEssai.getDateFinEssai().toString();
+                    } else if (wfWithEssai.getDateDebutContrat() != null && wfWithEssai.getDureeEssaiMois() != null) {
+                        if (dureeEssai == null) dureeEssai = wfWithEssai.getDureeEssaiMois();
+                        dateFinEssaiStr = wfWithEssai.getDateDebutContrat().toLocalDate().plusMonths(dureeEssai).minusDays(1).toString();
+                    }
+                }
+            }
+
+            if (dateFinEssaiStr == null) {
+                return ResponseEntity.ok(new EtatEssaiDTO(false, false, false, false, estRenouvele, null, dureeEssai, false, false));
+            }
+
+            String todayStr = java.time.LocalDate.now().toString();
+            boolean isDernierJour = dateFinEssaiStr.equals(todayStr);
+            boolean isEssaiEchu = dateFinEssaiStr.compareTo(todayStr) < 0;
+
+            boolean canConfirm = true;
+            boolean canRenew = !estRenouvele;
+
+            return ResponseEntity.ok(new EtatEssaiDTO(
+                true, isDernierJour, isEssaiEchu, false, estRenouvele,
+                dateFinEssaiStr, dureeEssai, canConfirm, canRenew
+            ));
+
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
@@ -82,7 +182,7 @@ public class ContratTravailController {
             if (contrat == null || !contrat.getIdEmploye().equals(idEmploye)) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Contrat introuvable.");
             }
-            return ResponseEntity.ok(contrat);
+            return ResponseEntity.ok(enrichirContrat(contrat, c));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
@@ -170,7 +270,7 @@ public class ContratTravailController {
                     WorkflowRhCPL recap = WorkflowRhCPL.rechercherParId(wf.getIdWorkflow(), c);
                     return ResponseEntity.ok(recap);
                 }
-                return ResponseEntity.ok(contrat);
+                return ResponseEntity.ok(enrichirContrat(contrat, c));
 
             } catch (Exception ex) {
                 c.rollback();
@@ -203,7 +303,7 @@ public class ContratTravailController {
     }
 
     /**
-     * Affectation ACTIVE courante d'un employé.
+     * Affectation ACTIVE courante d'un employé enrichie avec les libellés.
      * GET /employes/{idEmploye}/affectations/active
      */
     @GetMapping("/affectations/active")
@@ -215,7 +315,7 @@ public class ContratTravailController {
             if (affectation == null) {
                 return ResponseEntity.ok(null);
             }
-            return ResponseEntity.ok(affectation);
+            return ResponseEntity.ok(enrichirAffectation(affectation, c));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
@@ -310,5 +410,141 @@ public class ContratTravailController {
         public void setDescriptionAffectation(String descriptionAffectation) { this.descriptionAffectation = descriptionAffectation; }
         public String getCommentaireAffectation() { return commentaireAffectation; }
         public void setCommentaireAffectation(String commentaireAffectation) { this.commentaireAffectation = commentaireAffectation; }
+    }
+
+    // ─── Helpers d'enrichissement de données pour l'IHM ─────────────────────────
+
+    private Map<String, Object> enrichirContrat(ContratTravail ct, Connection c) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("idContrat", ct.getIdContrat());
+        map.put("idEmploye", ct.getIdEmploye());
+        map.put("idFiliale", ct.getIdFiliale());
+        map.put("idTypeContrat", ct.getIdTypeContrat());
+        map.put("idTypeIntervenant", ct.getIdTypeIntervenant());
+        map.put("idStatutContrat", ct.getIdStatutContrat());
+        map.put("numeroContrat", ct.getNumeroContrat());
+        map.put("dateSignature", ct.getDateSignature());
+        map.put("dateDebut", ct.getDateDebut());
+        map.put("dateFin", ct.getDateFin());
+        map.put("dureeEssaiMois", ct.getDureeEssaiMois());
+        map.put("dateFinEssai", ct.getDateFinEssai());
+        map.put("comptabiliseEffectif", ct.isComptabiliseEffectif());
+        map.put("description", ct.getDescription());
+        map.put("commentaire", ct.getCommentaire());
+
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT f.libelle as filiale_lib, tc.libelle as tc_lib, ti.libelle as ti_lib " +
+                "FROM ref_filiale f " +
+                "LEFT JOIN ref_type_contrat tc ON tc.id_type_contrat = ? " +
+                "LEFT JOIN ref_type_intervenant ti ON ti.id_type_intervenant = ? " +
+                "WHERE f.id_filiale = ?")) {
+            ps.setInt(1, ct.getIdTypeContrat() != null ? ct.getIdTypeContrat() : 0);
+            ps.setInt(2, ct.getIdTypeIntervenant() != null ? ct.getIdTypeIntervenant() : 0);
+            ps.setInt(3, ct.getIdFiliale() != null ? ct.getIdFiliale() : 0);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    map.put("libelleFiliale", rs.getString("filiale_lib"));
+                    map.put("libelleTypeContrat", rs.getString("tc_lib"));
+                    map.put("libelleTypeIntervenant", rs.getString("ti_lib"));
+                }
+            }
+        } catch (Exception ignored) {}
+
+        return map;
+    }
+
+    private Map<String, Object> enrichirAffectation(EmployeAffectationCarriere aff, Connection c) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("idAffectation", aff.getIdAffectation());
+        map.put("idEmploye", aff.getIdEmploye());
+        map.put("idContrat", aff.getIdContrat());
+        map.put("idSite", aff.getIdSite());
+        map.put("idDepartement", aff.getIdDepartement());
+        map.put("idService", aff.getIdService());
+        map.put("idFonction", aff.getIdFonction());
+        map.put("idResponsableHierarchique", aff.getIdResponsableHierarchique());
+        map.put("idCategorieProfessionnelle", aff.getIdCategorieProfessionnelle());
+        map.put("idModeCalculPaie", aff.getIdModeCalculPaie());
+        map.put("salaireBase", aff.getSalaireBase());
+        map.put("dateDebut", aff.getDateDebut());
+        map.put("dateFin", aff.getDateFin());
+        map.put("description", aff.getDescription());
+        map.put("commentaire", aff.getCommentaire());
+
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT s.libelle as site_lib, d.libelle as dep_lib, srv.libelle as srv_lib, f.libelle as fonc_lib, cp.libelle as cp_lib " +
+                "FROM ref_site s " +
+                "LEFT JOIN ref_departement d ON d.id_departement = ? " +
+                "LEFT JOIN ref_service srv ON srv.id_service = ? " +
+                "LEFT JOIN ref_fonction f ON f.id_fonction = ? " +
+                "LEFT JOIN ref_categorie_professionnelle cp ON cp.id_categorie_professionnelle = ? " +
+                "WHERE s.id_site = ?")) {
+            ps.setInt(1, aff.getIdDepartement() != null ? aff.getIdDepartement() : 0);
+            ps.setInt(2, aff.getIdService() != null ? aff.getIdService() : 0);
+            ps.setInt(3, aff.getIdFonction() != null ? aff.getIdFonction() : 0);
+            ps.setInt(4, aff.getIdCategorieProfessionnelle() != null ? aff.getIdCategorieProfessionnelle() : 0);
+            ps.setInt(5, aff.getIdSite() != null ? aff.getIdSite() : 0);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    map.put("libelleSite", rs.getString("site_lib"));
+                    map.put("libelleDepartement", rs.getString("dep_lib"));
+                    map.put("libelleService", rs.getString("srv_lib"));
+                    map.put("libelleFonction", rs.getString("fonc_lib"));
+                    map.put("libelleCategorieProfessionnelle", rs.getString("cp_lib"));
+                }
+            }
+        } catch (Exception ignored) {}
+
+        return map;
+    }
+
+    /**
+     * DTO de l'évaluation de la période d'essai calculée côté serveur.
+     */
+    public static class EtatEssaiDTO {
+        private boolean isEssaiActif;
+        private boolean isDernierJour;
+        private boolean isEssaiEchu;
+        private boolean estConfirme;
+        private boolean estRenouvele;
+        private String dateFinEssaiStr;
+        private Integer dureeEssaiMois;
+        private boolean canConfirm;
+        private boolean canRenew;
+
+        public EtatEssaiDTO() {}
+
+        public EtatEssaiDTO(boolean isEssaiActif, boolean isDernierJour, boolean isEssaiEchu,
+                            boolean estConfirme, boolean estRenouvele, String dateFinEssaiStr,
+                            Integer dureeEssaiMois, boolean canConfirm, boolean canRenew) {
+            this.isEssaiActif = isEssaiActif;
+            this.isDernierJour = isDernierJour;
+            this.isEssaiEchu = isEssaiEchu;
+            this.estConfirme = estConfirme;
+            this.estRenouvele = estRenouvele;
+            this.dateFinEssaiStr = dateFinEssaiStr;
+            this.dureeEssaiMois = dureeEssaiMois;
+            this.canConfirm = canConfirm;
+            this.canRenew = canRenew;
+        }
+
+        public boolean isIsEssaiActif() { return isEssaiActif; }
+        public void setIsEssaiActif(boolean isEssaiActif) { this.isEssaiActif = isEssaiActif; }
+        public boolean isIsDernierJour() { return isDernierJour; }
+        public void setIsDernierJour(boolean isDernierJour) { this.isDernierJour = isDernierJour; }
+        public boolean isIsEssaiEchu() { return isEssaiEchu; }
+        public void setIsEssaiEchu(boolean isEssaiEchu) { this.isEssaiEchu = isEssaiEchu; }
+        public boolean isEstConfirme() { return estConfirme; }
+        public void setEstConfirme(boolean estConfirme) { this.estConfirme = estConfirme; }
+        public boolean isEstRenouvele() { return estRenouvele; }
+        public void setEstRenouvele(boolean estRenouvele) { this.estRenouvele = estRenouvele; }
+        public String getDateFinEssaiStr() { return dateFinEssaiStr; }
+        public void setDateFinEssaiStr(String dateFinEssaiStr) { this.dateFinEssaiStr = dateFinEssaiStr; }
+        public Integer getDureeEssaiMois() { return dureeEssaiMois; }
+        public void setDureeEssaiMois(Integer dureeEssaiMois) { this.dureeEssaiMois = dureeEssaiMois; }
+        public boolean isCanConfirm() { return canConfirm; }
+        public void setCanConfirm(boolean canConfirm) { this.canConfirm = canConfirm; }
+        public boolean isCanRenew() { return canRenew; }
+        public void setCanRenew(boolean canRenew) { this.canRenew = canRenew; }
     }
 }

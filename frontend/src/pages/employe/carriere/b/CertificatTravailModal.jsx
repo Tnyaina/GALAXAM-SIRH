@@ -32,6 +32,7 @@ export default function CertificatTravailModal({
     affectation,
     filiale,
     signataire, // { nom, fonction } — optionnel, personne habilitée qui délivre le certificat
+    dateDebutInitiale = null,
 }) {
     const [mounted, setMounted] = useState(false);
     const printRef = useRef(null);
@@ -53,10 +54,11 @@ export default function CertificatTravailModal({
     const filialeNif = filiale?.nif || contrat?.nifFiliale || null;
     const filialeStat = filiale?.stat || contrat?.statFiliale || null;
 
-    const dateDebut = fmtDateFr(contrat?.dateDebut);
+    const dateDebutEffectif = dateDebutInitiale || contrat?.dateDebut;
+    const dateDebut = fmtDateFr(dateDebutEffectif);
     const dateFinRaw = contrat?.dateFin || new Date();
     const dateFin = fmtDateFr(dateFinRaw);
-    const anciennete = fmtAnciennete(contrat?.dateDebut, dateFinRaw);
+    const anciennete = fmtAnciennete(dateDebutEffectif, dateFinRaw);
 
     const fonction = affectation?.libelleFonction || contrat?.libelleFonction || 'Agent';
     const categorieProfessionnelle = affectation?.libelleCategorieProfessionnelle || contrat?.libelleCategorieProfessionnelle || null;

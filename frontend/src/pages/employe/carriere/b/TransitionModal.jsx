@@ -106,6 +106,7 @@ export default function TransitionModal({
     contratActif,
     affectationActive,
     workflowActif,
+    initialData = null,
     onSuccess,
 }) {
     const [mounted, setMounted] = useState(false);
@@ -225,17 +226,29 @@ export default function TransitionModal({
     useEffect(() => {
         if (!isOpen) return;
 
-        let filialeId = contratActif?.idFiliale || workflowActif?.idFiliale || '';
-        let typeContratId = contratActif?.idTypeContrat || workflowActif?.idTypeContrat || '';
-        let typeIntervenantId = contratActif?.idTypeIntervenant || workflowActif?.idTypeIntervenant || '';
-        let siteId = affectationActive?.idSite || workflowActif?.idSite || '';
-        let departementId = affectationActive?.idDepartement || workflowActif?.idDepartement || '';
-        let serviceId = affectationActive?.idService || workflowActif?.idService || '';
-        let fonctionId = affectationActive?.idFonction || workflowActif?.idFonction || '';
-        let respId = affectationActive?.idResponsableHierarchique || workflowActif?.idResponsableHierarchique || '';
-        let catProId = affectationActive?.idCategorieProfessionnelle || workflowActif?.idCategorieProfessionnelle || '';
-        let modePaieId = affectationActive?.idModeCalculPaie || workflowActif?.idModeCalculPaie || '';
-        let salaire = affectationActive?.salaireBase !== undefined ? affectationActive.salaireBase : (workflowActif?.salaireBase || '');
+        const targetData = initialData || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif : null);
+
+        if (targetData?.codeTypeEvenement) {
+            setCodeTypeEvenement(targetData.codeTypeEvenement);
+        }
+
+        let filialeId = targetData?.idFiliale || targetData?.id_filiale || contratActif?.idFiliale || workflowActif?.idFiliale || '';
+        let typeContratId = targetData?.idTypeContrat || targetData?.id_type_contrat || contratActif?.idTypeContrat || workflowActif?.idTypeContrat || '';
+        let typeIntervenantId = targetData?.idTypeIntervenant || targetData?.id_type_intervenant || contratActif?.idTypeIntervenant || workflowActif?.idTypeIntervenant || '';
+        let siteId = targetData?.idSite || targetData?.id_site || affectationActive?.idSite || workflowActif?.idSite || '';
+        let departementId = targetData?.idDepartement || targetData?.id_departement || affectationActive?.idDepartement || workflowActif?.idDepartement || '';
+        let serviceId = targetData?.idService || targetData?.id_service || affectationActive?.idService || workflowActif?.idService || '';
+        let fonctionId = targetData?.idFonction || targetData?.id_fonction || affectationActive?.idFonction || workflowActif?.idFonction || '';
+        let respId = targetData?.idResponsableHierarchique || targetData?.id_responsable_hierarchique || affectationActive?.idResponsableHierarchique || workflowActif?.idResponsableHierarchique || '';
+        let catProId = targetData?.idCategorieProfessionnelle || targetData?.id_categorie_professionnelle || affectationActive?.idCategorieProfessionnelle || workflowActif?.idCategorieProfessionnelle || '';
+        let modePaieId = targetData?.idModeCalculPaie || targetData?.id_mode_calcul_paie || affectationActive?.idModeCalculPaie || workflowActif?.idModeCalculPaie || '';
+
+        let salaire = targetData?.salaireBase !== undefined && targetData?.salaireBase !== null && targetData?.salaireBase !== ''
+            ? targetData.salaireBase
+            : (affectationActive?.salaireBase !== undefined ? affectationActive.salaireBase : (workflowActif?.salaireBase || ''));
+
+        let dateEffetVal = targetData?.dateEffet ? fmtDateInput(targetData.dateEffet) : fmtDateInput(new Date());
+        let motifVal = targetData?.motif || '';
 
         setFormData(prev => ({
             ...prev,
@@ -250,9 +263,11 @@ export default function TransitionModal({
             idCategorieProfessionnelle: catProId ? String(catProId) : prev.idCategorieProfessionnelle,
             idModeCalculPaie: modePaieId ? String(modePaieId) : prev.idModeCalculPaie,
             salaireBase: salaire !== '' ? String(salaire) : prev.salaireBase,
-            comptabiliseEffectif: contratActif?.comptabiliseEffectif !== undefined ? Boolean(contratActif.comptabiliseEffectif) : true,
+            dateEffet: dateEffetVal,
+            motif: motifVal,
+            comptabiliseEffectif: targetData?.comptabiliseEffectif !== undefined ? Boolean(targetData.comptabiliseEffectif) : (contratActif?.comptabiliseEffectif !== undefined ? Boolean(contratActif.comptabiliseEffectif) : true),
         }));
-    }, [isOpen, contratActif, affectationActive, workflowActif]);
+    }, [isOpen, contratActif, affectationActive, workflowActif, initialData]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;

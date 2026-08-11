@@ -217,6 +217,15 @@ const contratService = {
         const response = await apiClient.get(`/employes/${idEmploye}/affectations/active`);
         return response.data || null;
     },
+
+    /**
+     * Évaluation complète de l'état de la période d'essai calculée côté serveur.
+     * GET /employes/{idEmploye}/essai/etat
+     */
+    getEtatEssai: async (idEmploye) => {
+        const response = await apiClient.get(`/employes/${idEmploye}/essai/etat`);
+        return response.data;
+    },
 };
 
 export default contratService;

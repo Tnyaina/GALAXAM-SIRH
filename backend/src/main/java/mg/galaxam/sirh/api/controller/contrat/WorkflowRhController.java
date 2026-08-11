@@ -634,7 +634,25 @@ public class WorkflowRhController {
      */
     private void validerRupture(WorkflowRh workflow, ValiderWorkflowRequest req, Connection c) throws Exception {
         Date dateEffet = workflow.getDateEffet() != null ? workflow.getDateEffet() : new Date(System.currentTimeMillis());
+        Date today = new Date(System.currentTimeMillis());
 
+        boolean estFutur = dateEffet.after(today);
+
+        // N'appliquer la fermeture de contrat et la désactivation que si la date d'effet est AUJOURD'HUI ou PASSÉE.
+        // Si c'est une date future, le workflow reste VALIDE et l'employé demeure ACTIF jusqu'à la date d'effet.
+        if (!estFutur) {
+            appliquerRuptureFormelle(workflow, dateEffet, c);
+        }
+
+        // Marquer le workflow comme VALIDE
+        String commentaire = (req != null && req.getCommentaireValidation() != null) ? req.getCommentaireValidation() : null;
+        workflow.valider(getCurrentUserId(), null, null, c);
+        if (commentaire != null && !commentaire.isBlank()) {
+            appendCommentaireWorkflow(workflow.getIdWorkflow(), commentaire, c);
+        }
+    }
+
+    private void appliquerRuptureFormelle(WorkflowRh workflow, Date dateEffet, Connection c) throws Exception {
         Integer idStatutRompu = resolveStatutContrat("ROMPU", c);
 
         // 1. Clôturer / Rompre le contrat source
@@ -682,13 +700,6 @@ public class WorkflowRhController {
                 psEmp.setInt(1, workflow.getIdEmploye());
                 psEmp.executeUpdate();
             }
-        }
-
-        // 5. Marquer le workflow comme VALIDE
-        String commentaire = (req != null && req.getCommentaireValidation() != null) ? req.getCommentaireValidation() : null;
-        workflow.valider(getCurrentUserId(), null, null, c);
-        if (commentaire != null && !commentaire.isBlank()) {
-            appendCommentaireWorkflow(workflow.getIdWorkflow(), commentaire, c);
         }
     }
 

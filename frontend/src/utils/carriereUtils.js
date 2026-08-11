@@ -62,7 +62,9 @@ export function calculerDateFinEssai(dateDebutStr, dureeMoisStr) {
 // ─── Identification des Événements RH ──────────────────────────────────────
 
 export function isEmbaucheEvent(codeTypeEvenement) {
-    return codeTypeEvenement === 'EMBAUCHE_INITIALE';
+    if (!codeTypeEvenement) return false;
+    const upper = String(codeTypeEvenement).toUpperCase();
+    return upper === 'EMBAUCHE_INITIALE' || upper === 'EMBAUCHE';
 }
 
 export function isConfirmationEssaiEvent(codeTypeEvenement) {
@@ -73,83 +75,14 @@ export function isRenouvellementEssaiEvent(codeTypeEvenement) {
     return codeTypeEvenement === 'RENOUVELLEMENT_ESSAI';
 }
 
-// ─── Règles de Gestion (RG) — Période d'Essai ──────────────────────────────
-
-/**
- * RG : Indique si la période d'essai de cet employé a déjà été confirmée.
- */
-export function estEssaiConfirme(workflowsList) {
-    if (!Array.isArray(workflowsList)) return false;
-    return workflowsList.some(w => w.codeStatutWorkflow === 'VALIDE' && isConfirmationEssaiEvent(w.codeTypeEvenement));
-}
-
-/**
- * RG : Indique si l'essai a déjà été renouvelé 1 fois (Limitation légale à 1 seul renouvellement).
- */
-export function estEssaiRenouvele(workflowsList) {
-    if (!Array.isArray(workflowsList)) return false;
-    return workflowsList.some(w => (w.codeStatutWorkflow === 'VALIDE' || w.codeStatutWorkflow === 'BROUILLON') && isRenouvellementEssaiEvent(w.codeTypeEvenement));
-}
-
-/**
- * RG : Évalue l'état actuel de la période d'essai pour l'IHM.
- * Retourne { isEssaiActif, isDernierJour, isEssaiEchu, dateFinEssaiStr, dureeEssaiMois }
- */
-export function evaluerEtatEssai(contratActif, workflowCplActif, workflowsList, todayStr = new Date().toISOString().substring(0, 10)) {
-    if (!contratActif) return { isEssaiActif: false, isDernierJour: false, isEssaiEchu: false, dateFinEssaiStr: null };
-
-    // Si déjà confirmé par workflow, l'essai n'est plus actif
-    if (estEssaiConfirme(workflowsList)) {
-        return { isEssaiActif: false, isDernierJour: false, isEssaiEchu: false, dateFinEssaiStr: null };
-    }
-
-    const dateFinEssaiStr = contratActif.dateFinEssai
-        ? String(contratActif.dateFinEssai).substring(0, 10)
-        : (workflowCplActif?.dateFinEssai ? String(workflowCplActif.dateFinEssai).substring(0, 10) : null);
-
-    // Si aucune date de fin d'essai n'est configurée sur le contrat
-    if (!dateFinEssaiStr) {
-        return { isEssaiActif: false, isDernierJour: false, isEssaiEchu: false, dateFinEssaiStr: null };
-    }
-
-    const isDernierJour = dateFinEssaiStr === todayStr;
-    const isEssaiEchu = dateFinEssaiStr < todayStr;
-
-    return {
-        isEssaiActif: true,
-        isDernierJour,
-        isEssaiEchu,
-        dateFinEssaiStr: dateFinEssaiStr,
-        dureeEssaiMois: contratActif.dureeEssaiMois || workflowCplActif?.dureeEssaiMois || '?',
-    };
-}
-
-/**
- * RG : Filtre le mouvement RH planifié futur (exclut les événements d'essai qui ne sont pas des mutations).
- */
-export function trouverWorkflowPlanifieFutur(workflowsList, todayStr = new Date().toISOString().substring(0, 10)) {
-    if (!Array.isArray(workflowsList)) return null;
-    return workflowsList.find(
-        w => w.codeStatutWorkflow === 'VALIDE' &&
-             !isConfirmationEssaiEvent(w.codeTypeEvenement) &&
-             !isRenouvellementEssaiEvent(w.codeTypeEvenement) &&
-             w.dateEffet && String(w.dateEffet).substring(0, 10) > todayStr
-    ) || null;
-}
-
-/**
- * RG : Calcule la date de fin d'essai historique d'un workflow selon son type.
- */
-export function calculerDateFinEssaiContextuelle(workflowCpl) {
-    if (!workflowCpl) return null;
-    if (isEmbaucheEvent(workflowCpl.codeTypeEvenement) && workflowCpl.dateDebutContrat && workflowCpl.dureeEssaiMois) {
-        return calculerDateFinEssai(workflowCpl.dateDebutContrat, workflowCpl.dureeEssaiMois);
-    }
-    return workflowCpl.dateFinEssai || workflowCpl.dateEffet;
-}
-
 export function isRuptureEvent(codeTypeEvenement) {
-    return ['FIN_CONTRAT', 'RUPTURE_ESSAI', 'DEMISSION', 'LICENCIEMENT', 'RUPTURE_CONVENTIONNELLE', 'DEPART_RETRAITE', 'DECES'].includes(codeTypeEvenement);
+    if (!codeTypeEvenement) return false;
+    const upper = String(codeTypeEvenement).toUpperCase();
+    return [
+        'FIN_CONTRAT', 'RUPTURE_ESSAI', 'DEMISSION', 'LICENCIEMENT', 
+        'RUPTURE_CONVENTIONNELLE', 'DEPART_RETRAITE', 'DECES', 
+        'CLOTURE', 'CLOTURE_CONTRAT', 'RUPTURE'
+    ].includes(upper) || upper.includes('RUPTURE') || upper.includes('CLOTURE') || upper.includes('FIN_CONTRAT');
 }
 
 /**
@@ -207,4 +140,23 @@ export function getWorkflowLibellesUI(workflowCpl) {
         badgeEssai,
         badgeVariant,
     };
+}
+
+export function trouverWorkflowPlanifieFutur(workflowsList, contratActifId = null, todayStr = new Date().toISOString().substring(0, 10)) {
+    if (!Array.isArray(workflowsList)) return null;
+    return workflowsList.find(
+        w => w.codeStatutWorkflow === 'VALIDE' &&
+             !isConfirmationEssaiEvent(w.codeTypeEvenement) &&
+             !isRenouvellementEssaiEvent(w.codeTypeEvenement) &&
+             w.dateEffet && String(w.dateEffet).substring(0, 10) > todayStr &&
+             (!contratActifId || Number(w.idContratSource) === Number(contratActifId) || Number(w.idContratCible) === Number(contratActifId))
+    ) || null;
+}
+
+export function calculerDateFinEssaiContextuelle(workflowCpl) {
+    if (!workflowCpl) return null;
+    if (isEmbaucheEvent(workflowCpl.codeTypeEvenement) && workflowCpl.dateDebutContrat && workflowCpl.dureeEssaiMois) {
+        return calculerDateFinEssai(workflowCpl.dateDebutContrat, workflowCpl.dureeEssaiMois);
+    }
+    return workflowCpl.dateFinEssai || workflowCpl.dateEffet;
 }

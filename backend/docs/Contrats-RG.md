@@ -105,10 +105,11 @@ Une vue SQL complète agrège en temps réel les libellés juridiques, organisat
 ### RG-02 : Période d'Essai (Confirmation & Renouvellement)
 
 * **Définition & Durée** : Tout contrat CDI ou CDD peut comporter une période d'essai (ex: 2 mois pour un employé, 3 à 4 mois pour un cadre).
-* **Évaluation Dynamique** : Le système calcule automatiquement l'état de l'essai :
-  - `EN_COURS` : Période d'essai valide.
-  - `ECHEANCE_PROCHE` : Échéance dans moins de 15 jours (Alerte RH générée).
-  - `EXPIRE` : Date de fin d'essai dépassée sans action formelle.
+* **Évaluation Dynamique & Isolation par Contrat** : 
+  - L'état de confirmation ou de renouvellement de l'essai est **strictement évalué par identifiant de contrat actif** (`activeContratId`). La confirmation d'un ancien contrat clôturé n'interfère jamais avec un nouveau contrat en cours.
+  - Le système calcule automatiquement l'état de l'essai : `EN_COURS`, `ECHEANCE_PROCHE` (< 15j), ou `EXPIRE`.
+* **Indépendance des Brouillons** :
+  - La présence d'un brouillon non lié à la période d'essai (ex: brouillon de clôture ou de revalorisation salariale) **ne masque pas** les boutons d'action de confirmation ou de renouvellement de l'essai.
 * **Règle du Renouvellement Unique (Code du Travail)** :
   - La période d'essai ne peut être renouvelée **qu'une seule fois**.
   - Si un renouvellement a déjà été effectué (`renouvele = true`), toute nouvelle tentative de renouvellement est **bloquée par l'interface** (Badge d'avertissement : *"2ème Période atteinte — Max légal d'essai atteint"*).
@@ -118,7 +119,7 @@ Une vue SQL complète agrège en temps réel les libellés juridiques, organisat
 
 ### RG-03 : Mouvements & Transitions RH (Promotions, Mutations, CDD → CDI)
 
-* **Principe de Continuité Contractuelle** : Un changement de poste, de salaire ou de lieu de travail ne rompt pas la relation de travail mais génère une nouvelle affectation (ou un avenant).
+* **Principe de Continuité Contractuelle & Chaînage** : Un changement de contrat (ex: Stage ➔ CDD, CDD ➔ CDI) génère un nouveau contrat qui enregistre la filiation vers le contrat d'origine via `id_contrat_precedent`.
 * **Automatisme de Transition Temporelle** :
   1. Lorsqu'un mouvement prend effet à la date $D_{effet}$ :
      $$\text{Date de fin de l'ancienne affectation} = D_{effet} - 1 \text{ jour}$$
@@ -126,7 +127,8 @@ Une vue SQL complète agrège en temps réel les libellés juridiques, organisat
   3. La nouvelle affectation devient **`ACTIVE`**.
 * **Événements à Date d'Effet Future** :
   - Si $D_{effet} > D_{actuelle}$, le workflow est enregistré avec le statut **`PLANIFIE`**.
-  - Le planificateur nocturne de tâches (Scheduler) applique automatiquement les modifications le matin de la date d'effet.
+  - Le contrat et l'affectation restent **100% actifs** jusqu'à la date d'effet.
+  - Le planificateur nocturne de tâches (Scheduler `00:00:00`) applique automatiquement les modifications le matin de la date d'effet.
 
 ---
 
@@ -136,8 +138,10 @@ Une vue SQL complète agrège en temps réel les libellés juridiques, organisat
 * **Gestion du Préavis** :
   - Saisie de la durée du préavis (ex: 1 Mois, 3 Mois) et de la date de notification.
   - Case à cocher : *Préavis effectué par le salarié* ou *Préavis dispensé/compensé*.
+* **Rupture à Date Future** :
+  - Si la date d'effet de la rupture est future ($D_{effet} > D_{actuelle}$), l'employé et son contrat demeurent au statut `ACTIF` / `est_actif = TRUE` jusqu'au jour $D_{effet}$.
 * **Règle de Cascadage Automatique du Statut Employé (Offboarding)** :
-  Lors de la validation d'une rupture :
+  Lors de l'application effective d'une rupture :
   1. Le contrat source est mis à jour : `id_statut_contrat = ROMPU` (ou `CLOTURE`), avec la `date_fin` égale à la date de rupture.
   2. L'affectation courante bascule à `HISTORISEE`.
   3. **Vérification de l'existence d'autres contrats actifs** :
@@ -148,12 +152,14 @@ $$\text{Reste-t-il au moins un autre contrat ACTIF pour cet employé ?} \quad \L
 
 ### RG-05 : Certificat de Travail Officiel & Génération Documentaire
 
-* **Exigence Légale** : À la clôture ou rupture d'un contrat, l'employeur est tenu de délivrer immédiatement un **Certificat de Travail**.
+* **Exigence Légale** : À la clôture ou rupture d'un contrat (`CLOTURE` ou `ROMPU`), l'employeur est tenu de délivrer immédiatement un **Certificat de Travail**. Le bouton de génération est réservé aux contrats effectivement clôturés ou rompus.
+* **Calcul de l'Ancienneté Globale (Code du Travail)** :
+  - En cas de contrats successifs sans interruption (ex: Stage ➔ CDD ➔ CDI), l'ancienneté attestée sur le certificat est calculée depuis la **Date d'Entrée initiale** (`dateDebutInitiale` du premier contrat de la chaîne).
 * **Mentions Obligatoires Générées** :
   - Raison sociale, adresse, NIF et STAT de la filiale employeuse.
   - Nom, prénom, domicile, N° CIN, N° CNaPS et Matricule interne du salarié.
-  - Date d'entrée (début de contrat) et Date de sortie effective.
-  - **Calcul Automatique d'Ancienneté** (Format lisible : *"X an(s) Y mois"*).
+  - Date d'entrée initiale et Date de sortie effective.
+  - **Calcul Automatique d'Ancienneté Globale** (Format lisible : *"X an(s) Y mois"*).
   - Intitulé exact de la fonction et de la catégorie professionnelle occupées.
   - Clause d'exonération : *"Salarié libre de tout engagement contractuel"*.
   - Effet non libératoire (Ne vaut pas solde de tout compte).
