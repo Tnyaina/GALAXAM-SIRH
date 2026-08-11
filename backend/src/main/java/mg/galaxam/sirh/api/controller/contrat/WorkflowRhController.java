@@ -222,6 +222,7 @@ public class WorkflowRhController {
                 switch (typeEvenementCode) {
                     case "EMBAUCHE_INITIALE" -> validerEmbaucheInitiale(workflow, req, c);
                     case "RENOUVELLEMENT_CDD", "TRANSFORMATION_CDI", "EMBAUCHE_APRES_STAGE", "MUTATION", "PROMOTION", "REVALORISATION", "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI", "REPRISE_CONSULTANT" -> validerTransition(workflow, req, c);
+                    case "FIN_CONTRAT", "RUPTURE_ESSAI", "DEMISSION", "LICENCIEMENT", "RUPTURE_CONVENTIONNELLE", "DEPART_RETRAITE" -> validerRupture(workflow, req, c);
                     default -> {
                         return ResponseEntity.badRequest()
                                 .body("Type d'événement '" + typeEvenementCode + "' non encore implémenté pour la validation.");
@@ -391,11 +392,12 @@ public class WorkflowRhController {
                 Integer idMotifMouvement = resolveMotifMouvement(codeMotif, c);
 
                 boolean estEvenementEssai = "CONFIRMATION_ESSAI".equals(req.getCodeTypeEvenement()) || "RENOUVELLEMENT_ESSAI".equals(req.getCodeTypeEvenement());
+                boolean estEvenementRupture = List.of("FIN_CONTRAT", "RUPTURE_ESSAI", "DEMISSION", "LICENCIEMENT", "RUPTURE_CONVENTIONNELLE", "DEPART_RETRAITE").contains(req.getCodeTypeEvenement());
 
                 Integer idContratCibleId = contratActif != null ? contratActif.getIdContrat() : req.getIdContratSource();
 
                 // Création d'un nouveau contrat UNIQUEMENT si transition de contrat réelle (CDD -> CDI, etc.)
-                if (!estEvenementEssai && req.getIdTypeContrat() != null && (contratActif == null || !req.getIdTypeContrat().equals(contratActif.getIdTypeContrat()))) {
+                if (!estEvenementEssai && !estEvenementRupture && req.getIdTypeContrat() != null && (contratActif == null || !req.getIdTypeContrat().equals(contratActif.getIdTypeContrat()))) {
                     ContratTravail contratCbl = new ContratTravail();
                     contratCbl.setIdEmploye(idEmploye);
                     contratCbl.setIdFiliale(req.getIdFiliale());
@@ -423,8 +425,24 @@ public class WorkflowRhController {
                 }
 
                 Integer idAffectationCibleId = null;
-                if (estEvenementEssai) {
+                if (estEvenementEssai || estEvenementRupture) {
                     idAffectationCibleId = affectationActive != null ? affectationActive.getIdAffectation() : req.getIdAffectationSource();
+                    if (idAffectationCibleId == null && idContratCibleId != null) {
+                        try (var psAff = c.prepareStatement("SELECT id_affectation FROM employe_affectation_carriere WHERE id_contrat = ? ORDER BY id_affectation DESC LIMIT 1")) {
+                            psAff.setInt(1, idContratCibleId);
+                            try (var rsAff = psAff.executeQuery()) {
+                                if (rsAff.next()) idAffectationCibleId = rsAff.getInt(1);
+                            }
+                        }
+                    }
+                    if (idAffectationCibleId == null) {
+                        try (var psAff = c.prepareStatement("SELECT id_affectation FROM employe_affectation_carriere WHERE id_employe = ? ORDER BY id_affectation DESC LIMIT 1")) {
+                            psAff.setInt(1, idEmploye);
+                            try (var rsAff = psAff.executeQuery()) {
+                                if (rsAff.next()) idAffectationCibleId = rsAff.getInt(1);
+                            }
+                        }
+                    }
                 } else {
                     EmployeAffectationCarriere affectationCbl = new EmployeAffectationCarriere();
                     affectationCbl.setIdEmploye(idEmploye);
@@ -606,6 +624,69 @@ public class WorkflowRhController {
                 ? req.getCommentaireValidation() : null;
         workflow.valider(getCurrentUserId(), null, null, c);
 
+        if (commentaire != null && !commentaire.isBlank()) {
+            appendCommentaireWorkflow(workflow.getIdWorkflow(), commentaire, c);
+        }
+    }
+
+    /**
+     * Valide et applique un workflow RH de type RUPTURE / FIN DE CONTRAT.
+     */
+    private void validerRupture(WorkflowRh workflow, ValiderWorkflowRequest req, Connection c) throws Exception {
+        Date dateEffet = workflow.getDateEffet() != null ? workflow.getDateEffet() : new Date(System.currentTimeMillis());
+
+        Integer idStatutRompu = resolveStatutContrat("ROMPU", c);
+
+        // 1. Clôturer / Rompre le contrat source
+        if (workflow.getIdContratSource() != null) {
+            ContratTravail src = new ContratTravail().rechercherParId(workflow.getIdContratSource(), c);
+            if (src != null) {
+                src.cloturerContrat(dateEffet, null, "Rupture / Fin de contrat : " + (workflow.getMotif() != null ? workflow.getMotif() : ""), c);
+                try (PreparedStatement psStat = c.prepareStatement(
+                        "UPDATE contrat_travail SET id_statut_contrat = ?, date_fin = ?, updated_at = CURRENT_TIMESTAMP WHERE id_contrat = ?")) {
+                    psStat.setInt(1, idStatutRompu);
+                    psStat.setDate(2, dateEffet);
+                    psStat.setInt(3, workflow.getIdContratSource());
+                    psStat.executeUpdate();
+                }
+            }
+        }
+
+        // 2. Clôturer l'affectation source
+        if (workflow.getIdAffectationSource() != null) {
+            EmployeAffectationCarriere srcAff = new EmployeAffectationCarriere().rechercherParId(workflow.getIdAffectationSource(), c);
+            if (srcAff != null) {
+                srcAff.fermer(dateEffet, c);
+            }
+        }
+
+        // 3. Règle de Gestion : Vérifier s'il reste au moins un autre contrat ACTIF pour cet employé
+        boolean aAutreContratActif = false;
+        try (PreparedStatement psCheck = c.prepareStatement(
+                "SELECT COUNT(*) FROM contrat_travail c " +
+                "JOIN ref_statut_contrat s ON c.id_statut_contrat = s.id_statut_contrat " +
+                "WHERE c.id_employe = ? AND s.code = 'ACTIF' AND c.id_contrat <> ?")) {
+            psCheck.setInt(1, workflow.getIdEmploye());
+            psCheck.setInt(2, workflow.getIdContratSource() != null ? workflow.getIdContratSource() : 0);
+            try (ResultSet rsCheck = psCheck.executeQuery()) {
+                if (rsCheck.next() && rsCheck.getInt(1) > 0) {
+                    aAutreContratActif = true;
+                }
+            }
+        }
+
+        // 4. Si aucun autre contrat actif -> Passer l'employé au statut INACTIF (est_actif = FALSE)
+        if (!aAutreContratActif) {
+            try (PreparedStatement psEmp = c.prepareStatement(
+                    "UPDATE employe SET est_actif = FALSE WHERE id_employe = ?")) {
+                psEmp.setInt(1, workflow.getIdEmploye());
+                psEmp.executeUpdate();
+            }
+        }
+
+        // 5. Marquer le workflow comme VALIDE
+        String commentaire = (req != null && req.getCommentaireValidation() != null) ? req.getCommentaireValidation() : null;
+        workflow.valider(getCurrentUserId(), null, null, c);
         if (commentaire != null && !commentaire.isBlank()) {
             appendCommentaireWorkflow(workflow.getIdWorkflow(), commentaire, c);
         }
@@ -883,8 +964,19 @@ public class WorkflowRhController {
     // MÉTHODES UTILITAIRES PRIVÉES
     // =========================================================================
 
-    /** Récupère l'ID de statut contrat par son code. */
+    /** Récupère l'ID de statut contrat par son code (avec auto-insertion si manquant). */
     private Integer resolveStatutContrat(String code, Connection c) throws Exception {
+        try (var ps = c.prepareStatement("SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = ?")) {
+            ps.setString(1, code);
+            try (var rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        }
+        try (var psIns = c.prepareStatement("INSERT INTO ref_statut_contrat (code, libelle) VALUES (?, ?) ON CONFLICT (code) DO NOTHING")) {
+            psIns.setString(1, code);
+            psIns.setString(2, code);
+            psIns.executeUpdate();
+        }
         try (var ps = c.prepareStatement("SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = ?")) {
             ps.setString(1, code);
             try (var rs = ps.executeQuery()) {
@@ -894,8 +986,19 @@ public class WorkflowRhController {
         throw new IllegalStateException("Statut contrat introuvable : " + code);
     }
 
-    /** Récupère l'ID de statut affectation par son code. */
+    /** Récupère l'ID de statut affectation par son code (avec auto-insertion si manquant). */
     private Integer resolveStatutAffectation(String code, Connection c) throws Exception {
+        try (var ps = c.prepareStatement("SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = ?")) {
+            ps.setString(1, code);
+            try (var rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        }
+        try (var psIns = c.prepareStatement("INSERT INTO ref_statut_affectation (code, libelle) VALUES (?, ?) ON CONFLICT (code) DO NOTHING")) {
+            psIns.setString(1, code);
+            psIns.setString(2, code);
+            psIns.executeUpdate();
+        }
         try (var ps = c.prepareStatement("SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = ?")) {
             ps.setString(1, code);
             try (var rs = ps.executeQuery()) {
@@ -904,6 +1007,8 @@ public class WorkflowRhController {
         }
         throw new IllegalStateException("Statut affectation introuvable : " + code);
     }
+
+
 
     /** Récupère l'ID de statut workflow par son code. */
     private Integer resolveStatutWorkflow(String code, Connection c) throws Exception {
@@ -916,10 +1021,39 @@ public class WorkflowRhController {
         throw new IllegalStateException("Statut workflow introuvable : " + code);
     }
 
-    /** Récupère l'ID de type d'événement RH par son code. */
+    /** Récupère l'ID de type d'événement RH par son code (avec auto-insertion si manquant). */
     private Integer resolveTypeEvenement(String code, Connection c) throws Exception {
+        if (code == null || code.isBlank()) code = "FIN_CONTRAT";
         try (var ps = c.prepareStatement("SELECT id_type_evenement_rh FROM ref_type_evenement_rh WHERE code = ?")) {
             ps.setString(1, code);
+            try (var rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        }
+        // Auto-insertion du code s'il n'existe pas encore en BDD
+        String libelle = switch (code) {
+            case "DEMISSION" -> "Démission du salarié";
+            case "LICENCIEMENT" -> "Licenciement du salarié";
+            case "RUPTURE_CONVENTIONNELLE" -> "Rupture conventionnelle";
+            case "DEPART_RETRAITE" -> "Départ à la retraite";
+            case "RUPTURE_ESSAI" -> "Rupture de la période d'essai";
+            case "FIN_CONTRAT" -> "Fin de contrat / Sortie de l'effectif";
+            default -> code;
+        };
+        try (var psIns = c.prepareStatement(
+                "INSERT INTO ref_type_evenement_rh (code, libelle) VALUES (?, ?) ON CONFLICT (code) DO NOTHING")) {
+            psIns.setString(1, code);
+            psIns.setString(2, libelle);
+            psIns.executeUpdate();
+        }
+        try (var ps = c.prepareStatement("SELECT id_type_evenement_rh FROM ref_type_evenement_rh WHERE code = ?")) {
+            ps.setString(1, code);
+            try (var rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        }
+        // Repli ultime sur FIN_CONTRAT
+        try (var ps = c.prepareStatement("SELECT id_type_evenement_rh FROM ref_type_evenement_rh WHERE code = 'FIN_CONTRAT'")) {
             try (var rs = ps.executeQuery()) {
                 if (rs.next()) return rs.getInt(1);
             }

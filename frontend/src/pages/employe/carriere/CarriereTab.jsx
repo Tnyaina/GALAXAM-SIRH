@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
     Briefcase, Building, Landmark, Calendar, ShieldAlert, CheckCircle, 
-    Clock, Plus, FileText, Eye, RefreshCw,
-    DollarSign, MapPin, Award
+    Clock, Plus, FileText, Eye, RefreshCw, UserMinus, Award,
+    DollarSign, MapPin
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -13,8 +13,10 @@ import TransitionModal from './b/TransitionModal';
 import RecapitulatifBrouillonModal from './RecapitulatifBrouillonModal';
 import ConfirmationEssaiModal from './b/ConfirmationEssaiModal';
 import RenouvellementEssaiModal from './b/RenouvellementEssaiModal';
+import RuptureContratModal from './b/RuptureContratModal';
+import CertificatTravailModal from './b/CertificatTravailModal';
 import { 
-    evaluerEtatEssai, estEssaiRenouvele,
+    evaluerEtatEssai, estEssaiRenouvele, isEmbaucheEvent, isRuptureEvent,
     trouverWorkflowPlanifieFutur, fmtDate, fmtMoney 
 } from '@/utils/carriereUtils';
 
@@ -32,7 +34,7 @@ function StatItem({ icon, label, value, highlight = false }) {
     );
 }
 
-export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, autoOpenWorkflowId = null }) {
+export default function CarriereTab({ idEmploye, employe, nomEmploye, matriculeEmploye, canWrite = true, autoOpenWorkflowId = null, onEmployeUpdated }) {
     const [loading, setLoading] = useState(true);
     const [actionSuccessMsg, setActionSuccessMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
@@ -50,9 +52,17 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, au
     const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
     const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
     const [isRenouvellementModalOpen, setIsRenouvellementModalOpen] = useState(false);
+    const [isRuptureModalOpen, setIsRuptureModalOpen] = useState(false);
+    const [isCertificatModalOpen, setIsCertificatModalOpen] = useState(false);
+    const [selectedCertificatContrat, setSelectedCertificatContrat] = useState(null);
     const [selectedWfModal, setSelectedWfModal] = useState(null);
     const [editInitialData, setEditInitialData] = useState(null);
     const [isTransitioning, setIsTransitioning] = useState(false);
+
+    const handleOpenCertificat = (contrat = null) => {
+        setSelectedCertificatContrat(contrat || contratActif || (contratsList.length > 0 ? contratsList[0] : null));
+        setIsCertificatModalOpen(true);
+    };
 
     const loadCarriereData = useCallback(async () => {
         setLoading(true);
@@ -123,25 +133,40 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, au
 
     const handleOpenEditModal = (data) => {
         setEditInitialData(data);
-        setIsEmbaucheModalOpen(true);
+        const code = data?.codeTypeEvenement;
+        if (isEmbaucheEvent(code)) {
+            setIsEmbaucheModalOpen(true);
+        } else if (isRuptureEvent(code)) {
+            setIsRuptureModalOpen(true);
+        } else {
+            setIsTransitionModalOpen(true);
+        }
     };
 
-    const handleSuccessAction = (msg, createdWf = null) => {
+    const handleSuccessAction = async (msg, createdWf = null) => {
         setActionSuccessMsg(msg);
         setTimeout(() => setActionSuccessMsg(''), 6000);
 
         // Si un workflow a été créé, on affiche une transition fluide avant d'ouvrir le récapitulatif
-        if (createdWf) {
+        if (createdWf && createdWf.idWorkflow) {
             setIsTransitioning(true);
-            setTimeout(() => {
-                setIsTransitioning(false);
+            try {
+                // Récupérer les données enrichies commises en BDD
+                const freshWf = await contratService.getWorkflow(createdWf.idWorkflow);
+                setSelectedWfModal(freshWf || createdWf);
+            } catch {
                 setSelectedWfModal(createdWf);
+            } finally {
+                setIsTransitioning(false);
                 setIsRecapModalOpen(true);
-            }, 800);
+            }
         }
 
-        // Recharger les données du tab en arrière-plan (sans bloquer)
+        // Recharger les données du tab en arrière-plan et notifier le parent (Fiche Employé Header)
         loadCarriereData();
+        if (onEmployeUpdated) {
+            onEmployeUpdated();
+        }
     };
 
     const getStatutBadge = (statutCode) => {
@@ -367,14 +392,24 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, au
                         </div>
 
                         {canWrite && !brouillonWf && (
-                            <Button
-                                onClick={() => setIsTransitionModalOpen(true)}
-                                variant="primary"
-                                size="sm"
-                                iconLeft={<RefreshCw size={16} />}
-                            >
-                                Mouvement / Transition RH
-                            </Button>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                    onClick={() => setIsTransitionModalOpen(true)}
+                                    variant="primary"
+                                    size="sm"
+                                    iconLeft={<RefreshCw size={16} />}
+                                >
+                                    Mouvement / Transition RH
+                                </Button>
+                                <Button
+                                    onClick={() => setIsRuptureModalOpen(true)}
+                                    variant="danger"
+                                    size="sm"
+                                    iconLeft={<UserMinus size={16} />}
+                                >
+                                    Rupture / Fin de Contrat
+                                </Button>
+                            </div>
                         )}
                     </div>
 
@@ -613,6 +648,7 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, au
                                         <th className="px-4 py-3">Date Signature</th>
                                         <th className="px-4 py-3">Effectif</th>
                                         <th className="px-4 py-3">Description</th>
+                                        <th className="px-4 py-3 text-right">Document</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
@@ -632,6 +668,16 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, au
                                             </td>
                                             <td className="px-4 py-3 text-ink-500">
                                                 {ct.description || '-'}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <Button
+                                                    onClick={() => handleOpenCertificat(ct)}
+                                                    variant="outline"
+                                                    size="xs"
+                                                    iconLeft={<Award size={13} />}
+                                                >
+                                                    Certificat
+                                                </Button>
                                             </td>
                                         </tr>
                                     ))}
@@ -702,6 +748,33 @@ export default function CarriereTab({ idEmploye, nomEmploye, canWrite = true, au
                     contratActif={contratActif}
                     affectationActive={affectationActive}
                     onSuccess={(res) => handleSuccessAction('Demande de renouvellement d\'essai créée avec succès !', res)}
+                />
+            )}
+
+            {/* Modale de Rupture et Clôture de Contrat */}
+            {isRuptureModalOpen && (
+                <RuptureContratModal
+                    isOpen={isRuptureModalOpen}
+                    onClose={() => setIsRuptureModalOpen(false)}
+                    idEmploye={idEmploye}
+                    nomEmploye={nomEmploye}
+                    contratActif={contratActif}
+                    affectationActive={affectationActive}
+                    workflowActif={workflowCplActif}
+                    initialData={editInitialData}
+                    onSuccess={(res) => handleSuccessAction('Brouillon de rupture et fin de contrat créé avec succès !', res)}
+                />
+            )}
+
+            {/* Modale de Génération du Certificat de Travail */}
+            {isCertificatModalOpen && (
+                <CertificatTravailModal
+                    isOpen={isCertificatModalOpen}
+                    onClose={() => setIsCertificatModalOpen(false)}
+                    employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
+                    contrat={selectedCertificatContrat || contratActif || (contratsList.length > 0 ? contratsList[0] : null)}
+                    affectation={affectationActive}
+                    filiale={selectedCertificatContrat?.filiale || contratActif?.filiale}
                 />
             )}
 

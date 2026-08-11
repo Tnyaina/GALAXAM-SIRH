@@ -148,6 +148,10 @@ export function calculerDateFinEssaiContextuelle(workflowCpl) {
     return workflowCpl.dateFinEssai || workflowCpl.dateEffet;
 }
 
+export function isRuptureEvent(codeTypeEvenement) {
+    return ['FIN_CONTRAT', 'RUPTURE_ESSAI', 'DEMISSION', 'LICENCIEMENT', 'RUPTURE_CONVENTIONNELLE', 'DEPART_RETRAITE', 'DECES'].includes(codeTypeEvenement);
+}
+
 /**
  * RG : Générateur des libellés UI pour le récapitulatif & révision.
  */
@@ -158,6 +162,7 @@ export function getWorkflowLibellesUI(workflowCpl) {
     const isEmbauche = isEmbaucheEvent(code);
     const isConfirmation = isConfirmationEssaiEvent(code);
     const isRenouvellement = isRenouvellementEssaiEvent(code);
+    const isRupture = isRuptureEvent(code);
 
     let title = `Validation RH — Mouvement RH (${workflowCpl.libelleTypeEvenement || code})`;
     let description = 'Veuillez relire les termes de cette transition RH avant officialisation.';
@@ -183,12 +188,19 @@ export function getWorkflowLibellesUI(workflowCpl) {
         actionBtnLabel = 'Valider le Renouvellement d\'Essai';
         badgeEssai = 'ESSAI RENOUVELÉ';
         badgeVariant = 'warning';
+    } else if (isRupture) {
+        title = `Validation RH — Rupture / Fin de Contrat (${workflowCpl.libelleTypeEvenement || code})`;
+        description = 'Veuillez relire les conditions de rupture de contrat. En cliquant sur "Valider", le contrat sera rompu/clôturé et le statut de l\'employé sera mis à jour.';
+        actionBtnLabel = 'Valider la Rupture & Clôturer le Contrat';
+        badgeEssai = 'FIN DE CONTRAT';
+        badgeVariant = 'danger';
     }
 
     return {
         isEmbauche,
         isConfirmation,
         isRenouvellement,
+        isRupture,
         title,
         description,
         actionBtnLabel,

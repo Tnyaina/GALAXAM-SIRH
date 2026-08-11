@@ -705,9 +705,12 @@ export default function EmployeFicheDetailPage() {
                     {activeTab === 'carriere' && (
                         <CarriereTab
                             idEmploye={id}
+                            employe={emp}
                             nomEmploye={`${emp.nom || ''} ${emp.prenom || ''}`}
+                            matriculeEmploye={emp.matricule}
                             canWrite={canWrite}
                             autoOpenWorkflowId={searchParams.get('wf')}
+                            onEmployeUpdated={loadEmployeDetail}
                         />
                     )}
 

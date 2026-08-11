@@ -180,7 +180,7 @@ public class EmployeAffectationCarriere extends ClassMere {
      */
     public void fermer(Date dateFermeture, Connection c) throws Exception {
         String sql = "UPDATE employe_affectation_carriere SET " +
-                "id_statut_affectation = (SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'HISTORISEE'), " +
+                "id_statut_affectation = COALESCE((SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'HISTORISEE'), id_statut_affectation), " +
                 "date_fin = ?, " +
                 "updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_affectation = ?";

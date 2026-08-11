@@ -279,6 +279,9 @@ INSERT INTO ref_type_evenement_rh (code, libelle) VALUES
     ('RENOUVELLEMENT_ESSAI', 'Renouvellement de la période d essai'),
     ('CONFIRMATION_ESSAI', 'Confirmation de fin de période d essai'),
     ('RUPTURE_ESSAI', 'Rupture de la période d essai'),
+    ('DEMISSION', 'Démission du salarié'),
+    ('LICENCIEMENT', 'Licenciement du salarié'),
+    ('RUPTURE_CONVENTIONNELLE', 'Rupture conventionnelle'),
     ('DEPART_RETRAITE', 'Départ à la retraite'),
     ('REPRISE_CONSULTANT', 'Embauche d un retraité comme consultant'),
     ('FIN_CONTRAT', 'Fin de contrat / Sortie de l effectif')
@@ -387,12 +390,12 @@ JOIN ref_type_evenement_rh tev ON w.id_type_evenement_rh = tev.id_type_evenement
 JOIN ref_statut_workflow rsw    ON w.id_statut_workflow = rsw.id_statut_workflow
 
 LEFT JOIN contrat_travail ct_src ON w.id_contrat_source = ct_src.id_contrat
-LEFT JOIN contrat_travail ct_cbl ON w.id_contrat_cible  = ct_cbl.id_contrat
+LEFT JOIN contrat_travail ct_cbl ON COALESCE(w.id_contrat_cible, w.id_contrat_source) = ct_cbl.id_contrat
 LEFT JOIN ref_type_contrat rtc  ON ct_cbl.id_type_contrat = rtc.id_type_contrat
 LEFT JOIN ref_type_intervenant rti ON ct_cbl.id_type_intervenant = rti.id_type_intervenant
 LEFT JOIN ref_filiale rf         ON ct_cbl.id_filiale = rf.id_filiale
 
-LEFT JOIN employe_affectation_carriere eac ON w.id_affectation_cible = eac.id_affectation
+LEFT JOIN employe_affectation_carriere eac ON COALESCE(w.id_affectation_cible, w.id_affectation_source) = eac.id_affectation
 LEFT JOIN ref_site rs             ON eac.id_site = rs.id_site
 LEFT JOIN ref_departement rd      ON eac.id_departement = rd.id_departement
 LEFT JOIN ref_service rsvc        ON eac.id_service = rsvc.id_service

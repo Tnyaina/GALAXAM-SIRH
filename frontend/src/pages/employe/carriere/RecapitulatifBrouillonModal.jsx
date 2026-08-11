@@ -48,7 +48,8 @@ export default function RecapitulatifBrouillonModal({
             onClose();
         } catch (err) {
             console.error('Erreur validation workflow:', err);
-            setErrorMsg(err.response?.data?.message || err.message || 'Erreur lors de la validation.');
+            const apiError = typeof err.response?.data === 'string' ? err.response.data : err.response?.data?.message;
+            setErrorMsg(apiError || err.message || 'Erreur lors de la validation.');
         } finally {
             setSubmitting(false);
         }
@@ -67,7 +68,8 @@ export default function RecapitulatifBrouillonModal({
             onClose();
         } catch (err) {
             console.error('Erreur annulation workflow:', err);
-            setErrorMsg(err.response?.data?.message || err.message || 'Erreur lors de l\'annulation.');
+            const apiError = typeof err.response?.data === 'string' ? err.response.data : err.response?.data?.message;
+            setErrorMsg(apiError || err.message || 'Erreur lors de l\'annulation.');
         } finally {
             setSubmitting(false);
         }

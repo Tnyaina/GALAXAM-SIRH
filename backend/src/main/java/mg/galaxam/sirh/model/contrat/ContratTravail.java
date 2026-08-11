@@ -185,7 +185,7 @@ public class ContratTravail extends ClassMere {
      */
     public void cloturerContrat(Date dateFermeture, Integer idMotif, String commentaireFin, Connection c) throws Exception {
         String sql = "UPDATE contrat_travail SET " +
-                "id_statut_contrat = (SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'CLOTURE'), " +
+                "id_statut_contrat = COALESCE((SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'CLOTURE'), id_statut_contrat), " +
                 "date_fin = ?, " +
                 "id_motif_sortie = ?, " +
                 "commentaire = COALESCE(commentaire || ' | ' || ?, ?), " +
@@ -207,7 +207,7 @@ public class ContratTravail extends ClassMere {
      */
     public void rompreContrat(Date dateRupture, Integer idMotif, String commentaireRupture, Connection c) throws Exception {
         String sql = "UPDATE contrat_travail SET " +
-                "id_statut_contrat = (SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'ROMPU'), " +
+                "id_statut_contrat = COALESCE((SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'ROMPU'), id_statut_contrat), " +
                 "date_fin = ?, " +
                 "id_motif_sortie = ?, " +
                 "commentaire = COALESCE(commentaire || ' | ' || ?, ?), " +

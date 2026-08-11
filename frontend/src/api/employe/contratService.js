@@ -76,6 +76,16 @@ const contratService = {
         return response.data;
     },
 
+    initierTransition: async (idEmploye, data) => {
+        const response = await apiClient.post(`/employes/${idEmploye}/workflows/transition`, data);
+        return response.data;
+    },
+
+    initierRupture: async (idEmploye, data) => {
+        const response = await apiClient.post(`/employes/${idEmploye}/workflows/transition`, data);
+        return response.data;
+    },
+
     /**
      * ÉTAPE 2 — Valider un workflow BROUILLON (action DAF).
      * Pour EMBAUCHE_INITIALE : contrat → ACTIF, affectation → ACTIVE, workflow → VALIDE.
