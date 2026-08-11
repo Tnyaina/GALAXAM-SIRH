@@ -88,7 +88,7 @@ export default function NotificationBell() {
             >
                 <Bell size={20} />
                 {totalNonLues > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-danger-500 rounded-full px-1 shadow-sm animate-pulse">
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-danger-500 rounded-full px-1 shadow-sm">
                         {totalNonLues > 99 ? '99+' : totalNonLues}
                     </span>
                 )}

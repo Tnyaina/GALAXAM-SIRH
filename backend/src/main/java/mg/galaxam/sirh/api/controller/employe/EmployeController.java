@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.api.controller.employe;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.api.dto.employe.DesactivationRequest;

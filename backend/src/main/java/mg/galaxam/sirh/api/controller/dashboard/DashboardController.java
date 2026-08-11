@@ -105,7 +105,8 @@ public class DashboardController {
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(*) FROM contrat_travail ct " +
                 "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
-                "WHERE rsc.code = 'ACTIF' AND ct.date_fin_essai >= CURRENT_DATE")) {
+                "JOIN contrat_periode_essai cpe ON ct.id_contrat = cpe.id_contrat " +
+                "WHERE rsc.code = 'ACTIF' AND cpe.statut = 'EN_COURS'")) {
             ResultSet rs = ps.executeQuery();
             kpis.put("essaisEnCours", rs.next() ? rs.getInt(1) : 0);
         }
@@ -163,7 +164,8 @@ public class DashboardController {
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
                 "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
-                "WHERE rsc.code = 'ACTIF' AND ct.date_fin_essai = CURRENT_DATE " +
+                "JOIN contrat_periode_essai cpe ON ct.id_contrat = cpe.id_contrat " +
+                "WHERE rsc.code = 'ACTIF' AND cpe.statut = 'EN_COURS' AND ct.date_fin_essai = CURRENT_DATE " +
                 "ORDER BY e.nom";
         try (PreparedStatement ps = c.prepareStatement(sqlEssaisJ);
              ResultSet rs = ps.executeQuery()) {
@@ -228,7 +230,8 @@ public class DashboardController {
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
                 "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
-                "WHERE rsc.code = 'ACTIF' " +
+                "JOIN contrat_periode_essai cpe ON ct.id_contrat = cpe.id_contrat " +
+                "WHERE rsc.code = 'ACTIF' AND cpe.statut = 'EN_COURS' " +
                 "AND ct.date_fin_essai > CURRENT_DATE " +
                 "AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '7 days' " +
                 "ORDER BY ct.date_fin_essai ASC";

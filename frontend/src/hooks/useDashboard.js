@@ -42,8 +42,8 @@ export function useNotifications() {
     const [totalNonLues, setTotalNonLues] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    const load = useCallback(async () => {
-        setLoading(true);
+    const load = useCallback(async (isBackground = false) => {
+        if (!isBackground) setLoading(true);
         try {
             const result = await dashboardService.getNotifications();
             setNotifications(result.notifications || []);
@@ -51,7 +51,7 @@ export function useNotifications() {
         } catch (err) {
             console.error('[Notifications] Erreur:', err);
         } finally {
-            setLoading(false);
+            if (!isBackground) setLoading(false);
         }
     }, []);
 
@@ -77,6 +77,13 @@ export function useNotifications() {
 
     useEffect(() => {
         load();
+        
+        // Rafraîchissement automatique en arrière-plan toutes les 15 secondes
+        const timer = setInterval(() => {
+            load(true);
+        }, 15000);
+
+        return () => clearInterval(timer);
     }, [load]);
 
     return { notifications, totalNonLues, loading, refresh: load, marquerToutesLues, marquerUne };

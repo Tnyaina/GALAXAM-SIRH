@@ -95,7 +95,7 @@ export default function EmployeList() {
             loadEmployes();
         } catch (err) {
             console.error('Erreur sauvegarde employé:', err);
-            setError(err.response?.data || "Erreur lors de l'enregistrement de l'employé.");
+            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Erreur lors de l'enregistrement de l'employé.");
         } finally {
             setSubmitting(false);
         }
@@ -122,7 +122,7 @@ export default function EmployeList() {
             loadEmployes();
         } catch (err) {
             console.error('Erreur désactivation:', err);
-            setError(err.response?.data || 'Erreur lors de la désactivation.');
+            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la désactivation.');
         } finally {
             setSubmitting(false);
         }
@@ -136,7 +136,7 @@ export default function EmployeList() {
             loadEmployes();
         } catch (err) {
             console.error('Erreur réactivation:', err);
-            setError(err.response?.data || 'Erreur lors de la réactivation.');
+            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la réactivation.');
         }
     };
 

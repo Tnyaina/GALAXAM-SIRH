@@ -45,6 +45,12 @@ export default function EmployeFicheDetailPage() {
         VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'personnel'
     );
 
+    useEffect(() => {
+        if (VALID_TABS.includes(tabFromUrl)) {
+            setActiveTab(tabFromUrl);
+        }
+    }, [tabFromUrl]);
+
     // État Documents RH
     const [documentsData, setDocumentsData] = useState({ documents: [], obligatoiresManquants: [] });
     const [loadingDocs, setLoadingDocs] = useState(false);
@@ -123,7 +129,7 @@ export default function EmployeFicheDetailPage() {
             loadEmployeDetail();
         } catch (err) {
             console.error('Erreur modification employé:', err);
-            setError(err.response?.data || "Erreur lors de l'enregistrement de la fiche.");
+            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Erreur lors de l'enregistrement de la fiche.");
         } finally {
             setSubmitting(false);
         }
@@ -139,7 +145,7 @@ export default function EmployeFicheDetailPage() {
             loadEmployeDetail();
         } catch (err) {
             console.error('Erreur désactivation:', err);
-            setError(err.response?.data || 'Erreur lors de la désactivation.');
+            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la désactivation.');
         }
     };
 
@@ -151,7 +157,7 @@ export default function EmployeFicheDetailPage() {
             loadEmployeDetail();
         } catch (err) {
             console.error('Erreur réactivation:', err);
-            setError(err.response?.data || 'Erreur lors de la réactivation.');
+            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la réactivation.');
         }
     };
 
