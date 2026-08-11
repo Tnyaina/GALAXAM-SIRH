@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     ArrowLeft, User, Phone, Users, ShieldAlert, 
@@ -8,8 +8,6 @@ import {
 } from 'lucide-react';
 import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
-import EmployeFormModal from './dossier/EmployeFormModal';
-import CarriereTab from './carriere/CarriereTab';
 import EmployeHeaderCard from '@/components/employe/EmployeHeaderCard';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -17,6 +15,10 @@ import Loading from '@/components/ui/Loading';
 import Input, { Textarea, Select } from '@/components/ui/Input';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
 import { useAuth } from '@/context/AuthContext';
+
+// Lazy loading des composants lourds de la fiche employé
+const EmployeFormModal = lazy(() => import('./dossier/EmployeFormModal'));
+const CarriereTab = lazy(() => import('./carriere/CarriereTab'));
 
 const InfoBlock = ({ label, value, mono = false, icon }) => (
     <div className="py-2">
@@ -647,15 +649,17 @@ export default function EmployeFicheDetailPage() {
 
                     {/* Onglet 4: Carrière & Affectation */}
                     {activeTab === 'carriere' && (
-                        <CarriereTab
-                            idEmploye={id}
-                            employe={emp}
-                            nomEmploye={`${emp.nom || ''} ${emp.prenom || ''}`}
-                            matriculeEmploye={emp.matricule}
-                            canWrite={canWrite}
-                            autoOpenWorkflowId={searchParams.get('wf')}
-                            onEmployeUpdated={loadEmployeDetail}
-                        />
+                        <Suspense fallback={<div className="p-8 flex justify-center"><Loading size="md" label="Chargement du module Carrière..." /></div>}>
+                            <CarriereTab
+                                idEmploye={id}
+                                employe={emp}
+                                nomEmploye={`${emp.nom || ''} ${emp.prenom || ''}`}
+                                matriculeEmploye={emp.matricule}
+                                canWrite={canWrite}
+                                autoOpenWorkflowId={searchParams.get('wf')}
+                                onEmployeUpdated={loadEmployeDetail}
+                            />
+                        </Suspense>
                     )}
 
                     {/* Onglet 5: Historique & Statut */}
@@ -752,13 +756,17 @@ export default function EmployeFicheDetailPage() {
             )}
 
             {/* Modale d'édition Employé */}
-            <EmployeFormModal
-                isOpen={isFormOpen}
-                onClose={() => setIsFormOpen(false)}
-                onSave={handleSaveForm}
-                employeData={detailData}
-                isSubmitting={submitting}
-            />
+            {isFormOpen && (
+                <Suspense fallback={null}>
+                    <EmployeFormModal
+                        isOpen={isFormOpen}
+                        onClose={() => setIsFormOpen(false)}
+                        onSave={handleSaveForm}
+                        employeData={detailData}
+                        isSubmitting={submitting}
+                    />
+                </Suspense>
+            )}
 
             {/* Modale de désactivation */}
             {isDesactivationModalOpen && (

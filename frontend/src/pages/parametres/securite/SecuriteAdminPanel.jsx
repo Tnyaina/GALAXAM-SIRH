@@ -1,11 +1,19 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Shield, Users, ArrowLeft, Menu, FileText, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import UserManagementTab from '@/components/parametres/securite/UserManagementTab';
-import RolesAndPermissionsTab from '@/components/parametres/securite/RolesAndPermissionsTab';
-import MenuManagementTab from '@/components/parametres/securite/MenuManagementTab';
-import DocumentTypeManagementTab from '@/components/parametres/referentiels/DocumentTypeManagementTab';
-import RefCarriereManagementTab from '@/components/parametres/referentiels/RefCarriereManagementTab';
+import Loading from '@/components/ui/Loading';
+
+const UserManagementTab = lazy(() => import('@/components/parametres/securite/UserManagementTab'));
+const RolesAndPermissionsTab = lazy(() => import('@/components/parametres/securite/RolesAndPermissionsTab'));
+const MenuManagementTab = lazy(() => import('@/components/parametres/securite/MenuManagementTab'));
+const DocumentTypeManagementTab = lazy(() => import('@/components/parametres/referentiels/DocumentTypeManagementTab'));
+const RefCarriereManagementTab = lazy(() => import('@/components/parametres/referentiels/RefCarriereManagementTab'));
+
+const TabLoader = () => (
+    <div className="p-8 flex justify-center items-center">
+        <Loading size="md" label="Chargement de la section..." />
+    </div>
+);
 
 export default function SecuriteAdminPanel() {
     const [activeTab, setActiveTab] = useState('users'); // 'users' | 'roles' | 'menus' | 'docTypes' | 'carriere'
@@ -103,11 +111,13 @@ export default function SecuriteAdminPanel() {
 
                 {/* Contenu de l'onglet actif */}
                 <div className="p-6">
-                    {activeTab === 'users' && <UserManagementTab />}
-                    {activeTab === 'roles' && <RolesAndPermissionsTab />}
-                    {activeTab === 'menus' && <MenuManagementTab />}
-                    {activeTab === 'docTypes' && <DocumentTypeManagementTab />}
-                    {activeTab === 'carriere' && <RefCarriereManagementTab />}
+                    <Suspense fallback={<TabLoader />}>
+                        {activeTab === 'users' && <UserManagementTab />}
+                        {activeTab === 'roles' && <RolesAndPermissionsTab />}
+                        {activeTab === 'menus' && <MenuManagementTab />}
+                        {activeTab === 'docTypes' && <DocumentTypeManagementTab />}
+                        {activeTab === 'carriere' && <RefCarriereManagementTab />}
+                    </Suspense>
                 </div>
             </div>
         </div>

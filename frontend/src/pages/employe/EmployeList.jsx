@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { UserPlus, Search, Eye, Edit2, Users, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import employeService from '@/api/employe/employeService';
-import EmployeFormModal from './dossier/EmployeFormModal';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
@@ -10,8 +9,9 @@ import Alert from '@/components/ui/Alert';
 import Input, { Select } from '@/components/ui/Input';
 import Card, { CardBody } from '@/components/ui/Card';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-
 import { useAuth } from '@/context/AuthContext';
+
+const EmployeFormModal = lazy(() => import('./dossier/EmployeFormModal'));
 
 export default function EmployeList() {
     const navigate = useNavigate();
@@ -353,13 +353,17 @@ export default function EmployeList() {
             )}
 
             {/* Modale d'édition / création d'employé */}
-            <EmployeFormModal
-                isOpen={isFormOpen}
-                onClose={() => setIsFormOpen(false)}
-                onSave={handleSaveForm}
-                employeData={selectedEmployeForEdit}
-                isSubmitting={submitting}
-            />
+            {isFormOpen && (
+                <Suspense fallback={null}>
+                    <EmployeFormModal
+                        isOpen={isFormOpen}
+                        onClose={() => setIsFormOpen(false)}
+                        onSave={handleSaveForm}
+                        employeData={selectedEmployeForEdit}
+                        isSubmitting={submitting}
+                    />
+                </Suspense>
+            )}
 
             {/* Modale de désactivation réutilisable */}
             <ConfirmDialog

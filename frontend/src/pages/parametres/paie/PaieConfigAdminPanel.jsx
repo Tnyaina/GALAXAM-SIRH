@@ -1,10 +1,18 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Wrench, ShieldCheck, Gift, Clock, Calendar, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import CotisationsIrsaTab from '@/components/parametres/paie/CotisationsIrsaTab';
-import IndemnitesSitesTab from '@/components/parametres/paie/IndemnitesSitesTab';
-import MajorationsParametresTab from '@/components/parametres/paie/MajorationsParametresTab';
-import CalendrierFerieTab from '@/components/parametres/paie/CalendrierFerieTab';
+import Loading from '@/components/ui/Loading';
+
+const CotisationsIrsaTab = lazy(() => import('@/components/parametres/paie/CotisationsIrsaTab'));
+const IndemnitesSitesTab = lazy(() => import('@/components/parametres/paie/IndemnitesSitesTab'));
+const MajorationsParametresTab = lazy(() => import('@/components/parametres/paie/MajorationsParametresTab'));
+const CalendrierFerieTab = lazy(() => import('@/components/parametres/paie/CalendrierFerieTab'));
+
+const TabLoader = () => (
+    <div className="p-8 flex justify-center items-center">
+        <Loading size="md" label="Chargement de la section..." />
+    </div>
+);
 
 export default function PaieConfigAdminPanel() {
     const [activeTab, setActiveTab] = useState('cotisations_irsa'); // 'cotisations_irsa' | 'indemnites_sites' | 'majorations_params' | 'calendrier'
@@ -89,10 +97,12 @@ export default function PaieConfigAdminPanel() {
 
                 {/* Contenu de l'onglet actif */}
                 <div className="p-6">
-                    {activeTab === 'cotisations_irsa' && <CotisationsIrsaTab />}
-                    {activeTab === 'indemnites_sites' && <IndemnitesSitesTab />}
-                    {activeTab === 'majorations_params' && <MajorationsParametresTab />}
-                    {activeTab === 'calendrier' && <CalendrierFerieTab />}
+                    <Suspense fallback={<TabLoader />}>
+                        {activeTab === 'cotisations_irsa' && <CotisationsIrsaTab />}
+                        {activeTab === 'indemnites_sites' && <IndemnitesSitesTab />}
+                        {activeTab === 'majorations_params' && <MajorationsParametresTab />}
+                        {activeTab === 'calendrier' && <CalendrierFerieTab />}
+                    </Suspense>
                 </div>
             </div>
         </div>

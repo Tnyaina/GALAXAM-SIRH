@@ -1,10 +1,18 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Building2, Layers, Briefcase, FileCheck, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import FilialesSitesTab from '@/components/parametres/structure/FilialesSitesTab';
-import DepartementsServicesTab from '@/components/parametres/structure/DepartementsServicesTab';
-import FonctionsTab from '@/components/parametres/structure/FonctionsTab';
-import ReferentielsRhTab from '@/components/parametres/structure/ReferentielsRhTab';
+import Loading from '@/components/ui/Loading';
+
+const FilialesSitesTab = lazy(() => import('@/components/parametres/structure/FilialesSitesTab'));
+const DepartementsServicesTab = lazy(() => import('@/components/parametres/structure/DepartementsServicesTab'));
+const FonctionsTab = lazy(() => import('@/components/parametres/structure/FonctionsTab'));
+const ReferentielsRhTab = lazy(() => import('@/components/parametres/structure/ReferentielsRhTab'));
+
+const TabLoader = () => (
+    <div className="p-8 flex justify-center items-center">
+        <Loading size="md" label="Chargement de la section..." />
+    </div>
+);
 
 export default function StructureAdminPanel() {
     const [activeTab, setActiveTab] = useState('filiales'); // 'filiales' | 'departements' | 'fonctions' | 'rh'
@@ -89,10 +97,12 @@ export default function StructureAdminPanel() {
 
                 {/* Contenu de l'onglet actif */}
                 <div className="p-6">
-                    {activeTab === 'filiales' && <FilialesSitesTab />}
-                    {activeTab === 'departements' && <DepartementsServicesTab />}
-                    {activeTab === 'fonctions' && <FonctionsTab />}
-                    {activeTab === 'rh' && <ReferentielsRhTab />}
+                    <Suspense fallback={<TabLoader />}>
+                        {activeTab === 'filiales' && <FilialesSitesTab />}
+                        {activeTab === 'departements' && <DepartementsServicesTab />}
+                        {activeTab === 'fonctions' && <FonctionsTab />}
+                        {activeTab === 'rh' && <ReferentielsRhTab />}
+                    </Suspense>
                 </div>
             </div>
         </div>
