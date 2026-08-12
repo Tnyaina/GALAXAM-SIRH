@@ -1,23 +1,22 @@
 package mg.galaxam.sirh.api.controller.securite;
 
-import mg.galaxam.sirh.api.dto.securite.UtilisateurRequest;
-import mg.galaxam.sirh.api.dto.securite.UtilisateurResponse;
-import mg.galaxam.sirh.referentiel.RefRole;
-import mg.galaxam.sirh.securite.AuditLog;
-import mg.galaxam.sirh.securite.Utilisateur;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
-import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import javax.sql.DataSource;
+import mg.galaxam.sirh.api.dto.securite.UtilisateurRequest;
+import mg.galaxam.sirh.api.dto.securite.UtilisateurResponse;
+import mg.galaxam.sirh.model.admin.RefRole;
+import mg.galaxam.sirh.model.securite.Utilisateur;
+import mg.galaxam.sirh.securite.AuditLog;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/securite/utilisateurs")

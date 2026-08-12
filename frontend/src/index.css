@@ -5,8 +5,7 @@
    définis ici plutôt que sur des couleurs "en dur".
    ============================================================================ */
 
-/* Police — à remplacer/retirer si vous auto-hébergez les fontes */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+/* Police système native (0 chargement externe, performance maximale) */
 
 @import "tailwindcss";
 
@@ -20,8 +19,8 @@
    ============================================================================ */
 @theme {
   /* ---- Typographie ---------------------------------------------------- */
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* ---- Marque — bleu Galaxam (CTA, focus, liens) ----------------------- */
   --color-brand-50:  #eaf6fa;
@@ -66,12 +65,18 @@
   --color-ink-50:  #f5f5f5; /* fond désactivé / fond page */
 
   /* ---- Sémantique — statuts (repris de Button/Alert) ------------------- */
+  --color-success-400: #52c27a;
   --color-success-500: #27ae60;
   --color-success-600: #1e8449;
+  --color-success-700: #166638;
+  --color-danger-200:  #f5c6c2;
+  --color-danger-400:  #d9534f;
   --color-danger-500:  #c0392b;
   --color-danger-600:  #a93226;
+  --color-warning-400: #f0a830;
   --color-warning-500: #d97706;
   --color-warning-600: #b45309;
+  --color-warning-700: #92400e;
 
   /* ---- Rayons — l'identité Galaxam est anguleuse par défaut ------------ */
   --radius-none: 0px;
@@ -264,4 +269,65 @@
   background-color: var(--color-surface);
   color: var(--color-fg);
   border-color: var(--color-border);
+}
+
+
+/* ============================================================================
+   5. STYLES D'IMPRESSION RH (DOCUMENT & CERTIFICAT DE TRAVAIL)
+   ============================================================================ */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+
+  html, body {
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  #root {
+    display: none !important;
+  }
+
+  body {
+    visibility: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Rendre uniquement le certificat visible et positionné en haut de page A4 */
+  .certificat-print-portal,
+  .certificat-print-portal * {
+    visibility: visible !important;
+    color: #000000 !important;
+    opacity: 1 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .certificat-print-portal {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+    z-index: 99999 !important;
+  }
+
+  /* Masquer explicitement tous les boutons et headers d'actions */
+  .print\:hidden,
+  .print\:hidden * {
+    display: none !important;
+    visibility: hidden !important;
+  }
 }

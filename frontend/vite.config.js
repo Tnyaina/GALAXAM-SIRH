@@ -26,6 +26,9 @@ export default defineConfig({
     },
   },
   build: {
+    target: 'es2022',
+    cssCodeSplit: true,
+    cssMinify: true,
     rollupOptions: {
       output: {
         // Vite 8 (Rolldown) requiert manualChunks sous forme de fonction
