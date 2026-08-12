@@ -30,6 +30,7 @@ export default function CertificatTravailModal({
     employe,
     contrat,
     affectation,
+    loadingAffectation = false, // true pendant la récupération de l'affectation liée au contrat (contrat historique)
     filiale,
     signataire, // { nom, fonction } — optionnel, personne habilitée qui délivre le certificat
     dateDebutInitiale = null,
@@ -171,6 +172,11 @@ export default function CertificatTravailModal({
 
                 {/* Corps du Document Officiel */}
                 <div className="flex-1 overflow-y-auto p-6 lg:p-10 bg-ink-50/50 dark:bg-ink-950/40 print:bg-white print:p-0 print:overflow-visible print:block">
+                    {loadingAffectation && (
+                        <div className="mb-4 text-center text-[11px] text-ink-400 print:hidden">
+                            Récupération des données du poste (fonction, site, département)...
+                        </div>
+                    )}
                     <div ref={printRef} className="certificat-print-portal w-full max-w-[650px] mx-auto print:max-w-none print:w-full print:m-0 print:p-0">
 
                         <DocumentFrame watermark={null} className="border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 p-8 shadow-sm print:border-none print:p-6 print:bg-white print:text-black">

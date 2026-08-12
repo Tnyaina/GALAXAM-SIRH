@@ -225,6 +225,30 @@ public class EmployeAffectationCarriere extends ClassMere {
     }
 
     /**
+     * Retourne l'affectation associée à un contrat donné, quel que soit son statut
+     * (ACTIVE, HISTORISEE, PLANIFIEE, ANNULEE...).
+     *
+     * Indispensable pour reconstituer les données (fonction, site, département,
+     * catégorie professionnelle) d'un contrat qui n'est plus actif — par exemple
+     * pour générer le certificat de travail d'un contrat terminé, où l'affectation
+     * liée est nécessairement passée en HISTORISEE et n'apparaît donc jamais dans
+     * rechercherActiveParEmploye().
+     *
+     * S'il existe plusieurs affectations pour un même contrat (cas rare), on retient
+     * la plus récente par date de début.
+     */
+    public static EmployeAffectationCarriere rechercherParContrat(Integer idContrat, Connection c) throws Exception {
+        String sql = "SELECT * FROM employe_affectation_carriere WHERE id_contrat = ? ORDER BY date_debut DESC LIMIT 1";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idContrat);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapResultSet(rs);
+            }
+        }
+        return null;
+    }
+
+    /**
      * Retourne l'affectation PLANIFIEE d'un employé (créée mais pas encore validée).
      */
     public static EmployeAffectationCarriere rechercherPlanifieeParEmploye(Integer idEmploye, Connection c) throws Exception {

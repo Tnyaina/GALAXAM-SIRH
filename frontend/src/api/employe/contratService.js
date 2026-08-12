@@ -228,6 +228,19 @@ const contratService = {
     },
 
     /**
+     * Affectation liée à un contrat spécifique, quel que soit son statut
+     * (actif ou historique). Utilisée pour le certificat de travail, qui se
+     * génère toujours à partir d'un contrat qui n'est plus actif — donc dont
+     * l'affectation n'est plus "ACTIVE" et n'apparaît pas via getAffectationActive.
+     *
+     * GET /employes/{idEmploye}/contrats/{idContrat}/affectation
+     */
+    getAffectationParContrat: async (idEmploye, idContrat) => {
+        const response = await apiClient.get(`/employes/${idEmploye}/contrats/${idContrat}/affectation`);
+        return response.data || null;
+    },
+
+    /**
      * Évaluation complète de l'état de la période d'essai calculée côté serveur.
      * GET /employes/{idEmploye}/essai/etat
      */

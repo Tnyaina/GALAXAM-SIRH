@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +49,14 @@ public class ContratTravailController {
     public ResponseEntity<?> getContratsEmploye(@PathVariable Integer idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             List<ContratTravail> contrats = ContratTravail.listerParEmploye(idEmploye, c);
-            return ResponseEntity.ok(contrats);
+            // Enrichissement avec les libellés (filiale, type contrat...) pour chaque contrat
+            // de l'historique — nécessaire notamment pour le certificat de travail, qui est
+            // généré à partir d'un contrat de l'historique (donc jamais le contrat "actif").
+            List<Map<String, Object>> contratsEnrichis = new ArrayList<>();
+            for (ContratTravail ct : contrats) {
+                contratsEnrichis.add(enrichirContrat(ct, c));
+            }
+            return ResponseEntity.ok(contratsEnrichis);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
@@ -322,6 +330,36 @@ public class ContratTravailController {
         }
     }
 
+    /**
+     * Affectation liée à un contrat spécifique, quel que soit son statut
+     * (ACTIVE, HISTORISEE, PLANIFIEE...).
+     *
+     * Contrairement à /affectations/active (qui ne renvoie que l'affectation en cours),
+     * cet endpoint permet de reconstituer fonction / site / département / catégorie pro
+     * d'un contrat déjà terminé — cas typique du certificat de travail, qui ne se génère
+     * justement que pour un contrat qui n'est plus actif.
+     *
+     * GET /employes/{idEmploye}/contrats/{idContrat}/affectation
+     */
+    @GetMapping("/contrats/{idContrat}/affectation")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getAffectationParContrat(@PathVariable Integer idEmploye, @PathVariable Integer idContrat) {
+        try (Connection c = dataSource.getConnection()) {
+            ContratTravail contrat = new ContratTravail().rechercherParId(idContrat, c);
+            if (contrat == null || !contrat.getIdEmploye().equals(idEmploye)) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Contrat introuvable.");
+            }
+            EmployeAffectationCarriere affectation = EmployeAffectationCarriere.rechercherParContrat(idContrat, c);
+            if (affectation == null) {
+                return ResponseEntity.ok(null);
+            }
+            return ResponseEntity.ok(enrichirAffectation(affectation, c));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
+        }
+    }
+
     // =========================================================================
     // MÉTHODES UTILITAIRES
     // =========================================================================
@@ -427,6 +465,31 @@ public class ContratTravailController {
         return null;
     }
 
+    /**
+     * Récupère le libellé et les informations légales (adresse, NIF, STAT) d'une filiale.
+     * Nécessaire pour l'en-tête officiel du certificat de travail.
+     *
+     * ATTENTION : adapter les noms de colonnes (adresse / nif / stat) si le schéma réel
+     * de ref_filiale diffère — cette table n'était pas incluse dans le script SQL fourni.
+     */
+    private Map<String, Object> fetchFiliale(Connection c, Integer id) {
+        if (id == null || id <= 0) return null;
+        String sql = "SELECT raison_sociale, nif, stat FROM ref_filiale WHERE id_filiale = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("libelle", rs.getString("raison_sociale"));
+                    m.put("nif", rs.getString("nif"));
+                    m.put("stat", rs.getString("stat"));
+                    return m;
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
     private Map<String, Object> enrichirContrat(ContratTravail ct, Connection c) {
         Map<String, Object> map = new HashMap<>();
         map.put("idContrat", ct.getIdContrat());
@@ -446,7 +509,13 @@ public class ContratTravailController {
         map.put("commentaire", ct.getCommentaire());
 
         if (ct.getIdFiliale() != null && ct.getIdFiliale() > 0) {
-            map.put("libelleFiliale", fetchLibelle(c, "SELECT libelle FROM ref_filiale WHERE id_filiale = ?", ct.getIdFiliale()));
+            Map<String, Object> filiale = fetchFiliale(c, ct.getIdFiliale());
+            if (filiale != null) {
+                map.put("libelleFiliale", filiale.get("libelle"));
+                // Objet complet transmis au front (adresse/NIF/STAT), utilisé notamment
+                // par le certificat de travail dans son en-tête officiel.
+                map.put("filiale", filiale);
+            }
         }
         if (ct.getIdTypeContrat() != null && ct.getIdTypeContrat() > 0) {
             map.put("libelleTypeContrat", fetchLibelle(c, "SELECT libelle FROM ref_type_contrat WHERE id_type_contrat = ?", ct.getIdTypeContrat()));

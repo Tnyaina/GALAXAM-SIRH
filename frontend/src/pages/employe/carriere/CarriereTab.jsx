@@ -47,13 +47,47 @@ export default function CarriereTab({
     const [isCertificatModalOpen, setIsCertificatModalOpen] = useState(false);
 
     const [selectedCertificatContrat, setSelectedCertificatContrat] = useState(null);
+    const [selectedCertificatAffectation, setSelectedCertificatAffectation] = useState(null);
+    const [loadingCertificatAffectation, setLoadingCertificatAffectation] = useState(false);
     const [selectedWfModal, setSelectedWfModal] = useState(null);
     const [editInitialData, setEditInitialData] = useState(null);
     const [isTransitioning, setIsTransitioning] = useState(false);
 
-    const handleOpenCertificat = (contrat = null) => {
-        setSelectedCertificatContrat(contrat || contratActif || (contratsList.length > 0 ? contratsList[0] : null));
+    /**
+     * Ouvre le certificat de travail pour un contrat donné.
+     *
+     * Le certificat ne se génère que pour un contrat qui n'est plus actif : son
+     * affectation liée n'a donc jamais le statut ACTIVE et n'est pas fournie par
+     * `affectationActive` (issu de useCarriere). On va la chercher explicitement
+     * via /contrats/{idContrat}/affectation, qui retrouve l'affectation par id_contrat
+     * quel que soit son statut (ACTIVE, HISTORISEE...).
+     */
+    const handleOpenCertificat = async (contrat = null) => {
+        const cible = contrat || contratActif || (contratsList.length > 0 ? contratsList[0] : null);
+        if (!cible) return;
+
+        setSelectedCertificatContrat(cible);
+        setSelectedCertificatAffectation(null);
         setIsCertificatModalOpen(true);
+
+        // Si c'est le contrat actif courant, son affectation active est déjà en mémoire.
+        if (contratActif && Number(cible.idContrat) === Number(contratActif.idContrat)) {
+            setSelectedCertificatAffectation(affectationActive);
+            return;
+        }
+
+        // Sinon (cas normal du certificat : contrat historique / terminé),
+        // on récupère l'affectation propre à ce contrat.
+        setLoadingCertificatAffectation(true);
+        try {
+            const aff = await contratService.getAffectationParContrat(idEmploye, cible.idContrat);
+            setSelectedCertificatAffectation(aff);
+        } catch (err) {
+            console.error('Erreur récupération affectation du contrat pour le certificat:', err);
+            setSelectedCertificatAffectation(null);
+        } finally {
+            setLoadingCertificatAffectation(false);
+        }
     };
 
     // Auto-ouverture du modal si un workflowId est passé via l'URL (?wf=)
@@ -278,7 +312,8 @@ export default function CarriereTab({
                     onClose={() => setIsCertificatModalOpen(false)}
                     employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
                     contrat={selectedCertificatContrat || contratActif || (contratsList.length > 0 ? contratsList[0] : null)}
-                    affectation={selectedCertificatContrat || affectationActive}
+                    affectation={selectedCertificatAffectation}
+                    loadingAffectation={loadingCertificatAffectation}
                     filiale={selectedCertificatContrat?.filiale || contratActif?.filiale}
                     dateDebutInitiale={
                         contratsList.length > 0
