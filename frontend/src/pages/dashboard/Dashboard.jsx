@@ -1,3 +1,4 @@
+import { useState, memo } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Users, FileText, Clock, AlertTriangle, CheckCheck,
@@ -25,38 +26,66 @@ function fmtRelative(ts) {
     return `il y a ${Math.floor(diffH / 24)}j`;
 }
 
-function getBadgeClass(joursRestants) {
-    if (joursRestants === 0) return 'bg-danger-500/15 text-danger-600 dark:text-danger-400';
-    if (joursRestants <= 7) return 'bg-warning-500/15 text-warning-700 dark:text-warning-400';
-    return 'bg-brand-500/10 text-brand-700 dark:text-brand-400';
+// Palette de "tons" pour badges/chips — un seul endroit à modifier si un
+// statut change de couleur, au lieu de ternaires dupliquées dans chaque row.
+const TONE = {
+    danger: 'bg-danger-500/15 text-danger-600 dark:text-danger-400',
+    dangerSolid: 'bg-danger-500 text-white',
+    warning: 'bg-warning-500/15 text-warning-700 dark:text-warning-400',
+    warningSolid: 'bg-warning-500 text-white',
+    brand: 'bg-brand-500/10 text-brand-700 dark:text-brand-400',
+    brandSoft: 'bg-brand-500/15 text-brand-700 dark:text-brand-400',
+    success: 'bg-success-500/10 text-success-700 dark:text-success-400',
+    neutral: 'bg-ink-100 dark:bg-ink-800 text-ink-400',
+};
+
+function countBadgeClass(count, activeTone) {
+    return count > 0 ? TONE[activeTone] : TONE.neutral;
+}
+
+function getEcheanceBadgeClass(joursRestants) {
+    if (joursRestants === 0) return TONE.danger;
+    if (joursRestants <= 7) return TONE.warning;
+    return TONE.brand;
+}
+
+function getBrouillonBadgeClass(joursAttente) {
+    return joursAttente >= 2 ? TONE.warning : TONE.brandSoft;
+}
+
+function getActiviteBadgeClass(isValide) {
+    return isValide ? TONE.success : TONE.neutral;
 }
 
 // =========================================================================
 // Composants atomiques
 // =========================================================================
+// Rappel rg.md §2 : pas d'arrondi, sauf switch / pastille de statut (dot) /
+// spinner / avatar rond. Tout le reste (cards, badges texte, boutons) reste
+// carré — `border-2` ou `shadow` pour délimiter, jamais de `rounded-*`.
 
 function SkeletonCard() {
     return (
-        <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-150 dark:border-ink-800 p-5 animate-pulse">
+        <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-800 p-5 animate-pulse">
             <div className="flex items-center justify-between mb-4">
-                <div className="w-8 h-8 bg-ink-100 dark:bg-ink-800 rounded-lg" />
-                <div className="w-16 h-4 bg-ink-100 dark:bg-ink-800 rounded" />
+                <div className="w-8 h-8 bg-ink-100 dark:bg-ink-800" />
+                <div className="w-16 h-4 bg-ink-100 dark:bg-ink-800" />
             </div>
-            <div className="w-12 h-8 bg-ink-100 dark:bg-ink-800 rounded mb-1" />
-            <div className="w-24 h-3 bg-ink-100 dark:bg-ink-800 rounded" />
+            <div className="w-12 h-8 bg-ink-100 dark:bg-ink-800 mb-1" />
+            <div className="w-24 h-3 bg-ink-100 dark:bg-ink-800" />
         </div>
     );
 }
 
-function KpiCard({ icon: Icon, label, value, sublabel, color, linkTo }) {
+const KpiCard = memo(function KpiCard({ icon: Icon, label, value, sublabel, color, linkTo }) {
     const content = (
-        <div className={`bg-white dark:bg-ink-900 rounded-xl border border-ink-150 dark:border-ink-800 p-5 group transition-all duration-200 ${linkTo ? 'hover:shadow-lg hover:border-brand-300 dark:hover:border-brand-700 cursor-pointer' : ''}`}>
+        <div className={`bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-800 p-5 group transition-all duration-200 ${linkTo ? 'hover:shadow-lg hover:border-brand-300 dark:hover:border-brand-700 cursor-pointer' : ''}`}>
             <div className="flex items-start justify-between mb-3">
-                <div className={`w-9 h-9 ${color} rounded-lg flex items-center justify-center shrink-0`}>
-                    <Icon size={18} className="text-white" />
+                <div className={`w-9 h-9 ${color} flex items-center justify-center shrink-0`}>
+                    <Icon size={18} className="text-white" aria-hidden="true" />
                 </div>
                 {linkTo && (
-                    <ArrowUpRight size={14} className="text-ink-300 group-hover:text-brand-500 transition-colors mt-0.5" />
+                    <ArrowUpRight size={14} className="text-ink-300 group-hover:text-brand-500 transition-colors mt-0.5" aria-hidden="true" />
                 )}
             </div>
             <p className="text-2xl font-extrabold text-ink-900 dark:text-white tabular-nums">
@@ -67,16 +96,16 @@ function KpiCard({ icon: Icon, label, value, sublabel, color, linkTo }) {
         </div>
     );
     return linkTo ? <Link to={linkTo}>{content}</Link> : content;
-}
+});
 
-function SectionCard({ title, icon: Icon, iconColor, count, countColor, children, className = '' }) {
+const SectionCard = memo(function SectionCard({ title, icon: Icon, iconColor, count, countColor, children, className = '' }) {
     return (
-        <div className={`bg-white dark:bg-ink-900 rounded-xl border border-ink-150 dark:border-ink-800 overflow-hidden ${className}`}>
+        <div className={`bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-800 overflow-hidden ${className}`}>
             <div className="px-5 py-4 border-b border-ink-100 dark:border-ink-800 flex items-center gap-3">
-                <Icon size={16} className={iconColor} />
+                <Icon size={16} className={iconColor} aria-hidden="true" />
                 <h2 className="text-sm font-bold text-ink-800 dark:text-white flex-1">{title}</h2>
                 {count !== undefined && (
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${countColor || 'bg-ink-100 dark:bg-ink-800 text-ink-500'}`}>
+                    <span className={`text-xs font-bold px-2 py-0.5 ${countColor || TONE.neutral}`}>
                         {count}
                     </span>
                 )}
@@ -84,25 +113,49 @@ function SectionCard({ title, icon: Icon, iconColor, count, countColor, children
             <div className="p-4">{children}</div>
         </div>
     );
-}
+});
 
 function EmptyState({ msg }) {
     return (
         <div className="py-6 text-center">
-            <CheckCheck size={20} className="text-success-500 mx-auto mb-2" />
+            <CheckCheck size={20} className="text-success-500 mx-auto mb-2" aria-hidden="true" />
             <p className="text-sm text-ink-400">{msg}</p>
         </div>
     );
 }
 
-function AlerteRow({ alerte }) {
+// Rendu progressif : on ne monte que les N premières lignes au départ.
+// Évite de créer d'un coup des dizaines de <Link>/handlers pour des listes
+// qui peuvent grossir (alertes, activité) — le reste n'est monté qu'au clic.
+function ExpandableList({ items, renderItem, initialCount = 5 }) {
+    const [expanded, setExpanded] = useState(false);
+    const visible = expanded ? items : items.slice(0, initialCount);
+    const hidden = items.length - visible.length;
+
+    return (
+        <>
+            {visible.map(renderItem)}
+            {hidden > 0 && (
+                <button
+                    onClick={() => setExpanded(true)}
+                    className="w-full mt-1 py-2.5 min-h-11 text-xs font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400 hover:bg-ink-50 dark:hover:bg-ink-800/40 transition-colors"
+                >
+                    Voir {hidden} de plus
+                </button>
+            )}
+        </>
+    );
+}
+
+const AlerteRow = memo(function AlerteRow({ alerte }) {
     const isToday = alerte.joursRestants === 0;
     const isUrgent = alerte.joursRestants <= 7;
     return (
         <Link
             to={`/employes/${alerte.idEmploye}?tab=carriere`}
-            className="flex items-center gap-3 py-2.5 px-1 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-800/40 transition-colors group"
+            className="flex items-center gap-3 py-3 px-1 hover:bg-ink-50 dark:hover:bg-ink-800/40 transition-colors group"
         >
+            {/* Pastille de statut : exception rg.md, seul élément rond ici */}
             <div className={`w-2 h-2 rounded-full shrink-0 ${isToday ? 'bg-danger-500 animate-pulse' : isUrgent ? 'bg-warning-500' : 'bg-brand-400'}`} />
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-ink-800 dark:text-ink-100 truncate">
@@ -114,43 +167,44 @@ function AlerteRow({ alerte }) {
                     {' · '}{fmtDate(alerte.dateEcheance)}
                 </p>
             </div>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${getBadgeClass(alerte.joursRestants)}`}>
+            <span className={`text-xs font-bold px-2 py-0.5 shrink-0 ${getEcheanceBadgeClass(alerte.joursRestants)}`}>
                 {isToday ? 'Auj.' : `J-${alerte.joursRestants}`}
             </span>
-            <ChevronRight size={13} className="text-ink-300 group-hover:text-brand-500 transition-colors shrink-0" />
+            <ChevronRight size={13} className="text-ink-300 group-hover:text-brand-500 transition-colors shrink-0" aria-hidden="true" />
         </Link>
     );
-}
+});
 
-function BrouillonRow({ b }) {
+const BrouillonRow = memo(function BrouillonRow({ b }) {
     return (
         <Link
             to={`/employes/${b.idEmploye}?tab=carriere&wf=${b.idWorkflow}`}
-            className="flex items-center gap-3 py-2.5 px-1 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-800/40 transition-colors group"
+            className="flex items-center gap-3 py-3 px-1 hover:bg-ink-50 dark:hover:bg-ink-800/40 transition-colors group"
         >
             <div className={`w-2 h-2 rounded-full shrink-0 ${b.joursAttente >= 2 ? 'bg-warning-500' : 'bg-brand-400'}`} />
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-ink-800 dark:text-ink-100 truncate">{b.nomPrenom}</p>
                 <p className="text-xs text-ink-500 dark:text-ink-400 truncate">{b.typeEvenement} · Effet : {fmtDate(b.dateEffet)}</p>
             </div>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${b.joursAttente >= 2 ? 'bg-warning-500/15 text-warning-700 dark:text-warning-400' : 'bg-brand-500/10 text-brand-700 dark:text-brand-400'}`}>
+            <span className={`text-xs font-bold px-2 py-0.5 shrink-0 ${getBrouillonBadgeClass(b.joursAttente)}`}>
                 {b.joursAttente}j d'attente
             </span>
-            <ChevronRight size={13} className="text-ink-300 group-hover:text-brand-500 transition-colors shrink-0" />
+            <ChevronRight size={13} className="text-ink-300 group-hover:text-brand-500 transition-colors shrink-0" aria-hidden="true" />
         </Link>
     );
-}
+});
 
-function ActiviteRow({ ev }) {
+const ActiviteRow = memo(function ActiviteRow({ ev }) {
     // Correspond au libelle de ref_statut_workflow pour le code 'VALIDE'
     const isValide = ev.statut === 'Valide et applique par la DAF' ||
         ev.statut?.toLowerCase().includes('valid');
     return (
         <Link
             to={`/employes/${ev.idEmploye}?tab=carriere`}
-            className="flex items-center gap-3 py-2.5 px-1 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-800/40 transition-colors group"
+            className="flex items-center gap-3 py-3 px-1 hover:bg-ink-50 dark:hover:bg-ink-800/40 transition-colors group"
         >
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-white text-[10px] font-bold ${isValide ? 'bg-success-500' : 'bg-ink-400'}`}>
+            {/* Avatar rond : exception rg.md */}
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[10px] font-bold ${isValide ? 'bg-success-500' : 'bg-ink-400'}`}>
                 {ev.nomPrenom?.charAt(0) || '?'}
             </div>
             <div className="flex-1 min-w-0">
@@ -158,14 +212,14 @@ function ActiviteRow({ ev }) {
                 <p className="text-xs text-ink-500 dark:text-ink-400 truncate">{ev.typeEvenement}</p>
             </div>
             <div className="text-right shrink-0">
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isValide ? 'bg-success-500/10 text-success-700 dark:text-success-400' : 'bg-ink-100 dark:bg-ink-800 text-ink-500'}`}>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 ${getActiviteBadgeClass(isValide)}`}>
                     {isValide ? 'Validé' : 'Annulé'}
                 </span>
                 <p className="text-[10px] text-ink-400 mt-0.5">{fmtRelative(ev.updatedAt)}</p>
             </div>
         </Link>
     );
-}
+});
 
 // =========================================================================
 // Dashboard — Composant principal
@@ -193,7 +247,7 @@ export default function Dashboard() {
         <div className="space-y-6">
 
             {/* ── Bannière de bienvenue ─────────────────────────────────── */}
-            <div className="bg-gradient-to-r from-brand-800 to-brand-600 dark:from-brand-950 dark:to-brand-800 rounded-xl p-6 text-white flex items-center justify-between gap-4 shadow-md">
+            <div className="bg-gradient-to-r from-brand-800 to-brand-600 dark:from-brand-950 dark:to-brand-800 p-6 text-white flex items-center justify-between gap-4 shadow-md">
                 <div>
                     <p className="text-brand-200 text-sm font-medium mb-1">
                         {now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -211,9 +265,10 @@ export default function Dashboard() {
                     <button
                         onClick={refresh}
                         disabled={loading}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white/15 hover:bg-white/25 text-white rounded-lg transition-colors disabled:opacity-50"
+                        aria-label="Actualiser les données du tableau de bord"
+                        className="flex items-center gap-1.5 px-3 py-2 min-h-11 text-xs font-semibold uppercase tracking-wide bg-white/15 hover:bg-white/25 text-white transition-colors disabled:opacity-50"
                     >
-                        <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+                        <RefreshCw size={13} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
                         Actualiser
                     </button>
                     {lastRefresh && (
@@ -226,8 +281,8 @@ export default function Dashboard() {
 
             {/* ── Erreur ───────────────────────────────────────────────── */}
             {error && (
-                <div className="bg-danger-50 dark:bg-danger-500/10 border border-danger-200 dark:border-danger-500/30 rounded-xl px-5 py-4 text-sm text-danger-700 dark:text-danger-400 flex items-center gap-2">
-                    <AlertTriangle size={15} className="shrink-0" />
+                <div role="alert" className="bg-danger-50 dark:bg-danger-500/10 border border-danger-200 dark:border-danger-500/30 px-5 py-4 text-sm text-danger-700 dark:text-danger-400 flex items-center gap-2">
+                    <AlertTriangle size={15} className="shrink-0" aria-hidden="true" />
                     {error}
                 </div>
             )}
@@ -298,19 +353,25 @@ export default function Dashboard() {
                         icon={AlertTriangle}
                         iconColor="text-danger-500"
                         count={loading ? '…' : alertesCritiques.length}
-                        countColor={alertesCritiques.length > 0 ? 'bg-danger-500 text-white' : 'bg-ink-100 dark:bg-ink-800 text-ink-400'}
+                        countColor={countBadgeClass(alertesCritiques.length, 'dangerSolid')}
                     >
                         {loading && (
                             <div className="space-y-2">
                                 {[...Array(2)].map((_, i) => (
-                                    <div key={i} className="h-10 bg-ink-100 dark:bg-ink-800 rounded-lg animate-pulse" />
+                                    <div key={i} className="h-10 bg-ink-100 dark:bg-ink-800 animate-pulse" />
                                 ))}
                             </div>
                         )}
                         {!loading && alertesCritiques.length === 0 && (
                             <EmptyState msg="Aucun contrat ou essai n'expire aujourd'hui." />
                         )}
-                        {!loading && alertesCritiques.map((a, i) => <AlerteRow key={i} alerte={a} />)}
+                        {!loading && alertesCritiques.length > 0 && (
+                            <ExpandableList
+                                items={alertesCritiques}
+                                initialCount={5}
+                                renderItem={(a, i) => <AlerteRow key={i} alerte={a} />}
+                            />
+                        )}
                     </SectionCard>
 
                     {/* 7 jours */}
@@ -319,19 +380,25 @@ export default function Dashboard() {
                         icon={Clock}
                         iconColor="text-warning-500"
                         count={loading ? '…' : alertes7j.length}
-                        countColor={alertes7j.length > 0 ? 'bg-warning-500 text-white' : 'bg-ink-100 dark:bg-ink-800 text-ink-400'}
+                        countColor={countBadgeClass(alertes7j.length, 'warningSolid')}
                     >
                         {loading && (
                             <div className="space-y-2">
                                 {[...Array(3)].map((_, i) => (
-                                    <div key={i} className="h-10 bg-ink-100 dark:bg-ink-800 rounded-lg animate-pulse" />
+                                    <div key={i} className="h-10 bg-ink-100 dark:bg-ink-800 animate-pulse" />
                                 ))}
                             </div>
                         )}
                         {!loading && alertes7j.length === 0 && (
                             <EmptyState msg="Aucune échéance dans les 7 prochains jours." />
                         )}
-                        {!loading && alertes7j.map((a, i) => <AlerteRow key={i} alerte={a} />)}
+                        {!loading && (
+                            <ExpandableList
+                                items={alertes7j}
+                                initialCount={5}
+                                renderItem={(a, i) => <AlerteRow key={i} alerte={a} />}
+                            />
+                        )}
                     </SectionCard>
 
                     {/* 30 jours */}
@@ -341,9 +408,13 @@ export default function Dashboard() {
                             icon={Calendar}
                             iconColor="text-brand-500"
                             count={alertes30j.length}
-                            countColor="bg-brand-500/15 text-brand-700 dark:text-brand-400"
+                            countColor={TONE.brandSoft}
                         >
-                            {alertes30j.map((a, i) => <AlerteRow key={i} alerte={a} />)}
+                            <ExpandableList
+                                items={alertes30j}
+                                initialCount={5}
+                                renderItem={(a, i) => <AlerteRow key={i} alerte={a} />}
+                            />
                         </SectionCard>
                     )}
                 </div>
@@ -357,19 +428,25 @@ export default function Dashboard() {
                         icon={FileText}
                         iconColor="text-warning-500"
                         count={loading ? '…' : brouillons.length}
-                        countColor={brouillons.length > 0 ? 'bg-warning-500/15 text-warning-700 dark:text-warning-400' : 'bg-ink-100 dark:bg-ink-800 text-ink-400'}
+                        countColor={countBadgeClass(brouillons.length, 'warning')}
                     >
                         {loading && (
                             <div className="space-y-2">
                                 {[...Array(2)].map((_, i) => (
-                                    <div key={i} className="h-10 bg-ink-100 dark:bg-ink-800 rounded-lg animate-pulse" />
+                                    <div key={i} className="h-10 bg-ink-100 dark:bg-ink-800 animate-pulse" />
                                 ))}
                             </div>
                         )}
                         {!loading && brouillons.length === 0 && (
                             <EmptyState msg="Aucun brouillon en attente de validation." />
                         )}
-                        {!loading && brouillons.map((b, i) => <BrouillonRow key={i} b={b} />)}
+                        {!loading && brouillons.length > 0 && (
+                            <ExpandableList
+                                items={brouillons}
+                                initialCount={5}
+                                renderItem={(b, i) => <BrouillonRow key={i} b={b} />}
+                            />
+                        )}
                     </SectionCard>
 
                     {/* Activité récente */}
@@ -381,14 +458,20 @@ export default function Dashboard() {
                         {loading && (
                             <div className="space-y-2">
                                 {[...Array(4)].map((_, i) => (
-                                    <div key={i} className="h-10 bg-ink-100 dark:bg-ink-800 rounded-lg animate-pulse" />
+                                    <div key={i} className="h-10 bg-ink-100 dark:bg-ink-800 animate-pulse" />
                                 ))}
                             </div>
                         )}
                         {!loading && activite.length === 0 && (
                             <EmptyState msg="Aucun mouvement RH récent." />
                         )}
-                        {!loading && activite.map((ev, i) => <ActiviteRow key={i} ev={ev} />)}
+                        {!loading && activite.length > 0 && (
+                            <ExpandableList
+                                items={activite}
+                                initialCount={6}
+                                renderItem={(ev, i) => <ActiviteRow key={i} ev={ev} />}
+                            />
+                        )}
                     </SectionCard>
 
                     {/* Accès rapides */}
@@ -400,13 +483,13 @@ export default function Dashboard() {
                                 <Link
                                     key={to}
                                     to={to}
-                                    className="flex items-center gap-3 py-2.5 px-3 rounded-lg bg-ink-50 dark:bg-ink-800/50 hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:border-brand-200 dark:hover:border-brand-800 border border-ink-100 dark:border-ink-800 transition-all group"
+                                    className="flex items-center gap-3 py-3 px-3 min-h-11 bg-ink-50 dark:bg-ink-800/50 hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:border-brand-200 dark:hover:border-brand-800 border border-ink-100 dark:border-ink-800 transition-all group"
                                 >
-                                    <Icon size={15} className={color} />
+                                    <Icon size={15} className={color} aria-hidden="true" />
                                     <span className="text-sm font-medium text-ink-700 dark:text-ink-200 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                                         {label}
                                     </span>
-                                    <ChevronRight size={13} className="ml-auto text-ink-300 group-hover:text-brand-500 transition-colors" />
+                                    <ChevronRight size={13} className="ml-auto text-ink-300 group-hover:text-brand-500 transition-colors" aria-hidden="true" />
                                 </Link>
                             ))}
                         </div>

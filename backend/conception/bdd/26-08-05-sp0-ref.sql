@@ -322,4 +322,4 @@ INSERT INTO parametre_global (code_parametre, valeur, description, date_debut) V
 ('REDUCTION_IRSA_PAR_ENFANT', '2000.00', 'Déduction d impôt IRSA par enfant à charge', '2026-01-01'),
 ('SEUIL_HEURES_JOUR', '8', 'Nombre d heures normales quotidiennes', '2026-01-01'),
 ('SEUIL_HEURES_SEMAINE', '40', 'Nombre d heures normales hebdomadaires', '2026-01-01'),
-('DIVISEUR_TAUX_CONGES', '173.33', 'Heures mensuelles conventionnelles', '2026-01-01');
+('DIVISEUR_HORAIRE_ABSENCE', '173.33', 'Heures mensuelles conventionnelles pour valoriser une absence', '2026-01-01');
