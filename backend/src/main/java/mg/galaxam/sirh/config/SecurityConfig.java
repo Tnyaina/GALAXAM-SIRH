@@ -1,5 +1,6 @@
 package mg.galaxam.sirh.config;
 
+import java.util.Arrays;
 import mg.galaxam.sirh.securite.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,8 +20,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
-
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -39,7 +38,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/login", "/auth/register", "/auth/refresh", "/auth/logout", "/uploads/**").permitAll()
+                .requestMatchers("/auth/login", "/auth/register", "/auth/refresh", "/auth/logout", "/uploads/**", "/error").permitAll()
                 .requestMatchers("/admin/**").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/pointage/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_AGENT_POINTAGE")
                 .anyRequest().authenticated()

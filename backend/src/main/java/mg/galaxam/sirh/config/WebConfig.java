@@ -31,10 +31,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Servir les photos et documents uploadés comme ressources statiques
+        // Servir les photos et documents uploadés comme ressources statiques avec mise en cache navigateur (7 jours)
         registry.addResourceHandler("/uploads/photos/**")
-                .addResourceLocations("file:" + uploadDir + "/");
+                .addResourceLocations("file:" + uploadDir + "/")
+                .setCacheControl(org.springframework.http.CacheControl.maxAge(7, java.util.concurrent.TimeUnit.DAYS).cachePublic());
         registry.addResourceHandler("/uploads/documents/**")
-                .addResourceLocations("file:" + uploadDocDir + "/");
+                .addResourceLocations("file:" + uploadDocDir + "/")
+                .setCacheControl(org.springframework.http.CacheControl.maxAge(7, java.util.concurrent.TimeUnit.DAYS).cachePublic());
     }
 }

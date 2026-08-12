@@ -12,3 +12,4 @@
 # Fichiers de logs ou temporaires globaux
 *.log
 .temp/
+/backend/uploads/documents

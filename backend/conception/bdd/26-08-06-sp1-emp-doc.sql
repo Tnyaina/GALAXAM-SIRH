@@ -22,6 +22,8 @@ CREATE TABLE document_rh (
     id_document SERIAL PRIMARY KEY,
     id_employe INTEGER NOT NULL,
     id_type_document INTEGER NOT NULL,
+    id_contrat INTEGER,
+    id_workflow INTEGER,
     -- Informations fichier
     nom_original VARCHAR(255) NOT NULL,
     nom_stockage VARCHAR(255) NOT NULL,
@@ -36,13 +38,17 @@ CREATE TABLE document_rh (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_document_employe FOREIGN KEY(id_employe) REFERENCES employe(id_employe) ON DELETE CASCADE,
-    CONSTRAINT fk_document_type FOREIGN KEY(id_type_document) REFERENCES ref_type_document(id_type_document)
+    CONSTRAINT fk_document_type FOREIGN KEY(id_type_document) REFERENCES ref_type_document(id_type_document),
+    CONSTRAINT fk_document_contrat FOREIGN KEY(id_contrat) REFERENCES contrat_travail(id_contrat) ON DELETE SET NULL,
+    CONSTRAINT fk_document_workflow FOREIGN KEY(id_workflow) REFERENCES workflow_rh(id_workflow) ON DELETE SET NULL
 );
 -- ============================================================
 -- INDEX
 -- ============================================================
 CREATE INDEX idx_document_employe ON document_rh(id_employe);
 CREATE INDEX idx_document_type ON document_rh(id_type_document);
+CREATE INDEX idx_document_contrat ON document_rh(id_contrat);
+CREATE INDEX idx_document_workflow ON document_rh(id_workflow);
 -- ============================================================
 -- DONNEES INITIALES TYPES DOCUMENTS
 -- ============================================================
@@ -111,6 +117,8 @@ SELECT
     d.id_document,
     d.id_employe,
     d.id_type_document,
+    d.id_contrat,
+    d.id_workflow,
     t.libelle AS type_document_libelle,
     t.categorie AS type_document_categorie,
     t.description AS type_document_description,

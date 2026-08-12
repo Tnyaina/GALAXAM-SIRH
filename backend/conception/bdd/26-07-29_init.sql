@@ -96,7 +96,7 @@ INSERT INTO role_permission (id_role, id_module, droit_lecture, droit_ecriture, 
 -- DROITS : ROLE_AGENT_POINTAGE (Accès restreint)
 -- ==========================================
 -- Lecture seule sur les employés pour pouvoir associer un pointage à une personne
-(2, 1, TRUE, FALSE, FALSE), -- EMPLOYE 
+(2, 1, FALSE, FALSE, FALSE), -- EMPLOYE 
 
 -- Aucun accès aux congés (réservé à la DAF/RH)
 (2, 2, FALSE, FALSE, FALSE), -- CONGE 
