@@ -101,7 +101,7 @@ export default function RuptureContratModal({
         setLoadingRef(true);
         try {
             const tevRes = await referentielService.getTypesEvenementRh();
-            const ruptures = (tevRes || []).filter(t => 
+            const ruptures = (tevRes || []).filter(t =>
                 ['DEMISSION', 'LICENCIEMENT', 'RUPTURE_CONVENTIONNELLE', 'FIN_CONTRAT', 'RUPTURE_ESSAI', 'DEPART_RETRAITE'].includes(t.code)
             );
             setTypesEvenement(ruptures.length > 0 ? ruptures : [
@@ -202,18 +202,16 @@ export default function RuptureContratModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-5 bg-black/60 backdrop-blur-[3px]">
             <div className="absolute inset-0" onClick={onClose} />
-
-            {/* Modal Centré Split-Screen 50 / 50 */}
             <div
                 className={`
-                    relative bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-lg shadow-2xl
-                    w-full max-w-[94vw] h-[90vh] overflow-hidden flex flex-col
+                    relative bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-2xl
+                    w-full max-w-[1440px] max-h-[95vh] overflow-hidden flex flex-col
                     transform transition-all duration-300 ease-out
                     ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
                 `}
             >
                 {/* Header (fixe) */}
-                <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 bg-danger-500/10 flex-shrink-0">
+                <div className="px-7 py-4 border-b border-ink-150 dark:border-ink-700 bg-danger-500/10 flex-shrink-0">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 font-bold text-lg text-danger-700 dark:text-danger-400">
                             <UserMinus size={22} />
@@ -238,11 +236,11 @@ export default function RuptureContratModal({
                     </div>
                 </div>
 
-                {/* Corps : Split Screen 50 / 50 */}
-                <div className="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
-                    
-                    {/* COLONNE GAUCHE (50%) : Formulaire */}
-                    <form onSubmit={handleSubmit} className="w-full lg:w-1/2 min-w-0 overflow-y-auto p-6 space-y-6 border-b lg:border-b-0 lg:border-r border-ink-150 dark:border-ink-700">
+                {/* Corps : Split Screen 50/50 Formulaire (6/12) - Aperçu Document (6/12) */}
+                <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-ink-150 dark:divide-ink-700">
+
+                    {/* COLONNE GAUCHE (6/12) : Formulaire */}
+                    <form onSubmit={handleSubmit} className={`p-7 space-y-6 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
                         {errorMsg && (
                             <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-4 rounded-sm text-xs font-semibold flex items-center gap-2">
                                 <ShieldAlert size={16} className="flex-shrink-0" />
@@ -256,8 +254,6 @@ export default function RuptureContratModal({
                             </div>
                         ) : (
                             <>
-                                {showPreviewMobile && <RupturePreview {...previewProps} className="lg:hidden mb-6" />}
-
                                 {/* ÉTAPE 1 : CHOIX DU TYPE DE RUPTURE */}
                                 <div className="space-y-3">
                                     <h3 className="text-xs font-bold uppercase tracking-wider text-danger-600 dark:text-danger-400 pb-2 border-b border-ink-150 dark:border-ink-700 flex items-center gap-2">
@@ -281,44 +277,40 @@ export default function RuptureContratModal({
                                 {/* ÉTAPE 2 : DATES & PRÉAVIS */}
                                 <div className="space-y-4">
                                     <h3 className="text-xs font-bold uppercase tracking-wider text-danger-600 dark:text-danger-400 pb-2 border-b border-ink-150 dark:border-ink-700 flex items-center gap-2">
-                                        <Calendar size={14} /> 2. Dates d'Effet & Gestion du Préavis
+                                        <Calendar size={14} /> 2. Calendrier & Préavis
                                     </h3>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <Input
-                                            type="date"
                                             id="dateNotification"
                                             name="dateNotification"
-                                            label="Date de Notification / Signature"
+                                            label="Date de Notification *"
+                                            type="date"
+                                            required
                                             value={formData.dateNotification}
                                             onChange={handleChange}
                                         />
 
                                         <Input
-                                            type="date"
                                             id="dateEffet"
                                             name="dateEffet"
-                                            label="Date de Prise d'Effet (Fin de contrat) *"
+                                            label="Date de Sortie Effective *"
+                                            type="date"
                                             required
                                             value={formData.dateEffet}
                                             onChange={handleChange}
                                         />
                                     </div>
 
-                                    <div className="bg-danger-500/5 p-4 rounded-sm border border-danger-500/20 space-y-3">
-                                        <Select
+                                    <div className="space-y-3 border-t border-ink-150 dark:border-ink-800 pt-3">
+                                        <Input
                                             id="dureePreavis"
                                             name="dureePreavis"
-                                            label="Durée du Préavis Applicable"
+                                            label="Durée du préavis (ex: 1 mois, 15 jours)"
                                             value={formData.dureePreavis}
                                             onChange={handleChange}
-                                        >
-                                            <option value="Sans préavis">Sans préavis</option>
-                                            <option value="15 Jours">15 Jours</option>
-                                            <option value="1 Mois">1 Mois</option>
-                                            <option value="2 Mois">2 Mois</option>
-                                            <option value="3 Mois">3 Mois</option>
-                                        </Select>
+                                            placeholder="Ex: 1 mois conforme à la convention"
+                                        />
 
                                         <div className="flex items-center gap-2 pt-1">
                                             <input
@@ -363,14 +355,18 @@ export default function RuptureContratModal({
                         )}
                     </form>
 
-                    {/* COLONNE DROITE (50%) : Aperçu du document de sortie */}
-                    <div className="hidden lg:block w-1/2 flex-shrink-0 bg-ink-50/60 dark:bg-ink-950/40 overflow-y-auto p-6 flex flex-col items-center">
-                        <div className="w-full max-w-[560px]">
-                            <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-wider text-ink-400">
-                                <FileSignature size={14} /> Aperçu du document de rupture
-                            </div>
-                            <RupturePreview {...previewProps} />
+                    {/* COLONNE DROITE (6/12) : Aperçu du document de sortie */}
+                    <div className={`p-7 bg-ink-50/50 dark:bg-ink-950/30 lg:col-span-6 overflow-y-auto space-y-4 ${showPreviewMobile ? 'block' : 'hidden lg:block'}`}>
+                        <div className="flex items-center justify-between pb-2 border-b border-ink-200 dark:border-ink-700">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 flex items-center gap-2">
+                                <FileSignature size={14} className="text-danger-500" />
+                                Aperçu du document de rupture
+                            </h3>
+                            <span className="text-[10px] font-mono font-bold text-danger-500 uppercase tracking-widest bg-danger-500/10 px-2 py-0.5 rounded-sm">
+                                Temps Réel
+                            </span>
                         </div>
+                        <RupturePreview {...previewProps} />
                     </div>
                 </div>
 

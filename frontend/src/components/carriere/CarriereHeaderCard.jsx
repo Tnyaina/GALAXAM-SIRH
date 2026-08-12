@@ -1,5 +1,5 @@
-import { 
-    Briefcase, Calendar, ShieldAlert, CheckCircle, Clock, Award, DollarSign, MapPin, FileText
+import {
+    Briefcase, Calendar, Clock, Award, DollarSign, MapPin, FileText
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -29,7 +29,6 @@ export default function CarriereHeaderCard({
     canWrite,
     onOpenConfirmation,
     onOpenRenouvellement,
-    onOpenRecap,
 }) {
     return (
         <div className="space-y-4">
@@ -37,9 +36,8 @@ export default function CarriereHeaderCard({
             <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-sm shadow-sm p-5">
                 <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
                     <div className="flex items-center gap-3 pr-8 border-r border-ink-150 dark:border-ink-700 last:border-0">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            contratActif ? 'bg-success-500/10 text-success-600' : brouillonWf ? 'bg-warning-500/10 text-warning-600' : 'bg-ink-100 dark:bg-ink-800 text-ink-400'
-                        }`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${contratActif ? 'bg-success-500/10 text-success-600' : brouillonWf ? 'bg-warning-500/10 text-warning-600' : 'bg-ink-100 dark:bg-ink-800 text-ink-400'
+                            }`}>
                             <Briefcase size={18} />
                         </div>
                         <div>
@@ -89,11 +87,10 @@ export default function CarriereHeaderCard({
 
             {/* ⚠️ BANNIÈRE PÉRIODE D'ESSAI EN COURS */}
             {etatEssai?.aPeriodeEssai && etatEssai?.dateFinEssai && (
-                <div className={`p-4 rounded-sm border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-                    etatEssai.estPasse
+                <div className={`p-4 rounded-sm border flex flex-col md:flex-row md:items-center justify-between gap-4 ${etatEssai.estPasse
                         ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
                         : 'bg-warning-500/10 border-warning-500/30 text-warning-900 dark:text-warning-200'
-                }`}>
+                    }`}>
                     <div className="flex items-start gap-3">
                         <div className="p-2 rounded-full bg-white dark:bg-ink-900 shadow-sm flex-shrink-0 mt-0.5">
                             <Clock className={etatEssai.estPasse ? 'text-danger-500' : 'text-warning-500'} size={20} />

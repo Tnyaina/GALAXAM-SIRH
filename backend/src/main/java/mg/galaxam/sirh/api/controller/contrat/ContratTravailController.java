@@ -414,6 +414,19 @@ public class ContratTravailController {
 
     // ─── Helpers d'enrichissement de données pour l'IHM ─────────────────────────
 
+    private String fetchLibelle(Connection c, String sql, Integer id) {
+        if (id == null || id <= 0) return null;
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString(1);
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
     private Map<String, Object> enrichirContrat(ContratTravail ct, Connection c) {
         Map<String, Object> map = new HashMap<>();
         map.put("idContrat", ct.getIdContrat());
@@ -432,23 +445,15 @@ public class ContratTravailController {
         map.put("description", ct.getDescription());
         map.put("commentaire", ct.getCommentaire());
 
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT f.libelle as filiale_lib, tc.libelle as tc_lib, ti.libelle as ti_lib " +
-                "FROM ref_filiale f " +
-                "LEFT JOIN ref_type_contrat tc ON tc.id_type_contrat = ? " +
-                "LEFT JOIN ref_type_intervenant ti ON ti.id_type_intervenant = ? " +
-                "WHERE f.id_filiale = ?")) {
-            ps.setInt(1, ct.getIdTypeContrat() != null ? ct.getIdTypeContrat() : 0);
-            ps.setInt(2, ct.getIdTypeIntervenant() != null ? ct.getIdTypeIntervenant() : 0);
-            ps.setInt(3, ct.getIdFiliale() != null ? ct.getIdFiliale() : 0);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    map.put("libelleFiliale", rs.getString("filiale_lib"));
-                    map.put("libelleTypeContrat", rs.getString("tc_lib"));
-                    map.put("libelleTypeIntervenant", rs.getString("ti_lib"));
-                }
-            }
-        } catch (Exception ignored) {}
+        if (ct.getIdFiliale() != null && ct.getIdFiliale() > 0) {
+            map.put("libelleFiliale", fetchLibelle(c, "SELECT libelle FROM ref_filiale WHERE id_filiale = ?", ct.getIdFiliale()));
+        }
+        if (ct.getIdTypeContrat() != null && ct.getIdTypeContrat() > 0) {
+            map.put("libelleTypeContrat", fetchLibelle(c, "SELECT libelle FROM ref_type_contrat WHERE id_type_contrat = ?", ct.getIdTypeContrat()));
+        }
+        if (ct.getIdTypeIntervenant() != null && ct.getIdTypeIntervenant() > 0) {
+            map.put("libelleTypeIntervenant", fetchLibelle(c, "SELECT libelle FROM ref_type_intervenant WHERE id_type_intervenant = ?", ct.getIdTypeIntervenant()));
+        }
 
         return map;
     }
@@ -471,29 +476,28 @@ public class ContratTravailController {
         map.put("description", aff.getDescription());
         map.put("commentaire", aff.getCommentaire());
 
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT s.libelle as site_lib, d.libelle as dep_lib, srv.libelle as srv_lib, f.libelle as fonc_lib, cp.libelle as cp_lib " +
-                "FROM ref_site s " +
-                "LEFT JOIN ref_departement d ON d.id_departement = ? " +
-                "LEFT JOIN ref_service srv ON srv.id_service = ? " +
-                "LEFT JOIN ref_fonction f ON f.id_fonction = ? " +
-                "LEFT JOIN ref_categorie_professionnelle cp ON cp.id_categorie_professionnelle = ? " +
-                "WHERE s.id_site = ?")) {
-            ps.setInt(1, aff.getIdDepartement() != null ? aff.getIdDepartement() : 0);
-            ps.setInt(2, aff.getIdService() != null ? aff.getIdService() : 0);
-            ps.setInt(3, aff.getIdFonction() != null ? aff.getIdFonction() : 0);
-            ps.setInt(4, aff.getIdCategorieProfessionnelle() != null ? aff.getIdCategorieProfessionnelle() : 0);
-            ps.setInt(5, aff.getIdSite() != null ? aff.getIdSite() : 0);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    map.put("libelleSite", rs.getString("site_lib"));
-                    map.put("libelleDepartement", rs.getString("dep_lib"));
-                    map.put("libelleService", rs.getString("srv_lib"));
-                    map.put("libelleFonction", rs.getString("fonc_lib"));
-                    map.put("libelleCategorieProfessionnelle", rs.getString("cp_lib"));
-                }
-            }
-        } catch (Exception ignored) {}
+        if (aff.getIdSite() != null && aff.getIdSite() > 0) {
+            map.put("libelleSite", fetchLibelle(c, "SELECT libelle FROM ref_site WHERE id_site = ?", aff.getIdSite()));
+        }
+        if (aff.getIdDepartement() != null && aff.getIdDepartement() > 0) {
+            map.put("libelleDepartement", fetchLibelle(c, "SELECT libelle FROM ref_departement WHERE id_departement = ?", aff.getIdDepartement()));
+        }
+        if (aff.getIdService() != null && aff.getIdService() > 0) {
+            map.put("libelleService", fetchLibelle(c, "SELECT libelle FROM ref_service WHERE id_service = ?", aff.getIdService()));
+        }
+        if (aff.getIdFonction() != null && aff.getIdFonction() > 0) {
+            map.put("libelleFonction", fetchLibelle(c, "SELECT libelle FROM ref_fonction WHERE id_fonction = ?", aff.getIdFonction()));
+        }
+        if (aff.getIdCategorieProfessionnelle() != null && aff.getIdCategorieProfessionnelle() > 0) {
+            String catLib = fetchLibelle(c, "SELECT libelle FROM ref_categorie_professionnelle WHERE id_categorie_professionnelle = ?", aff.getIdCategorieProfessionnelle());
+            map.put("libelleCategorieProfessionnelle", catLib);
+            map.put("libelleCategoriePro", catLib);
+        }
+        if (aff.getIdModeCalculPaie() != null && aff.getIdModeCalculPaie() > 0) {
+            String modeLib = fetchLibelle(c, "SELECT libelle FROM ref_mode_calcul_paie WHERE id_mode_calcul_paie = ?", aff.getIdModeCalculPaie());
+            map.put("libelleModeCalculPaie", modeLib);
+            map.put("libelleModePaie", modeLib);
+        }
 
         return map;
     }

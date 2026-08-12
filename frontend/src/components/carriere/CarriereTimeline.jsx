@@ -1,4 +1,4 @@
-import { 
+import {
     Briefcase, Building, Landmark, Calendar, CheckCircle, Clock, Plus, FileText, Eye, RefreshCw, UserMinus, Award
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
@@ -61,10 +61,10 @@ export default function CarriereTimeline({
                                     {brouillonWf.codeTypeEvenement === 'EMBAUCHE_INITIALE'
                                         ? 'Brouillon d\'Embauche en attente de Validation'
                                         : brouillonWf.codeTypeEvenement === 'CONFIRMATION_ESSAI'
-                                        ? 'Confirmation d\'Essai en attente de Validation'
-                                        : brouillonWf.codeTypeEvenement === 'RENOUVELLEMENT_ESSAI'
-                                        ? 'Renouvellement d\'Essai en attente de Validation'
-                                        : `${brouillonWf.libelleTypeEvenement || 'Mouvement RH'} en attente de Validation`}
+                                            ? 'Confirmation d\'Essai en attente de Validation'
+                                            : brouillonWf.codeTypeEvenement === 'RENOUVELLEMENT_ESSAI'
+                                                ? 'Renouvellement d\'Essai en attente de Validation'
+                                                : `${brouillonWf.libelleTypeEvenement || 'Mouvement RH'} en attente de Validation`}
                                 </h4>
                                 <Badge variant="warning" size="sm">BROUILLON</Badge>
                             </div>
@@ -193,23 +193,22 @@ export default function CarriereTimeline({
                                 <span className="font-semibold text-ink-800 dark:text-ink-100">{fmtDate(contratActif.dateDebut)}</span>
                             </div>
                             {etatEssai?.isEssaiActif && (
-                                <div className={`py-2 px-2.5 my-1.5 border rounded space-y-2 ${
-                                    etatEssai.isEssaiEchu 
-                                        ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300' 
+                                <div className={`py-2 px-2.5 my-1.5 border rounded space-y-2 ${etatEssai.isEssaiEchu
+                                        ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
                                         : 'bg-warning-500/10 border-warning-500/20 text-warning-800 dark:text-warning-300'
-                                }`}>
+                                    }`}>
                                     <div className="flex justify-between items-center font-medium">
                                         <span className="flex items-center gap-1.5 font-bold">
                                             <Clock size={13} /> {
-                                                etatEssai.isEssaiEchu 
-                                                    ? 'Période d\'Essai Échue (Action requise) :' 
+                                                etatEssai.isEssaiEchu
+                                                    ? 'Période d\'Essai Échue (Action requise) :'
                                                     : (etatEssai.isDernierJour ? 'Dernier Jour d\'Essai :' : 'Période d\'Essai :')
                                             }
                                         </span>
                                         <span className="font-bold">
-                                            {etatEssai.dureeEssaiMois} Mois 
-                                            {etatEssai.isEssaiEchu 
-                                                ? ` (Finie le ${fmtDate(etatEssai.dateFinEssaiStr)})` 
+                                            {etatEssai.dureeEssaiMois} Mois
+                                            {etatEssai.isEssaiEchu
+                                                ? ` (Finie le ${fmtDate(etatEssai.dateFinEssaiStr)})`
                                                 : (etatEssai.isDernierJour ? ' (Échéance ce soir à 23h59)' : ` (Fin le ${fmtDate(etatEssai.dateFinEssaiStr)})`)
                                             }
                                         </span>

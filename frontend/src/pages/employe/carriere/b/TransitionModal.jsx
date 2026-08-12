@@ -1,485 +1,390 @@
-import { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Building, Landmark, ShieldAlert, Save, X, ArrowRight, UserCheck, Clock, Eye, EyeOff, FileSignature } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { RefreshCw, ShieldAlert, Save, X, Eye, EyeOff, FileSignature, ArrowRight, Building2, MessageSquareText } from 'lucide-react';
 import Button from '@/components/ui/Button';
-import Input, { Textarea, Select } from '@/components/ui/Input';
+import Input, { Textarea } from '@/components/ui/Input';
 import Loading from '@/components/ui/Loading';
 import contratService from '@/api/employe/contratService';
 import { useContractReferentiels } from '@/hooks/useContractReferentiels';
-import {
-    DocumentFrame, DocumentHeader, Clause, ClauseDiff, ArticleBlock, DocumentFooter
-} from '@/components/carriere/ContractDocument';
-import { fmtDateFr, fmtMoney } from '@/utils/carriereUtils';
+import { fmtDateInput } from '@/utils/carriereUtils';
 
-function fmtDateInput(d) {
-    if (!d) return '';
-    if (typeof d === 'string') return d.substring(0, 10);
-    return new Date(d).toISOString().substring(0, 10);
-}
+import ContratFieldsSection from '@/components/carriere/form/ContratFieldsSection';
+import AffectationFieldsSection from '@/components/carriere/form/AffectationFieldsSection';
+import PeriodeEssaiFieldsSection from '@/components/carriere/form/PeriodeEssaiFieldsSection';
+import AvenantPreviewDocument from '@/components/carriere/preview/AvenantPreviewDocument';
 
-// ── COMPOSANT APERÇU AVENANT (Déclaré hors du render pour préserver le state) ──
-function AvenantPreview({
-    className = '',
-    typeEvenementActuel,
-    nomEmploye,
-    formData,
-    exigeNouveauContrat,
-    avantTypeContrat,
-    apresTypeContrat,
-    avantSite,
-    apresSite,
-    avantDepartement,
-    apresDepartement,
-    avantService,
-    apresService,
-    avantFonction,
-    apresFonction,
-    avantCategorie,
-    apresCategorie,
-    avantResponsable,
-    apresResponsable,
-    avantModePaie,
-    apresModePaie,
-    avantSalaire,
-}) {
+// En-tête de section réutilisable : numérote les étapes du formulaire
+// pour que la progression (mouvement -> contrat -> affectation -> motif) soit visible.
+function FormSectionHeader({ step, icon: Icon, title }) {
     return (
-        <DocumentFrame className={className} watermark="Avenant">
-            <DocumentHeader
-                eyebrow={typeEvenementActuel?.libelle || 'Mouvement RH'}
-                title="Avenant au Contrat de Travail"
-            />
-
-            <div className="pt-4 text-[13px] leading-relaxed space-y-3 font-normal">
-                <p>
-                    Le présent avenant modifie les conditions applicables à <strong>{nomEmploye || '……………'}</strong>, à effet du{' '}
-                    <strong>{fmtDateFr(formData.dateEffet) || '……………'}</strong>.
-                </p>
-
-                {exigeNouveauContrat && (
-                    <ArticleBlock n="1" title="Nouveau Contrat">
-                        <ClauseDiff label="Type de contrat" before={avantTypeContrat} after={apresTypeContrat} />
-                        <Clause label="Prise d'effet" value={fmtDateFr(formData.dateDebut || formData.dateEffet)} />
-                        <Clause label="Terme" value={fmtDateFr(formData.dateFin)} placeholder="Durée indéterminée" />
-                        {formData.aPeriodeEssai && (
-                            <Clause label="Période d'essai" value={formData.dateFinEssai ? `Jusqu'au ${fmtDateFr(formData.dateFinEssai)}` : ''} />
-                        )}
-                    </ArticleBlock>
-                )}
-
-                <ArticleBlock n={exigeNouveauContrat ? '2' : '1'} title="Affectation">
-                    <ClauseDiff label="Site" before={avantSite} after={apresSite} />
-                    <ClauseDiff label="Département" before={avantDepartement} after={apresDepartement} />
-                    <ClauseDiff label="Service" before={avantService} after={apresService} />
-                    <ClauseDiff label="Fonction" before={avantFonction} after={apresFonction} />
-                    <ClauseDiff label="Catégorie pro." before={avantCategorie} after={apresCategorie} />
-                    <ClauseDiff label="Rattaché à" before={avantResponsable} after={apresResponsable ? `${apresResponsable.nom} ${apresResponsable.prenom}` : ''} />
-                </ArticleBlock>
-
-                <ArticleBlock n={exigeNouveauContrat ? '3' : '2'} title="Rémunération">
-                    <ClauseDiff label="Mode de calcul" before={avantModePaie} after={apresModePaie} />
-                    <ClauseDiff
-                        label="Salaire de base"
-                        before={avantSalaire ? fmtMoney(avantSalaire) : ''}
-                        after={formData.salaireBase ? fmtMoney(formData.salaireBase) : ''}
-                    />
-                </ArticleBlock>
-
-                {formData.motif && (
-                    <div className="pt-2 border-t border-ink-150 dark:border-ink-800">
-                        <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-brand-500">Motif</p>
-                        <p className="text-ink-600 dark:text-ink-300 text-[12.5px] mt-0.5">{formData.motif}</p>
-                    </div>
-                )}
-            </div>
-
-            <DocumentFooter status="Brouillon (en attente de validation)" />
-        </DocumentFrame>
+        <div className="flex items-center gap-2">
+            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-brand-500/10 text-brand-500 text-[10px] font-bold shrink-0">
+                {step}
+            </span>
+            <h3 className="flex items-center gap-1.5 text-xs font-bold text-ink-600 dark:text-ink-300 uppercase tracking-wider">
+                {Icon && <Icon size={13} className="text-brand-500" />}
+                {title}
+            </h3>
+        </div>
     );
 }
 
-// ── COMPOSANT PRINCIPAL MODAL ────────────────────────────────────────────────
 export default function TransitionModal({
     isOpen,
     onClose,
     idEmploye,
     nomEmploye,
-    contratActif,
-    affectationActive,
-    workflowActif,
+    typeEvenement = null,
+    affectationActive = null,
+    contratActif = null,
     initialData = null,
     onSuccess,
 }) {
-    const [mounted, setMounted] = useState(false);
-    const errorAlertRef = useRef(null);
+    const isEditMode = !!initialData;
 
-    // Référentiels via Custom Hook avec cache & lazy loading
     const {
-        sites,
-        departements,
-        services,
-        fonctions,
-        typesContrat,
-        categoriesPro,
-        modesPaie,
-        responsables,
-        typesIntervenant,
-        typesEvenementRh,
-        loading: loadingRef,
-        error: refError,
+        filiales = [], sites = [], departements = [], services = [], fonctions = [],
+        typesContrat = [], typesIntervenant = [], categoriesPro = [], modesPaie = [], responsables = [],
+        typesEvenementRh = [], loading: loadingRef,
     } = useContractReferentiels(isOpen, idEmploye);
 
-    // Type de transition sélectionné
-    const [codeTypeEvenement, setCodeTypeEvenement] = useState('MUTATION');
+    const typesEvenementList = typesEvenementRh || [];
 
-    // Formulaire de transition
     const [formData, setFormData] = useState({
-        idFiliale: '',
-        idTypeContrat: '',
-        idTypeIntervenant: '',
-        dateDebut: '',
-        dateFin: '',
-        dateSignature: '',
-        comptabiliseEffectif: true,
-        numeroContrat: '',
-        descriptionContrat: '',
-        commentaireContrat: '',
-        aPeriodeEssai: false,
-        dureeEssaiMois: '3',
-        dateFinEssai: '',
-
-        idSite: '',
-        idDepartement: '',
-        idService: '',
-        idFonction: '',
-        idResponsableHierarchique: '',
-        idCategorieProfessionnelle: '',
-        idModeCalculPaie: '',
-        salaireBase: '',
-        descriptionAffectation: '',
-        commentaireAffectation: '',
-
-        dateEffet: fmtDateInput(new Date()),
+        codeTypeEvenement: '', idFiliale: '', idTypeContrat: '', idTypeIntervenant: '',
+        dateEffet: '', dateDebut: '', dateFin: '', dateSignature: '', comptabiliseEffectif: true,
+        numeroContrat: '', descriptionContrat: '', commentaireContrat: '', aPeriodeEssai: false,
+        dureeEssaiMois: '3', dateFinEssai: '', idSite: '', idDepartement: '', idService: '',
+        idFonction: '', idResponsableHierarchique: '', idCategorieProfessionnelle: '',
+        idModeCalculPaie: '', salaireBase: '', descriptionAffectation: '', commentaireAffectation: '',
         motif: '',
     });
 
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
     const [showPreviewMobile, setShowPreviewMobile] = useState(false);
-
-    // Filtrer les événements de type transition
-    const typesEvenement = (typesEvenementRh || []).filter(t =>
-        !['EMBAUCHE_INITIALE', 'FIN_CONTRAT', 'DEPART_RETRAITE', 'RUPTURE_ESSAI', 'RENOUVELLEMENT_ESSAI', 'CONFIRMATION_ESSAI'].includes(t.code)
-    );
-
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
             const t = setTimeout(() => setMounted(true), 10);
             return () => clearTimeout(t);
+        } else {
+            setMounted(false);
         }
-        setMounted(false);
-        setShowPreviewMobile(false);
     }, [isOpen]);
 
-    // Scroll automatique vers l'erreur lorsqu'elle survient
-    useEffect(() => {
-        if (errorMsg && errorAlertRef.current) {
-            errorAlertRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-    }, [errorMsg]);
+    const exigeNouveauContrat = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT']
+        .includes(formData.codeTypeEvenement);
 
     useEffect(() => {
         if (!isOpen) return;
 
-        const targetData = initialData || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif : null);
+        const defaultTypeEv = typeEvenement?.code || 'PROMOTION';
+        const today = fmtDateInput(new Date());
 
-        if (targetData?.codeTypeEvenement) {
-            setCodeTypeEvenement(targetData.codeTypeEvenement);
+        if (initialData) {
+            const c = initialData.contratCible || initialData.contratSource || contratActif || {};
+            const a = initialData.affectationCible || initialData.affectationSource || affectationActive || {};
+            const w = initialData.workflow || {};
+
+            setFormData({
+                codeTypeEvenement: w.typeEvenementCode || defaultTypeEv,
+                idFiliale: c.idFiliale || filiales[0]?.idFiliale || '',
+                idTypeContrat: c.idTypeContrat || '',
+                idTypeIntervenant: c.idTypeIntervenant || '',
+                dateEffet: fmtDateInput(w.dateEffet) || today,
+                dateDebut: fmtDateInput(c.dateDebut) || today,
+                dateFin: fmtDateInput(c.dateFin) || '',
+                dateSignature: fmtDateInput(c.dateSignature) || today,
+                comptabiliseEffectif: c.comptabiliseEffectif !== false,
+                numeroContrat: c.numeroContrat || '',
+                descriptionContrat: c.description || '',
+                commentaireContrat: c.commentaire || '',
+                aPeriodeEssai: c.dureeEssaiMois != null && c.dureeEssaiMois > 0,
+                dureeEssaiMois: c.dureeEssaiMois ? String(c.dureeEssaiMois) : '3',
+                dateFinEssai: fmtDateInput(c.dateFinEssai) || '',
+                idSite: a.idSite || sites[0]?.idSite || '',
+                idDepartement: a.idDepartement || departements[0]?.idDepartement || '',
+                idService: a.idService || services[0]?.idService || '',
+                idFonction: a.idFonction || fonctions[0]?.idFonction || '',
+                idResponsableHierarchique: a.idResponsableHierarchique || '',
+                idCategorieProfessionnelle: a.idCategorieProfessionnelle || categoriesPro[0]?.idCategorie || '',
+                idModeCalculPaie: a.idModeCalculPaie || modesPaie[0]?.idModeCalcul || '',
+                salaireBase: a.salaireBase ? String(a.salaireBase) : '',
+                descriptionAffectation: a.description || '',
+                commentaireAffectation: a.commentaire || '',
+                motif: w.motif || '',
+            });
+        } else {
+            const baseContrat = contratActif || {};
+            const baseAff = affectationActive || {};
+
+            setFormData({
+                codeTypeEvenement: defaultTypeEv,
+                idFiliale: baseContrat.idFiliale || filiales[0]?.idFiliale || '',
+                idTypeContrat: baseContrat.idTypeContrat || '',
+                idTypeIntervenant: baseContrat.idTypeIntervenant || '',
+                dateEffet: today,
+                dateDebut: today,
+                dateFin: '',
+                dateSignature: today,
+                comptabiliseEffectif: true,
+                numeroContrat: '',
+                descriptionContrat: '',
+                commentaireContrat: '',
+                aPeriodeEssai: false,
+                dureeEssaiMois: '3',
+                dateFinEssai: '',
+                idSite: baseAff.idSite || sites[0]?.idSite || '',
+                idDepartement: baseAff.idDepartement || departements[0]?.idDepartement || '',
+                idService: baseAff.idService || services[0]?.idService || '',
+                idFonction: baseAff.idFonction || fonctions[0]?.idFonction || '',
+                idResponsableHierarchique: baseAff.idResponsableHierarchique || '',
+                idCategorieProfessionnelle: baseAff.idCategorieProfessionnelle || categoriesPro[0]?.idCategorie || '',
+                idModeCalculPaie: baseAff.idModeCalculPaie || modesPaie[0]?.idModeCalcul || '',
+                salaireBase: baseAff.salaireBase ? String(baseAff.salaireBase) : '',
+                descriptionAffectation: '',
+                commentaireAffectation: '',
+                motif: typeEvenement?.libelle || 'Changement de situation',
+            });
         }
+        setErrorMsg('');
+    }, [isOpen, typeEvenement, initialData, contratActif, affectationActive, filiales, sites, departements, services, fonctions, categoriesPro, modesPaie]);
 
-        let filialeId = targetData?.idFiliale || targetData?.id_filiale || contratActif?.idFiliale || workflowActif?.idFiliale || '';
-        let typeContratId = targetData?.idTypeContrat || targetData?.id_type_contrat || contratActif?.idTypeContrat || workflowActif?.idTypeContrat || '';
-        let typeIntervenantId = targetData?.idTypeIntervenant || targetData?.id_type_intervenant || contratActif?.idTypeIntervenant || workflowActif?.idTypeIntervenant || '';
-        let siteId = targetData?.idSite || targetData?.id_site || affectationActive?.idSite || workflowActif?.idSite || '';
-        let departementId = targetData?.idDepartement || targetData?.id_departement || affectationActive?.idDepartement || workflowActif?.idDepartement || '';
-        let serviceId = targetData?.idService || targetData?.id_service || affectationActive?.idService || workflowActif?.idService || '';
-        let fonctionId = targetData?.idFonction || targetData?.id_fonction || affectationActive?.idFonction || workflowActif?.idFonction || '';
-        let respId = targetData?.idResponsableHierarchique || targetData?.id_responsable_hierarchique || affectationActive?.idResponsableHierarchique || workflowActif?.idResponsableHierarchique || '';
-        let catProId = targetData?.idCategorieProfessionnelle || targetData?.id_categorie_professionnelle || affectationActive?.idCategorieProfessionnelle || workflowActif?.idCategorieProfessionnelle || '';
-        let modePaieId = targetData?.idModeCalculPaie || targetData?.id_mode_calcul_paie || affectationActive?.idModeCalculPaie || workflowActif?.idModeCalculPaie || '';
-
-        let salaire = targetData?.salaireBase !== undefined && targetData?.salaireBase !== null && targetData?.salaireBase !== ''
-            ? targetData.salaireBase
-            : (affectationActive?.salaireBase !== undefined ? affectationActive.salaireBase : (workflowActif?.salaireBase || ''));
-
-        let dateEffetVal = targetData?.dateEffet ? fmtDateInput(targetData.dateEffet) : fmtDateInput(new Date());
-        let motifVal = targetData?.motif || '';
-
-        setFormData(prev => ({
-            ...prev,
-            idFiliale: filialeId ? String(filialeId) : prev.idFiliale,
-            idTypeContrat: typeContratId ? String(typeContratId) : prev.idTypeContrat,
-            idTypeIntervenant: typeIntervenantId ? String(typeIntervenantId) : prev.idTypeIntervenant,
-            idSite: siteId ? String(siteId) : prev.idSite,
-            idDepartement: departementId ? String(departementId) : prev.idDepartement,
-            idService: serviceId ? String(serviceId) : prev.idService,
-            idFonction: fonctionId ? String(fonctionId) : prev.idFonction,
-            idResponsableHierarchique: respId ? String(respId) : prev.idResponsableHierarchique,
-            idCategorieProfessionnelle: catProId ? String(catProId) : prev.idCategorieProfessionnelle,
-            idModeCalculPaie: modePaieId ? String(modePaieId) : prev.idModeCalculPaie,
-            salaireBase: salaire !== '' ? String(salaire) : prev.salaireBase,
-            dateEffet: dateEffetVal,
-            motif: motifVal,
-            comptabiliseEffectif: targetData?.comptabiliseEffectif !== undefined ? Boolean(targetData.comptabiliseEffectif) : (contratActif?.comptabiliseEffectif !== undefined ? Boolean(contratActif.comptabiliseEffectif) : true),
-        }));
-    }, [isOpen, contratActif, affectationActive, workflowActif, initialData]);
-
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setErrorMsg(''); // Effacer l'erreur lors de la saisie
+    const setField = (field, val) => {
         setFormData(prev => {
-            const next = { ...prev, [name]: type === 'checkbox' ? checked : value };
-            if (next.aPeriodeEssai && (name === 'aPeriodeEssai' || name === 'dureeEssaiMois' || name === 'dateDebut' || name === 'dateEffet')) {
-                const dateDeb = next.dateDebut || next.dateEffet;
-                const duree = Number(next.dureeEssaiMois || 3);
-                if (dateDeb && !isNaN(duree)) {
-                    const d = new Date(dateDeb);
-                    if (!isNaN(d.getTime())) {
-                        d.setMonth(d.getMonth() + duree);
-                        next.dateFinEssai = d.toISOString().substring(0, 10);
+            const updated = { ...prev, [field]: val };
+            if (field === 'dateEffet' && (!prev.dateDebut || prev.dateDebut === prev.dateEffet)) {
+                updated.dateDebut = val;
+            }
+            if (field === 'dateDebut' || field === 'aPeriodeEssai' || field === 'dureeEssaiMois') {
+                const dateDeb = field === 'dateDebut' ? val : prev.dateDebut;
+                const aEssai = field === 'aPeriodeEssai' ? val : prev.aPeriodeEssai;
+                const dur = field === 'dureeEssaiMois' ? val : prev.dureeEssaiMois;
+
+                if (aEssai && dateDeb && dur) {
+                    try {
+                        const d = new Date(dateDeb);
+                        d.setMonth(d.getMonth() + parseInt(dur));
+                        updated.dateFinEssai = fmtDateInput(d);
+                    } catch (err) {
+                        console.warn("Erreur calcul date fin essai:", err);
                     }
+                } else if (!aEssai) {
+                    updated.dateFinEssai = '';
                 }
             }
-            return next;
+            return updated;
         });
     };
-
-    const exigeNouveauContrat = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT'].includes(codeTypeEvenement);
-
-    const apresSite = sites.find(s => String(s.idSite) === String(formData.idSite))?.libelle;
-    const apresDepartement = departements.find(d => String(d.idDepartement) === String(formData.idDepartement))?.libelle;
-    const apresService = services.find(s => String(s.idService) === String(formData.idService))?.libelle;
-    const apresFonction = fonctions.find(f => String(f.idFonction) === String(formData.idFonction))?.libelle;
-    const apresCategorie = categoriesPro.find(c => String(c.idCategorieProfessionnelle) === String(formData.idCategorieProfessionnelle))?.libelle;
-    const apresModePaie = modesPaie.find(m => String(m.idModeCalculPaie) === String(formData.idModeCalculPaie))?.libelle;
-    const apresResponsable = responsables.find(r => String(r.idEmploye) === String(formData.idResponsableHierarchique));
-    const apresTypeContrat = typesContrat.find(t => String(t.idTypeContrat) === String(formData.idTypeContrat))?.libelle;
-
-    const avantSite = affectationActive?.libelleSite || workflowActif?.libelleSite || '';
-    const avantDepartement = affectationActive?.libelleDepartement || workflowActif?.libelleDepartement || '';
-    const avantService = affectationActive?.libelleService || workflowActif?.libelleService || '';
-    const avantFonction = affectationActive?.libelleFonction || workflowActif?.libelleFonction || '';
-    const avantCategorie = affectationActive?.libelleCategoriePro || workflowActif?.libelleCategoriePro || '';
-    const avantModePaie = affectationActive?.libelleModeCalculPaie || workflowActif?.libelleModeCalculPaie || '';
-    const avantResponsable = affectationActive?.nomPrenomResponsable || workflowActif?.nomPrenomResponsable || '';
-    const avantSalaire = affectationActive?.salaireBase ?? workflowActif?.salaireBase ?? '';
-    const avantTypeContrat = contratActif?.libelleTypeContrat || workflowActif?.libelleTypeContrat || '';
-
-    const typeEvenementActuel = (typesEvenement.length > 0 ? typesEvenement : []).find(t => t.code === codeTypeEvenement);
-
-    // ── AMÉLIORATION UX : Calcul dynamique des champs obligatoires réels ──
-    const champsObligatoires = [
-        formData.dateEffet, 
-        formData.idSite, 
-        formData.idDepartement, 
-        formData.idService, 
-        formData.idFonction, 
-        formData.idCategorieProfessionnelle, 
-        formData.idModeCalculPaie, 
-        formData.salaireBase,
-        ...(exigeNouveauContrat ? [formData.idTypeContrat, formData.idTypeIntervenant] : [])
-    ];
-    const nbRemplis = champsObligatoires.filter(v => v !== '' && v !== null && v !== undefined).length;
-    const progressPct = Math.round((nbRemplis / champsObligatoires.length) * 100);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setErrorMsg('');
 
-        if (!formData.dateEffet) {
-            setErrorMsg('La date d\'effet du mouvement est obligatoire.');
+        if (!formData.codeTypeEvenement || !formData.dateEffet || !formData.idSite ||
+            !formData.idDepartement || !formData.idService || !formData.idFonction ||
+            !formData.idCategorieProfessionnelle || !formData.idModeCalculPaie || !formData.salaireBase) {
+            setErrorMsg('Veuillez remplir tous les champs obligatoires (*).');
             return;
         }
 
-        if (!formData.idSite || !formData.idDepartement || !formData.idService || !formData.idFonction || !formData.idCategorieProfessionnelle || !formData.idModeCalculPaie || !formData.salaireBase) {
-            setErrorMsg('Veuillez remplir tous les champs obligatoires de la nouvelle affectation.');
+        if (exigeNouveauContrat) {
+            if (!formData.idTypeContrat || !formData.idTypeIntervenant) {
+                setErrorMsg('Le type de contrat et le type d\'intervenant de destination sont obligatoires.');
+                return;
+            }
+        }
+
+        const selectedTypeContrat = typesContrat.find(tc => String(tc.idTypeContrat) === String(formData.idTypeContrat));
+        const selectedTypeIntervenant = typesIntervenant.find(ti => String(ti.idTypeIntervenant) === String(formData.idTypeIntervenant));
+
+        if (selectedTypeIntervenant?.code === 'STAGIAIRE' && selectedTypeContrat?.code !== 'STAGE') {
+            setErrorMsg("Un intervenant Stagiaire doit obligatoirement avoir un contrat de type Stage / Convention.");
             return;
         }
 
-        // ── AMÉLIORATION BUG : Validation front des champs du nouveau contrat ──
-        if (exigeNouveauContrat && (!formData.idTypeContrat || !formData.idTypeIntervenant)) {
-            setErrorMsg('Veuillez sélectionner le nouveau type de contrat et le profil d\'intervenant.');
-            return;
-        }
+        const payload = {
+            codeTypeEvenement: formData.codeTypeEvenement,
+            dateEffet: formData.dateEffet,
+            idContratSource: contratActif?.idContrat || initialData?.workflow?.idContratSource || null,
+            idAffectationSource: affectationActive?.idAffectation || initialData?.workflow?.idAffectationSource || null,
+            idFiliale: formData.idFiliale ? parseInt(formData.idFiliale) : null,
+            idTypeContrat: formData.idTypeContrat ? parseInt(formData.idTypeContrat) : null,
+            idTypeIntervenant: formData.idTypeIntervenant ? parseInt(formData.idTypeIntervenant) : null,
+            dateDebut: formData.dateDebut || formData.dateEffet,
+            dateFin: formData.dateFin || null,
+            dateSignature: formData.dateSignature || formData.dateEffet,
+            comptabiliseEffectif: formData.comptabiliseEffectif,
+            numeroContrat: formData.numeroContrat || null,
+            descriptionContrat: formData.descriptionContrat || null,
+            commentaireContrat: formData.commentaireContrat || null,
+            dureeEssaiMois: formData.aPeriodeEssai && formData.dureeEssaiMois ? parseInt(formData.dureeEssaiMois) : null,
+            dateFinEssai: formData.aPeriodeEssai && formData.dateFinEssai ? formData.dateFinEssai : null,
+            idSite: parseInt(formData.idSite),
+            idDepartement: parseInt(formData.idDepartement),
+            idService: parseInt(formData.idService),
+            idFonction: parseInt(formData.idFonction),
+            idResponsableHierarchique: formData.idResponsableHierarchique ? parseInt(formData.idResponsableHierarchique) : null,
+            idCategorieProfessionnelle: parseInt(formData.idCategorieProfessionnelle),
+            idModeCalculPaie: parseInt(formData.idModeCalculPaie),
+            salaireBase: parseFloat(formData.salaireBase),
+            descriptionAffectation: formData.descriptionAffectation || null,
+            commentaireAffectation: formData.commentaireAffectation || null,
+            motif: formData.motif || null,
+        };
 
         setSubmitting(true);
-
         try {
-            const payload = {
-                codeTypeEvenement,
-                idContratSource: contratActif?.idContrat || null,
-                idAffectationSource: affectationActive?.idAffectation || null,
-
-                idFiliale: exigeNouveauContrat ? Number(formData.idFiliale || contratActif?.idFiliale) : null,
-                idTypeContrat: exigeNouveauContrat ? Number(formData.idTypeContrat) : null,
-                idTypeIntervenant: exigeNouveauContrat ? Number(formData.idTypeIntervenant || contratActif?.idTypeIntervenant) : null,
-                dateDebut: exigeNouveauContrat ? (formData.dateDebut || formData.dateEffet) : null,
-                dateFin: exigeNouveauContrat ? (formData.dateFin || null) : null,
-                dateSignature: exigeNouveauContrat ? (formData.dateSignature || null) : null,
-                dureeEssaiMois: exigeNouveauContrat && formData.aPeriodeEssai && formData.dureeEssaiMois ? Number(formData.dureeEssaiMois) : null,
-                dateFinEssai: exigeNouveauContrat && formData.aPeriodeEssai && formData.dateFinEssai ? formData.dateFinEssai : null,
-                comptabiliseEffectif: exigeNouveauContrat ? Boolean(formData.comptabiliseEffectif) : null,
-                numeroContrat: exigeNouveauContrat ? (formData.numeroContrat || null) : null,
-                descriptionContrat: exigeNouveauContrat ? (formData.descriptionContrat || null) : null,
-                commentaireContrat: exigeNouveauContrat ? (formData.commentaireContrat || null) : null,
-
-                idSite: Number(formData.idSite),
-                idDepartement: Number(formData.idDepartement),
-                idService: Number(formData.idService),
-                idFonction: Number(formData.idFonction),
-                idResponsableHierarchique: formData.idResponsableHierarchique ? Number(formData.idResponsableHierarchique) : null,
-                idCategorieProfessionnelle: Number(formData.idCategorieProfessionnelle),
-                idModeCalculPaie: Number(formData.idModeCalculPaie),
-                salaireBase: Number(formData.salaireBase),
-                descriptionAffectation: formData.descriptionAffectation || null,
-                commentaireAffectation: formData.commentaireAffectation || null,
-
-                dateEffet: formData.dateEffet,
-                motif: formData.motif || `Mouvement RH : ${codeTypeEvenement}`,
-            };
-
-            const brouillonId = initialData?.idWorkflow || initialData?.id_workflow || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif?.idWorkflow : null);
-            let res;
-            if (brouillonId) {
-                res = await contratService.modifierBrouillonWorkflow(brouillonId, payload);
+            if (isEditMode) {
+                const wfId = initialData.workflow?.idWorkflow;
+                await contratService.modifierBrouillonWorkflow(wfId, payload);
             } else {
-                res = await contratService.creerBrouillonTransition(idEmploye, payload);
+                await contratService.creerBrouillonTransition(idEmploye, payload);
             }
-            if (onSuccess) onSuccess(res);
+            if (onSuccess) onSuccess();
             onClose();
         } catch (err) {
-            console.error('Erreur création transition:', err);
-            const errData = err.response?.data;
-            const msg = typeof errData === 'string' ? errData : (errData?.message || 'Erreur lors de la création de la demande de transition.');
-            setErrorMsg(msg);
+            console.error("Erreur enregistrement transition:", err);
+            setErrorMsg(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Erreur lors de l'enregistrement de la transition.");
         } finally {
             setSubmitting(false);
         }
     };
 
-    const previewProps = {
-        typeEvenementActuel,
-        nomEmploye,
-        formData,
-        exigeNouveauContrat,
-        avantTypeContrat,
-        apresTypeContrat,
-        avantSite,
-        apresSite,
-        avantDepartement,
-        apresDepartement,
-        avantService,
-        apresService,
-        avantFonction,
-        apresFonction,
-        avantCategorie,
-        apresCategorie,
-        avantResponsable,
-        apresResponsable,
-        avantModePaie,
-        apresModePaie,
-        avantSalaire,
-    };
+    const EXCLUDED_CODES = [
+        'EMBAUCHE_INITIALE', 'RUPTURE_CONTRAT', 'DEMISSION', 'LICENCIEMENT',
+        'RETRAITE', 'FIN_CONTRAT', 'CONFIRMATION_ESSAI', 'RENOUVELLEMENT_ESSAI',
+        'DECES', 'ABANDON_POSTE', 'RUPTURE_NEGOCIEE', 'LICENCIEMENT_FAUTE',
+        'LICENCIEMENT_ECONOMIQUE', 'FIN_PERIODE_ESSAI', 'DEPART_RETRAITE'
+    ];
 
-    if (!isOpen) return null;
+    const DEFAULT_RELEVANT_EVENTS = [
+        { code: 'MUTATION', libelle: 'Mutation (Site / Dépt / Srv)' },
+        { code: 'PROMOTION', libelle: 'Promotion / Changement Poste' },
+        { code: 'REVALORISATION', libelle: 'Revalorisation Salariale' },
+        { code: 'TRANSFORMATION_CDI', libelle: 'Transformation CDD → CDI' },
+        { code: 'RENOUVELLEMENT_CDD', libelle: 'Renouvellement de CDD' },
+        { code: 'EMBAUCHE_APRES_STAGE', libelle: 'Passage Stage → CDD/CDI' },
+        { code: 'REORGANISATION', libelle: 'Réorganisation Interne' },
+    ];
+
+    const availableEvTypes = (typesEvenementList || []).filter(ev => {
+        const code = (ev.code || '').toUpperCase();
+        if (code === 'EMBAUCHE_APRES_STAGE') return true;
+        if (EXCLUDED_CODES.includes(code)) return false;
+        if (code.startsWith('RUPTURE') || code.startsWith('ESSAI') || code.startsWith('FIN_') || (code.startsWith('EMBAUCHE') && code !== 'EMBAUCHE_APRES_STAGE') || code.startsWith('DEMISSION') || code.startsWith('LICENCIEMENT')) {
+            return false;
+        }
+        return true;
+    });
+    const relevantEvTypes = availableEvTypes.length > 0 ? availableEvTypes : DEFAULT_RELEVANT_EVENTS;
+
+    const typeEvObj = (typesEvenementList || []).find(te => te.code === formData.codeTypeEvenement) || typeEvenement;
+
+    // Résolution des libellés Avant/Après pour l'aperçu
+    const avantTypeContrat = contratActif ? typesContrat.find(tc => String(tc.idTypeContrat) === String(contratActif.idTypeContrat))?.libelle : null;
+    const apresTypeContrat = typesContrat.find(tc => String(tc.idTypeContrat) === String(formData.idTypeContrat))?.libelle;
+
+    const avantSite = affectationActive ? sites.find(s => String(s.idSite) === String(affectationActive.idSite))?.libelle : null;
+    const apresSite = sites.find(s => String(s.idSite) === String(formData.idSite))?.libelle;
+
+    const avantDepartement = affectationActive ? departements.find(d => String(d.idDepartement) === String(affectationActive.idDepartement))?.libelle : null;
+    const apresDepartement = departements.find(d => String(d.idDepartement) === String(formData.idDepartement))?.libelle;
+
+    const avantService = affectationActive ? services.find(s => String(s.idService) === String(affectationActive.idService))?.libelle : null;
+    const apresService = services.find(s => String(s.idService) === String(formData.idService))?.libelle;
+
+    const avantFonction = affectationActive ? fonctions.find(f => String(f.idFonction) === String(affectationActive.idFonction))?.libelle : null;
+    const apresFonction = fonctions.find(f => String(f.idFonction) === String(formData.idFonction))?.libelle;
+
+    const avantCategorie = affectationActive ? categoriesPro.find(c => String(c.idCategorieProfessionnelle || c.idCategorie) === String(affectationActive.idCategorieProfessionnelle))?.libelle : null;
+    const apresCategorie = categoriesPro.find(c => String(c.idCategorieProfessionnelle || c.idCategorie) === String(formData.idCategorieProfessionnelle))?.libelle;
+
+    const avantRespObj = affectationActive ? responsables.find(r => String(r.idEmploye) === String(affectationActive.idResponsableHierarchique)) : null;
+    const avantResponsable = avantRespObj ? (avantRespObj.nomComplet || `${avantRespObj.nom || ''} ${avantRespObj.prenom || ''}`) : null;
+
+    const apresRespObj = responsables.find(r => String(r.idEmploye) === String(formData.idResponsableHierarchique));
+    const apresResponsable = apresRespObj ? (apresRespObj.nomComplet || `${apresRespObj.nom || ''} ${apresRespObj.prenom || ''}`) : null;
+
+    const avantModePaie = affectationActive ? modesPaie.find(m => String(m.idModeCalculPaie || m.idModeCalcul) === String(affectationActive.idModeCalculPaie))?.libelle : null;
+    const apresModePaie = modesPaie.find(m => String(m.idModeCalculPaie || m.idModeCalcul) === String(formData.idModeCalculPaie))?.libelle;
+
+    const avantSalaire = affectationActive?.salaireBase;
+
+    // Numérotation dynamique des étapes : le bloc "Nouveau Contrat" n'existe
+    // que pour certains types de mouvement, donc les étapes suivantes se décalent.
+    const stepContrat = 2;
+    const stepAffectation = exigeNouveauContrat ? 3 : 2;
+    const stepMotif = exigeNouveauContrat ? 4 : 3;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-5 bg-black/60 backdrop-blur-[3px]">
-            {/* Overlay cliquable */}
-            <div className="absolute inset-0" onClick={onClose} />
-
-            {/* Modal Centré Split-Screen 50 / 50 */}
-            <div
-                className={`
-                    relative bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-lg shadow-2xl
-                    w-full max-w-[94vw] h-[90vh] overflow-hidden flex flex-col
-                    transform transition-all duration-300 ease-out
-                    ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
-                `}
-            >
-                {/* Header (fixe) */}
-                <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-950/40 flex-shrink-0">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 font-bold text-lg text-ink-900 dark:text-white">
-                            <RefreshCw className="text-brand-500" size={20} />
-                            <span>Mouvement de Carrière & Transition RH</span>
-                            {nomEmploye && (
-                                <span className="text-xs font-normal text-ink-400"> — {nomEmploye}</span>
-                            )}
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto transition-opacity duration-200 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-2xl w-full max-w-[1440px] max-h-[95vh] flex flex-col overflow-hidden">
+                {/* Header */}
+                <div className="px-7 py-4 border-b border-ink-150 dark:border-ink-700 flex items-center justify-between bg-ink-50/50 dark:bg-ink-950/40">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-brand-500 text-white rounded-sm flex items-center justify-center shadow-md">
+                            <RefreshCw size={20} />
                         </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setShowPreviewMobile(v => !v)}
-                                className="lg:hidden flex items-center gap-1.5 text-xs font-semibold text-brand-500 border border-brand-500/30 rounded-sm px-2.5 py-1.5"
-                            >
-                                {showPreviewMobile ? <EyeOff size={14} /> : <Eye size={14} />}
-                                {showPreviewMobile ? 'Masquer l\'avenant' : 'Voir l\'avenant'}
-                            </button>
-                            <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-sm">
-                                <X size={20} />
-                            </button>
+                        <div>
+                            <h2 className="font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
+                                {isEditMode ? 'Corriger le Brouillon de Transition' : (typeEvObj?.libelle || 'Transition de Carrière')}
+                                <span className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono rounded-sm">
+                                    BROUILLON
+                                </span>
+                            </h2>
+                            <p className="text-xs text-ink-400">
+                                Mouvement RH pour <strong className="text-ink-800 dark:text-white">{nomEmploye}</strong>
+                            </p>
                         </div>
                     </div>
-
-                    {!loadingRef && (
-                        <div className="mt-3 flex items-center gap-3">
-                            <div className="flex-1 h-1.5 bg-ink-100 dark:bg-ink-800 rounded-full overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full transition-all duration-300 ${progressPct === 100 ? 'bg-success-500' : 'bg-brand-500'}`}
-                                    style={{ width: `${progressPct}%` }}
-                                />
-                            </div>
-                            <span className="text-[11px] font-semibold text-ink-400 whitespace-nowrap">
-                                {nbRemplis}/{champsObligatoires.length} champs obligatoires
-                            </span>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setShowPreviewMobile(!showPreviewMobile)}
+                            className="lg:hidden p-2 text-xs font-semibold bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200 rounded-sm flex items-center gap-1"
+                        >
+                            {showPreviewMobile ? <EyeOff size={14} /> : <Eye size={14} />}
+                            {showPreviewMobile ? 'Masquer Aperçu' : 'Aperçu'}
+                        </button>
+                        <button onClick={onClose} className="p-1.5 text-ink-400 hover:text-ink-800 dark:hover:text-white hover:bg-ink-100 dark:hover:bg-ink-800 rounded-sm transition-colors cursor-pointer">
+                            <X size={20} />
+                        </button>
+                    </div>
                 </div>
 
-                {/* Corps : Split Screen 50 / 50 */}
-                <div className="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
-                    
-                    {/* COLONNE GAUCHE (50%) : Formulaire */}
-                    <form onSubmit={handleSubmit} className="w-full lg:w-1/2 min-w-0 overflow-y-auto p-6 space-y-6 border-b lg:border-b-0 lg:border-r border-ink-150 dark:border-ink-700">
-                        {errorMsg && (
-                            <div ref={errorAlertRef} className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-4 rounded-sm text-xs font-semibold flex items-center gap-2">
-                                <ShieldAlert size={16} className="flex-shrink-0" />
-                                <span>{errorMsg}</span>
-                            </div>
-                        )}
-
+                {/* Body split 2 colonnes 50/50 : Formulaire (6/12) - Aperçu Avenant (6/12) */}
+                <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-ink-150 dark:divide-ink-700">
+                    {/* Formulaire (6/12) */}
+                    <div className={`p-7 space-y-6 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
                         {loadingRef ? (
-                            <div className="py-12 flex justify-center">
-                                <Loading size="lg" label="Chargement des référentiels..." />
-                            </div>
+                            <div className="py-12 flex justify-center"><Loading size="md" label="Chargement des référentiels..." /></div>
                         ) : (
-                            <>
-                                {showPreviewMobile && <AvenantPreview {...previewProps} className="lg:hidden mb-6" />}
-
-                                {/* ÉTAPE 1 : CHOIX DU TYPE DE TRANSITION */}
-                                <div className="space-y-3">
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 flex items-center gap-2">
-                                        <UserCheck size={14} /> 1. Sélection du Mouvement RH
-                                    </h3>
+                            <form id="transition-form" onSubmit={handleSubmit} className="space-y-6">
+                                {errorMsg && (
+                                    <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-3 text-xs flex items-center gap-2">
+                                        <ShieldAlert size={16} />
+                                        {errorMsg}
+                                    </div>
+                                )}
+                                {/* Sélection par petites cartes rectangulaires des événements pertinents */}
+                                <section className="space-y-4 pb-6 border-b border-ink-150 dark:border-ink-700">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
+                                        <FormSectionHeader step={1} icon={RefreshCw} title="Type de Mouvement RH" />
+                                        <div className="w-full sm:w-48">
+                                            <Input
+                                                label="Date d'Effet"
+                                                type="date"
+                                                required
+                                                value={formData.dateEffet}
+                                                onChange={(e) => setField('dateEffet', e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                        {(typesEvenement.length > 0 ? typesEvenement : [
-                                            { code: 'MUTATION', libelle: 'Mutation (Site / Dépt / Srv)' },
-                                            { code: 'PROMOTION', libelle: 'Promotion / Changement Poste' },
-                                            { code: 'REVALORISATION', libelle: 'Revalorisation Salariale' },
-                                            { code: 'TRANSFORMATION_CDI', libelle: 'Transformation CDD → CDI' },
-                                            { code: 'RENOUVELLEMENT_CDD', libelle: 'Renouvellement de CDD' },
-                                        ]).map((t) => {
+                                        {relevantEvTypes.map((t) => {
                                             const descMap = {
                                                 MUTATION: 'Garde le contrat actif, modifie le site/service',
                                                 PROMOTION: 'Changement de fonction ou classification',
@@ -487,330 +392,150 @@ export default function TransitionModal({
                                                 TRANSFORMATION_CDI: 'Clôture l\'ancien CDD et active un nouveau CDI',
                                                 RENOUVELLEMENT_CDD: 'Avenant de prolongation du CDD',
                                                 EMBAUCHE_APRES_STAGE: 'Transformation de stage vers CDD/CDI',
+                                                REORGANISATION: 'Réorganisation interne / restructuration',
                                             };
                                             const displayDesc = t.description || descMap[t.code] || 'Mouvement de carrière RH';
-                                            const isSelected = codeTypeEvenement === t.code;
+                                            const isSelected = formData.codeTypeEvenement === t.code;
 
                                             return (
-                                                /* ── AMÉLIORATION ACCESSIBILITÉ CLAVIER ── */
                                                 <div
                                                     key={t.code}
                                                     role="button"
                                                     tabIndex={0}
                                                     aria-checked={isSelected}
-                                                    onClick={() => setCodeTypeEvenement(t.code)}
+                                                    onClick={() => setField('codeTypeEvenement', t.code)}
                                                     onKeyDown={(e) => {
                                                         if (e.key === 'Enter' || e.key === ' ') {
                                                             e.preventDefault();
-                                                            setCodeTypeEvenement(t.code);
+                                                            setField('codeTypeEvenement', t.code);
                                                         }
                                                     }}
                                                     className={`
-                                                        p-3 border rounded-sm cursor-pointer transition-all flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-brand-500
+                                                        p-3.5 border rounded-sm cursor-pointer transition-all flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-brand-500
                                                         ${isSelected
-                                                            ? 'border-brand-500 bg-brand-500/10 shadow-sm'
-                                                            : 'border-ink-200 dark:border-ink-800 hover:border-ink-400 bg-white dark:bg-ink-950/30'}
+                                                            ? 'border-brand-500 bg-brand-500/10 shadow-sm ring-1 ring-brand-500/40'
+                                                            : 'border-ink-200 dark:border-ink-800 hover:border-brand-400 bg-white dark:bg-ink-950/30'}
                                                     `}
                                                 >
                                                     <div>
-                                                        <p className="font-bold text-xs text-ink-900 dark:text-white flex items-center justify-between">
-                                                            {t.libelle}
-                                                            {isSelected && <ArrowRight size={14} className="text-brand-500" />}
+                                                        <p className="font-bold text-xs text-ink-900 dark:text-white flex items-center justify-between gap-1">
+                                                            <span className="truncate">{t.libelle}</span>
+                                                            {isSelected && <ArrowRight size={14} className="text-brand-500 shrink-0" />}
                                                         </p>
-                                                        <p className="text-[11px] text-ink-400 mt-1">{displayDesc}</p>
+                                                        <p className="text-[11px] text-ink-400 mt-1 leading-normal">{displayDesc}</p>
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                </div>
+                                </section>
 
-                                {/* ÉTAPE 2 : NOUVELLE AFFECTATION & PAIE */}
-                                <div className="space-y-4">
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 flex items-center gap-2">
-                                        <Landmark size={14} /> 2. Nouvelle Affectation & Rémunération
-                                    </h3>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <Select
-                                            id="idSite"
-                                            name="idSite"
-                                            label="Nouveau Site *"
-                                            required
-                                            value={formData.idSite}
-                                            onChange={handleChange}
-                                        >
-                                            <option value="">-- Sélectionner le Site --</option>
-                                            {sites.map(s => <option key={s.idSite} value={s.idSite}>{s.libelle}</option>)}
-                                        </Select>
-
-                                        <Select
-                                            id="idDepartement"
-                                            name="idDepartement"
-                                            label="Nouveau Département *"
-                                            required
-                                            value={formData.idDepartement}
-                                            onChange={handleChange}
-                                        >
-                                            <option value="">-- Sélectionner le Département --</option>
-                                            {departements.map(d => <option key={d.idDepartement} value={d.idDepartement}>{d.libelle}</option>)}
-                                        </Select>
-
-                                        <Select
-                                            id="idService"
-                                            name="idService"
-                                            label="Nouveau Service *"
-                                            required
-                                            value={formData.idService}
-                                            onChange={handleChange}
-                                        >
-                                            <option value="">-- Sélectionner le Service --</option>
-                                            {services.map(s => <option key={s.idService} value={s.idService}>{s.libelle}</option>)}
-                                        </Select>
-
-                                        <Select
-                                            id="idFonction"
-                                            name="idFonction"
-                                            label="Nouvelle Fonction / Poste *"
-                                            required
-                                            value={formData.idFonction}
-                                            onChange={handleChange}
-                                        >
-                                            <option value="">-- Sélectionner la Fonction --</option>
-                                            {fonctions.map(f => <option key={f.idFonction} value={f.idFonction}>{f.libelle}</option>)}
-                                        </Select>
-
-                                        <Select
-                                            id="idCategorieProfessionnelle"
-                                            name="idCategorieProfessionnelle"
-                                            label="Catégorie Professionnelle *"
-                                            required
-                                            value={formData.idCategorieProfessionnelle}
-                                            onChange={handleChange}
-                                        >
-                                            <option value="">-- Sélectionner la Catégorie --</option>
-                                            {categoriesPro.map(c => <option key={c.idCategorieProfessionnelle} value={c.idCategorieProfessionnelle}>{c.libelle}</option>)}
-                                        </Select>
-
-                                        <Select
-                                            id="idResponsableHierarchique"
-                                            name="idResponsableHierarchique"
-                                            label="Nouveau Supérieur N+1"
-                                            value={formData.idResponsableHierarchique}
-                                            onChange={handleChange}
-                                        >
-                                            <option value="">-- Aucun / Inchangé --</option>
-                                            {responsables.map(r => (
-                                                <option key={r.idEmploye} value={r.idEmploye}>
-                                                    {r.matricule} - {r.nom} {r.prenom}
-                                                </option>
-                                            ))}
-                                        </Select>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-ink-150 dark:border-ink-800 pt-4">
-                                        <Select
-                                            id="idModeCalculPaie"
-                                            name="idModeCalculPaie"
-                                            label="Mode de Calcul de Paie *"
-                                            required
-                                            value={formData.idModeCalculPaie}
-                                            onChange={handleChange}
-                                        >
-                                            <option value="">-- Sélectionner le Mode --</option>
-                                            {modesPaie.map(m => <option key={m.idModeCalculPaie} value={m.idModeCalculPaie}>{m.libelle}</option>)}
-                                        </Select>
-
-                                        <Input
-                                            id="salaireBase"
-                                            name="salaireBase"
-                                            label="Nouveau Salaire de Base (MGA) *"
-                                            type="number"
-                                            step="0.01"
-                                            required
-                                            value={formData.salaireBase}
-                                            onChange={handleChange}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* ÉTAPE 3 : RENSEIGNEMENTS DU NOUVEAU CONTRAT (Si Transformation / Renouvellement) */}
+                                {/* Nouveau Contrat si nécessaire */}
                                 {exigeNouveauContrat && (
-                                    <div className="space-y-4 bg-brand-500/5 p-4 rounded-sm border border-brand-500/20">
-                                        <h3 className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 flex items-center gap-2">
-                                            <Building size={14} /> 3. Nouveau Contrat (Bascule Automatique & Clôture de l'ancien)
-                                        </h3>
+                                    <section className="space-y-5 pb-6 border-b border-ink-150 dark:border-ink-700">
+                                        <FormSectionHeader step={stepContrat} icon={FileSignature} title="Nouveau Contrat" />
+                                        <ContratFieldsSection
+                                            formData={formData}
+                                            setField={setField}
+                                            filiales={filiales}
+                                            typesContrat={typesContrat}
+                                            typesIntervenant={typesIntervenant}
+                                        />
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <Select
-                                                id="idTypeContrat"
-                                                name="idTypeContrat"
-                                                label="Nouveau Type de Contrat *"
-                                                required
-                                                value={formData.idTypeContrat}
-                                                onChange={handleChange}
-                                            >
-                                                <option value="">-- Sélectionner le Contrat --</option>
-                                                {typesContrat.map(tc => <option key={tc.idTypeContrat} value={tc.idTypeContrat}>{tc.libelle}</option>)}
-                                            </Select>
-
-                                            <Select
-                                                id="idTypeIntervenant"
-                                                name="idTypeIntervenant"
-                                                label="Nouveau Profil d'intervenant *"
-                                                required
-                                                value={formData.idTypeIntervenant}
-                                                onChange={handleChange}
-                                            >
-                                                <option value="">-- Sélectionner le profil --</option>
-                                                {typesIntervenant.map(ti => (
-                                                    <option key={ti.idTypeIntervenant} value={ti.idTypeIntervenant}>
-                                                        {ti.libelle}
-                                                    </option>
-                                                ))}
-                                            </Select>
-
-                                            <Input
-                                                id="numeroContrat"
-                                                name="numeroContrat"
-                                                label="Numéro du Nouveau Contrat"
-                                                placeholder="Ex: CTR-2026-009"
-                                                value={formData.numeroContrat}
-                                                onChange={handleChange}
-                                            />
-
-                                            <Input
-                                                id="dateDebut"
-                                                name="dateDebut"
-                                                label="Date de Début *"
-                                                type="date"
-                                                required
-                                                value={formData.dateDebut || formData.dateEffet}
-                                                onChange={handleChange}
-                                            />
-
-                                            <Input
-                                                id="dateFin"
-                                                name="dateFin"
-                                                label="Date de Fin (Optionnel si CDI)"
-                                                type="date"
-                                                value={formData.dateFin}
-                                                onChange={handleChange}
-                                            />
-
-                                            <Input
-                                                id="dateSignature"
-                                                name="dateSignature"
-                                                label="Date de Signature"
-                                                type="date"
-                                                value={formData.dateSignature}
-                                                onChange={handleChange}
-                                            />
-                                        </div>
-
-                                        {/* PERIODE D'ESSAI */}
-                                        <div className="flex items-center gap-2 pt-2 border-t border-brand-500/20">
-                                            <input
-                                                type="checkbox"
-                                                id="aPeriodeEssai"
-                                                name="aPeriodeEssai"
-                                                checked={Boolean(formData.aPeriodeEssai)}
-                                                onChange={handleChange}
-                                                className="w-4 h-4 text-brand-500 rounded border-ink-300 focus:ring-brand-500 cursor-pointer"
-                                            />
-                                            <label htmlFor="aPeriodeEssai" className="text-xs font-bold text-ink-900 dark:text-white cursor-pointer flex items-center gap-1.5">
-                                                <Clock size={14} className="text-brand-500" />
-                                                Soumettre le nouveau contrat à une Période d'Essai
-                                            </label>
-                                        </div>
-
-                                        {formData.aPeriodeEssai && (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <Select
-                                                    id="dureeEssaiMois"
-                                                    name="dureeEssaiMois"
-                                                    label="Durée de l'essai *"
-                                                    value={formData.dureeEssaiMois}
-                                                    onChange={handleChange}
-                                                >
-                                                    <option value="1">1 Mois</option>
-                                                    <option value="2">2 Mois</option>
-                                                    <option value="3">3 Mois</option>
-                                                    <option value="4">4 Mois</option>
-                                                    <option value="6">6 Mois</option>
-                                                </Select>
-
-                                                <Input
-                                                    id="dateFinEssai"
-                                                    name="dateFinEssai"
-                                                    label="Date de Fin d'Essai"
-                                                    type="date"
-                                                    value={formData.dateFinEssai}
-                                                    onChange={handleChange}
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
+                                        <PeriodeEssaiFieldsSection
+                                            formData={formData}
+                                            setField={setField}
+                                        />
+                                    </section>
                                 )}
 
-                                {/* ÉTAPE 4 : DATES ET MOTIF WORKFLOW */}
-                                <div className="space-y-4 border-t border-ink-150 dark:border-ink-700 pt-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <Input
-                                            id="dateEffet"
-                                            name="dateEffet"
-                                            label="Date de Prise d'Effet *"
-                                            type="date"
-                                            required
-                                            value={formData.dateEffet}
-                                            onChange={handleChange}
-                                        />
+                                {/* Affectation Carrière */}
+                                <section className="space-y-5 pb-6 border-b border-ink-150 dark:border-ink-700">
+                                    <FormSectionHeader step={stepAffectation} icon={Building2} title="Affectation" />
+                                    <AffectationFieldsSection
+                                        formData={formData}
+                                        setField={setField}
+                                        sites={sites}
+                                        departements={departements}
+                                        services={services}
+                                        fonctions={fonctions}
+                                        categoriesPro={categoriesPro}
+                                        modesPaie={modesPaie}
+                                        responsables={responsables}
+                                    />
+                                </section>
 
-                                        <Textarea
-                                            id="motif"
-                                            name="motif"
-                                            label="Motif / Raison du Changement"
-                                            rows={2}
-                                            value={formData.motif}
-                                            onChange={handleChange}
-                                            placeholder="Ex: Promotion suite à l'évaluation annuelle 2025"
-                                        />
-                                    </div>
-                                </div>
-                            </>
+                                {/* Motif */}
+                                <section className="space-y-3">
+                                    <FormSectionHeader step={stepMotif} icon={MessageSquareText} title="Motif du Mouvement" />
+                                    <Textarea
+                                        label="Motif / Justification du Mouvement"
+                                        rows={2}
+                                        value={formData.motif}
+                                        onChange={(e) => setField('motif', e.target.value)}
+                                        placeholder="Motif détaillé de la promotion ou mutation..."
+                                    />
+                                </section>
+                            </form>
                         )}
-                    </form>
+                    </div>
 
-                    {/* COLONNE DROITE (50%) : Aperçu Avenant */}
-                    <div className="hidden lg:block w-1/2 flex-shrink-0 bg-ink-50/60 dark:bg-ink-950/40 overflow-y-auto p-6 flex flex-col items-center">
-                        <div className="w-full max-w-[560px]">
-                            <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-wider text-ink-400">
-                                <FileSignature size={14} /> Aperçu de l'avenant en temps réel
-                            </div>
-                            <AvenantPreview {...previewProps} />
+                    {/* Aperçu Avenant (6/12) */}
+                    <div className={`p-7 bg-ink-50/50 dark:bg-ink-950/30 lg:col-span-6 overflow-y-auto space-y-4 ${showPreviewMobile ? 'block' : 'hidden lg:block'}`}>
+                        <div className="flex items-center justify-between pb-2 border-b border-ink-200 dark:border-ink-700">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 flex items-center gap-2">
+                                <FileSignature size={14} className="text-brand-500" />
+                                Aperçu de l'Avenant RH
+                            </h3>
+                            <span className="text-[10px] font-mono font-bold text-brand-500 uppercase tracking-widest bg-brand-500/10 px-2 py-0.5 rounded-sm">
+                                Temps Réel
+                            </span>
                         </div>
+
+                        <AvenantPreviewDocument
+                            typeEvenementActuel={typeEvObj}
+                            nomEmploye={nomEmploye}
+                            formData={formData}
+                            exigeNouveauContrat={exigeNouveauContrat}
+                            avantTypeContrat={avantTypeContrat}
+                            apresTypeContrat={apresTypeContrat}
+                            avantSite={avantSite}
+                            apresSite={apresSite}
+                            avantDepartement={avantDepartement}
+                            apresDepartement={apresDepartement}
+                            avantService={avantService}
+                            apresService={apresService}
+                            avantFonction={avantFonction}
+                            apresFonction={apresFonction}
+                            avantCategorie={avantCategorie}
+                            apresCategorie={apresCategorie}
+                            avantResponsable={avantResponsable}
+                            apresResponsable={apresResponsable}
+                            avantModePaie={avantModePaie}
+                            apresModePaie={apresModePaie}
+                            avantSalaire={avantSalaire}
+                        />
                     </div>
                 </div>
 
-                {/* Footer Actions (fixe) */}
-                <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex-shrink-0 flex items-center justify-between gap-3">
-                    <p className="text-[11px] text-ink-400 font-normal">
-                        Le brouillon sera soumis à la validation <span className="font-bold text-warning-600">RH / Direction</span>.
+                {/* Footer Boutons */}
+                <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center">
+                    <p className="text-xs text-ink-400 hidden sm:block">
+                        Le mouvement RH reste au statut <strong className="text-amber-500">BROUILLON</strong> tant qu'il n'est pas validé.
                     </p>
-                    <div className="flex justify-end gap-3">
+                    <div className="flex gap-3 ml-auto">
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">
                             Annuler
                         </Button>
                         <Button
-                            type="button"
-                            onClick={handleSubmit}
+                            type="submit"
+                            form="transition-form"
                             variant="primary"
                             size="sm"
                             loading={submitting}
-                            disabled={loadingRef || progressPct < 100}
                             iconLeft={<Save size={16} />}
                         >
-                            Enregistrer le Brouillon de Transition
+                            {isEditMode ? 'Enregistrer les modifications' : 'Créer le Brouillon de Transition'}
                         </Button>
                     </div>
                 </div>

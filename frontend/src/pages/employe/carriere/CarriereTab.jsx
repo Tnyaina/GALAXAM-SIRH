@@ -278,7 +278,7 @@ export default function CarriereTab({
                     onClose={() => setIsCertificatModalOpen(false)}
                     employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
                     contrat={selectedCertificatContrat || contratActif || (contratsList.length > 0 ? contratsList[0] : null)}
-                    affectation={affectationActive}
+                    affectation={selectedCertificatContrat || affectationActive}
                     filiale={selectedCertificatContrat?.filiale || contratActif?.filiale}
                     dateDebutInitiale={
                         contratsList.length > 0

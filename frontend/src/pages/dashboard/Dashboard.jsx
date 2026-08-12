@@ -144,7 +144,7 @@ function BrouillonRow({ b }) {
 function ActiviteRow({ ev }) {
     // Correspond au libelle de ref_statut_workflow pour le code 'VALIDE'
     const isValide = ev.statut === 'Valide et applique par la DAF' ||
-                     ev.statut?.toLowerCase().includes('valid');
+        ev.statut?.toLowerCase().includes('valid');
     return (
         <Link
             to={`/employes/${ev.idEmploye}?tab=carriere`}
@@ -187,7 +187,7 @@ export default function Dashboard() {
     const now = new Date();
     const greeting =
         now.getHours() < 12 ? 'Bonjour' :
-        now.getHours() < 18 ? 'Bon apres-midi' : 'Bonsoir';
+            now.getHours() < 18 ? 'Bon apres-midi' : 'Bonsoir';
 
     return (
         <div className="space-y-6">

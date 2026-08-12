@@ -47,12 +47,21 @@ export default function CertificatTravailModal({
 
     if (!isOpen) return null;
 
+    const getVal = (...keys) => {
+        for (const k of keys) {
+            if (k !== undefined && k !== null && String(k).trim() !== '') {
+                return String(k).trim();
+            }
+        }
+        return null;
+    };
+
     const nomComplet = `${employe?.nom || ''} ${employe?.prenom || ''}`.trim() || '……………';
     const numContrat = contrat?.numeroContrat || 'CTR-EXPIRE';
-    const filialeNom = filiale?.libelle || contrat?.libelleFiliale || 'GALAXAM LOGISTICS';
-    const filialeAdresse = filiale?.adresse || contrat?.adresseFiliale || null;
-    const filialeNif = filiale?.nif || contrat?.nifFiliale || null;
-    const filialeStat = filiale?.stat || contrat?.statFiliale || null;
+    const filialeNom = filiale?.libelle || contrat?.libelleFiliale || employe?.filiale || employe?.libelleFiliale || 'GALAXAM LOGISTICS';
+    const filialeAdresse = filiale?.adresse || contrat?.adresseFiliale || employe?.adresseFiliale || null;
+    const filialeNif = filiale?.nif || contrat?.nifFiliale || employe?.nifFiliale || null;
+    const filialeStat = filiale?.stat || contrat?.statFiliale || employe?.statFiliale || null;
 
     const dateDebutEffectif = dateDebutInitiale || contrat?.dateDebut;
     const dateDebut = fmtDateFr(dateDebutEffectif);
@@ -60,10 +69,56 @@ export default function CertificatTravailModal({
     const dateFin = fmtDateFr(dateFinRaw);
     const anciennete = fmtAnciennete(dateDebutEffectif, dateFinRaw);
 
-    const fonction = affectation?.libelleFonction || contrat?.libelleFonction || 'Agent';
-    const categorieProfessionnelle = affectation?.libelleCategorieProfessionnelle || contrat?.libelleCategorieProfessionnelle || null;
-    const natureContrat = contrat?.libelleTypeContrat || null;
-    const siteDept = `${affectation?.libelleSite || 'Antananarivo'} - ${affectation?.libelleDepartement || 'Siège'}`;
+    const fonction = getVal(
+        affectation?.libelleFonction,
+        affectation?.fonction,
+        affectation?.nomFonction,
+        contrat?.libelleFonction,
+        contrat?.libelleFonctionCible,
+        contrat?.libelleFonctionSource,
+        contrat?.fonction,
+        employe?.fonction,
+        employe?.poste,
+        employe?.libelleFonction,
+        employe?.titrePoste
+    ) || '—';
+
+    const categorieProfessionnelle = getVal(
+        affectation?.libelleCategorieProfessionnelle,
+        affectation?.libelleCategoriePro,
+        affectation?.libelleCategorie,
+        affectation?.categorie,
+        contrat?.libelleCategorieProfessionnelle,
+        contrat?.libelleCategoriePro,
+        contrat?.libelleCategorie,
+        contrat?.categorie,
+        employe?.categorieProfessionnelle,
+        employe?.libelleCategoriePro,
+        employe?.categorie
+    );
+
+    const natureContrat = getVal(
+        contrat?.libelleTypeContrat,
+        contrat?.libelleTypeContratCible,
+        contrat?.typeContrat,
+        affectation?.libelleTypeContrat
+    );
+
+    const siteNom = getVal(
+        affectation?.libelleSite,
+        contrat?.libelleSite,
+        employe?.site,
+        employe?.libelleSite
+    ) || 'Antananarivo';
+
+    const deptNom = getVal(
+        affectation?.libelleDepartement,
+        contrat?.libelleDepartement,
+        employe?.departement,
+        employe?.libelleDepartement
+    ) || 'Siège';
+
+    const siteDept = `${siteNom} - ${deptNom}`;
 
     const employeAdresse = employe?.adresse || null;
     const employeCin = employe?.cin || employe?.numeroCin || null;

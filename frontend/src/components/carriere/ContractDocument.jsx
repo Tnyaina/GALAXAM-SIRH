@@ -13,7 +13,7 @@ import { fmtDateFr, fmtMoney } from '@/utils/carriereUtils';
 export function Clause({ label, value, placeholder = '……………………', className = '', strike = false }) {
     const hasValue = value !== undefined && value !== null && value !== '';
     return (
-        <div className={`flex items-baseline gap-2 py-1.5 text-[13px] leading-snug ${className}`}>
+        <div className={`flex items-baseline gap-2 py-2 text-[13.5px] leading-relaxed ${className}`}>
             <span className="text-ink-500 dark:text-ink-400 whitespace-nowrap">{label}</span>
             <span className="flex-1 border-b border-dotted border-ink-300 dark:border-ink-700 translate-y-[-3px]" />
             <span className={
@@ -33,7 +33,7 @@ export function Clause({ label, value, placeholder = '……………………',
 export function ClauseDiff({ label, before, after, unit = '' }) {
     const changed = String(before ?? '') !== String(after ?? '') && after !== undefined && after !== '';
     return (
-        <div className="flex items-baseline gap-2 py-1.5 text-[13px] leading-snug">
+        <div className="flex items-baseline gap-2 py-2 text-[13.5px] leading-relaxed">
             <span className="text-ink-500 dark:text-ink-400 whitespace-nowrap">{label}</span>
             <span className="flex-1 border-b border-dotted border-ink-300 dark:border-ink-700 translate-y-[-3px]" />
             {changed ? (
@@ -72,12 +72,12 @@ export function DocumentFrame({ children, watermark = 'Brouillon', className = '
         <div className={`relative bg-white dark:bg-ink-950 border border-ink-200 dark:border-ink-700 rounded-sm shadow-md overflow-hidden ${className}`}>
             {/* Filigrane d'arrière-plan */}
             <div className="pointer-events-none select-none absolute inset-0 flex items-center justify-center overflow-hidden">
-                <span className="text-[52px] font-black uppercase tracking-[0.15em] text-ink-400/[0.05] dark:text-ink-300/[0.04] rotate-[-25deg] whitespace-nowrap">
+                <span className="text-[58px] font-black uppercase tracking-[0.18em] text-ink-400/[0.05] dark:text-ink-300/[0.04] rotate-[-25deg] whitespace-nowrap">
                     {watermark}
                 </span>
             </div>
 
-            <div className="relative p-6 font-serif text-ink-900 dark:text-ink-100 space-y-4">
+            <div className="relative p-7 sm:p-8 font-serif text-ink-900 dark:text-ink-100 space-y-5">
                 {children}
             </div>
         </div>

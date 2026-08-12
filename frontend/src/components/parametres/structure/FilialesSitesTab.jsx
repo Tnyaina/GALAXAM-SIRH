@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Edit2, CheckCircle, XCircle, Building2, MapPin, Eye } from 'lucide-react';
+import { Search, Plus, CheckCircle, XCircle, Building2, MapPin, Eye } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
+
+import FilialesList from './filiales/FilialesList';
+import FilialeFormModal from './filiales/FilialeFormModal';
+import SitesList from './sites/SitesList';
+import SiteFormModal from './sites/SiteFormModal';
 
 export default function FilialesSitesTab() {
     const [filiales, setFiliales] = useState([]);
@@ -11,30 +16,21 @@ export default function FilialesSitesTab() {
     const [actionError, setActionError] = useState(null);
     const [actionSuccess, setActionSuccess] = useState(null);
     const [search, setSearch] = useState('');
+    const [showInactive, setShowInactive] = useState(false);
 
     // Modales Filiale
     const [showFilialeModal, setShowFilialeModal] = useState(false);
     const [selectedFiliale, setSelectedFiliale] = useState(null);
     const [filialeFormData, setFilialeFormData] = useState({
-        codeFiliale: '',
-        raisonSociale: '',
-        nif: '',
-        stat: '',
-        seuilEffectifAlerte: 19
+        codeFiliale: '', raisonSociale: '', nif: '', stat: '', seuilEffectifAlerte: 19
     });
 
     // Modales Site
     const [showSiteModal, setShowSiteModal] = useState(false);
     const [selectedSite, setSelectedSite] = useState(null);
     const [siteFormData, setSiteFormData] = useState({
-        codeSite: '',
-        libelle: '',
-        idFilialeRattachement: '',
-        horaireContinu: true,
-        heureDebutMatin: '08:00',
-        heureFinMatin: '12:00',
-        heureDebutApresMidi: '13:00',
-        heureFinApresMidi: '17:00'
+        codeSite: '', libelle: '', idFilialeRattachement: '', horaireContinu: true,
+        heureDebutMatin: '08:00', heureFinMatin: '12:00', heureDebutApresMidi: '13:00', heureFinApresMidi: '17:00'
     });
 
     const loadData = async () => {
@@ -62,13 +58,7 @@ export default function FilialesSitesTab() {
     // Filiale Handlers
     const handleOpenCreateFiliale = () => {
         setSelectedFiliale(null);
-        setFilialeFormData({
-            codeFiliale: '',
-            raisonSociale: '',
-            nif: '',
-            stat: '',
-            seuilEffectifAlerte: 19
-        });
+        setFilialeFormData({ codeFiliale: '', raisonSociale: '', nif: '', stat: '', seuilEffectifAlerte: 19 });
         setActionError(null);
         setShowFilialeModal(true);
     };
@@ -136,14 +126,11 @@ export default function FilialesSitesTab() {
     const handleOpenCreateSite = () => {
         setSelectedSite(null);
         setSiteFormData({
-            codeSite: '',
-            libelle: '',
+            codeSite: '', libelle: '',
             idFilialeRattachement: filiales.length > 0 ? filiales[0].idFiliale : '',
             horaireContinu: true,
-            heureDebutMatin: '08:00',
-            heureFinMatin: '12:00',
-            heureDebutApresMidi: '13:00',
-            heureFinApresMidi: '17:00'
+            heureDebutMatin: '08:00', heureFinMatin: '12:00',
+            heureDebutApresMidi: '13:00', heureFinApresMidi: '17:00'
         });
         setActionError(null);
         setShowSiteModal(true);
@@ -219,8 +206,6 @@ export default function FilialesSitesTab() {
             setError(err.response?.data || "Erreur lors du changement de statut.");
         }
     };
-
-    const [showInactive, setShowInactive] = useState(false);
 
     const filteredFiliales = filiales.filter(f =>
         (showInactive || f.estActif !== false) &&
@@ -326,386 +311,46 @@ export default function FilialesSitesTab() {
                 </div>
             </div>
 
-            {/* TAB 1: FILIALES */}
+            {/* SubTab 1: Filiales */}
             {activeSubTab === 'filiales' && (
-                <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse text-left text-sm">
-                            <thead>
-                                <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 font-semibold uppercase text-xs">
-                                    <th className="px-6 py-4">Code</th>
-                                    <th className="px-6 py-4">Raison Sociale</th>
-                                    <th className="px-6 py-4">NIF</th>
-                                    <th className="px-6 py-4">STAT</th>
-                                    <th className="px-6 py-4">Seuil Alerte Effectif</th>
-                                    <th className="px-6 py-4">Statut</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                                {filteredFiliales.length > 0 ? (
-                                    filteredFiliales.map((f) => (
-                                        <tr key={f.idFiliale} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
-                                            <td className="px-6 py-4 font-mono font-semibold text-brand-500">{f.codeFiliale}</td>
-                                            <td className="px-6 py-4 font-bold">{f.raisonSociale}</td>
-                                            <td className="px-6 py-4 font-mono text-xs">{f.nif || '-'}</td>
-                                            <td className="px-6 py-4 font-mono text-xs">{f.stat || '-'}</td>
-                                            <td className="px-6 py-4 text-xs">
-                                                <span className="px-2 py-0.5 bg-ink-100 dark:bg-ink-800 text-ink-600 dark:text-ink-300 rounded-sm font-semibold">
-                                                    {f.seuilEffectifAlerte ?? 19} pers.
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {f.estActif ? (
-                                                    <span className="inline-flex items-center gap-1.5 text-success-500 font-semibold text-xs">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-success-500"></span>
-                                                        Actif
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 text-ink-400 font-semibold text-xs">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-ink-400"></span>
-                                                        Désactivé
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleOpenEditFiliale(f)}
-                                                        className="p-1.5 text-ink-500 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-sm transition-all cursor-pointer"
-                                                        title="Modifier"
-                                                    >
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleToggleFilialeStatus(f)}
-                                                        className={`px-2 py-1 text-xs font-bold rounded-sm transition-all cursor-pointer ${
-                                                            f.estActif
-                                                                ? 'text-danger-500 hover:bg-danger-500/10'
-                                                                : 'text-success-500 hover:bg-success-500/10'
-                                                        }`}
-                                                    >
-                                                        {f.estActif ? "Désactiver" : "Activer"}
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="7" className="px-6 py-12 text-center text-ink-400">
-                                            Aucune filiale enregistrée.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <FilialesList
+                    filiales={filteredFiliales}
+                    onOpenEdit={handleOpenEditFiliale}
+                    onToggleStatus={handleToggleFilialeStatus}
+                />
             )}
 
-            {/* TAB 2: SITES */}
+            {/* SubTab 2: Sites */}
             {activeSubTab === 'sites' && (
-                <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse text-left text-sm">
-                            <thead>
-                                <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 font-semibold uppercase text-xs">
-                                    <th className="px-6 py-4">Code Site</th>
-                                    <th className="px-6 py-4">Nom du Site</th>
-                                    <th className="px-6 py-4">Filiale Rattachement</th>
-                                    <th className="px-6 py-4">Régime Horaire</th>
-                                    <th className="px-6 py-4">Horaires Matin / Après-midi</th>
-                                    <th className="px-6 py-4">Statut</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                                {filteredSites.length > 0 ? (
-                                    filteredSites.map((s) => (
-                                        <tr key={s.idSite} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
-                                            <td className="px-6 py-4 font-mono font-semibold text-brand-500">{s.codeSite}</td>
-                                            <td className="px-6 py-4 font-bold">{s.libelle}</td>
-                                            <td className="px-6 py-4 font-medium text-xs">
-                                                {s.filialeRaisonSociale ? (
-                                                    <span className="px-2 py-0.5 bg-brand-500/10 text-brand-500 rounded-sm">
-                                                        {s.filialeRaisonSociale}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-ink-300">-</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {s.horaireContinu ? (
-                                                    <span className="text-xs px-2 py-0.5 bg-sky-500/10 text-sky-500 font-semibold rounded-sm">
-                                                        Horaire Continu
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-500 font-semibold rounded-sm">
-                                                        Discontinu (Pause)
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-xs font-mono text-ink-500">
-                                                <div>Matin : {s.heureDebutMatin || '--'} - {s.heureFinMatin || '--'}</div>
-                                                <div>A-Midi : {s.heureDebutApresMidi || '--'} - {s.heureFinApresMidi || '--'}</div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {s.estActif ? (
-                                                    <span className="inline-flex items-center gap-1.5 text-success-500 font-semibold text-xs">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-success-500"></span>
-                                                        Actif
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 text-ink-400 font-semibold text-xs">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-ink-400"></span>
-                                                        Désactivé
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleOpenEditSite(s)}
-                                                        className="p-1.5 text-ink-500 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-sm transition-all cursor-pointer"
-                                                        title="Modifier"
-                                                    >
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleToggleSiteStatus(s)}
-                                                        className={`px-2 py-1 text-xs font-bold rounded-sm transition-all cursor-pointer ${
-                                                            s.estActif
-                                                                ? 'text-danger-500 hover:bg-danger-500/10'
-                                                                : 'text-success-500 hover:bg-success-500/10'
-                                                        }`}
-                                                    >
-                                                        {s.estActif ? "Désactiver" : "Activer"}
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="7" className="px-6 py-12 text-center text-ink-400">
-                                            Aucun site d'exploitation enregistré.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <SitesList
+                    sites={filteredSites}
+                    onOpenEdit={handleOpenEditSite}
+                    onToggleStatus={handleToggleSiteStatus}
+                />
             )}
 
             {/* Modale Filiale */}
-            {showFilialeModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
-                    <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 font-bold text-lg text-ink-900 dark:text-white">
-                            {selectedFiliale ? "Modifier la Filiale" : "Nouvelle Filiale"}
-                        </div>
-                        <form onSubmit={handleSaveFiliale}>
-                            <div className="p-6 space-y-4">
-                                {actionError && (
-                                    <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-3 text-xs">
-                                        {actionError}
-                                    </div>
-                                )}
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-ink-400 uppercase">Code Filiale</label>
-                                    <input
-                                        type="text"
-                                        value={filialeFormData.codeFiliale}
-                                        onChange={(e) => setFilialeFormData({ ...filialeFormData, codeFiliale: e.target.value })}
-                                        placeholder="Ex: LOG, VA"
-                                        disabled={!!selectedFiliale}
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500 disabled:opacity-50"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-ink-400 uppercase">Raison Sociale</label>
-                                    <input
-                                        type="text"
-                                        value={filialeFormData.raisonSociale}
-                                        onChange={(e) => setFilialeFormData({ ...filialeFormData, raisonSociale: e.target.value })}
-                                        placeholder="Ex: Galaxam Logistics SARL"
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-semibold text-ink-400 uppercase">NIF</label>
-                                        <input
-                                            type="text"
-                                            value={filialeFormData.nif}
-                                            onChange={(e) => setFilialeFormData({ ...filialeFormData, nif: e.target.value })}
-                                            placeholder="Numéro NIF"
-                                            className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-semibold text-ink-400 uppercase">STAT</label>
-                                        <input
-                                            type="text"
-                                            value={filialeFormData.stat}
-                                            onChange={(e) => setFilialeFormData({ ...filialeFormData, stat: e.target.value })}
-                                            placeholder="Numéro STAT"
-                                            className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-ink-400 uppercase">Seuil d'Alerte Effectif</label>
-                                    <input
-                                        type="number"
-                                        value={filialeFormData.seuilEffectifAlerte}
-                                        onChange={(e) => setFilialeFormData({ ...filialeFormData, seuilEffectifAlerte: parseInt(e.target.value) || 0 })}
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                    />
-                                </div>
-                            </div>
-                            <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowFilialeModal(false)}
-                                    className="px-4 py-2 text-sm font-semibold hover:bg-ink-200 dark:hover:bg-ink-850 rounded-sm transition-colors cursor-pointer"
-                                >
-                                    Annuler
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 text-sm font-semibold bg-brand-500 hover:bg-brand-600 text-white rounded-sm transition-colors cursor-pointer"
-                                >
-                                    Enregistrer
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            <FilialeFormModal
+                isOpen={showFilialeModal}
+                onClose={() => setShowFilialeModal(false)}
+                onSubmit={handleSaveFiliale}
+                selectedFiliale={selectedFiliale}
+                formData={filialeFormData}
+                setFormData={setFilialeFormData}
+                actionError={actionError}
+            />
 
             {/* Modale Site */}
-            {showSiteModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
-                    <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 font-bold text-lg text-ink-900 dark:text-white">
-                            {selectedSite ? "Modifier le Site" : "Nouveau Site"}
-                        </div>
-                        <form onSubmit={handleSaveSite}>
-                            <div className="p-6 space-y-4 max-h-[450px] overflow-y-auto">
-                                {actionError && (
-                                    <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-3 text-xs">
-                                        {actionError}
-                                    </div>
-                                )}
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-ink-400 uppercase">Code Site</label>
-                                    <input
-                                        type="text"
-                                        value={siteFormData.codeSite}
-                                        onChange={(e) => setSiteFormData({ ...siteFormData, codeSite: e.target.value })}
-                                        disabled={!!selectedSite}
-                                        placeholder="Ex: TNR, TMM"
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500 disabled:opacity-50"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-ink-400 uppercase">Nom / Libellé</label>
-                                    <input
-                                        type="text"
-                                        value={siteFormData.libelle}
-                                        onChange={(e) => setSiteFormData({ ...siteFormData, libelle: e.target.value })}
-                                        placeholder="Ex: Antananarivo - Siège"
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-ink-400 uppercase">Filiale de Rattachement</label>
-                                    <select
-                                        value={siteFormData.idFilialeRattachement}
-                                        onChange={(e) => setSiteFormData({ ...siteFormData, idFilialeRattachement: e.target.value })}
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                    >
-                                        <option value="">Sélectionner une filiale</option>
-                                        {filiales.map((f) => (
-                                            <option key={f.idFiliale} value={f.idFiliale}>
-                                                {f.raisonSociale} ({f.codeFiliale})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="flex items-center gap-2 pt-1">
-                                    <input
-                                        type="checkbox"
-                                        id="horaireContinu"
-                                        checked={siteFormData.horaireContinu}
-                                        onChange={(e) => setSiteFormData({ ...siteFormData, horaireContinu: e.target.checked })}
-                                        className="w-4 h-4 text-brand-500 border-ink-300 dark:border-ink-700 rounded-sm focus:ring-brand-500"
-                                    />
-                                    <label htmlFor="horaireContinu" className="text-sm text-ink-900 dark:text-white font-medium cursor-pointer">
-                                        Régime Horaire Continu
-                                    </label>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-ink-100 dark:border-ink-800">
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-semibold text-ink-400 uppercase">Début Matin</label>
-                                        <input
-                                            type="time"
-                                            value={siteFormData.heureDebutMatin}
-                                            onChange={(e) => setSiteFormData({ ...siteFormData, heureDebutMatin: e.target.value })}
-                                            className="w-full px-3 py-1.5 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-semibold text-ink-400 uppercase">Fin Matin</label>
-                                        <input
-                                            type="time"
-                                            value={siteFormData.heureFinMatin}
-                                            onChange={(e) => setSiteFormData({ ...siteFormData, heureFinMatin: e.target.value })}
-                                            className="w-full px-3 py-1.5 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-semibold text-ink-400 uppercase">Début Après-midi</label>
-                                        <input
-                                            type="time"
-                                            value={siteFormData.heureDebutApresMidi}
-                                            onChange={(e) => setSiteFormData({ ...siteFormData, heureDebutApresMidi: e.target.value })}
-                                            className="w-full px-3 py-1.5 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-semibold text-ink-400 uppercase">Fin Après-midi</label>
-                                        <input
-                                            type="time"
-                                            value={siteFormData.heureFinApresMidi}
-                                            onChange={(e) => setSiteFormData({ ...siteFormData, heureFinApresMidi: e.target.value })}
-                                            className="w-full px-3 py-1.5 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowSiteModal(false)}
-                                    className="px-4 py-2 text-sm font-semibold hover:bg-ink-200 dark:hover:bg-ink-850 rounded-sm transition-colors cursor-pointer"
-                                >
-                                    Annuler
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 text-sm font-semibold bg-brand-500 hover:bg-brand-600 text-white rounded-sm transition-colors cursor-pointer"
-                                >
-                                    Enregistrer
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            <SiteFormModal
+                isOpen={showSiteModal}
+                onClose={() => setShowSiteModal(false)}
+                onSubmit={handleSaveSite}
+                selectedSite={selectedSite}
+                formData={siteFormData}
+                setFormData={setSiteFormData}
+                filiales={filiales}
+                actionError={actionError}
+            />
         </div>
     );
 }
