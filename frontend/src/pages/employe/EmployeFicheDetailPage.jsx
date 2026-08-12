@@ -1,36 +1,32 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
-    ArrowLeft, User, Phone, Users, ShieldAlert, 
-    Edit2, Power, Calendar, MapPin, Heart, Baby, 
-    Landmark, Briefcase, FileText, CheckCircle, XCircle, Folder,
-    Upload, Download, Trash2, Plus, AlertTriangle
+    ArrowLeft, User, Users, Briefcase, FileText, CheckCircle, XCircle, Folder,
+    Power, AlertTriangle
 } from 'lucide-react';
 import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
 import EmployeHeaderCard from '@/components/employe/EmployeHeaderCard';
 import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
 import Loading from '@/components/ui/Loading';
-import Input, { Textarea, Select } from '@/components/ui/Input';
-import { getFullPhotoUrl } from '@/utils/fileUtils';
 import { useAuth } from '@/context/AuthContext';
 
-// Lazy loading des composants lourds de la fiche employé
+// Lazy loading des sous-onglets & modales de la fiche employé pour optimiser les performances
 const EmployeFormModal = lazy(() => import('./dossier/EmployeFormModal'));
 const CarriereTab = lazy(() => import('./carriere/CarriereTab'));
-
-const InfoBlock = ({ label, value, mono = false, icon }) => (
-    <div className="py-2">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400 mb-0.5">{label}</p>
-        <div className="flex items-center gap-1.5">
-            {icon && <span className="text-ink-300">{icon}</span>}
-            <p className={`text-sm font-semibold text-ink-800 dark:text-ink-100 ${mono ? 'font-mono' : ''}`}>{value || '-'}</p>
-        </div>
-    </div>
-);
+const FichePersonnelleTab = lazy(() => import('@/components/employe/tabs/FichePersonnelleTab'));
+const DocumentsRhTab = lazy(() => import('@/components/employe/tabs/DocumentsRhTab'));
+const FamilleContactsTab = lazy(() => import('@/components/employe/tabs/FamilleContactsTab'));
+const HistoriqueStatutTab = lazy(() => import('@/components/employe/tabs/HistoriqueStatutTab'));
+const UploadDocumentModal = lazy(() => import('@/components/employe/tabs/UploadDocumentModal'));
 
 const VALID_TABS = ['personnel', 'documents', 'famille', 'carriere', 'historique'];
+
+const TabLoader = ({ label = "Chargement..." }) => (
+    <div className="p-8 flex justify-center">
+        <Loading size="md" label={label} />
+    </div>
+);
 
 export default function EmployeFicheDetailPage() {
     const { id } = useParams();
@@ -68,8 +64,6 @@ export default function EmployeFicheDetailPage() {
     const [docCommentaire, setDocCommentaire] = useState('');
     const [uploadingDoc, setUploadingDoc] = useState(false);
     const [docErrorMsg, setDocErrorMsg] = useState('');
-
-
 
     // Modale Édition Employé & Désactivation
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -153,19 +147,6 @@ export default function EmployeFicheDetailPage() {
         }
     };
 
-    const handleReactiver = async () => {
-        if (!window.confirm(`Voulez-vous vraiment réactiver l'employé ${emp?.nom || ''} ${emp?.prenom || ''} ?`)) return;
-        setError('');
-        try {
-            await employeService.reactiverEmploye(id);
-            setActionSuccess('Employé réactivé avec succès.');
-            loadEmployeDetail();
-        } catch (err) {
-            console.error('Erreur réactivation:', err);
-            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la réactivation.');
-        }
-    };
-
     // Actions Documents RH
     const handleOpenUploadModal = (typeId = '') => {
         setSelectedTypeId(typeId || (typesDoc[0]?.idTypeDocument || ''));
@@ -222,23 +203,6 @@ export default function EmployeFicheDetailPage() {
             console.error('Erreur téléchargement document:', err);
             setError('Erreur lors du téléchargement du document.');
         }
-    };
-
-
-
-    const fmtDate = (d) => {
-        if (!d) return '-';
-        try { return new Date(d).toLocaleDateString('fr-FR'); } catch { return '-'; }
-    };
-
-
-
-    const formatBytes = (bytes) => {
-        if (!bytes || bytes === 0) return '0 Octet';
-        const k = 1024;
-        const sizes = ['Octets', 'Ko', 'Mo', 'Go'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
     if (loading) {
@@ -325,331 +289,44 @@ export default function EmployeFicheDetailPage() {
                     })}
                 </div>
 
-                {/* Contenu de l'onglet actif */}
+                {/* Contenu de l'onglet actif (Chargement lazy) */}
                 <div className="p-6">
 
                     {/* Onglet 1: Fiche Personnelle */}
                     {activeTab === 'personnel' && (
-                        <div className="space-y-8">
-                            {/* Section État Civil & Identité */}
-                            <div>
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
-                                    <User size={14} /> État Civil & Identité
-                                </h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-                                    <InfoBlock label="Sexe" value={emp.sexe === 'M' ? 'Masculin' : 'Féminin'} />
-                                    <InfoBlock label="Date de Naissance" value={fmtDate(emp.dateNaissance)} icon={<Calendar size={14} />} />
-                                    <InfoBlock label="Lieu de Naissance" value={emp.lieuNaissance} icon={<MapPin size={14} />} />
-                                    <InfoBlock label="Situation Familiale" value={emp.situationFamiliale} icon={<Heart size={14} />} />
-                                    <InfoBlock label="Nom du Père" value={emp.pereNomPrenom} />
-                                    <InfoBlock label="Nom de la Mère" value={emp.mereNomPrenom} />
-                                    <InfoBlock label="N° CIN" value={emp.cinNumero} mono />
-                                    <InfoBlock label="Date Délivrance CIN" value={fmtDate(emp.cinDateDelivrance)} />
-                                    <InfoBlock label="Lieu Délivrance CIN" value={emp.cinLieuDelivrance} />
-                                    <InfoBlock label="N° Permis de Conduire" value={emp.permisConduireNumero} mono />
-                                    {emp.cinDuplicataDate && <InfoBlock label="Duplicata CIN Date" value={fmtDate(emp.cinDuplicataDate)} />}
-                                    {emp.cinDuplicataLieu && <InfoBlock label="Duplicata CIN Lieu" value={emp.cinDuplicataLieu} />}
-                                </div>
-                            </div>
-
-                            {/* Section Coordonnées */}
-                            <div>
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
-                                    <Phone size={14} /> Domicile & Coordonnées
-                                </h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-                                    <div className="sm:col-span-2">
-                                        <InfoBlock label="Adresse Domicile" value={emp.adresse} icon={<MapPin size={14} />} />
-                                    </div>
-                                    <InfoBlock label="Ville" value={emp.ville} />
-                                    <InfoBlock label="Téléphone" value={emp.telephone} mono icon={<Phone size={14} />} />
-                                    <div className="sm:col-span-2">
-                                        <InfoBlock label="Adresse Email" value={emp.email} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Section CNaPS & Banque */}
-                            <div>
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
-                                    <Landmark size={14} /> Sécurité Sociale & Compte Bancaire
-                                </h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-4">
-                                    <InfoBlock label="N° Affiliation CNaPS" value={emp.numAffiliationCnaps} mono />
-                                    <InfoBlock label="Date Déclaration CNaPS" value={fmtDate(emp.dateDeclaration)} />
-                                </div>
-
-                                {comptes.length > 0 ? (
-                                    <div className="overflow-x-auto border border-ink-150 dark:border-ink-700">
-                                        <table className="w-full text-sm">
-                                            <thead>
-                                                <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
-                                                    <th className="px-4 py-3 text-left">Banque</th>
-                                                    <th className="px-4 py-3 text-left">Agence</th>
-                                                    <th className="px-4 py-3 text-left">N° Compte / RIB</th>
-                                                    <th className="px-4 py-3 text-left">Titulaire</th>
-                                                    <th className="px-4 py-3 text-left">Statut</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                                                {comptes.map((cb, i) => (
-                                                    <tr key={i} className="text-ink-900 dark:text-ink-100">
-                                                        <td className="px-4 py-3 font-semibold">{cb.nomBanque || cb.idBanque}</td>
-                                                        <td className="px-4 py-3">{cb.agence || '-'}</td>
-                                                        <td className="px-4 py-3 font-mono text-xs text-brand-500 font-bold">{cb.numCompteRib}</td>
-                                                        <td className="px-4 py-3">{cb.titulaireCompte || '-'}</td>
-                                                        <td className="px-4 py-3">
-                                                            {cb.estPrincipal ? (
-                                                                <Badge variant="primary" size="sm">Principal</Badge>
-                                                            ) : (
-                                                                <Badge variant="default" size="sm">Secondaire</Badge>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-ink-400">Aucun compte bancaire enregistré.</p>
-                                )}
-                            </div>
-                        </div>
+                        <Suspense fallback={<TabLoader label="Chargement de la fiche personnelle..." />}>
+                            <FichePersonnelleTab emp={emp} comptes={comptes} />
+                        </Suspense>
                     )}
 
                     {/* Onglet 2: Documents RH */}
                     {activeTab === 'documents' && (
-                        <div className="space-y-6">
-                            {/* Bannière Alerte Documents Obligatoires Manquants */}
-                            {canWrite && documentsData.obligatoiresManquants && documentsData.obligatoiresManquants.length > 0 && (
-                                <div className="bg-warning-500/10 border border-warning-500/30 p-4 rounded-sm flex items-start gap-3">
-                                    <AlertTriangle size={20} className="text-warning-600 flex-shrink-0 mt-0.5" />
-                                    <div className="space-y-1">
-                                        <h4 className="text-xs font-bold uppercase tracking-wider text-warning-700">
-                                            Documents Obligatoires Manquants ({documentsData.obligatoiresManquants.length})
-                                        </h4>
-                                        <p className="text-xs text-warning-600">
-                                            Veuillez verser au dossier les pièces obligatoires manquantes pour compléter la conformité RH de cet employé :
-                                        </p>
-                                        <div className="flex flex-wrap gap-2 pt-1">
-                                            {documentsData.obligatoiresManquants.map(m => (
-                                                <button
-                                                    key={m.idTypeDocument}
-                                                    type="button"
-                                                    onClick={() => handleOpenUploadModal(m.idTypeDocument)}
-                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-white dark:bg-ink-900 border border-warning-500/40 text-warning-700 hover:bg-warning-500/20 rounded-sm transition-all cursor-pointer"
-                                                >
-                                                    <Plus size={12} />
-                                                    {m.libelle}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Entête & Bouton Upload */}
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2 border-b border-ink-150 dark:border-ink-700">
-                                <div>
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2">
-                                        <Folder size={14} /> Documents RH Déposés ({documentsData.documents.length})
-                                    </h3>
-                                    <p className="text-xs text-ink-400">Consultez, téléchargez ou ajoutez les pièces justificatives de l'employé</p>
-                                </div>
-                                {canWrite && (
-                                    <Button
-                                        onClick={() => handleOpenUploadModal()}
-                                        variant="primary"
-                                        size="sm"
-                                        iconLeft={<Upload size={16} />}
-                                    >
-                                        Téléverser un Document
-                                    </Button>
-                                )}
-                            </div>
-
-                            {/* Grille/Tableau des Documents */}
-                            {loadingDocs ? (
-                                <div className="py-12 flex justify-center">
-                                    <Loading size="md" label="Chargement des documents..." />
-                                </div>
-                            ) : documentsData.documents.length === 0 ? (
-                                <div className="p-10 text-center bg-ink-50 dark:bg-ink-950 border border-dashed border-ink-200 dark:border-ink-700 space-y-2">
-                                    <Folder size={36} className="mx-auto text-ink-300" />
-                                    <p className="text-sm font-bold text-ink-800 dark:text-white">Aucun document RH déposé</p>
-                                    <p className="text-xs text-ink-400">Cliquez sur Téléverser un Document pour en ajouter un.</p>
-                                </div>
-                            ) : (
-                                <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
-                                    <table className="w-full text-sm text-left">
-                                        <thead>
-                                            <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
-                                                <th className="px-4 py-3">Document & Nom</th>
-                                                <th className="px-4 py-3">Type & Catégorie</th>
-                                                <th className="px-4 py-3">Taille</th>
-                                                <th className="px-4 py-3">Date Document</th>
-                                                <th className="px-4 py-3">Versé par</th>
-                                                <th className="px-4 py-3 text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                                            {documentsData.documents.map((doc) => (
-                                                <tr key={doc.idDocument} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 bg-brand-500/10 text-brand-500 flex items-center justify-center rounded-sm font-bold text-xs">
-                                                                {doc.extension ? doc.extension.toUpperCase() : 'DOC'}
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-semibold text-ink-900 dark:text-white">{doc.nomOriginal}</p>
-                                                                {doc.commentaire && <p className="text-xs text-ink-400">{doc.commentaire}</p>}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <Badge variant="primary" size="sm">{doc.typeDocumentLibelle}</Badge>
-                                                            {doc.typeDocumentObligatoire && (
-                                                                <Badge variant="warning" size="sm">Obligatoire</Badge>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-xs font-mono text-ink-500">
-                                                        {formatBytes(doc.tailleOctet)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-xs font-mono">
-                                                        {fmtDate(doc.dateDocument)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-xs text-ink-500">
-                                                        {doc.uploadedByIdentifiant || 'Admin'}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <div className="flex justify-end gap-2">
-                                                            <button
-                                                                onClick={() => handleDownloadDoc(doc.idDocument, doc.nomOriginal)}
-                                                                className="p-1.5 text-brand-500 hover:bg-brand-500/10 rounded-sm transition-all cursor-pointer"
-                                                                title="Visualiser / Télécharger"
-                                                            >
-                                                                <Download size={16} />
-                                                            </button>
-                                                            {canWrite && (
-                                                                <button
-                                                                    onClick={() => handleDeleteDoc(doc.idDocument, doc.nomOriginal)}
-                                                                    className="p-1.5 text-danger-500 hover:bg-danger-500/10 rounded-sm transition-all cursor-pointer"
-                                                                    title="Supprimer"
-                                                                >
-                                                                    <Trash2 size={16} />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
+                        <Suspense fallback={<TabLoader label="Chargement des documents RH..." />}>
+                            <DocumentsRhTab
+                                documentsData={documentsData}
+                                loadingDocs={loadingDocs}
+                                canWrite={canWrite}
+                                onOpenUploadModal={handleOpenUploadModal}
+                                onDownloadDoc={handleDownloadDoc}
+                                onDeleteDoc={handleDeleteDoc}
+                            />
+                        </Suspense>
                     )}
 
                     {/* Onglet 3: Famille & Contacts */}
                     {activeTab === 'famille' && (
-                        <div className="space-y-8">
-                            {/* Conjoint */}
-                            <div>
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
-                                    <Heart size={14} /> Conjoint
-                                </h3>
-                                {conjoint && conjoint.nom ? (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 bg-ink-50 dark:bg-ink-950 p-4 border border-ink-150 dark:border-ink-700">
-                                        <InfoBlock label="Nom" value={conjoint.nom} />
-                                        <InfoBlock label="Prénom" value={conjoint.prenom} />
-                                        <InfoBlock label="Date de Naissance" value={fmtDate(conjoint.dateNaissance)} />
-                                        <InfoBlock label="Employeur / Société" value={conjoint.societe} />
-                                        <InfoBlock label="Fonction" value={conjoint.fonction} />
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-ink-400">Aucun conjoint renseigné (Célibataire ou non déclaré).</p>
-                                )}
-                            </div>
-
-                            {/* Enfants */}
-                            <div>
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
-                                    <Baby size={14} /> Enfants Déclarés ({enfants.length})
-                                </h3>
-                                {enfants.length > 0 ? (
-                                    <div className="overflow-x-auto border border-ink-150 dark:border-ink-700">
-                                        <table className="w-full text-sm">
-                                            <thead>
-                                                <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
-                                                    <th className="px-4 py-3 text-left">Nom</th>
-                                                    <th className="px-4 py-3 text-left">Prénom</th>
-                                                    <th className="px-4 py-3 text-left">Sexe</th>
-                                                    <th className="px-4 py-3 text-left">Date Naissance</th>
-                                                    <th className="px-4 py-3 text-left">À Charge</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                                                {enfants.map((enf, i) => (
-                                                    <tr key={i} className="hover:bg-ink-50/50 text-ink-900 dark:text-ink-100">
-                                                        <td className="px-4 py-3 font-semibold">{enf.nom}</td>
-                                                        <td className="px-4 py-3">{enf.prenom}</td>
-                                                        <td className="px-4 py-3">{enf.sexe === 'M' ? 'Garçon' : 'Fille'}</td>
-                                                        <td className="px-4 py-3 font-mono text-xs">{fmtDate(enf.dateNaissance)}</td>
-                                                        <td className="px-4 py-3">
-                                                            {enf.aCharge ? (
-                                                                <Badge variant="success" size="sm">Oui</Badge>
-                                                            ) : (
-                                                                <Badge variant="default" size="sm">Non</Badge>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-ink-400">Aucun enfant enregistré.</p>
-                                )}
-                            </div>
-
-                            {/* Contacts d'Urgence */}
-                            <div>
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
-                                    <ShieldAlert size={14} /> Contacts d'Urgence
-                                </h3>
-                                {contactsUrgence.length > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {contactsUrgence.map((ct, i) => (
-                                            <div key={i} className="p-4 bg-ink-50 dark:bg-ink-950 border border-ink-150 dark:border-ink-700 space-y-2">
-                                                <div className="flex justify-between items-center">
-                                                    <p className="text-sm font-bold text-ink-900 dark:text-white">{ct.nom} {ct.prenom}</p>
-                                                    <Badge variant="primary" size="sm">{ct.lienParente}</Badge>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                                    <div>
-                                                        <span className="text-ink-400 uppercase text-[9px] block">Téléphone</span>
-                                                        <span className="font-mono font-bold text-brand-500">{ct.telephone || '-'}</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-ink-400 uppercase text-[9px] block">Adresse</span>
-                                                        <span>{ct.adresse || '-'}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-ink-400">Aucun contact d'urgence renseigné.</p>
-                                )}
-                            </div>
-                        </div>
+                        <Suspense fallback={<TabLoader label="Chargement des contacts familiaux..." />}>
+                            <FamilleContactsTab
+                                conjoint={conjoint}
+                                enfants={enfants}
+                                contactsUrgence={contactsUrgence}
+                            />
+                        </Suspense>
                     )}
 
                     {/* Onglet 4: Carrière & Affectation */}
                     {activeTab === 'carriere' && (
-                        <Suspense fallback={<div className="p-8 flex justify-center"><Loading size="md" label="Chargement du module Carrière..." /></div>}>
+                        <Suspense fallback={<TabLoader label="Chargement du dossier carrière..." />}>
                             <CarriereTab
                                 idEmploye={id}
                                 employe={emp}
@@ -664,98 +341,36 @@ export default function EmployeFicheDetailPage() {
 
                     {/* Onglet 5: Historique & Statut */}
                     {activeTab === 'historique' && (
-                        <div className="space-y-6">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 flex items-center gap-2">
-                                <FileText size={14} /> Historique du Dossier
-                            </h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 bg-ink-50 dark:bg-ink-950 p-4 border border-ink-150 dark:border-ink-700">
-                                <InfoBlock label="Statut du Compte" value={emp.estActif ? "Actif" : "Inactif"} />
-                                {!emp.estActif && (
-                                    <>
-                                        <InfoBlock label="Date de Désactivation" value={fmtDate(emp.dateDesactivation)} />
-                                        <InfoBlock label="Motif de Désactivation" value={emp.motifDesactivation || '-'} />
-                                    </>
-                                )}
-                            </div>
-                        </div>
+                        <Suspense fallback={<TabLoader label="Chargement de l'historique du dossier..." />}>
+                            <HistoriqueStatutTab emp={emp} />
+                        </Suspense>
                     )}
 
                 </div>
             </div>
 
-
-
-            {/* Modale Téléversement Document RH */}
+            {/* Modale Téléversement Document RH (Lazy) */}
             {isUploadDocModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
-                    <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
-                            <Upload size={18} className="text-brand-500" />
-                            Téléverser un Document RH
-                        </div>
-                        <form onSubmit={handleUploadDocSubmit}>
-                            <div className="p-6 space-y-4">
-                                {docErrorMsg && (
-                                    <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 rounded-sm p-3 text-xs flex items-center gap-1.5">
-                                        <ShieldAlert size={14} />
-                                        {docErrorMsg}
-                                    </div>
-                                )}
-                                <Select
-                                    label="Type de Document"
-                                    required
-                                    value={selectedTypeId}
-                                    onChange={(e) => setSelectedTypeId(e.target.value)}
-                                >
-                                    <option value="">-- Sélectionner --</option>
-                                    {typesDoc.map(t => (
-                                        <option key={t.idTypeDocument} value={t.idTypeDocument}>
-                                            {t.libelle} {t.obligatoire ? '(Obligatoire)' : ''} — [{t.categorie}]
-                                        </option>
-                                    ))}
-                                </Select>
-
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-wider text-ink-800 dark:text-ink-50">
-                                        Fichier (PDF, JPG, PNG) <span className="text-danger-500">*</span>
-                                    </label>
-                                    <input
-                                        type="file"
-                                        required
-                                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                                        className="w-full text-xs text-ink-700 dark:text-ink-300 border border-ink-200 dark:border-ink-700 p-2 rounded-sm bg-ink-50 dark:bg-ink-950"
-                                    />
-                                </div>
-
-                                <Input
-                                    label="Date du Document"
-                                    type="date"
-                                    value={docDate}
-                                    onChange={(e) => setDocDate(e.target.value)}
-                                />
-
-                                <Textarea
-                                    label="Commentaire / Remarque"
-                                    rows={2}
-                                    value={docCommentaire}
-                                    onChange={(e) => setDocCommentaire(e.target.value)}
-                                    placeholder="Remarque éventuelle (numéro de diplôme, version, etc.)"
-                                />
-                            </div>
-                            <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-end gap-3">
-                                <Button type="button" onClick={() => setIsUploadDocModalOpen(false)} variant="ghost" size="sm">
-                                    Annuler
-                                </Button>
-                                <Button type="submit" variant="primary" size="sm" loading={uploadingDoc}>
-                                    Téléverser
-                                </Button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                <Suspense fallback={null}>
+                    <UploadDocumentModal
+                        isOpen={isUploadDocModalOpen}
+                        onClose={() => setIsUploadDocModalOpen(false)}
+                        onSubmit={handleUploadDocSubmit}
+                        typesDoc={typesDoc}
+                        selectedTypeId={selectedTypeId}
+                        setSelectedTypeId={setSelectedTypeId}
+                        setSelectedFile={setSelectedFile}
+                        docDate={docDate}
+                        setDocDate={setDocDate}
+                        docCommentaire={docCommentaire}
+                        setDocCommentaire={setDocCommentaire}
+                        uploadingDoc={uploadingDoc}
+                        docErrorMsg={docErrorMsg}
+                    />
+                </Suspense>
             )}
 
-            {/* Modale d'édition Employé */}
+            {/* Modale Édition Employé (Lazy) */}
             {isFormOpen && (
                 <Suspense fallback={null}>
                     <EmployeFormModal
