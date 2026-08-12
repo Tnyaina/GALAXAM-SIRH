@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import referentielService from '@/api/admin/referentielService';
 import contratService from '@/api/employe/contratService';
 import employeService from '@/api/employe/employeService';
@@ -36,7 +36,7 @@ export function useContractReferentiels(enabled = true, excludeEmployeId = null)
         typesEvenementRh: [],
         employes: [],
     });
-    
+
     const [loading, setLoading] = useState(!cacheData);
     const [error, setError] = useState(null);
 
@@ -105,10 +105,12 @@ export function useContractReferentiels(enabled = true, excludeEmployeId = null)
         }
     }, [enabled, fetchAll]);
 
-    // Filtrer la liste des responsables (N+1 potentiel) en excluant l'employé concerné
-    const responsables = excludeEmployeId
-        ? referentiels.employes.filter(e => Number(e.idEmploye || e.id_employe) !== Number(excludeEmployeId))
-        : referentiels.employes;
+    // Filtrer la liste des responsables (N+1 potentiel) en excluant l'employé concerné (mémoïsé)
+    const responsables = useMemo(() => {
+        return excludeEmployeId
+            ? referentiels.employes.filter(e => Number(e.idEmploye || e.id_employe) !== Number(excludeEmployeId))
+            : referentiels.employes;
+    }, [referentiels.employes, excludeEmployeId]);
 
     return {
         ...referentiels,

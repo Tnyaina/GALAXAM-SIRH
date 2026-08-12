@@ -76,6 +76,15 @@ const contratService = {
         return response.data;
     },
 
+    /**
+     * Modifier un workflow en statut BROUILLON avant validation DAF.
+     * PUT /workflows/{idWorkflow}
+     */
+    modifierBrouillonWorkflow: async (idWorkflow, data) => {
+        const response = await apiClient.put(`/workflows/${idWorkflow}`, data);
+        return response.data;
+    },
+
     initierTransition: async (idEmploye, data) => {
         const response = await apiClient.post(`/employes/${idEmploye}/workflows/transition`, data);
         return response.data;

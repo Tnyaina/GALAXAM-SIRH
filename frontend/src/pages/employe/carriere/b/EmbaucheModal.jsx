@@ -86,7 +86,7 @@ export default function EmbaucheModal({
 
 
     useEffect(() => {
-        if (!initialData) return;
+        if (!isOpen || !initialData) return;
 
         let filialeId = initialData.idFiliale || initialData.id_filiale || '';
         let typeContratId = initialData.idTypeContrat || initialData.id_type_contrat || '';
@@ -176,10 +176,7 @@ export default function EmbaucheModal({
             dateEffet: fmtDateInput(initialData.dateEffet || initialData.date_effet),
             motif: initialData.motif || '',
         });
-    }, [
-        initialData, filiales, typesContrat, typesIntervenant, sites,
-        departements, services, fonctions, categoriesPro, modesPaie, responsables
-    ]);
+    }, [isOpen, initialData, loadingRef]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -282,8 +279,13 @@ export default function EmbaucheModal({
 
             let res;
             if (isEditMode) {
-                const idContrat = initialData.idContratCible || initialData.idContrat;
-                res = await contratService.modifierBrouillonContrat(idEmploye, idContrat, payload);
+                const brouillonWfId = initialData.idWorkflow || initialData.id_workflow;
+                if (brouillonWfId) {
+                    res = await contratService.modifierBrouillonWorkflow(brouillonWfId, payload);
+                } else {
+                    const idContrat = initialData.idContratCible || initialData.idContrat;
+                    res = await contratService.modifierBrouillonContrat(idEmploye, idContrat, payload);
+                }
             } else {
                 res = await contratService.creerBrouillonEmbauche(idEmploye, payload);
             }

@@ -347,7 +347,13 @@ export default function TransitionModal({
                 motif: formData.motif || `Mouvement RH : ${codeTypeEvenement}`,
             };
 
-            const res = await contratService.creerBrouillonTransition(idEmploye, payload);
+            const brouillonId = initialData?.idWorkflow || initialData?.id_workflow || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif?.idWorkflow : null);
+            let res;
+            if (brouillonId) {
+                res = await contratService.modifierBrouillonWorkflow(brouillonId, payload);
+            } else {
+                res = await contratService.creerBrouillonTransition(idEmploye, payload);
+            }
             if (onSuccess) onSuccess(res);
             onClose();
         } catch (err) {

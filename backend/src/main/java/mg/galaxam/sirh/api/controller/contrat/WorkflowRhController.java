@@ -517,6 +517,106 @@ public class WorkflowRhController {
     }
 
     /**
+     * MODIFICATION D'UN BROUILLON WORKFLOW (Transition ou Embauche).
+     * Permet à la DAF / RH d'éditer les champs d'un brouillon existant au lieu d'en créer un nouveau.
+     * PUT /workflows/{idWorkflow}
+     */
+    @PutMapping("/workflows/{idWorkflow}")
+    @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> modifierBrouillonWorkflow(
+            @PathVariable Integer idWorkflow,
+            @RequestBody TransitionCarriereRequest req) {
+
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                WorkflowRh workflow = new WorkflowRh().rechercherParId(idWorkflow, c);
+                if (workflow == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Workflow introuvable.");
+                }
+
+                // Vérifier statut BROUILLON
+                String statutCode = "";
+                try (var psStat = c.prepareStatement("SELECT code FROM ref_statut_workflow WHERE id_statut_workflow = ?")) {
+                    psStat.setInt(1, workflow.getIdStatutWorkflow());
+                    try (var rsStat = psStat.executeQuery()) {
+                        if (rsStat.next()) statutCode = rsStat.getString("code");
+                    }
+                }
+
+                if (!"BROUILLON".equals(statutCode)) {
+                    return ResponseEntity.badRequest()
+                            .body("Seul un workflow en statut BROUILLON peut être modifié. Statut actuel : " + statutCode);
+                }
+
+                // 1. Mise à jour de l'affectation cible (PLANIFIEE)
+                if (workflow.getIdAffectationCible() != null && req.getIdSite() != null) {
+                    EmployeAffectationCarriere affectation = new EmployeAffectationCarriere().rechercherParId(workflow.getIdAffectationCible(), c);
+                    if (affectation != null) {
+                        if (req.getIdSite() != null) affectation.setIdSite(req.getIdSite());
+                        if (req.getIdDepartement() != null) affectation.setIdDepartement(req.getIdDepartement());
+                        if (req.getIdService() != null) affectation.setIdService(req.getIdService());
+                        if (req.getIdFonction() != null) affectation.setIdFonction(req.getIdFonction());
+                        affectation.setIdResponsableHierarchique(req.getIdResponsableHierarchique());
+                        if (req.getIdCategorieProfessionnelle() != null) affectation.setIdCategorieProfessionnelle(req.getIdCategorieProfessionnelle());
+                        if (req.getIdModeCalculPaie() != null) affectation.setIdModeCalculPaie(req.getIdModeCalculPaie());
+                        if (req.getSalaireBase() != null) affectation.setSalaireBase(java.math.BigDecimal.valueOf(req.getSalaireBase()));
+                        if (req.getDateEffet() != null) affectation.setDateDebut(req.getDateEffet());
+                        if (req.getDescriptionAffectation() != null) affectation.setDescription(req.getDescriptionAffectation());
+                        if (req.getCommentaireAffectation() != null) affectation.setCommentaire(req.getCommentaireAffectation());
+                        affectation.update(c);
+                    }
+                }
+
+                // 2. Mise à jour du contrat cible (si contrat créé)
+                if (workflow.getIdContratCible() != null && req.getIdTypeContrat() != null) {
+                    ContratTravail contrat = new ContratTravail().rechercherParId(workflow.getIdContratCible(), c);
+                    if (contrat != null) {
+                        if (req.getIdFiliale() != null) contrat.setIdFiliale(req.getIdFiliale());
+                        if (req.getIdTypeContrat() != null) contrat.setIdTypeContrat(req.getIdTypeContrat());
+                        if (req.getIdTypeIntervenant() != null) contrat.setIdTypeIntervenant(req.getIdTypeIntervenant());
+                        if (req.getDateDebut() != null) contrat.setDateDebut(req.getDateDebut());
+                        if (req.getDateFin() != null) contrat.setDateFin(req.getDateFin());
+                        if (req.getDateSignature() != null) contrat.setDateSignature(req.getDateSignature());
+                        if (req.getDureeEssaiMois() != null) contrat.setDureeEssaiMois(req.getDureeEssaiMois());
+                        if (req.getDateFinEssai() != null) contrat.setDateFinEssai(req.getDateFinEssai());
+                        if (req.getComptabiliseEffectif() != null) contrat.setComptabiliseEffectif(req.getComptabiliseEffectif());
+                        if (req.getDescriptionContrat() != null) contrat.setDescription(req.getDescriptionContrat());
+                        if (req.getCommentaireContrat() != null) contrat.setCommentaire(req.getCommentaireContrat());
+                        if (req.getNumeroContrat() != null) contrat.setNumeroContrat(req.getNumeroContrat());
+                        contrat.update(c);
+                    }
+                }
+
+                // 3. Mise à jour du workflow lui-même
+                if (req.getCodeTypeEvenement() != null) {
+                    Integer idTypeEvt = resolveTypeEvenement(req.getCodeTypeEvenement(), c);
+                    if (idTypeEvt != null) workflow.setIdTypeEvenementRh(idTypeEvt);
+                }
+                if (req.getDateEffet() != null) workflow.setDateEffet(req.getDateEffet());
+                if (req.getMotif() != null) workflow.setMotif(req.getMotif());
+                workflow.update(c);
+
+                AuditLog.audit(c, "MODIFICATION_BROUILLON_WORKFLOW", "workflow_rh",
+                        String.valueOf(idWorkflow), null, workflow);
+
+                c.commit();
+
+                WorkflowRhCPL detail = WorkflowRhCPL.rechercherParId(idWorkflow, c);
+                return ResponseEntity.ok(detail);
+
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la modification du brouillon.");
+        }
+    }
+
+    /**
      * Logique de validation pour les transitions de carrière.
      */
     private void validerTransition(WorkflowRh workflow, ValiderWorkflowRequest req, Connection c) throws Exception {
