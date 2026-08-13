@@ -2,7 +2,6 @@ import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import { AuthProvider } from "@/context/AuthContext";
-import Loading from "@/components/ui/Loading";
 
 // Code-splitting / Lazy loading des pages pour des performances optimales
 const Login = lazy(() => import("@/pages/auth/Login"));
@@ -15,14 +14,10 @@ const PaieConfigAdminPanel = lazy(() => import("@/pages/parametres/paie/PaieConf
 const Unauthorized = lazy(() => import("@/pages/systeme/Unauthorized"));
 const NotFound = lazy(() => import("@/pages/systeme/NotFound"));
 
-const PageLoader = () => (
-    <Loading display="fullscreen" size="lg" label="Chargement du module..." />
-);
-
 export default function Router() {
     return (
         <AuthProvider>
-            <Suspense fallback={<PageLoader />}>
+            <Suspense fallback={null}>
                 <Routes>
                     {/* Route publique d'authentification */}
                     <Route path="/" element={<Login />} />

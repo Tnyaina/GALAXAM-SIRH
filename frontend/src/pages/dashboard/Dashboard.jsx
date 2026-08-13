@@ -11,12 +11,10 @@ import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/Card';
-import { SkeletonStatCard, SkeletonCard } from '@/components/ui/Skeleton';
+import { SkeletonStatCard, Skeleton } from '@/components/ui/Skeleton';
 import Loading from '@/components/ui/Loading';
 
-// =========================================================================
-// Lazy Loading pour les composants secondaires / lourds
-// =========================================================================
+// Lazy loading du graphique optionnel
 const LineTrendChart = lazy(() => import('@/components/ui/Charts').then(m => ({ default: m.LineTrendChart })));
 
 // =========================================================================
@@ -48,8 +46,25 @@ function getBrouillonBadgeVariant(joursAttente) {
 }
 
 // =========================================================================
-// Composants atomiques mémoïsés (Rendu ultra-performant)
+// Composants atomiques & Skeletons ajustés
 // =========================================================================
+
+function SkeletonListRows({ count = 3 }) {
+    return (
+        <div className="divide-y divide-[var(--color-border-subtle)] py-1">
+            {Array.from({ length: count }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 py-3 px-1">
+                    <Skeleton className="w-2 h-2 rounded-full shrink-0" />
+                    <div className="flex-1 space-y-1 min-w-0">
+                        <Skeleton className="h-3.5 w-1/3" />
+                        <Skeleton className="h-2.5 w-1/2" />
+                    </div>
+                    <Skeleton className="h-5 w-14 shrink-0" />
+                </div>
+            ))}
+        </div>
+    );
+}
 
 function EmptyState({ msg }) {
     return (
@@ -88,7 +103,6 @@ const AlerteRow = memo(function AlerteRow({ alerte }) {
             to={`/employes/${alerte.idEmploye}?tab=carriere`}
             className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)] transition-colors group"
         >
-            {/* Pastille de statut : exception conventionnelle rond */}
             <div className={`w-2 h-2 rounded-full shrink-0 ${isToday ? 'bg-[var(--color-danger-500)] animate-pulse' : isUrgent ? 'bg-[var(--color-warning-500)]' : 'bg-[var(--color-brand-500)]'}`} />
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-[var(--color-fg)] truncate">
@@ -183,13 +197,17 @@ export default function Dashboard() {
                         {now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
                     <h2 className="text-2xl font-extrabold tracking-tight mb-1">
-                        {greeting}, {user?.identifiant}
+                        {greeting}, {user?.identifiant || 'utilisateur'}
                     </h2>
-                    <p className="text-[var(--color-brand-100)] text-sm">
-                        {totalAlertes > 0
-                            ? `${totalAlertes} alerte(s) RH nécessitent votre attention.`
-                            : 'Aucune alerte critique aujourd\'hui. Tout est à jour.'}
-                    </p>
+                    {loading ? (
+                        <Skeleton className="h-4 w-64 bg-white/20 mt-1" />
+                    ) : (
+                        <p className="text-[var(--color-brand-100)] text-sm">
+                            {totalAlertes > 0
+                                ? `${totalAlertes} alerte(s) RH nécessitent votre attention.`
+                                : 'Aucune alerte critique aujourd\'hui. Tout est à jour.'}
+                        </p>
+                    )}
                 </div>
                 <div className="flex flex-col items-end gap-2">
                     <Button
@@ -284,7 +302,7 @@ export default function Dashboard() {
                             </div>
                         </CardHeader>
                         <CardBody>
-                            {loading && <SkeletonCard />}
+                            {loading && <SkeletonListRows count={2} />}
                             {!loading && alertesCritiques.length === 0 && (
                                 <EmptyState msg="Aucun contrat ou essai n'expire aujourd'hui." />
                             )}
@@ -312,7 +330,7 @@ export default function Dashboard() {
                             </div>
                         </CardHeader>
                         <CardBody>
-                            {loading && <SkeletonCard />}
+                            {loading && <SkeletonListRows count={2} />}
                             {!loading && alertes7j.length === 0 && (
                                 <EmptyState msg="Aucune échéance dans les 7 prochains jours." />
                             )}
@@ -340,7 +358,7 @@ export default function Dashboard() {
                             </div>
                         </CardHeader>
                         <CardBody>
-                            {loading && <SkeletonCard />}
+                            {loading && <SkeletonListRows count={2} />}
                             {!loading && alertes30j.length === 0 && (
                                 <EmptyState msg="Aucune échéance dans les 30 prochains jours." />
                             )}
@@ -354,7 +372,7 @@ export default function Dashboard() {
                         </CardBody>
                     </Card>
 
-                    {/* Graphique de tendance optionnel (Lazy-loaded) */}
+                    {/* Graphique de tendance optionnel */}
                     {data?.tendances && (
                         <Card>
                             <CardHeader>
@@ -389,7 +407,7 @@ export default function Dashboard() {
                             </div>
                         </CardHeader>
                         <CardBody>
-                            {loading && <SkeletonCard />}
+                            {loading && <SkeletonListRows count={2} />}
                             {!loading && brouillons.length === 0 && (
                                 <EmptyState msg="Aucun brouillon en attente de validation." />
                             )}
@@ -412,7 +430,7 @@ export default function Dashboard() {
                             </div>
                         </CardHeader>
                         <CardBody>
-                            {loading && <SkeletonCard />}
+                            {loading && <SkeletonListRows count={3} />}
                             {!loading && activite.length === 0 && (
                                 <EmptyState msg="Aucun mouvement RH récent." />
                             )}
