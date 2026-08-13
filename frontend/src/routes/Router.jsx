@@ -16,9 +16,7 @@ const Unauthorized = lazy(() => import("@/pages/systeme/Unauthorized"));
 const NotFound = lazy(() => import("@/pages/systeme/NotFound"));
 
 const PageLoader = () => (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
-        <Loading display="overlay" size="lg" label="Chargement de la page..." />
-    </div>
+    <Loading display="fullscreen" size="lg" label="Chargement du module..." />
 );
 
 export default function Router() {
