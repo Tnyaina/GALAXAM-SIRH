@@ -2,14 +2,10 @@ import { Children, isValidElement } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 
 /* TABLE WRAPPER */
-export function Table({ children, className = '', dark = false, ...props }) {
+export function Table({ children, className = '', ...props }) {
   return (
     <div
-      className={`overflow-x-auto border ${
-        dark
-          ? 'border-[#3a3a3a] bg-[#2d2d2d]'
-          : 'border-[#e2e2e2] bg-white shadow-sm'
-      } ${className}`}
+      className={`overflow-x-auto border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-sm rounded-none ${className}`}
       {...props}
     >
       <table className="w-full text-sm">
@@ -20,7 +16,7 @@ export function Table({ children, className = '', dark = false, ...props }) {
 }
 
 /* THEAD */
-export function Thead({ children, className = '', dark = false, ...props }) {
+export function Thead({ children, className = '', ...props }) {
   const childrenArray = Children.toArray(children);
   const hasTrChild = childrenArray.some(
     (child) => isValidElement(child) && (child.type === Tr || child.type === 'tr')
@@ -33,11 +29,7 @@ export function Thead({ children, className = '', dark = false, ...props }) {
 
   return (
     <thead
-      className={`border-b ${
-        dark
-          ? 'border-[#444] bg-[#252525]'
-          : 'border-[#e2e2e2] bg-[#f4f4f4]'
-      } ${className}`}
+      className={`border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] ${className}`}
       {...props}
     >
       {content}
@@ -46,16 +38,11 @@ export function Thead({ children, className = '', dark = false, ...props }) {
 }
 
 /* TH */
-export function Th({ children, sortable, sorted, onSort, dark = false, className = '', ...props }) {
+export function Th({ children, sortable, sorted, onSort, className = '', ...props }) {
   return (
     <th
-      className={`px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest transition-colors
-        ${dark ? 'text-[#888]' : 'text-[#666]'}
-        ${sortable
-          ? dark
-            ? 'cursor-pointer hover:text-[#ccc] select-none'
-            : 'cursor-pointer hover:text-[#2d2d2d] select-none'
-          : ''}
+      className={`px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] transition-colors
+        ${sortable ? 'cursor-pointer hover:text-[var(--color-fg)] select-none' : ''}
         ${className}
       `}
       onClick={sortable ? onSort : undefined}
@@ -67,15 +54,11 @@ export function Th({ children, sortable, sorted, onSort, dark = false, className
           <span className="flex flex-col">
             <ChevronUp
               size={10}
-              className={sorted === 'asc'
-                ? 'text-[#2196f3]'
-                : dark ? 'text-[#555]' : 'text-[#ccc]'}
+              className={sorted === 'asc' ? 'text-[var(--color-brand-500)]' : 'text-[var(--color-fg-subtle)]'}
             />
             <ChevronDown
               size={10}
-              className={sorted === 'desc'
-                ? 'text-[#2196f3]'
-                : dark ? 'text-[#555]' : 'text-[#ccc]'}
+              className={sorted === 'desc' ? 'text-[var(--color-brand-500)]' : 'text-[var(--color-fg-subtle)]'}
               style={{ marginTop: -2 }}
             />
           </span>
@@ -86,10 +69,10 @@ export function Th({ children, sortable, sorted, onSort, dark = false, className
 }
 
 /* TBODY */
-export function Tbody({ children, className = '', dark = false, ...props }) {
+export function Tbody({ children, className = '', ...props }) {
   return (
     <tbody
-      className={`divide-y ${dark ? 'divide-[#3a3a3a]' : 'divide-[#ececec]'} ${className}`}
+      className={`divide-y divide-[var(--color-border-subtle)] ${className}`}
       {...props}
     >
       {children}
@@ -98,15 +81,13 @@ export function Tbody({ children, className = '', dark = false, ...props }) {
 }
 
 /* TR */
-export function Tr({ children, onClick, dark = false, selected = false, className = '', ...props }) {
+export function Tr({ children, onClick, selected = false, className = '', ...props }) {
   return (
     <tr
       className={`transition-colors
         ${selected
-          ? dark ? 'bg-[#1a3a52]' : 'bg-[#e8f4fd]'
-          : dark
-            ? 'hover:bg-[#363636]'
-            : 'hover:bg-[#fafafa]'}
+          ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-fg)]'
+          : 'hover:bg-[var(--color-surface-hover)]'}
         ${onClick ? 'cursor-pointer' : ''}
         ${className}
       `}
@@ -119,14 +100,12 @@ export function Tr({ children, onClick, dark = false, selected = false, classNam
 }
 
 /* TD */
-export function Td({ children, muted = false, dark = false, className = '', ...props }) {
+export function Td({ children, muted = false, isData = false, className = '', ...props }) {
   return (
     <td
       className={`px-4 py-3 ${
-        muted
-          ? dark ? 'text-[#666]' : 'text-[#999]'
-          : dark ? 'text-[#d0d0d0]' : 'text-[#2d2d2d]'
-      } ${className}`}
+        muted ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg)]'
+      } ${isData ? 'font-data' : ''} ${className}`}
       {...props}
     >
       {children}
@@ -134,15 +113,11 @@ export function Td({ children, muted = false, dark = false, className = '', ...p
   );
 }
 
-/* TFOOT — optionnel, pour totaux / pagination inline */
-export function Tfoot({ children, className = '', dark = false, ...props }) {
+/* TFOOT */
+export function Tfoot({ children, className = '', ...props }) {
   return (
     <tfoot
-      className={`border-t text-xs font-medium ${
-        dark
-          ? 'border-[#444] bg-[#252525] text-[#777]'
-          : 'border-[#e2e2e2] bg-[#f9f9f9] text-[#888]'
-      } ${className}`}
+      className={`border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-xs font-medium text-[var(--color-fg-muted)] ${className}`}
       {...props}
     >
       {children}

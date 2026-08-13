@@ -21,7 +21,6 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
 
     const [expanded, setExpanded] = useState(() => hasChildren && isChildActive(item, location.pathname));
 
-    // Mettre à jour l'ouverture du menu parent quand l'URL change
     useEffect(() => {
         if (hasChildren && isChildActive(item, location.pathname)) {
             setExpanded(prev => (prev ? prev : true));
@@ -29,8 +28,6 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
     }, [location.pathname, hasChildren, item]);
 
     const handleParentClick = () => {
-        // En mode replié (desktop), on redéplie d'abord la sidebar plutôt
-        // que d'ouvrir un sous-menu invisible.
         if (collapsed) {
             onRequestExpandSidebar?.();
             setExpanded(true);
@@ -39,23 +36,22 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
         setExpanded((p) => !p);
     };
 
-    // Un item avec des enfants se comporte comme un en-tête de section,
-    // en un peu plus appuyé (semibold) qu'un lien classique — sans tomber
-    // dans le tout-majuscule "vieux portail intranet".
     if (hasChildren) {
         return (
             <li>
                 <button
                     onClick={handleParentClick}
-                    style={{ paddingLeft }}
+                    style={{
+                        paddingLeft,
+                        color: expanded ? 'var(--color-sidebar-fg-active)' : 'var(--color-sidebar-fg)'
+                    }}
                     title={collapsed ? item.libelle : undefined}
-                    className={`
+                    className="
                         w-full flex items-center gap-3 pr-4 py-2.5
-                        text-sm font-semibold
+                        text-sm font-semibold rounded-none
                         transition-colors duration-150
-                        ${expanded ? 'text-white' : 'text-ink-300 hover:text-white'}
-                        hover:bg-white/5
-                    `}
+                        hover:bg-[var(--color-sidebar-hover-bg)] hover:text-[var(--color-sidebar-fg-hover)]
+                    "
                 >
                     {createElement(getMenuIcon(item.icone), {
                         size: 17,
@@ -67,8 +63,8 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
                     </span>
                     <ChevronDown
                         size={14}
-                        className={`shrink-0 text-ink-500 transition-transform duration-200 ${
-                            expanded ? 'rotate-180 text-ink-300' : ''
+                        className={`shrink-0 transition-transform duration-200 ${
+                            expanded ? 'rotate-180 opacity-100' : 'opacity-60'
                         } ${collapsed ? 'lg:hidden' : ''}`}
                     />
                 </button>
@@ -102,15 +98,17 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
                 end={true}
                 onClick={onClose}
                 title={collapsed ? item.libelle : undefined}
-                className={({ isActive }) =>
-                    `group relative flex items-center gap-3 pr-4 py-2.5 text-sm font-medium
-                     border-l-2 transition-colors duration-150 ${
-                        isActive
-                            ? 'bg-white/10 text-white border-brand-500'
-                            : 'text-ink-300 border-transparent hover:bg-white/5 hover:text-white'
-                    }`
-                }
-                style={{ paddingLeft }}
+                style={({ isActive }) => ({
+                    paddingLeft,
+                    backgroundColor: isActive ? 'var(--color-sidebar-active-bg)' : 'transparent',
+                    color: isActive ? 'var(--color-sidebar-fg-active)' : 'var(--color-sidebar-fg)',
+                    borderColor: isActive ? 'var(--color-sidebar-brand)' : 'transparent'
+                })}
+                className="
+                    group relative flex items-center gap-3 pr-4 py-2.5 text-sm font-medium
+                    border-l-2 rounded-none transition-colors duration-150
+                    hover:bg-[var(--color-sidebar-hover-bg)] hover:text-[var(--color-sidebar-fg-hover)]
+                "
             >
                 {createElement(getMenuIcon(item.icone), {
                     size: 17,
@@ -123,15 +121,6 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
     );
 }
 
-/**
- * Sidebar — reçoit le menu déjà chargé par Layout (via useMenu) plutôt que
- * de le fetcher lui-même, pour éviter un double appel réseau.
- *
- * Desktop (lg+) : colonne statique dans le flux flex, repliable en mode
- * "icônes seules" via le bouton latéral sur la bordure droite.
- * Mobile        : tiroir en position fixed, toujours en largeur pleine,
- * ouvert/fermé via `open`.
- */
 export default function Sidebar({ open, onClose, menu = [], loading, error }) {
     const sorted = sortByRang(menu);
 
@@ -155,58 +144,63 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
 
             <aside
                 className={`
-                    fixed inset-y-0 left-0 z-50 flex flex-col
-                    bg-ink-800 border-r border-ink-700 shadow-lg
+                    fixed inset-y-0 left-0 z-50 flex flex-col rounded-none
+                    bg-[var(--color-sidebar-bg)] border-r border-[var(--color-sidebar-border)] shadow-lg
                     transition-all duration-300 ease-in-out
                     lg:static lg:translate-x-0 lg:shadow-none
                     w-[260px] ${collapsed ? 'lg:w-[76px]' : 'lg:w-[260px]'}
                     ${open ? 'translate-x-0' : '-translate-x-full'}
                 `}
             >
-                {/* Bouton latéral — replie/déplie la sidebar (desktop uniquement) */}
                 <button
                     onClick={() => setCollapsed((v) => !v)}
                     aria-label={collapsed ? 'Déplier le menu' : 'Replier le menu'}
+                    style={{
+                        backgroundColor: 'var(--color-sidebar-bg)',
+                        color: 'var(--color-sidebar-fg)'
+                    }}
                     className="
                         hidden lg:flex absolute top-6 -right-3 z-10
-                        w-6 h-6 items-center justify-center
-                        bg-ink-800 border border-ink-600 text-ink-300
-                        hover:text-white hover:border-brand-500
+                        w-6 h-6 items-center justify-center rounded-none
+                        border border-[var(--color-sidebar-border)]
+                        hover:text-[var(--color-sidebar-fg-hover)] hover:border-[var(--color-sidebar-brand)]
                         shadow-sm transition-colors duration-150
                     "
                 >
                     {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
                 </button>
 
-                {/* En-tête (marque) — ne scrolle pas */}
-                <div className={`flex items-center h-16 border-b border-ink-700 shrink-0 px-5 ${collapsed ? 'lg:justify-center lg:px-0' : 'justify-between'}`}>
+                <div className={`flex items-center h-16 border-b border-[var(--color-sidebar-border)] shrink-0 px-5 ${collapsed ? 'lg:justify-center lg:px-0' : 'justify-between'}`}>
                     <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 flex items-center justify-center bg-brand-500 text-white font-bold text-sm shrink-0 shadow-sm">
+                        <div className="w-8 h-8 flex items-center justify-center bg-[var(--color-sidebar-brand)] text-white font-bold text-sm shrink-0 shadow-sm rounded-none">
                             G
                         </div>
-                        <span className={`text-base font-bold text-white tracking-tight truncate ${collapsed ? 'lg:hidden' : ''}`}>
+                        <span
+                            style={{ color: 'var(--color-sidebar-fg-active)' }}
+                            className={`text-base font-bold tracking-tight truncate ${collapsed ? 'lg:hidden' : ''}`}
+                        >
                             Galaxam SIRH
                         </span>
                     </div>
                     <button
                         onClick={onClose}
-                        className="lg:hidden p-1 text-ink-400 hover:text-white transition-colors"
+                        style={{ color: 'var(--color-sidebar-fg)' }}
+                        className="lg:hidden p-1 hover:text-[var(--color-sidebar-fg-hover)] transition-colors rounded-none"
                     >
                         <X size={18} />
                     </button>
                 </div>
 
-                {/* Navigation — seule zone qui scrolle */}
                 <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4">
                     {loading && (
                         <div className="px-4 space-y-2">
                             {[...Array(5)].map((_, i) => (
-                                <div key={i} className="h-8 bg-white/5 animate-pulse" />
+                                <div key={i} className="h-8 bg-[var(--color-sidebar-hover-bg)] animate-pulse rounded-none" />
                             ))}
                         </div>
                     )}
                     {error && (
-                        <p className={`px-4 text-xs text-danger-500 ${collapsed ? 'lg:hidden' : ''}`}>
+                        <p className={`px-4 text-xs text-[var(--color-danger-500)] ${collapsed ? 'lg:hidden' : ''}`}>
                             Impossible de charger le menu.
                         </p>
                     )}

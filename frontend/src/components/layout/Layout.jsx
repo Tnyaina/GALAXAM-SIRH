@@ -17,13 +17,6 @@ const getInitialTheme = () => {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
 };
 
-/**
- * Layout — back-office uniquement (admin + agent pointage), plus de mode
- * Front Office / panier (ancien projet e-commerce PrestaShop).
- *
- * 4 zones : Topbar (fixe en haut) / Sidebar (scroll indépendant) /
- * Main (scroll indépendant) / Footer (fixe en bas).
- */
 export default function Layout({ children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(getInitialTheme);
@@ -36,7 +29,6 @@ export default function Layout({ children }) {
         window.localStorage.setItem(THEME_STORAGE_KEY, isDarkMode ? 'dark' : 'light');
     }, [isDarkMode]);
 
-    // Pas authentifié -> juste les enfants (page de login), sans le shell
     if (!isAuthenticated) {
         return <div>{children}</div>;
     }
@@ -44,7 +36,7 @@ export default function Layout({ children }) {
     const title = findMenuTitleByHref(menu, pathname) || 'Galaxam SIRH';
 
     return (
-        <div className="h-screen flex flex-col bg-ink-50 dark:bg-ink-950">
+        <div className="h-screen flex flex-col bg-[var(--color-bg)] text-[var(--color-fg)]">
             <Topbar
                 onMenuClick={() => setSidebarOpen(true)}
                 onThemeToggle={() => setIsDarkMode((prev) => !prev)}
@@ -61,7 +53,7 @@ export default function Layout({ children }) {
                     error={menuError}
                 />
 
-                <main className="flex-1 overflow-y-auto p-6 text-ink-800 dark:text-ink-50">
+                <main className="flex-1 overflow-y-auto p-6 bg-[var(--color-bg)] text-[var(--color-fg)]">
                     {children}
                 </main>
             </div>

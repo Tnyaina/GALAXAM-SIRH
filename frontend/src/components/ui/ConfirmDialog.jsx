@@ -20,25 +20,25 @@ export default function ConfirmDialog({
     if (!isOpen) return null;
 
     const iconColors = {
-        danger: 'text-danger-500 bg-danger-50 dark:bg-danger-900/30 border-danger-200 dark:border-danger-800',
-        warning: 'text-warning-500 bg-warning-50 dark:bg-warning-900/30 border-warning-200 dark:border-warning-800',
-        primary: 'text-brand-500 bg-brand-50 dark:bg-brand-900/30 border-brand-200 dark:border-brand-800',
+        danger: 'text-[var(--color-danger-500)] bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)]/30',
+        warning: 'text-[var(--color-warning-500)] bg-[var(--color-warning-500)]/10 border-[var(--color-warning-500)]/30',
+        primary: 'text-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10 border-[var(--color-brand-500)]/30',
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
-            <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl max-w-md w-full overflow-hidden rounded-none">
                 <div className="p-6 space-y-4">
                     <div className="flex items-start gap-4">
-                        <div className={`p-3 border shrink-0 ${iconColors[variant] || iconColors.danger}`}>
+                        <div className={`p-3 border shrink-0 rounded-none ${iconColors[variant] || iconColors.danger}`}>
                             <AlertTriangle size={20} />
                         </div>
                         <div className="space-y-1 min-w-0 flex-1">
-                            <h3 className="text-base font-bold text-ink-900 dark:text-white">
+                            <h3 className="text-base font-bold text-[var(--color-fg)]">
                                 {title}
                             </h3>
                             {message && (
-                                <p className="text-xs text-ink-500 dark:text-ink-400 leading-relaxed">
+                                <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
                                     {message}
                                 </p>
                             )}
@@ -48,7 +48,7 @@ export default function ConfirmDialog({
                     {children && <div className="pt-2">{children}</div>}
                 </div>
 
-                <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-end gap-3">
+                <div className="px-6 py-4 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex justify-end gap-3">
                     <Button
                         type="button"
                         onClick={onClose}

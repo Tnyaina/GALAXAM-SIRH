@@ -22,67 +22,71 @@
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  /* ---- Marque — bleu Galaxam (CTA, focus, liens) ----------------------- */
-  --color-brand-50:  #eaf6fa;
-  --color-brand-100: #cbeaf1;
-  --color-brand-200: #9adbe6;
-  --color-brand-300: #64c1d6;
-  --color-brand-400: #3aa4c2;
-  --color-brand-500: #1a82b1; /* accent de référence (focus des Input) */
-  --color-brand-600: #156a92;
-  --color-brand-700: #125676;
-  --color-brand-800: #10465f;
-  --color-brand-900: #0d3a4e;
-  --color-brand-950: #082431;
+  /* ---- Marque — Terracotta / Brique chaud -----------------------------
+     Palette chaleureuse et élégante qui se marie parfaitement avec
+     le fond de page papier chaud (#f5f3ee). */
+  --color-brand-50:  #fdf6f0;
+  --color-brand-100: #f7e6d9;
+  --color-brand-200: #eccab4;
+  --color-brand-300: #dea78b;
+  --color-brand-400: #d26646;
+  --color-brand-500: #b85235; /* accent de référence (focus, CTA, active) */
+  --color-brand-600: #9e3e26;
+  --color-brand-700: #81301c;
+  --color-brand-800: #692718;
+  --color-brand-900: #552216;
+  --color-brand-950: #2e0f09;
 
-  /* Teal distinct utilisé au hover du bouton "primary" (Button.jsx).
-     Volontairement différent de --color-brand-500 (focus des Input) —
-     c'est la valeur d'origine du composant, on la préserve telle quelle. */
-  --color-brand-hover: #1a9ab8;
+  --color-brand-hover: #c95c3e;
 
-  /* ---- Info / liens secondaires (Badge, Alert, Toggle) ----------------- */
-  --color-info-50:  #eff6ff;
-  --color-info-100: #dbeafe;
-  --color-info-200: #bfdbfe;
-  --color-info-500: #3b82f6;
-  --color-info-600: #2563eb; /* référence existante (Badge/Toggle) */
-  --color-info-700: #1d4ed8;
-  --color-info-900: #1e3a8a;
+  /* ---- Ambre — accent secondaire (Badge, Alert, indicateurs) ----------- */
+  --color-warning-50:  #fbf3e7;
+  --color-warning-100: #f5e7d6;
+  --color-warning-200: #e8c99e;
+  --color-warning-400: #d48a3d;
+  --color-warning-500: #b96a21;
+  --color-warning-600: #9a551a;
+  --color-warning-700: #7a4315;
 
-  /* ---- Neutres "ink" — texte, bordures, fonds (repris de vos composants) */
-  --color-ink-950: #141414;
-  --color-ink-900: #1a1a1a;
-  --color-ink-800: #2d2d2d; /* texte principal / bouton primary */
-  --color-ink-700: #3a3a3a; /* hover bouton secondary */
-  --color-ink-600: #525252;
-  --color-ink-500: #6b6b6b;
-  --color-ink-400: #888888; /* texte secondaire / icônes */
-  --color-ink-350: #999999; /* texte désactivé / hint (Input) */
-  --color-ink-300: #aaaaaa; /* placeholder / hover border */
-  --color-ink-200: #d0d0d0; /* bordure par défaut des champs */
-  --color-ink-150: #e5e5e5; /* bordure des cartes */
-  --color-ink-100: #f0f0f0; /* hover ghost */
-  --color-ink-50:  #f5f5f5; /* fond désactivé / fond page */
+  /* ---- Violet / prune — accent "info" (Badge, Alert, Toggle) ----------- */
+  --color-info-50:  #f4eff6;
+  --color-info-100: #e4d8ea;
+  --color-info-200: #c6afd2;
+  --color-info-500: #6b4c7a;
+  --color-info-600: #593d67;
+  --color-info-700: #452f51;
+  --color-info-900: #2a1d30;
 
-  /* ---- Sémantique — statuts (repris de Button/Alert) ------------------- */
-  --color-success-400: #52c27a;
-  --color-success-500: #27ae60;
-  --color-success-600: #1e8449;
-  --color-success-700: #166638;
-  --color-danger-200:  #f5c6c2;
-  --color-danger-400:  #d9534f;
-  --color-danger-500:  #c0392b;
-  --color-danger-600:  #a93226;
-  --color-warning-400: #f0a830;
-  --color-warning-500: #d97706;
-  --color-warning-600: #b45309;
-  --color-warning-700: #92400e;
+  /* ---- Neutres "ink" — texte, bordures, fonds --------------------------- */
+  --color-ink-950: #101311;
+  --color-ink-900: #171b18; /* fond mode sombre / sidebar profond */
+  --color-ink-800: #212622; /* texte principal / bouton primary / sidebar */
+  --color-ink-700: #333a35; /* hover bouton secondary / bordure sidebar */
+  --color-ink-600: #4b544e;
+  --color-ink-500: #66726a; /* texte secondaire / icônes */
+  --color-ink-400: #8c9890;
+  --color-ink-350: #9faaa2; /* texte désactivé / hint (Input) */
+  --color-ink-300: #b5beb7; /* placeholder / hover border / liens sidebar */
+  --color-ink-200: #e0dcd3; /* bordure par défaut des champs */
+  --color-ink-150: #eae6dc; /* bordure des cartes */
+  --color-ink-100: #f2efe6; /* hover ghost */
+  --color-ink-50:  #f5f3ee; /* fond désactivé / fond de page (papier chaud) */
+
+  /* ---- Sémantique — statuts -------------------------------------------- */
+  --color-success-400: #6fa98c;
+  --color-success-500: #3e7a5c;
+  --color-success-600: #2f5f46;
+  --color-success-700: #244a37;
+  --color-danger-200:  #eac7c0;
+  --color-danger-400:  #c97465;
+  --color-danger-500:  #b4483b;
+  --color-danger-600:  #953a2f;
 
   /* ---- Rayons — l'identité Galaxam est anguleuse par défaut ------------ */
   --radius-none: 0px;
   --radius-sm:   2px;
   --radius-md:   4px;
-  --radius-full: 9999px; /* réservé aux éléments circulaires (Toggle, dots) */
+  --radius-full: 9999px;
 
   /* ---- Ombres douces, cohérentes avec Card ------------------------------ */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
@@ -99,44 +103,57 @@
 
 /* ============================================================================
    2. SURFACES SÉMANTIQUES — clair / sombre
-   Ces variables décrivent des RÔLES (fond, texte, bordure...), pas des
-   couleurs brutes. Les composants doivent consommer ces rôles pour hériter
-   automatiquement du mode sombre.
    ============================================================================ */
 :root {
-  --color-bg:            #ffffff;
-  --color-bg-subtle:     var(--color-ink-50);
-  --color-surface:       #ffffff;
-  --color-surface-hover: var(--color-ink-50);
+  --color-bg:                 var(--color-ink-50);  /* papier chaud */
+  --color-bg-subtle:          var(--color-ink-100);
+  --color-surface:            #ffffff;
+  --color-surface-hover:      var(--color-ink-50);
 
-  --color-fg:            var(--color-ink-800);
-  --color-fg-muted:      var(--color-ink-400);
-  --color-fg-subtle:     var(--color-ink-300);
+  /* Variables dynamiques dynamisées pour la Sidebar (Fond, Bordure, Textes) */
+  --color-sidebar-bg:         var(--color-ink-900);
+  --color-sidebar-border:     var(--color-ink-700);
+  --color-sidebar-fg:         var(--color-ink-300);
+  --color-sidebar-fg-hover:   #ffffff;
+  --color-sidebar-fg-active:  #ffffff;
+  --color-sidebar-active-bg:  rgba(255, 255, 255, 0.1);
+  --color-sidebar-hover-bg:   rgba(255, 255, 255, 0.05);
+  --color-sidebar-brand:      var(--color-brand-500);
 
-  --color-border:        var(--color-ink-200);
-  --color-border-subtle: var(--color-ink-150);
+  --color-fg:                 var(--color-ink-800);
+  --color-fg-muted:           var(--color-ink-500);
+  --color-fg-subtle:          var(--color-ink-350);
 
-  --color-accent:        var(--color-brand-500);
-  --color-accent-fg:     #ffffff;
-  --color-focus-ring:    color-mix(in oklab, var(--color-brand-500) 40%, transparent);
+  --color-border:             var(--color-ink-200);
+  --color-border-subtle:      var(--color-ink-150);
+
+  --color-accent:             var(--color-brand-500);
+  --color-accent-fg:          #ffffff;
+  --color-focus-ring:         color-mix(in oklab, var(--color-brand-500) 40%, transparent);
 }
 
 .dark {
-  --color-bg:            var(--color-ink-950);
-  --color-bg-subtle:     var(--color-ink-900);
-  --color-surface:       var(--color-ink-900);
-  --color-surface-hover: var(--color-ink-800);
+  --color-bg:                 var(--color-ink-950);
+  --color-bg-subtle:          var(--color-ink-900);
+  --color-surface:            var(--color-ink-900);
+  --color-surface-hover:      var(--color-ink-800);
 
-  --color-fg:            #f2f2f2;
-  --color-fg-muted:      #a6a6a6;
-  --color-fg-subtle:     #7a7a7a;
+  --color-sidebar-bg:         var(--color-ink-950);
+  --color-sidebar-border:     var(--color-ink-800);
+  --color-sidebar-fg:         var(--color-ink-300);
+  --color-sidebar-fg-hover:   #ffffff;
+  --color-sidebar-fg-active:  #ffffff;
 
-  --color-border:        var(--color-ink-700);
-  --color-border-subtle: #2a2a2a;
+  --color-fg:                 #f2f0ea;
+  --color-fg-muted:           #a9ae9f;
+  --color-fg-subtle:          #7d8577;
 
-  --color-accent:        var(--color-brand-400);
-  --color-accent-fg:     var(--color-ink-950);
-  --color-focus-ring:    color-mix(in oklab, var(--color-brand-400) 45%, transparent);
+  --color-border:             var(--color-ink-700);
+  --color-border-subtle:      #2a2e27;
+
+  --color-accent:             var(--color-brand-400);
+  --color-accent-fg:          var(--color-ink-950);
+  --color-focus-ring:         color-mix(in oklab, var(--color-brand-400) 45%, transparent);
 }
 
 
@@ -163,14 +180,14 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Échelle typographique — poids et tailles cohérents dans toute l'app */
+  /* Échelle typographique */
   h1 { @apply text-2xl font-bold tracking-tight; }
   h2 { @apply text-xl font-bold tracking-tight; }
   h3 { @apply text-lg font-semibold tracking-tight; }
   h4 { @apply text-base font-semibold; }
   small, .text-caption { @apply text-xs text-[var(--color-fg-muted)]; }
 
-  /* Le mono sert aux données "logistiques" : n° de suivi, dates, codes */
+  /* Données logistiques mono */
   code, kbd, .font-data {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -182,17 +199,16 @@
   }
   a:hover { text-decoration-line: underline; }
 
-  /* Focus clavier visible partout, jamais supprimé (accessibilité) */
+  /* Focus clavier visible */
   :focus-visible {
     outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
   }
-  /* On masque l'anneau seulement pour la souris/tactile, jamais au clavier */
   :focus:not(:focus-visible) {
     outline: none;
   }
 
-  /* Sélection de texte à la couleur de marque */
+  /* Sélection de texte */
   ::selection {
     background-color: var(--color-brand-100);
     color: var(--color-brand-900);
@@ -202,7 +218,7 @@
     color: #ffffff;
   }
 
-  /* Champs de formulaire : hérite des surfaces, pas de style navigateur */
+  /* Champs de formulaire */
   input, textarea, select, button {
     font: inherit;
     color: inherit;
@@ -211,21 +227,21 @@
     color: var(--color-fg-subtle);
   }
 
-  /* Cible tactile minimale ergonomique (44px) pour tout élément interactif */
+  /* Cible tactile minimale */
   button, a[role="button"], input[type="checkbox"], input[type="radio"] {
     min-height: 2.75rem;
   }
   input[type="checkbox"], input[type="radio"] {
-    min-height: 0; /* la case elle-même reste petite, la zone de clic est gérée par le <label> */
+    min-height: 0;
   }
 
-  /* États désactivés cohérents dans toute l'app */
+  /* États désactivés */
   [disabled], .is-disabled {
     cursor: not-allowed;
     opacity: 0.5;
   }
 
-  /* Scrollbar discrète, cohérente avec le mode sombre */
+  /* Scrollbar discrète */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
@@ -235,7 +251,7 @@
   }
   .dark ::-webkit-scrollbar-thumb { background-color: var(--color-ink-600); }
 
-  /* Respect des préférences de mouvement réduit */
+  /* Mouvement réduit */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.001ms !important;
@@ -273,7 +289,25 @@
 
 
 /* ============================================================================
-   5. STYLES D'IMPRESSION RH (DOCUMENT & CERTIFICAT DE TRAVAIL)
+   5. ALIAS DE COMPATIBILITÉ
+   ============================================================================ */
+:root {
+  --accent:        var(--color-accent);
+  --accent-bg:     var(--color-brand-50);
+  --accent-border: var(--color-brand-200);
+  --text-h:        var(--color-fg);
+  --border:        var(--color-border);
+  --social-bg:     var(--color-bg-subtle);
+  --shadow:        var(--shadow-sm);
+}
+.dark {
+  --accent-bg:     var(--color-brand-900);
+  --accent-border: var(--color-brand-700);
+}
+
+
+/* ============================================================================
+   6. STYLES D'IMPRESSION RH
    ============================================================================ */
 @media print {
   @page {
@@ -300,7 +334,6 @@
     print-color-adjust: exact !important;
   }
 
-  /* Rendre uniquement le certificat visible et positionné en haut de page A4 */
   .certificat-print-portal,
   .certificat-print-portal * {
     visibility: visible !important;
@@ -324,7 +357,6 @@
     z-index: 99999 !important;
   }
 
-  /* Masquer explicitement tous les boutons et headers d'actions */
   .print\:hidden,
   .print\:hidden * {
     display: none !important;

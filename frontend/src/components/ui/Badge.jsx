@@ -1,10 +1,10 @@
 const variants = {
-  default: 'bg-slate-100 text-slate-600',
-  primary: 'bg-[#dbeafe] text-[#2563EB]',
-  success: 'bg-emerald-50 text-emerald-600',
-  warning: 'bg-amber-50 text-amber-600',
-  danger: 'bg-red-50 text-red-500',
-  purple: 'bg-purple-50 text-purple-600',
+  default: 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]',
+  primary: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/20',
+  success: 'bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20',
+  warning: 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-500)] border border-[var(--color-warning-500)]/20',
+  danger:  'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20',
+  info:    'bg-[var(--color-info-500)]/10 text-[var(--color-info-500)] border border-[var(--color-info-500)]/20',
 };
 
 const sizes = {
@@ -20,12 +20,12 @@ const dotSizes = {
 };
 
 const dotColors = {
-  success: 'bg-emerald-500',
-  warning: 'bg-amber-500',
-  danger: 'bg-red-500',
-  primary: 'bg-[#2563EB]',
-  default: 'bg-slate-400',
-  purple: 'bg-purple-500',
+  success: 'bg-[var(--color-success-500)]',
+  warning: 'bg-[var(--color-warning-500)]',
+  danger:  'bg-[var(--color-danger-500)]',
+  primary: 'bg-[var(--color-brand-500)]',
+  default: 'bg-[var(--color-fg-subtle)]',
+  info:    'bg-[var(--color-info-500)]',
 };
 
 export default function Badge({
@@ -38,14 +38,16 @@ export default function Badge({
   style,
   ...props
 }) {
+  const currentVariant = variants[variant] ? variant : 'default';
+
   return (
     <span
       style={style}
       {...props}
       className={`
-        inline-flex items-center gap-1.5 font-semibold
+        inline-flex items-center gap-1.5 font-semibold tracking-wide uppercase text-[0.7em]
         ${rounded ? 'rounded-full' : 'rounded-none'}
-        ${variants[variant]}
+        ${variants[currentVariant]}
         ${sizes[size]}
         ${className}
       `}
@@ -54,8 +56,8 @@ export default function Badge({
         <span
           className={`
             ${dotSizes[size]}
-            ${rounded ? 'rounded-full' : 'rounded-none'}
-            ${dotColors[variant] ?? dotColors.default}
+            rounded-full
+            ${dotColors[currentVariant] ?? dotColors.default}
           `}
         />
       )}
