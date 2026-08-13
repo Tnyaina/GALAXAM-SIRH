@@ -26,6 +26,17 @@ export default function Login() {
         }
     }, [isAuthenticated, navigate]);
 
+    // Effacer l'erreur dès que l'utilisateur modifie sa saisie
+    const handleIdentifiantChange = (e) => {
+        if (error) setError('');
+        setIdentifiant(e.target.value);
+    };
+
+    const handlePasswordChange = (e) => {
+        if (error) setError('');
+        setPassword(e.target.value);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -40,7 +51,7 @@ export default function Login() {
                 setError(result.message || 'Identifiants incorrects.');
             }
         } catch {
-            setError('Une erreur inattendue est survenue. Veuillez réessayer.');
+            setError('Une erreur inattendue est survenue. Veuillez reessayer.');
         } finally {
             setLoading(false);
         }
@@ -87,8 +98,9 @@ export default function Login() {
                                 placeholder="Votre identifiant"
                                 icon={<User size={17} />}
                                 value={identifiant}
-                                onChange={(e) => setIdentifiant(e.target.value)}
+                                onChange={handleIdentifiantChange}
                                 autoComplete="username"
+                                error={!!error} // Signalement visuel d'erreur sur le champ
                                 required
                             />
 
@@ -102,23 +114,24 @@ export default function Login() {
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword((v) => !v)}
-                                        tabIndex={-1}
-                                        className="pointer-events-auto text-[#888] hover:text-[#2d2d2d] transition-colors"
+                                        // tabIndex={-1} retiré pour permettre la navigation clavier (Accessibilité)
+                                        className="pointer-events-auto text-[#888] hover:text-[#2d2d2d] focus:outline-none focus:text-[#2d2d2d] transition-colors"
                                         aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                                     >
                                         {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                                     </button>
                                 }
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                onChange={handlePasswordChange}
                                 autoComplete="current-password"
+                                error={!!error} // Signalement visuel d'erreur sur le champ
                                 required
                             />
 
                             <div className="flex items-center justify-end -mt-1">
                                 <a
                                     href="/mot-de-passe-oublie"
-                                    className="text-xs font-semibold text-[#1A82B1] hover:underline"
+                                    className="text-xs font-semibold text-[#1A82B1] hover:underline focus:outline-none focus:underline"
                                 >
                                     Mot de passe oublié ?
                                 </a>

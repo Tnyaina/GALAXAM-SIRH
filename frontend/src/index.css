@@ -1,97 +1,87 @@
 /* ============================================================================
    GALAXAM LOGISTICS — index.css
-   Fichier de base du design system. Tous les composants (Button, Input,
-   Card, Alert, Badge, Toggle, Loading...) doivent s'appuyer sur les tokens
-   définis ici plutôt que sur des couleurs "en dur".
+   Palette : Deep Navy & Slate Blue (#0D1B2A, #1B263B, #415A77, #778DA9, #E0E1DD)
    ============================================================================ */
-
-/* Police système native (0 chargement externe, performance maximale) */
 
 @import "tailwindcss";
 
-/* Active la variante `dark:` pilotée par une classe .dark sur <html>,
-   plutôt que par prefers-color-scheme (permet un toggle utilisateur). */
+/* Active la variante `dark:` pilotée par la classe .dark sur <html> */
 @custom-variant dark (&:where(.dark, .dark *));
 
-
 /* ============================================================================
-   1. THEME TOKENS — palette, typographie, rayons, ombres, transitions
+   1. THEME TOKENS — Palette Deep Navy & Slate Blue
    ============================================================================ */
 @theme {
   /* ---- Typographie ---------------------------------------------------- */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  /* ---- Marque — Terracotta / Brique chaud -----------------------------
-     Palette chaleureuse et élégante qui se marie parfaitement avec
-     le fond de page papier chaud (#f5f3ee). */
-  --color-brand-50:  #fdf6f0;
-  --color-brand-100: #f7e6d9;
-  --color-brand-200: #eccab4;
-  --color-brand-300: #dea78b;
-  --color-brand-400: #d26646;
-  --color-brand-500: #b85235; /* accent de référence (focus, CTA, active) */
-  --color-brand-600: #9e3e26;
-  --color-brand-700: #81301c;
-  --color-brand-800: #692718;
-  --color-brand-900: #552216;
-  --color-brand-950: #2e0f09;
+  /* ---- Marque — Bleu Acier Moyen (#415A77) -----------------------------
+     Utilisé pour les boutons primaires, accents, focus et liens */
+  --color-brand-50:  #f4f6f8;
+  --color-brand-100: #e0e6ec;
+  --color-brand-200: #c2cfda;
+  --color-brand-300: #778da9; /* 4ème couleur : Accent secondaire / Soft badge */
+  --color-brand-400: #557291;
+  --color-brand-500: #415a77; /* 3ème couleur : Accent principal (CTA, active) */
+  --color-brand-600: #334862;
+  --color-brand-700: #2a3a50;
+  --color-brand-800: #1b263b; /* 2ème couleur : Fond sidebar / cartes sombres */
+  --color-brand-900: #0d1b2a; /* 1ère couleur : Fond ultra-sombre / Ink 950 */
+  --color-brand-950: #070e17;
 
-  --color-brand-hover: #c95c3e;
+  --color-brand-hover: #334862;
 
-  /* ---- Ambre — accent secondaire (Badge, Alert, indicateurs) ----------- */
-  --color-warning-50:  #fbf3e7;
-  --color-warning-100: #f5e7d6;
-  --color-warning-200: #e8c99e;
-  --color-warning-400: #d48a3d;
-  --color-warning-500: #b96a21;
-  --color-warning-600: #9a551a;
-  --color-warning-700: #7a4315;
+  /* ---- Ambre — Accent "Warning" --------------------------------------- */
+  --color-warning-50:  #fffbe8;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-400: #f59e0b;
+  --color-warning-500: #d97706;
+  --color-warning-600: #b45309;
+  --color-warning-700: #92400e;
 
-  /* ---- Violet / prune — accent "info" (Badge, Alert, Toggle) ----------- */
-  --color-info-50:  #f4eff6;
-  --color-info-100: #e4d8ea;
-  --color-info-200: #c6afd2;
-  --color-info-500: #6b4c7a;
-  --color-info-600: #593d67;
-  --color-info-700: #452f51;
-  --color-info-900: #2a1d30;
+  /* ---- Indigo — Accent "Info" ----------------------------------------- */
+  --color-info-50:  #f0f3ff;
+  --color-info-100: #e0e7ff;
+  --color-info-200: #c7d2fe;
+  --color-info-500: #4f46e5;
+  --color-info-600: #4338ca;
+  --color-info-700: #3730a3;
 
-  /* ---- Neutres "ink" — texte, bordures, fonds --------------------------- */
-  --color-ink-950: #101311;
-  --color-ink-900: #171b18; /* fond mode sombre / sidebar profond */
-  --color-ink-800: #212622; /* texte principal / bouton primary / sidebar */
-  --color-ink-700: #333a35; /* hover bouton secondary / bordure sidebar */
-  --color-ink-600: #4b544e;
-  --color-ink-500: #66726a; /* texte secondaire / icônes */
-  --color-ink-400: #8c9890;
-  --color-ink-350: #9faaa2; /* texte désactivé / hint (Input) */
-  --color-ink-300: #b5beb7; /* placeholder / hover border / liens sidebar */
-  --color-ink-200: #e0dcd3; /* bordure par défaut des champs */
-  --color-ink-150: #eae6dc; /* bordure des cartes */
-  --color-ink-100: #f2efe6; /* hover ghost */
-  --color-ink-50:  #f5f3ee; /* fond désactivé / fond de page (papier chaud) */
+  /* ---- Neutres "Bleu-Gris" basés sur la palette ------------------------ */
+  --color-ink-950: #0d1b2a; /* 1ère couleur : Fond mode sombre profond */
+  --color-ink-900: #1b263b; /* 2ème couleur : Sidebar & conteneurs sombres */
+  --color-ink-800: #25334a; /* Texte principal mode clair / boutons neutres */
+  --color-ink-700: #35475e;
+  --color-ink-600: #415a77; /* 3ème couleur : Titres secondaires */
+  --color-ink-500: #5d7393; /* Texte secondaire / icônes */
+  --color-ink-400: #778da9; /* 4ème couleur : Muted / Placeholders */
+  --color-ink-350: #9ab0c7; /* Hint / Disabled */
+  --color-ink-200: #c9d5e3; /* Bordure par défaut */
+  --color-ink-150: #e0e1dd; /* 5ème couleur : Bordure des cartes / Fond doux */
+  --color-ink-100: #f0f2f5; /* Hover doux / Subtile */
+  --color-ink-50:  #f7f8f9; /* Fond de page clair */
 
-  /* ---- Sémantique — statuts -------------------------------------------- */
-  --color-success-400: #6fa98c;
-  --color-success-500: #3e7a5c;
-  --color-success-600: #2f5f46;
-  --color-success-700: #244a37;
-  --color-danger-200:  #eac7c0;
-  --color-danger-400:  #c97465;
-  --color-danger-500:  #b4483b;
-  --color-danger-600:  #953a2f;
+  /* ---- Sémantique — Statuts -------------------------------------------- */
+  --color-success-400: #4ade80;
+  --color-success-500: #16a34a;
+  --color-success-600: #15803d;
+  --color-danger-200:  #fecaca;
+  --color-danger-400:  #f87171;
+  --color-danger-500:  #dc2626;
+  --color-danger-600:  #b91c1c;
 
-  /* ---- Rayons — l'identité Galaxam est anguleuse par défaut ------------ */
+  /* ---- Rayons — Identité anguleuse Galaxam par défaut ------------------ */
   --radius-none: 0px;
   --radius-sm:   2px;
   --radius-md:   4px;
   --radius-full: 9999px;
 
-  /* ---- Ombres douces, cohérentes avec Card ------------------------------ */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-  --shadow-md: 0 4px 10px -2px rgb(0 0 0 / 0.08);
-  --shadow-lg: 0 12px 24px -6px rgb(0 0 0 / 0.12);
+  /* ---- Ombres douces ---------------------------------------------------- */
+  --shadow-sm: 0 1px 2px 0 rgb(13 27 42 / 0.05);
+  --shadow-md: 0 4px 10px -2px rgb(13 27 42 / 0.08);
+  --shadow-lg: 0 12px 24px -6px rgb(13 27 42 / 0.12);
 
   /* ---- Rythme des transitions -------------------------------------------- */
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
@@ -100,65 +90,63 @@
   --duration-slow: 250ms;
 }
 
-
 /* ============================================================================
-   2. SURFACES SÉMANTIQUES — clair / sombre
+   2. SURFACES SÉMANTIQUES — Mode Clair / Sombre
    ============================================================================ */
 :root {
-  --color-bg:                 var(--color-ink-50);  /* papier chaud */
-  --color-bg-subtle:          var(--color-ink-100);
+  --color-bg:                 var(--color-ink-50);
+  --color-bg-subtle:          #e0e1dd; /* 5ème couleur de la palette */
   --color-surface:            #ffffff;
-  --color-surface-hover:      var(--color-ink-50);
+  --color-surface-hover:      #f0f2f5;
 
-  /* Variables dynamiques dynamisées pour la Sidebar (Fond, Bordure, Textes) */
-  --color-sidebar-bg:         var(--color-ink-900);
-  --color-sidebar-border:     var(--color-ink-700);
-  --color-sidebar-fg:         var(--color-ink-300);
+  /* Configuration Sidebar avec le Bleu Nuit #1B263B */
+  --color-sidebar-bg:         #1b263b; /* 2ème couleur */
+  --color-sidebar-border:     #283852;
+  --color-sidebar-fg:         #778da9; /* 4ème couleur */
   --color-sidebar-fg-hover:   #ffffff;
   --color-sidebar-fg-active:  #ffffff;
   --color-sidebar-active-bg:  rgba(255, 255, 255, 0.1);
   --color-sidebar-hover-bg:   rgba(255, 255, 255, 0.05);
-  --color-sidebar-brand:      var(--color-brand-500);
+  --color-sidebar-brand:      #778da9;
 
-  --color-fg:                 var(--color-ink-800);
-  --color-fg-muted:           var(--color-ink-500);
-  --color-fg-subtle:          var(--color-ink-350);
+  --color-fg:                 #0d1b2a; /* 1ère couleur */
+  --color-fg-muted:           #415a77; /* 3ème couleur */
+  --color-fg-subtle:          #778da9; /* 4ème couleur */
 
-  --color-border:             var(--color-ink-200);
-  --color-border-subtle:      var(--color-ink-150);
+  --color-border:             #c9d5e3;
+  --color-border-subtle:      #e0e1dd; /* 5ème couleur */
 
-  --color-accent:             var(--color-brand-500);
+  --color-accent:             #415a77; /* 3ème couleur */
   --color-accent-fg:          #ffffff;
-  --color-focus-ring:         color-mix(in oklab, var(--color-brand-500) 40%, transparent);
+  --color-focus-ring:         color-mix(in oklab, #415a77 40%, transparent);
 }
 
 .dark {
-  --color-bg:                 var(--color-ink-950);
-  --color-bg-subtle:          var(--color-ink-900);
-  --color-surface:            var(--color-ink-900);
-  --color-surface-hover:      var(--color-ink-800);
+  --color-bg:                 #0d1b2a; /* 1ère couleur */
+  --color-bg-subtle:          #162335;
+  --color-surface:            #1b263b; /* 2ème couleur */
+  --color-surface-hover:      #24334d;
 
-  --color-sidebar-bg:         var(--color-ink-950);
-  --color-sidebar-border:     var(--color-ink-800);
-  --color-sidebar-fg:         var(--color-ink-300);
+  --color-sidebar-bg:         #070e17;
+  --color-sidebar-border:     #1b263b;
+  --color-sidebar-fg:         #778da9;
   --color-sidebar-fg-hover:   #ffffff;
   --color-sidebar-fg-active:  #ffffff;
 
-  --color-fg:                 #f2f0ea;
-  --color-fg-muted:           #a9ae9f;
-  --color-fg-subtle:          #7d8577;
+  --color-fg:                 #e0e1dd; /* 5ème couleur */
+  --color-fg-muted:           #9ab0c7;
+  --color-fg-subtle:          #778da9;
 
-  --color-border:             var(--color-ink-700);
-  --color-border-subtle:      #2a2e27;
+  --color-border:             #2a3a50;
+  --color-border-subtle:      #1e2c40;
 
-  --color-accent:             var(--color-brand-400);
-  --color-accent-fg:          var(--color-ink-950);
-  --color-focus-ring:         color-mix(in oklab, var(--color-brand-400) 45%, transparent);
+  --color-accent:             #778da9;
+  --color-accent-fg:          #0d1b2a;
+  --color-focus-ring:         color-mix(in oklab, #778da9 45%, transparent);
 }
 
-
 /* ============================================================================
-   3. BASE — reset ergonomique, typographie, accessibilité
+   3. BASE — Reset ergonomique, typographie & accessibilité
    ============================================================================ */
 @layer base {
   *,
@@ -210,11 +198,11 @@
 
   /* Sélection de texte */
   ::selection {
-    background-color: var(--color-brand-100);
-    color: var(--color-brand-900);
+    background-color: #778da9;
+    color: #ffffff;
   }
   .dark ::selection {
-    background-color: var(--color-brand-800);
+    background-color: #415a77;
     color: #ffffff;
   }
 
@@ -241,15 +229,15 @@
     opacity: 0.5;
   }
 
-  /* Scrollbar discrète */
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  /* Scrollbar personnalisée anguleuse */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background-color: var(--color-ink-300);
-    border-radius: var(--radius-full);
+    background-color: #778da9;
+    border-radius: var(--radius-none);
     border: 2px solid var(--color-bg);
   }
-  .dark ::-webkit-scrollbar-thumb { background-color: var(--color-ink-600); }
+  .dark ::-webkit-scrollbar-thumb { background-color: #415a77; }
 
   /* Mouvement réduit */
   @media (prefers-reduced-motion: reduce) {
@@ -262,9 +250,8 @@
   }
 }
 
-
 /* ============================================================================
-   4. UTILITAIRES MAISON
+   4. UTILITAIRES MAISON & ALIAS
    ============================================================================ */
 @utility skip-link {
   position: absolute;
@@ -287,10 +274,6 @@
   border-color: var(--color-border);
 }
 
-
-/* ============================================================================
-   5. ALIAS DE COMPATIBILITÉ
-   ============================================================================ */
 :root {
   --accent:        var(--color-accent);
   --accent-bg:     var(--color-brand-50);
@@ -300,14 +283,9 @@
   --social-bg:     var(--color-bg-subtle);
   --shadow:        var(--shadow-sm);
 }
-.dark {
-  --accent-bg:     var(--color-brand-900);
-  --accent-border: var(--color-brand-700);
-}
-
 
 /* ============================================================================
-   6. STYLES D'IMPRESSION RH
+   5. STYLES D'IMPRESSION RH (@media print)
    ============================================================================ */
 @media print {
   @page {
@@ -317,7 +295,9 @@
 
   html, body {
     height: 100% !important;
-    overflow: hidden !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
   }
 
   #root {
@@ -326,14 +306,13 @@
 
   body {
     visibility: visible !important;
-    background: #ffffff !important;
-    color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
+  /* Portail d'impression spécifique (Certificats, Bulletins, Attestations) */
   .certificat-print-portal,
   .certificat-print-portal * {
     visibility: visible !important;
@@ -357,8 +336,15 @@
     z-index: 99999 !important;
   }
 
+  /* Masquer tous les éléments UI inutiles à l'impression */
   .print\:hidden,
-  .print\:hidden * {
+  .print\:hidden *,
+  nav,
+  aside,
+  header,
+  footer,
+  .toast,
+  #btn-notifications {
     display: none !important;
     visibility: hidden !important;
   }

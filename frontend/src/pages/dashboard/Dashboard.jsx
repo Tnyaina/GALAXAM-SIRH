@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import {
     Users, FileText, Clock, AlertTriangle, CheckCheck,
     TrendingUp, RefreshCw, ChevronRight, Calendar,
-    UserCheck, Briefcase
+    UserCheck, Briefcase, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useToast } from '@/components/ui/Toast'; // <-- Import de ton hook personnalisé
 import StatCard from '@/components/ui/StatCard';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -46,7 +47,7 @@ function getBrouillonBadgeVariant(joursAttente) {
 }
 
 // =========================================================================
-// Composants atomiques & Skeletons ajustés
+// Composants atomiques & Skeletons
 // =========================================================================
 
 function SkeletonListRows({ count = 3 }) {
@@ -172,6 +173,7 @@ const ActiviteRow = memo(function ActiviteRow({ ev }) {
 export default function Dashboard() {
     const { user } = useAuth();
     const { data, loading, error, refresh, lastRefresh } = useDashboard();
+    const toast = useToast(); // <-- Appel de ton hook de Toast
 
     const kpis = data?.kpis;
     const alertesCritiques = data?.alertesCritiques || [];
@@ -186,6 +188,17 @@ export default function Dashboard() {
     const greeting =
         now.getHours() < 12 ? 'Bonjour' :
             now.getHours() < 18 ? 'Bon après-midi' : 'Bonsoir';
+
+    const handleRefresh = async () => {
+        await refresh();
+        // Utilisation conforme de ton composant toast({ title, message, type })
+        toast({
+            title: 'Actualisation réussie',
+            message: 'Les données du dashboard sont à jour.',
+            type: 'success',
+            duration: 3000
+        });
+    };
 
     return (
         <div className="space-y-6">
@@ -211,11 +224,11 @@ export default function Dashboard() {
                 </div>
                 <div className="flex flex-col items-end gap-2">
                     <Button
-                        onClick={refresh}
+                        onClick={handleRefresh}
                         loading={loading}
                         variant="ghost"
                         size="sm"
-                        className="bg-white/15 hover:bg-white/25 text-white border-transparent"
+                        className="bg-white/15 hover:bg-white/25 text-white border-transparent min-h-11"
                         icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
                     >
                         Actualiser
@@ -228,11 +241,23 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* Message d'erreur */}
+            {/* Message d'erreur avec bouton de réessai explicite (Actionnable) */}
             {error && (
-                <div role="alert" className="bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/30 px-5 py-4 text-sm text-[var(--color-danger-500)] flex items-center gap-2 rounded-none">
-                    <AlertTriangle size={15} className="shrink-0" aria-hidden="true" />
-                    {error}
+                <div role="alert" className="bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/30 px-5 py-4 text-sm text-[var(--color-danger-500)] flex items-center justify-between gap-4 rounded-none">
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle size={16} className="shrink-0" aria-hidden="true" />
+                        <span>{typeof error === 'string' ? error : 'Impossible de charger les données du dashboard.'}</span>
+                    </div>
+                    <Button
+                        onClick={refresh}
+                        variant="ghost"
+                        size="sm"
+                        loading={loading}
+                        className="text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/30 shrink-0 min-h-11"
+                        icon={<RotateCcw size={14} />}
+                    >
+                        Réessayer
+                    </Button>
                 </div>
             )}
 

@@ -35,7 +35,7 @@ export function useDashboard() {
 
 /**
  * useNotifications — Hook pour les notifications RH.
- * Charge les notifs au montage, fournit des actions marquer-lue.
+ * Intègre l'Optimistic UI et la gestion du Rollback.
  */
 export function useNotifications() {
     const [notifications, setNotifications] = useState([]);
@@ -56,22 +56,53 @@ export function useNotifications() {
     }, []);
 
     const marquerToutesLues = async () => {
+        const previousNotifs = notifications;
+        const previousTotal = totalNonLues;
+
+        // Optimistic UI : Vider immédiatement
+        setNotifications([]);
+        setTotalNonLues(0);
+
         try {
             await dashboardService.marquerToutesLues();
-            setNotifications([]);
-            setTotalNonLues(0);
         } catch (err) {
             console.error('[Notifications] Erreur marquage:', err);
+            // Rollback en cas d'échec
+            setNotifications(previousNotifs);
+            setTotalNonLues(previousTotal);
         }
     };
 
     const marquerUne = async (id) => {
+        const previousNotifs = notifications;
+        const previousTotal = totalNonLues;
+
+        // Optimistic UI : Supprimer immédiatement l'élément sélectionné
+        setNotifications(prev => prev.filter(n => n.idNotification !== id));
+        setTotalNonLues(prev => Math.max(0, prev - 1));
+
         try {
             await dashboardService.marquerLue(id);
-            setNotifications(prev => prev.filter(n => n.idNotification !== id));
-            setTotalNonLues(prev => Math.max(0, prev - 1));
         } catch (err) {
             console.error('[Notifications] Erreur marquage unique:', err);
+            // Rollback en cas d'échec
+            setNotifications(previousNotifs);
+            setTotalNonLues(previousTotal);
+        }
+    };
+
+    // Permet d'annuler le marquage d'une notification (Undo)
+    const annulerMarquage = async (notification) => {
+        if (!notification) return;
+        setNotifications(prev => [notification, ...prev]);
+        setTotalNonLues(prev => prev + 1);
+
+        try {
+            if (dashboardService.marquerNonLue) {
+                await dashboardService.marquerNonLue(notification.idNotification);
+            }
+        } catch (err) {
+            console.error('[Notifications] Erreur annulation marquage:', err);
         }
     };
 
@@ -86,5 +117,13 @@ export function useNotifications() {
         return () => clearInterval(timer);
     }, [load]);
 
-    return { notifications, totalNonLues, loading, refresh: load, marquerToutesLues, marquerUne };
+    return { 
+        notifications, 
+        totalNonLues, 
+        loading, 
+        refresh: load, 
+        marquerToutesLues, 
+        marquerUne,
+        annulerMarquage
+    };
 }
