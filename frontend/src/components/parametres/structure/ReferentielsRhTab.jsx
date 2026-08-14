@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, FileText, UserCheck, Landmark } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
+import Loading from '@/components/ui/Loading';
 
 import TypesContratList from './referentiels/TypesContratList';
 import TypeContratFormModal from './referentiels/TypeContratFormModal';
@@ -10,7 +12,17 @@ import BanquesList from './referentiels/BanquesList';
 import BanqueFormModal from './referentiels/BanqueFormModal';
 
 export default function ReferentielsRhTab() {
-    const [activeSection, setActiveSection] = useState('contrats'); // 'contrats' | 'intervenants' | 'banques'
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeSection = searchParams.get('subtab') || 'contrats'; // 'contrats' | 'intervenants' | 'banques'
+
+    const setActiveSection = (newSubTab) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', 'rh');
+            next.set('subtab', newSubTab);
+            return next;
+        });
+    };
 
     const [typesContrat, setTypesContrat] = useState([]);
     const [typesIntervenant, setTypesIntervenant] = useState([]);
@@ -47,9 +59,9 @@ export default function ReferentielsRhTab() {
                 organisationService.getTypesIntervenant(),
                 organisationService.getBanques()
             ]);
-            setTypesContrat(tcData);
-            setTypesIntervenant(tiData);
-            setBanques(bData);
+            setTypesContrat(tcData || []);
+            setTypesIntervenant(tiData || []);
+            setBanques(bData || []);
         } catch (err) {
             setError("Erreur lors du chargement des référentiels RH.");
             console.error(err);
@@ -72,7 +84,7 @@ export default function ReferentielsRhTab() {
 
     const handleOpenEditContrat = (tc) => {
         setEditingContrat(tc);
-        setContratFormData({ code: tc.code, libelle: tc.libelle, exigeDateFin: tc.exigeDateFin });
+        setContratFormData({ code: tc.code, libelle: tc.libelle, exigeDateFin: tc.exigeDateFin !== false });
         setActionError(null);
         setShowContratModal(true);
     };
@@ -111,8 +123,12 @@ export default function ReferentielsRhTab() {
     const handleOpenEditIntervenant = (ti) => {
         setEditingIntervenant(ti);
         setIntervenantFormData({
-            code: ti.code, libelle: ti.libelle, soumisIrsa: ti.soumisIrsa, soumisIsi5: ti.soumisIsi5,
-            soumisCnaps: ti.soumisCnaps, soumisSante: ti.soumisSante
+            code: ti.code,
+            libelle: ti.libelle,
+            soumisIrsa: ti.soumisIrsa !== false,
+            soumisIsi5: ti.soumisIsi5 === true,
+            soumisCnaps: ti.soumisCnaps !== false,
+            soumisSante: ti.soumisSante !== false
         });
         setActionError(null);
         setShowIntervenantModal(true);
@@ -179,10 +195,10 @@ export default function ReferentielsRhTab() {
         }
     };
 
-    if (loading) {
+    if (loading && typesContrat.length === 0) {
         return (
             <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                <Loading size="md" label="Chargement des référentiels RH..." />
             </div>
         );
     }
@@ -191,26 +207,26 @@ export default function ReferentielsRhTab() {
         <div className="space-y-6">
             {/* Notifications */}
             {actionSuccess && (
-                <div className="bg-success-500/10 text-success-600 dark:text-success-500 border border-success-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <CheckCircle size={16} />
                     {actionSuccess}
                 </div>
             )}
             {error && (
-                <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <XCircle size={16} />
                     {error}
                 </div>
             )}
 
             {/* Onglets internes */}
-            <div className="flex gap-2 border-b border-ink-150 dark:border-ink-700 bg-white dark:bg-ink-900 rounded-sm p-2 shadow-sm flex-wrap">
+            <div className="flex gap-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 shadow-sm flex-wrap">
                 <button
                     onClick={() => setActiveSection('contrats')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
                         activeSection === 'contrats'
-                            ? 'bg-brand-500 text-white'
-                            : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                            ? 'bg-[var(--color-brand-500)] text-white'
+                            : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
                     }`}
                 >
                     <FileText size={16} />
@@ -218,10 +234,10 @@ export default function ReferentielsRhTab() {
                 </button>
                 <button
                     onClick={() => setActiveSection('intervenants')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
                         activeSection === 'intervenants'
-                            ? 'bg-brand-500 text-white'
-                            : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                            ? 'bg-[var(--color-brand-500)] text-white'
+                            : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
                     }`}
                 >
                     <UserCheck size={16} />
@@ -229,10 +245,10 @@ export default function ReferentielsRhTab() {
                 </button>
                 <button
                     onClick={() => setActiveSection('banques')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
                         activeSection === 'banques'
-                            ? 'bg-brand-500 text-white'
-                            : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                            ? 'bg-[var(--color-brand-500)] text-white'
+                            : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
                     }`}
                 >
                     <Landmark size={16} />

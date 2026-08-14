@@ -1,5 +1,7 @@
 import { Plus, Edit2, UserCheck } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import Badge from '@/components/ui/Badge';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
 
 export default function TypesIntervenantList({
     typesIntervenant = [],
@@ -7,56 +9,76 @@ export default function TypesIntervenantList({
     onOpenEdit,
 }) {
     return (
-        <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm p-6 space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-ink-150 dark:border-ink-800">
+        <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-[var(--color-border-subtle)]">
                 <div>
-                    <h3 className="font-bold text-ink-900 dark:text-white text-md flex items-center gap-2">
-                        <UserCheck size={18} className="text-brand-500" />
+                    <h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2">
+                        <UserCheck size={18} className="text-[var(--color-brand-500)]" />
                         Types d'Intervenant ({typesIntervenant.length})
                     </h3>
-                    <p className="text-xs text-ink-400">Salarié national, Expatrié, Consultant, Stagiaire...</p>
+                    <p className="text-xs text-[var(--color-fg-muted)]">Salarié national, Expatrié, Consultant, Stagiaire...</p>
                 </div>
                 <Button onClick={onOpenCreate} variant="primary" size="sm" iconLeft={<Plus size={16} />}>
                     Nouveau Type
                 </Button>
             </div>
 
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm border-collapse">
-                    <thead>
-                        <tr className="border-b border-ink-150 dark:border-ink-800 text-xs font-bold text-ink-500 uppercase tracking-wider bg-ink-50/50 dark:bg-ink-950/40">
-                            <th className="py-3 px-4">Code</th>
-                            <th className="py-3 px-4">Libellé</th>
-                            <th className="py-3 px-4 text-center">IRSA</th>
-                            <th className="py-3 px-4 text-center">ISI 5%</th>
-                            <th className="py-3 px-4 text-center">CNaPS</th>
-                            <th className="py-3 px-4 text-center">Santé</th>
-                            <th className="py-3 px-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ink-150 dark:divide-ink-800">
-                        {typesIntervenant.map(ti => (
-                            <tr key={ti.idTypeIntervenant} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 transition-colors">
-                                <td className="py-3 px-4 font-mono font-bold text-brand-500">{ti.code}</td>
-                                <td className="py-3 px-4 font-medium text-ink-900 dark:text-ink-100">{ti.libelle}</td>
-                                <td className="py-3 px-4 text-center">{ti.soumisIrsa ? '✅' : '❌'}</td>
-                                <td className="py-3 px-4 text-center">{ti.soumisIsi5 ? '✅' : '❌'}</td>
-                                <td className="py-3 px-4 text-center">{ti.soumisCnaps ? '✅' : '❌'}</td>
-                                <td className="py-3 px-4 text-center">{ti.soumisSante ? '✅' : '❌'}</td>
-                                <td className="py-3 px-4 text-right">
+            <Table>
+                <Thead>
+                    <Th>Code</Th>
+                    <Th>Libellé</Th>
+                    <Th className="text-center">IRSA</Th>
+                    <Th className="text-center">ISI 5%</Th>
+                    <Th className="text-center">CNaPS</Th>
+                    <Th className="text-center">Santé</Th>
+                    <Th className="text-right">Actions</Th>
+                </Thead>
+                <Tbody>
+                    {typesIntervenant.length > 0 ? (
+                        typesIntervenant.map(ti => (
+                            <Tr key={ti.idTypeIntervenant}>
+                                <Td isData className="font-bold text-[var(--color-brand-500)]">{ti.code}</Td>
+                                <Td className="font-semibold text-[var(--color-fg)]">{ti.libelle}</Td>
+                                <Td className="text-center">
+                                    <Badge variant={ti.soumisIrsa ? 'success' : 'default'} size="sm">
+                                        {ti.soumisIrsa ? 'Oui' : 'Non'}
+                                    </Badge>
+                                </Td>
+                                <Td className="text-center">
+                                    <Badge variant={ti.soumisIsi5 ? 'warning' : 'default'} size="sm">
+                                        {ti.soumisIsi5 ? 'Oui' : 'Non'}
+                                    </Badge>
+                                </Td>
+                                <Td className="text-center">
+                                    <Badge variant={ti.soumisCnaps ? 'success' : 'default'} size="sm">
+                                        {ti.soumisCnaps ? 'Oui' : 'Non'}
+                                    </Badge>
+                                </Td>
+                                <Td className="text-center">
+                                    <Badge variant={ti.soumisSante ? 'success' : 'default'} size="sm">
+                                        {ti.soumisSante ? 'Oui' : 'Non'}
+                                    </Badge>
+                                </Td>
+                                <Td className="text-right">
                                     <button
                                         onClick={() => onOpenEdit(ti)}
-                                        className="p-1 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-sm text-ink-400 hover:text-ink-900 dark:hover:text-white cursor-pointer"
+                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none transition-all cursor-pointer"
                                         title="Modifier"
                                     >
-                                        <Edit2 size={15} />
+                                        <Edit2 size={16} />
                                     </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                                </Td>
+                            </Tr>
+                        ))
+                    ) : (
+                        <Tr>
+                            <Td colSpan={7} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
+                                Aucun type d'intervenant configuré.
+                            </Td>
+                        </Tr>
+                    )}
+                </Tbody>
+            </Table>
         </div>
     );
 }

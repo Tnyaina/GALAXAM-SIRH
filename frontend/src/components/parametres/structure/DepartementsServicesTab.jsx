@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, XCircle, Eye } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
+import { fmtDateInput } from '@/utils/paieUtils';
+import Loading from '@/components/ui/Loading';
 
 import DepartementsList from './departements/DepartementsList';
 import DepartementFormModal from './departements/DepartementFormModal';
@@ -38,8 +40,8 @@ export default function DepartementsServicesTab() {
         setError(null);
         try {
             const data = await organisationService.getDepartements();
-            setDepartements(data);
-            if (data.length > 0 && !selectedDepartement) {
+            setDepartements(data || []);
+            if (data?.length > 0 && !selectedDepartement) {
                 setSelectedDepartement(data[0]);
             }
         } catch (err) {
@@ -54,7 +56,7 @@ export default function DepartementsServicesTab() {
         setLoadingServices(true);
         try {
             const data = await organisationService.getServices(idDept);
-            setServices(data);
+            setServices(data || []);
         } catch (err) {
             console.error("Erreur lors du chargement des services :", err);
         } finally {
@@ -86,7 +88,7 @@ export default function DepartementsServicesTab() {
         setDeptFormData({
             codeDepartement: dept.codeDepartement,
             libelle: dept.libelle,
-            dateFinPrevue: dept.dateFinPrevue || ''
+            dateFinPrevue: fmtDateInput(dept.dateFinPrevue) || ''
         });
         setActionError(null);
         setShowDeptModal(true);
@@ -148,7 +150,7 @@ export default function DepartementsServicesTab() {
         setServiceFormData({
             codeService: '',
             libelle: '',
-            idDepartement: selectedDepartement?.idDepartement || ''
+            idDepartement: selectedDepartement?.idDepartement ? String(selectedDepartement.idDepartement) : ''
         });
         setActionError(null);
         setShowServiceModal(true);
@@ -159,7 +161,7 @@ export default function DepartementsServicesTab() {
         setServiceFormData({
             codeService: service.codeService,
             libelle: service.libelle,
-            idDepartement: service.idDepartement
+            idDepartement: String(service.idDepartement)
         });
         setActionError(null);
         setShowServiceModal(true);
@@ -170,6 +172,10 @@ export default function DepartementsServicesTab() {
         setActionError(null);
         setActionSuccess(null);
 
+        if (!serviceFormData.idDepartement) {
+            setActionError("Veuillez sélectionner un département de rattachement.");
+            return;
+        }
         if (!serviceFormData.codeService.trim()) {
             setActionError("Le code service est obligatoire.");
             return;
@@ -179,12 +185,17 @@ export default function DepartementsServicesTab() {
             return;
         }
 
+        const payload = {
+            ...serviceFormData,
+            idDepartement: parseInt(serviceFormData.idDepartement)
+        };
+
         try {
             if (editingService) {
-                await organisationService.updateService(editingService.idService, serviceFormData);
+                await organisationService.updateService(editingService.idService, payload);
                 setActionSuccess(`Service "${serviceFormData.libelle}" modifié.`);
             } else {
-                await organisationService.createService(serviceFormData);
+                await organisationService.createService(payload);
                 setActionSuccess(`Service "${serviceFormData.libelle}" créé.`);
             }
             setShowServiceModal(false);
@@ -217,10 +228,10 @@ export default function DepartementsServicesTab() {
     const filteredDepartements = showInactive ? departements : departements.filter(d => d.estActif !== false);
     const filteredServices = showInactive ? services : services.filter(s => s.estActif !== false);
 
-    if (loading) {
+    if (loading && departements.length === 0) {
         return (
             <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                <Loading size="md" label="Chargement des départements et services..." />
             </div>
         );
     }
@@ -229,26 +240,26 @@ export default function DepartementsServicesTab() {
         <div className="space-y-6">
             {/* Notifications */}
             {actionSuccess && (
-                <div className="bg-success-500/10 text-success-600 dark:text-success-500 border border-success-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <CheckCircle size={16} />
                     {actionSuccess}
                 </div>
             )}
             {error && (
-                <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <XCircle size={16} />
                     {error}
                 </div>
             )}
 
             {/* Barre d'affichage désactivés */}
-            <div className="flex justify-end bg-white dark:bg-ink-900 p-2 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm">
-                <label className="flex items-center gap-2 text-xs font-semibold text-ink-500 dark:text-ink-300 cursor-pointer px-2 py-1 hover:bg-ink-50 dark:hover:bg-ink-950 rounded-sm">
+            <div className="flex justify-end bg-[var(--color-surface)] p-2 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
+                <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none">
                     <input
                         type="checkbox"
                         checked={showInactive}
                         onChange={(e) => setShowInactive(e.target.checked)}
-                        className="w-4 h-4 text-brand-500 rounded-sm"
+                        className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
                     />
                     <Eye size={14} />
                     <span>Afficher désactivés</span>
