@@ -1,15 +1,25 @@
-import { useState, memo } from 'react';
+import { useState, useEffect, memo, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Users, FileText, Clock, AlertTriangle, CheckCheck,
     TrendingUp, RefreshCw, ChevronRight, Calendar,
-    UserCheck, Briefcase, ArrowUpRight
+    UserCheck, Briefcase, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useToast } from '@/components/ui/feedback/Toast'; // <-- Import de ton hook personnalisé
+import StatCard from '@/components/ui/data-display/StatCard';
+import Badge from '@/components/ui/data-display/Badge';
+import Button from '@/components/ui/forms/Button';
+import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
+import { SkeletonStatCard, Skeleton } from '@/components/ui/feedback/Skeleton';
+import Loading from '@/components/ui/feedback/Loading';
+
+// Lazy loading du graphique optionnel
+const LineTrendChart = lazy(() => import('@/components/ui/data-display/Chart').then(m => ({ default: m.LineTrendChart })));
 
 // =========================================================================
-// Utilitaires
+// Utilitaires de formatage
 // =========================================================================
 
 function fmtDate(d) {
@@ -26,124 +36,63 @@ function fmtRelative(ts) {
     return `il y a ${Math.floor(diffH / 24)}j`;
 }
 
-// Palette de "tons" pour badges/chips — un seul endroit à modifier si un
-// statut change de couleur, au lieu de ternaires dupliquées dans chaque row.
-const TONE = {
-    danger: 'bg-danger-500/15 text-danger-600 dark:text-danger-400',
-    dangerSolid: 'bg-danger-500 text-white',
-    warning: 'bg-warning-500/15 text-warning-700 dark:text-warning-400',
-    warningSolid: 'bg-warning-500 text-white',
-    brand: 'bg-brand-500/10 text-brand-700 dark:text-brand-400',
-    brandSoft: 'bg-brand-500/15 text-brand-700 dark:text-brand-400',
-    success: 'bg-success-500/10 text-success-700 dark:text-success-400',
-    neutral: 'bg-ink-100 dark:bg-ink-800 text-ink-400',
-};
-
-function countBadgeClass(count, activeTone) {
-    return count > 0 ? TONE[activeTone] : TONE.neutral;
+function getEcheanceBadgeVariant(joursRestants) {
+    if (joursRestants === 0) return 'danger';
+    if (joursRestants <= 7) return 'warning';
+    return 'primary';
 }
 
-function getEcheanceBadgeClass(joursRestants) {
-    if (joursRestants === 0) return TONE.danger;
-    if (joursRestants <= 7) return TONE.warning;
-    return TONE.brand;
-}
-
-function getBrouillonBadgeClass(joursAttente) {
-    return joursAttente >= 2 ? TONE.warning : TONE.brandSoft;
-}
-
-function getActiviteBadgeClass(isValide) {
-    return isValide ? TONE.success : TONE.neutral;
+function getBrouillonBadgeVariant(joursAttente) {
+    return joursAttente >= 2 ? 'warning' : 'primary';
 }
 
 // =========================================================================
-// Composants atomiques
+// Composants atomiques & Skeletons
 // =========================================================================
-// Rappel rg.md §2 : pas d'arrondi, sauf switch / pastille de statut (dot) /
-// spinner / avatar rond. Tout le reste (cards, badges texte, boutons) reste
-// carré — `border-2` ou `shadow` pour délimiter, jamais de `rounded-*`.
 
-function SkeletonCard() {
+function SkeletonListRows({ count = 3 }) {
     return (
-        <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-800 p-5 animate-pulse">
-            <div className="flex items-center justify-between mb-4">
-                <div className="w-8 h-8 bg-ink-100 dark:bg-ink-800" />
-                <div className="w-16 h-4 bg-ink-100 dark:bg-ink-800" />
-            </div>
-            <div className="w-12 h-8 bg-ink-100 dark:bg-ink-800 mb-1" />
-            <div className="w-24 h-3 bg-ink-100 dark:bg-ink-800" />
-        </div>
-    );
-}
-
-const KpiCard = memo(function KpiCard({ icon: Icon, label, value, sublabel, color, linkTo }) {
-    const content = (
-        <div className={`bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-800 p-5 group transition-all duration-200 ${linkTo ? 'hover:shadow-lg hover:border-brand-300 dark:hover:border-brand-700 cursor-pointer' : ''}`}>
-            <div className="flex items-start justify-between mb-3">
-                <div className={`w-9 h-9 ${color} flex items-center justify-center shrink-0`}>
-                    <Icon size={18} className="text-white" aria-hidden="true" />
+        <div className="divide-y divide-[var(--color-border-subtle)] py-1">
+            {Array.from({ length: count }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 py-3 px-1">
+                    <Skeleton className="w-2 h-2 rounded-full shrink-0" />
+                    <div className="flex-1 space-y-1 min-w-0">
+                        <Skeleton className="h-3.5 w-1/3" />
+                        <Skeleton className="h-2.5 w-1/2" />
+                    </div>
+                    <Skeleton className="h-5 w-14 shrink-0" />
                 </div>
-                {linkTo && (
-                    <ArrowUpRight size={14} className="text-ink-300 group-hover:text-brand-500 transition-colors mt-0.5" aria-hidden="true" />
-                )}
-            </div>
-            <p className="text-2xl font-extrabold text-ink-900 dark:text-white tabular-nums">
-                {value ?? <span className="text-ink-300">—</span>}
-            </p>
-            <p className="text-sm font-medium text-ink-600 dark:text-ink-400 mt-0.5">{label}</p>
-            {sublabel && <p className="text-xs text-ink-400 mt-1">{sublabel}</p>}
+            ))}
         </div>
     );
-    return linkTo ? <Link to={linkTo}>{content}</Link> : content;
-});
-
-const SectionCard = memo(function SectionCard({ title, icon: Icon, iconColor, count, countColor, children, className = '' }) {
-    return (
-        <div className={`bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-800 overflow-hidden ${className}`}>
-            <div className="px-5 py-4 border-b border-ink-100 dark:border-ink-800 flex items-center gap-3">
-                <Icon size={16} className={iconColor} aria-hidden="true" />
-                <h2 className="text-sm font-bold text-ink-800 dark:text-white flex-1">{title}</h2>
-                {count !== undefined && (
-                    <span className={`text-xs font-bold px-2 py-0.5 ${countColor || TONE.neutral}`}>
-                        {count}
-                    </span>
-                )}
-            </div>
-            <div className="p-4">{children}</div>
-        </div>
-    );
-});
+}
 
 function EmptyState({ msg }) {
     return (
         <div className="py-6 text-center">
-            <CheckCheck size={20} className="text-success-500 mx-auto mb-2" aria-hidden="true" />
-            <p className="text-sm text-ink-400">{msg}</p>
+            <CheckCheck size={20} className="text-[var(--color-success-500)] mx-auto mb-2" aria-hidden="true" />
+            <p className="text-sm text-[var(--color-fg-muted)]">{msg}</p>
         </div>
     );
 }
 
-// Rendu progressif : on ne monte que les N premières lignes au départ.
-// Évite de créer d'un coup des dizaines de <Link>/handlers pour des listes
-// qui peuvent grossir (alertes, activité) — le reste n'est monté qu'au clic.
 function ExpandableList({ items, renderItem, initialCount = 5 }) {
     const [expanded, setExpanded] = useState(false);
     const visible = expanded ? items : items.slice(0, initialCount);
     const hidden = items.length - visible.length;
 
     return (
-        <>
+        <div className="divide-y divide-[var(--color-border-subtle)]">
             {visible.map(renderItem)}
             {hidden > 0 && (
                 <button
                     onClick={() => setExpanded(true)}
-                    className="w-full mt-1 py-2.5 min-h-11 text-xs font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400 hover:bg-ink-50 dark:hover:bg-ink-800/40 transition-colors"
+                    className="w-full mt-2 py-2.5 min-h-11 text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] transition-colors rounded-none"
                 >
                     Voir {hidden} de plus
                 </button>
             )}
-        </>
+        </div>
     );
 }
 
@@ -153,24 +102,23 @@ const AlerteRow = memo(function AlerteRow({ alerte }) {
     return (
         <Link
             to={`/employes/${alerte.idEmploye}?tab=carriere`}
-            className="flex items-center gap-3 py-3 px-1 hover:bg-ink-50 dark:hover:bg-ink-800/40 transition-colors group"
+            className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)] transition-colors group"
         >
-            {/* Pastille de statut : exception rg.md, seul élément rond ici */}
-            <div className={`w-2 h-2 rounded-full shrink-0 ${isToday ? 'bg-danger-500 animate-pulse' : isUrgent ? 'bg-warning-500' : 'bg-brand-400'}`} />
+            <div className={`w-2 h-2 rounded-full shrink-0 ${isToday ? 'bg-[var(--color-danger-500)] animate-pulse' : isUrgent ? 'bg-[var(--color-warning-500)]' : 'bg-[var(--color-brand-500)]'}`} />
             <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-ink-800 dark:text-ink-100 truncate">
+                <p className="text-sm font-semibold text-[var(--color-fg)] truncate">
                     {alerte.nomPrenom}
                 </p>
-                <p className="text-xs text-ink-500 dark:text-ink-400 truncate">
+                <p className="text-xs text-[var(--color-fg-muted)] truncate">
                     {alerte.typeContrat}
                     {alerte.numeroContrat ? ` · N°${alerte.numeroContrat}` : ''}
-                    {' · '}{fmtDate(alerte.dateEcheance)}
+                    {' · '}<span className="font-data">{fmtDate(alerte.dateEcheance)}</span>
                 </p>
             </div>
-            <span className={`text-xs font-bold px-2 py-0.5 shrink-0 ${getEcheanceBadgeClass(alerte.joursRestants)}`}>
+            <Badge variant={getEcheanceBadgeVariant(alerte.joursRestants)} size="sm">
                 {isToday ? 'Auj.' : `J-${alerte.joursRestants}`}
-            </span>
-            <ChevronRight size={13} className="text-ink-300 group-hover:text-brand-500 transition-colors shrink-0" aria-hidden="true" />
+            </Badge>
+            <ChevronRight size={13} className="text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand-500)] transition-colors shrink-0" aria-hidden="true" />
         </Link>
     );
 });
@@ -179,43 +127,40 @@ const BrouillonRow = memo(function BrouillonRow({ b }) {
     return (
         <Link
             to={`/employes/${b.idEmploye}?tab=carriere&wf=${b.idWorkflow}`}
-            className="flex items-center gap-3 py-3 px-1 hover:bg-ink-50 dark:hover:bg-ink-800/40 transition-colors group"
+            className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)] transition-colors group"
         >
-            <div className={`w-2 h-2 rounded-full shrink-0 ${b.joursAttente >= 2 ? 'bg-warning-500' : 'bg-brand-400'}`} />
+            <div className={`w-2 h-2 rounded-full shrink-0 ${b.joursAttente >= 2 ? 'bg-[var(--color-warning-500)]' : 'bg-[var(--color-brand-500)]'}`} />
             <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-ink-800 dark:text-ink-100 truncate">{b.nomPrenom}</p>
-                <p className="text-xs text-ink-500 dark:text-ink-400 truncate">{b.typeEvenement} · Effet : {fmtDate(b.dateEffet)}</p>
+                <p className="text-sm font-semibold text-[var(--color-fg)] truncate">{b.nomPrenom}</p>
+                <p className="text-xs text-[var(--color-fg-muted)] truncate">{b.typeEvenement} · Effet : <span className="font-data">{fmtDate(b.dateEffet)}</span></p>
             </div>
-            <span className={`text-xs font-bold px-2 py-0.5 shrink-0 ${getBrouillonBadgeClass(b.joursAttente)}`}>
+            <Badge variant={getBrouillonBadgeVariant(b.joursAttente)} size="sm">
                 {b.joursAttente}j d'attente
-            </span>
-            <ChevronRight size={13} className="text-ink-300 group-hover:text-brand-500 transition-colors shrink-0" aria-hidden="true" />
+            </Badge>
+            <ChevronRight size={13} className="text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand-500)] transition-colors shrink-0" aria-hidden="true" />
         </Link>
     );
 });
 
 const ActiviteRow = memo(function ActiviteRow({ ev }) {
-    // Correspond au libelle de ref_statut_workflow pour le code 'VALIDE'
-    const isValide = ev.statut === 'Valide et applique par la DAF' ||
-        ev.statut?.toLowerCase().includes('valid');
+    const isValide = ev.statut === 'Valide et applique par la DAF' || ev.statut?.toLowerCase().includes('valid');
     return (
         <Link
             to={`/employes/${ev.idEmploye}?tab=carriere`}
-            className="flex items-center gap-3 py-3 px-1 hover:bg-ink-50 dark:hover:bg-ink-800/40 transition-colors group"
+            className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)] transition-colors group"
         >
-            {/* Avatar rond : exception rg.md */}
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[10px] font-bold ${isValide ? 'bg-success-500' : 'bg-ink-400'}`}>
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[10px] font-bold ${isValide ? 'bg-[var(--color-success-500)]' : 'bg-[var(--color-fg-subtle)]'}`}>
                 {ev.nomPrenom?.charAt(0) || '?'}
             </div>
             <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-ink-800 dark:text-ink-100 truncate">{ev.nomPrenom}</p>
-                <p className="text-xs text-ink-500 dark:text-ink-400 truncate">{ev.typeEvenement}</p>
+                <p className="text-sm font-semibold text-[var(--color-fg)] truncate">{ev.nomPrenom}</p>
+                <p className="text-xs text-[var(--color-fg-muted)] truncate">{ev.typeEvenement}</p>
             </div>
             <div className="text-right shrink-0">
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 ${getActiviteBadgeClass(isValide)}`}>
+                <Badge variant={isValide ? 'success' : 'default'} size="sm">
                     {isValide ? 'Validé' : 'Annulé'}
-                </span>
-                <p className="text-[10px] text-ink-400 mt-0.5">{fmtRelative(ev.updatedAt)}</p>
+                </Badge>
+                <p className="text-[10px] text-[var(--color-fg-subtle)] mt-0.5 font-data">{fmtRelative(ev.updatedAt)}</p>
             </div>
         </Link>
     );
@@ -228,6 +173,7 @@ const ActiviteRow = memo(function ActiviteRow({ ev }) {
 export default function Dashboard() {
     const { user } = useAuth();
     const { data, loading, error, refresh, lastRefresh } = useDashboard();
+    const toast = useToast(); // <-- Appel de ton hook de Toast
 
     const kpis = data?.kpis;
     const alertesCritiques = data?.alertesCritiques || [];
@@ -241,259 +187,346 @@ export default function Dashboard() {
     const now = new Date();
     const greeting =
         now.getHours() < 12 ? 'Bonjour' :
-            now.getHours() < 18 ? 'Bon apres-midi' : 'Bonsoir';
+            now.getHours() < 18 ? 'Bon après-midi' : 'Bonsoir';
+
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    useEffect(() => {
+        const handleOnline = () => {
+            setIsOnline(true);
+            toast({
+                title: 'Connexion rétablie',
+                message: 'Vous êtes à nouveau connecté. Actualisation des données...',
+                type: 'success',
+                duration: 3000
+            });
+            refresh();
+        };
+
+        const handleOffline = () => {
+            setIsOnline(false);
+        };
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, [refresh, toast]);
+
+    const handleRefresh = async () => {
+        await refresh();
+        // Utilisation conforme de ton composant toast({ title, message, type })
+        toast({
+            title: 'Actualisation réussie',
+            message: 'Les données du dashboard sont à jour.',
+            type: 'success',
+            duration: 3000
+        });
+    };
 
     return (
         <div className="space-y-6">
 
-            {/* ── Bannière de bienvenue ─────────────────────────────────── */}
-            <div className="bg-gradient-to-r from-brand-800 to-brand-600 dark:from-brand-950 dark:to-brand-800 p-6 text-white flex items-center justify-between gap-4 shadow-md">
+            {/* Bannière de bienvenue */}
+            <div className="bg-[var(--color-brand-800)] text-white p-6 flex items-center justify-between gap-4 shadow-md rounded-none">
                 <div>
-                    <p className="text-brand-200 text-sm font-medium mb-1">
+                    <p className="text-[var(--color-brand-200)] text-sm font-medium mb-1 uppercase tracking-wider font-data">
                         {now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
-                    <h2 className="text-2xl font-extrabold mb-1">
-                        {greeting}, {user?.identifiant}
+                    <h2 className="text-2xl font-extrabold tracking-tight mb-1">
+                        {greeting}, {user?.identifiant || 'utilisateur'}
                     </h2>
-                    <p className="text-brand-200 text-sm">
-                        {totalAlertes > 0
-                            ? `${totalAlertes} alerte(s) RH nécessitent votre attention.`
-                            : 'Aucune alerte critique aujourd\'hui. Tout est à jour.'}
-                    </p>
+                    {loading ? (
+                        <Skeleton className="h-4 w-64 bg-white/20 mt-1" />
+                    ) : (
+                        <p className="text-[var(--color-brand-100)] text-sm">
+                            {totalAlertes > 0
+                                ? `${totalAlertes} alerte(s) RH nécessitent votre attention.`
+                                : 'Aucune alerte critique aujourd\'hui. Tout est à jour.'}
+                        </p>
+                    )}
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                    <button
-                        onClick={refresh}
-                        disabled={loading}
-                        aria-label="Actualiser les données du tableau de bord"
-                        className="flex items-center gap-1.5 px-3 py-2 min-h-11 text-xs font-semibold uppercase tracking-wide bg-white/15 hover:bg-white/25 text-white transition-colors disabled:opacity-50"
+                    <Button
+                        onClick={handleRefresh}
+                        loading={loading}
+                        variant="ghost"
+                        size="sm"
+                        className="bg-white/15 hover:bg-white/25 text-white border-transparent min-h-11"
+                        icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
                     >
-                        <RefreshCw size={13} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
                         Actualiser
-                    </button>
+                    </Button>
                     {lastRefresh && (
-                        <p className="text-[10px] text-brand-300">
+                        <p className="text-[10px] text-[var(--color-brand-200)] font-data">
                             Dernière MAJ : {lastRefresh.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                     )}
                 </div>
             </div>
 
-            {/* ── Erreur ───────────────────────────────────────────────── */}
-            {error && (
-                <div role="alert" className="bg-danger-50 dark:bg-danger-500/10 border border-danger-200 dark:border-danger-500/30 px-5 py-4 text-sm text-danger-700 dark:text-danger-400 flex items-center gap-2">
-                    <AlertTriangle size={15} className="shrink-0" aria-hidden="true" />
-                    {error}
+            {/* Message d'avertissement Offline */}
+            {!isOnline && (
+                <div role="alert" className="bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 px-5 py-4 text-sm text-[var(--color-warning-500)] flex items-center gap-3 rounded-none">
+                    <AlertTriangle size={16} className="shrink-0" aria-hidden="true" />
+                    <span className="font-semibold">Connexion perdue. Affichage des dernières données chargées en cache.</span>
                 </div>
             )}
 
-            {/* ── KPIs ─────────────────────────────────────────────────── */}
+            {/* Message d'erreur avec bouton de réessai explicite (Actionnable) */}
+            {error && (
+                <div role="alert" className="bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/30 px-5 py-4 text-sm text-[var(--color-danger-500)] flex items-center justify-between gap-4 rounded-none">
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle size={16} className="shrink-0" aria-hidden="true" />
+                        <span>{typeof error === 'string' ? error : 'Impossible de charger les données du dashboard.'}</span>
+                    </div>
+                    <Button
+                        onClick={refresh}
+                        variant="ghost"
+                        size="sm"
+                        loading={loading}
+                        className="text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/30 shrink-0 min-h-11"
+                        icon={<RotateCcw size={14} />}
+                    >
+                        Réessayer
+                    </Button>
+                </div>
+            )}
+
+            {/* KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
                 {loading ? (
-                    Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+                    Array.from({ length: 6 }).map((_, i) => <SkeletonStatCard key={i} />)
                 ) : (
                     <>
-                        <KpiCard
-                            icon={Users}
-                            label="Effectif actif"
-                            value={kpis?.totalEffectifActif}
-                            sublabel="Tous employés actifs"
-                            color="bg-brand-500"
-                            linkTo="/employes"
+                        <StatCard
+                            title="Effectif actif"
+                            value={kpis?.totalEffectifActif ?? '—'}
+                            icon={<Users size={18} />}
+                            color="brand"
                         />
-                        <KpiCard
-                            icon={Briefcase}
-                            label="Effectif comptabilisé"
-                            value={kpis?.effectifComptabilise}
-                            sublabel="Hors stagiaires / consultants"
-                            color="bg-brand-700"
-                            linkTo="/employes"
+                        <StatCard
+                            title="Comptabilisé"
+                            value={kpis?.effectifComptabilise ?? '—'}
+                            icon={<Briefcase size={18} />}
+                            color="brand"
                         />
-                        <KpiCard
-                            icon={TrendingUp}
-                            label="Nouvelles embauches"
-                            value={kpis?.nouvellesEmbauchesMois}
-                            sublabel="Ce mois-ci"
-                            color="bg-success-500"
+                        <StatCard
+                            title="Embauches"
+                            value={kpis?.nouvellesEmbauchesMois ?? '—'}
+                            icon={<TrendingUp size={18} />}
+                            color="success"
                         />
-                        <KpiCard
-                            icon={Calendar}
-                            label="Contrats expirant"
-                            value={kpis?.contratsExpirant30j}
-                            sublabel="Dans les 30 jours"
-                            color={kpis?.contratsExpirant30j > 0 ? 'bg-warning-500' : 'bg-ink-400'}
+                        <StatCard
+                            title="Expirations 30j"
+                            value={kpis?.contratsExpirant30j ?? '—'}
+                            icon={<Calendar size={18} />}
+                            color={kpis?.contratsExpirant30j > 0 ? 'warning' : 'brand'}
                         />
-                        <KpiCard
-                            icon={UserCheck}
-                            label="Essais en cours"
-                            value={kpis?.essaisEnCours}
-                            sublabel="Périodes d'essai actives"
-                            color="bg-info-600"
+                        <StatCard
+                            title="Essais actifs"
+                            value={kpis?.essaisEnCours ?? '—'}
+                            icon={<UserCheck size={18} />}
+                            color="info"
                         />
-                        <KpiCard
-                            icon={FileText}
-                            label="Brouillons en attente"
-                            value={kpis?.brouillonsEnAttente}
-                            sublabel="Validation DAF requise"
-                            color={kpis?.brouillonsEnAttente > 0 ? 'bg-warning-600' : 'bg-ink-400'}
+                        <StatCard
+                            title="Brouillons DAF"
+                            value={kpis?.brouillonsEnAttente ?? '—'}
+                            icon={<FileText size={18} />}
+                            color={kpis?.brouillonsEnAttente > 0 ? 'warning' : 'brand'}
                         />
                     </>
                 )}
             </div>
 
-            {/* ── Ligne principale ─────────────────────────────────────── */}
+            {/* Ligne principale */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
 
-                {/* ALERTES CRITIQUES + 7j */}
-                <div className="xl:col-span-2 space-y-4">
+                {/* ALERTES CRITIQUES + 7j + 30j */}
+                <div className="xl:col-span-2 space-y-5">
 
                     {/* Critiques */}
-                    <SectionCard
-                        title="Alertes critiques — Aujourd'hui"
-                        icon={AlertTriangle}
-                        iconColor="text-danger-500"
-                        count={loading ? '…' : alertesCritiques.length}
-                        countColor={countBadgeClass(alertesCritiques.length, 'dangerSolid')}
-                    >
-                        {loading && (
-                            <div className="space-y-2">
-                                {[...Array(2)].map((_, i) => (
-                                    <div key={i} className="h-10 bg-ink-100 dark:bg-ink-800 animate-pulse" />
-                                ))}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle size={16} className="text-[var(--color-danger-500)]" />
+                                    <CardTitle>Alertes critiques — Aujourd'hui</CardTitle>
+                                </div>
+                                <Badge variant={alertesCritiques.length > 0 ? 'danger' : 'default'} size="sm" dot>
+                                    {loading ? '…' : alertesCritiques.length}
+                                </Badge>
                             </div>
-                        )}
-                        {!loading && alertesCritiques.length === 0 && (
-                            <EmptyState msg="Aucun contrat ou essai n'expire aujourd'hui." />
-                        )}
-                        {!loading && alertesCritiques.length > 0 && (
-                            <ExpandableList
-                                items={alertesCritiques}
-                                initialCount={5}
-                                renderItem={(a, i) => <AlerteRow key={i} alerte={a} />}
-                            />
-                        )}
-                    </SectionCard>
+                        </CardHeader>
+                        <CardBody>
+                            {loading && <SkeletonListRows count={2} />}
+                            {!loading && alertesCritiques.length === 0 && (
+                                <EmptyState msg="Aucun contrat ou essai n'expire aujourd'hui." />
+                            )}
+                            {!loading && alertesCritiques.length > 0 && (
+                                <ExpandableList
+                                    items={alertesCritiques}
+                                    initialCount={5}
+                                    renderItem={(a, i) => <AlerteRow key={i} alerte={a} />}
+                                />
+                            )}
+                        </CardBody>
+                    </Card>
 
                     {/* 7 jours */}
-                    <SectionCard
-                        title="Échéances dans les 7 jours"
-                        icon={Clock}
-                        iconColor="text-warning-500"
-                        count={loading ? '…' : alertes7j.length}
-                        countColor={countBadgeClass(alertes7j.length, 'warningSolid')}
-                    >
-                        {loading && (
-                            <div className="space-y-2">
-                                {[...Array(3)].map((_, i) => (
-                                    <div key={i} className="h-10 bg-ink-100 dark:bg-ink-800 animate-pulse" />
-                                ))}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2">
+                                    <Clock size={16} className="text-[var(--color-warning-500)]" />
+                                    <CardTitle>Échéances dans les 7 jours</CardTitle>
+                                </div>
+                                <Badge variant={alertes7j.length > 0 ? 'warning' : 'default'} size="sm" dot>
+                                    {loading ? '…' : alertes7j.length}
+                                </Badge>
                             </div>
-                        )}
-                        {!loading && alertes7j.length === 0 && (
-                            <EmptyState msg="Aucune échéance dans les 7 prochains jours." />
-                        )}
-                        {!loading && (
-                            <ExpandableList
-                                items={alertes7j}
-                                initialCount={5}
-                                renderItem={(a, i) => <AlerteRow key={i} alerte={a} />}
-                            />
-                        )}
-                    </SectionCard>
+                        </CardHeader>
+                        <CardBody>
+                            {loading && <SkeletonListRows count={2} />}
+                            {!loading && alertes7j.length === 0 && (
+                                <EmptyState msg="Aucune échéance dans les 7 prochains jours." />
+                            )}
+                            {!loading && alertes7j.length > 0 && (
+                                <ExpandableList
+                                    items={alertes7j}
+                                    initialCount={5}
+                                    renderItem={(a, i) => <AlerteRow key={i} alerte={a} />}
+                                />
+                            )}
+                        </CardBody>
+                    </Card>
 
                     {/* 30 jours */}
-                    {alertes30j.length > 0 && (
-                        <SectionCard
-                            title="Échéances dans les 30 jours"
-                            icon={Calendar}
-                            iconColor="text-brand-500"
-                            count={alertes30j.length}
-                            countColor={TONE.brandSoft}
-                        >
-                            <ExpandableList
-                                items={alertes30j}
-                                initialCount={5}
-                                renderItem={(a, i) => <AlerteRow key={i} alerte={a} />}
-                            />
-                        </SectionCard>
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2">
+                                    <Calendar size={16} className="text-[var(--color-brand-500)]" />
+                                    <CardTitle>Échéances dans les 30 jours</CardTitle>
+                                </div>
+                                <Badge variant="primary" size="sm">
+                                    {loading ? '…' : alertes30j.length}
+                                </Badge>
+                            </div>
+                        </CardHeader>
+                        <CardBody>
+                            {loading && <SkeletonListRows count={2} />}
+                            {!loading && alertes30j.length === 0 && (
+                                <EmptyState msg="Aucune échéance dans les 30 prochains jours." />
+                            )}
+                            {!loading && alertes30j.length > 0 && (
+                                <ExpandableList
+                                    items={alertes30j}
+                                    initialCount={5}
+                                    renderItem={(a, i) => <AlerteRow key={i} alerte={a} />}
+                                />
+                            )}
+                        </CardBody>
+                    </Card>
+
+                    {/* Graphique de tendance optionnel */}
+                    {data?.tendances && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Évolution mensuelle des mouvements RH</CardTitle>
+                            </CardHeader>
+                            <CardBody>
+                                <Suspense fallback={<Loading display="overlay" label="Chargement du graphique..." />}>
+                                    <LineTrendChart
+                                        labels={data.tendances.labels}
+                                        datasets={data.tendances.datasets}
+                                    />
+                                </Suspense>
+                            </CardBody>
+                        </Card>
                     )}
                 </div>
 
                 {/* Colonne droite */}
-                <div className="space-y-4">
+                <div className="space-y-5">
 
                     {/* Brouillons */}
-                    <SectionCard
-                        title="Brouillons en attente"
-                        icon={FileText}
-                        iconColor="text-warning-500"
-                        count={loading ? '…' : brouillons.length}
-                        countColor={countBadgeClass(brouillons.length, 'warning')}
-                    >
-                        {loading && (
-                            <div className="space-y-2">
-                                {[...Array(2)].map((_, i) => (
-                                    <div key={i} className="h-10 bg-ink-100 dark:bg-ink-800 animate-pulse" />
-                                ))}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2">
+                                    <FileText size={16} className="text-[var(--color-warning-500)]" />
+                                    <CardTitle>Brouillons en attente</CardTitle>
+                                </div>
+                                <Badge variant={brouillons.length > 0 ? 'warning' : 'default'} size="sm">
+                                    {loading ? '…' : brouillons.length}
+                                </Badge>
                             </div>
-                        )}
-                        {!loading && brouillons.length === 0 && (
-                            <EmptyState msg="Aucun brouillon en attente de validation." />
-                        )}
-                        {!loading && brouillons.length > 0 && (
-                            <ExpandableList
-                                items={brouillons}
-                                initialCount={5}
-                                renderItem={(b, i) => <BrouillonRow key={i} b={b} />}
-                            />
-                        )}
-                    </SectionCard>
+                        </CardHeader>
+                        <CardBody>
+                            {loading && <SkeletonListRows count={2} />}
+                            {!loading && brouillons.length === 0 && (
+                                <EmptyState msg="Aucun brouillon en attente de validation." />
+                            )}
+                            {!loading && brouillons.length > 0 && (
+                                <ExpandableList
+                                    items={brouillons}
+                                    initialCount={5}
+                                    renderItem={(b, i) => <BrouillonRow key={i} b={b} />}
+                                />
+                            )}
+                        </CardBody>
+                    </Card>
 
                     {/* Activité récente */}
-                    <SectionCard
-                        title="Activité récente"
-                        icon={TrendingUp}
-                        iconColor="text-brand-500"
-                    >
-                        {loading && (
-                            <div className="space-y-2">
-                                {[...Array(4)].map((_, i) => (
-                                    <div key={i} className="h-10 bg-ink-100 dark:bg-ink-800 animate-pulse" />
-                                ))}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <TrendingUp size={16} className="text-[var(--color-brand-500)]" />
+                                <CardTitle>Activité récente</CardTitle>
                             </div>
-                        )}
-                        {!loading && activite.length === 0 && (
-                            <EmptyState msg="Aucun mouvement RH récent." />
-                        )}
-                        {!loading && activite.length > 0 && (
-                            <ExpandableList
-                                items={activite}
-                                initialCount={6}
-                                renderItem={(ev, i) => <ActiviteRow key={i} ev={ev} />}
-                            />
-                        )}
-                    </SectionCard>
+                        </CardHeader>
+                        <CardBody>
+                            {loading && <SkeletonListRows count={3} />}
+                            {!loading && activite.length === 0 && (
+                                <EmptyState msg="Aucun mouvement RH récent." />
+                            )}
+                            {!loading && activite.length > 0 && (
+                                <ExpandableList
+                                    items={activite}
+                                    initialCount={6}
+                                    renderItem={(ev, i) => <ActiviteRow key={i} ev={ev} />}
+                                />
+                            )}
+                        </CardBody>
+                    </Card>
 
                     {/* Accès rapides */}
-                    <SectionCard title="Accès rapides" icon={ChevronRight} iconColor="text-ink-400">
-                        <div className="space-y-2">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Accès rapides</CardTitle>
+                        </CardHeader>
+                        <CardBody className="space-y-2">
                             {[
-                                { to: '/employes', label: 'Liste des employés', icon: Users, color: 'text-brand-500' },
-                            ].map(({ to, label, icon: Icon, color }) => (
+                                { to: '/employes', label: 'Liste des employés', icon: Users },
+                            ].map(({ to, label, icon: Icon }) => (
                                 <Link
                                     key={to}
                                     to={to}
-                                    className="flex items-center gap-3 py-3 px-3 min-h-11 bg-ink-50 dark:bg-ink-800/50 hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:border-brand-200 dark:hover:border-brand-800 border border-ink-100 dark:border-ink-800 transition-all group"
+                                    className="flex items-center gap-3 py-3 px-3 min-h-11 bg-[var(--color-bg-subtle)] hover:bg-[var(--color-surface-hover)] border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] transition-all group rounded-none"
                                 >
-                                    <Icon size={15} className={color} aria-hidden="true" />
-                                    <span className="text-sm font-medium text-ink-700 dark:text-ink-200 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+                                    <Icon size={15} className="text-[var(--color-brand-500)]" aria-hidden="true" />
+                                    <span className="text-sm font-semibold text-[var(--color-fg)] group-hover:text-[var(--color-brand-500)] transition-colors">
                                         {label}
                                     </span>
-                                    <ChevronRight size={13} className="ml-auto text-ink-300 group-hover:text-brand-500 transition-colors" aria-hidden="true" />
+                                    <ChevronRight size={13} className="ml-auto text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand-500)] transition-colors" aria-hidden="true" />
                                 </Link>
                             ))}
-                        </div>
-                    </SectionCard>
+                        </CardBody>
+                    </Card>
                 </div>
             </div>
         </div>

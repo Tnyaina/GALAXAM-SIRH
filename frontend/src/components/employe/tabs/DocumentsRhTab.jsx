@@ -1,7 +1,7 @@
 import { Folder, Upload, Download, Trash2, Plus, AlertTriangle } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import Loading from '@/components/ui/Loading';
+import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
+import Loading from '@/components/ui/feedback/Loading';
 
 const fmtDate = (d) => {
     if (!d) return '-';

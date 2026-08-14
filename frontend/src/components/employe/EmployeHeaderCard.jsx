@@ -1,6 +1,6 @@
 import { User, Edit2, Power } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
 
 export default function EmployeHeaderCard({

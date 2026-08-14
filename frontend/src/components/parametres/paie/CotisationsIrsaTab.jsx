@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, ShieldCheck, Percent, MapPin, Eye } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
+import { fmtDateInput } from '@/utils/paieUtils';
 
 import CotisationsList from './cotisations/CotisationsList';
 import CotisationFormModal from './cotisations/CotisationFormModal';
@@ -11,7 +13,19 @@ import BaremeIrsaList from './irsa/BaremeIrsaList';
 import IrsaTrancheModal from './irsa/IrsaTrancheModal';
 
 export default function CotisationsIrsaTab() {
-    const [subSection, setSubSection] = useState('cotisations'); // 'cotisations' | 'site_cotisations' | 'irsa'
+    const [searchParams, setSearchParams] = useSearchParams();
+    const subSection = searchParams.get('subtab') || 'cotisations';
+
+    const setSubSection = (newSubTab) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', 'cotisations_irsa');
+            next.set('subtab', newSubTab);
+            return next;
+        });
+    };
+
+    const todayStr = fmtDateInput(new Date());
 
     const [cotisations, setCotisations] = useState([]);
     const [siteCotisations, setSiteCotisations] = useState([]);
@@ -28,7 +42,7 @@ export default function CotisationsIrsaTab() {
     const [showCotisationModal, setShowCotisationModal] = useState(false);
     const [editingCotisation, setEditingCotisation] = useState(null);
     const [cotisationFormData, setCotisationFormData] = useState({
-        code: '', libelle: '', tauxSalarial: 1.0, tauxPatronal: 13.0, dateDebut: '2026-01-01', dateFin: ''
+        code: '', libelle: '', tauxSalarial: 0, tauxPatronal: 0, dateDebut: todayStr, dateFin: ''
     });
 
     // Modale Site Cotisation
@@ -41,7 +55,7 @@ export default function CotisationsIrsaTab() {
     const [showIrsaModal, setShowIrsaModal] = useState(false);
     const [editingIrsa, setEditingIrsa] = useState(null);
     const [irsaFormData, setIrsaFormData] = useState({
-        numeroTranche: 1, trancheMin: 0, trancheMax: '', taux: 0, dateDebut: '2026-01-01', dateFin: ''
+        numeroTranche: 1, trancheMin: 0, trancheMax: '', taux: 0, dateDebut: todayStr, dateFin: ''
     });
 
     const loadData = async () => {
@@ -73,7 +87,7 @@ export default function CotisationsIrsaTab() {
     // Handlers Cotisation
     const handleOpenCreateCotisation = () => {
         setEditingCotisation(null);
-        setCotisationFormData({ code: '', libelle: '', tauxSalarial: 1.0, tauxPatronal: 13.0, dateDebut: '2026-01-01', dateFin: '' });
+        setCotisationFormData({ code: '', libelle: '', tauxSalarial: 0, tauxPatronal: 0, dateDebut: todayStr, dateFin: '' });
         setActionError(null);
         setShowCotisationModal(true);
     };
@@ -85,8 +99,8 @@ export default function CotisationsIrsaTab() {
             libelle: c.libelle,
             tauxSalarial: c.tauxSalarial,
             tauxPatronal: c.tauxPatronal,
-            dateDebut: c.dateDebut || '2026-01-01',
-            dateFin: c.dateFin || ''
+            dateDebut: fmtDateInput(c.dateDebut) || todayStr,
+            dateFin: fmtDateInput(c.dateFin) || ''
         });
         setActionError(null);
         setShowCotisationModal(true);
@@ -122,6 +136,10 @@ export default function CotisationsIrsaTab() {
         e.preventDefault();
         setActionError(null);
         setActionSuccess(null);
+        if (!siteCotisationFormData.idSite || !siteCotisationFormData.idTypeCotisation) {
+            setActionError("Veuillez sélectionner un site et une cotisation.");
+            return;
+        }
         const payload = {
             idSite: parseInt(siteCotisationFormData.idSite),
             idTypeCotisation: parseInt(siteCotisationFormData.idTypeCotisation)
@@ -136,15 +154,26 @@ export default function CotisationsIrsaTab() {
         }
     };
 
-    const handleDeleteSiteCotisation = async (id) => {
+    const handleToggleSiteCotisationStatus = async (item) => {
         setActionSuccess(null);
         setActionError(null);
         try {
-            await paieConfigService.deleteSiteCotisation(id);
-            setActionSuccess("Association supprimée.");
-            setSiteCotisations(prev => prev.filter(item => item.idSiteCotisation !== id));
+            if (item.estActif) {
+                await paieConfigService.deactivateSiteCotisation(item.idSiteCotisation);
+                setActionSuccess(`Association "${item.siteLibelle} - ${item.cotisationLibelle}" désactivée.`);
+            } else {
+                await paieConfigService.activateSiteCotisation(item.idSiteCotisation);
+                setActionSuccess(`Association "${item.siteLibelle} - ${item.cotisationLibelle}" réactivée.`);
+            }
+            setSiteCotisations(prev =>
+                prev.map(sc =>
+                    sc.idSiteCotisation === item.idSiteCotisation
+                        ? { ...sc, estActif: !item.estActif }
+                        : sc
+                )
+            );
         } catch (err) {
-            setActionError("Erreur lors de la suppression.");
+            setActionError("Erreur lors de la modification du statut.");
             console.error(err);
         }
     };
@@ -152,7 +181,7 @@ export default function CotisationsIrsaTab() {
     // Handlers IRSA
     const handleOpenCreateIrsa = () => {
         setEditingIrsa(null);
-        setIrsaFormData({ numeroTranche: tranchesIrsa.length + 1, trancheMin: 0, trancheMax: '', taux: 0, dateDebut: '2026-01-01', dateFin: '' });
+        setIrsaFormData({ numeroTranche: tranchesIrsa.length + 1, trancheMin: 0, trancheMax: '', taux: 0, dateDebut: todayStr, dateFin: '' });
         setActionError(null);
         setShowIrsaModal(true);
     };
@@ -162,10 +191,10 @@ export default function CotisationsIrsaTab() {
         setIrsaFormData({
             numeroTranche: t.numeroTranche,
             trancheMin: t.trancheMin,
-            trancheMax: t.trancheMax || '',
+            trancheMax: t.trancheMax ?? '',
             taux: t.taux,
-            dateDebut: t.dateDebut || '2026-01-01',
-            dateFin: t.dateFin || ''
+            dateDebut: fmtDateInput(t.dateDebut) || todayStr,
+            dateFin: fmtDateInput(t.dateFin) || ''
         });
         setActionError(null);
         setShowIrsaModal(true);
@@ -194,7 +223,6 @@ export default function CotisationsIrsaTab() {
         }
     };
 
-    // Filtrage désactivés
     const filteredSiteCotisations = showInactive
         ? siteCotisations
         : siteCotisations.filter(sc => sc.estActif !== false);
@@ -202,36 +230,35 @@ export default function CotisationsIrsaTab() {
     if (loading) {
         return (
             <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-full animate-spin"></div>
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            {/* Notifications */}
             {actionSuccess && (
-                <div className="bg-success-500/10 text-success-600 dark:text-success-500 border border-success-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <CheckCircle size={16} />
                     {actionSuccess}
                 </div>
             )}
             {error && (
-                <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <XCircle size={16} />
                     {error}
                 </div>
             )}
 
             {/* Onglets internes + Filtre d'affichage */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-ink-150 dark:border-ink-700 bg-white dark:bg-ink-900 rounded-sm p-2 gap-3 shadow-sm">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-3 shadow-sm">
                 <div className="flex gap-2 flex-wrap">
                     <button
                         onClick={() => setSubSection('cotisations')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
                             subSection === 'cotisations'
-                                ? 'bg-brand-500 text-white'
-                                : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                                ? 'bg-[var(--color-brand-500)] text-white'
+                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
                         }`}
                     >
                         <ShieldCheck size={16} />
@@ -239,10 +266,10 @@ export default function CotisationsIrsaTab() {
                     </button>
                     <button
                         onClick={() => setSubSection('site_cotisations')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
                             subSection === 'site_cotisations'
-                                ? 'bg-brand-500 text-white'
-                                : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                                ? 'bg-[var(--color-brand-500)] text-white'
+                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
                         }`}
                     >
                         <MapPin size={16} />
@@ -250,10 +277,10 @@ export default function CotisationsIrsaTab() {
                     </button>
                     <button
                         onClick={() => setSubSection('irsa')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
                             subSection === 'irsa'
-                                ? 'bg-brand-500 text-white'
-                                : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                                ? 'bg-[var(--color-brand-500)] text-white'
+                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
                         }`}
                     >
                         <Percent size={16} />
@@ -262,12 +289,12 @@ export default function CotisationsIrsaTab() {
                 </div>
 
                 {subSection === 'site_cotisations' && (
-                    <label className="flex items-center gap-2 text-xs font-semibold text-ink-500 dark:text-ink-300 cursor-pointer px-2 py-1 hover:bg-ink-50 dark:hover:bg-ink-950 rounded-sm">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none">
                         <input
                             type="checkbox"
                             checked={showInactive}
                             onChange={(e) => setShowInactive(e.target.checked)}
-                            className="w-4 h-4 text-brand-500 rounded-sm"
+                            className="w-4 h-4 accent-[var(--color-brand-500)] rounded-none"
                         />
                         <Eye size={14} />
                         <span>Afficher désactivés</span>
@@ -275,7 +302,6 @@ export default function CotisationsIrsaTab() {
                 )}
             </div>
 
-            {/* SubSection 1: Cotisations */}
             {subSection === 'cotisations' && (
                 <CotisationsList
                     cotisations={cotisations}
@@ -284,16 +310,14 @@ export default function CotisationsIrsaTab() {
                 />
             )}
 
-            {/* SubSection 2: Site Cotisations */}
             {subSection === 'site_cotisations' && (
                 <SiteCotisationsList
                     siteCotisations={filteredSiteCotisations}
                     onOpenCreate={handleOpenCreateSiteCotisation}
-                    onDelete={handleDeleteSiteCotisation}
+                    onToggleStatus={handleToggleSiteCotisationStatus}
                 />
             )}
 
-            {/* SubSection 3: IRSA */}
             {subSection === 'irsa' && (
                 <BaremeIrsaList
                     tranchesIrsa={tranchesIrsa}
@@ -302,7 +326,6 @@ export default function CotisationsIrsaTab() {
                 />
             )}
 
-            {/* Modale Cotisation */}
             <CotisationFormModal
                 isOpen={showCotisationModal}
                 onClose={() => setShowCotisationModal(false)}
@@ -313,7 +336,6 @@ export default function CotisationsIrsaTab() {
                 actionError={actionError}
             />
 
-            {/* Modale Site Cotisation */}
             <SiteCotisationFormModal
                 isOpen={showSiteCotisationModal}
                 onClose={() => setShowSiteCotisationModal(false)}
@@ -325,7 +347,6 @@ export default function CotisationsIrsaTab() {
                 actionError={actionError}
             />
 
-            {/* Modale IRSA */}
             <IrsaTrancheModal
                 isOpen={showIrsaModal}
                 onClose={() => setShowIrsaModal(false)}

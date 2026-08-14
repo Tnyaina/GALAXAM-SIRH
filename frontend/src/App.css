@@ -1,3 +1,8 @@
+/* Ce fichier ne définit aucune couleur en dur : --accent, --border,
+   --text-h, --social-bg, --shadow... sont désormais alias vers les tokens
+   du design system (voir index.css §5). Il hérite donc automatiquement de
+   la nouvelle palette marine/ambre — rien à changer ici. */
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;

@@ -1,5 +1,5 @@
 import { Upload, Camera } from 'lucide-react';
-import Input, { Textarea, Select } from '@/components/ui/Input';
+import Input, { Textarea, Select } from '@/components/ui/forms/Input';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
 
 export default function CoordonneesPhotoStep({

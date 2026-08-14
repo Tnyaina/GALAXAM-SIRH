@@ -7,8 +7,8 @@ import {
 import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
 import EmployeHeaderCard from '@/components/employe/EmployeHeaderCard';
-import Button from '@/components/ui/Button';
-import Loading from '@/components/ui/Loading';
+import Button from '@/components/ui/forms/Button';
+import Loading from '@/components/ui/feedback/Loading';
 import { useAuth } from '@/context/AuthContext';
 
 // Lazy loading des sous-onglets & modales de la fiche employé pour optimiser les performances

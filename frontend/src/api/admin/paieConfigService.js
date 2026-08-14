@@ -24,6 +24,14 @@ const paieConfigService = {
         const response = await apiClient.post('/referentiel/cotisations/site-config', data);
         return response.data;
     },
+    deactivateSiteCotisation: async (id) => {
+        const response = await apiClient.put(`/referentiel/cotisations/site-config/${id}/desactiver`);
+        return response.data;
+    },
+    activateSiteCotisation: async (id) => {
+        const response = await apiClient.put(`/referentiel/cotisations/site-config/${id}/activer`);
+        return response.data;
+    },
     deleteSiteCotisation: async (id) => {
         const response = await apiClient.delete(`/referentiel/cotisations/site-config/${id}`);
         return response.data;

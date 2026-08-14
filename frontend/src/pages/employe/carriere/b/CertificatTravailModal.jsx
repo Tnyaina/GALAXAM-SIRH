@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X, Award, CheckCircle } from 'lucide-react';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/forms/Button';
 import { DocumentFrame } from '@/components/carriere/ContractDocument';
 import { fmtDateFr } from '@/utils/carriereUtils';
 
@@ -36,6 +36,7 @@ export default function CertificatTravailModal({
     dateDebutInitiale = null,
 }) {
     const [mounted, setMounted] = useState(false);
+    const [typeAnciennete, setTypeAnciennete] = useState('contrat'); // 'contrat' | 'globale'
     const printRef = useRef(null);
 
     useEffect(() => {
@@ -64,7 +65,10 @@ export default function CertificatTravailModal({
     const filialeNif = filiale?.nif || contrat?.nifFiliale || employe?.nifFiliale || null;
     const filialeStat = filiale?.stat || contrat?.statFiliale || employe?.statFiliale || null;
 
-    const dateDebutEffectif = dateDebutInitiale || contrat?.dateDebut;
+    const dateDebutContrat = contrat?.dateDebut;
+    const dateDebutGlobale = dateDebutInitiale || employe?.dateEmbauche || employe?.dateEntree || contrat?.dateDebut;
+
+    const dateDebutEffectif = typeAnciennete === 'globale' && dateDebutGlobale ? dateDebutGlobale : dateDebutContrat;
     const dateDebut = fmtDateFr(dateDebutEffectif);
     const dateFinRaw = contrat?.dateFin || new Date();
     const dateFin = fmtDateFr(dateFinRaw);
@@ -168,6 +172,40 @@ export default function CertificatTravailModal({
                             <X size={20} />
                         </button>
                     </div>
+                </div>
+
+                {/* Barre de sélection du mode d'ancienneté (masquée à l'impression) */}
+                <div className="px-6 py-2.5 bg-brand-500/5 dark:bg-brand-500/10 border-b border-ink-150 dark:border-ink-700 flex flex-wrap items-center justify-between gap-3 flex-shrink-0 print:hidden text-xs">
+                    <div className="flex items-center gap-2">
+                        <span className="font-semibold text-ink-600 dark:text-ink-300">Base d'ancienneté :</span>
+                        <div className="inline-flex p-0.5 bg-ink-150 dark:bg-ink-800 rounded-sm">
+                            <button
+                                type="button"
+                                onClick={() => setTypeAnciennete('contrat')}
+                                className={`px-3 py-1 text-xs font-semibold rounded-xs transition-all cursor-pointer ${
+                                    typeAnciennete === 'contrat'
+                                        ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs font-bold'
+                                        : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-white'
+                                }`}
+                            >
+                                Spécifique au contrat ({fmtDateFr(dateDebutContrat)})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setTypeAnciennete('globale')}
+                                className={`px-3 py-1 text-xs font-semibold rounded-xs transition-all cursor-pointer ${
+                                    typeAnciennete === 'globale'
+                                        ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs font-bold'
+                                        : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-white'
+                                }`}
+                            >
+                                Globale entreprise ({fmtDateFr(dateDebutGlobale)})
+                            </button>
+                        </div>
+                    </div>
+                    <span className="font-mono font-bold text-brand-500 text-xs">
+                        Ancienneté calculée : {anciennete || '—'}
+                    </span>
                 </div>
 
                 {/* Corps du Document Officiel */}

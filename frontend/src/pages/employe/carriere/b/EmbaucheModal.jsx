@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Briefcase, ShieldAlert, Save, X, FileSignature, Eye, EyeOff } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import { Textarea } from '@/components/ui/Input';
-import Loading from '@/components/ui/Loading';
+import Button from '@/components/ui/forms/Button';
+import { Textarea } from '@/components/ui/forms/Input';
+import Loading from '@/components/ui/feedback/Loading';
 import contratService from '@/api/employe/contratService';
 import { useContractReferentiels } from '@/hooks/useContractReferentiels';
 import { ContractPreview } from '@/components/carriere/ContractDocument';
@@ -55,22 +55,38 @@ export default function EmbaucheModal({
         if (!isOpen) return;
 
         if (initialData) {
-            const c = initialData.contratCible || initialData.contratSource || {};
-            const a = initialData.affectationCible || initialData.affectationSource || {};
-            const w = initialData.workflow || {};
+            const c = initialData.contratCible || initialData.contratSource || initialData;
+            const a = initialData.affectationCible || initialData.affectationSource || initialData;
+            const w = initialData.workflow || initialData;
+
+            const dureeEssai = c.dureeEssaiMois ?? initialData.dureeEssaiMois;
 
             setFormData({
-                idFiliale: c.idFiliale || '', idTypeContrat: c.idTypeContrat || '', idTypeIntervenant: c.idTypeIntervenant || '',
-                dateDebut: fmtDateInput(c.dateDebut), dateFin: fmtDateInput(c.dateFin), dateSignature: fmtDateInput(c.dateSignature),
-                comptabiliseEffectif: c.comptabiliseEffectif !== false, numeroContrat: c.numeroContrat || '',
-                description: c.description || '', commentaire: c.commentaire || '',
-                aPeriodeEssai: c.dureeEssaiMois != null && c.dureeEssaiMois > 0,
-                dureeEssaiMois: c.dureeEssaiMois ? String(c.dureeEssaiMois) : '3',
-                dateFinEssai: fmtDateInput(c.dateFinEssai), idSite: a.idSite || '', idDepartement: a.idDepartement || '',
-                idService: a.idService || '', idFonction: a.idFonction || '', idResponsableHierarchique: a.idResponsableHierarchique || '',
-                idCategorieProfessionnelle: a.idCategorieProfessionnelle || '', idModeCalculPaie: a.idModeCalculPaie || '',
-                salaireBase: a.salaireBase ? String(a.salaireBase) : '', descriptionAffectation: a.description || '',
-                commentaireAffectation: a.commentaire || '', dateEffet: fmtDateInput(w.dateEffet), motif: w.motif || '',
+                idFiliale: c.idFiliale || initialData.idFiliale || '',
+                idTypeContrat: c.idTypeContrat || initialData.idTypeContrat || '',
+                idTypeIntervenant: c.idTypeIntervenant || initialData.idTypeIntervenant || '',
+                dateDebut: fmtDateInput(c.dateDebutContrat || c.dateDebut || initialData.dateDebutContrat || initialData.dateDebut),
+                dateFin: fmtDateInput(c.dateFinContrat || c.dateFin || initialData.dateFinContrat || initialData.dateFin),
+                dateSignature: fmtDateInput(c.dateSignature || c.dateDebutContrat || c.dateDebut || w.dateEffet || initialData.dateEffet),
+                comptabiliseEffectif: c.comptabiliseEffectif !== undefined ? c.comptabiliseEffectif : (initialData.comptabiliseEffectif !== undefined ? initialData.comptabiliseEffectif : true),
+                numeroContrat: c.numeroContratCible || c.numeroContratSource || c.numeroContrat || initialData.numeroContratCible || initialData.numeroContratSource || '',
+                description: c.descriptionContrat || c.description || initialData.descriptionContrat || initialData.description || '',
+                commentaire: c.commentaireContrat || c.commentaire || initialData.commentaireContrat || initialData.commentaire || '',
+                aPeriodeEssai: dureeEssai != null && Number(dureeEssai) > 0,
+                dureeEssaiMois: dureeEssai ? String(dureeEssai) : '3',
+                dateFinEssai: fmtDateInput(c.dateFinEssai || initialData.dateFinEssai),
+                idSite: a.idSite || initialData.idSite || '',
+                idDepartement: a.idDepartement || initialData.idDepartement || '',
+                idService: a.idService || initialData.idService || '',
+                idFonction: a.idFonction || initialData.idFonction || '',
+                idResponsableHierarchique: a.idResponsableHierarchique || initialData.idResponsableHierarchique || '',
+                idCategorieProfessionnelle: a.idCategorieProfessionnelle || initialData.idCategorieProfessionnelle || '',
+                idModeCalculPaie: a.idModeCalculPaie || initialData.idModeCalculPaie || '',
+                salaireBase: a.salaireBase ? String(a.salaireBase) : (initialData.salaireBase ? String(initialData.salaireBase) : ''),
+                descriptionAffectation: a.descriptionAffectation || a.description || initialData.descriptionAffectation || '',
+                commentaireAffectation: a.commentaireAffectation || a.commentaire || initialData.commentaireAffectation || '',
+                dateEffet: fmtDateInput(w.dateEffet || initialData.dateEffet || c.dateDebutContrat || c.dateDebut || initialData.dateDebutContrat),
+                motif: w.motif || initialData.motif || '',
             });
         } else {
             const today = fmtDateInput(new Date());
@@ -129,6 +145,7 @@ export default function EmbaucheModal({
             idTypeContrat: parseInt(formData.idTypeContrat),
             idTypeIntervenant: parseInt(formData.idTypeIntervenant),
             dateDebut: formData.dateDebut,
+            dateEffet: formData.dateDebut,
             dateFin: formData.dateFin || null,
             dateSignature: formData.dateSignature,
             comptabiliseEffectif: formData.comptabiliseEffectif,
@@ -144,7 +161,7 @@ export default function EmbaucheModal({
             idResponsableHierarchique: formData.idResponsableHierarchique ? parseInt(formData.idResponsableHierarchique) : null,
             idCategorieProfessionnelle: parseInt(formData.idCategorieProfessionnelle),
             idModeCalculPaie: parseInt(formData.idModeCalculPaie),
-            salaireBase: parseFloat(formData.salaireBase),
+            salaireBase: formData.salaireBase ? parseFloat(String(formData.salaireBase).replace(/\s/g, '').replace(/,/g, '.')) : 0,
             descriptionAffectation: formData.descriptionAffectation || null,
             commentaireAffectation: formData.commentaireAffectation || null,
         };
@@ -152,7 +169,10 @@ export default function EmbaucheModal({
         setSubmitting(true);
         try {
             if (isEditMode) {
-                const wfId = initialData.workflow?.idWorkflow;
+                const wfId = initialData.idWorkflow || initialData.workflow?.idWorkflow;
+                if (!wfId) {
+                    throw new Error("Impossible de déterminer l'identifiant du workflow (idWorkflow) à modifier.");
+                }
                 await contratService.modifierBrouillonWorkflow(wfId, payload);
             } else {
                 await contratService.creerBrouillonEmbauche(idEmploye, payload);
@@ -161,7 +181,7 @@ export default function EmbaucheModal({
             onClose();
         } catch (err) {
             console.error("Erreur enregistrement embauche:", err);
-            setErrorMsg(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Erreur lors de l'enregistrement de l'embauche.");
+            setErrorMsg(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || err.message || "Erreur lors de l'enregistrement de l'embauche.");
         } finally {
             setSubmitting(false);
         }

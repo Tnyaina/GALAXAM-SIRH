@@ -1,6 +1,6 @@
 /**
  * Card — composant de carte avec de bonnes valeurs par défaut.
- * Respecte strictement les tokens de design system (ink-*, pas de slate).
+ * Respecte strictement les tokens du design system (pas d'arrondi, tokens sémantiques).
  */
 
 export function Card({
@@ -22,10 +22,10 @@ export function Card({
   return (
     <div
       className={[
-        'bg-white dark:bg-ink-900',
-        bordered ? 'border border-ink-150 dark:border-ink-700' : '',
+        'bg-[var(--color-surface)] text-[var(--color-fg)] rounded-none',
+        bordered ? 'border border-[var(--color-border-subtle)]' : '',
         shadows[shadow] ?? shadows.sm,
-        hover ? 'transition-shadow hover:shadow-md cursor-pointer' : '',
+        hover ? 'transition-all duration-150 hover:border-[var(--color-brand-500)] cursor-pointer' : '',
         padding ? 'p-6' : '',
         className,
       ]
@@ -47,7 +47,7 @@ export function CardHeader({
     <div
       className={[
         'px-6 py-4',
-        divided ? 'border-b border-ink-150 dark:border-ink-700' : '',
+        divided ? 'border-b border-[var(--color-border-subtle)]' : '',
         className,
       ]
         .filter(Boolean)
@@ -75,8 +75,8 @@ export function CardTitle({
     <h3
       className={[
         sizes[size] ?? sizes.base,
-        'font-bold leading-snug',
-        muted ? 'text-ink-400' : 'text-ink-900 dark:text-white',
+        'font-bold leading-snug tracking-tight',
+        muted ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg)]',
         className,
       ]
         .filter(Boolean)
@@ -89,7 +89,7 @@ export function CardTitle({
 
 export function CardSubtitle({ children, className = '' }) {
   return (
-    <p className={`mt-0.5 text-xs text-ink-400 ${className}`}>{children}</p>
+    <p className={`mt-0.5 text-xs text-[var(--color-fg-muted)] ${className}`}>{children}</p>
   );
 }
 
@@ -115,8 +115,8 @@ export function CardFooter({
     <div
       className={[
         'px-6 py-3',
-        divided ? 'border-t border-ink-150 dark:border-ink-700' : '',
-        tinted ? 'bg-ink-50 dark:bg-ink-950' : '',
+        divided ? 'border-t border-[var(--color-border-subtle)]' : '',
+        tinted ? 'bg-[var(--color-bg-subtle)]' : '',
         className,
       ]
         .filter(Boolean)

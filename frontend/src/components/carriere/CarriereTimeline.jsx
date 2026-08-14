@@ -1,8 +1,8 @@
 import {
     Briefcase, Building, Landmark, Calendar, CheckCircle, Clock, Plus, FileText, Eye, RefreshCw, UserMinus, Award
 } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
 import { fmtDate, fmtMoney } from '@/utils/carriereUtils';
 
 export default function CarriereTimeline({
@@ -25,6 +25,8 @@ export default function CarriereTimeline({
     onSelectWorkflowRecap,
     onOpenCertificat,
 }) {
+    const displayContrats = (contratsList || []).filter(ct => ct.codeStatutContrat !== 'BROUILLON');
+
     const getStatutBadge = (statutCode) => {
         switch (statutCode) {
             case 'ACTIF':
@@ -390,10 +392,10 @@ export default function CarriereTimeline({
                 {/* Historique des Contrats */}
                 <div className="space-y-3 pt-4">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2 pb-2 border-b border-ink-150 dark:border-ink-700">
-                        <FileText size={14} /> Historique des Contrats de Travail ({contratsList.length})
+                        <FileText size={14} /> Historique des Contrats de Travail ({displayContrats.length})
                     </h3>
 
-                    {contratsList.length === 0 ? (
+                    {displayContrats.length === 0 ? (
                         <p className="text-xs text-ink-400">Aucun contrat dans l'historique.</p>
                     ) : (
                         <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
@@ -409,39 +411,46 @@ export default function CarriereTimeline({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                                    {contratsList.map((ct) => (
-                                        <tr key={ct.idContrat} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
-                                            <td className="px-4 py-3 font-mono font-bold text-brand-500">
-                                                {ct.numeroContrat}
-                                            </td>
-                                            <td className="px-4 py-3 font-mono">
-                                                {fmtDate(ct.dateDebut)} → {fmtDate(ct.dateFin)}
-                                            </td>
-                                            <td className="px-4 py-3 font-mono">
-                                                {fmtDate(ct.dateSignature)}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {ct.comptabiliseEffectif ? 'Oui' : 'Non'}
-                                            </td>
-                                            <td className="px-4 py-3 text-ink-500">
-                                                {ct.description || '-'}
-                                            </td>
-                                            <td className="px-4 py-3 text-right">
-                                                {(ct.codeStatutContrat === 'CLOTURE' || ct.codeStatutContrat === 'ROMPU' || (ct.dateFin && ct.codeStatutContrat !== 'ACTIF')) ? (
-                                                    <Button
-                                                        onClick={() => onOpenCertificat(ct)}
-                                                        variant="outline"
-                                                        size="xs"
-                                                        iconLeft={<Award size={13} />}
-                                                    >
-                                                        Certificat
-                                                    </Button>
-                                                ) : (
-                                                    <span className="text-[11px] text-ink-400 italic">Contrat en cours</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {displayContrats.map((ct) => {
+                                        const isContratEnCours = (contratActif && Number(ct.idContrat) === Number(contratActif.idContrat)) || ct.codeStatutContrat === 'ACTIF';
+                                        const isClotureOuRomp = ct.codeStatutContrat === 'CLOTURE' || ct.codeStatutContrat === 'ROMPU' || ct.codeStatutContrat === 'HISTORISE';
+                                        const estDateFinEchue = ct.dateFin && new Date(ct.dateFin).getTime() < new Date().setHours(0,0,0,0);
+                                        const canGenerateCertificat = !isContratEnCours && (isClotureOuRomp || estDateFinEchue);
+
+                                        return (
+                                            <tr key={ct.idContrat} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
+                                                <td className="px-4 py-3 font-mono font-bold text-brand-500">
+                                                    {ct.numeroContrat}
+                                                </td>
+                                                <td className="px-4 py-3 font-mono">
+                                                    {fmtDate(ct.dateDebut)} → {fmtDate(ct.dateFin)}
+                                                </td>
+                                                <td className="px-4 py-3 font-mono">
+                                                    {fmtDate(ct.dateSignature)}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {ct.comptabiliseEffectif ? 'Oui' : 'Non'}
+                                                </td>
+                                                <td className="px-4 py-3 text-ink-500">
+                                                    {ct.description || '-'}
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    {canGenerateCertificat ? (
+                                                        <Button
+                                                            onClick={() => onOpenCertificat(ct)}
+                                                            variant="outline"
+                                                            size="xs"
+                                                            iconLeft={<Award size={13} />}
+                                                        >
+                                                            Certificat
+                                                        </Button>
+                                                    ) : (
+                                                        <span className="text-[11px] text-ink-400 italic">Contrat en cours</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

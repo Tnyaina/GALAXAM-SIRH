@@ -1,5 +1,5 @@
 import { User, Calendar, MapPin, Heart, Phone, Landmark } from 'lucide-react';
-import Badge from '@/components/ui/Badge';
+import Badge from '@/components/ui/data-display/Badge';
 
 const InfoBlock = ({ label, value, mono = false, icon }) => (
     <div className="py-2">
@@ -84,7 +84,7 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
                             <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
                                 {comptes.map((cb, i) => (
                                     <tr key={i} className="text-ink-900 dark:text-ink-100">
-                                        <td className="px-4 py-3 font-semibold">{cb.nomBanque || cb.idBanque}</td>
+                                        <td className="px-4 py-3 font-semibold">{cb.nomBanque || cb.libelleBanque || cb.codeBanque || (cb.idBanque ? `Banque N°${cb.idBanque}` : '-')}</td>
                                         <td className="px-4 py-3">{cb.agence || '-'}</td>
                                         <td className="px-4 py-3 font-mono text-xs text-brand-500 font-bold">{cb.numCompteRib}</td>
                                         <td className="px-4 py-3">{cb.titulaireCompte || '-'}</td>

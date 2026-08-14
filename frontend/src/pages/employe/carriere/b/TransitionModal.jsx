@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, ShieldAlert, Save, X, Eye, EyeOff, FileSignature, ArrowRight, Building2, MessageSquareText } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Input, { Textarea } from '@/components/ui/Input';
-import Loading from '@/components/ui/Loading';
+import Button from '@/components/ui/forms/Button';
+import Input, { Textarea } from '@/components/ui/forms/Input';
+import Loading from '@/components/ui/feedback/Loading';
 import contratService from '@/api/employe/contratService';
 import { useContractReferentiels } from '@/hooks/useContractReferentiels';
 import { fmtDateInput } from '@/utils/carriereUtils';
@@ -83,37 +83,39 @@ export default function TransitionModal({
         const today = fmtDateInput(new Date());
 
         if (initialData) {
-            const c = initialData.contratCible || initialData.contratSource || contratActif || {};
-            const a = initialData.affectationCible || initialData.affectationSource || affectationActive || {};
-            const w = initialData.workflow || {};
+            const c = initialData.contratCible || initialData.contratSource || initialData || contratActif || {};
+            const a = initialData.affectationCible || initialData.affectationSource || initialData || affectationActive || {};
+            const w = initialData.workflow || initialData || {};
+
+            const dureeEssai = c.dureeEssaiMois ?? initialData.dureeEssaiMois;
 
             setFormData({
-                codeTypeEvenement: w.typeEvenementCode || defaultTypeEv,
-                idFiliale: c.idFiliale || filiales[0]?.idFiliale || '',
-                idTypeContrat: c.idTypeContrat || '',
-                idTypeIntervenant: c.idTypeIntervenant || '',
-                dateEffet: fmtDateInput(w.dateEffet) || today,
-                dateDebut: fmtDateInput(c.dateDebut) || today,
-                dateFin: fmtDateInput(c.dateFin) || '',
-                dateSignature: fmtDateInput(c.dateSignature) || today,
-                comptabiliseEffectif: c.comptabiliseEffectif !== false,
-                numeroContrat: c.numeroContrat || '',
-                descriptionContrat: c.description || '',
-                commentaireContrat: c.commentaire || '',
-                aPeriodeEssai: c.dureeEssaiMois != null && c.dureeEssaiMois > 0,
-                dureeEssaiMois: c.dureeEssaiMois ? String(c.dureeEssaiMois) : '3',
-                dateFinEssai: fmtDateInput(c.dateFinEssai) || '',
-                idSite: a.idSite || sites[0]?.idSite || '',
-                idDepartement: a.idDepartement || departements[0]?.idDepartement || '',
-                idService: a.idService || services[0]?.idService || '',
-                idFonction: a.idFonction || fonctions[0]?.idFonction || '',
-                idResponsableHierarchique: a.idResponsableHierarchique || '',
-                idCategorieProfessionnelle: a.idCategorieProfessionnelle || categoriesPro[0]?.idCategorie || '',
-                idModeCalculPaie: a.idModeCalculPaie || modesPaie[0]?.idModeCalcul || '',
-                salaireBase: a.salaireBase ? String(a.salaireBase) : '',
-                descriptionAffectation: a.description || '',
-                commentaireAffectation: a.commentaire || '',
-                motif: w.motif || '',
+                codeTypeEvenement: w.codeTypeEvenement || w.typeEvenementCode || initialData.codeTypeEvenement || defaultTypeEv,
+                idFiliale: c.idFiliale || initialData.idFiliale || filiales[0]?.idFiliale || '',
+                idTypeContrat: c.idTypeContrat || initialData.idTypeContrat || '',
+                idTypeIntervenant: c.idTypeIntervenant || initialData.idTypeIntervenant || '',
+                dateEffet: fmtDateInput(w.dateEffet || initialData.dateEffet) || today,
+                dateDebut: fmtDateInput(c.dateDebutContrat || c.dateDebut || initialData.dateDebutContrat || initialData.dateDebut) || today,
+                dateFin: fmtDateInput(c.dateFinContrat || c.dateFin || initialData.dateFinContrat || initialData.dateFin) || '',
+                dateSignature: fmtDateInput(c.dateSignature || c.dateDebutContrat || c.dateDebut || initialData.dateDebutContrat) || today,
+                comptabiliseEffectif: c.comptabiliseEffectif !== undefined ? c.comptabiliseEffectif : (initialData.comptabiliseEffectif !== undefined ? initialData.comptabiliseEffectif : true),
+                numeroContrat: c.numeroContratCible || c.numeroContratSource || c.numeroContrat || initialData.numeroContratCible || initialData.numeroContratSource || '',
+                descriptionContrat: c.descriptionContrat || c.description || initialData.descriptionContrat || initialData.description || '',
+                commentaireContrat: c.commentaireContrat || c.commentaire || initialData.commentaireContrat || initialData.commentaire || '',
+                aPeriodeEssai: dureeEssai != null && Number(dureeEssai) > 0,
+                dureeEssaiMois: dureeEssai ? String(dureeEssai) : '3',
+                dateFinEssai: fmtDateInput(c.dateFinEssai || initialData.dateFinEssai) || '',
+                idSite: a.idSite || initialData.idSite || sites[0]?.idSite || '',
+                idDepartement: a.idDepartement || initialData.idDepartement || departements[0]?.idDepartement || '',
+                idService: a.idService || initialData.idService || services[0]?.idService || '',
+                idFonction: a.idFonction || initialData.idFonction || fonctions[0]?.idFonction || '',
+                idResponsableHierarchique: a.idResponsableHierarchique || initialData.idResponsableHierarchique || '',
+                idCategorieProfessionnelle: a.idCategorieProfessionnelle || initialData.idCategorieProfessionnelle || categoriesPro[0]?.idCategorie || '',
+                idModeCalculPaie: a.idModeCalculPaie || initialData.idModeCalculPaie || modesPaie[0]?.idModeCalcul || '',
+                salaireBase: a.salaireBase ? String(a.salaireBase) : (initialData.salaireBase ? String(initialData.salaireBase) : ''),
+                descriptionAffectation: a.descriptionAffectation || a.description || initialData.descriptionAffectation || '',
+                commentaireAffectation: a.commentaireAffectation || a.commentaire || initialData.commentaireAffectation || '',
+                motif: w.motif || initialData.motif || '',
             });
         } else {
             const baseContrat = contratActif || {};
@@ -228,7 +230,7 @@ export default function TransitionModal({
             idResponsableHierarchique: formData.idResponsableHierarchique ? parseInt(formData.idResponsableHierarchique) : null,
             idCategorieProfessionnelle: parseInt(formData.idCategorieProfessionnelle),
             idModeCalculPaie: parseInt(formData.idModeCalculPaie),
-            salaireBase: parseFloat(formData.salaireBase),
+            salaireBase: formData.salaireBase ? parseFloat(String(formData.salaireBase).replace(/\s/g, '').replace(/,/g, '.')) : 0,
             descriptionAffectation: formData.descriptionAffectation || null,
             commentaireAffectation: formData.commentaireAffectation || null,
             motif: formData.motif || null,
@@ -237,7 +239,10 @@ export default function TransitionModal({
         setSubmitting(true);
         try {
             if (isEditMode) {
-                const wfId = initialData.workflow?.idWorkflow;
+                const wfId = initialData.idWorkflow || initialData.workflow?.idWorkflow;
+                if (!wfId) {
+                    throw new Error("Impossible de déterminer l'identifiant du workflow (idWorkflow) à modifier.");
+                }
                 await contratService.modifierBrouillonWorkflow(wfId, payload);
             } else {
                 await contratService.creerBrouillonTransition(idEmploye, payload);

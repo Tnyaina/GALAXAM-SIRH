@@ -1,6 +1,6 @@
 import { Upload, ShieldAlert } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Input, { Textarea, Select } from '@/components/ui/Input';
+import Button from '@/components/ui/forms/Button';
+import Input, { Textarea, Select } from '@/components/ui/forms/Input';
 
 export default function UploadDocumentModal({
     isOpen,

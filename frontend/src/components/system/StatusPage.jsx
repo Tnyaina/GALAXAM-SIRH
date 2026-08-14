@@ -1,14 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/forms/Button';
+import { useAuth } from '@/context/AuthContext'; // Import du hook Auth
 
-/**
- * StatusPage — socle commun pour les pages système (404, 401, 500, maintenance...).
- * Garde un rendu carré et sobre, cohérent avec Button/Input/Card (pas d'arrondi).
- *
- * Usage :
- *   <StatusPage code="404" icon={HelpCircle} title="Page introuvable" ... />
- */
 const tones = {
     neutral: 'text-[#2d2d2d] border-[#2d2d2d] bg-[#f5f5f5]',
     danger:  'text-[#c0392b] border-[#c0392b] bg-red-50',
@@ -29,17 +23,33 @@ export default function StatusPage({
     title,
     description,
     tone = 'neutral',
-    actionLabel = "Retour à l'accueil",
-    actionHref = '/',
+    actionLabel,
+    actionHref,
     actionIcon = <ArrowLeft size={16} />,
 }) {
     const navigate = useNavigate();
+    const { isAuthenticated } = useAuth(); // Récupération de l'état d'authentification
+
     const iconTone = tones[tone] ?? tones.neutral;
     const codeTone = codeTones[tone] ?? codeTones.neutral;
 
+    // Détermination dynamique de la destination et du texte si non fournis
+    const defaultHref = isAuthenticated ? '/dashboard' : '/';
+    const targetHref = actionHref ?? defaultHref;
+    const defaultLabel = isAuthenticated ? "Retour au tableau de bord" : "Retour à l'accueil";
+    const label = actionLabel ?? defaultLabel;
+
+    const handleAction = () => {
+        if (targetHref === -1) {
+            navigate(-1); // Permet de faire un retour arrière dans l'historique si désiré
+        } else {
+            navigate(targetHref);
+        }
+    };
+
     return (
-        <div className="min-h-screen flex items-center justify-center bg-[#f7f7f7] px-4">
-            <div className="max-w-md w-full bg-white border border-[#e5e5e5] shadow-sm p-10 text-center">
+        <div className="flex-1 w-full min-h-full h-full flex items-center justify-center bg-[var(--color-bg)] px-4 py-8">
+            <div className="max-w-md w-full bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-sm p-10 text-center">
                 {Icon && (
                     <div className={`w-16 h-16 border-2 flex items-center justify-center mx-auto mb-6 ${iconTone}`}>
                         <Icon size={30} strokeWidth={1.75} />
@@ -52,10 +62,10 @@ export default function StatusPage({
                     </p>
                 )}
 
-                <h1 className="text-xl font-semibold text-[#2d2d2d] mb-2">{title}</h1>
+                <h1 className="text-xl font-semibold text-[var(--color-fg)] mb-2">{title}</h1>
 
                 {description && (
-                    <p className="text-sm text-[#888] mb-8 leading-relaxed">{description}</p>
+                    <p className="text-sm text-[var(--color-fg-muted)] mb-8 leading-relaxed">{description}</p>
                 )}
 
                 <div className="flex justify-center">
@@ -63,9 +73,9 @@ export default function StatusPage({
                         variant="primary"
                         size="md"
                         iconLeft={actionIcon}
-                        onClick={() => navigate(actionHref)}
+                        onClick={handleAction}
                     >
-                        {actionLabel}
+                        {label}
                     </Button>
                 </div>
             </div>

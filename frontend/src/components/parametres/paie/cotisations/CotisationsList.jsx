@@ -1,4 +1,7 @@
-import { Plus, Edit2 } from 'lucide-react';
+import { Plus, Edit2, ShieldCheck } from 'lucide-react';
+import Button from '@/components/ui/forms/Button';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import { fmtDate } from '@/utils/paieUtils';
 
 export default function CotisationsList({
     cotisations = [],
@@ -6,58 +9,74 @@ export default function CotisationsList({
     onOpenEdit,
 }) {
     return (
-        <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden space-y-4">
-            <div className="p-4 flex justify-between items-center border-b border-ink-150 dark:border-ink-800">
+        <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden space-y-4">
+            <div className="p-4 flex justify-between items-center border-b border-[var(--color-border-subtle)]">
                 <div>
-                    <h3 className="font-bold text-ink-900 dark:text-white text-base">Règles & Cotisations Sociales</h3>
-                    <p className="text-xs text-ink-400">Taux salariaux et patronaux applicables pour CNaPS, Santé et autres organismes.</p>
+                    <h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2">
+                        <ShieldCheck size={18} className="text-[var(--color-brand-500)]" />
+                        Règles & Cotisations Sociales ({cotisations.length})
+                    </h3>
+                    <p className="text-xs text-[var(--color-fg-muted)]">
+                        Taux salariaux et patronaux applicables pour CNaPS, Santé et autres organismes.
+                    </p>
                 </div>
-                <button
-                    onClick={onOpenCreate}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-brand-500 hover:bg-brand-600 text-white rounded-sm transition-colors cursor-pointer"
-                >
-                    <Plus size={16} />
+                <Button onClick={onOpenCreate} variant="primary" size="sm" iconLeft={<Plus size={16} />}>
                     Nouvelle Cotisation
-                </button>
+                </Button>
             </div>
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left text-sm">
-                    <thead>
-                        <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 font-semibold uppercase text-xs">
-                            <th className="px-6 py-4">Code</th>
-                            <th className="px-6 py-4">Libellé</th>
-                            <th className="px-6 py-4">Taux Salarial</th>
-                            <th className="px-6 py-4">Taux Patronal</th>
-                            <th className="px-6 py-4">Taux Total</th>
-                            <th className="px-6 py-4">Période d'Application</th>
-                            <th className="px-6 py-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                        {cotisations.map((c) => (
-                            <tr key={c.idTypeCotisation} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
-                                <td className="px-6 py-4 font-mono font-semibold text-brand-500">{c.code}</td>
-                                <td className="px-6 py-4 font-bold">{c.libelle}</td>
-                                <td className="px-6 py-4 font-mono text-xs text-sky-500 font-bold">{c.tauxSalarial}%</td>
-                                <td className="px-6 py-4 font-mono text-xs text-amber-500 font-bold">{c.tauxPatronal}%</td>
-                                <td className="px-6 py-4 font-mono text-xs text-brand-500 font-bold">{(c.tauxSalarial + c.tauxPatronal).toFixed(2)}%</td>
-                                <td className="px-6 py-4 text-xs font-mono text-ink-400">
-                                    Du {c.dateDebut} {c.dateFin ? `au ${c.dateFin}` : '(Toujours actif)'}
-                                </td>
-                                <td className="px-6 py-4 text-right">
+
+            <Table>
+                <Thead>
+                    <Th>Code</Th>
+                    <Th>Libellé</Th>
+                    <Th className="text-right">Taux Salarial</Th>
+                    <Th className="text-right">Taux Patronal</Th>
+                    <Th className="text-right">Taux Total</Th>
+                    <Th>Période d'Application</Th>
+                    <Th className="text-right">Actions</Th>
+                </Thead>
+                <Tbody>
+                    {cotisations.length === 0 ? (
+                        <Tr>
+                            <Td colSpan={7} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
+                                Aucune cotisation enregistrée.
+                            </Td>
+                        </Tr>
+                    ) : (
+                        cotisations.map((c) => (
+                            <Tr key={c.idTypeCotisation}>
+                                <Td isData className="font-bold text-[var(--color-brand-500)]">
+                                    {c.code}
+                                </Td>
+                                <Td className="font-semibold text-[var(--color-fg)]">
+                                    {c.libelle}
+                                </Td>
+                                <Td isData className="text-right font-bold text-sky-500">
+                                    {c.tauxSalarial}%
+                                </Td>
+                                <Td isData className="text-right font-bold text-amber-500">
+                                    {c.tauxPatronal}%
+                                </Td>
+                                <Td isData className="text-right font-bold text-[var(--color-brand-500)]">
+                                    {(Number(c.tauxSalarial || 0) + Number(c.tauxPatronal || 0)).toFixed(2)}%
+                                </Td>
+                                <Td isData muted className="text-xs">
+                                    Du {fmtDate(c.dateDebut)} {c.dateFin ? `au ${fmtDate(c.dateFin)}` : '(Toujours actif)'}
+                                </Td>
+                                <Td className="text-right">
                                     <button
                                         onClick={() => onOpenEdit(c)}
-                                        className="p-1.5 text-ink-500 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-sm transition-all cursor-pointer"
+                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none transition-all cursor-pointer"
                                         title="Modifier"
                                     >
                                         <Edit2 size={16} />
                                     </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                                </Td>
+                            </Tr>
+                        ))
+                    )}
+                </Tbody>
+            </Table>
         </div>
     );
 }
