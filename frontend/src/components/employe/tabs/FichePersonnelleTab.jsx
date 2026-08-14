@@ -23,9 +23,9 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
         <div className="space-y-8">
             {/* Section État Civil & Identité */}
             <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
                     <User size={14} /> État Civil & Identité
-                </h3>
+                </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
                     <InfoBlock label="Sexe" value={emp.sexe === 'M' ? 'Masculin' : 'Féminin'} />
                     <InfoBlock label="Date de Naissance" value={fmtDate(emp.dateNaissance)} icon={<Calendar size={14} />} />
@@ -44,9 +44,9 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
 
             {/* Section Coordonnées */}
             <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
                     <Phone size={14} /> Domicile & Coordonnées
-                </h3>
+                </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
                     <div className="sm:col-span-2">
                         <InfoBlock label="Adresse Domicile" value={emp.adresse} icon={<MapPin size={14} />} />
@@ -61,9 +61,9 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
 
             {/* Section CNaPS & Banque */}
             <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
                     <Landmark size={14} /> Sécurité Sociale & Compte Bancaire
-                </h3>
+                </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-4">
                     <InfoBlock label="N° Affiliation CNaPS" value={emp.numAffiliationCnaps} mono />
                     <InfoBlock label="Date Déclaration CNaPS" value={fmtDate(emp.dateDeclaration)} />

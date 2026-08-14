@@ -16,7 +16,11 @@ export default function Topbar({ onMenuClick, title, onThemeToggle, isDarkMode }
 
     return (
         <header className="h-16 shrink-0 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] flex items-center gap-4 px-6">
-            <button onClick={onMenuClick} className="lg:hidden p-2 -ml-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]">
+            <button
+                onClick={onMenuClick}
+                className="lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] cursor-pointer"
+                aria-label="Ouvrir le menu"
+            >
                 <Menu size={20} />
             </button>
 
@@ -34,7 +38,7 @@ export default function Topbar({ onMenuClick, title, onThemeToggle, isDarkMode }
                 {onThemeToggle && (
                     <button
                         onClick={onThemeToggle}
-                        className="p-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors rounded-sm hover:bg-[var(--color-bg-subtle)]"
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors rounded-sm hover:bg-[var(--color-bg-subtle)] cursor-pointer"
                         aria-label={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
                     >
                         {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -45,7 +49,9 @@ export default function Topbar({ onMenuClick, title, onThemeToggle, isDarkMode }
                 <div className="relative">
                     <button
                         onClick={() => setShowDropdown((v) => !v)}
-                        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                        className="min-h-[44px] px-2 flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+                        aria-label="Menu profil utilisateur"
+                        aria-expanded={showDropdown}
                     >
                         <div className="w-8 h-8 flex items-center justify-center bg-[var(--color-brand-500)] text-white text-xs font-bold shrink-0">
                             {user?.identifiant?.substring(0, 2).toUpperCase()}

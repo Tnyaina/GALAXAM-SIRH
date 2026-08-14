@@ -18,9 +18,9 @@ export default function FamilleContactsTab({ conjoint, enfants = [], contactsUrg
         <div className="space-y-8">
             {/* Conjoint */}
             <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
                     <Heart size={14} /> Conjoint
-                </h3>
+                </h2>
                 {conjoint && conjoint.nom ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 bg-ink-50 dark:bg-ink-950 p-4 border border-ink-150 dark:border-ink-700">
                         <InfoBlock label="Nom" value={conjoint.nom} />
@@ -36,9 +36,9 @@ export default function FamilleContactsTab({ conjoint, enfants = [], contactsUrg
 
             {/* Enfants */}
             <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
                     <Baby size={14} /> Enfants Déclarés ({enfants.length})
-                </h3>
+                </h2>
                 {enfants.length > 0 ? (
                     <div className="overflow-x-auto border border-ink-150 dark:border-ink-700">
                         <table className="w-full text-sm">
@@ -77,9 +77,9 @@ export default function FamilleContactsTab({ conjoint, enfants = [], contactsUrg
 
             {/* Contacts d'Urgence */}
             <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
                     <ShieldAlert size={14} /> Contacts d'Urgence
-                </h3>
+                </h2>
                 {contactsUrgence.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {contactsUrgence.map((ct, i) => (

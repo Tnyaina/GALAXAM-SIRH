@@ -46,7 +46,7 @@ public class AuthController {
                 .secure(isSecure)
                 .path("/api/auth")
                 .maxAge(maxAgeSeconds)
-                .sameSite(isSecure ? "None" : "Lax")
+                .sameSite("Lax")
                 .build();
     }
 
