@@ -122,14 +122,17 @@ Ne jamais recréer un bouton, input ou carte "from scratch". Les composants sont
 | `Button` | `forms/` | [`Button.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/forms/Button.jsx) | Variants : `primary/secondary/outline/ghost/danger/success` · sizes : `xs/sm/md/lg` · angles droits, uppercase. |
 | `Input` (+ `Textarea`, `Select`, `Checkbox`, `Radio`) | `forms/` | [`Input.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/forms/Input.jsx) | Focus visible via `var(--color-focus-ring)`. Labels uppercase. |
 | `Toggle` | `forms/` | [`Toggle.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/forms/Toggle.jsx) | Switch arrondi (exception de radius autorisée). |
+| `DatePicker` | `forms/` | [`DatePicker.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/forms/DatePicker.jsx) | Sélecteur de date personnalisé. |
 | `FileUpload` | `forms/` | [`FileUpload.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/forms/FileUpload.jsx) | Zone de dépôt de document avec limitation de taille. |
 | `ChipInput` | `forms/` | [`ChipInput.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/forms/ChipInput.jsx) | Saisie de tags / puces avec suppression. |
 | `Card` (+ `CardHeader/Title/Body/Footer`) | `data-display/` | [`Card.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/Card.jsx) | Fond `var(--color-surface)`, bordure `var(--color-border-subtle)`. |
 | `Badge` | `data-display/` | [`Badge.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/Badge.jsx) | Variants statut / teintes de la palette + option `dot` ronde. |
+| `Avatar` | `data-display/` | [`Avatar.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/Avatar.jsx) | Avatar d'utilisateur avec initiales ou image (arrondi autorisé). |
 | `Chart` (+ `LineTrendChart`, etc.) | `data-display/` | [`Chart.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/Chart.jsx) | Graphiques de tendances pour les statistiques et tableaux de bord. |
 | `StatCard` | `data-display/` | [`StatCard.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/StatCard.jsx) | Affichage de chiffres clés, de variations et d'icônes. |
 | `Table` (+ `Thead`, `Th`, `Tbody`, `Tr`, `Td`) | `data-display/` | [`Table.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/Table.jsx) | Tableaux de données formatés, interlignes nets et fond de survol. |
 | `AccordionItem` | `data-display/` | [`Accordion.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/Accordion.jsx) | Conteneur d'informations repliable. |
+| `EmpyState` | `data-display/` | [`EmpyState.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/EmpyState.jsx) | Placeholder visuel pour les listes ou tables vides. |
 | `Alert` | `feedback/` | [`Alert.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/feedback/Alert.jsx) | Types : `success/warning/error/info`, icônes assorties. |
 | `Loading` | `feedback/` | [`Loading.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/feedback/Loading.jsx) | Spinner ou dots avec gestion overlay / inline. |
 | `Skeleton` (+ `SkeletonTable`, etc.) | `feedback/` | [`Skeleton.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/feedback/Skeleton.jsx) | Squelettes de chargement pour cards, tables et stats. |
@@ -137,9 +140,12 @@ Ne jamais recréer un bouton, input ou carte "from scratch". Les composants sont
 | `Stepper` | `navigation/` | [`Stepper.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/navigation/Stepper.jsx) | Visualisation des étapes d'un processus multi-étapes. |
 | `Tabs` | `navigation/` | [`Tabs.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/navigation/Tabs.jsx) | Onglets de navigation horizontaux. |
 | `Breadcrumb` | `navigation/` | [`Breadcrumb.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/navigation/Breadcrumb.jsx) | Fil d'Ariane pour la navigation contextuelle. |
+| `Pagination` | `navigation/` | [`Pagination.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/navigation/Pagination.jsx) | Contrôles de pagination pour les longs tableaux de données. |
 | `ConfirmDialog` | `overlays/` | [`ConfirmDialog.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/overlays/ConfirmDialog.jsx) | Modale de confirmation d'action. |
 | `SlideOver` | `overlays/` | [`SlideOver.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/overlays/SlideOver.jsx) | Panneau coulissant latéral (Drawer). |
 | `Tooltip` | `overlays/` | [`Tooltip.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/overlays/Tooltip.jsx) | Info-bulle directionnelle (top/bottom/left/right) au survol. |
+| `DropdownMenu` | `overlays/` | [`DropdownMenu.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/overlays/DropdownMenu.jsx) | Menu contextuel déroulant. |
+| `Modal` | `overlays/` | [`Modal.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/overlays/Modal.jsx) | Boîte de dialogue modale générique et accessible. |
 
 ---
 
