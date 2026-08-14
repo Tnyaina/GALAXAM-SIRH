@@ -257,11 +257,14 @@ public class ContratTravail extends ClassMere {
     }
 
     /**
-     * Retourne tous les contrats d'un employé (historique complet), du plus récent au plus ancien.
+     * Retourne tous les contrats validés/exécutés d'un employé (historique complet sans les brouillons), du plus récent au plus ancien.
      */
     public static List<ContratTravail> listerParEmploye(Integer idEmploye, Connection c) throws Exception {
         List<ContratTravail> list = new ArrayList<>();
-        String sql = "SELECT * FROM contrat_travail WHERE id_employe = ? ORDER BY date_debut DESC";
+        String sql = "SELECT ct.* FROM contrat_travail ct " +
+                     "LEFT JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                     "WHERE ct.id_employe = ? AND (rsc.code IS NULL OR rsc.code != 'BROUILLON') " +
+                     "ORDER BY ct.date_debut DESC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {

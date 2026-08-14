@@ -271,12 +271,20 @@ public class ContratTravailController {
                     }
                 }
 
+                // Mettre à jour la date d'effet du workflow s'il existe
+                WorkflowRh wf = WorkflowRh.rechercherBrouillonParEmploye(idEmploye, c);
+                if (wf != null) {
+                    if (req.getDateDebut() != null) {
+                        wf.setDateEffet(req.getDateDebut());
+                        wf.update(c);
+                    }
+                }
+
                 AuditLog.audit(c, "MODIFICATION_BROUILLON_CONTRAT", "contrat_travail",
                         String.valueOf(idContrat), null, contrat);
                 c.commit();
 
                 // Retourner le workflow CPL mis à jour (pour rafraîchir le récapitulatif)
-                WorkflowRh wf = WorkflowRh.rechercherBrouillonParEmploye(idEmploye, c);
                 if (wf != null) {
                     WorkflowRhCPL recap = WorkflowRhCPL.rechercherParId(wf.getIdWorkflow(), c);
                     return ResponseEntity.ok(recap);

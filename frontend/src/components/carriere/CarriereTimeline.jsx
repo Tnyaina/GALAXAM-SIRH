@@ -25,6 +25,8 @@ export default function CarriereTimeline({
     onSelectWorkflowRecap,
     onOpenCertificat,
 }) {
+    const displayContrats = (contratsList || []).filter(ct => ct.codeStatutContrat !== 'BROUILLON');
+
     const getStatutBadge = (statutCode) => {
         switch (statutCode) {
             case 'ACTIF':
@@ -390,10 +392,10 @@ export default function CarriereTimeline({
                 {/* Historique des Contrats */}
                 <div className="space-y-3 pt-4">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2 pb-2 border-b border-ink-150 dark:border-ink-700">
-                        <FileText size={14} /> Historique des Contrats de Travail ({contratsList.length})
+                        <FileText size={14} /> Historique des Contrats de Travail ({displayContrats.length})
                     </h3>
 
-                    {contratsList.length === 0 ? (
+                    {displayContrats.length === 0 ? (
                         <p className="text-xs text-ink-400">Aucun contrat dans l'historique.</p>
                     ) : (
                         <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
@@ -409,7 +411,7 @@ export default function CarriereTimeline({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                                    {contratsList.map((ct) => {
+                                    {displayContrats.map((ct) => {
                                         const isContratEnCours = (contratActif && Number(ct.idContrat) === Number(contratActif.idContrat)) || ct.codeStatutContrat === 'ACTIF';
                                         const isClotureOuRomp = ct.codeStatutContrat === 'CLOTURE' || ct.codeStatutContrat === 'ROMPU' || ct.codeStatutContrat === 'HISTORISE';
                                         const estDateFinEchue = ct.dateFin && new Date(ct.dateFin).getTime() < new Date().setHours(0,0,0,0);

@@ -145,6 +145,7 @@ export default function EmbaucheModal({
             idTypeContrat: parseInt(formData.idTypeContrat),
             idTypeIntervenant: parseInt(formData.idTypeIntervenant),
             dateDebut: formData.dateDebut,
+            dateEffet: formData.dateDebut,
             dateFin: formData.dateFin || null,
             dateSignature: formData.dateSignature,
             comptabiliseEffectif: formData.comptabiliseEffectif,

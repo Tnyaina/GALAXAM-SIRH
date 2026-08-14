@@ -441,7 +441,8 @@ public class WorkflowRhService {
             Integer idTypeEvt = resolveTypeEvenement(req.getCodeTypeEvenement(), c);
             if (idTypeEvt != null) workflow.setIdTypeEvenementRh(idTypeEvt);
         }
-        if (req.getDateEffet() != null) workflow.setDateEffet(req.getDateEffet());
+        Date dateEffetToSet = req.getDateEffet() != null ? req.getDateEffet() : req.getDateDebut();
+        if (dateEffetToSet != null) workflow.setDateEffet(dateEffetToSet);
         if (req.getMotif() != null) workflow.setMotif(req.getMotif());
         workflow.update(c);
 
