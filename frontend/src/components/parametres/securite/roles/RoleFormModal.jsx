@@ -15,15 +15,15 @@ export default function RoleFormModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-            <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-2xl w-full max-w-md overflow-hidden">
-                <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 flex justify-between items-center bg-ink-50/50 dark:bg-ink-950/40">
-                    <h3 className="font-bold text-ink-900 dark:text-white flex items-center gap-2">
-                        <Shield size={18} className="text-brand-500" />
+            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
+                    <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
+                        <Shield size={18} className="text-[var(--color-brand-500)]" />
                         {editingRole ? "Modifier le Rôle" : "Nouveau Rôle"}
                     </h3>
                     <button
                         onClick={onClose}
-                        className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-sm"
+                        className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none"
                     >
                         <X size={18} />
                     </button>
@@ -31,7 +31,7 @@ export default function RoleFormModal({
 
                 <form onSubmit={onSubmit} className="p-6 space-y-4">
                     {roleModalError && (
-                        <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-3 text-xs flex items-center gap-2">
+                        <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-2">
                             <ShieldAlert size={16} />
                             {roleModalError}
                         </div>
@@ -42,7 +42,7 @@ export default function RoleFormModal({
                         required
                         disabled={!!editingRole}
                         value={formData.codeRole}
-                        onChange={(e) => setFormData({ ...formData, codeRole: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, codeRole: e.target.value.toUpperCase() })}
                         placeholder="ADMIN_RH"
                     />
 
@@ -54,7 +54,7 @@ export default function RoleFormModal({
                         placeholder="Administrateur RH"
                     />
 
-                    <div className="flex justify-end gap-3 pt-4 border-t border-ink-150 dark:border-ink-700">
+                    <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">
                             Annuler
                         </Button>

@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Search, UserPlus, Edit2, ShieldAlert, CheckCircle, XCircle } from 'lucide-react';
+import { Search, UserPlus, Edit2, ShieldAlert, CheckCircle, XCircle, X } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
+import Button from '@/components/ui/Button';
+import Badge from '@/components/ui/Badge';
+import Input, { Select, Textarea } from '@/components/ui/Input';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
+import Loading from '@/components/ui/Loading';
+import { fmtDate } from '@/utils/paieUtils';
 
 export default function UserManagementTab() {
     const [users, setUsers] = useState([]);
@@ -16,7 +22,7 @@ export default function UserManagementTab() {
     const [showDeactivateModal, setShowDeactivateModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
 
-    // Formulaire utilisateur (création / modif)
+    // Formulaire utilisateur
     const [formData, setFormData] = useState({
         identifiant: '',
         motDePasse: '',
@@ -25,8 +31,6 @@ export default function UserManagementTab() {
     });
 
     const [showPassword, setShowPassword] = useState(false);
-
-    // Formulaire désactivation
     const [deactivateMotif, setDeactivateMotif] = useState('');
 
     const loadData = async () => {
@@ -38,7 +42,7 @@ export default function UserManagementTab() {
                 referentielService.getRoles()
             ]);
             setUsers(usersData);
-            setRoles(rolesData.filter(r => r.estActif)); // N'autoriser que les rôles actifs pour l'affectation
+            setRoles(rolesData.filter(r => r.estActif));
         } catch (err) {
             setError("Erreur lors du chargement des données. Veuillez réessayer.");
             console.error(err);
@@ -57,7 +61,7 @@ export default function UserManagementTab() {
             identifiant: '',
             motDePasse: '',
             confirmPassword: '',
-            idRole: roles.length > 0 ? roles[0].idRole : ''
+            idRole: ''
         });
         setShowPassword(false);
         setActionError(null);
@@ -68,9 +72,9 @@ export default function UserManagementTab() {
         setSelectedUser(user);
         setFormData({
             identifiant: user.identifiant,
-            motDePasse: '', // Vide par défaut
+            motDePasse: '',
             confirmPassword: '',
-            idRole: user.idRole
+            idRole: String(user.idRole)
         });
         setShowPassword(false);
         setActionError(null);
@@ -94,7 +98,6 @@ export default function UserManagementTab() {
             return;
         }
 
-        // Si création
         if (!selectedUser) {
             if (!formData.motDePasse) {
                 setActionError("Le mot de passe est obligatoire pour la création.");
@@ -105,7 +108,6 @@ export default function UserManagementTab() {
                 return;
             }
         } else {
-            // Si modification avec saisie d'un nouveau mot de passe
             if (formData.motDePasse && formData.motDePasse !== formData.confirmPassword) {
                 setActionError("La confirmation du mot de passe ne correspond pas.");
                 return;
@@ -113,13 +115,12 @@ export default function UserManagementTab() {
         }
 
         if (!formData.idRole) {
-            setActionError("Le rôle est obligatoire.");
+            setActionError("Veuillez sélectionner un rôle.");
             return;
         }
 
         try {
             if (selectedUser) {
-                // Modification
                 const updatePayload = {
                     identifiant: formData.identifiant,
                     idRole: parseInt(formData.idRole)
@@ -130,7 +131,6 @@ export default function UserManagementTab() {
                 await referentielService.updateUser(selectedUser.idUtilisateur, updatePayload);
                 setActionSuccess(`L'utilisateur "${formData.identifiant}" a été modifié avec succès.`);
             } else {
-                // Création
                 const createPayload = {
                     identifiant: formData.identifiant,
                     motDePasse: formData.motDePasse,
@@ -180,229 +180,203 @@ export default function UserManagementTab() {
 
     const filteredUsers = users.filter(u =>
         u.identifiant.toLowerCase().includes(search.toLowerCase()) ||
-        u.roleLibelle.toLowerCase().includes(search.toLowerCase())
+        (u.roleLibelle && u.roleLibelle.toLowerCase().includes(search.toLowerCase()))
     );
 
     if (loading && users.length === 0) {
         return (
             <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                <Loading size="md" label="Chargement des utilisateurs..." />
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            {/* Notifications d'action */}
+            {/* Notifications */}
             {actionSuccess && (
-                <div className="bg-success-500/10 text-success-600 dark:text-success-500 border border-success-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <CheckCircle size={16} />
                     {actionSuccess}
                 </div>
             )}
             {error && (
-                <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <XCircle size={16} />
                     {error}
                 </div>
             )}
 
             {/* Barre d'outils */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-white dark:bg-ink-900 p-4 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm">
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-4 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
                 <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={18} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" size={16} />
                     <input
                         type="text"
-                        placeholder="Rechercher un identifiant, rôle..."
+                        placeholder="Rechercher par identifiant, rôle..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm text-ink-900 dark:text-white focus:outline-none focus:border-brand-500"
+                        className="w-full pl-9 pr-4 py-2 border border-[var(--color-border)] rounded-none bg-[var(--color-surface)] text-sm text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
                     />
                 </div>
-                <button
+                <Button
                     onClick={handleOpenCreateModal}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold bg-brand-500 hover:bg-brand-600 text-white rounded-sm transition-colors cursor-pointer"
+                    variant="primary"
+                    size="sm"
+                    iconLeft={<UserPlus size={16} />}
                 >
-                    <UserPlus size={16} />
                     Nouvel Utilisateur
-                </button>
+                </Button>
             </div>
 
             {/* Tableau des utilisateurs */}
-            <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-left text-sm">
-                        <thead>
-                            <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 font-semibold uppercase text-xs">
-                                <th className="px-6 py-4">Identifiant</th>
-                                <th className="px-6 py-4">Rôle</th>
-                                <th className="px-6 py-4">Statut</th>
-                                <th className="px-6 py-4">Dernière Désactivation</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                            {filteredUsers.length > 0 ? (
-                                filteredUsers.map((user) => (
-                                    <tr key={user.idUtilisateur} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
-                                        <td className="px-6 py-4 font-semibold">{user.identifiant}</td>
-                                        <td className="px-6 py-4">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-sm text-xs font-semibold bg-brand-500/10 text-brand-500">
-                                                {user.roleLibelle}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {user.estActif ? (
-                                                <span className="inline-flex items-center gap-1.5 text-success-500 font-semibold text-xs">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-success-500"></span>
-                                                    Actif
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1.5 text-ink-400 font-semibold text-xs">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-ink-400"></span>
-                                                    Désactivé
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-xs text-ink-400 max-w-xs truncate">
-                                            {!user.estActif && user.dateDesactivation ? (
-                                                <div>
-                                                    <p>{new Date(user.dateDesactivation).toLocaleString()}</p>
-                                                    <p className="text-danger-500 font-medium">Motif : {user.motifDesactivation}</p>
-                                                </div>
-                                            ) : (
-                                                <span className="text-ink-300">-</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => handleOpenEditModal(user)}
-                                                    className="p-1.5 text-ink-500 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-sm transition-all cursor-pointer"
-                                                    title="Modifier"
-                                                >
-                                                    <Edit2 size={16} />
-                                                </button>
-                                                {user.estActif ? (
-                                                    <button
-                                                        onClick={() => handleOpenDeactivateModal(user)}
-                                                        className="px-2 py-1.5 text-xs font-bold text-danger-500 hover:bg-danger-500/10 rounded-sm transition-all cursor-pointer"
-                                                    >
-                                                        Désactiver
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => handleActivate(user)}
-                                                        className="px-2 py-1.5 text-xs font-bold text-success-500 hover:bg-success-500/10 rounded-sm transition-all cursor-pointer"
-                                                    >
-                                                        Activer
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan="5" className="px-6 py-12 text-center text-ink-400">
-                                        Aucun utilisateur trouvé.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <Table>
+                <Thead>
+                    <Th>Identifiant</Th>
+                    <Th>Rôle</Th>
+                    <Th>Statut</Th>
+                    <Th>Dernière Désactivation</Th>
+                    <Th className="text-right">Actions</Th>
+                </Thead>
+                <Tbody>
+                    {filteredUsers.length > 0 ? (
+                        filteredUsers.map((user) => (
+                            <Tr key={user.idUtilisateur}>
+                                <Td className="font-bold text-[var(--color-fg)]">{user.identifiant}</Td>
+                                <Td>
+                                    <Badge variant="primary" size="sm">
+                                        {user.roleLibelle}
+                                    </Badge>
+                                </Td>
+                                <Td>
+                                    <Badge variant={user.estActif ? 'success' : 'default'} size="sm" dot>
+                                        {user.estActif ? 'Actif' : 'Désactivé'}
+                                    </Badge>
+                                </Td>
+                                <Td muted className="text-xs max-w-xs truncate">
+                                    {!user.estActif && user.dateDesactivation ? (
+                                        <div>
+                                            <p>{fmtDate(user.dateDesactivation)}</p>
+                                            <p className="text-[var(--color-danger-500)] font-medium">Motif : {user.motifDesactivation}</p>
+                                        </div>
+                                    ) : (
+                                        <span>-</span>
+                                    )}
+                                </Td>
+                                <Td className="text-right">
+                                    <div className="flex justify-end items-center gap-2">
+                                        <button
+                                            onClick={() => handleOpenEditModal(user)}
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none transition-all cursor-pointer"
+                                            title="Modifier"
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        {user.estActif ? (
+                                            <button
+                                                onClick={() => handleOpenDeactivateModal(user)}
+                                                className="px-2 py-1 text-xs font-bold text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none transition-all cursor-pointer uppercase"
+                                            >
+                                                Désactiver
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleActivate(user)}
+                                                className="px-2 py-1 text-xs font-bold text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10 rounded-none transition-all cursor-pointer uppercase"
+                                            >
+                                                Activer
+                                            </button>
+                                        )}
+                                    </div>
+                                </Td>
+                            </Tr>
+                        ))
+                    ) : (
+                        <Tr>
+                            <Td colSpan={5} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
+                                Aucun utilisateur trouvé.
+                            </Td>
+                        </Tr>
+                    )}
+                </Tbody>
+            </Table>
 
             {/* Modale d'ajout/modification utilisateur */}
             {showUserModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
-                    <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 font-bold text-lg text-ink-900 dark:text-white">
-                            {selectedUser ? "Modifier l'utilisateur" : "Nouvel utilisateur"}
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
+                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
+                        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
+                            <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
+                                <UserPlus size={18} className="text-[var(--color-brand-500)]" />
+                                {selectedUser ? "Modifier l'utilisateur" : "Nouvel utilisateur"}
+                            </h3>
+                            <button onClick={() => setShowUserModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
+                                <X size={18} />
+                            </button>
                         </div>
-                        <form onSubmit={handleSaveUser}>
-                            <div className="p-6 space-y-4">
-                                {actionError && (
-                                    <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-3 text-xs flex items-center gap-1.5">
-                                        <ShieldAlert size={14} />
-                                        {actionError}
-                                    </div>
-                                )}
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-ink-400 uppercase">Identifiant</label>
-                                    <input
-                                        type="text"
-                                        value={formData.identifiant}
-                                        onChange={(e) => setFormData({ ...formData, identifiant: e.target.value })}
-                                        disabled={!!selectedUser}
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500 disabled:opacity-50"
-                                        placeholder="Ex: jean.dupont"
-                                    />
+                        <form onSubmit={handleSaveUser} className="p-6 space-y-4">
+                            {actionError && (
+                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-1.5">
+                                    <ShieldAlert size={14} />
+                                    {actionError}
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-ink-400 uppercase">
-                                        Mot de passe {selectedUser && "(Laisser vide pour ne pas modifier)"}
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type={showPassword ? "text" : "password"}
-                                            value={formData.motDePasse}
-                                            onChange={(e) => setFormData({ ...formData, motDePasse: e.target.value })}
-                                            className="w-full pl-3 pr-16 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                            placeholder="Mot de passe"
-                                        />
+                            )}
+                            <Input
+                                label="Identifiant"
+                                required
+                                disabled={!!selectedUser}
+                                value={formData.identifiant}
+                                onChange={(e) => setFormData({ ...formData, identifiant: e.target.value })}
+                                placeholder="Ex: jean.dupont"
+                            />
+                            <div className="space-y-1">
+                                <Input
+                                    label={`Mot de passe ${selectedUser ? "(Laisser vide pour ne pas modifier)" : ""}`}
+                                    type={showPassword ? "text" : "password"}
+                                    required={!selectedUser}
+                                    value={formData.motDePasse}
+                                    onChange={(e) => setFormData({ ...formData, motDePasse: e.target.value })}
+                                    placeholder="Mot de passe"
+                                    iconRight={
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-500 hover:text-brand-600 cursor-pointer"
+                                            className="text-xs font-bold text-[var(--color-brand-500)] hover:text-[var(--color-brand-600)] cursor-pointer"
                                         >
                                             {showPassword ? "Masquer" : "Afficher"}
                                         </button>
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-ink-400 uppercase">
-                                        Confirmer le mot de passe
-                                    </label>
-                                    <input
-                                        type={showPassword ? "text" : "password"}
-                                        value={formData.confirmPassword}
-                                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                        placeholder="Confirmation"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-ink-400 uppercase">Rôle</label>
-                                    <select
-                                        value={formData.idRole}
-                                        onChange={(e) => setFormData({ ...formData, idRole: e.target.value })}
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                    >
-                                        <option value="" disabled>Sélectionner un rôle</option>
-                                        {roles.map((role) => (
-                                            <option key={role.idRole} value={role.idRole}>
-                                                {role.libelle}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                    }
+                                />
                             </div>
-                            <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowUserModal(false)}
-                                    className="px-4 py-2 text-sm font-semibold hover:bg-ink-200 dark:hover:bg-ink-850 rounded-sm transition-colors cursor-pointer"
-                                >
+                            <Input
+                                label="Confirmer le mot de passe"
+                                type={showPassword ? "text" : "password"}
+                                required={!selectedUser && !!formData.motDePasse}
+                                value={formData.confirmPassword}
+                                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                placeholder="Confirmation"
+                            />
+                            <Select
+                                label="Rôle"
+                                required
+                                value={formData.idRole}
+                                onChange={(e) => setFormData({ ...formData, idRole: e.target.value })}
+                            >
+                                <option value="">-- Sélectionner un rôle --</option>
+                                {roles.map((role) => (
+                                    <option key={role.idRole} value={role.idRole}>
+                                        {role.libelle} ({role.codeRole})
+                                    </option>
+                                ))}
+                            </Select>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
+                                <Button type="button" onClick={() => setShowUserModal(false)} variant="ghost" size="sm">
                                     Annuler
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 text-sm font-semibold bg-brand-500 hover:bg-brand-600 text-white rounded-sm transition-colors cursor-pointer"
-                                >
+                                </Button>
+                                <Button type="submit" variant="primary" size="sm">
                                     Enregistrer
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>
@@ -411,48 +385,43 @@ export default function UserManagementTab() {
 
             {/* Modale de désactivation logique */}
             {showDeactivateModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
-                    <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 font-bold text-lg text-ink-900 dark:text-white">
-                            Confirmer la désactivation
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
+                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
+                        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
+                            <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
+                                <ShieldAlert size={18} className="text-[var(--color-danger-500)]" />
+                                Confirmer la désactivation
+                            </h3>
+                            <button onClick={() => setShowDeactivateModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
+                                <X size={18} />
+                            </button>
                         </div>
-                        <form onSubmit={handleDeactivate}>
-                            <div className="p-6 space-y-4">
-                                {actionError && (
-                                    <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-3 text-xs flex items-center gap-1.5">
-                                        <ShieldAlert size={14} />
-                                        {actionError}
-                                    </div>
-                                )}
-                                <p className="text-sm text-ink-500 dark:text-ink-400">
-                                    Vous vous apprêtez à désactiver le compte de <strong>{selectedUser?.identifiant}</strong>. 
-                                    L'utilisateur ne pourra plus s'authentifier.
-                                </p>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-ink-400 uppercase">Motif de la désactivation (Obligatoire)</label>
-                                    <textarea
-                                        rows="3"
-                                        value={deactivateMotif}
-                                        onChange={(e) => setDeactivateMotif(e.target.value)}
-                                        placeholder="Ex: Fin de contrat, Départ de l'entreprise..."
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500 resize-none"
-                                    />
+                        <form onSubmit={handleDeactivate} className="p-6 space-y-4">
+                            {actionError && (
+                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-1.5">
+                                    <ShieldAlert size={14} />
+                                    {actionError}
                                 </div>
-                            </div>
-                            <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDeactivateModal(false)}
-                                    className="px-4 py-2 text-sm font-semibold hover:bg-ink-200 dark:hover:bg-ink-850 rounded-sm transition-colors cursor-pointer"
-                                >
+                            )}
+                            <p className="text-sm text-[var(--color-fg-muted)]">
+                                Vous vous apprêtez à désactiver le compte de <strong className="text-[var(--color-fg)]">{selectedUser?.identifiant}</strong>. 
+                                L'utilisateur ne pourra plus s'authentifier.
+                            </p>
+                            <Textarea
+                                label="Motif de la désactivation"
+                                required
+                                rows={3}
+                                value={deactivateMotif}
+                                onChange={(e) => setDeactivateMotif(e.target.value)}
+                                placeholder="Ex: Fin de contrat, Départ de l'entreprise..."
+                            />
+                            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
+                                <Button type="button" onClick={() => setShowDeactivateModal(false)} variant="ghost" size="sm">
                                     Annuler
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 text-sm font-semibold bg-danger-500 hover:bg-danger-600 text-white rounded-sm transition-colors cursor-pointer"
-                                >
+                                </Button>
+                                <Button type="submit" variant="danger" size="sm">
                                     Désactiver le compte
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>

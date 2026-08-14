@@ -1,5 +1,6 @@
 import { ShieldCheck } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
 
 export default function RolePermissionsMatrix({
     selectedRole,
@@ -17,22 +18,22 @@ export default function RolePermissionsMatrix({
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-ink-150 dark:border-ink-800">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-[var(--color-border-subtle)]">
                 <div>
-                    <h4 className="font-bold text-ink-900 dark:text-white text-base">
-                        Matrice des Permissions pour <span className="text-brand-500">{selectedRole.libelle}</span>
+                    <h4 className="font-bold text-[var(--color-fg)] text-base">
+                        Matrice des Permissions pour <span className="text-[var(--color-brand-500)]">{selectedRole.libelle}</span>
                     </h4>
-                    <p className="text-xs text-ink-400">
+                    <p className="text-xs text-[var(--color-fg-muted)]">
                         Cochez les droits d'accès (Lecture, Écriture, Validation) pour chaque module fonctionnel.
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-ink-600 dark:text-ink-300 cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer">
                         <input
                             type="checkbox"
                             checked={isGlobalAllChecked}
                             onChange={handleToggleGlobalAllPermissions}
-                            className="w-4 h-4 rounded-sm text-brand-500 border-ink-300 dark:border-ink-700"
+                            className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
                         />
                         Tout autoriser
                     </label>
@@ -42,70 +43,66 @@ export default function RolePermissionsMatrix({
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm border-collapse">
-                    <thead>
-                        <tr className="border-b border-ink-150 dark:border-ink-800 text-xs font-bold text-ink-500 uppercase tracking-wider bg-ink-50/50 dark:bg-ink-950/40">
-                            <th className="py-3 px-4">Module</th>
-                            <th className="py-3 px-4 text-center">Lecture (Consulter)</th>
-                            <th className="py-3 px-4 text-center">Écriture (Saisir / Éditer)</th>
-                            <th className="py-3 px-4 text-center">Validation (Approuver)</th>
-                            <th className="py-3 px-4 text-center">Tout le module</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ink-150 dark:divide-ink-800">
-                        {modules.map(mod => {
-                            const perm = getPermissionForModule(mod.idModule);
-                            const isAllModChecked = perm.droitLecture && perm.droitEcriture && perm.droitValidation;
+            <Table>
+                <Thead>
+                    <Th>Module</Th>
+                    <Th className="text-center">Lecture (Consulter)</Th>
+                    <Th className="text-center">Écriture (Saisir / Éditer)</Th>
+                    <Th className="text-center">Validation (Approuver)</Th>
+                    <Th className="text-center">Tout le module</Th>
+                </Thead>
+                <Tbody>
+                    {modules.map(mod => {
+                        const perm = getPermissionForModule(mod.idModule);
+                        const isAllModChecked = perm.droitLecture && perm.droitEcriture && perm.droitValidation;
 
-                            return (
-                                <tr key={mod.idModule} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 transition-colors">
-                                    <td className="py-3 px-4 font-medium text-ink-900 dark:text-ink-100">
-                                        {mod.libelle}
-                                        <span className="block text-xs font-mono text-ink-400 font-normal">{mod.codeModule}</span>
-                                    </td>
+                        return (
+                            <Tr key={mod.idModule}>
+                                <Td className="font-medium text-[var(--color-fg)]">
+                                    {mod.libelle}
+                                    <span className="block text-xs font-mono text-[var(--color-fg-muted)] font-normal">{mod.codeModule}</span>
+                                </Td>
 
-                                    <td className="py-3 px-4 text-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={perm.droitLecture}
-                                            onChange={() => handleTogglePermission(mod.idModule, 'droitLecture')}
-                                            className="w-4 h-4 rounded-sm text-brand-500 border-ink-300 dark:border-ink-700"
-                                        />
-                                    </td>
+                                <Td className="text-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={perm.droitLecture}
+                                        onChange={() => handleTogglePermission(mod.idModule, 'droitLecture')}
+                                        className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
+                                    />
+                                </Td>
 
-                                    <td className="py-3 px-4 text-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={perm.droitEcriture}
-                                            onChange={() => handleTogglePermission(mod.idModule, 'droitEcriture')}
-                                            className="w-4 h-4 rounded-sm text-brand-500 border-ink-300 dark:border-ink-700"
-                                        />
-                                    </td>
+                                <Td className="text-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={perm.droitEcriture}
+                                        onChange={() => handleTogglePermission(mod.idModule, 'droitEcriture')}
+                                        className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
+                                    />
+                                </Td>
 
-                                    <td className="py-3 px-4 text-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={perm.droitValidation}
-                                            onChange={() => handleTogglePermission(mod.idModule, 'droitValidation')}
-                                            className="w-4 h-4 rounded-sm text-brand-500 border-ink-300 dark:border-ink-700"
-                                        />
-                                    </td>
+                                <Td className="text-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={perm.droitValidation}
+                                        onChange={() => handleTogglePermission(mod.idModule, 'droitValidation')}
+                                        className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
+                                    />
+                                </Td>
 
-                                    <td className="py-3 px-4 text-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={isAllModChecked}
-                                            onChange={() => handleToggleAllModulePermissions(mod.idModule)}
-                                            className="w-4 h-4 rounded-sm text-brand-500 border-ink-300 dark:border-ink-700"
-                                        />
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+                                <Td className="text-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={isAllModChecked}
+                                        onChange={() => handleToggleAllModulePermissions(mod.idModule)}
+                                        className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
+                                    />
+                                </Td>
+                            </Tr>
+                        );
+                    })}
+                </Tbody>
+            </Table>
         </div>
     );
 }

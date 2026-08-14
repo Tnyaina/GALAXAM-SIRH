@@ -3,12 +3,12 @@ import { useSearchParams } from 'react-router-dom';
 import { Plus, Edit2, CheckCircle, XCircle, Gift, MapPin, ShieldAlert, X } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
+import contratService from '@/api/employe/contratService';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Input, { Select, Checkbox } from '@/components/ui/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
-import { fmtDateInput, fmtMoney } from '@/utils/paieUtils';
-import { PERIODICITES_INDEMNITE } from '@/utils/paieUtils';
+import { fmtDateInput, fmtMoney, PERIODICITES_INDEMNITE } from '@/utils/paieUtils';
 
 export default function IndemnitesSitesTab() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -28,6 +28,7 @@ export default function IndemnitesSitesTab() {
     const [indemnites, setIndemnites] = useState([]);
     const [siteIndemnites, setSiteIndemnites] = useState([]);
     const [sites, setSites] = useState([]);
+    const [modesPaie, setModesPaie] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -52,14 +53,16 @@ export default function IndemnitesSitesTab() {
         setLoading(true);
         setError(null);
         try {
-            const [indData, siteIndData, sitesData] = await Promise.all([
+            const [indData, siteIndData, sitesData, mpData] = await Promise.all([
                 paieConfigService.getIndemnites(),
                 paieConfigService.getSiteIndemnites(),
-                organisationService.getSites()
+                organisationService.getSites(),
+                contratService.getModesPaie()
             ]);
-            setIndemnites(indData);
-            setSiteIndemnites(siteIndData);
-            setSites(sitesData);
+            setIndemnites(indData || []);
+            setSiteIndemnites(siteIndData || []);
+            setSites(sitesData || []);
+            setModesPaie(mpData?.filter(m => m.actif !== false) || []);
         } catch (err) {
             setError("Erreur lors du chargement des indemnités.");
             console.error(err);
@@ -122,6 +125,11 @@ export default function IndemnitesSitesTab() {
         }
     };
 
+    // Liste des options de périodicité : API ref_mode_calcul_paie en priorité, sinon constante statique
+    const periodiciteOptions = modesPaie.length > 0 
+        ? modesPaie.map(m => ({ value: m.code, label: m.libelle }))
+        : PERIODICITES_INDEMNITE;
+
     if (loading) {
         return (
             <div className="flex justify-center items-center py-12">
@@ -132,6 +140,7 @@ export default function IndemnitesSitesTab() {
 
     return (
         <div className="space-y-6">
+            {/* Notifications */}
             {actionSuccess && (
                 <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <CheckCircle size={16} />
@@ -149,20 +158,22 @@ export default function IndemnitesSitesTab() {
             <div className="flex border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-2 shadow-sm">
                 <button
                     onClick={() => setSubSection('indemnites')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${subSection === 'indemnites'
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
+                        subSection === 'indemnites'
                             ? 'bg-[var(--color-brand-500)] text-white'
                             : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                        }`}
+                    }`}
                 >
                     <Gift size={16} />
                     Référentiel des Indemnités ({indemnites.length})
                 </button>
                 <button
                     onClick={() => setSubSection('sites_config')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${subSection === 'sites_config'
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
+                        subSection === 'sites_config'
                             ? 'bg-[var(--color-brand-500)] text-white'
                             : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                        }`}
+                    }`}
                 >
                     <MapPin size={16} />
                     Montants par Site d'Exploitation ({siteIndemnites.length})
@@ -248,7 +259,7 @@ export default function IndemnitesSitesTab() {
                                 setSiteIndemniteFormData({
                                     idSite: '',
                                     idIndemnite: '',
-                                    periodicite: 'JOURNALIER',
+                                    periodicite: periodiciteOptions[0]?.value || 'JOURNALIER',
                                     montantReference: '',
                                     dateDebut: todayStr,
                                     dateFin: ''
@@ -427,7 +438,7 @@ export default function IndemnitesSitesTab() {
                                     value={siteIndemniteFormData.periodicite}
                                     onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, periodicite: e.target.value })}
                                 >
-                                    {PERIODICITES_INDEMNITE.map((p) => (
+                                    {periodiciteOptions.map((p) => (
                                         <option key={p.value} value={p.value}>
                                             {p.label}
                                         </option>
