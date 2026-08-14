@@ -206,7 +206,7 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
                                     <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
                                         {comptes.map((cb, i) => (
                                             <tr key={i} className="text-ink-900 dark:text-ink-100">
-                                                <td className="px-4 py-3">{cb.nomBanque || cb.idBanque}</td>
+                                                <td className="px-4 py-3 font-semibold">{cb.nomBanque || cb.libelleBanque || cb.codeBanque || (cb.idBanque ? `Banque N°${cb.idBanque}` : '-')}</td>
                                                 <td className="px-4 py-3">{cb.agence || '-'}</td>
                                                 <td className="px-4 py-3 font-mono text-xs">{cb.numCompteRib}</td>
                                                 <td className="px-4 py-3">{cb.titulaireCompte || '-'}</td>

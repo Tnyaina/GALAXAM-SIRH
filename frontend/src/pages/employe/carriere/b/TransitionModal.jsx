@@ -230,7 +230,7 @@ export default function TransitionModal({
             idResponsableHierarchique: formData.idResponsableHierarchique ? parseInt(formData.idResponsableHierarchique) : null,
             idCategorieProfessionnelle: parseInt(formData.idCategorieProfessionnelle),
             idModeCalculPaie: parseInt(formData.idModeCalculPaie),
-            salaireBase: parseFloat(formData.salaireBase),
+            salaireBase: formData.salaireBase ? parseFloat(String(formData.salaireBase).replace(/\s/g, '').replace(/,/g, '.')) : 0,
             descriptionAffectation: formData.descriptionAffectation || null,
             commentaireAffectation: formData.commentaireAffectation || null,
             motif: formData.motif || null,

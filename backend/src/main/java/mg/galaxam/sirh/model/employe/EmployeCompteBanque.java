@@ -15,6 +15,8 @@ public class EmployeCompteBanque extends ClassMere {
     private Integer idCompteBanque;
     private Integer idEmploye;
     private Integer idBanque;
+    private String nomBanque;
+    private String codeBanque;
     private String agence;
     private String numCompteRib;
     private String titulaireCompte;
@@ -49,26 +51,22 @@ public class EmployeCompteBanque extends ClassMere {
         if (idBanque == null) {
             throw new IllegalArgumentException("La banque est obligatoire.");
         }
-        if (numCompteRib == null || numCompteRib.isBlank()) {
-            throw new IllegalArgumentException("Le numéro de compte/RIB est obligatoire.");
-        }
     }
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
+        controler(c);
         if (this.estPrincipal) {
             resetPrincipal(this.idEmploye, c);
         }
         String sql = "INSERT INTO employe_compte_banque (id_employe, id_banque, agence, num_compte_rib, titulaire_compte, est_principal) VALUES (?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            int i = 1;
-            ps.setInt(i++, idEmploye);
-            ps.setInt(i++, idBanque);
-            ps.setString(i++, agence);
-            ps.setString(i++, numCompteRib);
-            ps.setString(i++, titulaireCompte);
-            ps.setBoolean(i++, estPrincipal);
-
+            ps.setInt(1, idEmploye);
+            ps.setInt(2, idBanque);
+            ps.setString(3, agence);
+            ps.setString(4, numCompteRib);
+            ps.setString(5, titulaireCompte);
+            ps.setBoolean(6, estPrincipal);
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
@@ -81,19 +79,19 @@ public class EmployeCompteBanque extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
+        controler(c);
         if (this.estPrincipal) {
             resetPrincipalExcept(this.idEmploye, this.idCompteBanque, c);
         }
-        String sql = "UPDATE employe_compte_banque SET id_banque = ?, agence = ?, num_compte_rib = ?, titulaire_compte = ?, est_principal = ?, updated_at = CURRENT_TIMESTAMP WHERE id_compte_banque = ?";
+        String sql = "UPDATE employe_compte_banque SET id_employe = ?, id_banque = ?, agence = ?, num_compte_rib = ?, titulaire_compte = ?, est_principal = ?, updated_at = CURRENT_TIMESTAMP WHERE id_compte_banque = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            int i = 1;
-            ps.setInt(i++, idBanque);
-            ps.setString(i++, agence);
-            ps.setString(i++, numCompteRib);
-            ps.setString(i++, titulaireCompte);
-            ps.setBoolean(i++, estPrincipal);
-            ps.setInt(i++, idCompteBanque);
-
+            ps.setInt(1, idEmploye);
+            ps.setInt(2, idBanque);
+            ps.setString(3, agence);
+            ps.setString(4, numCompteRib);
+            ps.setString(5, titulaireCompte);
+            ps.setBoolean(6, estPrincipal);
+            ps.setInt(7, idCompteBanque);
             ps.executeUpdate();
         }
         return this;
@@ -140,7 +138,10 @@ public class EmployeCompteBanque extends ClassMere {
     }
 
     public EmployeCompteBanque rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT * FROM employe_compte_banque WHERE id_compte_banque = ?";
+        String sql = "SELECT ecb.*, rb.nom_banque, rb.code_banque " +
+                     "FROM employe_compte_banque ecb " +
+                     "LEFT JOIN ref_banque rb ON ecb.id_banque = rb.id_banque " +
+                     "WHERE ecb.id_compte_banque = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -154,7 +155,10 @@ public class EmployeCompteBanque extends ClassMere {
 
     public static List<EmployeCompteBanque> listByEmployeId(Integer idEmploye, Connection c) throws Exception {
         List<EmployeCompteBanque> list = new ArrayList<>();
-        String sql = "SELECT * FROM employe_compte_banque WHERE id_employe = ? ORDER BY est_principal DESC, id_compte_banque ASC";
+        String sql = "SELECT ecb.*, rb.nom_banque, rb.code_banque " +
+                     "FROM employe_compte_banque ecb " +
+                     "LEFT JOIN ref_banque rb ON ecb.id_banque = rb.id_banque " +
+                     "WHERE ecb.id_employe = ? ORDER BY ecb.est_principal DESC, ecb.id_compte_banque ASC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
@@ -177,6 +181,14 @@ public class EmployeCompteBanque extends ClassMere {
         cb.setEstPrincipal(rs.getBoolean("est_principal"));
         cb.setCreatedAt(rs.getTimestamp("created_at"));
         cb.setUpdatedAt(rs.getTimestamp("updated_at"));
+
+        try {
+            cb.setNomBanque(rs.getString("nom_banque"));
+        } catch (SQLException ignored) {}
+        try {
+            cb.setCodeBanque(rs.getString("code_banque"));
+        } catch (SQLException ignored) {}
+
         return cb;
     }
 
@@ -189,6 +201,12 @@ public class EmployeCompteBanque extends ClassMere {
 
     public Integer getIdBanque() { return idBanque; }
     public void setIdBanque(Integer idBanque) { this.idBanque = idBanque; }
+
+    public String getNomBanque() { return nomBanque; }
+    public void setNomBanque(String nomBanque) { this.nomBanque = nomBanque; }
+
+    public String getCodeBanque() { return codeBanque; }
+    public void setCodeBanque(String codeBanque) { this.codeBanque = codeBanque; }
 
     public String getAgence() { return agence; }
     public void setAgence(String agence) { this.agence = agence; }

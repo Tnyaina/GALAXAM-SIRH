@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -522,6 +523,19 @@ public class ContratTravailController {
         }
         if (ct.getIdTypeIntervenant() != null && ct.getIdTypeIntervenant() > 0) {
             map.put("libelleTypeIntervenant", fetchLibelle(c, "SELECT libelle FROM ref_type_intervenant WHERE id_type_intervenant = ?", ct.getIdTypeIntervenant()));
+        }
+        if (ct.getIdStatutContrat() != null && ct.getIdStatutContrat() > 0) {
+            try (PreparedStatement ps = c.prepareStatement("SELECT code, libelle FROM ref_statut_contrat WHERE id_statut_contrat = ?")) {
+                ps.setInt(1, ct.getIdStatutContrat());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        map.put("codeStatutContrat", rs.getString("code"));
+                        map.put("libelleStatutContrat", rs.getString("libelle"));
+                    }
+                }
+            } catch (SQLException e) {
+                // Ignore failure to fetch optional statut libelle
+            }
         }
 
         return map;
