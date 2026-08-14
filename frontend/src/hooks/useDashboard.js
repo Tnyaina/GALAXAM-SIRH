@@ -12,14 +12,15 @@ export function useDashboard() {
     const [error, setError] = useState(null);
     const [lastRefresh, setLastRefresh] = useState(null);
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (signal) => {
         setLoading(true);
         setError(null);
         try {
-            const result = await dashboardService.getDashboardSummary();
+            const result = await dashboardService.getDashboardSummary(signal);
             setData(result);
             setLastRefresh(new Date());
         } catch (err) {
+            if (err.name === 'CanceledError' || err.__CANCEL__) return;
             console.error('[Dashboard] Erreur chargement:', err);
             setError(err.response?.data || err.message || 'Erreur lors du chargement du dashboard.');
         } finally {
@@ -28,10 +29,12 @@ export function useDashboard() {
     }, []);
 
     useEffect(() => {
-        load();
+        const controller = new AbortController();
+        load(controller.signal);
+        return () => controller.abort();
     }, [load]);
 
-    return { data, loading, error, refresh: load, lastRefresh };
+    return { data, loading, error, refresh: (sig) => load(sig), lastRefresh };
 }
 
 /**
@@ -44,17 +47,18 @@ export function useNotifications() {
     const [totalNonLues, setTotalNonLues] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    const load = useCallback(async (isBackground = false) => {
+    const load = useCallback(async (isBackground = false, signal) => {
         if (!isAuthenticated || !hasPermission('EMPLOYE_READ')) {
             setLoading(false);
             return;
         }
         if (!isBackground) setLoading(true);
         try {
-            const result = await dashboardService.getNotifications();
+            const result = await dashboardService.getNotifications(signal);
             setNotifications(result.notifications || []);
             setTotalNonLues(result.totalNonLues || 0);
         } catch (err) {
+            if (err.name === 'CanceledError' || err.__CANCEL__) return;
             console.error('[Notifications] Erreur:', err);
         } finally {
             if (!isBackground) setLoading(false);
@@ -113,14 +117,18 @@ export function useNotifications() {
     };
 
     useEffect(() => {
-        load();
+        const controller = new AbortController();
+        load(false, controller.signal);
         
         // Rafraîchissement automatique en arrière-plan toutes les 15 secondes
         const timer = setInterval(() => {
             load(true);
         }, 15000);
 
-        return () => clearInterval(timer);
+        return () => {
+            controller.abort();
+            clearInterval(timer);
+        };
     }, [load]);
 
     return { 

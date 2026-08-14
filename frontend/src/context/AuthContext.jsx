@@ -22,7 +22,14 @@ const parseJwt = (token) => {
 };
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState(() => {
+        try {
+            const saved = localStorage.getItem('galaxam-user');
+            return saved ? JSON.parse(saved) : null;
+        } catch {
+            return null;
+        }
+    });
     const [loading, setLoading] = useState(true);
     const refreshTimerRef = useRef(null);
 
@@ -41,20 +48,26 @@ export const AuthProvider = ({ children }) => {
                 setAccessToken(accessToken);
                 const decoded = parseJwt(accessToken);
                 if (decoded) {
-                    setUser({
+                    const loggedUser = {
                         identifiant: decoded.sub,
                         role: decoded.role,
                         permissions: Array.isArray(decoded.permissions) ? decoded.permissions : [],
                         exp: decoded.exp,
-                    });
+                    };
+                    setUser(loggedUser);
+                    localStorage.setItem('galaxam-user', JSON.stringify(loggedUser));
                 }
                 return accessToken;
             }
             return null;
-        } catch {
-            setAccessToken(null);
-            setUser(null);
-            clearRefreshTimer();
+        } catch (error) {
+            // Uniquement déconnecter si le serveur renvoie 401 ou 403 (session expirée/invalide)
+            if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                setAccessToken(null);
+                setUser(null);
+                localStorage.removeItem('galaxam-user');
+                clearRefreshTimer();
+            }
             return null;
         }
     }, [clearRefreshTimer]);
@@ -90,19 +103,23 @@ export const AuthProvider = ({ children }) => {
         if (token) {
             const decoded = parseJwt(token);
             if (decoded) {
-                setUser({
+                const loggedUser = {
                     identifiant: decoded.sub,
                     role: decoded.role,
                     permissions: Array.isArray(decoded.permissions) ? decoded.permissions : [],
                     exp: decoded.exp,
-                });
+                };
+                setUser(loggedUser);
+                localStorage.setItem('galaxam-user', JSON.stringify(loggedUser));
                 scheduleTokenRefresh(token);
             } else {
                 setUser(null);
+                localStorage.removeItem('galaxam-user');
                 clearRefreshTimer();
             }
         } else {
             setUser(null);
+            localStorage.removeItem('galaxam-user');
             clearRefreshTimer();
         }
     }, [scheduleTokenRefresh, clearRefreshTimer]);
@@ -148,8 +165,17 @@ export const AuthProvider = ({ children }) => {
                 const response = await apiClient.post('/auth/refresh');
                 const { accessToken } = response.data;
                 handleTokenUpdate(accessToken);
-            } catch {
-                handleTokenUpdate(null);
+            } catch (error) {
+                // Déconnecter seulement si la session est expirée/invalide
+                if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                    handleTokenUpdate(null);
+                } else {
+                    // Sinon (erreur réseau), on garde la session locale
+                    const currentToken = getAccessToken();
+                    if (currentToken) {
+                        scheduleTokenRefresh(currentToken);
+                    }
+                }
             } finally {
                 setLoading(false);
             }

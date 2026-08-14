@@ -1,4 +1,4 @@
-import { useState, memo, lazy, Suspense } from 'react';
+import { useState, useEffect, memo, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Users, FileText, Clock, AlertTriangle, CheckCheck,
@@ -189,6 +189,33 @@ export default function Dashboard() {
         now.getHours() < 12 ? 'Bonjour' :
             now.getHours() < 18 ? 'Bon après-midi' : 'Bonsoir';
 
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    useEffect(() => {
+        const handleOnline = () => {
+            setIsOnline(true);
+            toast({
+                title: 'Connexion rétablie',
+                message: 'Vous êtes à nouveau connecté. Actualisation des données...',
+                type: 'success',
+                duration: 3000
+            });
+            refresh();
+        };
+
+        const handleOffline = () => {
+            setIsOnline(false);
+        };
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, [refresh, toast]);
+
     const handleRefresh = async () => {
         await refresh();
         // Utilisation conforme de ton composant toast({ title, message, type })
@@ -240,6 +267,14 @@ export default function Dashboard() {
                     )}
                 </div>
             </div>
+
+            {/* Message d'avertissement Offline */}
+            {!isOnline && (
+                <div role="alert" className="bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 px-5 py-4 text-sm text-[var(--color-warning-500)] flex items-center gap-3 rounded-none">
+                    <AlertTriangle size={16} className="shrink-0" aria-hidden="true" />
+                    <span className="font-semibold">Connexion perdue. Affichage des dernières données chargées en cache.</span>
+                </div>
+            )}
 
             {/* Message d'erreur avec bouton de réessai explicite (Actionnable) */}
             {error && (
