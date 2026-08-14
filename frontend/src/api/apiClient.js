@@ -79,6 +79,7 @@ apiClient.interceptors.response.use(
 
                 const { accessToken } = response.data;
                 setAccessToken(accessToken);
+                window.dispatchEvent(new CustomEvent('auth-token-refreshed', { detail: accessToken }));
 
                 processQueue(null, accessToken);
                 originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
