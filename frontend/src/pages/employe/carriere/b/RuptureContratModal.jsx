@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { UserMinus, ShieldAlert, X, FileSignature, Eye, EyeOff, Calendar, AlertOctagon } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Input, { Textarea, Select } from '@/components/ui/Input';
-import Loading from '@/components/ui/Loading';
+import Button from '@/components/ui/forms/Button';
+import Input, { Textarea, Select } from '@/components/ui/forms/Input';
+import Loading from '@/components/ui/feedback/Loading';
 import contratService from '@/api/employe/contratService';
 import referentielService from '@/api/admin/referentielService';
 import {

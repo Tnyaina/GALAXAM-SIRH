@@ -1,5 +1,5 @@
 import { Heart, Baby, ShieldAlert } from 'lucide-react';
-import Badge from '@/components/ui/Badge';
+import Badge from '@/components/ui/data-display/Badge';
 
 const InfoBlock = ({ label, value }) => (
     <div className="py-2">

@@ -1,19 +1,19 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/layout/Layout';
+import Loading from '@/components/ui/feedback/Loading';
 
 export default function ProtectedRoute({ allowedRoles, requiredPermission, children }) {
     const { isAuthenticated, user, hasPermission, loading } = useAuth();
 
-    // Écran de chargement lors de la récupération de la session
+    // Écran de chargement lors de la récupération de la session (Thème & Token dynamique)
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#f7f7f7]">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="w-10 h-10 border-4 border-[#1A82B1] border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-sm text-neutral-500 font-medium">Chargement de la session...</p>
-                </div>
-            </div>
+            <Loading
+                display="fullscreen"
+                size="lg"
+                label="Chargement de la session..."
+            />
         );
     }
 
@@ -24,6 +24,9 @@ export default function ProtectedRoute({ allowedRoles, requiredPermission, child
 
     // Redirige vers la page non autorisée si le rôle ou la permission est insuffisante
     if (allowedRoles && !allowedRoles.includes(user?.role)) {
+        if (user?.role === 'ROLE_AGENT_POINTAGE') {
+            return <Navigate to="/pointages" replace />;
+        }
         return <Navigate to="/non-autorise" replace />;
     }
 

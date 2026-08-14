@@ -55,7 +55,7 @@ export function LineTrendChart({ labels, datasets, height = 250 }) {
               x2={width - padding}
               y1={y}
               y2={y}
-              stroke="var(--chart-grid)"
+              stroke="var(--color-border-subtle)"
               strokeDasharray="4 6"
             />
           );
@@ -70,7 +70,7 @@ export function LineTrendChart({ labels, datasets, height = 250 }) {
               x={x}
               y={height - 6}
               textAnchor="middle"
-              fill="var(--chart-axis)"
+              fill="var(--color-fg-muted)"
               fontSize="12"
               fontWeight="600"
             >
@@ -83,15 +83,15 @@ export function LineTrendChart({ labels, datasets, height = 250 }) {
           const points = toChartPoints(dataset.data, width, height, padding, min, max);
           return (
             <g key={dataset.name}>
-              <path d={areaPath(points, height, padding)} fill={dataset.fill} opacity="0.55" />
-              <path d={linePath(points)} fill="none" stroke={dataset.color} strokeWidth="3" strokeLinecap="round" />
+              <path d={areaPath(points, height, padding)} fill={dataset.fill} opacity="0.4" />
+              <path d={linePath(points)} fill="none" stroke={dataset.color} strokeWidth="3" strokeLinecap="square" />
               {points.map((point, index) => (
                 <circle
                   key={`${dataset.name}-${index}`}
                   cx={point.x}
                   cy={point.y}
                   r="4"
-                  fill="var(--chart-point-fill)"
+                  fill="var(--color-surface)"
                   stroke={dataset.color}
                   strokeWidth="2"
                 />
@@ -128,7 +128,7 @@ export function GroupedBarChart({ labels, datasets, height = 240 }) {
               x2={width - padding}
               y1={y}
               y2={y}
-              stroke="var(--chart-grid)"
+              stroke="var(--color-border-subtle)"
               strokeDasharray="4 6"
             />
           );
@@ -142,7 +142,7 @@ export function GroupedBarChart({ labels, datasets, height = 240 }) {
                 x={baseX + groupWidth / 2}
                 y={height - 6}
                 textAnchor="middle"
-                fill="var(--chart-axis)"
+                fill="var(--color-fg-muted)"
                 fontSize="12"
                 fontWeight="600"
               >
@@ -164,7 +164,6 @@ export function GroupedBarChart({ labels, datasets, height = 240 }) {
                     y={y}
                     width={barWidth}
                     height={barHeight}
-                    rx="6"
                     fill={dataset.color}
                   />
                 );
@@ -214,8 +213,8 @@ export function DonutChart({ segments, size = 224, strokeWidth = 26 }) {
           cx={size / 2}
           cy={size / 2}
           r={radius - strokeWidth / 2 + 4}
-          fill="var(--chart-surface)"
-          stroke="var(--chart-surface-border)"
+          fill="var(--color-surface)"
+          stroke="var(--color-border-subtle)"
           strokeWidth="1"
         />
 
@@ -223,14 +222,14 @@ export function DonutChart({ segments, size = 224, strokeWidth = 26 }) {
           x="50%"
           y="46%"
           textAnchor="middle"
-          fill="var(--chart-text)"
+          fill="var(--color-fg)"
           fontSize="28"
           fontWeight="800"
-          style={{ fontFamily: 'Syne, sans-serif' }}
+          style={{ fontFamily: 'var(--font-mono)' }}
         >
           {total}
         </text>
-        <text x="50%" y="58%" textAnchor="middle" fill="var(--chart-axis)" fontSize="12" fontWeight="600">
+        <text x="50%" y="58%" textAnchor="middle" fill="var(--color-fg-muted)" fontSize="12" fontWeight="600">
           Sources
         </text>
       </svg>
@@ -242,14 +241,14 @@ export function ChartLegend({ items, columns = 1 }) {
   return (
     <div className={`grid gap-3 ${columns === 2 ? 'md:grid-cols-2' : ''}`}>
       {items.map((item) => (
-        <div key={item.label} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5">
+        <div key={item.label} className="flex items-center justify-between border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-3 py-2.5 rounded-none">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-            <p className="text-sm font-semibold text-slate-700 truncate">{item.label}</p>
+            <span className="w-2.5 h-2.5 shrink-0 rounded-none" style={{ backgroundColor: item.color }} />
+            <p className="text-sm font-semibold text-[var(--color-fg)] truncate">{item.label}</p>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-sm font-bold text-slate-900">{item.value}</p>
-            {item.delta && <p className="text-xs font-semibold text-emerald-600">{item.delta}</p>}
+            <p className="text-sm font-bold text-[var(--color-fg)] font-data">{item.value}</p>
+            {item.delta && <p className="text-xs font-semibold text-[var(--color-success-500)] font-data">{item.delta}</p>}
           </div>
         </div>
       ))}

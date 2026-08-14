@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import apiClient, { setAccessToken } from '@/api/apiClient';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import apiClient, { setAccessToken, getAccessToken } from '@/api/apiClient';
 
 const AuthContext = createContext(null);
 
@@ -22,26 +22,107 @@ const parseJwt = (token) => {
 };
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState(() => {
+        try {
+            const saved = localStorage.getItem('galaxam-user');
+            return saved ? JSON.parse(saved) : null;
+        } catch {
+            return null;
+        }
+    });
     const [loading, setLoading] = useState(true);
+    const refreshTimerRef = useRef(null);
 
-    const handleTokenUpdate = (token) => {
+    const clearRefreshTimer = useCallback(() => {
+        if (refreshTimerRef.current) {
+            clearTimeout(refreshTimerRef.current);
+            refreshTimerRef.current = null;
+        }
+    }, []);
+
+    const silentRefresh = useCallback(async () => {
+        try {
+            const response = await apiClient.post('/auth/refresh');
+            const { accessToken } = response.data;
+            if (accessToken) {
+                setAccessToken(accessToken);
+                const decoded = parseJwt(accessToken);
+                if (decoded) {
+                    const loggedUser = {
+                        identifiant: decoded.sub,
+                        role: decoded.role,
+                        permissions: Array.isArray(decoded.permissions) ? decoded.permissions : [],
+                        exp: decoded.exp,
+                    };
+                    setUser(loggedUser);
+                    localStorage.setItem('galaxam-user', JSON.stringify(loggedUser));
+                }
+                return accessToken;
+            }
+            return null;
+        } catch (error) {
+            // Uniquement déconnecter si le serveur renvoie 401 ou 403 (session expirée/invalide)
+            if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                setAccessToken(null);
+                setUser(null);
+                localStorage.removeItem('galaxam-user');
+                clearRefreshTimer();
+            }
+            return null;
+        }
+    }, [clearRefreshTimer]);
+
+    const scheduleTokenRefreshRef = useRef();
+
+    const scheduleTokenRefresh = useCallback((token) => {
+        clearRefreshTimer();
+        if (!token) return;
+
+        const decoded = parseJwt(token);
+        if (!decoded || !decoded.exp) return;
+
+        const timeUntilExpiry = (decoded.exp * 1000) - Date.now();
+        // Rafraîchir 90 secondes avant l'expiration, ou dans 5s si déjà presque expiré
+        const refreshBuffer = 90000;
+        const delay = Math.max(timeUntilExpiry - refreshBuffer, 5000);
+
+        refreshTimerRef.current = setTimeout(async () => {
+            const newToken = await silentRefresh();
+            if (newToken) {
+                scheduleTokenRefreshRef.current?.(newToken);
+            }
+        }, delay);
+    }, [clearRefreshTimer, silentRefresh]);
+
+    useEffect(() => {
+        scheduleTokenRefreshRef.current = scheduleTokenRefresh;
+    }, [scheduleTokenRefresh]);
+
+    const handleTokenUpdate = useCallback((token) => {
         setAccessToken(token);
         if (token) {
             const decoded = parseJwt(token);
             if (decoded) {
-                setUser({
+                const loggedUser = {
                     identifiant: decoded.sub,
                     role: decoded.role,
                     permissions: Array.isArray(decoded.permissions) ? decoded.permissions : [],
-                });
+                    exp: decoded.exp,
+                };
+                setUser(loggedUser);
+                localStorage.setItem('galaxam-user', JSON.stringify(loggedUser));
+                scheduleTokenRefresh(token);
             } else {
                 setUser(null);
+                localStorage.removeItem('galaxam-user');
+                clearRefreshTimer();
             }
         } else {
             setUser(null);
+            localStorage.removeItem('galaxam-user');
+            clearRefreshTimer();
         }
-    };
+    }, [scheduleTokenRefresh, clearRefreshTimer]);
 
     const hasPermission = (permissionCode) => {
         if (!user) return false;
@@ -77,17 +158,24 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // Vérification initiale de session au montage
+    // Verification initiale + ecouteurs d'evenements
     useEffect(() => {
         const verifySession = async () => {
             try {
-                // Tente un rafraîchissement silencieux si le cookie est présent
                 const response = await apiClient.post('/auth/refresh');
                 const { accessToken } = response.data;
                 handleTokenUpdate(accessToken);
-            } catch {
-                // Pas de session valide ou pas de cookie
-                handleTokenUpdate(null);
+            } catch (error) {
+                // Déconnecter seulement si la session est expirée/invalide
+                if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                    handleTokenUpdate(null);
+                } else {
+                    // Sinon (erreur réseau), on garde la session locale
+                    const currentToken = getAccessToken();
+                    if (currentToken) {
+                        scheduleTokenRefresh(currentToken);
+                    }
+                }
             } finally {
                 setLoading(false);
             }
@@ -95,16 +183,50 @@ export const AuthProvider = ({ children }) => {
 
         verifySession();
 
-        // Écouter l'événement d'expiration émis par apiClient
         const handleAuthExpired = () => {
             handleTokenUpdate(null);
         };
 
-        window.addEventListener('auth-expired', handleAuthExpired);
-        return () => {
-            window.removeEventListener('auth-expired', handleAuthExpired);
+        const handleTokenRefreshed = (e) => {
+            if (e.detail) {
+                handleTokenUpdate(e.detail);
+            }
         };
-    }, []);
+
+        // Rafraîchir si l'onglet redevient actif et que le token approche de son expiration (ou expiré)
+        const handleFocusOrVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                const currentToken = getAccessToken();
+                if (currentToken) {
+                    const decoded = parseJwt(currentToken);
+                    if (decoded && decoded.exp) {
+                        const timeUntilExpiry = (decoded.exp * 1000) - Date.now();
+                        // Si le token expire dans moins de 2 minutes ou est expiré, rafraîchir immédiatement
+                        if (timeUntilExpiry < 120000) {
+                            silentRefresh().then((newToken) => {
+                                if (newToken) {
+                                    scheduleTokenRefresh(newToken);
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('auth-expired', handleAuthExpired);
+        window.addEventListener('auth-token-refreshed', handleTokenRefreshed);
+        window.addEventListener('visibilitychange', handleFocusOrVisibility);
+        window.addEventListener('focus', handleFocusOrVisibility);
+
+        return () => {
+            clearRefreshTimer();
+            window.removeEventListener('auth-expired', handleAuthExpired);
+            window.removeEventListener('auth-token-refreshed', handleTokenRefreshed);
+            window.removeEventListener('visibilitychange', handleFocusOrVisibility);
+            window.removeEventListener('focus', handleFocusOrVisibility);
+        };
+    }, [handleTokenUpdate, clearRefreshTimer, scheduleTokenRefresh, silentRefresh]);
 
     const value = {
         user,

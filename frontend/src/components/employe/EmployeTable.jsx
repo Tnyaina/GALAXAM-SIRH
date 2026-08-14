@@ -1,7 +1,7 @@
 import { Eye, Edit2, Users } from 'lucide-react';
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
-import Loading from '@/components/ui/Loading';
+import Badge from '@/components/ui/data-display/Badge';
+import Button from '@/components/ui/forms/Button';
+import Loading from '@/components/ui/feedback/Loading';
 
 export default function EmployeTable({
     employes = [],

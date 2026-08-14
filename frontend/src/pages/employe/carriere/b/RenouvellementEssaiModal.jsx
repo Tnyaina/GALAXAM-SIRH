@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, ShieldAlert, X, FileSignature, Eye, EyeOff } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Input, { Textarea, Select } from '@/components/ui/Input';
+import Button from '@/components/ui/forms/Button';
+import Input, { Textarea, Select } from '@/components/ui/forms/Input';
 import contratService from '@/api/employe/contratService';
 import {
     DocumentFrame, DocumentHeader, Clause, DocumentFooter

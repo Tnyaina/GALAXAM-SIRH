@@ -331,7 +331,7 @@ public class WorkflowRhService {
             affectationCbl.setIdResponsableHierarchique(req.getIdResponsableHierarchique());
             affectationCbl.setIdCategorieProfessionnelle(req.getIdCategorieProfessionnelle());
             affectationCbl.setIdModeCalculPaie(req.getIdModeCalculPaie());
-            affectationCbl.setSalaireBase(req.getSalaireBase() != null ? java.math.BigDecimal.valueOf(req.getSalaireBase()) : null);
+            affectationCbl.setSalaireBase(req.getSalaireBase());
             affectationCbl.setDateDebut(req.getDateEffet());
             affectationCbl.setDateFin(null);
             affectationCbl.setDescription(req.getDescriptionAffectation());
@@ -410,7 +410,7 @@ public class WorkflowRhService {
                 affectation.setIdResponsableHierarchique(req.getIdResponsableHierarchique());
                 if (req.getIdCategorieProfessionnelle() != null) affectation.setIdCategorieProfessionnelle(req.getIdCategorieProfessionnelle());
                 if (req.getIdModeCalculPaie() != null) affectation.setIdModeCalculPaie(req.getIdModeCalculPaie());
-                if (req.getSalaireBase() != null) affectation.setSalaireBase(java.math.BigDecimal.valueOf(req.getSalaireBase()));
+                if (req.getSalaireBase() != null) affectation.setSalaireBase(req.getSalaireBase());
                 if (req.getDateEffet() != null) affectation.setDateDebut(req.getDateEffet());
                 if (req.getDescriptionAffectation() != null) affectation.setDescription(req.getDescriptionAffectation());
                 if (req.getCommentaireAffectation() != null) affectation.setCommentaire(req.getCommentaireAffectation());
@@ -441,7 +441,8 @@ public class WorkflowRhService {
             Integer idTypeEvt = resolveTypeEvenement(req.getCodeTypeEvenement(), c);
             if (idTypeEvt != null) workflow.setIdTypeEvenementRh(idTypeEvt);
         }
-        if (req.getDateEffet() != null) workflow.setDateEffet(req.getDateEffet());
+        Date dateEffetToSet = req.getDateEffet() != null ? req.getDateEffet() : req.getDateDebut();
+        if (dateEffetToSet != null) workflow.setDateEffet(dateEffetToSet);
         if (req.getMotif() != null) workflow.setMotif(req.getMotif());
         workflow.update(c);
 

@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { UserPlus, Users, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import employeService from '@/api/employe/employeService';
-import Button from '@/components/ui/Button';
-import Alert from '@/components/ui/Alert';
-import { Select } from '@/components/ui/Input';
-import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import Button from '@/components/ui/forms/Button';
+import Alert from '@/components/ui/feedback/Alert';
+import { Select } from '@/components/ui/forms/Input';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 
 import EmployeStatsCards from '@/components/employe/EmployeStatsCards';

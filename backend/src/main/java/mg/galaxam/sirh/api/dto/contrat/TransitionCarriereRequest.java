@@ -1,5 +1,6 @@
 package mg.galaxam.sirh.api.dto.contrat;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 
 /**
@@ -41,7 +42,7 @@ public class TransitionCarriereRequest {
     private Integer idResponsableHierarchique;
     private Integer idCategorieProfessionnelle;
     private Integer idModeCalculPaie;
-    private Double salaireBase;
+    private BigDecimal salaireBase;
     private String descriptionAffectation;
     private String commentaireAffectation;
 
@@ -118,8 +119,8 @@ public class TransitionCarriereRequest {
     public Integer getIdModeCalculPaie() { return idModeCalculPaie; }
     public void setIdModeCalculPaie(Integer idModeCalculPaie) { this.idModeCalculPaie = idModeCalculPaie; }
 
-    public Double getSalaireBase() { return salaireBase; }
-    public void setSalaireBase(Double salaireBase) { this.salaireBase = salaireBase; }
+    public BigDecimal getSalaireBase() { return salaireBase; }
+    public void setSalaireBase(BigDecimal salaireBase) { this.salaireBase = salaireBase; }
 
     public String getDescriptionAffectation() { return descriptionAffectation; }
     public void setDescriptionAffectation(String descriptionAffectation) { this.descriptionAffectation = descriptionAffectation; }

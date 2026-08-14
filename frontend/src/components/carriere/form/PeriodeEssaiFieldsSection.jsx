@@ -1,4 +1,4 @@
-import Input, { Select, Checkbox } from '@/components/ui/Input';
+import Input, { Select, Checkbox } from '@/components/ui/forms/Input';
 
 export default function PeriodeEssaiFieldsSection({
     formData,

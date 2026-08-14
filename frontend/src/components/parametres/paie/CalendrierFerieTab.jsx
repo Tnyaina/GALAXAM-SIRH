@@ -1,20 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Calendar, MapPin, Search, Filter } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
+import { fmtDateInput } from '@/utils/paieUtils';
 
 import JoursFeriesList from './feries/JoursFeriesList';
 import JoursFerieFormModal from './feries/JoursFerieFormModal';
 import SiteFeriesList from './feries/SiteFeriesList';
 import SiteFerieFormModal from './feries/SiteFerieFormModal';
 
-function formatDateForInput(dateStr) {
-    if (!dateStr) return '';
-    return dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-}
-
 export default function CalendrierFerieTab() {
-    const [subSection, setSubSection] = useState('feries'); // 'feries' | 'sites_feries'
+    const [searchParams, setSearchParams] = useSearchParams();
+    const subSection = searchParams.get('subtab') || 'feries';
+
+    const setSubSection = (newSubTab) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', 'calendrier');
+            next.set('subtab', newSubTab);
+            return next;
+        });
+    };
+
+    const todayStr = fmtDateInput(new Date());
 
     const [feries, setFeries] = useState([]);
     const [siteFeries, setSiteFeries] = useState([]);
@@ -27,14 +36,40 @@ export default function CalendrierFerieTab() {
 
     // Filtres
     const [search, setSearch] = useState('');
-    const [selectedYear, setSelectedYear] = useState('2026');
+    const currentYear = String(new Date().getFullYear());
+    const [selectedYear, setSelectedYear] = useState(currentYear);
     const [selectedSiteFilter, setSelectedSiteFilter] = useState('');
+
+    // Années disponibles calculées dynamiquement
+    const availableYears = useMemo(() => {
+        const yearsSet = new Set();
+        const cur = new Date().getFullYear();
+        yearsSet.add(String(cur - 1));
+        yearsSet.add(String(cur));
+        yearsSet.add(String(cur + 1));
+
+        feries.forEach(f => {
+            if (f.dateFerie) {
+                const y = f.dateFerie.substring(0, 4);
+                if (y && !isNaN(y)) yearsSet.add(y);
+            }
+        });
+
+        siteFeries.forEach(sf => {
+            if (sf.dateFerie) {
+                const y = sf.dateFerie.substring(0, 4);
+                if (y && !isNaN(y)) yearsSet.add(y);
+            }
+        });
+
+        return Array.from(yearsSet).sort((a, b) => Number(b) - Number(a));
+    }, [feries, siteFeries]);
 
     // Modale Férié
     const [showFerieModal, setShowFerieModal] = useState(false);
     const [editingFerie, setEditingFerie] = useState(null);
     const [ferieFormData, setFerieFormData] = useState({
-        dateFerie: '', libelle: '', estChome: true, estNational: true
+        dateFerie: todayStr, libelle: '', estChome: true, estNational: true
     });
 
     // Modale Site Férié
@@ -70,7 +105,7 @@ export default function CalendrierFerieTab() {
     // Handlers Férié
     const handleOpenCreateFerie = () => {
         setEditingFerie(null);
-        setFerieFormData({ dateFerie: `${selectedYear}-01-01`, libelle: '', estChome: true, estNational: true });
+        setFerieFormData({ dateFerie: todayStr, libelle: '', estChome: true, estNational: true });
         setActionError(null);
         setShowFerieModal(true);
     };
@@ -78,7 +113,7 @@ export default function CalendrierFerieTab() {
     const handleOpenEditFerie = (f) => {
         setEditingFerie(f);
         setFerieFormData({
-            dateFerie: formatDateForInput(f.dateFerie),
+            dateFerie: fmtDateInput(f.dateFerie) || todayStr,
             libelle: f.libelle,
             estChome: f.estChome !== false,
             estNational: f.estNational !== false
@@ -152,7 +187,6 @@ export default function CalendrierFerieTab() {
         }
     };
 
-    // Filtrage dynamique
     const filteredFeries = feries.filter(f => {
         const matchesYear = selectedYear === 'tous' || (f.dateFerie && f.dateFerie.startsWith(selectedYear));
         const matchesSearch = !search || f.libelle.toLowerCase().includes(search.toLowerCase());
@@ -170,36 +204,35 @@ export default function CalendrierFerieTab() {
     if (loading) {
         return (
             <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-full animate-spin"></div>
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            {/* Notifications */}
             {actionSuccess && (
-                <div className="bg-success-500/10 text-success-600 dark:text-success-500 border border-success-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <CheckCircle size={16} />
                     {actionSuccess}
                 </div>
             )}
             {error && (
-                <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <XCircle size={16} />
                     {error}
                 </div>
             )}
 
             {/* Onglets internes + Filtres */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-ink-150 dark:border-ink-700 bg-white dark:bg-ink-900 rounded-sm p-2 gap-3 shadow-sm">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-3 shadow-sm">
                 <div className="flex gap-2 flex-wrap">
                     <button
                         onClick={() => setSubSection('feries')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
                             subSection === 'feries'
-                                ? 'bg-brand-500 text-white'
-                                : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                                ? 'bg-[var(--color-brand-500)] text-white'
+                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
                         }`}
                     >
                         <Calendar size={16} />
@@ -207,10 +240,10 @@ export default function CalendrierFerieTab() {
                     </button>
                     <button
                         onClick={() => setSubSection('sites_feries')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
                             subSection === 'sites_feries'
-                                ? 'bg-brand-500 text-white'
-                                : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                                ? 'bg-[var(--color-brand-500)] text-white'
+                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
                         }`}
                     >
                         <MapPin size={16} />
@@ -219,39 +252,38 @@ export default function CalendrierFerieTab() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
-                    {/* Recherche textuelle */}
                     <div className="relative flex-1 md:flex-initial">
-                        <Search size={14} className="absolute left-2.5 top-2.5 text-ink-400" />
+                        <Search size={14} className="absolute left-2.5 top-2.5 text-[var(--color-fg-muted)]" />
                         <input
                             type="text"
                             placeholder="Rechercher un férié..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="pl-8 pr-3 py-1.5 text-xs bg-ink-50 dark:bg-ink-950 border border-ink-200 dark:border-ink-700 rounded-sm text-ink-900 dark:text-white focus:outline-none focus:border-brand-500"
+                            className="pl-8 pr-3 py-1.5 text-xs bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
                         />
                     </div>
 
-                    {/* Filtre Année */}
-                    <div className="flex items-center gap-1 bg-ink-50 dark:bg-ink-950 px-2 py-1 border border-ink-200 dark:border-ink-700 rounded-sm">
-                        <Filter size={12} className="text-ink-400" />
+                    <div className="flex items-center gap-1 bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border-subtle)] rounded-none">
+                        <Filter size={12} className="text-[var(--color-fg-muted)]" />
                         <select
                             value={selectedYear}
                             onChange={(e) => setSelectedYear(e.target.value)}
-                            className="bg-transparent text-xs font-semibold text-ink-800 dark:text-ink-200 focus:outline-none cursor-pointer"
+                            className="bg-transparent text-xs font-semibold text-[var(--color-fg)] focus:outline-none cursor-pointer"
                         >
-                            <option value="2026">Année 2026</option>
-                            <option value="2025">Année 2025</option>
-                            <option value="2027">Année 2027</option>
                             <option value="tous">Toutes les années</option>
+                            {availableYears.map((year) => (
+                                <option key={year} value={year}>
+                                    Année {year}
+                                </option>
+                            ))}
                         </select>
                     </div>
 
-                    {/* Filtre Site si sous-section sites_feries */}
                     {subSection === 'sites_feries' && (
                         <select
                             value={selectedSiteFilter}
                             onChange={(e) => setSelectedSiteFilter(e.target.value)}
-                            className="bg-ink-50 dark:bg-ink-950 text-xs font-semibold text-ink-800 dark:text-ink-200 px-2 py-1.5 border border-ink-200 dark:border-ink-700 rounded-sm focus:outline-none cursor-pointer"
+                            className="bg-[var(--color-surface)] text-xs font-semibold text-[var(--color-fg)] px-2 py-1.5 border border-[var(--color-border)] rounded-none focus:outline-none cursor-pointer"
                         >
                             <option value="">Tous les sites</option>
                             {sites.map(s => (
@@ -262,7 +294,6 @@ export default function CalendrierFerieTab() {
                 </div>
             </div>
 
-            {/* SubSection 1: Fériés Nationaux */}
             {subSection === 'feries' && (
                 <JoursFeriesList
                     feries={filteredFeries}
@@ -273,7 +304,6 @@ export default function CalendrierFerieTab() {
                 />
             )}
 
-            {/* SubSection 2: Exceptions par Site */}
             {subSection === 'sites_feries' && (
                 <SiteFeriesList
                     siteFeries={filteredSiteFeries}
@@ -284,7 +314,6 @@ export default function CalendrierFerieTab() {
                 />
             )}
 
-            {/* Modale Férié */}
             <JoursFerieFormModal
                 isOpen={showFerieModal}
                 onClose={() => setShowFerieModal(false)}
@@ -295,7 +324,6 @@ export default function CalendrierFerieTab() {
                 actionError={actionError}
             />
 
-            {/* Modale Site Férié */}
             <SiteFerieFormModal
                 isOpen={showSiteFerieModal}
                 onClose={() => setShowSiteFerieModal(false)}

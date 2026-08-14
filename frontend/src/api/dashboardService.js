@@ -9,8 +9,8 @@ const dashboardService = {
      * Récupère toutes les données du dashboard en un seul appel.
      * GET /dashboard/summary
      */
-    getDashboardSummary: async () => {
-        const response = await apiClient.get('/dashboard/summary');
+    getDashboardSummary: async (signal) => {
+        const response = await apiClient.get('/dashboard/summary', { signal });
         return response.data;
     },
 
@@ -18,8 +18,8 @@ const dashboardService = {
      * Récupère les notifications non lues de l'utilisateur courant.
      * GET /notifications
      */
-    getNotifications: async () => {
-        const response = await apiClient.get('/notifications');
+    getNotifications: async (signal) => {
+        const response = await apiClient.get('/notifications', { signal });
         return response.data;
     },
 

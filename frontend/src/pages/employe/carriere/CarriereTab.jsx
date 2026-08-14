@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, ShieldAlert } from 'lucide-react';
-import Loading from '@/components/ui/Loading';
+import Loading from '@/components/ui/feedback/Loading';
 import contratService from '@/api/employe/contratService';
 import EmbaucheModal from './b/EmbaucheModal';
 import TransitionModal from './b/TransitionModal';
@@ -13,6 +13,7 @@ import CarriereHeaderCard from '@/components/carriere/CarriereHeaderCard';
 import CarriereTimeline from '@/components/carriere/CarriereTimeline';
 import { useCarriere } from '@/hooks/useCarriere';
 import { isEmbaucheEvent, isRuptureEvent, trouverWorkflowPlanifieFutur } from '@/utils/carriereUtils';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function CarriereTab({
     idEmploye,
@@ -23,6 +24,7 @@ export default function CarriereTab({
     autoOpenWorkflowId = null,
     onEmployeUpdated,
 }) {
+    const toast = useToast();
     const {
         loading,
         errorMsg,
@@ -85,6 +87,9 @@ export default function CarriereTab({
         } catch (err) {
             console.error('Erreur récupération affectation du contrat pour le certificat:', err);
             setSelectedCertificatAffectation(null);
+            if (toast) {
+                toast({ title: 'Erreur', message: 'Impossible de charger l\'affectation de ce contrat.', type: 'error' });
+            }
         } finally {
             setLoadingCertificatAffectation(false);
         }
@@ -136,6 +141,9 @@ export default function CarriereTab({
 
     const handleSuccessAction = async (msg, createdWf = null) => {
         setActionSuccessMsg(msg);
+        if (toast) {
+            toast({ title: 'Succès', message: msg, type: 'success' });
+        }
         setTimeout(() => setActionSuccessMsg(''), 6000);
 
         if (createdWf && createdWf.idWorkflow) {

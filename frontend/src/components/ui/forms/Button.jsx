@@ -1,23 +1,16 @@
-// Couleurs pilotées par les tokens définis dans index.css (@theme).
-// Mêmes valeurs visuelles qu'avant en mode clair + un premier passage
-// dark: à affiner visuellement si besoin.
 const variants = {
   primary:
-    'bg-ink-800 hover:bg-brand-hover text-white border border-ink-800 hover:border-brand-hover ' +
-    'dark:bg-brand-500 dark:hover:bg-brand-hover dark:border-brand-500 dark:hover:border-brand-hover',
+    'bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-hover)] text-white border border-[var(--color-brand-500)] hover:border-[var(--color-brand-hover)]',
   secondary:
-    'bg-ink-800 hover:bg-ink-700 text-white border border-ink-800 ' +
-    'dark:bg-ink-700 dark:hover:bg-ink-600 dark:border-ink-700',
+    'bg-[var(--color-fg)] hover:bg-[var(--color-fg-muted)] text-[var(--color-bg)] border border-[var(--color-fg)]',
   outline:
-    'border border-ink-800 text-ink-800 hover:bg-ink-800 hover:text-white bg-transparent ' +
-    'dark:border-ink-200 dark:text-ink-50 dark:hover:bg-ink-200 dark:hover:text-ink-900',
+    'border border-[var(--color-border)] text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] bg-transparent',
   ghost:
-    'hover:bg-ink-100 text-ink-800 border border-transparent ' +
-    'dark:text-ink-50 dark:hover:bg-ink-800',
+    'hover:bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border border-transparent',
   danger:
-    'bg-danger-500 hover:bg-danger-600 text-white border border-danger-500',
+    'bg-[var(--color-danger-500)] hover:bg-[var(--color-danger-600)] text-white border border-[var(--color-danger-500)]',
   success:
-    'bg-success-500 hover:bg-success-600 text-white border border-success-500',
+    'bg-[var(--color-success-500)] hover:bg-[var(--color-success-600)] text-white border border-[var(--color-success-500)]',
 };
 
 const sizes = {
@@ -45,7 +38,7 @@ export default function Button({
       className={`
         inline-flex items-center justify-center font-semibold tracking-wide uppercase text-[0.75em]
         transition-all duration-150 rounded-none
-        focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:ring-offset-0
+        focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)] focus:ring-offset-0
         disabled:opacity-40 disabled:cursor-not-allowed
         ${variants[variant]}
         ${sizes[size]}

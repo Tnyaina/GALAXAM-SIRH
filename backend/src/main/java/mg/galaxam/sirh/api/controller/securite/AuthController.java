@@ -25,6 +25,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -38,8 +40,18 @@ public class AuthController {
     @Autowired
     private CustomUserDetailsService customUserDetailsService;
 
+    private ResponseCookie createRefreshCookie(String token, boolean isSecure, long maxAgeSeconds) {
+        return ResponseCookie.from("refreshToken", token)
+                .httpOnly(true)
+                .secure(isSecure)
+                .path("/api/auth")
+                .maxAge(maxAgeSeconds)
+                .sameSite(isSecure ? "None" : "Lax")
+                .build();
+    }
+
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         
         if (request.getIdentifiant() == null || request.getMotDePasse() == null) {
             return ResponseEntity.badRequest().body("L'identifiant et le mot de passe sont requis.");
@@ -74,13 +86,8 @@ public class AuthController {
                         String refreshToken = jwtService.generateRefreshToken(userDetails);
 
                         // Création du cookie HTTP-Only pour le Refresh Token
-                        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
-                                .httpOnly(true)
-                                .secure(true)
-                                .path("/api/auth")
-                                .maxAge(jwtService.getRefreshTokenExpirationMs() / 1000)
-                                .sameSite("None")
-                                .build();
+                        boolean isSecure = httpRequest != null && httpRequest.isSecure();
+                        ResponseCookie refreshCookie = createRefreshCookie(refreshToken, isSecure, jwtService.getRefreshTokenExpirationMs() / 1000);
 
                         Map<String, Object> responseBody = new HashMap<>();
                         responseBody.put("accessToken", accessToken);
@@ -115,7 +122,10 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@CookieValue(name = "refreshToken", required = false) String refreshToken) {
+    public ResponseEntity<?> refresh(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            HttpServletRequest httpRequest
+    ) {
         if (refreshToken == null || refreshToken.isBlank()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Refresh token manquant.");
         }
@@ -129,25 +139,26 @@ public class AuthController {
             UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
 
             String newAccessToken = jwtService.generateAccessToken(userDetails);
+            String newRefreshToken = jwtService.generateRefreshToken(userDetails);
+
+            boolean isSecure = httpRequest != null && httpRequest.isSecure();
+            ResponseCookie refreshCookie = createRefreshCookie(newRefreshToken, isSecure, jwtService.getRefreshTokenExpirationMs() / 1000);
 
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("accessToken", newAccessToken);
 
-            return ResponseEntity.ok(responseBody);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                    .body(responseBody);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Erreur lors du rafraîchissement du token.");
         }
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout() {
-        ResponseCookie deleteCookie = ResponseCookie.from("refreshToken", "")
-                .httpOnly(true)
-                .secure(true)
-                .path("/api/auth")
-                .maxAge(0)
-                .sameSite("None")
-                .build();
+    public ResponseEntity<?> logout(HttpServletRequest httpRequest) {
+        boolean isSecure = httpRequest != null && httpRequest.isSecure();
+        ResponseCookie deleteCookie = createRefreshCookie("", isSecure, 0);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())

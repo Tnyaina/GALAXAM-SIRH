@@ -6,7 +6,7 @@ import { Check } from 'lucide-react';
  */
 export default function Stepper({ steps, currentStep, onStepClick }) {
     return (
-        <div className="flex items-center px-6 py-4 border-b border-ink-150 dark:border-ink-700 bg-ink-50 dark:bg-ink-950">
+        <div className="flex items-center px-6 py-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] rounded-none">
             {steps.map((step, i) => {
                 const isDone = i < currentStep;
                 const isActive = i === currentStep;
@@ -21,23 +21,23 @@ export default function Stepper({ steps, currentStep, onStepClick }) {
                             className={`flex items-center gap-2 ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
                         >
                             <span
-                                className={`w-7 h-7 flex items-center justify-center text-xs font-bold shrink-0 border transition-colors ${
+                                className={`w-7 h-7 flex items-center justify-center text-xs font-bold shrink-0 border transition-colors rounded-none font-data ${
                                     isDone
-                                        ? 'bg-brand-500 border-brand-500 text-white'
+                                        ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)] text-white'
                                         : isActive
-                                            ? 'border-brand-500 text-brand-500 bg-white dark:bg-ink-900'
-                                            : 'border-ink-200 dark:border-ink-700 text-ink-400'
+                                            ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] bg-[var(--color-surface)]'
+                                            : 'border-[var(--color-border)] text-[var(--color-fg-subtle)]'
                                 }`}
                             >
                                 {isDone ? <Check size={14} /> : i + 1}
                             </span>
                             <span
-                                className={`text-xs font-semibold whitespace-nowrap ${
+                                className={`text-xs font-semibold whitespace-nowrap uppercase tracking-wider ${
                                     isActive
-                                        ? 'text-ink-800 dark:text-white'
+                                        ? 'text-[var(--color-fg)]'
                                         : isDone
-                                            ? 'text-ink-600 dark:text-ink-300'
-                                            : 'text-ink-400'
+                                            ? 'text-[var(--color-fg-muted)]'
+                                            : 'text-[var(--color-fg-subtle)]'
                                 }`}
                             >
                                 {step.label}
@@ -47,7 +47,7 @@ export default function Stepper({ steps, currentStep, onStepClick }) {
                         {i < steps.length - 1 && (
                             <div
                                 className={`flex-1 h-px mx-3 ${
-                                    isDone ? 'bg-brand-500' : 'bg-ink-200 dark:bg-ink-700'
+                                    isDone ? 'bg-[var(--color-brand-500)]' : 'bg-[var(--color-border-subtle)]'
                                 }`}
                             />
                         )}

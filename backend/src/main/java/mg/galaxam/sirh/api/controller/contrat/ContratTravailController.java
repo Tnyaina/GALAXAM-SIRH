@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -141,10 +142,12 @@ public class ContratTravailController {
                 dateFinEssaiStr = contrat.getDateDebut().toLocalDate().plusMonths(dureeEssai).minusDays(1).toString();
             }
 
-            // 3. Fallback workflow_rh / workflow_rh_cpl
+            // 3. Fallback workflow_rh / workflow_rh_cpl (uniquement pour le contrat actif)
             if (dateFinEssaiStr == null) {
                 WorkflowRhCPL wfWithEssai = workflows.stream()
-                    .filter(w -> "VALIDE".equals(w.getCodeStatutWorkflow()) && (w.getDateFinEssai() != null || w.getDureeEssaiMois() != null))
+                    .filter(w -> "VALIDE".equals(w.getCodeStatutWorkflow()) &&
+                                 (activeContratId.equals(w.getIdContratCible()) || activeContratId.equals(w.getIdContratSource())) &&
+                                 (w.getDateFinEssai() != null || w.getDureeEssaiMois() != null))
                     .findFirst().orElse(null);
                 if (wfWithEssai != null) {
                     if (wfWithEssai.getDateFinEssai() != null) {
@@ -268,12 +271,20 @@ public class ContratTravailController {
                     }
                 }
 
+                // Mettre à jour la date d'effet du workflow s'il existe
+                WorkflowRh wf = WorkflowRh.rechercherBrouillonParEmploye(idEmploye, c);
+                if (wf != null) {
+                    if (req.getDateDebut() != null) {
+                        wf.setDateEffet(req.getDateDebut());
+                        wf.update(c);
+                    }
+                }
+
                 AuditLog.audit(c, "MODIFICATION_BROUILLON_CONTRAT", "contrat_travail",
                         String.valueOf(idContrat), null, contrat);
                 c.commit();
 
                 // Retourner le workflow CPL mis à jour (pour rafraîchir le récapitulatif)
-                WorkflowRh wf = WorkflowRh.rechercherBrouillonParEmploye(idEmploye, c);
                 if (wf != null) {
                     WorkflowRhCPL recap = WorkflowRhCPL.rechercherParId(wf.getIdWorkflow(), c);
                     return ResponseEntity.ok(recap);
@@ -522,6 +533,19 @@ public class ContratTravailController {
         }
         if (ct.getIdTypeIntervenant() != null && ct.getIdTypeIntervenant() > 0) {
             map.put("libelleTypeIntervenant", fetchLibelle(c, "SELECT libelle FROM ref_type_intervenant WHERE id_type_intervenant = ?", ct.getIdTypeIntervenant()));
+        }
+        if (ct.getIdStatutContrat() != null && ct.getIdStatutContrat() > 0) {
+            try (PreparedStatement ps = c.prepareStatement("SELECT code, libelle FROM ref_statut_contrat WHERE id_statut_contrat = ?")) {
+                ps.setInt(1, ct.getIdStatutContrat());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        map.put("codeStatutContrat", rs.getString("code"));
+                        map.put("libelleStatutContrat", rs.getString("libelle"));
+                    }
+                }
+            } catch (SQLException e) {
+                // Ignore failure to fetch optional statut libelle
+            }
         }
 
         return map;

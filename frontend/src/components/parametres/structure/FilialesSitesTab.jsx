@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, Plus, CheckCircle, XCircle, Building2, MapPin, Eye } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
+import Button from '@/components/ui/forms/Button';
+import Loading from '@/components/ui/feedback/Loading';
 
 import FilialesList from './filiales/FilialesList';
 import FilialeFormModal from './filiales/FilialeFormModal';
@@ -8,9 +11,20 @@ import SitesList from './sites/SitesList';
 import SiteFormModal from './sites/SiteFormModal';
 
 export default function FilialesSitesTab() {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeSubTab = searchParams.get('subtab') || 'filiales'; // 'filiales' | 'sites'
+
+    const setActiveSubTab = (newSubTab) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', 'filiales');
+            next.set('subtab', newSubTab);
+            return next;
+        });
+    };
+
     const [filiales, setFiliales] = useState([]);
     const [sites, setSites] = useState([]);
-    const [activeSubTab, setActiveSubTab] = useState('filiales'); // 'filiales' | 'sites'
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
@@ -41,8 +55,8 @@ export default function FilialesSitesTab() {
                 organisationService.getFiliales(),
                 organisationService.getSites()
             ]);
-            setFiliales(filialesData);
-            setSites(sitesData);
+            setFiliales(filialesData || []);
+            setSites(sitesData || []);
         } catch (err) {
             setError("Erreur lors du chargement des données des filiales et sites.");
             console.error(err);
@@ -127,7 +141,7 @@ export default function FilialesSitesTab() {
         setSelectedSite(null);
         setSiteFormData({
             codeSite: '', libelle: '',
-            idFilialeRattachement: filiales.length > 0 ? filiales[0].idFiliale : '',
+            idFilialeRattachement: '',
             horaireContinu: true,
             heureDebutMatin: '08:00', heureFinMatin: '12:00',
             heureDebutApresMidi: '13:00', heureFinApresMidi: '17:00'
@@ -142,11 +156,11 @@ export default function FilialesSitesTab() {
             codeSite: site.codeSite,
             libelle: site.libelle,
             idFilialeRattachement: site.idFilialeRattachement || '',
-            horaireContinu: site.horaireContinu,
-            heureDebutMatin: site.heureDebutMatin || '08:00',
-            heureFinMatin: site.heureFinMatin || '12:00',
-            heureDebutApresMidi: site.heureDebutApresMidi || '13:00',
-            heureFinApresMidi: site.heureFinApresMidi || '17:00'
+            horaireContinu: site.horaireContinu !== false,
+            heureDebutMatin: site.heureDebutMatin ? site.heureDebutMatin.substring(0, 5) : '08:00',
+            heureFinMatin: site.heureFinMatin ? site.heureFinMatin.substring(0, 5) : '12:00',
+            heureDebutApresMidi: site.heureDebutApresMidi ? site.heureDebutApresMidi.substring(0, 5) : '13:00',
+            heureFinApresMidi: site.heureFinApresMidi ? site.heureFinApresMidi.substring(0, 5) : '17:00'
         });
         setActionError(null);
         setShowSiteModal(true);
@@ -209,20 +223,20 @@ export default function FilialesSitesTab() {
 
     const filteredFiliales = filiales.filter(f =>
         (showInactive || f.estActif !== false) &&
-        (f.codeFiliale.toLowerCase().includes(search.toLowerCase()) ||
-         f.raisonSociale.toLowerCase().includes(search.toLowerCase()))
+        (f.codeFiliale?.toLowerCase().includes(search.toLowerCase()) ||
+         f.raisonSociale?.toLowerCase().includes(search.toLowerCase()))
     );
 
     const filteredSites = sites.filter(s =>
         (showInactive || s.estActif !== false) &&
-        (s.codeSite.toLowerCase().includes(search.toLowerCase()) ||
-         s.libelle.toLowerCase().includes(search.toLowerCase()))
+        (s.codeSite?.toLowerCase().includes(search.toLowerCase()) ||
+         s.libelle?.toLowerCase().includes(search.toLowerCase()))
     );
 
     if (loading && filiales.length === 0) {
         return (
             <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                <Loading size="md" label="Chargement des filiales et sites..." />
             </div>
         );
     }
@@ -231,27 +245,27 @@ export default function FilialesSitesTab() {
         <div className="space-y-6">
             {/* Notifications */}
             {actionSuccess && (
-                <div className="bg-success-500/10 text-success-600 dark:text-success-500 border border-success-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <CheckCircle size={16} />
                     {actionSuccess}
                 </div>
             )}
             {error && (
-                <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <XCircle size={16} />
                     {error}
                 </div>
             )}
 
             {/* Barre d'outils et sous-onglets */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-white dark:bg-ink-900 p-4 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm">
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-4 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
                 <div className="flex gap-2">
                     <button
                         onClick={() => setActiveSubTab('filiales')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
                             activeSubTab === 'filiales'
-                                ? 'bg-brand-500 text-white'
-                                : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                                ? 'bg-[var(--color-brand-500)] text-white'
+                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
                         }`}
                     >
                         <Building2 size={16} />
@@ -259,10 +273,10 @@ export default function FilialesSitesTab() {
                     </button>
                     <button
                         onClick={() => setActiveSubTab('sites')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
                             activeSubTab === 'sites'
-                                ? 'bg-brand-500 text-white'
-                                : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                                ? 'bg-[var(--color-brand-500)] text-white'
+                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
                         }`}
                     >
                         <MapPin size={16} />
@@ -270,43 +284,45 @@ export default function FilialesSitesTab() {
                     </button>
                 </div>
 
-                <div className="flex gap-3 items-center">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-ink-500 dark:text-ink-300 cursor-pointer px-2 py-1 hover:bg-ink-50 dark:hover:bg-ink-950 rounded-sm whitespace-nowrap">
+                <div className="flex gap-3 items-center flex-wrap">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap">
                         <input
                             type="checkbox"
                             checked={showInactive}
                             onChange={(e) => setShowInactive(e.target.checked)}
-                            className="w-4 h-4 text-brand-500 rounded-sm"
+                            className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
                         />
                         <Eye size={14} />
                         <span>Afficher désactivés</span>
                     </label>
                     <div className="relative flex-1 sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" size={16} />
                         <input
                             type="text"
                             placeholder="Rechercher..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-9 pr-3 py-1.5 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
+                            className="w-full pl-9 pr-3 py-1.5 border border-[var(--color-border)] rounded-none bg-[var(--color-surface)] text-sm text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
                         />
                     </div>
                     {activeSubTab === 'filiales' ? (
-                        <button
+                        <Button
                             onClick={handleOpenCreateFiliale}
-                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-brand-500 hover:bg-brand-600 text-white rounded-sm transition-colors cursor-pointer shrink-0"
+                            variant="primary"
+                            size="sm"
+                            iconLeft={<Plus size={16} />}
                         >
-                            <Plus size={16} />
                             Nouvelle Filiale
-                        </button>
+                        </Button>
                     ) : (
-                        <button
+                        <Button
                             onClick={handleOpenCreateSite}
-                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-brand-500 hover:bg-brand-600 text-white rounded-sm transition-colors cursor-pointer shrink-0"
+                            variant="primary"
+                            size="sm"
+                            iconLeft={<Plus size={16} />}
                         >
-                            <Plus size={16} />
                             Nouveau Site
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>

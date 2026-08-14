@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, ShieldCheck, ListTodo } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
 
@@ -8,6 +9,18 @@ import RolePermissionsMatrix from './roles/RolePermissionsMatrix';
 import RoleMenusTree from './roles/RoleMenusTree';
 
 export default function RolesAndPermissionsTab() {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const rightTab = searchParams.get('subtab') || 'permissions'; // 'permissions' | 'menus'
+
+    const setRightTab = (newSubTab) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', 'roles');
+            next.set('subtab', newSubTab);
+            return next;
+        });
+    };
+
     const [roles, setRoles] = useState([]);
     const [modules, setModules] = useState([]);
     const [menusTree, setMenusTree] = useState([]);
@@ -20,7 +33,6 @@ export default function RolesAndPermissionsTab() {
 
     const [rolePermissions, setRolePermissions] = useState([]);
     const [selectedMenuIds, setSelectedMenuIds] = useState([]);
-    const [rightTab, setRightTab] = useState('permissions'); // 'permissions' | 'menus'
 
     const [showRoleModal, setShowRoleModal] = useState(false);
     const [roleFormData, setRoleFormData] = useState({ codeRole: '', libelle: '' });
@@ -261,7 +273,7 @@ export default function RolesAndPermissionsTab() {
     if (loading) {
         return (
             <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-full animate-spin"></div>
             </div>
         );
     }
@@ -270,13 +282,13 @@ export default function RolesAndPermissionsTab() {
         <div className="space-y-6">
             {/* Notifications */}
             {successMessage && (
-                <div className="bg-success-500/10 text-success-600 dark:text-success-500 border border-success-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <CheckCircle size={16} />
                     {successMessage}
                 </div>
             )}
             {error && (
-                <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <XCircle size={16} />
                     {error}
                 </div>
@@ -294,18 +306,18 @@ export default function RolesAndPermissionsTab() {
                 />
 
                 {/* Colonne Droite : Configuration Habilitations */}
-                <div className="lg:col-span-2 bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
+                <div className="lg:col-span-2 bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden">
                     {selectedRole ? (
                         <div>
                             {/* Onglets internes */}
-                            <div className="flex border-b border-ink-150 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-950/20 px-4">
+                            <div className="flex border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4">
                                 <button
                                     onClick={() => setRightTab('permissions')}
                                     className={`
                                         flex items-center gap-2 py-4 px-3 border-b-2 text-sm font-semibold transition-all cursor-pointer
                                         ${rightTab === 'permissions'
-                                            ? 'border-brand-500 text-brand-500'
-                                            : 'border-transparent text-ink-400 hover:text-ink-900 dark:hover:text-white'
+                                            ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-bold'
+                                            : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                         }
                                     `}
                                 >
@@ -317,8 +329,8 @@ export default function RolesAndPermissionsTab() {
                                     className={`
                                         flex items-center gap-2 py-4 px-3 border-b-2 text-sm font-semibold transition-all cursor-pointer
                                         ${rightTab === 'menus'
-                                            ? 'border-brand-500 text-brand-500'
-                                            : 'border-transparent text-ink-400 hover:text-ink-900 dark:hover:text-white'
+                                            ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-bold'
+                                            : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                         }
                                     `}
                                 >
@@ -331,7 +343,7 @@ export default function RolesAndPermissionsTab() {
                             <div className="p-6">
                                 {loadingDetails ? (
                                     <div className="flex justify-center py-12">
-                                        <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                                        <div className="w-6 h-6 border-2 border-[var(--color-brand-500)] border-t-transparent rounded-full animate-spin"></div>
                                     </div>
                                 ) : rightTab === 'permissions' ? (
                                     <RolePermissionsMatrix
@@ -355,7 +367,7 @@ export default function RolesAndPermissionsTab() {
                             </div>
                         </div>
                     ) : (
-                        <div className="p-12 text-center text-ink-400 text-sm">
+                        <div className="p-12 text-center text-[var(--color-fg-muted)] text-sm">
                             Veuillez sélectionner un rôle à gauche pour afficher ses habilitations.
                         </div>
                     )}
