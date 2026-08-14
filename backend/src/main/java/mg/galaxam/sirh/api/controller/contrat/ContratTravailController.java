@@ -142,10 +142,12 @@ public class ContratTravailController {
                 dateFinEssaiStr = contrat.getDateDebut().toLocalDate().plusMonths(dureeEssai).minusDays(1).toString();
             }
 
-            // 3. Fallback workflow_rh / workflow_rh_cpl
+            // 3. Fallback workflow_rh / workflow_rh_cpl (uniquement pour le contrat actif)
             if (dateFinEssaiStr == null) {
                 WorkflowRhCPL wfWithEssai = workflows.stream()
-                    .filter(w -> "VALIDE".equals(w.getCodeStatutWorkflow()) && (w.getDateFinEssai() != null || w.getDureeEssaiMois() != null))
+                    .filter(w -> "VALIDE".equals(w.getCodeStatutWorkflow()) &&
+                                 (activeContratId.equals(w.getIdContratCible()) || activeContratId.equals(w.getIdContratSource())) &&
+                                 (w.getDateFinEssai() != null || w.getDureeEssaiMois() != null))
                     .findFirst().orElse(null);
                 if (wfWithEssai != null) {
                     if (wfWithEssai.getDateFinEssai() != null) {
