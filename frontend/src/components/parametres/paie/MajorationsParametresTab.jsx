@@ -1,9 +1,20 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Edit2, CheckCircle, XCircle, Clock, Sliders } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 
 export default function MajorationsParametresTab() {
-    const [subSection, setSubSection] = useState('majorations'); // 'majorations' | 'parametres'
+    const [searchParams, setSearchParams] = useSearchParams();
+    const subSection = searchParams.get('subtab') || 'majorations'; // 'majorations' | 'parametres'
+
+    const setSubSection = (newSubTab) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', 'majorations_params');
+            next.set('subtab', newSubTab);
+            return next;
+        });
+    };
 
     const [majorations, setMajorations] = useState([]);
     const [parametres, setParametres] = useState([]);

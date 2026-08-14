@@ -1,10 +1,21 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Edit2, CheckCircle, XCircle, Gift, MapPin } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
 
 export default function IndemnitesSitesTab() {
-    const [subSection, setSubSection] = useState('indemnites'); // 'indemnites' | 'sites_config'
+    const [searchParams, setSearchParams] = useSearchParams();
+    const subSection = searchParams.get('subtab') || 'indemnites'; // 'indemnites' | 'sites_config'
+
+    const setSubSection = (newSubTab) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', 'indemnites_sites');
+            next.set('subtab', newSubTab);
+            return next;
+        });
+    };
 
     const [indemnites, setIndemnites] = useState([]);
     const [siteIndemnites, setSiteIndemnites] = useState([]);

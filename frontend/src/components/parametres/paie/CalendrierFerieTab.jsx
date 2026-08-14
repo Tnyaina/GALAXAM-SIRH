@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Calendar, MapPin, Search, Filter } from 'lucide-react';
+import { useMemo } from 'react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
 
@@ -14,7 +16,17 @@ function formatDateForInput(dateStr) {
 }
 
 export default function CalendrierFerieTab() {
-    const [subSection, setSubSection] = useState('feries'); // 'feries' | 'sites_feries'
+    const [searchParams, setSearchParams] = useSearchParams();
+    const subSection = searchParams.get('subtab') || 'feries'; // 'feries' | 'sites_feries'
+
+    const setSubSection = (newSubTab) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', 'calendrier');
+            next.set('subtab', newSubTab);
+            return next;
+        });
+    };
 
     const [feries, setFeries] = useState([]);
     const [siteFeries, setSiteFeries] = useState([]);
@@ -27,8 +39,39 @@ export default function CalendrierFerieTab() {
 
     // Filtres
     const [search, setSearch] = useState('');
-    const [selectedYear, setSelectedYear] = useState('2026');
-    const [selectedSiteFilter, setSelectedSiteFilter] = useState('');
+    const currentYear = String(new Date().getFullYear());
+
+    // À l'intérieur du composant CalendrierFerieTab :
+    const [selectedYear, setSelectedYear] = useState(currentYear);
+
+    // Génération dynamique des années disponibles
+    const availableYears = useMemo(() => {
+        const yearsSet = new Set();
+
+        // 1. Ajouter l'année courante, N-1 et N+1 par défaut
+        const cur = new Date().getFullYear();
+        yearsSet.add(String(cur - 1));
+        yearsSet.add(String(cur));
+        yearsSet.add(String(cur + 1));
+
+        // 2. Extraire les années réelles depuis les données reçues
+        feries.forEach(f => {
+            if (f.dateFerie) {
+                const y = f.dateFerie.substring(0, 4);
+                if (y && !isNaN(y)) yearsSet.add(y);
+            }
+        });
+
+        siteFeries.forEach(sf => {
+            if (sf.dateFerie) {
+                const y = sf.dateFerie.substring(0, 4);
+                if (y && !isNaN(y)) yearsSet.add(y);
+            }
+        });
+
+        // Tri décroissant (ex: 2027, 2026, 2025...)
+        return Array.from(yearsSet).sort((a, b) => Number(b) - Number(a));
+    }, [feries, siteFeries]); const [selectedSiteFilter, setSelectedSiteFilter] = useState('');
 
     // Modale Férié
     const [showFerieModal, setShowFerieModal] = useState(false);
@@ -196,22 +239,20 @@ export default function CalendrierFerieTab() {
                 <div className="flex gap-2 flex-wrap">
                     <button
                         onClick={() => setSubSection('feries')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${
-                            subSection === 'feries'
-                                ? 'bg-brand-500 text-white'
-                                : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
-                        }`}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${subSection === 'feries'
+                            ? 'bg-brand-500 text-white'
+                            : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                            }`}
                     >
                         <Calendar size={16} />
                         Jours Fériés Nationaux ({filteredFeries.length})
                     </button>
                     <button
                         onClick={() => setSubSection('sites_feries')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${
-                            subSection === 'sites_feries'
-                                ? 'bg-brand-500 text-white'
-                                : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
-                        }`}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-sm transition-all cursor-pointer ${subSection === 'sites_feries'
+                            ? 'bg-brand-500 text-white'
+                            : 'bg-ink-50 dark:bg-ink-950 text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800'
+                            }`}
                     >
                         <MapPin size={16} />
                         Exceptions par Site ({filteredSiteFeries.length})
@@ -231,18 +272,20 @@ export default function CalendrierFerieTab() {
                         />
                     </div>
 
-                    {/* Filtre Année */}
-                    <div className="flex items-center gap-1 bg-ink-50 dark:bg-ink-950 px-2 py-1 border border-ink-200 dark:border-ink-700 rounded-sm">
-                        <Filter size={12} className="text-ink-400" />
+                    {/* Filtre Année Dynamique */}
+                    <div className="flex items-center gap-1 bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border-subtle)] rounded-none">
+                        <Filter size={12} className="text-[var(--color-fg-muted)]" />
                         <select
                             value={selectedYear}
                             onChange={(e) => setSelectedYear(e.target.value)}
-                            className="bg-transparent text-xs font-semibold text-ink-800 dark:text-ink-200 focus:outline-none cursor-pointer"
+                            className="bg-transparent text-xs font-semibold text-[var(--color-fg)] focus:outline-none cursor-pointer"
                         >
-                            <option value="2026">Année 2026</option>
-                            <option value="2025">Année 2025</option>
-                            <option value="2027">Année 2027</option>
                             <option value="tous">Toutes les années</option>
+                            {availableYears.map((year) => (
+                                <option key={year} value={year}>
+                                    Année {year}
+                                </option>
+                            ))}
                         </select>
                     </div>
 

@@ -281,7 +281,7 @@ INSERT INTO ref_taux_majoration (type_majoration, taux, date_debut) VALUES
 ('HS_30', 0.30, '2026-01-01'),
 ('HS_50', 0.50, '2026-01-01'),
 ('NUIT', 0.40, '2026-01-01'),
-('DIMANCHE', 0.40, '2026-01-01'),
+('DIMANCHE', 0.30, '2026-01-01'),
 ('FERIE', 1.00, '2026-01-01');
 
 -- 10. Indemnités & Configuration des Sites (Conforme aux spécifications réelles)

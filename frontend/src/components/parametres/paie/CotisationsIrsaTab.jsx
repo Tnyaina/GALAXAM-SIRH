@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, ShieldCheck, Percent, MapPin, Eye } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
@@ -11,7 +12,17 @@ import BaremeIrsaList from './irsa/BaremeIrsaList';
 import IrsaTrancheModal from './irsa/IrsaTrancheModal';
 
 export default function CotisationsIrsaTab() {
-    const [subSection, setSubSection] = useState('cotisations'); // 'cotisations' | 'site_cotisations' | 'irsa'
+    const [searchParams, setSearchParams] = useSearchParams();
+    const subSection = searchParams.get('subtab') || 'cotisations'; // 'cotisations' | 'site_cotisations' | 'irsa'
+
+    const setSubSection = (newSubTab) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', 'cotisations_irsa');
+            next.set('subtab', newSubTab);
+            return next;
+        });
+    };
 
     const [cotisations, setCotisations] = useState([]);
     const [siteCotisations, setSiteCotisations] = useState([]);
@@ -136,15 +147,26 @@ export default function CotisationsIrsaTab() {
         }
     };
 
-    const handleDeleteSiteCotisation = async (id) => {
+    const handleToggleSiteCotisationStatus = async (item) => {
         setActionSuccess(null);
         setActionError(null);
         try {
-            await paieConfigService.deleteSiteCotisation(id);
-            setActionSuccess("Association supprimée.");
-            setSiteCotisations(prev => prev.filter(item => item.idSiteCotisation !== id));
+            if (item.estActif) {
+                await paieConfigService.deactivateSiteCotisation(item.idSiteCotisation);
+                setActionSuccess(`Association "${item.siteLibelle} - ${item.cotisationLibelle}" désactivée.`);
+            } else {
+                await paieConfigService.activateSiteCotisation(item.idSiteCotisation);
+                setActionSuccess(`Association "${item.siteLibelle} - ${item.cotisationLibelle}" réactivée.`);
+            }
+            setSiteCotisations(prev =>
+                prev.map(sc =>
+                    sc.idSiteCotisation === item.idSiteCotisation
+                        ? { ...sc, estActif: !item.estActif }
+                        : sc
+                )
+            );
         } catch (err) {
-            setActionError("Erreur lors de la suppression.");
+            setActionError("Erreur lors de la modification du statut.");
             console.error(err);
         }
     };
@@ -289,7 +311,7 @@ export default function CotisationsIrsaTab() {
                 <SiteCotisationsList
                     siteCotisations={filteredSiteCotisations}
                     onOpenCreate={handleOpenCreateSiteCotisation}
-                    onDelete={handleDeleteSiteCotisation}
+                    onToggleStatus={handleToggleSiteCotisationStatus}
                 />
             )}
 

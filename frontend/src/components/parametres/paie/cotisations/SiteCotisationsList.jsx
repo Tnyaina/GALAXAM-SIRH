@@ -1,77 +1,90 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Power, Check, MapPin } from 'lucide-react';
+import Button from '@/components/ui/Button';
+import Badge from '@/components/ui/Badge';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
 
 export default function SiteCotisationsList({
     siteCotisations = [],
     onOpenCreate,
-    onDelete,
+    onToggleStatus,
 }) {
     return (
-        <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden space-y-4">
-            <div className="p-4 flex justify-between items-center border-b border-ink-150 dark:border-ink-800">
+        <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden space-y-4">
+            <div className="p-4 flex justify-between items-center border-b border-[var(--color-border-subtle)]">
                 <div>
-                    <h3 className="font-bold text-ink-900 dark:text-white text-base">Cotisations Rattachées aux Sites d'Exploitation</h3>
-                    <p className="text-xs text-ink-400">Associez des règles de cotisation spécifiques selon les sites géographiques.</p>
+                    <h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2">
+                        <MapPin size={18} className="text-[var(--color-brand-500)]" />
+                        Cotisations Rattachées aux Sites d'Exploitation ({siteCotisations.length})
+                    </h3>
+                    <p className="text-xs text-[var(--color-fg-muted)]">
+                        Associez des règles de cotisation spécifiques selon les sites géographiques.
+                    </p>
                 </div>
-                <button
-                    onClick={onOpenCreate}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-brand-500 hover:bg-brand-600 text-white rounded-sm transition-colors cursor-pointer"
-                >
-                    <Plus size={16} />
+                <Button onClick={onOpenCreate} variant="primary" size="sm" iconLeft={<Plus size={16} />}>
                     Associer un Site
-                </button>
+                </Button>
             </div>
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left text-sm">
-                    <thead>
-                        <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 font-semibold uppercase text-xs">
-                            <th className="px-6 py-4">Nom du Site</th>
-                            <th className="px-6 py-4">Filiale</th>
-                            <th className="px-6 py-4">Cotisation Rattachée</th>
-                            <th className="px-6 py-4">Statut</th>
-                            <th className="px-6 py-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                        {siteCotisations.length > 0 ? (
-                            siteCotisations.map((sc) => (
-                                <tr key={sc.idSiteCotisation} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
-                                    <td className="px-6 py-4 font-bold">{sc.siteLibelle} ({sc.siteCode})</td>
-                                    <td className="px-6 py-4 text-xs font-semibold text-ink-400">{sc.filialeRaisonSociale || '-'}</td>
-                                    <td className="px-6 py-4 font-mono font-semibold text-brand-500">{sc.cotisationCode} - {sc.cotisationLibelle}</td>
-                                    <td className="px-6 py-4">
-                                        {sc.estActif ? (
-                                            <span className="inline-flex items-center gap-1.5 text-success-500 font-semibold text-xs">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-success-500"></span>
-                                                Actif
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1.5 text-ink-400 font-semibold text-xs">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-ink-400"></span>
-                                                Désactivé
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
+
+            <Table>
+                <Thead>
+                    <Th>Nom du Site</Th>
+                    <Th>Filiale</Th>
+                    <Th>Cotisation Rattachée</Th>
+                    <Th>Statut</Th>
+                    <Th className="text-right">Actions</Th>
+                </Thead>
+                <Tbody>
+                    {siteCotisations.length === 0 ? (
+                        <Tr>
+                            <Td colSpan={5} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
+                                Aucune association site - cotisation enregistrée.
+                            </Td>
+                        </Tr>
+                    ) : (
+                        siteCotisations.map((sc) => (
+                            <Tr key={sc.idSiteCotisation}>
+                                <Td className="font-bold text-[var(--color-fg)]">
+                                    {sc.siteLibelle} {sc.siteCode ? `(${sc.siteCode})` : ''}
+                                </Td>
+                                <Td muted className="text-xs font-semibold">
+                                    {sc.filialeRaisonSociale || '-'}
+                                </Td>
+                                <Td isData className="font-semibold text-[var(--color-brand-500)]">
+                                    {sc.cotisationCode} - {sc.cotisationLibelle}
+                                </Td>
+                                <Td>
+                                    <Badge
+                                        variant={sc.estActif ? 'success' : 'default'}
+                                        size="sm"
+                                        dot
+                                    >
+                                        {sc.estActif ? 'Actif' : 'Désactivé'}
+                                    </Badge>
+                                </Td>
+                                <Td className="text-right">
+                                    {sc.estActif ? (
                                         <button
-                                            onClick={() => onDelete(sc.idSiteCotisation)}
-                                            className="p-1.5 text-danger-500 hover:bg-danger-500/10 rounded-sm transition-all cursor-pointer"
-                                            title="Supprimer l'association"
+                                            onClick={() => onToggleStatus(sc)}
+                                            className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none transition-all cursor-pointer"
+                                            title="Désactiver l'association"
                                         >
-                                            <Trash2 size={16} />
+                                            <Power size={16} />
                                         </button>
-                                    </td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan="5" className="px-6 py-12 text-center text-ink-400">
-                                    Aucune association site - cotisation enregistrée.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => onToggleStatus(sc)}
+                                            className="p-1.5 text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10 rounded-none transition-all cursor-pointer"
+                                            title="Réactiver l'association"
+                                        >
+                                            <Check size={16} />
+                                        </button>
+                                    )}
+                                </Td>
+                            </Tr>
+                        ))
+                    )}
+                </Tbody>
+            </Table>
         </div>
     );
 }
