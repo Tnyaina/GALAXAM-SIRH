@@ -3,7 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import { AuthProvider } from "@/context/AuthContext";
 import Layout from "@/components/layout/Layout";
-import Loading from "@/components/ui/Loading";
+import Loading from "@/components/ui/feedback/Loading";
 
 // =========================================================================
 // Lazy loading des pages (Code-Splitting)
@@ -14,6 +14,9 @@ const Login = lazy(() => import("@/pages/auth/Login"));
 
 // Module Dashboard
 const Dashboard = lazy(() => import("@/pages/dashboard/Dashboard"));
+
+// Module Pointage
+const Pointages = lazy(() => import("@/pages/pointage/Pointages"));
 
 // Module Employés
 const EmployeList = lazy(() => import("@/pages/employe/EmployeList"));
@@ -52,8 +55,18 @@ export default function Router() {
                     {/* ---------------------------------------------------- */}
                     {/* Routes Protégées Standard (Authentifié + Layout)    */}
                     {/* ---------------------------------------------------- */}
-                    <Route element={<ProtectedRoute />}>
+                    <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
                         <Route path="/dashboard" element={<Dashboard />} />
+                    </Route>
+
+                    {/* ---------------------------------------------------- */}
+                    {/* Module Pointage (Rôles requis)                      */}
+                    {/* ---------------------------------------------------- */}
+                    <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN", "ROLE_AGENT_POINTAGE"]} />}>
+                        <Route path="/pointages" element={<Pointages />} />
+                    </Route>
+
+                    <Route element={<ProtectedRoute />}>
                         {/* 403 à l'intérieur du Layout pour garder le menu latéral */}
                         <Route path="/non-autorise" element={<Unauthorized />} />
                     </Route>

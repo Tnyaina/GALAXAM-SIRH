@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, ShieldAlert, Save, X, Eye, EyeOff, FileSignature, ArrowRight, Building2, MessageSquareText } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Input, { Textarea } from '@/components/ui/Input';
-import Loading from '@/components/ui/Loading';
+import Button from '@/components/ui/forms/Button';
+import Input, { Textarea } from '@/components/ui/forms/Input';
+import Loading from '@/components/ui/feedback/Loading';
 import contratService from '@/api/employe/contratService';
 import { useContractReferentiels } from '@/hooks/useContractReferentiels';
 import { fmtDateInput } from '@/utils/carriereUtils';

@@ -1,6 +1,6 @@
 import { UserCheck, X, ShieldAlert } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Input, { Checkbox } from '@/components/ui/Input';
+import Button from '@/components/ui/forms/Button';
+import Input, { Checkbox } from '@/components/ui/forms/Input';
 
 export default function TypeIntervenantFormModal({
     isOpen,

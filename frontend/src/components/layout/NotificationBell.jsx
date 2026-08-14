@@ -2,9 +2,9 @@ import { useState, useRef, useEffect, memo, useCallback } from 'react';
 import { Bell, CheckCheck, X, ChevronRight, AlertTriangle, Clock, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '@/hooks/useDashboard';
-import Badge from '@/components/ui/Badge';
-import { Skeleton } from '@/components/ui/Skeleton';
-import { Tooltip } from '@/components/ui/ExtraComponents';
+import Badge from '@/components/ui/data-display/Badge';
+import { Skeleton } from '@/components/ui/feedback/Skeleton';
+import { Tooltip } from '@/components/ui/overlays/Tooltip';
 
 const PRIORITE_CONFIG = {
     CRITIQUE: {

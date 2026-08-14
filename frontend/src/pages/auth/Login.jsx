@@ -3,15 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { Lock, Eye, EyeOff, User } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
-import Alert from '@/components/ui/Alert';
-import { Card, CardBody } from '@/components/ui/Card';
+import Input from '@/components/ui/forms/Input';
+import Button from '@/components/ui/forms/Button';
+import Alert from '@/components/ui/feedback/Alert';
+import { Card, CardBody } from '@/components/ui/data-display/Card';
 import galaxamLogo from '@/assets/logo/galaxam-logo.png';
 
 export default function Login() {
     const navigate = useNavigate();
-    const { login, isAuthenticated } = useAuth();
+    const { login, isAuthenticated, user } = useAuth();
 
     const [identifiant, setIdentifiant] = useState("");
     const [password, setPassword] = useState('');
@@ -21,10 +21,11 @@ export default function Login() {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        if (isAuthenticated) {
-            navigate('/dashboard', { replace: true });
+        if (isAuthenticated && user) {
+            const redirectPath = user.role === 'ROLE_AGENT_POINTAGE' ? '/pointages' : '/dashboard';
+            navigate(redirectPath, { replace: true });
         }
-    }, [isAuthenticated, navigate]);
+    }, [isAuthenticated, user, navigate]);
 
     // Effacer l'erreur dès que l'utilisateur modifie sa saisie
     const handleIdentifiantChange = (e) => {
@@ -45,9 +46,7 @@ export default function Login() {
         try {
             const result = await login(identifiant, password);
 
-            if (result.success) {
-                navigate('/dashboard', { replace: true });
-            } else {
+            if (!result.success) {
                 setError(result.message || 'Identifiants incorrects.');
             }
         } catch {

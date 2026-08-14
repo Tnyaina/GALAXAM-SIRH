@@ -1,5 +1,5 @@
 import Router from "./routes/Router";
-import { ToastProvider } from "@/components/ui/Toast"; // Import du Provider
+import { ToastProvider } from "@/components/ui/feedback/Toast"; // Import du Provider
 
 function App() {
     return (

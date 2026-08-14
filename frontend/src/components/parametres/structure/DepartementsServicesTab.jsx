@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, XCircle, Eye } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import { fmtDateInput } from '@/utils/paieUtils';
-import Loading from '@/components/ui/Loading';
+import Loading from '@/components/ui/feedback/Loading';
 
 import DepartementsList from './departements/DepartementsList';
 import DepartementFormModal from './departements/DepartementFormModal';

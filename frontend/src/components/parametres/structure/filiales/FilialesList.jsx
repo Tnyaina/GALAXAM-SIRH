@@ -1,6 +1,6 @@
 import { Edit2 } from 'lucide-react';
-import Badge from '@/components/ui/Badge';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
+import Badge from '@/components/ui/data-display/Badge';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 
 export default function FilialesList({
     filiales = [],

@@ -1,6 +1,6 @@
 import { Shield, X, ShieldAlert } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
+import Button from '@/components/ui/forms/Button';
+import Input from '@/components/ui/forms/Input';
 
 export default function RoleFormModal({
     isOpen,

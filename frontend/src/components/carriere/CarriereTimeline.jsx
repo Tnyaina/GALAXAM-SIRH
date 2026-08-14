@@ -1,8 +1,8 @@
 import {
     Briefcase, Building, Landmark, Calendar, CheckCircle, Clock, Plus, FileText, Eye, RefreshCw, UserMinus, Award
 } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
 import { fmtDate, fmtMoney } from '@/utils/carriereUtils';
 
 export default function CarriereTimeline({

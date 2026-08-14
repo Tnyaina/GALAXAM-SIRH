@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Edit2, CheckCircle, XCircle, Clock, Sliders, ShieldAlert, X } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
-import Button from '@/components/ui/Button';
-import Input, { Textarea } from '@/components/ui/Input';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
+import Button from '@/components/ui/forms/Button';
+import Input, { Textarea } from '@/components/ui/forms/Input';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDateInput } from '@/utils/paieUtils';
 
 export default function MajorationsParametresTab() {

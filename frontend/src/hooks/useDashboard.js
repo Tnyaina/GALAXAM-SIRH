@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import dashboardService from '@/api/dashboardService';
+import { useAuth } from '@/context/AuthContext';
 
 /**
  * useDashboard — Hook custom pour les données du dashboard.
@@ -38,11 +39,16 @@ export function useDashboard() {
  * Intègre l'Optimistic UI et la gestion du Rollback.
  */
 export function useNotifications() {
+    const { isAuthenticated, hasPermission } = useAuth();
     const [notifications, setNotifications] = useState([]);
     const [totalNonLues, setTotalNonLues] = useState(0);
     const [loading, setLoading] = useState(true);
 
     const load = useCallback(async (isBackground = false) => {
+        if (!isAuthenticated || !hasPermission('EMPLOYE_READ')) {
+            setLoading(false);
+            return;
+        }
         if (!isBackground) setLoading(true);
         try {
             const result = await dashboardService.getNotifications();
@@ -53,7 +59,7 @@ export function useNotifications() {
         } finally {
             if (!isBackground) setLoading(false);
         }
-    }, []);
+    }, [isAuthenticated, hasPermission]);
 
     const marquerToutesLues = async () => {
         const previousNotifs = notifications;

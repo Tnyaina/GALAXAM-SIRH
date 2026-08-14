@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Briefcase, ShieldAlert, Save, X, FileSignature, Eye, EyeOff } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import { Textarea } from '@/components/ui/Input';
-import Loading from '@/components/ui/Loading';
+import Button from '@/components/ui/forms/Button';
+import { Textarea } from '@/components/ui/forms/Input';
+import Loading from '@/components/ui/feedback/Loading';
 import contratService from '@/api/employe/contratService';
 import { useContractReferentiels } from '@/hooks/useContractReferentiels';
 import { ContractPreview } from '@/components/carriere/ContractDocument';

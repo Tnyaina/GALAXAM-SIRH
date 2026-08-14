@@ -59,6 +59,8 @@ export const AuthProvider = ({ children }) => {
         }
     }, [clearRefreshTimer]);
 
+    const scheduleTokenRefreshRef = useRef();
+
     const scheduleTokenRefresh = useCallback((token) => {
         clearRefreshTimer();
         if (!token) return;
@@ -74,10 +76,14 @@ export const AuthProvider = ({ children }) => {
         refreshTimerRef.current = setTimeout(async () => {
             const newToken = await silentRefresh();
             if (newToken) {
-                scheduleTokenRefresh(newToken);
+                scheduleTokenRefreshRef.current?.(newToken);
             }
         }, delay);
     }, [clearRefreshTimer, silentRefresh]);
+
+    useEffect(() => {
+        scheduleTokenRefreshRef.current = scheduleTokenRefresh;
+    }, [scheduleTokenRefresh]);
 
     const handleTokenUpdate = useCallback((token) => {
         setAccessToken(token);

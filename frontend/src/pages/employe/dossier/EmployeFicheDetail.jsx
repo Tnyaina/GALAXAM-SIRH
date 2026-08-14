@@ -1,6 +1,6 @@
 import { X, User, CreditCard, Phone, ShieldAlert, Edit2, Power, Calendar, MapPin, Heart, Baby, Landmark } from 'lucide-react';
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
+import Badge from '@/components/ui/data-display/Badge';
+import Button from '@/components/ui/forms/Button';
 
 const InfoRow = ({ label, value, icon, mono = false }) => (
     <div className="flex items-start gap-3 py-2">

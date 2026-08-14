@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/forms/Button';
 import { useAuth } from '@/context/AuthContext'; // Import du hook Auth
 
 const tones = {

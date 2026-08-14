@@ -1,7 +1,7 @@
 import { Plus, Power, Check, MapPin } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
+import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 
 export default function SiteCotisationsList({
     siteCotisations = [],

@@ -1,6 +1,6 @@
 import { Layers, X, ShieldAlert } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Input, { Select } from '@/components/ui/Input';
+import Button from '@/components/ui/forms/Button';
+import Input, { Select } from '@/components/ui/forms/Input';
 
 export default function ServiceFormModal({
     isOpen,

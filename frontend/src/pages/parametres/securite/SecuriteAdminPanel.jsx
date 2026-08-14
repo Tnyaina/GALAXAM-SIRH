@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { Shield, Users, ArrowLeft, Menu, FileText, Award } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
-import Tabs from '@/components/ui/Tabs';
-import { SkeletonTable } from '@/components/ui/Skeleton';
+import Tabs from '@/components/ui/navigation/Tabs';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 const UserManagementTab = lazy(() => import('@/components/parametres/securite/UserManagementTab'));
 const RolesAndPermissionsTab = lazy(() => import('@/components/parametres/securite/RolesAndPermissionsTab'));

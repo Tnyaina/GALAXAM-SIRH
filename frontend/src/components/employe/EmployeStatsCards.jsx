@@ -1,5 +1,5 @@
 import { Users } from 'lucide-react';
-import Card, { CardBody } from '@/components/ui/Card';
+import Card, { CardBody } from '@/components/ui/data-display/Card';
 
 export default function EmployeStatsCards({ totalEmployes = 0, totalActifs = 0, totalInactifs = 0 }) {
     return (

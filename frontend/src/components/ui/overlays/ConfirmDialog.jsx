@@ -1,5 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/forms/Button';
 
 /**
  * ConfirmDialog — Modale de confirmation réutilisable (désactivation, suppression, etc.)

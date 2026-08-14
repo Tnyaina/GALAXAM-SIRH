@@ -7,16 +7,16 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDashboard } from '@/hooks/useDashboard';
-import { useToast } from '@/components/ui/Toast'; // <-- Import de ton hook personnalisé
-import StatCard from '@/components/ui/StatCard';
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
-import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/Card';
-import { SkeletonStatCard, Skeleton } from '@/components/ui/Skeleton';
-import Loading from '@/components/ui/Loading';
+import { useToast } from '@/components/ui/feedback/Toast'; // <-- Import de ton hook personnalisé
+import StatCard from '@/components/ui/data-display/StatCard';
+import Badge from '@/components/ui/data-display/Badge';
+import Button from '@/components/ui/forms/Button';
+import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
+import { SkeletonStatCard, Skeleton } from '@/components/ui/feedback/Skeleton';
+import Loading from '@/components/ui/feedback/Loading';
 
 // Lazy loading du graphique optionnel
-const LineTrendChart = lazy(() => import('@/components/ui/Charts').then(m => ({ default: m.LineTrendChart })));
+const LineTrendChart = lazy(() => import('@/components/ui/data-display/Chart').then(m => ({ default: m.LineTrendChart })));
 
 // =========================================================================
 // Utilitaires de formatage

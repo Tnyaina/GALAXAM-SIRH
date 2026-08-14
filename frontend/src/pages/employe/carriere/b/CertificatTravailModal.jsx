@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X, Award, CheckCircle } from 'lucide-react';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/forms/Button';
 import { DocumentFrame } from '@/components/carriere/ContractDocument';
 import { fmtDateFr } from '@/utils/carriereUtils';
 

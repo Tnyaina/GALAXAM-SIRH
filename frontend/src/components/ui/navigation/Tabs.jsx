@@ -1,4 +1,4 @@
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/forms/Button';
 
 /**
  * Composant réutilisable d'onglets pour le Design System Galaxam.

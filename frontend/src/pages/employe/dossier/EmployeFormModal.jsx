@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, User, CreditCard, Phone, Users, ShieldAlert, Building } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
 import employeService from '@/api/employe/employeService';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/forms/Button';
 
 import CiviliteStep from '@/components/employe/form/CiviliteStep';
 import CinPermisStep from '@/components/employe/form/CinPermisStep';

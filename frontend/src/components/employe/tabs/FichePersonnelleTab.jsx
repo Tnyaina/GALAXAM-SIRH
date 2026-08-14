@@ -1,5 +1,5 @@
 import { User, Calendar, MapPin, Heart, Phone, Landmark } from 'lucide-react';
-import Badge from '@/components/ui/Badge';
+import Badge from '@/components/ui/data-display/Badge';
 
 const InfoBlock = ({ label, value, mono = false, icon }) => (
     <div className="py-2">

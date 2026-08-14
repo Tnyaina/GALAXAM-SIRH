@@ -3,9 +3,9 @@ import {
     FileText, Building, Landmark, CheckCircle, Edit2, XCircle, 
     AlertTriangle, ShieldAlert, Clock, X
 } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import { Textarea } from '@/components/ui/Input';
+import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
+import { Textarea } from '@/components/ui/forms/Input';
 import contratService from '@/api/employe/contratService';
 import { 
     fmtDate, fmtMoney, getWorkflowLibellesUI, 

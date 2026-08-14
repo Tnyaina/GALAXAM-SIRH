@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { Wrench, ShieldCheck, Gift, Clock, Calendar, ArrowLeft } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { SkeletonTable } from '@/components/ui/Skeleton';
-import Tabs from '@/components/ui/Tabs';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Tabs from '@/components/ui/navigation/Tabs';
 
 const CotisationsIrsaTab = lazy(() => import('@/components/parametres/paie/CotisationsIrsaTab'));
 const IndemnitesSitesTab = lazy(() => import('@/components/parametres/paie/IndemnitesSitesTab'));

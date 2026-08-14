@@ -1,6 +1,6 @@
 import { Building, X, ShieldAlert } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
+import Button from '@/components/ui/forms/Button';
+import Input from '@/components/ui/forms/Input';
 import { fmtDateInput } from '@/utils/paieUtils';
 
 export default function DepartementFormModal({

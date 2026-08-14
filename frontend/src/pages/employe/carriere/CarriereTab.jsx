@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, ShieldAlert } from 'lucide-react';
-import Loading from '@/components/ui/Loading';
+import Loading from '@/components/ui/feedback/Loading';
 import contratService from '@/api/employe/contratService';
 import EmbaucheModal from './b/EmbaucheModal';
 import TransitionModal from './b/TransitionModal';
@@ -13,7 +13,7 @@ import CarriereHeaderCard from '@/components/carriere/CarriereHeaderCard';
 import CarriereTimeline from '@/components/carriere/CarriereTimeline';
 import { useCarriere } from '@/hooks/useCarriere';
 import { isEmbaucheEvent, isRuptureEvent, trouverWorkflowPlanifieFutur } from '@/utils/carriereUtils';
-import { useToast } from '@/components/ui/Toast';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function CarriereTab({
     idEmploye,

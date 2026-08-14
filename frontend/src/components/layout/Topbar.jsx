@@ -5,7 +5,7 @@ import { useState } from 'react';
 import NotificationBell from './NotificationBell';
 
 export default function Topbar({ onMenuClick, title, onThemeToggle, isDarkMode }) {
-    const { user, logout } = useAuth();
+    const { user, logout, hasPermission } = useAuth();
     const navigate = useNavigate();
     const [showDropdown, setShowDropdown] = useState(false);
 
@@ -28,7 +28,7 @@ export default function Topbar({ onMenuClick, title, onThemeToggle, isDarkMode }
 
             <div className="flex items-center gap-2">
                 {/* Cloche notifications */}
-                <NotificationBell />
+                {hasPermission('EMPLOYE_READ') && <NotificationBell />}
 
                 {/* Toggle thème */}
                 {onThemeToggle && (

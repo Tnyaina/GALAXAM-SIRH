@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { Building2, Layers, Briefcase, FileCheck, ArrowLeft } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
-import Tabs from '@/components/ui/Tabs';
-import { SkeletonTable } from '@/components/ui/Skeleton';
+import Tabs from '@/components/ui/navigation/Tabs';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 const FilialesSitesTab = lazy(() => import('@/components/parametres/structure/FilialesSitesTab'));
 const DepartementsServicesTab = lazy(() => import('@/components/parametres/structure/DepartementsServicesTab'));

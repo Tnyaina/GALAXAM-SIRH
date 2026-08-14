@@ -1,6 +1,6 @@
 import { Plus, Edit2, Percent } from 'lucide-react';
-import Button from '@/components/ui/Button';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
+import Button from '@/components/ui/forms/Button';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDate, fmtMoney } from '@/utils/paieUtils';
 
 export default function BaremeIrsaList({

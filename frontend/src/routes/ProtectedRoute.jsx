@@ -1,7 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/layout/Layout';
-import Loading from '@/components/ui/Loading';
+import Loading from '@/components/ui/feedback/Loading';
 
 export default function ProtectedRoute({ allowedRoles, requiredPermission, children }) {
     const { isAuthenticated, user, hasPermission, loading } = useAuth();
@@ -24,6 +24,9 @@ export default function ProtectedRoute({ allowedRoles, requiredPermission, child
 
     // Redirige vers la page non autorisée si le rôle ou la permission est insuffisante
     if (allowedRoles && !allowedRoles.includes(user?.role)) {
+        if (user?.role === 'ROLE_AGENT_POINTAGE') {
+            return <Navigate to="/pointages" replace />;
+        }
         return <Navigate to="/non-autorise" replace />;
     }
 

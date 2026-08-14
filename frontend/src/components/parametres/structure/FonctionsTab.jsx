@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, CheckCircle, XCircle, Eye, Briefcase, X, ShieldAlert } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import Input from '@/components/ui/Input';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
-import Loading from '@/components/ui/Loading';
+import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
+import Input from '@/components/ui/forms/Input';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import Loading from '@/components/ui/feedback/Loading';
 
 export default function FonctionsTab() {
     const [fonctions, setFonctions] = useState([]);

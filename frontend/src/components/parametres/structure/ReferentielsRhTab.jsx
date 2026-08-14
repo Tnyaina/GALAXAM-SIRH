@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, FileText, UserCheck, Landmark } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
-import Loading from '@/components/ui/Loading';
+import Loading from '@/components/ui/feedback/Loading';
 
 import TypesContratList from './referentiels/TypesContratList';
 import TypeContratFormModal from './referentiels/TypeContratFormModal';

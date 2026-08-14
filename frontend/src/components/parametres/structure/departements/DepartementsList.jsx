@@ -1,5 +1,5 @@
 import { Building, Plus, Edit2 } from 'lucide-react';
-import Badge from '@/components/ui/Badge';
+import Badge from '@/components/ui/data-display/Badge';
 
 export default function DepartementsList({
     departements = [],

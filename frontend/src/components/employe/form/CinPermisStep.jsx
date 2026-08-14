@@ -1,4 +1,4 @@
-import Input, { Select } from '@/components/ui/Input';
+import Input, { Select } from '@/components/ui/forms/Input';
 
 export default function CinPermisStep({ formData, set, villesStandards }) {
     return (

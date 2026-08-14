@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
-import Input, { Select } from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
+import Input, { Select } from '@/components/ui/forms/Input';
+import Button from '@/components/ui/forms/Button';
 
 export default function UrgenceFormStep({
     formData,

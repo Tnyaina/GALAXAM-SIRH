@@ -2,11 +2,11 @@ import { useState, useEffect, createElement } from 'react';
 import { Search, Plus, Edit2, Trash2, ShieldAlert, CheckCircle, XCircle, X } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
 import { getMenuIcon } from '@/utils/iconRegistry';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import Input, { Select } from '@/components/ui/Input';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
-import Loading from '@/components/ui/Loading';
+import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
+import Input, { Select } from '@/components/ui/forms/Input';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import Loading from '@/components/ui/feedback/Loading';
 
 const AVAILABLE_ICONS = [
     'Circle', 'LayoutDashboard', 'Users', 'Clock', 'UserCheck',

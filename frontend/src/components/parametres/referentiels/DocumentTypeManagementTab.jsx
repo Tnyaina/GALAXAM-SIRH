@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, CheckCircle, XCircle, ShieldAlert, FileText, X } from 'lucide-react';
 import documentRhService from '@/api/employe/documentRhService';
-import Input, { Textarea, Select, Checkbox } from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
-import Loading from '@/components/ui/Loading';
+import Input, { Textarea, Select, Checkbox } from '@/components/ui/forms/Input';
+import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import Loading from '@/components/ui/feedback/Loading';
 
 const CATEGORIES = ['Administratif', 'Identité', 'Recrutement', 'Contrat', 'Formation', 'Paie', 'Autre'];
 

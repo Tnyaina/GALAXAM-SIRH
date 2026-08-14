@@ -4,10 +4,10 @@ import { Plus, Edit2, CheckCircle, XCircle, Gift, MapPin, ShieldAlert, X } from 
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
 import contratService from '@/api/employe/contratService';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import Input, { Select, Checkbox } from '@/components/ui/Input';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table';
+import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
+import Input, { Select, Checkbox } from '@/components/ui/forms/Input';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDateInput, fmtMoney, PERIODICITES_INDEMNITE } from '@/utils/paieUtils';
 
 export default function IndemnitesSitesTab() {
