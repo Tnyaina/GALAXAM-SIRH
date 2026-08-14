@@ -2,6 +2,12 @@
  * Service utilitaire & helpers de formatage pour les modules Paie & Référentiels RH.
  */
 
+export const PERIODICITES_INDEMNITE = [
+    { value: 'JOURNALIER', label: 'Journalier' },
+    { value: 'MENSUEL', label: 'Mensuel' },
+    { value: 'HORAIRE', label: 'Horaire' },
+];
+
 /**
  * Formate une date ISO (ex: "2026-01-01T00:00:00.000+03:00" ou "2026-01-01") en "DD/MM/YYYY" pour l'affichage UI.
  */
@@ -49,3 +55,4 @@ export function fmtPercent(val) {
     if (isNaN(num)) return String(val);
     return `${num}%`;
 }
+
