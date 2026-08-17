@@ -10,7 +10,6 @@ import { fmtDateInput } from '@/utils/paieUtils';
 const DEFAULT_CATEGORIES = [
     { value: 'PAIE', label: 'Paie & Rémunération' },
     { value: 'CONGE', label: 'Congés & Absences' },
-    { value: 'CONGES', label: 'Congés & Absences' },
     { value: 'POINTAGE', label: 'Pointage & Temps de Travail' },
     { value: 'CONTRAT', label: 'Contrats & Carrière' },
     { value: 'EMPLOYE', label: 'Gestion des Employés' },
@@ -62,11 +61,14 @@ export default function ParametresGlobauxTab() {
         loadData();
     }, []);
 
-    // Extraction dynamique des catégories existantes
+    // Extraction dynamique des catégories existantes sans doublons (harmonisation CONGES -> CONGE)
     const availableCategories = useMemo(() => {
         const categoriesSet = new Set(DEFAULT_CATEGORIES.map(c => c.value));
         parametres.forEach(p => {
-            if (p.categorie) categoriesSet.add(p.categorie);
+            if (p.categorie) {
+                const normCat = p.categorie === 'CONGES' ? 'CONGE' : p.categorie;
+                categoriesSet.add(normCat);
+            }
         });
         return Array.from(categoriesSet).map(catKey => {
             const found = DEFAULT_CATEGORIES.find(c => c.value === catKey);
@@ -81,9 +83,11 @@ export default function ParametresGlobauxTab() {
     const filteredAndSortedParametres = useMemo(() => {
         return parametres
             .filter(item => {
+                const itemCatNorm = item.categorie === 'CONGES' ? 'CONGE' : (item.categorie || 'GENERAL');
+
                 // Filtre par catégorie
                 if (selectedCategory !== 'ALL') {
-                    if ((item.categorie || 'GENERAL') !== selectedCategory) {
+                    if (itemCatNorm !== selectedCategory) {
                         return false;
                     }
                 }

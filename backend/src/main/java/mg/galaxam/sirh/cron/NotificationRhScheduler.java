@@ -22,7 +22,9 @@ import org.springframework.stereotype.Component;
  *   - CONTRAT_EXPIRE_30J  : contrats expirant dans 30 jours
  *   - ESSAI_EXPIRE_J      : essais arrivant à terme aujourd'hui
  *   - ESSAI_EXPIRE_7J     : essais arrivant à terme dans 7 jours
+ *   - ESSAI_EXPIRE_30J  : essais arrivant à terme dans 30 jours
  *   - BROUILLON_EN_ATTENTE: workflows BROUILLON non traités depuis > 48h
+ *   - CONGE_EN_ATTENTE    : demandes de congé EN_ATTENTE depuis > 48h
  */
 @Component
 public class NotificationRhScheduler {
@@ -50,6 +52,7 @@ public class NotificationRhScheduler {
                 genererAlerteEssais15j(c);
                 genererAlerteEssais30j(c);
                 genererAlerteBrouillons48h(c);
+                genererAlerteCongesEnAttente48h(c);
                 genererAlertePiecesManquantes(c);
 
                 c.commit();
@@ -80,7 +83,7 @@ public class NotificationRhScheduler {
                 "WHERE type_alerte IN (" +
                 "  'CONTRAT_EXPIRE_J','CONTRAT_EXPIRE_7J','CONTRAT_EXPIRE_30J'," +
                 "  'ESSAI_EXPIRE_J','ESSAI_EXPIRE_7J','ESSAI_EXPIRE_15J','ESSAI_EXPIRE_30J'," +
-                "  'BROUILLON_EN_ATTENTE','DOCUMENTS_MANQUANTS'" +
+                "  'BROUILLON_EN_ATTENTE','DOCUMENTS_MANQUANTS','CONGE_EN_ATTENTE'" +
                 ") " +
                 "AND est_lue = FALSE";
         try (PreparedStatement ps = c.prepareStatement(sqlRecrre)) {
@@ -340,6 +343,38 @@ public class NotificationRhScheduler {
                     "Brouillon en attente depuis " + jours + "j - " + nomPrenom,
                     "Le brouillon " + typeEv + " pour " + nomPrenom + " n'a pas encore été validé ou annulé (créé il y a " + jours + " jour(s)).",
                     "/employes/" + idEmploye + "?tab=carriere&wf=" + idWorkflow,
+                    idEmploye
+                );
+            }
+        }
+    }
+
+    private void genererAlerteCongesEnAttente48h(Connection c) throws Exception {
+        String sql = "SELECT dc.id_demande_conge, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
+                "rtc.libelle AS type_conge, " +
+                "EXTRACT(DAY FROM CURRENT_TIMESTAMP - dc.date_demande)::INT AS jours_attente " +
+                "FROM demande_conge dc " +
+                "JOIN employe e ON dc.id_employe = e.id_employe " +
+                "JOIN ref_statut_demande rsd ON dc.id_statut_demande = rsd.id_statut_demande " +
+                "JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
+                "WHERE rsd.code = 'EN_ATTENTE' " +
+                "AND dc.date_demande < CURRENT_TIMESTAMP - INTERVAL '48 hours'";
+
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String nomPrenom = rs.getString("nom_prenom");
+                int jours = rs.getInt("jours_attente");
+                int idEmploye = rs.getInt("id_employe");
+                String typeConge = rs.getString("type_conge");
+
+                insererNotification(c,
+                    null,
+                    "CONGE_EN_ATTENTE",
+                    "HAUTE",
+                    "Demande de conge en attente depuis " + jours + "j - " + nomPrenom,
+                    "La demande de congé (" + typeConge + ") pour " + nomPrenom + " n'a pas encore été validée (soumise il y a " + jours + " jour(s)).",
+                    "/conges?tab=demandes", // Redirige vers le registre des demandes
                     idEmploye
                 );
             }

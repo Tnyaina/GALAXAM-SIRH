@@ -27,14 +27,16 @@ const types = {
   },
 };
 
-export default function Alert({ type = 'info', title, children, onClose }) {
+export default function Alert({ type = 'info', title, message, children, onClose }) {
   const t = types[type] || types.info;
+  const content = children || message;
+
   return (
     <div className={`flex items-start gap-3 p-4 rounded-none border ${t.wrapper}`}>
       {t.icon}
       <div className="flex-1 min-w-0">
         {title && <p className={`text-sm font-semibold ${t.title}`}>{title}</p>}
-        {children && <p className={`text-sm mt-0.5 ${t.text}`}>{children}</p>}
+        {content && <p className={`text-sm mt-0.5 ${t.text}`}>{content}</p>}
       </div>
       {onClose && (
         <button

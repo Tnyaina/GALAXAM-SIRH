@@ -126,7 +126,7 @@ export default function AttestationTravailModal({
     const employeAdresse = employe?.adresse || null;
     const employeCin = employe?.cin || employe?.numeroCin || null;
     const employeMatricule = employe?.matricule || null;
-    const employeCnaps = employe?.numeroCnaps || null;
+
     const salaireBaseFmt = fmtMoney(affectation?.salaireBase);
 
     const dateEmission = fmtDateFr(new Date());

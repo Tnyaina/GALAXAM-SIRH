@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     ArrowLeft, User, Users, Briefcase, FileText, CheckCircle, XCircle, Folder,
-    Power, AlertTriangle
+    Power, AlertTriangle, Calendar
 } from 'lucide-react';
 import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
@@ -19,9 +19,10 @@ const FichePersonnelleTab = lazy(() => import('@/components/employe/tabs/FichePe
 const DocumentsRhTab = lazy(() => import('@/components/employe/tabs/DocumentsRhTab'));
 const FamilleContactsTab = lazy(() => import('@/components/employe/tabs/FamilleContactsTab'));
 const HistoriqueStatutTab = lazy(() => import('@/components/employe/tabs/HistoriqueStatutTab'));
+const CongesTab = lazy(() => import('@/components/employe/tabs/CongesTab'));
 const UploadDocumentModal = lazy(() => import('@/components/employe/tabs/UploadDocumentModal'));
 
-const VALID_TABS = ['personnel', 'documents', 'famille', 'carriere', 'historique'];
+const VALID_TABS = ['personnel', 'conges', 'documents', 'famille', 'carriere', 'historique'];
 
 const TabLoader = ({ label = "Chargement..." }) => (
     <div className="p-8 flex justify-center">
@@ -240,6 +241,7 @@ export default function EmployeFicheDetailPage() {
 
     const mainTabs = [
         { id: 'personnel', label: 'Fiche Personnelle', icon: <User size={16} /> },
+        { id: 'conges', label: 'Congés & Absences', icon: <Calendar size={16} /> },
         { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: <Folder size={16} /> },
         { id: 'famille', label: 'Famille & Contacts', icon: <Users size={16} /> },
         { id: 'carriere', label: 'Carrière & Affectation', icon: <Briefcase size={16} /> },
@@ -286,6 +288,13 @@ export default function EmployeFicheDetailPage() {
                     {activeTab === 'personnel' && (
                         <Suspense fallback={<TabLoader label="Chargement de la fiche personnelle..." />}>
                             <FichePersonnelleTab emp={emp} comptes={comptes} />
+                        </Suspense>
+                    )}
+
+                    {/* Onglet 2: Congés & Absences */}
+                    {activeTab === 'conges' && (
+                        <Suspense fallback={<TabLoader label="Chargement des congés de l'employé..." />}>
+                            <CongesTab idEmploye={id} canWrite={canWrite} />
                         </Suspense>
                     )}
 

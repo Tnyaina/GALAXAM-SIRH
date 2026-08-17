@@ -34,7 +34,7 @@ export function useDashboard() {
         return () => controller.abort();
     }, [load]);
 
-    return { data, loading, error, refresh: (sig) => load(sig), lastRefresh };
+    return { data, loading, error, refresh: () => load(), lastRefresh };
 }
 
 /**
@@ -135,7 +135,7 @@ export function useNotifications() {
         notifications, 
         totalNonLues, 
         loading, 
-        refresh: load, 
+        refresh: () => load(false), 
         marquerToutesLues, 
         marquerUne,
         annulerMarquage

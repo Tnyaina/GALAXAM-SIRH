@@ -18,6 +18,9 @@ const Dashboard = lazy(() => import("@/pages/dashboard/Dashboard"));
 // Module Pointage
 const Pointages = lazy(() => import("@/pages/pointage/Pointages"));
 
+// Module Congés & Absences
+const GestionCongesPage = lazy(() => import("@/pages/conges/GestionCongesPage"));
+
 // Module Employés
 const EmployeList = lazy(() => import("@/pages/employe/EmployeList"));
 const EmployeFicheDetailPage = lazy(() => import("@/pages/employe/EmployeFicheDetailPage"));
@@ -57,6 +60,14 @@ export default function Router() {
                     {/* ---------------------------------------------------- */}
                     <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
                         <Route path="/dashboard" element={<Dashboard />} />
+                    </Route>
+
+                    {/* ---------------------------------------------------- */}
+                    {/* Module Congés & Absences                             */}
+                    {/* ---------------------------------------------------- */}
+                    <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
+                        <Route path="/conges" element={<GestionCongesPage />} />
+                        <Route path="/conges/*" element={<GestionCongesPage />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}

@@ -13,9 +13,18 @@ function sortByRang(items) {
     return [...items].sort((a, b) => (a.rang ?? 0) - (b.rang ?? 0));
 }
 
-const isChildActive = (node, currentPath) => {
+const isUrlMatch = (href, location) => {
+    if (!href || href === '#') return false;
+    const fullPath = location.pathname + location.search;
+    if (href.includes('?')) {
+        return fullPath === href;
+    }
+    return location.pathname === href;
+};
+
+const isChildActive = (node, location) => {
     if (!node.sousMenus) return false;
-    return node.sousMenus.some(child => (child.href && currentPath === child.href) || isChildActive(child, currentPath));
+    return node.sousMenus.some(child => (child.href && isUrlMatch(child.href, location)) || isChildActive(child, location));
 };
 
 function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }) {
@@ -23,13 +32,14 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
     const hasChildren = item.sousMenus?.length > 0;
     const paddingLeft = `${16 + depth * 16}px`;
 
-    const [expanded, setExpanded] = useState(() => hasChildren && isChildActive(item, location.pathname));
+    const [expanded, setExpanded] = useState(() => hasChildren && isChildActive(item, location));
 
     useEffect(() => {
-        if (hasChildren && isChildActive(item, location.pathname)) {
+        if (hasChildren && isChildActive(item, location)) {
             setExpanded(prev => (prev ? prev : true));
         }
-    }, [location.pathname, hasChildren, item]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.pathname, location.search, hasChildren, item]);
 
     const handleParentClick = () => {
         if (collapsed) {
@@ -95,6 +105,8 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
         );
     }
 
+    const isActive = isUrlMatch(item.href, location);
+
     return (
         <li>
             <NavLink
@@ -102,12 +114,12 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
                 end={true}
                 onClick={onClose}
                 title={collapsed ? item.libelle : undefined}
-                style={({ isActive }) => ({
+                style={{
                     paddingLeft,
                     backgroundColor: isActive ? 'var(--color-sidebar-active-bg)' : 'transparent',
                     color: isActive ? 'var(--color-sidebar-fg-active)' : 'var(--color-sidebar-fg)',
                     borderColor: isActive ? 'var(--color-sidebar-brand)' : 'transparent'
-                })}
+                }}
                 className="
                     group relative flex items-center gap-3 pr-4 py-2.5 text-sm font-medium
                     border-l-2 rounded-none transition-colors duration-150

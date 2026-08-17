@@ -54,26 +54,34 @@ CREATE TABLE role_menu (
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
 ('DASHBOARD', 'Tableau de bord', 'LayoutDashboard', '/dashboard', 1, 1, NULL),
 ('GESTION_PERSONNEL', 'Gestion du Personnel', 'Users', NULL, 2, 1, NULL),
-('POINTAGE', 'Pointage & Présences', 'Clock', '/pointages', 3, 1, NULL),
-('PAIE_MODULE', 'Paie & Congés', 'Boxes', '/paie', 4, 1, NULL),
-('ADMIN_MODULE', 'Administration & Paramétrage', 'Settings', NULL, 5, 1, NULL);
+('CONGES_MODULE', 'Congés & Absences', 'Calendar', '/conges', 3, 1, NULL),
+('POINTAGE', 'Pointage & Présences', 'Clock', '/pointages', 4, 1, NULL),
+('PAIE_MODULE', 'Paie', 'Boxes', '/paie', 5, 1, NULL),
+('ADMIN_MODULE', 'Administration & Paramétrage', 'Settings', NULL, 6, 1, NULL);
 
 -- 2. Sous-menus de Niveau 2 - Gestion du Personnel
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
 ('PERS_EMPLOYES', 'Fiches Employés', 'Users', '/employes', 1, 2, 'GESTION_PERSONNEL');
--- 3. Sous-menus de Niveau 2 - Administration & Paramétrage
+
+-- 3. Sous-menus de Niveau 2 - Congés & Absences
+INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
+('CONGES_GENERAL', 'Vue Générale', 'CalendarDays', '/conges', 1, 2, 'CONGES_MODULE');
+
+-- 4. Sous-menus de Niveau 2 - Administration & Paramétrage
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
 ('ADMIN_STRUCT', 'Structure Organisationnelle', 'Boxes', '/admin/structure', 1, 2, 'ADMIN_MODULE'),
 ('ADMIN_PAIE_CONF', 'Paramétrage de la Paie', 'Settings', '/admin/paie-config', 2, 2, 'ADMIN_MODULE'),
 ('ADMIN_SECURITE', 'Sécurité & Droits', 'Shield', '/admin', 3, 2, 'ADMIN_MODULE');
 
--- 4. Attribution des Menus aux Rôles (ROLE_ADMIN = id_role 1, ROLE_AGENT_POINTAGE = id_role 2)
+-- 5. Attribution des Menus aux Rôles (ROLE_ADMIN = id_role 1, ROLE_AGENT_POINTAGE = id_role 2)
 
 -- ROLE_ADMIN (id_role 1) : Accès complet à l'ensemble du SIRH
 INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'DASHBOARD'),
 (1, 'GESTION_PERSONNEL'),
 (1, 'PERS_EMPLOYES'),
+(1, 'CONGES_MODULE'),
+(1, 'CONGES_GENERAL'),
 (1, 'POINTAGE'),
 (1, 'PAIE_MODULE'),
 (1, 'ADMIN_MODULE'),
