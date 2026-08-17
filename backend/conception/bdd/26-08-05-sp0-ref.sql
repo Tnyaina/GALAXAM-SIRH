@@ -181,6 +181,7 @@ CREATE TABLE site_calendrier_ferie (
 CREATE TABLE parametre_global (
     id_parametre SERIAL PRIMARY KEY,
     code_parametre VARCHAR(50) NOT NULL UNIQUE,
+    categorie VARCHAR(30) NOT NULL DEFAULT 'GENERAL',
     valeur VARCHAR(100) NOT NULL,
     description TEXT,
     date_debut DATE NOT NULL,
@@ -189,6 +190,7 @@ CREATE TABLE parametre_global (
 
 -- Index d'optimisation
 CREATE INDEX idx_parametre_actif ON parametre_global(code_parametre) WHERE date_fin IS NULL;
+CREATE INDEX idx_parametre_categorie ON parametre_global(categorie);
 CREATE INDEX idx_site_indemnite_actif ON site_indemnite_config(id_site, id_indemnite) WHERE date_fin IS NULL AND est_actif IS TRUE;
 
 -- ==========================================
@@ -265,8 +267,6 @@ INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, da
 ('OMSI', 'Organisation Médicale Inter-entreprises', 1.50, 5.50, '2026-01-01'),
 ('ISI', 'Impôt Synthétique Intermédiaire', 0.00, 5.00, '2026-01-01');
 
-
-
 -- 8. Barème IRSA Officiel (6 Tranches - Loi de Finances 2026)
 INSERT INTO bareme_irsa (numero_tranche, tranche_min, tranche_max, taux, date_debut) VALUES
 (1, 0.00, 350000.00, 0.00, '2026-01-01'),
@@ -312,14 +312,13 @@ INSERT INTO site_cotisation (id_site, id_type_cotisation) VALUES
 (2, 1),
 (2, 3);
 
-
--- 11. Paramètres Globaux Légaux et Opérationnels
-INSERT INTO parametre_global (code_parametre, valeur, description, date_debut) VALUES
-('SEUIL_SECOND_REPAS', '19:30', 'Heure limite de sortie pour déclencher le 2nd repas', '2026-01-01'),
-('SME_COURANT', '300000.00', 'Salaire Minimum Embauche en Ariary (2026)', '2026-01-01'),
-('PLAFOND_COTISATION_SME_MULT', '8', 'Multiplicateur du SME pour plafonner CNaPS/OSTIE (8x SME)', '2026-01-01'),
-('MINIMUM_PERCEPTION_IRSA', '3000.00', 'Minimum de perception légal IRSA en Ariary', '2026-01-01'),
-('REDUCTION_IRSA_PAR_ENFANT', '2000.00', 'Déduction d impôt IRSA par enfant à charge', '2026-01-01'),
-('SEUIL_HEURES_JOUR', '8', 'Nombre d heures normales quotidiennes', '2026-01-01'),
-('SEUIL_HEURES_SEMAINE', '40', 'Nombre d heures normales hebdomadaires', '2026-01-01'),
-('DIVISEUR_HORAIRE_ABSENCE', '173.33', 'Heures mensuelles conventionnelles pour valoriser une absence', '2026-01-01');
+-- 11. Paramètres Globaux Légaux et Opérationnels (Ref / Paie / RH Général)
+INSERT INTO parametre_global (code_parametre, categorie, valeur, description, date_debut) VALUES
+('SEUIL_SECOND_REPAS', 'RH_GENERAL', '19:30', 'Heure limite de sortie pour déclencher le 2nd repas', '2026-01-01'),
+('SME_COURANT', 'PAIE', '300000.00', 'Salaire Minimum Embauche en Ariary (2026)', '2026-01-01'),
+('PLAFOND_COTISATION_SME_MULT', 'PAIE', '8', 'Multiplicateur du SME pour plafonner CNaPS/OSTIE (8x SME)', '2026-01-01'),
+('MINIMUM_PERCEPTION_IRSA', 'PAIE', '3000.00', 'Minimum de perception légal IRSA en Ariary', '2026-01-01'),
+('REDUCTION_IRSA_PAR_ENFANT', 'PAIE', '2000.00', 'Déduction d impôt IRSA par enfant à charge', '2026-01-01'),
+('SEUIL_HEURES_JOUR', 'RH_GENERAL', '8', 'Nombre d heures normales quotidiennes', '2026-01-01'),
+('SEUIL_HEURES_SEMAINE', 'RH_GENERAL', '40', 'Nombre d heures normales hebdomadaires', '2026-01-01'),
+('DIVISEUR_HORAIRE_ABSENCE', 'PAIE', '173.33', 'Heures mensuelles conventionnelles pour valoriser une absence', '2026-01-01');

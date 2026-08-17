@@ -59,6 +59,7 @@ public class ParametreGlobalController {
                 pg.setCodeParametre(request.getCodeParametre());
                 pg.setValeur(request.getValeur());
                 pg.setDescription(request.getDescription());
+                pg.setCategorie(request.getCategorie());
                 pg.setDateDebut(request.getDateDebut());
                 pg.setDateFin(request.getDateFin());
 
@@ -92,6 +93,7 @@ public class ParametreGlobalController {
                 existing.setCodeParametre(request.getCodeParametre());
                 existing.setValeur(request.getValeur());
                 existing.setDescription(request.getDescription());
+                existing.setCategorie(request.getCategorie());
                 existing.setDateDebut(request.getDateDebut());
                 existing.setDateFin(request.getDateFin());
 

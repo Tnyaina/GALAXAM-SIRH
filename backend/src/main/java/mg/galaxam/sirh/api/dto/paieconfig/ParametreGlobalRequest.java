@@ -6,6 +6,7 @@ public class ParametreGlobalRequest {
     private String codeParametre;
     private String valeur;
     private String description;
+    private String categorie;
     private Date dateDebut;
     private Date dateFin;
 
@@ -15,6 +16,8 @@ public class ParametreGlobalRequest {
     public void setValeur(String valeur) { this.valeur = valeur; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public String getCategorie() { return categorie; }
+    public void setCategorie(String categorie) { this.categorie = categorie; }
     public Date getDateDebut() { return dateDebut; }
     public void setDateDebut(Date dateDebut) { this.dateDebut = dateDebut; }
     public Date getDateFin() { return dateFin; }

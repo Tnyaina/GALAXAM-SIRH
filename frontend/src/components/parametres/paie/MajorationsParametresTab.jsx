@@ -1,31 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Plus, Edit2, CheckCircle, XCircle, Clock, Sliders, ShieldAlert, X } from 'lucide-react';
+import { Plus, Edit2, CheckCircle, XCircle, Clock, ShieldAlert, X } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
-import Input, { Textarea } from '@/components/ui/forms/Input';
+import Input from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDateInput } from '@/utils/paieUtils';
-import Tabs from '@/components/ui/navigation/Tabs';
 
 export default function MajorationsParametresTab() {
-    const [searchParams, setSearchParams] = useSearchParams();
-    const subSection = searchParams.get('subtab') || 'majorations';
-
-    const setSubSection = (newSubTab) => {
-        setSearchParams(prev => {
-            const next = new URLSearchParams(prev);
-            next.set('tab', 'majorations_params');
-            next.set('subtab', newSubTab);
-            return next;
-        });
-    };
-
     const todayStr = fmtDateInput(new Date());
 
     const [majorations, setMajorations] = useState([]);
-    const [parametres, setParametres] = useState([]);
-
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
@@ -38,25 +22,14 @@ export default function MajorationsParametresTab() {
         typeMajoration: '', taux: 0, dateDebut: todayStr, dateFin: ''
     });
 
-    // Modale Paramètre Global
-    const [showParametreModal, setShowParametreModal] = useState(false);
-    const [editingParametre, setEditingParametre] = useState(null);
-    const [parametreFormData, setParametreFormData] = useState({
-        codeParametre: '', valeur: '', description: '', dateDebut: todayStr, dateFin: ''
-    });
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
         try {
-            const [majData, paramData] = await Promise.all([
-                paieConfigService.getTauxMajoration(),
-                paieConfigService.getParametresGlobaux()
-            ]);
-            setMajorations(majData);
-            setParametres(paramData);
+            const majData = await paieConfigService.getTauxMajoration();
+            setMajorations(majData || []);
         } catch (err) {
-            setError("Erreur lors du chargement des majorations et paramètres.");
+            setError("Erreur lors du chargement des taux de majoration.");
             console.error(err);
         } finally {
             setLoading(false);
@@ -87,26 +60,6 @@ export default function MajorationsParametresTab() {
         }
     };
 
-    // Handlers Paramètre Global
-    const handleSaveParametre = async (e) => {
-        e.preventDefault();
-        setActionError(null);
-        setActionSuccess(null);
-        try {
-            if (editingParametre) {
-                await paieConfigService.updateParametreGlobal(editingParametre.idParametre, parametreFormData);
-                setActionSuccess(`Paramètre global "${parametreFormData.codeParametre}" modifié.`);
-            } else {
-                await paieConfigService.createParametreGlobal(parametreFormData);
-                setActionSuccess(`Paramètre global "${parametreFormData.codeParametre}" créé.`);
-            }
-            setShowParametreModal(false);
-            loadData();
-        } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
-        }
-    };
-
     if (loading) {
         return (
             <div className="flex justify-center items-center py-12">
@@ -130,143 +83,65 @@ export default function MajorationsParametresTab() {
                 </div>
             )}
 
-            {/* Onglets internes */}
-            <Tabs
-                tabs={[
-                    { id: 'majorations', label: 'Taux Majorations Heures Supp / Spéciales', icon: <Clock size={16} />, count: majorations.length },
-                    { id: 'parametres', label: 'Paramètres Globaux de Paie', icon: <Sliders size={16} />, count: parametres.length }
-                ]}
-                activeTab={subSection}
-                onChange={setSubSection}
-                variant="pills"
-            />
-
-            {/* SECTION 1: MAJORATIONS */}
-            {subSection === 'majorations' && (
-                <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
-                    <div className="flex justify-between items-center pb-3 border-b border-[var(--color-border-subtle)]">
-                        <h4 className="font-bold text-[var(--color-fg)] text-base">Taux de Majoration des Heures Supplémentaires, Nuit, Dimanche, Fériés</h4>
-                        <Button
-                            onClick={() => {
-                                setEditingMajoration(null);
-                                setMajorationFormData({ typeMajoration: '', taux: 0, dateDebut: todayStr, dateFin: '' });
-                                setActionError(null);
-                                setShowMajorationModal(true);
-                            }}
-                            variant="primary"
-                            size="sm"
-                            iconLeft={<Plus size={16} />}
-                        >
-                            Nouveau Taux de Majoration
-                        </Button>
+            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
+                <div className="flex justify-between items-center pb-3 border-b border-[var(--color-border-subtle)]">
+                    <div>
+                        <h4 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2">
+                            <Clock size={18} className="text-[var(--color-brand-500)]" />
+                            Taux de Majoration des Heures Supplémentaires, Nuit, Dimanche, Fériés
+                        </h4>
+                        <p className="text-xs text-[var(--color-fg-muted)]">Configuration des pourcentages de majoration appliqués au calcul des heures spéciales.</p>
                     </div>
-
-                    <Table>
-                        <Thead>
-                            <Th>Type de Majoration</Th>
-                            <Th className="text-right">Taux (%)</Th>
-                            <Th className="text-right">Taux Multiplicateur</Th>
-                            <Th className="text-right">Actions</Th>
-                        </Thead>
-                        <Tbody>
-                            {majorations.length === 0 ? (
-                                <Tr>
-                                    <Td colSpan={4} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                        Aucun taux de majoration configuré.
-                                    </Td>
-                                </Tr>
-                            ) : (
-                                majorations.map((m) => {
-                                    const percent = ((m.taux || 0) * 100).toFixed(0);
-                                    const mult = (1 + (m.taux || 0)).toFixed(2);
-                                    return (
-                                        <Tr key={m.idTauxMajoration}>
-                                            <Td isData className="font-bold text-[var(--color-brand-500)]">{m.typeMajoration}</Td>
-                                            <Td isData className="text-right font-bold text-[var(--color-warning-500)]">+{percent}%</Td>
-                                            <Td isData muted className="text-right">x{mult}</Td>
-                                            <Td className="text-right">
-                                                <button
-                                                    onClick={() => {
-                                                        setEditingMajoration(m);
-                                                        setMajorationFormData({
-                                                            typeMajoration: m.typeMajoration,
-                                                            taux: m.taux,
-                                                            dateDebut: fmtDateInput(m.dateDebut) || todayStr,
-                                                            dateFin: fmtDateInput(m.dateFin) || ''
-                                                        });
-                                                        setActionError(null);
-                                                        setShowMajorationModal(true);
-                                                    }}
-                                                    className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer"
-                                                >
-                                                    <Edit2 size={15} />
-                                                </button>
-                                            </Td>
-                                        </Tr>
-                                    );
-                                })
-                            )}
-                        </Tbody>
-                    </Table>
+                    <Button
+                        onClick={() => {
+                            setEditingMajoration(null);
+                            setMajorationFormData({ typeMajoration: '', taux: 0, dateDebut: todayStr, dateFin: '' });
+                            setActionError(null);
+                            setShowMajorationModal(true);
+                        }}
+                        variant="primary"
+                        size="sm"
+                        iconLeft={<Plus size={16} />}
+                    >
+                        Nouveau Taux de Majoration
+                    </Button>
                 </div>
-            )}
 
-            {/* SECTION 2: PARAMETRES GLOBAUX */}
-            {subSection === 'parametres' && (
-                <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
-                    <div className="flex justify-between items-center pb-3 border-b border-[var(--color-border-subtle)]">
-                        <div>
-                            <h4 className="font-bold text-[var(--color-fg)] text-base">Paramètres Globaux du Moteur de Paie</h4>
-                            <p className="text-xs text-[var(--color-fg-muted)]">Constantes légales et seuils de calcul (SME, diviseurs horaires, seuils repas).</p>
-                        </div>
-                        <Button
-                            onClick={() => {
-                                setEditingParametre(null);
-                                setParametreFormData({ codeParametre: '', valeur: '', description: '', dateDebut: todayStr, dateFin: '' });
-                                setActionError(null);
-                                setShowParametreModal(true);
-                            }}
-                            variant="primary"
-                            size="sm"
-                            iconLeft={<Plus size={16} />}
-                        >
-                            Nouveau Paramètre
-                        </Button>
-                    </div>
-
-                    <Table>
-                        <Thead>
-                            <Th>Code Paramètre</Th>
-                            <Th>Valeur</Th>
-                            <Th>Description</Th>
-                            <Th className="text-right">Actions</Th>
-                        </Thead>
-                        <Tbody>
-                            {parametres.length === 0 ? (
-                                <Tr>
-                                    <Td colSpan={4} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                        Aucun paramètre global configuré.
-                                    </Td>
-                                </Tr>
-                            ) : (
-                                parametres.map((p) => (
-                                    <Tr key={p.idParametre}>
-                                        <Td isData className="font-bold text-[var(--color-brand-500)]">{p.codeParametre}</Td>
-                                        <Td isData className="font-bold text-[var(--color-success-500)]">{p.valeur}</Td>
-                                        <Td muted className="text-xs">{p.description || '-'}</Td>
+                <Table>
+                    <Thead>
+                        <Th>Type de Majoration</Th>
+                        <Th className="text-right">Taux (%)</Th>
+                        <Th className="text-right">Taux Multiplicateur</Th>
+                        <Th className="text-right">Actions</Th>
+                    </Thead>
+                    <Tbody>
+                        {majorations.length === 0 ? (
+                            <Tr>
+                                <Td colSpan={4} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
+                                    Aucun taux de majoration configuré.
+                                </Td>
+                            </Tr>
+                        ) : (
+                            majorations.map((m) => {
+                                const percent = ((m.taux || 0) * 100).toFixed(0);
+                                const mult = (1 + (m.taux || 0)).toFixed(2);
+                                return (
+                                    <Tr key={m.idTauxMajoration}>
+                                        <Td isData className="font-bold text-[var(--color-brand-500)]">{m.typeMajoration}</Td>
+                                        <Td isData className="text-right font-bold text-[var(--color-warning-500)]">+{percent}%</Td>
+                                        <Td isData muted className="text-right">x{mult}</Td>
                                         <Td className="text-right">
                                             <button
                                                 onClick={() => {
-                                                    setEditingParametre(p);
-                                                    setParametreFormData({
-                                                        codeParametre: p.codeParametre,
-                                                        valeur: p.valeur,
-                                                        description: p.description || '',
-                                                        dateDebut: fmtDateInput(p.dateDebut) || todayStr,
-                                                        dateFin: fmtDateInput(p.dateFin) || ''
+                                                    setEditingMajoration(m);
+                                                    setMajorationFormData({
+                                                        typeMajoration: m.typeMajoration,
+                                                        taux: m.taux,
+                                                        dateDebut: fmtDateInput(m.dateDebut) || todayStr,
+                                                        dateFin: fmtDateInput(m.dateFin) || ''
                                                     });
                                                     setActionError(null);
-                                                    setShowParametreModal(true);
+                                                    setShowMajorationModal(true);
                                                 }}
                                                 className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer"
                                             >
@@ -274,12 +149,12 @@ export default function MajorationsParametresTab() {
                                             </button>
                                         </Td>
                                     </Tr>
-                                ))
-                            )}
-                        </Tbody>
-                    </Table>
-                </div>
-            )}
+                                );
+                            })
+                        )}
+                    </Tbody>
+                </Table>
+            </div>
 
             {/* Modale Majoration */}
             {showMajorationModal && (
@@ -334,76 +209,6 @@ export default function MajorationsParametresTab() {
                             </div>
                             <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
                                 <Button type="button" onClick={() => setShowMajorationModal(false)} variant="ghost" size="sm">
-                                    Annuler
-                                </Button>
-                                <Button type="submit" variant="primary" size="sm">
-                                    Enregistrer
-                                </Button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Modale Paramètre Global */}
-            {showParametreModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                            <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                <Sliders size={18} className="text-[var(--color-brand-500)]" />
-                                {editingParametre ? "Modifier le Paramètre Global" : "Nouveau Paramètre Global"}
-                            </h3>
-                            <button onClick={() => setShowParametreModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSaveParametre} className="p-6 space-y-4">
-                            {actionError && (
-                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-2">
-                                    <ShieldAlert size={16} />
-                                    {actionError}
-                                </div>
-                            )}
-                            <Input
-                                label="Code Paramètre"
-                                required
-                                disabled={!!editingParametre}
-                                value={parametreFormData.codeParametre}
-                                onChange={(e) => setParametreFormData({ ...parametreFormData, codeParametre: e.target.value })}
-                                placeholder="Ex: SME_COURANT, SEUIL_HEURES_SEMAINE"
-                            />
-                            <Input
-                                label="Valeur"
-                                required
-                                value={parametreFormData.valeur}
-                                onChange={(e) => setParametreFormData({ ...parametreFormData, valeur: e.target.value })}
-                                placeholder="Ex: 262000.00"
-                            />
-                            <Textarea
-                                label="Description"
-                                rows={3}
-                                value={parametreFormData.description}
-                                onChange={(e) => setParametreFormData({ ...parametreFormData, description: e.target.value })}
-                                placeholder="Description du paramètre..."
-                            />
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input
-                                    label="Date Début"
-                                    type="date"
-                                    required
-                                    value={fmtDateInput(parametreFormData.dateDebut)}
-                                    onChange={(e) => setParametreFormData({ ...parametreFormData, dateDebut: e.target.value })}
-                                />
-                                <Input
-                                    label="Date Fin (Optionnel)"
-                                    type="date"
-                                    value={fmtDateInput(parametreFormData.dateFin)}
-                                    onChange={(e) => setParametreFormData({ ...parametreFormData, dateFin: e.target.value })}
-                                />
-                            </div>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
-                                <Button type="button" onClick={() => setShowParametreModal(false)} variant="ghost" size="sm">
                                     Annuler
                                 </Button>
                                 <Button type="submit" variant="primary" size="sm">
