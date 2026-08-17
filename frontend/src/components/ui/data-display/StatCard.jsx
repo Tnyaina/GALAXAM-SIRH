@@ -12,7 +12,7 @@ export default function StatCard({ title, value, change, changeLabel, icon, colo
   };
 
   return (
-    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 hover:border-[var(--color-brand-500)] transition-all duration-150">
+    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 hover:border-[var(--color-brand-500)]  ">
       <div className="flex items-start justify-between mb-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">{title}</p>

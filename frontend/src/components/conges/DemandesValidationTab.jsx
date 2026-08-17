@@ -135,8 +135,8 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
   // ── Skeleton ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="space-y-4 animate-fade-in">
-        <div className="h-14 bg-[var(--color-bg-subtle)] animate-pulse" />
+      <div className="space-y-4 ">
+        <div className="h-14 bg-[var(--color-bg-subtle)] " />
         <SkeletonTable rows={8} />
       </div>
     );
@@ -153,7 +153,7 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4 ">
 
       {/* ── Stepper workflow ─────────────────────────────────────────────── */}
       {activeStatut === 'EN_ATTENTE' && nbEnAttente > 0 && (
@@ -166,7 +166,7 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
             <div key={s.step} className="flex items-center gap-2 flex-1">
               {i > 0 && <div className={`h-px flex-1 ${s.active ? 'bg-[var(--color-brand-500)]' : 'bg-[var(--color-border-subtle)]'}`} />}
               <div className={`flex items-center gap-2 whitespace-nowrap ${s.active ? 'text-[var(--color-brand-500)]' : 'text-[var(--color-fg-subtle)]'}`}>
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center font-data text-xs font-bold shrink-0 ${
+                <div className={`w-7 h-7 rounded-none flex items-center justify-center font-data text-xs font-bold shrink-0 ${
                   s.active
                     ? 'bg-[var(--color-brand-500)] text-white shadow-sm'
                     : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]'
@@ -194,7 +194,7 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
                   <button
                     key={s.key}
                     onClick={() => setActiveStatut(s.key)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-400)] ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold border  focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-400)] ${
                       isActive
                         ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)] shadow-sm'
                         : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:border-[var(--color-brand-400)] hover:text-[var(--color-brand-500)]'
@@ -202,9 +202,9 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
                   >
                     <Icon size={12} />
                     {s.label}
-                    <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] font-bold px-1 ${
+                    <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-none text-[10px] font-bold px-1 ${
                       isActive    ? 'bg-white/25 text-white'
-                      : isUrgent  ? 'bg-warning-500 text-white animate-pulse'
+                      : isUrgent  ? 'bg-warning-500 text-white '
                                   : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'
                     }`}>
                       {count}
@@ -226,7 +226,7 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
                 />
                 {/* Indicateur visuel de debounce en cours */}
                 {searchRaw !== searchTerm && (
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-[var(--color-brand-400)] rounded-full animate-pulse" title="Recherche en cours..." />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-[var(--color-brand-400)] rounded-none " title="Recherche en cours..." />
                 )}
               </div>
               <Button variant="primary" size="sm" iconLeft={<Plus size={15} />} onClick={() => setShowDemandeModal(true)}>
@@ -287,7 +287,7 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
                     return (
                       <Tr
                         key={d.idDemandeConge}
-                        className={`hover:bg-[var(--color-surface-hover)] transition-colors group ${
+                        className={`hover:bg-[var(--color-surface-hover)]  group ${
                           isEnAttente ? 'border-l-2 border-l-warning-500' : 'border-l-2 border-l-transparent'
                         }`}
                       >
@@ -349,7 +349,7 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
                               iconLeft={<Eye size={13}/>}
                               onClick={() => openDetail(d)}
                               title="Voir le detail"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="opacity-0 group-hover:opacity-100 "
                             />
                           </div>
                         </Td>
@@ -387,7 +387,7 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
                   Detail de la demande #{selectedDemande.idDemandeConge}
                 </h4>
               </div>
-              <button onClick={closeDetail} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] font-bold text-lg leading-none transition-colors">&times;</button>
+              <button onClick={closeDetail} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] font-bold text-lg leading-none ">&times;</button>
             </div>
 
             {/* Corps */}

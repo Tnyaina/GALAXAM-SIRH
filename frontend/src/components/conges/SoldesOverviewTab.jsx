@@ -117,7 +117,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
   const kpiTotalDemandes = (demandesGlobales || []).length;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       {/* Barre de KPIs avec espacement ajuste */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-2">
         <div className="rounded-none">
@@ -140,7 +140,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
           <div className="flex items-center justify-between w-full">
             <CardTitle>Planning des Absences (Gantt)</CardTitle>
             <div className="flex items-center gap-4">
-              <div className="flex items-center rounded-md border border-[var(--color-border)] shadow-sm bg-[var(--color-surface)] overflow-hidden">
+              <div className="flex items-center rounded-none border border-[var(--color-border)] shadow-sm bg-[var(--color-surface)] overflow-hidden">
                 <Button variant="ghost" size="sm" iconLeft={<ChevronLeft size={18} />} onClick={handlePrevMonth} className="!px-2 !rounded-none !border-0" title="Mois précédent" />
                 <div className="w-[1px] h-5 bg-[var(--color-border-subtle)]" />
                 <Input 
@@ -184,7 +184,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
               </div>
               
               {ganttData.map((item, idx) => (
-                <div key={idx} className="flex border-b border-[var(--color-border-subtle)] last:border-0 hover:bg-[var(--color-surface-hover)] transition-colors">
+                <div key={idx} className="flex border-b border-[var(--color-border-subtle)] last:border-0 hover:bg-[var(--color-surface-hover)] ">
                   <div className="w-48 shrink-0 p-3 text-sm font-semibold text-[var(--color-fg)] border-r border-[var(--color-border-subtle)] truncate">
                     {item.employe}
                   </div>
@@ -201,7 +201,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
                     })}
                     {/* Barre du Gantt superposée */}
                     <div 
-                      className={`absolute top-1.5 bottom-1.5 rounded-md shadow-sm flex items-center px-2 overflow-hidden border transition-all hover:brightness-110 cursor-help ${
+                      className={`absolute top-1.5 bottom-1.5 rounded-none shadow-sm flex items-center px-2 overflow-hidden border  hover:brightness-110 cursor-help ${
                         item.statut === 'EN_ATTENTE' 
                           ? 'bg-warning-500 border-warning-600 text-white' 
                           : 'bg-[var(--color-brand-500)] border-[var(--color-brand-600)] text-white'

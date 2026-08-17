@@ -257,14 +257,14 @@ export default function CarriereTab({
 
             {/* Messages de Succès / Erreur */}
             {actionSuccessMsg && (
-                <div className="bg-success-500/10 text-success-700 dark:text-success-400 border border-success-500/30 p-4 rounded-sm text-xs font-bold flex items-center gap-2">
+                <div className="bg-success-500/10 text-success-700 dark:text-success-400 border border-success-500/30 p-4 rounded-none text-xs font-bold flex items-center gap-2">
                     <CheckCircle size={16} />
                     <span>{actionSuccessMsg}</span>
                 </div>
             )}
 
             {errorMsg && (
-                <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 p-4 rounded-sm text-xs flex items-center gap-2">
+                <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 p-4 rounded-none text-xs flex items-center gap-2">
                     <ShieldAlert size={16} />
                     <span>{errorMsg}</span>
                 </div>
@@ -328,7 +328,7 @@ export default function CarriereTab({
                     affectationActive={affectationActive}
                     workflowActif={workflowCplActif}
                     initialData={editInitialData}
-                    onSuccess={(res) => handleSuccessAction('Brouillon de transition enregistré avec succès !', res)}
+                    onSuccess={(res) => handleSuccessAction('Brouillon de  enregistré avec succès !', res)}
                 />
             )}
 
@@ -408,8 +408,8 @@ export default function CarriereTab({
 
             {/* Overlay de chargement fluide */}
             {isTransitioning && (
-                <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-ink-950/70 backdrop-blur-sm transition-all duration-300">
-                    <div className="flex flex-col items-center gap-4 p-6 bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-800 rounded-lg shadow-2xl max-w-sm w-full text-center">
+                <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-ink-950/70 backdrop-blur-sm  ">
+                    <div className="flex flex-col items-center gap-4 p-6 bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-800 rounded-none shadow-2xl max-w-sm w-full text-center">
                         <Loading size="md" label="Enregistrement en cours..." />
                         <p className="text-[11px] text-ink-400 -mt-2">
                             Préparation du récapitulatif DAF...

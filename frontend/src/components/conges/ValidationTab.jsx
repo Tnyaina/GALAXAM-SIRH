@@ -89,21 +89,21 @@ export default function ValidationTab({ demandesAValider = [], onReload }) {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       {/* Workflow Stepper simplifié */}
       <div className="flex items-center gap-4 bg-[var(--color-surface)] p-4 border border-[var(--color-border-subtle)]">
          <div className="flex items-center gap-2 text-[var(--color-fg-muted)]">
-           <div className="w-8 h-8 rounded-full bg-[var(--color-bg-subtle)] flex items-center justify-center font-data text-xs font-bold">1</div>
+           <div className="w-8 h-8 rounded-none bg-[var(--color-bg-subtle)] flex items-center justify-center font-data text-xs font-bold">1</div>
            <span className="text-sm font-semibold uppercase tracking-wide">Soumission</span>
          </div>
          <div className="h-px bg-[var(--color-border-subtle)] flex-1 mx-2" />
          <div className="flex items-center gap-2 text-[var(--color-brand-500)]">
-           <div className="w-8 h-8 rounded-full bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/20 flex items-center justify-center font-data text-xs font-bold">2</div>
+           <div className="w-8 h-8 rounded-none bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/20 flex items-center justify-center font-data text-xs font-bold">2</div>
            <span className="text-sm font-semibold uppercase tracking-wide">Validation RH/DAF</span>
          </div>
          <div className="h-px bg-[var(--color-border-subtle)] flex-1 mx-2" />
          <div className="flex items-center gap-2 text-[var(--color-fg-subtle)]">
-           <div className="w-8 h-8 rounded-full bg-[var(--color-bg-subtle)] flex items-center justify-center font-data text-xs font-bold">3</div>
+           <div className="w-8 h-8 rounded-none bg-[var(--color-bg-subtle)] flex items-center justify-center font-data text-xs font-bold">3</div>
            <span className="text-sm font-semibold uppercase tracking-wide">Traitement</span>
          </div>
       </div>

@@ -33,7 +33,7 @@ export default function Badge({
   variant = 'default',
   size = 'md',
   dot = false,
-  rounded = false,
+  rounded-none = false,
   className = '',
   style,
   ...props
@@ -46,7 +46,7 @@ export default function Badge({
       {...props}
       className={`
         inline-flex items-center gap-1.5 font-semibold tracking-wide uppercase text-[0.7em]
-        ${rounded ? 'rounded-full' : 'rounded-none'}
+        ${rounded-none ? 'rounded-none' : 'rounded-none'}
         ${variants[currentVariant]}
         ${sizes[size]}
         ${className}
@@ -56,7 +56,7 @@ export default function Badge({
         <span
           className={`
             ${dotSizes[size]}
-            rounded-full
+            rounded-none
             ${dotColors[currentVariant] ?? dotColors.default}
           `}
         />

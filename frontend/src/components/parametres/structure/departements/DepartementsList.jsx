@@ -18,7 +18,7 @@ export default function DepartementsList({
                 </h3>
                 <button
                     onClick={onOpenCreate}
-                    className="p-1 hover:bg-[var(--color-bg-subtle)] rounded-none transition-colors text-[var(--color-brand-500)] cursor-pointer"
+                    className="p-1 hover:bg-[var(--color-bg-subtle)] rounded-none  text-[var(--color-brand-500)] cursor-pointer"
                     title="Créer un département"
                 >
                     <Plus size={18} />
@@ -33,7 +33,7 @@ export default function DepartementsList({
                             key={dept.idDepartement}
                             onClick={() => onSelectDepartement(dept)}
                             className={`
-                                w-full flex items-center justify-between p-3 rounded-none border text-left cursor-pointer transition-all
+                                w-full flex items-center justify-between p-3 rounded-none border text-left cursor-pointer 
                                 ${isSelected
                                     ? 'bg-[var(--color-brand-500)]/10 border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-semibold'
                                     : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)]'

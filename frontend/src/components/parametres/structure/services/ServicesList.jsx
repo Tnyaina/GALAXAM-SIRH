@@ -61,14 +61,14 @@ export default function ServicesList({
                                                 <div className="flex justify-end items-center gap-2">
                                                     <button
                                                         onClick={() => onOpenEditService(srv)}
-                                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none transition-all cursor-pointer"
+                                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
                                                         title="Modifier"
                                                     >
                                                         <Edit2 size={15} />
                                                     </button>
                                                     <button
                                                         onClick={() => onToggleServiceStatus(srv)}
-                                                        className={`px-2 py-1 text-xs font-bold rounded-none transition-all cursor-pointer uppercase ${
+                                                        className={`px-2 py-1 text-xs font-bold rounded-none  cursor-pointer uppercase ${
                                                             srv.estActif
                                                                 ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
                                                                 : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'

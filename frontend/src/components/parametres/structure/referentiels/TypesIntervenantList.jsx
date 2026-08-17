@@ -62,7 +62,7 @@ export default function TypesIntervenantList({
                                 <Td className="text-right">
                                     <button
                                         onClick={() => onOpenEdit(ti)}
-                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none transition-all cursor-pointer"
+                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
                                         title="Modifier"
                                     >
                                         <Edit2 size={16} />

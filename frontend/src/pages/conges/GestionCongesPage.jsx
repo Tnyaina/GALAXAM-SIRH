@@ -69,11 +69,11 @@ export default function GestionCongesPage() {
   ];
 
   return (
-    <div className="space-y-6 font-sans animate-fade-in">
+    <div className="space-y-6 font-sans ">
       {/* Lien retour */}
       <Link 
         to="/dashboard" 
-        className="inline-flex items-center gap-2 text-sm text-[var(--color-brand-500)] hover:underline font-semibold transition-all"
+        className="inline-flex items-center gap-2 text-sm text-[var(--color-brand-500)] hover:underline font-semibold "
       >
         <ArrowLeft size={16} />
         Retour au Tableau de bord
@@ -82,7 +82,7 @@ export default function GestionCongesPage() {
       {/* En-tête de la page (Design Premium sans animations/arrondis) */}
       <div className="relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-sm p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         {/* Motif décoratif arrière-plan */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--color-brand-500)]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--color-brand-500)]/5 rounded-none blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
         
         <div className="relative flex items-center gap-5">
           <div className="w-14 h-14 bg-gradient-to-br from-[var(--color-brand-400)] to-[var(--color-brand-600)] text-white rounded-none flex items-center justify-center shadow-lg shadow-[var(--color-brand-500)]/20 shrink-0">

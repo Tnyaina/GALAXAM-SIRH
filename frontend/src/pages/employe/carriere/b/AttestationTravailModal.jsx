@@ -144,9 +144,9 @@ export default function AttestationTravailModal({
             {/* Modale Container */}
             <div
                 className={`
-                    relative bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-lg shadow-2xl
+                    relative bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-none shadow-2xl
                     w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col
-                    transform transition-all duration-300 ease-out print:shadow-none print:border-none print:w-full print:max-w-none print:h-auto print:max-h-none print:overflow-visible print:transform-none print:p-0 print:bg-white
+                    transform    print:shadow-none print:border-none print:w-full print:max-w-none print:h-auto print:max-h-none print:overflow-visible print:transform-none print:p-0 print:bg-white
                     ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
                 `}
             >
@@ -167,7 +167,7 @@ export default function AttestationTravailModal({
                         >
                             Imprimer / Imprimer en PDF
                         </Button>
-                        <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-sm">
+                        <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-none">
                             <X size={20} />
                         </button>
                     </div>
@@ -178,11 +178,11 @@ export default function AttestationTravailModal({
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="flex items-center gap-2">
                             <span className="font-semibold text-ink-600 dark:text-ink-300">Ancienneté :</span>
-                            <div className="inline-flex p-0.5 bg-ink-150 dark:bg-ink-800 rounded-sm">
+                            <div className="inline-flex p-0.5 bg-ink-150 dark:bg-ink-800 rounded-none">
                                 <button
                                     type="button"
                                     onClick={() => setTypeAnciennete('contrat')}
-                                    className={`px-3 py-1 text-xs font-semibold rounded-xs transition-all cursor-pointer ${
+                                    className={`px-3 py-1 text-xs font-semibold rounded-xs  cursor-pointer ${
                                         typeAnciennete === 'contrat'
                                             ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs font-bold'
                                             : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-white'
@@ -193,7 +193,7 @@ export default function AttestationTravailModal({
                                 <button
                                     type="button"
                                     onClick={() => setTypeAnciennete('globale')}
-                                    className={`px-3 py-1 text-xs font-semibold rounded-xs transition-all cursor-pointer ${
+                                    className={`px-3 py-1 text-xs font-semibold rounded-xs  cursor-pointer ${
                                         typeAnciennete === 'globale'
                                             ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs font-bold'
                                             : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-white'
@@ -209,7 +209,7 @@ export default function AttestationTravailModal({
                                 type="checkbox"
                                 checked={inclureSalaire}
                                 onChange={(e) => setInclureSalaire(e.target.checked)}
-                                className="rounded border-ink-300 text-brand-500 focus:ring-brand-500"
+                                className="rounded-none border-ink-300 text-brand-500 focus:ring-brand-500"
                             />
                             <span>Mentionner le salaire mensuel ({salaireBaseFmt})</span>
                         </label>

@@ -113,7 +113,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
       <div className="flex border-b border-[var(--color-border-subtle)] mt-2">
         <button
           onClick={() => setActiveSubTab('demandes')}
-          className={`px-4 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${
+          className={`px-4 py-3 text-xs font-bold uppercase tracking-wider  ${
             activeSubTab === 'demandes'
               ? 'border-b-2 border-[var(--color-brand-500)] text-[var(--color-brand-500)]'
               : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
@@ -123,7 +123,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
         </button>
         <button
           onClick={() => setActiveSubTab('registre')}
-          className={`px-4 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${
+          className={`px-4 py-3 text-xs font-bold uppercase tracking-wider  ${
             activeSubTab === 'registre'
               ? 'border-b-2 border-[var(--color-brand-500)] text-[var(--color-brand-500)]'
               : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
@@ -134,7 +134,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
       </div>
 
       {activeSubTab === 'demandes' && (
-        <Card className="rounded-none border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-sm animate-fade-in">
+        <Card className="rounded-none border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-sm ">
           <CardHeader>
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-2">
@@ -162,7 +162,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                 <Tbody>
                   {demandesEmploye.length === 0 ? (
                     <Tr>
-                      <Td colSpan="6" className="text-center py-6 text-[var(--color-fg-muted)] italic">
+                      <Td colSpan="6" className="text-center py-6 text-[var(--color-fg-muted)] ">
                         Aucune demande de congé enregistrée.
                       </Td>
                     </Tr>
@@ -241,7 +241,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
       )}
 
       {activeSubTab === 'registre' && (
-        <div className="animate-fade-in">
+        <div className="">
           <MouvementsSoldeTable
             idEmploye={idEmploye}
             mouvements={mouvements}

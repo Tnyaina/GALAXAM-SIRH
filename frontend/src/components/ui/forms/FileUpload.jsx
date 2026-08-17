@@ -43,7 +43,7 @@ export function FileUpload({ onFileSelect, accept = '.pdf,.png,.jpg', maxMb = 10
                     onDragLeave={() => setDragOver(false)}
                     onDrop={handleDrop}
                     className={`
-            p-6 text-center border-2 border-dashed cursor-pointer transition-colors rounded-none
+            p-6 text-center border-2 border-dashed cursor-pointer  rounded-none
             ${dragOver
                             ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/5'
                             : 'border-[var(--color-border)] bg-[var(--color-bg-subtle)] hover:border-[var(--color-brand-500)]'}
@@ -69,7 +69,7 @@ export function FileUpload({ onFileSelect, accept = '.pdf,.png,.jpg', maxMb = 10
                     <button
                         type="button"
                         onClick={() => { setFile(null); if (onFileSelect) onFileSelect(null); }}
-                        className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] transition-colors rounded-none cursor-pointer"
+                        className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)]  rounded-none cursor-pointer"
                         aria-label="Supprimer le fichier"
                     >
                         <X size={15} />

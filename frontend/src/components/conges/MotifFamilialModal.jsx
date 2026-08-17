@@ -111,13 +111,13 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
               placeholder="Ex: 2"
             />
 
-            <div className="bg-[var(--color-bg-subtle)] p-4 rounded-lg border border-[var(--color-border-subtle)]">
+            <div className="bg-[var(--color-bg-subtle)] p-4 rounded-none border border-[var(--color-border-subtle)]">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.justificatifRequis}
                   onChange={(e) => handleChange('justificatifRequis', e.target.checked)}
-                  className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500"
+                  className="w-4 h-4 rounded-none text-brand-600 focus:ring-brand-500"
                 />
                 <span className="text-sm font-medium text-[var(--color-fg)]">Justificatif obligatoire (Acte de mariage, etc.)</span>
               </label>

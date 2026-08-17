@@ -25,7 +25,7 @@ export function Tabs({
                             type="button"
                             onClick={() => onChange(tab.id)}
                             className={`
-                                flex items-center gap-2 py-4 px-4 border-b-2 text-sm font-semibold transition-all cursor-pointer whitespace-nowrap rounded-none
+                                flex items-center gap-2 py-4 px-4 border-b-2 text-sm font-semibold  cursor-pointer whitespace-nowrap rounded-none
                                 ${isActive
                                     ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-bold'
                                     : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'

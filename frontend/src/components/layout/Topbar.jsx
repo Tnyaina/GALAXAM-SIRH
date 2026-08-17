@@ -54,7 +54,7 @@ export default function Topbar({ onMenuClick, title, onThemeToggle, isDarkMode }
                 <div className="relative">
                     <button
                         onClick={() => setShowDropdown((v) => !v)}
-                        className="min-h-[44px] px-2 flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer"
+                        className="min-h-[44px] px-2 flex items-center gap-2.5 hover:opacity-80  cursor-pointer"
                         aria-label="Menu profil utilisateur"
                         aria-expanded={showDropdown}
                     >

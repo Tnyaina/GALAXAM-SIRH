@@ -78,14 +78,14 @@ export default function ParametresCongesTab() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       <div className="flex flex-col md:flex-row gap-6">
         
         {/* Menu Latéral Paramètres */}
         <div className="w-full md:w-64 shrink-0 space-y-1">
           <button
             onClick={() => setActiveSubTab('types')}
-            className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-l-2 transition-all ${
+            className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-l-2  ${
               activeSubTab === 'types' 
                 ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-600)] border-[var(--color-brand-500)]' 
                 : 'bg-transparent text-[var(--color-fg-subtle)] border-transparent hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-fg)]'
@@ -97,7 +97,7 @@ export default function ParametresCongesTab() {
           
           <button
             onClick={() => setActiveSubTab('evenements')}
-            className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-l-2 transition-all ${
+            className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-l-2  ${
               activeSubTab === 'evenements' 
                 ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-600)] border-[var(--color-brand-500)]' 
                 : 'bg-transparent text-[var(--color-fg-subtle)] border-transparent hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-fg)]'

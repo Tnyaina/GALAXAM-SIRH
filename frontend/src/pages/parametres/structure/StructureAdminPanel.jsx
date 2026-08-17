@@ -29,7 +29,7 @@ export default function StructureAdminPanel() {
             {/* Lien retour */}
             <Link 
                 to="/dashboard" 
-                className="inline-flex items-center gap-2 text-sm text-[var(--color-brand-500)] hover:underline font-semibold transition-all"
+                className="inline-flex items-center gap-2 text-sm text-[var(--color-brand-500)] hover:underline font-semibold "
             >
                 <ArrowLeft size={16} />
                 Retour au Tableau de bord

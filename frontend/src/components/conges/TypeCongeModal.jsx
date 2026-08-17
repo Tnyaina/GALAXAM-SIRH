@@ -143,13 +143,13 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[var(--color-bg-subtle)] p-4 rounded-lg border border-[var(--color-border-subtle)]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[var(--color-bg-subtle)] p-4 rounded-none border border-[var(--color-border-subtle)]">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.estPaye}
                   onChange={(e) => handleChange('estPaye', e.target.checked)}
-                  className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500"
+                  className="w-4 h-4 rounded-none text-brand-600 focus:ring-brand-500"
                 />
                 <span className="text-sm font-medium text-[var(--color-fg)]">Congé Payé (maintien de salaire)</span>
               </label>
@@ -159,7 +159,7 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
                   type="checkbox"
                   checked={formData.decompteSoldeAcquis}
                   onChange={(e) => handleChange('decompteSoldeAcquis', e.target.checked)}
-                  className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500"
+                  className="w-4 h-4 rounded-none text-brand-600 focus:ring-brand-500"
                 />
                 <span className="text-sm font-medium text-[var(--color-fg)]">Décompte du solde principal acquis</span>
               </label>
@@ -169,7 +169,7 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
                   type="checkbox"
                   checked={formData.exigeJustificatif}
                   onChange={(e) => handleChange('exigeJustificatif', e.target.checked)}
-                  className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500"
+                  className="w-4 h-4 rounded-none text-brand-600 focus:ring-brand-500"
                 />
                 <span className="text-sm font-medium text-[var(--color-fg)]">Exige un justificatif obligatoire</span>
               </label>
@@ -179,7 +179,7 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
                   type="checkbox"
                   checked={formData.soumisDelaiPreavis}
                   onChange={(e) => handleChange('soumisDelaiPreavis', e.target.checked)}
-                  className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500"
+                  className="w-4 h-4 rounded-none text-brand-600 focus:ring-brand-500"
                 />
                 <span className="text-sm font-medium text-[var(--color-fg)]">Soumis au délai de préavis (15j)</span>
               </label>
@@ -189,13 +189,13 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
                   type="checkbox"
                   checked={formData.suspendAcquisitionSolde}
                   onChange={(e) => handleChange('suspendAcquisitionSolde', e.target.checked)}
-                  className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500"
+                  className="w-4 h-4 rounded-none text-brand-600 focus:ring-brand-500"
                 />
                 <span className="text-sm font-medium text-[var(--color-fg)]">Suspend l'acquisition du solde</span>
               </label>
             </div>
             
-            <div className="flex gap-2 items-start bg-sky-50 text-sky-800 p-3 text-xs rounded-md">
+            <div className="flex gap-2 items-start bg-sky-50 text-sky-800 p-3 text-xs rounded-none">
                 <Info size={16} className="shrink-0 mt-0.5" />
                 <p>Certains paramètres (Plafonds, Types bascules, Pools mutualisés) requièrent une configuration avancée et ne sont pas tous modifiables ici.</p>
             </div>

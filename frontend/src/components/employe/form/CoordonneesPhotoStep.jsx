@@ -26,13 +26,13 @@ export default function CoordonneesPhotoStep({
                         )}
                         {uploadingPhoto && (
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-none animate-spin"></div>
                             </div>
                         )}
                     </div>
                     <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-3">
-                            <label className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider bg-brand-500 hover:bg-brand-600 text-white rounded-sm cursor-pointer transition-colors">
+                            <label className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider bg-brand-500 hover:bg-brand-600 text-white rounded-none cursor-pointer ">
                                 <Upload size={14} />
                                 {uploadingPhoto ? 'Téléversement...' : 'Parcourir un fichier'}
                                 <input 

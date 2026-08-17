@@ -49,7 +49,7 @@ function SkeletonListRows({ count = 3 }) {
         <div className="divide-y divide-[var(--color-border-subtle)] py-1">
             {Array.from({ length: count }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 py-3 px-1">
-                    <Skeleton className="w-2 h-2 rounded-full shrink-0" />
+                    <Skeleton className="w-2 h-2 rounded-none shrink-0" />
                     <div className="flex-1 space-y-1 min-w-0">
                         <Skeleton className="h-3.5 w-1/3" />
                         <Skeleton className="h-2.5 w-1/2" />
@@ -72,7 +72,7 @@ function ExpandableList({ items, renderItem, initialCount = 5 }) {
             {hidden > 0 && (
                 <button
                     onClick={() => setExpanded(true)}
-                    className="w-full mt-2 py-2.5 min-h-11 text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+                    className="w-full mt-2 py-2.5 min-h-11 text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] "
                 >
                     Voir {hidden} de plus
                 </button>
@@ -88,9 +88,9 @@ const AlerteRow = memo(function AlerteRow({ alerte }) {
     return (
         <Link
             to={`/employes/${alerte.idEmploye}?tab=carriere`}
-            className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)] transition-colors group"
+            className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)]  group"
         >
-            <div className={`w-2 h-2 rounded-full shrink-0 ${isToday ? 'bg-[var(--color-danger-500)] animate-pulse' : isUrgent ? 'bg-[var(--color-warning-500)]' : 'bg-[var(--color-brand-500)]'}`} />
+            <div className={`w-2 h-2 rounded-none shrink-0 ${isToday ? 'bg-[var(--color-danger-500)] ' : isUrgent ? 'bg-[var(--color-warning-500)]' : 'bg-[var(--color-brand-500)]'}`} />
             <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-[var(--color-fg)] truncate">
                     {alerte.nomPrenom}
@@ -104,7 +104,7 @@ const AlerteRow = memo(function AlerteRow({ alerte }) {
             <Badge variant={isToday ? 'danger' : isUrgent ? 'warning' : 'primary'} size="sm">
                 {isToday ? 'Auj.' : `J-${alerte.joursRestants}`}
             </Badge>
-            <ChevronRight size={13} className="text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand-500)] transition-colors shrink-0" />
+            <ChevronRight size={13} className="text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand-500)]  shrink-0" />
         </Link>
     );
 });
@@ -114,9 +114,9 @@ const ActiviteRow = memo(function ActiviteRow({ ev }) {
     return (
         <Link
             to={`/employes/${ev.idEmploye}?tab=carriere`}
-            className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)] transition-colors group"
+            className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)]  group"
         >
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[10px] font-bold ${isValide ? 'bg-[var(--color-success-500)]' : 'bg-[var(--color-fg-subtle)]'}`}>
+            <div className={`w-7 h-7 rounded-none flex items-center justify-center shrink-0 text-white text-[10px] font-bold ${isValide ? 'bg-[var(--color-success-500)]' : 'bg-[var(--color-fg-subtle)]'}`}>
                 {ev.nomPrenom?.charAt(0) || '?'}
             </div>
             <div className="flex-1 min-w-0">
@@ -361,7 +361,7 @@ export default function Dashboard() {
                                             </span>
                                             <Link
                                                 to="/conges"
-                                                className="px-2.5 py-1 rounded-none text-[11px] font-semibold uppercase tracking-wide bg-[var(--color-brand-500)]/15 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/30 hover:bg-[var(--color-brand-500)] hover:text-white transition-all"
+                                                className="px-2.5 py-1 rounded-none text-[11px] font-semibold uppercase tracking-wide bg-[var(--color-brand-500)]/15 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/30 hover:bg-[var(--color-brand-500)] hover:text-white "
                                             >
                                                 Valider
                                             </Link>
@@ -487,7 +487,7 @@ export default function Dashboard() {
                                 <Link
                                     key={to}
                                     to={to}
-                                    className="flex items-center justify-between py-2.5 px-3 bg-[var(--color-bg-subtle)] hover:bg-[var(--color-surface-hover)] border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] transition-all text-xs font-semibold text-[var(--color-fg)]"
+                                    className="flex items-center justify-between py-2.5 px-3 bg-[var(--color-bg-subtle)] hover:bg-[var(--color-surface-hover)] border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)]  text-xs font-semibold text-[var(--color-fg)]"
                                 >
                                     <span className="flex items-center gap-2">
                                         <Icon size={14} className="text-[var(--color-brand-500)]" />

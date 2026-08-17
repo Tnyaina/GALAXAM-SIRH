@@ -41,7 +41,7 @@ export default function Alert({ type = 'info', title, message, children, onClose
       {onClose && (
         <button
           onClick={onClose}
-          className={`p-0.5 rounded-none hover:bg-black/5 dark:hover:bg-white/10 ${t.text} flex-shrink-0 transition-colors`}
+          className={`p-0.5 rounded-none hover:bg-black/5 dark:hover:bg-white/10 ${t.text} flex-shrink-0 `}
           aria-label="Fermer l'alerte"
         >
           <X size={15} />

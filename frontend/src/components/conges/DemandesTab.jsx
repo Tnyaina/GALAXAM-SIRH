@@ -51,7 +51,7 @@ export default function DemandesTab({
   });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 ">
       {/* Barre d'outils et filtres */}
       <Card>
         <CardBody className="p-4">

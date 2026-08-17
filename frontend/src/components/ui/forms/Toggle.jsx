@@ -7,14 +7,14 @@ export function Toggle({ checked, onChange, label, description }) {
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`
-          relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent
-          transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]
+          relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-none border-2 border-transparent
+            focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]
           ${checked ? 'bg-[var(--color-brand-500)]' : 'bg-[var(--color-border)]'}
         `}
       >
         <span className={`
-          pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm
-          transition duration-200 ease-in-out
+          pointer-events-none inline-block h-5 w-5 transform rounded-none bg-white shadow-sm
+            
           ${checked ? 'translate-x-5' : 'translate-x-0'}
         `} />
       </button>
@@ -42,7 +42,7 @@ export function Checkbox({ checked, onChange, label, description, indeterminate 
           className="sr-only"
         />
         <div className={`
-          w-4 h-4 rounded-none border-2 flex items-center justify-center transition-all duration-150
+          w-4 h-4 rounded-none border-2 flex items-center justify-center  
           ${checked || isMixed
             ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)] text-white'
             : 'border-[var(--color-border)] group-hover:border-[var(--color-fg-muted)] bg-[var(--color-surface)]'}

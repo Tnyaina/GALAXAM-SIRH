@@ -40,7 +40,7 @@ export default function Modal({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity"
+                className="absolute inset-0 bg-black/60 backdrop-blur-[2px] "
                 onClick={onClose}
             />
 
@@ -48,7 +48,7 @@ export default function Modal({
             <div
                 className={`
           relative w-full ${sizes[size] || sizes.md} bg-[var(--color-surface)] border border-[var(--color-border)]
-          shadow-2xl rounded-none flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150
+          shadow-2xl rounded-none flex flex-col overflow-hidden animate-in fade-in zoom-in-95 
           ${className}
         `}
             >
@@ -61,7 +61,7 @@ export default function Modal({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface)] transition-colors rounded-none cursor-pointer"
+                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface)]  rounded-none cursor-pointer"
                         aria-label="Fermer la modale"
                     >
                         <X size={18} />

@@ -126,7 +126,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
             <Tbody>
               {filteredMouvements.length === 0 ? (
                 <Tr>
-                  <Td colSpan="5" className="text-center py-6 text-[var(--color-fg-muted)] italic">
+                  <Td colSpan="5" className="text-center py-6 text-[var(--color-fg-muted)] ">
                     Aucun mouvement de solde enregistré.
                   </Td>
                 </Tr>

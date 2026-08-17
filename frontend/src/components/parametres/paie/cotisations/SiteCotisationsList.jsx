@@ -65,7 +65,7 @@ export default function SiteCotisationsList({
                                     {sc.estActif ? (
                                         <button
                                             onClick={() => onToggleStatus(sc)}
-                                            className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none transition-all cursor-pointer"
+                                            className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none  cursor-pointer"
                                             title="Désactiver l'association"
                                         >
                                             <Power size={16} />
@@ -73,7 +73,7 @@ export default function SiteCotisationsList({
                                     ) : (
                                         <button
                                             onClick={() => onToggleStatus(sc)}
-                                            className="p-1.5 text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10 rounded-none transition-all cursor-pointer"
+                                            className="p-1.5 text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10 rounded-none  cursor-pointer"
                                             title="Réactiver l'association"
                                         >
                                             <Check size={16} />

@@ -202,18 +202,18 @@ export default function EmbaucheModal({
     const respObj = responsables.find(r => String(r.idEmploye) === String(formData.idResponsableHierarchique));
 
     return (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto transition-opacity duration-200 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
-            <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-2xl w-full max-w-[1440px] max-h-[95vh] flex flex-col overflow-hidden">
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto   ${mounted ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl w-full max-w-[1440px] max-h-[95vh] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="px-7 py-4 border-b border-ink-150 dark:border-ink-700 flex items-center justify-between bg-ink-50/50 dark:bg-ink-950/40">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-brand-500 text-white rounded-sm flex items-center justify-center shadow-md">
+                        <div className="w-10 h-10 bg-brand-500 text-white rounded-none flex items-center justify-center shadow-md">
                             <Briefcase size={20} />
                         </div>
                         <div>
                             <h2 className="font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
                                 {isEditMode ? 'Corriger le Brouillon d\'Embauche' : 'Nouvelle Embauche Initiale'}
-                                <span className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono rounded-sm">
+                                <span className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono rounded-none">
                                     BROUILLON
                                 </span>
                             </h2>
@@ -226,12 +226,12 @@ export default function EmbaucheModal({
                         <button
                             type="button"
                             onClick={() => setShowPreviewMobile(!showPreviewMobile)}
-                            className="lg:hidden p-2 text-xs font-semibold bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200 rounded-sm flex items-center gap-1"
+                            className="lg:hidden p-2 text-xs font-semibold bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200 rounded-none flex items-center gap-1"
                         >
                             {showPreviewMobile ? <EyeOff size={14} /> : <Eye size={14} />}
                             {showPreviewMobile ? 'Masquer Aperçu' : 'Aperçu'}
                         </button>
-                        <button onClick={onClose} className="p-1.5 text-ink-400 hover:text-ink-800 dark:hover:text-white hover:bg-ink-100 dark:hover:bg-ink-800 rounded-sm transition-colors cursor-pointer">
+                        <button onClick={onClose} className="p-1.5 text-ink-400 hover:text-ink-800 dark:hover:text-white hover:bg-ink-100 dark:hover:bg-ink-800 rounded-none  cursor-pointer">
                             <X size={20} />
                         </button>
                     </div>
@@ -246,7 +246,7 @@ export default function EmbaucheModal({
                         ) : (
                             <form id="embauche-form" onSubmit={handleSubmit} className="space-y-6">
                                 {errorMsg && (
-                                    <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-sm p-3 text-xs flex items-center gap-2">
+                                    <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-none p-3 text-xs flex items-center gap-2">
                                         <ShieldAlert size={16} />
                                         {errorMsg}
                                     </div>
@@ -301,7 +301,7 @@ export default function EmbaucheModal({
                                 <FileSignature size={14} className="text-brand-500" />
                                 Aperçu de la Convention / Contrat
                             </h3>
-                            <span className="text-[10px] font-mono font-bold text-brand-500 uppercase tracking-widest bg-brand-500/10 px-2 py-0.5 rounded-sm">
+                            <span className="text-[10px] font-mono font-bold text-brand-500 uppercase tracking-widest bg-brand-500/10 px-2 py-0.5 rounded-none">
                                 Temps Réel
                             </span>
                         </div>

@@ -53,9 +53,9 @@ export default function CarriereTimeline({
         <div className="space-y-6">
             {/* 🟡 BANNIÈRE : BROUILLON D'EMBAUCHE / TRANSITION EN COURS */}
             {brouillonWf && brouillonWf.codeStatutWorkflow === 'BROUILLON' && (
-                <div className="bg-warning-500/10 border border-warning-500/30 p-5 rounded-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="bg-warning-500/10 border border-warning-500/30 p-5 rounded-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-warning-500/20 text-warning-700 dark:text-warning-400 rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                        <div className="w-10 h-10 bg-warning-500/20 text-warning-700 dark:text-warning-400 rounded-none flex items-center justify-center font-bold flex-shrink-0">
                             <Clock size={20} />
                         </div>
                         <div className="space-y-1">
@@ -101,9 +101,9 @@ export default function CarriereTimeline({
 
             {/* 🔵 BANNIÈRE : MOUVEMENT RH PLANIFIÉ À DATE ULTÉRIEURE */}
             {workflowPlanifieFutur && (
-                <div className="bg-brand-500/10 border border-brand-500/30 p-5 rounded-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="bg-brand-500/10 border border-brand-500/30 p-5 rounded-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-brand-500/20 text-brand-600 dark:text-brand-400 rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                        <div className="w-10 h-10 bg-brand-500/20 text-brand-600 dark:text-brand-400 rounded-none flex items-center justify-center font-bold flex-shrink-0">
                             <Calendar size={20} />
                         </div>
                         <div className="space-y-1">
@@ -132,10 +132,10 @@ export default function CarriereTimeline({
 
             {/* 🟢 SECTION : CONTRAT ACTIF & AFFECTATION EN COURS */}
             {contratActif ? (
-                <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-sm shadow-sm p-6 space-y-6">
+                <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-none shadow-sm p-6 space-y-6">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-ink-150 dark:border-ink-700">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-success-500/10 text-success-600 rounded-full flex items-center justify-center font-bold">
+                            <div className="w-10 h-10 bg-success-500/10 text-success-600 rounded-none flex items-center justify-center font-bold">
                                 <Briefcase size={20} />
                             </div>
                             <div>
@@ -191,7 +191,7 @@ export default function CarriereTimeline({
                     {/* Grille Contrat + Affectation */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Bloc 1 : Termes du Contrat */}
-                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-800 rounded-sm space-y-2 text-xs">
+                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-800 rounded-none space-y-2 text-xs">
                             <h4 className="font-bold text-brand-500 uppercase tracking-wider text-[10px] pb-1 border-b border-ink-150 dark:border-ink-800 flex items-center gap-1.5">
                                 <Building size={12} /> Termes Contractuels
                             </h4>
@@ -208,7 +208,7 @@ export default function CarriereTimeline({
                                 <span className="font-semibold text-ink-800 dark:text-ink-100">{fmtDate(contratActif.dateDebut)}</span>
                             </div>
                             {etatEssai?.isEssaiActif && (
-                                <div className={`py-2 px-2.5 my-1.5 border rounded space-y-2 ${etatEssai.isEssaiEchu
+                                <div className={`py-2 px-2.5 my-1.5 border rounded-none space-y-2 ${etatEssai.isEssaiEchu
                                         ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
                                         : 'bg-warning-500/10 border-warning-500/20 text-warning-800 dark:text-warning-300'
                                     }`}>
@@ -273,7 +273,7 @@ export default function CarriereTimeline({
                         </div>
 
                         {/* Bloc 2 : Affectation & Paie */}
-                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-800 rounded-sm space-y-2 text-xs">
+                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-800 rounded-none space-y-2 text-xs">
                             <h4 className="font-bold text-brand-500 uppercase tracking-wider text-[10px] pb-1 border-b border-ink-150 dark:border-ink-800 flex items-center gap-1.5">
                                 <Landmark size={12} /> Affectation Courante
                             </h4>
@@ -310,8 +310,8 @@ export default function CarriereTimeline({
                 </div>
             ) : !brouillonWf && (
                 /* ⚪ EMPTY STATE : PAS DE CONTRAT ACTIF */
-                <div className="p-10 text-center bg-white dark:bg-ink-900 border border-dashed border-ink-200 dark:border-ink-700 rounded-sm space-y-4">
-                    <div className="w-14 h-14 bg-brand-500/10 text-brand-500 rounded-full flex items-center justify-center mx-auto">
+                <div className="p-10 text-center bg-white dark:bg-ink-900 border border-dashed border-ink-200 dark:border-ink-700 rounded-none space-y-4">
+                    <div className="w-14 h-14 bg-brand-500/10 text-brand-500 rounded-none flex items-center justify-center mx-auto">
                         <Briefcase size={28} />
                     </div>
                     <div className="max-w-md mx-auto space-y-1">
@@ -344,7 +344,7 @@ export default function CarriereTimeline({
                     {workflowsList.length === 0 ? (
                         <p className="text-xs text-ink-400">Aucun événement RH enregistré.</p>
                     ) : (
-                        <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
+                        <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-none">
                             <table className="w-full text-xs text-left">
                                 <thead>
                                     <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 font-bold uppercase tracking-widest text-[10px]">
@@ -411,7 +411,7 @@ export default function CarriereTimeline({
                     {displayContrats.length === 0 ? (
                         <p className="text-xs text-ink-400">Aucun contrat dans l'historique.</p>
                     ) : (
-                        <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
+                        <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-none">
                             <table className="w-full text-xs text-left">
                                 <thead>
                                     <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 font-bold uppercase tracking-widest text-[10px]">

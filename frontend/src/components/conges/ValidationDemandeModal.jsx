@@ -95,7 +95,7 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
             <Tbody>
               {(!demandesAValider || demandesAValider.length === 0) ? (
                 <Tr>
-                  <Td colSpan="6" className="text-center py-6 text-[var(--color-fg-muted)] italic">
+                  <Td colSpan="6" className="text-center py-6 text-[var(--color-fg-muted)] ">
                     Aucune demande de congé en attente de validation pour le moment.
                   </Td>
                 </Tr>
@@ -160,7 +160,7 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
                         </Badge>
                       )}
                       {d.commentaire && (
-                        <div className="text-[11px] text-[var(--color-fg-muted)] italic max-w-xs truncate">
+                        <div className="text-[11px] text-[var(--color-fg-muted)]  max-w-xs truncate">
                           &ldquo;{d.commentaire}&rdquo;
                         </div>
                       )}
