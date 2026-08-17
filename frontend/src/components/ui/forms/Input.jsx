@@ -5,8 +5,18 @@ export default function Input({
   icon,
   iconRight,
   className = '',
+  onWheel,
   ...props
 }) {
+  const handleWheel = (e) => {
+    if (props.type === 'number') {
+      e.target.blur();
+    }
+    if (onWheel) {
+      onWheel(e);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-1">
       {label && (
@@ -22,6 +32,7 @@ export default function Input({
           </div>
         )}
         <input
+          onWheel={handleWheel}
           className={`
             w-full bg-[var(--color-surface)] border-2 rounded-none text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]
             px-4 py-2.5 outline-none transition-all duration-150

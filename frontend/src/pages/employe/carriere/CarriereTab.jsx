@@ -12,7 +12,7 @@ import CertificatTravailModal from './b/CertificatTravailModal';
 import CarriereHeaderCard from '@/components/carriere/CarriereHeaderCard';
 import CarriereTimeline from '@/components/carriere/CarriereTimeline';
 import { useCarriere } from '@/hooks/useCarriere';
-import { isEmbaucheEvent, isRuptureEvent, trouverWorkflowPlanifieFutur } from '@/utils/carriereUtils';
+import { isEmbaucheEvent, isRuptureEvent, isConfirmationEssaiEvent, isRenouvellementEssaiEvent, trouverWorkflowPlanifieFutur } from '@/utils/carriereUtils';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function CarriereTab({
@@ -127,6 +127,16 @@ export default function CarriereTab({
         setIsEmbaucheModalOpen(true);
     };
 
+    const handleOpenConfirmationModal = () => {
+        setEditInitialData(null);
+        setIsConfirmationModalOpen(true);
+    };
+
+    const handleOpenRenouvellementModal = () => {
+        setEditInitialData(null);
+        setIsRenouvellementModalOpen(true);
+    };
+
     const handleOpenEditModal = (data) => {
         setEditInitialData(data);
         const code = data?.codeTypeEvenement;
@@ -134,6 +144,10 @@ export default function CarriereTab({
             setIsEmbaucheModalOpen(true);
         } else if (isRuptureEvent(code)) {
             setIsRuptureModalOpen(true);
+        } else if (isConfirmationEssaiEvent(code)) {
+            setIsConfirmationModalOpen(true);
+        } else if (isRenouvellementEssaiEvent(code)) {
+            setIsRenouvellementModalOpen(true);
         } else {
             setIsTransitionModalOpen(true);
         }
@@ -195,8 +209,8 @@ export default function CarriereTab({
                 workflowPlanifieFutur={workflowPlanifieFutur}
                 estEssaiRenouveleFlag={estEssaiRenouveleFlag}
                 canWrite={canWrite}
-                onOpenConfirmation={() => setIsConfirmationModalOpen(true)}
-                onOpenRenouvellement={() => setIsRenouvellementModalOpen(true)}
+                onOpenConfirmation={handleOpenConfirmationModal}
+                onOpenRenouvellement={handleOpenRenouvellementModal}
                 onOpenRecap={() => setIsRecapModalOpen(true)}
             />
 
@@ -230,8 +244,8 @@ export default function CarriereTab({
                 onOpenCreateEmbauche={handleOpenCreateModal}
                 onOpenTransition={() => setIsTransitionModalOpen(true)}
                 onOpenRupture={() => setIsRuptureModalOpen(true)}
-                onOpenConfirmation={() => setIsConfirmationModalOpen(true)}
-                onOpenRenouvellement={() => setIsRenouvellementModalOpen(true)}
+                onOpenConfirmation={handleOpenConfirmationModal}
+                onOpenRenouvellement={handleOpenRenouvellementModal}
                 onOpenEditModal={handleOpenEditModal}
                 onSelectWorkflowRecap={(wf) => { setSelectedWfModal(wf); setIsRecapModalOpen(true); }}
                 onOpenCertificat={handleOpenCertificat}
@@ -284,7 +298,8 @@ export default function CarriereTab({
                     nomEmploye={nomEmploye}
                     contratActif={contratActif}
                     affectationActive={affectationActive}
-                    onSuccess={(res) => handleSuccessAction('Demande de confirmation d\'essai créée avec succès !', res)}
+                    initialData={editInitialData}
+                    onSuccess={(res) => handleSuccessAction('Brouillon de confirmation d\'essai enregistré avec succès !', res)}
                 />
             )}
 
@@ -296,7 +311,8 @@ export default function CarriereTab({
                     nomEmploye={nomEmploye}
                     contratActif={contratActif}
                     affectationActive={affectationActive}
-                    onSuccess={(res) => handleSuccessAction('Demande de renouvellement d\'essai créée avec succès !', res)}
+                    initialData={editInitialData}
+                    onSuccess={(res) => handleSuccessAction('Brouillon de renouvellement d\'essai enregistré avec succès !', res)}
                 />
             )}
 

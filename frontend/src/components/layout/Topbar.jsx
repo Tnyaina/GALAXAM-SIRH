@@ -3,6 +3,9 @@ import { useAuth } from '@/context/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import NotificationBell from './NotificationBell';
+import { Avatar } from '@/components/ui/data-display/Avatar';
+import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
 
 export default function Topbar({ onMenuClick, title, onThemeToggle, isDarkMode }) {
     const { user, logout, hasPermission } = useAuth();
@@ -16,13 +19,14 @@ export default function Topbar({ onMenuClick, title, onThemeToggle, isDarkMode }
 
     return (
         <header className="h-16 shrink-0 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] flex items-center gap-4 px-6">
-            <button
+            <Button
+                variant="ghost"
+                size="xs"
                 onClick={onMenuClick}
-                className="lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] cursor-pointer"
+                className="lg:hidden -ml-2 !p-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
                 aria-label="Ouvrir le menu"
-            >
-                <Menu size={20} />
-            </button>
+                iconLeft={<Menu size={20} />}
+            />
 
             <div className="flex-1 min-w-0">
                 <h1 className="text-lg font-bold text-[var(--color-fg)] truncate">
@@ -36,45 +40,51 @@ export default function Topbar({ onMenuClick, title, onThemeToggle, isDarkMode }
 
                 {/* Toggle thème */}
                 {onThemeToggle && (
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="xs"
                         onClick={onThemeToggle}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors rounded-sm hover:bg-[var(--color-bg-subtle)] cursor-pointer"
+                        className="!p-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
                         aria-label={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
-                    >
-                        {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                    </button>
+                        iconLeft={isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                    />
                 )}
 
                 {/* Profil utilisateur */}
                 <div className="relative">
                     <button
                         onClick={() => setShowDropdown((v) => !v)}
-                        className="min-h-[44px] px-2 flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+                        className="min-h-[44px] px-2 flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer"
                         aria-label="Menu profil utilisateur"
                         aria-expanded={showDropdown}
                     >
-                        <div className="w-8 h-8 flex items-center justify-center bg-[var(--color-brand-500)] text-white text-xs font-bold shrink-0">
-                            {user?.identifiant?.substring(0, 2).toUpperCase()}
-                        </div>
+                        <Avatar name={user?.identifiant || 'Utilisateur'} size="sm" shape="square" status="online" />
                         <span className="text-sm font-medium hidden sm:block text-[var(--color-fg)]">
                             {user?.identifiant}
                         </span>
                     </button>
 
                     {showDropdown && (
-                        <div className="absolute right-0 mt-2 w-44 border border-[var(--color-border)] bg-[var(--color-surface)] shadow-md z-40">
-                            <div className="px-4 py-2 border-b border-[var(--color-border-subtle)]">
-                                <p className="text-xs text-[var(--color-fg-muted)] truncate">
-                                    {user?.role}
+                        <div className="absolute right-0 mt-2 w-48 border border-[var(--color-border)] bg-[var(--color-surface)] shadow-md z-40 p-2 space-y-2">
+                            <div className="px-2 py-1 border-b border-[var(--color-border-subtle)] pb-2">
+                                <p className="text-xs font-bold text-[var(--color-fg)] truncate">
+                                    {user?.identifiant}
                                 </p>
+                                {user?.role && (
+                                    <Badge variant="primary" size="sm" className="mt-1">
+                                        {user.role}
+                                    </Badge>
+                                )}
                             </div>
-                            <button
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={handleLogout}
-                                className="w-full text-left px-4 py-2 flex items-center gap-2 text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors text-sm"
+                                className="w-full justify-start text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10"
+                                iconLeft={<LogOut size={16} />}
                             >
-                                <LogOut size={16} />
                                 Déconnexion
-                            </button>
+                            </Button>
                         </div>
                     )}
                 </div>
