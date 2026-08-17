@@ -129,7 +129,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
               : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
           }`}
         >
-          Registre Comptable
+          Historique Solde
         </button>
       </div>
 

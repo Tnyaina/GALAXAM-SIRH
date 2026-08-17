@@ -8,6 +8,11 @@ import Alert from '@/components/ui/feedback/Alert';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 
+const fmtDate = (d) => {
+  if (!d) return '-';
+  try { return new Date(d).toLocaleDateString('fr-FR'); } catch { return d; }
+};
+
 export default function ValidationDemandeModal({ demandesAValider, onActionComplete }) {
   const [selectedDemande, setSelectedDemande] = useState(null);
   const [showRefusModal, setShowRefusModal] = useState(false);
@@ -88,7 +93,7 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
                 <Th>Type de Congé</Th>
                 <Th>Période</Th>
                 <Th className="text-center">Durée</Th>
-                <Th>Dérogations & Spécificités</Th>
+                <Th>Options / Spécificités</Th>
                 <Th className="text-right">Actions</Th>
               </Tr>
             </Thead>
@@ -126,9 +131,9 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
 
                     {/* Période */}
                     <Td className="font-data text-xs">
-                      Du {d.dateDebut} au {d.dateFin}
+                      Du {fmtDate(d.dateDebut)} au {fmtDate(d.dateFin)}
                       <div className="text-[10px] text-[var(--color-fg-subtle)]">
-                        Saisi le {d.dateDemande || 'N/A'} par {d.saisiParIdentifiant || 'Système'}
+                        Saisi le {fmtDate(d.dateDemande)} par {d.saisiParIdentifiant || 'Système'}
                       </div>
                     </Td>
 
@@ -137,16 +142,16 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
                       {d.nbJoursDecomptes}j
                     </Td>
 
-                    {/* Dérogations & Spécificités */}
+                    {/* Options / Spécificités */}
                     <Td className="space-y-1">
                       {d.extensionPathologiqueMaternite && (
                         <Badge variant="danger" size="sm">
-                          Ext. Pathologique (119j)
+                          Extension Maladie (119j)
                         </Badge>
                       )}
                       {d.suspendAcquisitionSolde && (
                         <Badge variant="warning" size="sm">
-                          Sans Solde (Bascule)
+                          Sans Solde
                         </Badge>
                       )}
                       {d.derogationSoldeNegatif && (
@@ -156,7 +161,7 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
                       )}
                       {d.derogationDelaiPreavis && (
                         <Badge variant="primary" size="sm">
-                          Dérogation Préavis
+                          Préavis Ignoré
                         </Badge>
                       )}
                       {d.commentaire && (

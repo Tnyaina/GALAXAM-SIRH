@@ -177,7 +177,7 @@ export default function ParametresCongesTab() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ShieldAlert className="w-5 h-5 text-warning-500" />
-                    <CardTitle>Pool des Événements Familiaux (10 jours/an)</CardTitle>
+                    <CardTitle>Quota des Événements Familiaux (10 jours/an)</CardTitle>
                   </div>
                   <Button variant="primary" size="sm" onClick={() => { setSelectedItem(null); setShowMotifModal(true); }}>
                     Ajouter

@@ -73,7 +73,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 w-full">
           <div className="flex items-center gap-2">
             <History className="w-4 h-4 text-blue-500" />
-            <CardTitle>Historique Comptable des Mouvements de Solde (Ledger)</CardTitle>
+            <CardTitle>Historique des Mouvements de Solde</CardTitle>
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -119,7 +119,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
                 <Th>Date & Heure</Th>
                 <Th>Type Mouvement</Th>
                 <Th className="text-center">Impact Solde</Th>
-                <Th>Motif & Explication Comptable</Th>
+                <Th>Motif & Explication</Th>
                 <Th>Opérateur</Th>
               </Tr>
             </Thead>
@@ -205,7 +205,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
                 </label>
                 <Textarea
                   rows="3"
-                  placeholder="Justification comptable de l'ajustement..."
+                  placeholder="Justification de l'ajustement..."
                   value={commentaire}
                   onChange={(e) => setCommentaire(e.target.value)}
                   required
