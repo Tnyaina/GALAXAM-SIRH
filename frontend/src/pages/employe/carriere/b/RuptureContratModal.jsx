@@ -163,26 +163,35 @@ export default function RuptureContratModal({
         e.preventDefault();
         setErrorMsg('');
 
+        const contratSourceId = contratActif?.idContrat || initialData?.idContratSource || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif.idContratSource : null);
+
         if (!formData.dateEffet) return setErrorMsg('La date de prise d\'effet de la rupture est obligatoire.');
-        if (!contratActif?.idContrat) return setErrorMsg('Impossible de rompre : aucun contrat actif trouvé pour cet employé.');
+        if (!contratSourceId) return setErrorMsg('Impossible de rompre : aucun contrat source trouvé pour cet employé.');
 
         setSubmitting(true);
         try {
             const payload = {
                 codeTypeEvenement: formData.codeTypeEvenement,
-                idContratSource: contratActif.idContrat,
-                idAffectationSource: affectationActive?.idAffectation || null,
+                idContratSource: contratSourceId,
+                idAffectationSource: affectationActive?.idAffectation || initialData?.idAffectationSource || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif.idAffectationSource : null),
                 dateEffet: formData.dateEffet,
                 motif: `[${libTypeRupture}] ${formData.motif || ''}`.trim(),
                 commentaireAffectation: formData.commentaire || null,
                 descriptionContrat: `Préavis : ${formData.dureePreavis} (${formData.preavisEffectue ? 'Effectué' : 'Dispense payée'})`,
             };
 
-            const res = await contratService.initierTransition(idEmploye, payload);
-            if (onSuccess) onSuccess('Brouillon de rupture de contrat créé avec succès !', res);
+            const wfId = initialData?.idWorkflow || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif.idWorkflow : null);
+            let res;
+            if (wfId) {
+                res = await contratService.modifierBrouillonWorkflow(wfId, payload);
+                if (onSuccess) onSuccess('Brouillon de rupture de contrat modifié avec succès !', res);
+            } else {
+                res = await contratService.initierTransition(idEmploye, payload);
+                if (onSuccess) onSuccess('Brouillon de rupture de contrat créé avec succès !', res);
+            }
             onClose();
         } catch (err) {
-            setErrorMsg(err.response?.data?.message || err.message || 'Erreur lors de la création de la rupture.');
+            setErrorMsg(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || err.message || 'Erreur lors de la sauvegarde de la rupture.');
         } finally {
             setSubmitting(false);
         }

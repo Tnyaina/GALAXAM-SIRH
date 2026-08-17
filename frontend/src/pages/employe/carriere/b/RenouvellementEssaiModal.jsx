@@ -124,10 +124,13 @@ export default function RenouvellementEssaiModal({
 
     useEffect(() => {
         if (!initialData && dateFinInitiale && dureeProlongationMois) {
-            const d = new Date(dateFinInitiale);
-            if (!isNaN(d.getTime())) {
-                d.setMonth(d.getMonth() + Number(dureeProlongationMois));
-                setNouvelleDateFin(d.toISOString().substring(0, 10));
+            const cleanStr = fmtDateInput(dateFinInitiale);
+            if (cleanStr) {
+                const [y, m, day] = cleanStr.split('-').map(Number);
+                if (y && m && day) {
+                    const d = new Date(y, m - 1 + Number(dureeProlongationMois), day);
+                    setNouvelleDateFin(fmtDateInput(d));
+                }
             }
         }
     }, [dateFinInitiale, dureeProlongationMois, initialData]);
