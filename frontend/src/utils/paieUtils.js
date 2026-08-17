@@ -9,31 +9,44 @@ export const PERIODICITES_INDEMNITE = [
 ];
 
 /**
+ * Formate une date pour les champs <input type="date" /> (format "YYYY-MM-DD") de manière timezone-safe.
+ */
+export function fmtDateInput(d) {
+    if (!d) return '';
+    if (d instanceof Date) {
+        if (isNaN(d.getTime())) return '';
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+    if (typeof d === 'string') {
+        const s = d.trim();
+        if (s.includes('T')) return s.split('T')[0];
+        if (s.includes(' ')) return s.split(' ')[0];
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const parsed = new Date(s);
+        if (!isNaN(parsed.getTime())) {
+            const yyyy = parsed.getFullYear();
+            const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+            const dd = String(parsed.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+        return s.substring(0, 10);
+    }
+    return '';
+}
+
+/**
  * Formate une date ISO (ex: "2026-01-01T00:00:00.000+03:00" ou "2026-01-01") en "DD/MM/YYYY" pour l'affichage UI.
  */
 export function fmtDate(d) {
     if (!d) return '-';
-    try {
-        const str = typeof d === 'string' ? d.substring(0, 10) : new Date(d).toISOString().substring(0, 10);
-        const [year, month, day] = str.split('-');
-        if (!year || !month || !day) return String(d);
-        return `${day}/${month}/${year}`;
-    } catch {
-        return String(d);
-    }
-}
-
-/**
- * Formate une date pour les champs <input type="date" /> (format "YYYY-MM-DD").
- */
-export function fmtDateInput(d) {
-    if (!d) return '';
-    if (typeof d === 'string') return d.substring(0, 10);
-    try {
-        return new Date(d).toISOString().substring(0, 10);
-    } catch {
-        return '';
-    }
+    const str = fmtDateInput(d);
+    if (!str || str.length < 10) return String(d);
+    const [year, month, day] = str.substring(0, 10).split('-');
+    if (!year || !month || !day) return String(d);
+    return `${day}/${month}/${year}`;
 }
 
 /**
@@ -55,4 +68,3 @@ export function fmtPercent(val) {
     if (isNaN(num)) return String(val);
     return `${num}%`;
 }
-

@@ -3,30 +3,48 @@
  * Centralise toute la logique métier pour éviter le code dupliqué ou complexe dans les composants React.
  */
 
-// ─── Formatteurs Utilitaires ───────────────────────────────────────────────
-
-export function fmtDate(d) {
-    if (!d) return '-';
-    try {
-        const str = typeof d === 'string' ? d.substring(0, 10) : new Date(d).toISOString().substring(0, 10);
-        const [year, month, day] = str.split('-');
-        if (!year || !month || !day) return String(d);
-        return `${day}/${month}/${year}`;
-    } catch {
-        return String(d);
-    }
-}
+// ─── Formatteurs Utilitaires (Timezone-Safe) ────────────────────────────────
 
 export function fmtDateInput(d) {
     if (!d) return '';
-    if (typeof d === 'string') return d.substring(0, 10);
-    return new Date(d).toISOString().substring(0, 10);
+    if (d instanceof Date) {
+        if (isNaN(d.getTime())) return '';
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+    if (typeof d === 'string') {
+        const s = d.trim();
+        if (s.includes('T')) return s.split('T')[0];
+        if (s.includes(' ')) return s.split(' ')[0];
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const parsed = new Date(s);
+        if (!isNaN(parsed.getTime())) {
+            const yyyy = parsed.getFullYear();
+            const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+            const dd = String(parsed.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+        return s.substring(0, 10);
+    }
+    return '';
+}
+
+export function fmtDate(d) {
+    if (!d) return '-';
+    const str = fmtDateInput(d);
+    if (!str || str.length < 10) return String(d);
+    const [year, month, day] = str.substring(0, 10).split('-');
+    if (!year || !month || !day) return String(d);
+    return `${day}/${month}/${year}`;
 }
 
 export function fmtDateFr(d) {
     const str = fmtDateInput(d);
     if (!str) return '';
-    const [yyyy, mm, dd] = str.split('-');
+    const [yyyy, mm, dd] = str.substring(0, 10).split('-');
+    if (!yyyy || !mm || !dd) return str;
     return `${dd}/${mm}/${yyyy}`;
 }
 
@@ -53,10 +71,12 @@ export function resolveId(list, idDirect, idField, libelleDirect, libelleFields 
 
 export function calculerDateFinEssai(dateDebutStr, dureeMoisStr) {
     if (!dateDebutStr || !dureeMoisStr) return '';
-    const d = new Date(dateDebutStr);
-    if (isNaN(d.getTime())) return '';
-    d.setMonth(d.getMonth() + Number(dureeMoisStr));
-    return d.toISOString().substring(0, 10);
+    const cleanStr = fmtDateInput(dateDebutStr);
+    if (!cleanStr) return '';
+    const [y, m, day] = cleanStr.split('-').map(Number);
+    if (!y || !m || !day) return '';
+    const target = new Date(y, m - 1 + Number(dureeMoisStr), day);
+    return fmtDateInput(target);
 }
 
 // ─── Identification des Événements RH ──────────────────────────────────────
@@ -142,13 +162,13 @@ export function getWorkflowLibellesUI(workflowCpl) {
     };
 }
 
-export function trouverWorkflowPlanifieFutur(workflowsList, contratActifId = null, todayStr = new Date().toISOString().substring(0, 10)) {
+export function trouverWorkflowPlanifieFutur(workflowsList, contratActifId = null, todayStr = fmtDateInput(new Date())) {
     if (!Array.isArray(workflowsList)) return null;
     return workflowsList.find(
         w => w.codeStatutWorkflow === 'VALIDE' &&
              !isConfirmationEssaiEvent(w.codeTypeEvenement) &&
              !isRenouvellementEssaiEvent(w.codeTypeEvenement) &&
-             w.dateEffet && String(w.dateEffet).substring(0, 10) > todayStr &&
+             w.dateEffet && fmtDateInput(w.dateEffet) > todayStr &&
              (!contratActifId || Number(w.idContratSource) === Number(contratActifId) || Number(w.idContratCible) === Number(contratActifId))
     ) || null;
 }

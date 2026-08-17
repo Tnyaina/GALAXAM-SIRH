@@ -1,5 +1,5 @@
 import {
-    Briefcase, Building, Landmark, Calendar, CheckCircle, Clock, Plus, FileText, Eye, RefreshCw, UserMinus, Award
+    Briefcase, Building, Landmark, Calendar, CheckCircle, Clock, Plus, FileText, Eye, RefreshCw, UserMinus, Award, FileCheck
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -24,6 +24,7 @@ export default function CarriereTimeline({
     onOpenEditModal,
     onSelectWorkflowRecap,
     onOpenCertificat,
+    onOpenAttestation,
 }) {
     const displayContrats = (contratsList || []).filter(ct => ct.codeStatutContrat !== 'BROUILLON');
 
@@ -153,26 +154,38 @@ export default function CarriereTimeline({
                             </div>
                         </div>
 
-                        {canWrite && !brouillonWf && (
-                            <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            {onOpenAttestation && (
                                 <Button
-                                    onClick={onOpenTransition}
-                                    variant="primary"
+                                    onClick={() => onOpenAttestation(contratActif)}
+                                    variant="outline"
                                     size="sm"
-                                    iconLeft={<RefreshCw size={16} />}
+                                    iconLeft={<FileCheck size={16} />}
                                 >
-                                    Mouvement / Transition RH
+                                    Attestation de Travail
                                 </Button>
-                                <Button
-                                    onClick={onOpenRupture}
-                                    variant="danger"
-                                    size="sm"
-                                    iconLeft={<UserMinus size={16} />}
-                                >
-                                    Rupture / Fin de Contrat
-                                </Button>
-                            </div>
-                        )}
+                            )}
+                            {canWrite && !brouillonWf && (
+                                <>
+                                    <Button
+                                        onClick={onOpenTransition}
+                                        variant="primary"
+                                        size="sm"
+                                        iconLeft={<RefreshCw size={16} />}
+                                    >
+                                        Mouvement / Transition RH
+                                    </Button>
+                                    <Button
+                                        onClick={onOpenRupture}
+                                        variant="danger"
+                                        size="sm"
+                                        iconLeft={<UserMinus size={16} />}
+                                    >
+                                        Rupture / Fin de Contrat
+                                    </Button>
+                                </>
+                            )}
+                        </div>
                     </div>
 
                     {/* Grille Contrat + Affectation */}
@@ -445,7 +458,14 @@ export default function CarriereTimeline({
                                                             Certificat
                                                         </Button>
                                                     ) : (
-                                                        <span className="text-[11px] text-ink-400 italic">Contrat en cours</span>
+                                                        <Button
+                                                            onClick={() => onOpenAttestation(ct)}
+                                                            variant="outline"
+                                                            size="xs"
+                                                            iconLeft={<FileCheck size={13} />}
+                                                        >
+                                                            Attestation
+                                                        </Button>
                                                     )}
                                                 </td>
                                             </tr>

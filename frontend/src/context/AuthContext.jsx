@@ -161,6 +161,12 @@ export const AuthProvider = ({ children }) => {
     // Verification initiale + ecouteurs d'evenements
     useEffect(() => {
         const verifySession = async () => {
+            const savedUser = localStorage.getItem('galaxam-user');
+            if (!savedUser) {
+                setLoading(false);
+                return;
+            }
+
             try {
                 const response = await apiClient.post('/auth/refresh');
                 const { accessToken } = response.data;

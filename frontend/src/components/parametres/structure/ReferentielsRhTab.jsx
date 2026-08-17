@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, FileText, UserCheck, Landmark } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import Loading from '@/components/ui/feedback/Loading';
+import Tabs from '@/components/ui/navigation/Tabs';
 
 import TypesContratList from './referentiels/TypesContratList';
 import TypeContratFormModal from './referentiels/TypeContratFormModal';
@@ -220,41 +221,16 @@ export default function ReferentielsRhTab() {
             )}
 
             {/* Onglets internes */}
-            <div className="flex gap-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 shadow-sm flex-wrap">
-                <button
-                    onClick={() => setActiveSection('contrats')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
-                        activeSection === 'contrats'
-                            ? 'bg-[var(--color-brand-500)] text-white'
-                            : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                    }`}
-                >
-                    <FileText size={16} />
-                    Types de Contrat ({typesContrat.length})
-                </button>
-                <button
-                    onClick={() => setActiveSection('intervenants')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
-                        activeSection === 'intervenants'
-                            ? 'bg-[var(--color-brand-500)] text-white'
-                            : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                    }`}
-                >
-                    <UserCheck size={16} />
-                    Types d'Intervenant ({typesIntervenant.length})
-                </button>
-                <button
-                    onClick={() => setActiveSection('banques')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
-                        activeSection === 'banques'
-                            ? 'bg-[var(--color-brand-500)] text-white'
-                            : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                    }`}
-                >
-                    <Landmark size={16} />
-                    Banques ({banques.length})
-                </button>
-            </div>
+            <Tabs
+                tabs={[
+                    { id: 'contrats', label: 'Types de Contrat', icon: <FileText size={16} />, count: typesContrat.length },
+                    { id: 'intervenants', label: 'Types d\'Intervenant', icon: <UserCheck size={16} />, count: typesIntervenant.length },
+                    { id: 'banques', label: 'Banques', icon: <Landmark size={16} />, count: banques.length }
+                ]}
+                activeTab={activeSection}
+                onChange={setActiveSection}
+                variant="pills"
+            />
 
             {/* Section Contrats */}
             {activeSection === 'contrats' && (

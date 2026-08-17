@@ -1,10 +1,10 @@
 const variants = {
   default: 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]',
-  primary: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/20',
-  success: 'bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20',
-  warning: 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-500)] border border-[var(--color-warning-500)]/20',
-  danger:  'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20',
-  info:    'bg-[var(--color-info-500)]/10 text-[var(--color-info-500)] border border-[var(--color-info-500)]/20',
+  primary: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border border-[var(--color-brand-500)]/20',
+  success: 'bg-[var(--color-success-500)]/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25',
+  warning: 'bg-[var(--color-warning-500)]/15 text-amber-900 dark:text-amber-300 border border-amber-500/25',
+  danger:  'bg-[var(--color-danger-500)]/15 text-red-800 dark:text-red-300 border border-red-500/25',
+  info:    'bg-[var(--color-info-500)]/15 text-indigo-800 dark:text-indigo-300 border border-indigo-500/25',
 };
 
 const sizes = {

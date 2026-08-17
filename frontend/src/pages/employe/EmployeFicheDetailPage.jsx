@@ -9,6 +9,7 @@ import documentRhService from '@/api/employe/documentRhService';
 import EmployeHeaderCard from '@/components/employe/EmployeHeaderCard';
 import Button from '@/components/ui/forms/Button';
 import Loading from '@/components/ui/feedback/Loading';
+import Tabs from '@/components/ui/navigation/Tabs';
 import { useAuth } from '@/context/AuthContext';
 
 // Lazy loading des sous-onglets & modales de la fiche employé pour optimiser les performances
@@ -39,17 +40,17 @@ export default function EmployeFicheDetailPage() {
     const [error, setError] = useState('');
     const [actionSuccess, setActionSuccess] = useState('');
 
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const tabFromUrl = searchParams.get('tab');
-    const [activeTab, setActiveTab] = useState(
-        VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'personnel'
-    );
+    const activeTab = VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'personnel';
 
-    useEffect(() => {
-        if (VALID_TABS.includes(tabFromUrl)) {
-            setActiveTab(tabFromUrl);
-        }
-    }, [tabFromUrl]);
+    const handleTabChange = (tabId) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', tabId);
+            return next;
+        });
+    };
 
     // État Documents RH
     const [documentsData, setDocumentsData] = useState({ documents: [], obligatoiresManquants: [] });
@@ -237,6 +238,14 @@ export default function EmployeFicheDetailPage() {
     const contactsUrgence = detailData.contactsUrgence || [];
     const comptes = detailData.comptesBancaires || [];
 
+    const mainTabs = [
+        { id: 'personnel', label: 'Fiche Personnelle', icon: <User size={16} /> },
+        { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: <Folder size={16} /> },
+        { id: 'famille', label: 'Famille & Contacts', icon: <Users size={16} /> },
+        { id: 'carriere', label: 'Carrière & Affectation', icon: <Briefcase size={16} /> },
+        { id: 'historique', label: 'Historique & Statut', icon: <FileText size={16} /> }
+    ];
+
     return (
         <div className="space-y-6">
             {/* Lien retour */}
@@ -263,31 +272,12 @@ export default function EmployeFicheDetailPage() {
 
             {/* Navigation par Onglets Structurés */}
             <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
-                <div className="flex border-b border-ink-150 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-950/20 px-4 overflow-x-auto">
-                    {[
-                        { id: 'personnel', label: 'Fiche Personnelle', icon: User },
-                        { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: Folder },
-                        { id: 'famille', label: 'Famille & Contacts', icon: Users },
-                        { id: 'carriere', label: 'Carrière & Affectation', icon: Briefcase },
-                        { id: 'historique', label: 'Historique & Statut', icon: FileText }
-                    ].map(tab => {
-                        const Icon = tab.icon;
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2 py-4 px-6 border-b-2 text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                                    activeTab === tab.id
-                                        ? 'border-brand-500 text-brand-500 bg-white dark:bg-ink-900'
-                                        : 'border-transparent text-ink-400 hover:text-ink-900 dark:hover:text-white'
-                                }`}
-                            >
-                                <Icon size={16} />
-                                {tab.label}
-                            </button>
-                        );
-                    })}
-                </div>
+                <Tabs 
+                    tabs={mainTabs} 
+                    activeTab={activeTab} 
+                    onChange={handleTabChange} 
+                    variant="underline" 
+                />
 
                 {/* Contenu de l'onglet actif (Chargement lazy) */}
                 <div className="p-6">

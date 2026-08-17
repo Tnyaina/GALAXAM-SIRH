@@ -55,19 +55,28 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
 
     const fmtDate = (d) => {
         if (!d) return '';
+        if (d instanceof Date) {
+            if (isNaN(d.getTime())) return '';
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
         if (typeof d === 'string') {
             const s = d.trim();
             if (s.includes('T')) return s.split('T')[0];
             if (s.includes(' ')) return s.split(' ')[0];
             if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+            const parsed = new Date(s);
+            if (!isNaN(parsed.getTime())) {
+                const yyyy = parsed.getFullYear();
+                const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+                const dd = String(parsed.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            }
+            return s.substring(0, 10);
         }
-        try {
-            const dateObj = new Date(d);
-            if (isNaN(dateObj.getTime())) return '';
-            return dateObj.toISOString().split('T')[0];
-        } catch {
-            return '';
-        }
+        return '';
     };
 
     const loadBanques = async () => { 

@@ -375,18 +375,7 @@ export default function TransitionModal({
                                 )}
                                 {/* Sélection par petites cartes rectangulaires des événements pertinents */}
                                 <section className="space-y-4 pb-6 border-b border-ink-150 dark:border-ink-700">
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
-                                        <FormSectionHeader step={1} icon={RefreshCw} title="Type de Mouvement RH" />
-                                        <div className="w-full sm:w-48">
-                                            <Input
-                                                label="Date d'Effet"
-                                                type="date"
-                                                required
-                                                value={formData.dateEffet}
-                                                onChange={(e) => setField('dateEffet', e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
+                                    <FormSectionHeader step={1} icon={RefreshCw} title="Type de Mouvement RH & Dates" />
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                         {relevantEvTypes.map((t) => {
@@ -432,6 +421,25 @@ export default function TransitionModal({
                                                 </div>
                                             );
                                         })}
+                                    </div>
+
+                                    {/* Grille dédiée pour la Date d'Effet & la Date de Signature */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 bg-ink-50/60 dark:bg-ink-900/30 p-3.5 border border-ink-200 dark:border-ink-800 rounded-sm">
+                                        <Input
+                                            label="Date de Prise d'Effet (Obligatoire)"
+                                            type="date"
+                                            required
+                                            value={formData.dateEffet}
+                                            onChange={(e) => setField('dateEffet', e.target.value)}
+                                            hint="Date d'application effective de cette décision RH"
+                                        />
+                                        <Input
+                                            label="Date de Signature de l'Avenant"
+                                            type="date"
+                                            value={formData.dateSignature}
+                                            onChange={(e) => setField('dateSignature', e.target.value)}
+                                            hint="Date d'émargement / signature du document"
+                                        />
                                     </div>
                                 </section>
 

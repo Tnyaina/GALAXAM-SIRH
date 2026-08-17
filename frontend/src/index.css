@@ -21,43 +21,43 @@
   --color-brand-50:  #f4f6f8;
   --color-brand-100: #e0e6ec;
   --color-brand-200: #c2cfda;
-  --color-brand-300: #778da9; /* 4ème couleur : Accent secondaire / Soft badge */
-  --color-brand-400: #557291;
-  --color-brand-500: #415a77; /* 3ème couleur : Accent principal (CTA, active) */
-  --color-brand-600: #334862;
-  --color-brand-700: #2a3a50;
-  --color-brand-800: #1b263b; /* 2ème couleur : Fond sidebar / cartes sombres */
-  --color-brand-900: #0d1b2a; /* 1ère couleur : Fond ultra-sombre / Ink 950 */
+  --color-brand-300: #4a617c; /* Accent secondaire haute visibilité (WCAG AA >= 4.5:1) */
+  --color-brand-400: #3b5370;
+  --color-brand-500: #334862; /* Accent principal (Contraste > 7.2:1 sur blanc) */
+  --color-brand-600: #26384f;
+  --color-brand-700: #1d2c3e;
+  --color-brand-800: #1b263b;
+  --color-brand-900: #0d1b2a;
   --color-brand-950: #070e17;
 
-  --color-brand-hover: #334862;
+  --color-brand-hover: #26384f;
 
   /* ---- Ambre — Accent "Warning" --------------------------------------- */
   --color-warning-50:  #fffbe8;
   --color-warning-100: #fef3c7;
   --color-warning-200: #fde68a;
-  --color-warning-400: #f59e0b;
-  --color-warning-500: #d97706;
-  --color-warning-600: #b45309;
-  --color-warning-700: #92400e;
+  --color-warning-400: #d97706;
+  --color-warning-500: #b45309;
+  --color-warning-600: #92400e;
+  --color-warning-700: #78350f;
 
   /* ---- Indigo — Accent "Info" ----------------------------------------- */
   --color-info-50:  #f0f3ff;
   --color-info-100: #e0e7ff;
   --color-info-200: #c7d2fe;
-  --color-info-500: #4f46e5;
-  --color-info-600: #4338ca;
-  --color-info-700: #3730a3;
+  --color-info-500: #3730a3;
+  --color-info-600: #312e81;
+  --color-info-700: #1e1b4b;
 
   /* ---- Neutres "Bleu-Gris" basés sur la palette ------------------------ */
-  --color-ink-950: #0d1b2a; /* 1ère couleur : Fond mode sombre profond */
-  --color-ink-900: #1b263b; /* 2ème couleur : Sidebar & conteneurs sombres */
-  --color-ink-800: #25334a; /* Texte principal mode clair / boutons neutres */
+  --color-ink-950: #0d1b2a;
+  --color-ink-900: #1b263b;
+  --color-ink-800: #25334a;
   --color-ink-700: #35475e;
-  --color-ink-600: #415a77; /* 3ème couleur : Titres secondaires */
-  --color-ink-500: #5d7393; /* Texte secondaire / icônes */
-  --color-ink-400: #778da9; /* 4ème couleur : Muted / Placeholders */
-  --color-ink-350: #9ab0c7; /* Hint / Disabled */
+  --color-ink-600: #2b3e55;
+  --color-ink-500: #334862; /* Contraste > 7.2:1 sur blanc */
+  --color-ink-400: #4a617c; /* Contraste > 5.1:1 sur blanc (WCAG AA >= 4.5:1) */
+  --color-ink-350: #4a617c;
   --color-ink-200: #c9d5e3; /* Bordure par défaut */
   --color-ink-150: #e0e1dd; /* 5ème couleur : Bordure des cartes / Fond doux */
   --color-ink-100: #f0f2f5; /* Hover doux / Subtile */
@@ -102,23 +102,23 @@
   /* Configuration Sidebar avec le Bleu Nuit #1B263B */
   --color-sidebar-bg:         #1b263b; /* 2ème couleur */
   --color-sidebar-border:     #283852;
-  --color-sidebar-fg:         #778da9; /* 4ème couleur */
+  --color-sidebar-fg:         #c9d5e3; /* Contraste > 9.5:1 sur fond #1b263b */
   --color-sidebar-fg-hover:   #ffffff;
   --color-sidebar-fg-active:  #ffffff;
   --color-sidebar-active-bg:  rgba(255, 255, 255, 0.1);
   --color-sidebar-hover-bg:   rgba(255, 255, 255, 0.05);
-  --color-sidebar-brand:      #778da9;
+  --color-sidebar-brand:      #c9d5e3;
 
   --color-fg:                 #0d1b2a; /* 1ère couleur */
-  --color-fg-muted:           #415a77; /* 3ème couleur */
-  --color-fg-subtle:          #778da9; /* 4ème couleur */
+  --color-fg-muted:           #334862; /* Contraste > 7:1 sur blanc */
+  --color-fg-subtle:          #4a617c; /* Contraste > 5.1:1 (WCAG AA >= 4.5:1) */
 
   --color-border:             #c9d5e3;
   --color-border-subtle:      #e0e1dd; /* 5ème couleur */
 
-  --color-accent:             #415a77; /* 3ème couleur */
+  --color-accent:             #334862; /* Accent principal fort */
   --color-accent-fg:          #ffffff;
-  --color-focus-ring:         color-mix(in oklab, #415a77 40%, transparent);
+  --color-focus-ring:         color-mix(in oklab, #334862 40%, transparent);
 }
 
 .dark {
@@ -129,20 +129,20 @@
 
   --color-sidebar-bg:         #070e17;
   --color-sidebar-border:     #1b263b;
-  --color-sidebar-fg:         #778da9;
+  --color-sidebar-fg:         #c9d5e3;
   --color-sidebar-fg-hover:   #ffffff;
   --color-sidebar-fg-active:  #ffffff;
 
-  --color-fg:                 #e0e1dd; /* 5ème couleur */
-  --color-fg-muted:           #9ab0c7;
-  --color-fg-subtle:          #778da9;
+  --color-fg:                 #f4f6f8; /* Contraste élevé */
+  --color-fg-muted:           #c2cfda; /* Contraste > 10:1 */
+  --color-fg-subtle:          #9ab0c7; /* Contraste > 6.5:1 */
 
   --color-border:             #2a3a50;
   --color-border-subtle:      #1e2c40;
 
-  --color-accent:             #778da9;
+  --color-accent:             #9ab0c7;
   --color-accent-fg:          #0d1b2a;
-  --color-focus-ring:         color-mix(in oklab, #778da9 45%, transparent);
+  --color-focus-ring:         color-mix(in oklab, #9ab0c7 45%, transparent);
 }
 
 /* ============================================================================
