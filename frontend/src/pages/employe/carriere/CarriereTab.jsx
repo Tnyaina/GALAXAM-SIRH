@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, ShieldAlert } from 'lucide-react';
 import Loading from '@/components/ui/feedback/Loading';
 import contratService from '@/api/employe/contratService';
@@ -9,10 +10,11 @@ import ConfirmationEssaiModal from './b/ConfirmationEssaiModal';
 import RenouvellementEssaiModal from './b/RenouvellementEssaiModal';
 import RuptureContratModal from './b/RuptureContratModal';
 import CertificatTravailModal from './b/CertificatTravailModal';
+import AttestationTravailModal from './b/AttestationTravailModal';
 import CarriereHeaderCard from '@/components/carriere/CarriereHeaderCard';
 import CarriereTimeline from '@/components/carriere/CarriereTimeline';
 import { useCarriere } from '@/hooks/useCarriere';
-import { isEmbaucheEvent, isRuptureEvent, trouverWorkflowPlanifieFutur } from '@/utils/carriereUtils';
+import { isEmbaucheEvent, isRuptureEvent, isConfirmationEssaiEvent, isRenouvellementEssaiEvent, trouverWorkflowPlanifieFutur } from '@/utils/carriereUtils';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function CarriereTab({
@@ -24,6 +26,7 @@ export default function CarriereTab({
     autoOpenWorkflowId = null,
     onEmployeUpdated,
 }) {
+    const [, setSearchParams] = useSearchParams();
     const toast = useToast();
     const {
         loading,
@@ -47,10 +50,16 @@ export default function CarriereTab({
     const [isRenouvellementModalOpen, setIsRenouvellementModalOpen] = useState(false);
     const [isRuptureModalOpen, setIsRuptureModalOpen] = useState(false);
     const [isCertificatModalOpen, setIsCertificatModalOpen] = useState(false);
+    const [isAttestationModalOpen, setIsAttestationModalOpen] = useState(false);
 
     const [selectedCertificatContrat, setSelectedCertificatContrat] = useState(null);
     const [selectedCertificatAffectation, setSelectedCertificatAffectation] = useState(null);
     const [loadingCertificatAffectation, setLoadingCertificatAffectation] = useState(false);
+
+    const [selectedAttestationContrat, setSelectedAttestationContrat] = useState(null);
+    const [selectedAttestationAffectation, setSelectedAttestationAffectation] = useState(null);
+    const [loadingAttestationAffectation, setLoadingAttestationAffectation] = useState(false);
+
     const [selectedWfModal, setSelectedWfModal] = useState(null);
     const [editInitialData, setEditInitialData] = useState(null);
     const [isTransitioning, setIsTransitioning] = useState(false);
@@ -95,6 +104,37 @@ export default function CarriereTab({
         }
     };
 
+    /**
+     * Ouvre l'attestation de travail pour un contrat donné (ou le contrat actif par défaut).
+     */
+    const handleOpenAttestation = async (contrat = null) => {
+        const cible = contrat || contratActif || (contratsList.length > 0 ? contratsList[0] : null);
+        if (!cible) return;
+
+        setSelectedAttestationContrat(cible);
+        setSelectedAttestationAffectation(null);
+        setIsAttestationModalOpen(true);
+
+        if (contratActif && Number(cible.idContrat) === Number(contratActif.idContrat)) {
+            setSelectedAttestationAffectation(affectationActive);
+            return;
+        }
+
+        setLoadingAttestationAffectation(true);
+        try {
+            const aff = await contratService.getAffectationParContrat(idEmploye, cible.idContrat);
+            setSelectedAttestationAffectation(aff);
+        } catch (err) {
+            console.error('Erreur récupération affectation pour attestation:', err);
+            setSelectedAttestationAffectation(null);
+            if (toast) {
+                toast({ title: 'Erreur', message: 'Impossible de charger l\'affectation de ce contrat.', type: 'error' });
+            }
+        } finally {
+            setLoadingAttestationAffectation(false);
+        }
+    };
+
     // Auto-ouverture du modal si un workflowId est passé via l'URL (?wf=)
     useEffect(() => {
         if (loading) return;
@@ -112,19 +152,30 @@ export default function CarriereTab({
         }
 
         try {
-            const url = new URL(window.location.href);
-            if (url.searchParams.has('wf')) {
-                url.searchParams.delete('wf');
-                window.history.replaceState({}, '', url.pathname + url.search);
-            }
+            setSearchParams(prev => {
+                if (!prev.has('wf')) return prev;
+                const next = new URLSearchParams(prev);
+                next.delete('wf');
+                return next;
+            }, { replace: true });
         } catch (e) {
             console.error('Erreur nettoyage URL wf:', e);
         }
-    }, [loading, autoOpenWorkflowId, workflowsList, brouillonWf]);
+    }, [loading, autoOpenWorkflowId, workflowsList, brouillonWf, setSearchParams]);
 
     const handleOpenCreateModal = () => {
         setEditInitialData(null);
         setIsEmbaucheModalOpen(true);
+    };
+
+    const handleOpenConfirmationModal = () => {
+        setEditInitialData(null);
+        setIsConfirmationModalOpen(true);
+    };
+
+    const handleOpenRenouvellementModal = () => {
+        setEditInitialData(null);
+        setIsRenouvellementModalOpen(true);
     };
 
     const handleOpenEditModal = (data) => {
@@ -134,6 +185,10 @@ export default function CarriereTab({
             setIsEmbaucheModalOpen(true);
         } else if (isRuptureEvent(code)) {
             setIsRuptureModalOpen(true);
+        } else if (isConfirmationEssaiEvent(code)) {
+            setIsConfirmationModalOpen(true);
+        } else if (isRenouvellementEssaiEvent(code)) {
+            setIsRenouvellementModalOpen(true);
         } else {
             setIsTransitionModalOpen(true);
         }
@@ -195,8 +250,8 @@ export default function CarriereTab({
                 workflowPlanifieFutur={workflowPlanifieFutur}
                 estEssaiRenouveleFlag={estEssaiRenouveleFlag}
                 canWrite={canWrite}
-                onOpenConfirmation={() => setIsConfirmationModalOpen(true)}
-                onOpenRenouvellement={() => setIsRenouvellementModalOpen(true)}
+                onOpenConfirmation={handleOpenConfirmationModal}
+                onOpenRenouvellement={handleOpenRenouvellementModal}
                 onOpenRecap={() => setIsRecapModalOpen(true)}
             />
 
@@ -230,11 +285,12 @@ export default function CarriereTab({
                 onOpenCreateEmbauche={handleOpenCreateModal}
                 onOpenTransition={() => setIsTransitionModalOpen(true)}
                 onOpenRupture={() => setIsRuptureModalOpen(true)}
-                onOpenConfirmation={() => setIsConfirmationModalOpen(true)}
-                onOpenRenouvellement={() => setIsRenouvellementModalOpen(true)}
+                onOpenConfirmation={handleOpenConfirmationModal}
+                onOpenRenouvellement={handleOpenRenouvellementModal}
                 onOpenEditModal={handleOpenEditModal}
                 onSelectWorkflowRecap={(wf) => { setSelectedWfModal(wf); setIsRecapModalOpen(true); }}
                 onOpenCertificat={handleOpenCertificat}
+                onOpenAttestation={handleOpenAttestation}
             />
 
             {/* Modales */}
@@ -284,7 +340,8 @@ export default function CarriereTab({
                     nomEmploye={nomEmploye}
                     contratActif={contratActif}
                     affectationActive={affectationActive}
-                    onSuccess={(res) => handleSuccessAction('Demande de confirmation d\'essai créée avec succès !', res)}
+                    initialData={editInitialData}
+                    onSuccess={(res) => handleSuccessAction('Brouillon de confirmation d\'essai enregistré avec succès !', res)}
                 />
             )}
 
@@ -296,7 +353,8 @@ export default function CarriereTab({
                     nomEmploye={nomEmploye}
                     contratActif={contratActif}
                     affectationActive={affectationActive}
-                    onSuccess={(res) => handleSuccessAction('Demande de renouvellement d\'essai créée avec succès !', res)}
+                    initialData={editInitialData}
+                    onSuccess={(res) => handleSuccessAction('Brouillon de renouvellement d\'essai enregistré avec succès !', res)}
                 />
             )}
 
@@ -327,6 +385,23 @@ export default function CarriereTab({
                         contratsList.length > 0
                             ? [...contratsList].sort((a, b) => new Date(a.dateDebut || 0) - new Date(b.dateDebut || 0))[0]?.dateDebut
                             : selectedCertificatContrat?.dateDebut
+                    }
+                />
+            )}
+
+            {isAttestationModalOpen && (
+                <AttestationTravailModal
+                    isOpen={isAttestationModalOpen}
+                    onClose={() => setIsAttestationModalOpen(false)}
+                    employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
+                    contrat={selectedAttestationContrat || contratActif || (contratsList.length > 0 ? contratsList[0] : null)}
+                    affectation={selectedAttestationAffectation || affectationActive}
+                    loadingAffectation={loadingAttestationAffectation}
+                    filiale={selectedAttestationContrat?.filiale || contratActif?.filiale}
+                    dateDebutInitiale={
+                        contratsList.length > 0
+                            ? [...contratsList].sort((a, b) => new Date(a.dateDebut || 0) - new Date(b.dateDebut || 0))[0]?.dateDebut
+                            : selectedAttestationContrat?.dateDebut
                     }
                 />
             )}

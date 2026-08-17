@@ -153,14 +153,14 @@ export default function NotificationBell() {
                     id="btn-notifications"
                     type="button"
                     onClick={() => setOpen((v) => !v)}
-                    className="relative flex items-center justify-center w-8 h-8 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
+                    className="relative flex items-center justify-center min-w-[44px] min-h-[44px] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
                     aria-label="Notifications RH"
                     aria-expanded={open}
                     aria-haspopup="true"
                 >
                     <Bell size={18} strokeWidth={1.75} />
                     {totalNonLues > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] flex items-center justify-center text-[9px] font-bold leading-none text-white bg-[var(--color-danger-500)] rounded-full px-1 ring-2 ring-[var(--color-surface)] font-data">
+                        <span className="absolute top-1 right-1 min-w-[16px] h-[16px] flex items-center justify-center text-[9px] font-bold leading-none text-white bg-[var(--color-danger-500)] rounded-full px-1 ring-2 ring-[var(--color-surface)] font-data">
                             {totalNonLues > 99 ? '99+' : totalNonLues}
                         </span>
                     )}
@@ -193,20 +193,20 @@ export default function NotificationBell() {
                                 <button
                                     type="button"
                                     onClick={marquerToutesLues}
-                                    className="flex items-center gap-1 text-[11px] text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] font-medium px-1.5 py-1 rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
+                                    className="flex items-center gap-1 text-[11px] text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] font-medium px-2 py-1.5 min-h-[36px] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
                                     title="Tout marquer comme lu"
                                 >
-                                    <CheckCheck size={13} strokeWidth={2} />
+                                    <CheckCheck size={14} strokeWidth={2} />
                                     Tout lire
                                 </button>
                             )}
                             <button
                                 type="button"
                                 onClick={() => setOpen(false)}
-                                className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
+                                className="min-w-[36px] min-h-[36px] flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
                                 aria-label="Fermer le panneau"
                             >
-                                <X size={14} strokeWidth={2} />
+                                <X size={16} strokeWidth={2} />
                             </button>
                         </div>
                     </div>

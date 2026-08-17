@@ -30,13 +30,20 @@ export default function Layout({ children }) {
     }, [isDarkMode]);
 
     if (!isAuthenticated) {
-        return <div>{children}</div>;
+        return (
+            <main id="main-content" tabIndex={-1} className="min-h-screen">
+                {children}
+            </main>
+        );
     }
 
     const title = findMenuTitleByHref(menu, pathname) || 'Galaxam SIRH';
 
     return (
         <div className="h-screen flex flex-col bg-[var(--color-bg)] text-[var(--color-fg)]">
+            <a href="#main-content" className="skip-link">
+                Aller au contenu principal
+            </a>
             <Topbar
                 onMenuClick={() => setSidebarOpen(true)}
                 onThemeToggle={() => setIsDarkMode((prev) => !prev)}
@@ -53,7 +60,7 @@ export default function Layout({ children }) {
                     error={menuError}
                 />
 
-                <main className="flex-1 overflow-y-auto p-6 bg-[var(--color-bg)] text-[var(--color-fg)]">
+                <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto p-6 bg-[var(--color-bg)] text-[var(--color-fg)] focus:outline-none">
                     {children}
                 </main>
             </div>

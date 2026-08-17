@@ -48,7 +48,7 @@ export default function StatusPage({
     };
 
     return (
-        <div className="flex-1 w-full min-h-full h-full flex items-center justify-center bg-[var(--color-bg)] px-4 py-8">
+        <main id="main-content" tabIndex={-1} className="flex-1 w-full min-h-full h-full flex items-center justify-center bg-[var(--color-bg)] px-4 py-8 focus:outline-none">
             <div className="max-w-md w-full bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-sm p-10 text-center">
                 {Icon && (
                     <div className={`w-16 h-16 border-2 flex items-center justify-center mx-auto mb-6 ${iconTone}`}>
@@ -79,6 +79,6 @@ export default function StatusPage({
                     </Button>
                 </div>
             </div>
-        </div>
+        </main>
     );
 }

@@ -1,58 +1,86 @@
+import { useState } from 'react';
+
 /**
  * Avatar — Composant de photo de profil ou initiales employé.
- * L'avatar rond est l'une des rares exceptions autorisées avec `rounded-full`.
+ * `shape="round"` (défaut) : rounded-full — exception autorisée par le design system.
+ * `shape="square"` : rounded-none — cohérent avec la règle d'or "PAS D'ARRONDI".
+ * Dans les deux cas, la pastille de statut reste ronde (badge dot, toujours autorisé).
  */
+
+const SIZES = {
+    xs: 'w-6 h-6 text-[10px]',
+    sm: 'w-8 h-8 text-xs',
+    md: 'w-10 h-10 text-sm',
+    lg: 'w-12 h-12 text-base',
+    xl: 'w-16 h-16 text-lg',
+};
+
+const SHAPES = {
+    round: 'rounded-full',
+    square: 'rounded-none',
+};
+
+const STATUS_COLORS = {
+    online: 'bg-[var(--color-success-500)]',
+    offline: 'bg-[var(--color-fg-subtle)]',
+    busy: 'bg-[var(--color-danger-500)]',
+    away: 'bg-[var(--color-warning-500)]',
+};
+
+const STATUS_LABELS = {
+    online: 'En ligne',
+    offline: 'Hors ligne',
+    busy: 'Occupé',
+    away: 'Absent',
+};
+
+const STATUS_SIZES = {
+    xs: 'w-1.5 h-1.5',
+    sm: 'w-2 h-2',
+    md: 'w-2.5 h-2.5',
+    lg: 'w-3 h-3',
+    xl: 'w-3.5 h-3.5',
+};
+
+// Calcul des initiales (ex: "Jean Dupont" -> "JD")
+function getInitials(text) {
+    if (!text) return '—';
+    const parts = text.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '—';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export function Avatar({
     src,
     alt = '',
     name = '',
     size = 'md', // 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+    shape = 'round', // 'round' | 'square'
     status, // 'online' | 'offline' | 'busy' | 'away'
     className = '',
 }) {
-    const sizes = {
-        xs: 'w-6 h-6 text-[10px]',
-        sm: 'w-8 h-8 text-xs',
-        md: 'w-10 h-10 text-sm',
-        lg: 'w-12 h-12 text-base',
-        xl: 'w-16 h-16 text-lg',
-    };
-
-    const statusColors = {
-        online: 'bg-[var(--color-success-500)]',
-        offline: 'bg-[var(--color-fg-subtle)]',
-        busy: 'bg-[var(--color-danger-500)]',
-        away: 'bg-[var(--color-warning-500)]',
-    };
-
-    const statusSizes = {
-        xs: 'w-1.5 h-1.5',
-        sm: 'w-2 h-2',
-        md: 'w-2.5 h-2.5',
-        lg: 'w-3 h-3',
-        xl: 'w-3.5 h-3.5',
-    };
-
-    // Calcul des initiales (ex: "Jean Dupont" -> "JD")
-    const getInitials = (text) => {
-        if (!text) return '—';
-        const parts = text.trim().split(/\s+/);
-        if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    };
+    const [imgError, setImgError] = useState(false);
+    const showImage = Boolean(src) && !imgError;
+    const shapeClass = SHAPES[shape] || SHAPES.round;
 
     return (
         <div className={`relative inline-flex shrink-0 ${className}`}>
-            {src ? (
+            {showImage ? (
                 <img
                     src={src}
                     alt={alt || name}
-                    className={`${sizes[size]} rounded-full object-cover border border-[var(--color-border-subtle)]`}
+                    loading="lazy"
+                    decoding="async"
+                    onError={() => setImgError(true)}
+                    className={`${SIZES[size]} ${shapeClass} object-cover border border-[var(--color-border-subtle)]`}
                 />
             ) : (
                 <div
+                    role="img"
+                    aria-label={name || 'Avatar'}
                     className={`
-            ${sizes[size]} rounded-full bg-[var(--color-brand-500)] text-white
+            ${SIZES[size]} ${shapeClass} bg-[var(--color-brand-500)] text-white
             flex items-center justify-center font-bold font-data uppercase tracking-wider
             border border-[var(--color-brand-500)] select-none shadow-sm
           `}
@@ -63,9 +91,11 @@ export function Avatar({
 
             {status && (
                 <span
+                    role="img"
+                    aria-label={STATUS_LABELS[status] || status}
                     className={`
             absolute bottom-0 right-0 rounded-full ring-2 ring-[var(--color-surface)]
-            ${statusSizes[size]} ${statusColors[status] || statusColors.offline}
+            ${STATUS_SIZES[size]} ${STATUS_COLORS[status] || STATUS_COLORS.offline}
           `}
                 />
             )}
@@ -73,16 +103,26 @@ export function Avatar({
     );
 }
 
-export function AvatarGroup({ children, max = 4, className = '' }) {
+export function AvatarGroup({ children, max = 4, size = 'sm', shape = 'round', className = '' }) {
     const childrenArray = Array.isArray(children) ? children : [children];
     const visibleAvatars = childrenArray.slice(0, max);
     const remainingCount = childrenArray.length - max;
+    const shapeClass = SHAPES[shape] || SHAPES.round;
+    const spacingClass = shape === 'square' ? '-space-x-1.5' : '-space-x-2';
 
     return (
-        <div className={`flex items-center -space-x-2 overflow-hidden ${className}`}>
+        <div className={`flex items-center ${spacingClass} overflow-hidden ${className}`}>
             {visibleAvatars}
             {remainingCount > 0 && (
-                <div className="w-8 h-8 rounded-full bg-[var(--color-bg-subtle)] border-2 border-[var(--color-surface)] text-[var(--color-fg-muted)] font-data font-bold text-xs flex items-center justify-center select-none">
+                <div
+                    role="img"
+                    aria-label={`+${remainingCount} autres`}
+                    className={`
+            ${SIZES[size]} ${shapeClass} bg-[var(--color-bg-subtle)]
+            border-2 border-[var(--color-surface)] text-[var(--color-fg-muted)]
+            font-data font-bold flex items-center justify-center select-none
+          `}
+                >
                     +{remainingCount}
                 </div>
             )}

@@ -13,7 +13,7 @@ export default function Login() {
     const navigate = useNavigate();
     const { login, isAuthenticated, user } = useAuth();
 
-    const [identifiant, setIdentifiant] = useState("");
+    const [identifiant, setIdentifiant] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
@@ -27,7 +27,6 @@ export default function Login() {
         }
     }, [isAuthenticated, user, navigate]);
 
-    // Effacer l'erreur dès que l'utilisateur modifie sa saisie
     const handleIdentifiantChange = (e) => {
         if (error) setError('');
         setIdentifiant(e.target.value);
@@ -50,17 +49,17 @@ export default function Login() {
                 setError(result.message || 'Identifiants incorrects.');
             }
         } catch {
-            setError('Une erreur inattendue est survenue. Veuillez reessayer.');
+            setError('Une erreur inattendue est survenue. Veuillez réessayer.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-[#f7f7f7] px-4 py-12">
+        <main className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg)] px-4 py-12">
             <div className="w-full max-w-md">
-                <Card shadow="sm" bordered className="border-[#e5e5e5]">
-                    <CardBody className="px-10 py-10">
+                <Card shadow="sm" bordered className="border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                    <CardBody className="px-8 py-10 sm:px-10">
                         {/* Logo */}
                         <div className="flex justify-center">
                             <img
@@ -74,11 +73,11 @@ export default function Login() {
                         </div>
 
                         {/* Séparateur */}
-                        <div className="border-t border-[#e5e5e5] my-6" />
+                        <div className="border-t border-[var(--color-border-subtle)] my-6" />
 
-                        <div className="mb-6 text-center">
-                            <h1 className="text-lg font-semibold text-[#2d2d2d]">Connexion</h1>
-                            <p className="text-sm text-[#888] mt-1">
+                        <div className="mb-6 text-center space-y-1">
+                            <h1 className="text-xl font-bold text-[var(--color-fg)]">Connexion</h1>
+                            <p className="text-xs text-[var(--color-fg-muted)]">
                                 Connectez-vous pour accéder à votre espace
                             </p>
                         </div>
@@ -95,11 +94,11 @@ export default function Login() {
                                 type="text"
                                 name="identifiant"
                                 placeholder="Votre identifiant"
-                                icon={<User size={17} />}
+                                icon={<User size={16} />}
                                 value={identifiant}
                                 onChange={handleIdentifiantChange}
                                 autoComplete="username"
-                                error={!!error} // Signalement visuel d'erreur sur le champ
+                                error={!!error}
                                 required
                             />
 
@@ -108,29 +107,28 @@ export default function Login() {
                                 type={showPassword ? 'text' : 'password'}
                                 name="password"
                                 placeholder="••••••••"
-                                icon={<Lock size={17} />}
+                                icon={<Lock size={16} />}
                                 iconRight={
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword((v) => !v)}
-                                        // tabIndex={-1} retiré pour permettre la navigation clavier (Accessibilité)
-                                        className="pointer-events-auto text-[#888] hover:text-[#2d2d2d] focus:outline-none focus:text-[#2d2d2d] transition-colors"
+                                        className="min-w-[44px] min-h-[44px] -mr-3 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] focus:outline-none transition-colors cursor-pointer"
                                         aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                                     >
-                                        {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                     </button>
                                 }
                                 value={password}
                                 onChange={handlePasswordChange}
                                 autoComplete="current-password"
-                                error={!!error} // Signalement visuel d'erreur sur le champ
+                                error={!!error}
                                 required
                             />
 
                             <div className="flex items-center justify-end -mt-1">
                                 <a
                                     href="/mot-de-passe-oublie"
-                                    className="text-xs font-semibold text-[#1A82B1] hover:underline focus:outline-none focus:underline"
+                                    className="text-xs font-semibold text-[var(--color-brand-500)] hover:text-[var(--color-brand-hover)] hover:underline focus:outline-none"
                                 >
                                     Mot de passe oublié ?
                                 </a>
@@ -150,10 +148,11 @@ export default function Login() {
                     </CardBody>
                 </Card>
 
-                <p className="text-center text-xs text-[#aaa] mt-6">
+                {/* Footer avec contraste accessible */}
+                <p className="text-center text-xs text-[var(--color-fg-muted)] mt-6">
                     © {new Date().getFullYear()} Galaxam Logistics. Tous droits réservés.
                 </p>
             </div>
-        </div>
+        </main>
     );
 }

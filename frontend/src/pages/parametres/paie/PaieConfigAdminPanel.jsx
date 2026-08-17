@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Wrench, ShieldCheck, Gift, Clock, Calendar, ArrowLeft } from 'lucide-react';
+import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, ArrowLeft } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
@@ -7,6 +7,7 @@ import Tabs from '@/components/ui/navigation/Tabs';
 const CotisationsIrsaTab = lazy(() => import('@/components/parametres/paie/CotisationsIrsaTab'));
 const IndemnitesSitesTab = lazy(() => import('@/components/parametres/paie/IndemnitesSitesTab'));
 const MajorationsParametresTab = lazy(() => import('@/components/parametres/paie/MajorationsParametresTab'));
+const ParametresGlobauxTab = lazy(() => import('@/components/parametres/paie/ParametresGlobauxTab'));
 const CalendrierFerieTab = lazy(() => import('@/components/parametres/paie/CalendrierFerieTab'));
 
 export default function PaieConfigAdminPanel() {
@@ -20,7 +21,8 @@ export default function PaieConfigAdminPanel() {
     const mainTabs = [
         { id: 'cotisations_irsa', label: 'Cotisations & Barème IRSA', icon: <ShieldCheck size={16} /> },
         { id: 'indemnites_sites', label: 'Indemnités & Tarifs par Site', icon: <Gift size={16} /> },
-        { id: 'majorations_params', label: 'Majorations & Paramètres Globaux', icon: <Clock size={16} /> },
+        { id: 'majorations', label: 'Majorations (Heures Supp)', icon: <Clock size={16} /> },
+        { id: 'parametres_globaux', label: 'Paramètres Globaux', icon: <Sliders size={16} /> },
         { id: 'calendrier', label: 'Calendrier Jours Fériés & Chômés', icon: <Calendar size={16} /> },
     ];
 
@@ -44,7 +46,7 @@ export default function PaieConfigAdminPanel() {
                     <div>
                         <h1 className="text-2xl font-bold text-[var(--color-fg)]">Paramétrage Paie & Barèmes Fiscaux</h1>
                         <p className="text-xs text-[var(--color-fg-muted)]">
-                            Gestion des cotisations sociales, du barème IRSA, des indemnités par site, des majorations, calendrier des jours fériés et paramètres globaux.
+                            Gestion des cotisations sociales, du barème IRSA, des indemnités par site, des majorations, des paramètres globaux et du calendrier des jours fériés.
                         </p>
                     </div>
                 </div>
@@ -54,7 +56,7 @@ export default function PaieConfigAdminPanel() {
             <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden">
                 <Tabs 
                     tabs={mainTabs} 
-                    activeTab={activeTab} 
+                    activeTab={activeTab === 'majorations_params' ? 'majorations' : activeTab} 
                     onChange={handleTabChange} 
                     variant="underline" 
                 />
@@ -64,7 +66,8 @@ export default function PaieConfigAdminPanel() {
                     <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
                         {activeTab === 'cotisations_irsa' && <CotisationsIrsaTab />}
                         {activeTab === 'indemnites_sites' && <IndemnitesSitesTab />}
-                        {activeTab === 'majorations_params' && <MajorationsParametresTab />}
+                        {(activeTab === 'majorations' || activeTab === 'majorations_params') && <MajorationsParametresTab />}
+                        {activeTab === 'parametres_globaux' && <ParametresGlobauxTab />}
                         {activeTab === 'calendrier' && <CalendrierFerieTab />}
                     </Suspense>
                 </div>

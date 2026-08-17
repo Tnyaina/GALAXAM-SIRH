@@ -1,7 +1,11 @@
 import { useState, useEffect, createElement } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { X, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { X, ChevronDown, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { getMenuIcon } from '@/utils/iconRegistry';
+import { useAuth } from '@/context/AuthContext';
+import { Avatar } from '@/components/ui/data-display/Avatar';
+import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
 
 const COLLAPSE_STORAGE_KEY = 'galaxam-sidebar-collapsed';
 
@@ -49,7 +53,7 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
                     className="
                         w-full flex items-center gap-3 pr-4 py-2.5
                         text-sm font-semibold rounded-none
-                        transition-colors duration-150
+                        transition-colors duration-150 cursor-pointer
                         hover:bg-[var(--color-sidebar-hover-bg)] hover:text-[var(--color-sidebar-fg-hover)]
                     "
                 >
@@ -123,6 +127,8 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
 
 export default function Sidebar({ open, onClose, menu = [], loading, error }) {
     const sorted = sortByRang(menu);
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
 
     const [collapsed, setCollapsed] = useState(() => {
         if (typeof window === 'undefined') return false;
@@ -132,6 +138,11 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
     useEffect(() => {
         window.localStorage.setItem(COLLAPSE_STORAGE_KEY, collapsed ? '1' : '0');
     }, [collapsed]);
+
+    const handleLogout = () => {
+        logout();
+        navigate('/');
+    };
 
     return (
         <>
@@ -160,21 +171,20 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                         color: 'var(--color-sidebar-fg)'
                     }}
                     className="
-                        hidden lg:flex absolute top-6 -right-3 z-10
+                        hidden lg:flex absolute top-5 -right-3 z-10
                         w-6 h-6 items-center justify-center rounded-none
                         border border-[var(--color-sidebar-border)]
                         hover:text-[var(--color-sidebar-fg-hover)] hover:border-[var(--color-sidebar-brand)]
-                        shadow-sm transition-colors duration-150
+                        shadow-sm transition-colors duration-150 cursor-pointer
                     "
                 >
                     {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
                 </button>
 
-                <div className={`flex items-center h-16 border-b border-[var(--color-sidebar-border)] shrink-0 px-5 ${collapsed ? 'lg:justify-center lg:px-0' : 'justify-between'}`}>
+                {/* Header Brand avec Avatar carré */}
+                <div className={`flex items-center h-16 border-b border-[var(--color-sidebar-border)] shrink-0 px-4 ${collapsed ? 'lg:justify-center lg:px-0' : 'justify-between'}`}>
                     <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 flex items-center justify-center bg-[var(--color-sidebar-brand)] text-white font-bold text-sm shrink-0 shadow-sm rounded-none">
-                            G
-                        </div>
+                        <Avatar name="Galaxam SIRH" size="sm" shape="square" />
                         <span
                             style={{ color: 'var(--color-sidebar-fg-active)' }}
                             className={`text-base font-bold tracking-tight truncate ${collapsed ? 'lg:hidden' : ''}`}
@@ -182,15 +192,17 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                             Galaxam SIRH
                         </span>
                     </div>
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="xs"
                         onClick={onClose}
-                        style={{ color: 'var(--color-sidebar-fg)' }}
-                        className="lg:hidden p-1 hover:text-[var(--color-sidebar-fg-hover)] transition-colors rounded-none"
-                    >
-                        <X size={18} />
-                    </button>
+                        className="lg:hidden !p-1 !text-[var(--color-sidebar-fg)] hover:!text-white hover:!bg-white/10"
+                        aria-label="Fermer le menu"
+                        iconLeft={<X size={18} />}
+                    />
                 </div>
 
+                {/* Éléments de navigation */}
                 <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4">
                     {loading && (
                         <div className="px-4 space-y-2">
@@ -218,6 +230,49 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                         </ul>
                     )}
                 </nav>
+
+                {/* Pied de Sidebar : Profil utilisateur avec Avatar square, Badge haute lisibilité & Bouton déconnexion */}
+                {user && (
+                    <div className={`border-t border-[var(--color-sidebar-border)] p-3 shrink-0 bg-[var(--color-sidebar-bg)] ${collapsed ? 'lg:flex lg:flex-col lg:items-center' : ''}`}>
+                        <div className="flex items-center justify-between gap-2 w-full">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <Avatar name={user?.identifiant || 'Utilisateur'} size="sm" shape="square" status="online" />
+                                {!collapsed && (
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-xs font-bold truncate text-[var(--color-sidebar-fg-active)]">
+                                            {user?.identifiant}
+                                        </p>
+                                        {user?.role && (
+                                            <Badge size="sm" className="mt-0.5 !text-[9px] !px-1.5 !py-0 font-bold !text-sky-200 !bg-sky-500/20 !border-sky-400/30">
+                                                {user.role}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {!collapsed ? (
+                                <Button
+                                    variant="ghost"
+                                    size="xs"
+                                    onClick={handleLogout}
+                                    title="Déconnexion"
+                                    className="!p-1.5 !text-[var(--color-sidebar-fg)] hover:!text-red-400 hover:!bg-white/10 shrink-0"
+                                    iconLeft={<LogOut size={16} />}
+                                />
+                            ) : (
+                                <Button
+                                    variant="ghost"
+                                    size="xs"
+                                    onClick={handleLogout}
+                                    title="Déconnexion"
+                                    className="hidden lg:flex mt-2 !p-1.5 !text-[var(--color-sidebar-fg)] hover:!text-red-400 hover:!bg-white/10 shrink-0"
+                                    iconLeft={<LogOut size={16} />}
+                                />
+                            )}
+                        </div>
+                    </div>
+                )}
             </aside>
         </>
     );

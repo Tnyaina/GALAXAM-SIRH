@@ -3,10 +3,23 @@ export default function Input({
   error,
   hint,
   icon,
+  iconLeft,
   iconRight,
   className = '',
+  onWheel,
   ...props
 }) {
+  const leftIcon = icon || iconLeft;
+
+  const handleWheel = (e) => {
+    if (props.type === 'number') {
+      e.target.blur();
+    }
+    if (onWheel) {
+      onWheel(e);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-1">
       {label && (
@@ -16,19 +29,20 @@ export default function Input({
         </label>
       )}
       <div className="relative">
-        {icon && (
+        {leftIcon && (
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]">
-            {icon}
+            {leftIcon}
           </div>
         )}
         <input
+          onWheel={handleWheel}
           className={`
             w-full bg-[var(--color-surface)] border-2 rounded-none text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]
             px-4 py-2.5 outline-none transition-all duration-150
             focus:ring-0 focus:border-[var(--color-brand-500)]
             disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
             ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
-            ${icon ? 'pl-10' : ''}
+            ${leftIcon ? 'pl-10' : ''}
             ${iconRight ? 'pr-10' : ''}
             ${className}
           `}

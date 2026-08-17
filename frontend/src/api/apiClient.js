@@ -63,7 +63,11 @@ const apiClient = axios.create({
 // Intercepteur de requête : Rafraîchissement proactif
 apiClient.interceptors.request.use(
     async (config) => {
-        if (config.url.includes('/auth/refresh') || config.url.includes('/auth/login')) {
+        if (
+            config.url.includes('/auth/refresh') ||
+            config.url.includes('/auth/login') ||
+            config.url.includes('/auth/logout')
+        ) {
             return config;
         }
 
@@ -101,14 +105,22 @@ apiClient.interceptors.response.use(
         const originalRequest = error.config;
 
         if (
+            !originalRequest ||
             originalRequest.url.includes('/auth/refresh') ||
-            originalRequest.url.includes('/auth/login')
+            originalRequest.url.includes('/auth/login') ||
+            originalRequest.url.includes('/auth/logout')
         ) {
             return Promise.reject(error);
         }
 
         // Si 401 inattendu (et qu'on a pas déjà retenté)
         if (error.response?.status === 401 && !originalRequest._retry) {
+            // Si on n'a pas/plus de token d'accès en mémoire, ne tente pas de rafraîchir !
+            if (!getAccessToken()) {
+                window.dispatchEvent(new Event('auth-expired'));
+                return Promise.reject(error);
+            }
+
             originalRequest._retry = true;
             try {
                 const newToken = await refreshTokenOnce();

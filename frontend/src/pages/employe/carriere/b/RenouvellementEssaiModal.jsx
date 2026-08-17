@@ -6,7 +6,7 @@ import contratService from '@/api/employe/contratService';
 import {
     DocumentFrame, DocumentHeader, Clause, DocumentFooter
 } from '@/components/carriere/ContractDocument';
-import { fmtDateFr } from '@/utils/carriereUtils';
+import { fmtDateFr, fmtDateInput } from '@/utils/carriereUtils';
 
 // ── COMPOSANT APERÇU AVENANT (Déclaré hors du render) ──────────────────────
 function AvenantPreview({
@@ -75,15 +75,15 @@ export default function RenouvellementEssaiModal({
     nomEmploye,
     contratActif,
     affectationActive,
+    initialData = null,
     onSuccess,
 }) {
+    const isEditMode = !!initialData;
+    const wfId = initialData?.idWorkflow || initialData?.workflow?.idWorkflow;
+
     const [dureeProlongationMois, setDureeProlongationMois] = useState('2');
-    const [dateFinInitiale] = useState(
-        contratActif?.dateFinEssai ? new Date(contratActif.dateFinEssai).toISOString().substring(0, 10) : ''
-    );
-    const [dateEffet, setDateEffet] = useState(
-        contratActif?.dateFinEssai ? new Date(contratActif.dateFinEssai).toISOString().substring(0, 10) : new Date().toISOString().substring(0, 10)
-    );
+    const [dateFinInitiale, setDateFinInitiale] = useState('');
+    const [dateEffet, setDateEffet] = useState('');
     const [nouvelleDateFin, setNouvelleDateFin] = useState('');
     const [motif, setMotif] = useState('Prolongation de la période d\'évaluation du collaborateur');
     const [commentaire, setCommentaire] = useState('');
@@ -94,22 +94,46 @@ export default function RenouvellementEssaiModal({
 
     useEffect(() => {
         if (isOpen) {
+            const dateFinEssaiContrat = contratActif?.dateFinEssai
+                ? fmtDateInput(contratActif.dateFinEssai)
+                : '';
+
+            setDateFinInitiale(dateFinEssaiContrat);
+
+            if (initialData) {
+                const duree = initialData.dureeEssaiMois ? String(initialData.dureeEssaiMois) : '2';
+                setDureeProlongationMois(duree);
+                setDateEffet(fmtDateInput(initialData.dateEffet) || dateFinEssaiContrat || fmtDateInput(new Date()));
+                setNouvelleDateFin(fmtDateInput(initialData.dateFinEssai) || '');
+                setMotif(initialData.motif || 'Prolongation de la période d\'évaluation du collaborateur');
+                setCommentaire(initialData.commentaire || '');
+            } else {
+                setDureeProlongationMois('2');
+                const defaultDate = dateFinEssaiContrat || fmtDateInput(new Date());
+                setDateEffet(defaultDate);
+                setMotif('Prolongation de la période d\'évaluation du collaborateur');
+                setCommentaire('');
+            }
+
             const t = setTimeout(() => setMounted(true), 10);
             return () => clearTimeout(t);
         }
         setMounted(false);
         setShowPreviewMobile(false);
-    }, [isOpen]);
+    }, [isOpen, initialData, contratActif]);
 
     useEffect(() => {
-        if (dateFinInitiale && dureeProlongationMois) {
-            const d = new Date(dateFinInitiale);
-            if (!isNaN(d.getTime())) {
-                d.setMonth(d.getMonth() + Number(dureeProlongationMois));
-                setNouvelleDateFin(d.toISOString().substring(0, 10));
+        if (!initialData && dateFinInitiale && dureeProlongationMois) {
+            const cleanStr = fmtDateInput(dateFinInitiale);
+            if (cleanStr) {
+                const [y, m, day] = cleanStr.split('-').map(Number);
+                if (y && m && day) {
+                    const d = new Date(y, m - 1 + Number(dureeProlongationMois), day);
+                    setNouvelleDateFin(fmtDateInput(d));
+                }
             }
         }
-    }, [dateFinInitiale, dureeProlongationMois]);
+    }, [dateFinInitiale, dureeProlongationMois, initialData]);
 
     if (!isOpen) return null;
 
@@ -124,27 +148,33 @@ export default function RenouvellementEssaiModal({
         try {
             const payload = {
                 codeTypeEvenement: 'RENOUVELLEMENT_ESSAI',
-                idContratSource: contratActif?.idContrat || null,
-                idAffectationSource: affectationActive?.idAffectation || null,
-                idFiliale: contratActif?.idFiliale || null,
-                idTypeContrat: contratActif?.idTypeContrat || null,
-                idTypeIntervenant: contratActif?.idTypeIntervenant || null,
+                idContratSource: contratActif?.idContrat || initialData?.idContratSource || null,
+                idAffectationSource: affectationActive?.idAffectation || initialData?.idAffectationSource || null,
+                idFiliale: contratActif?.idFiliale || initialData?.idFiliale || null,
+                idTypeContrat: contratActif?.idTypeContrat || initialData?.idTypeContrat || null,
+                idTypeIntervenant: contratActif?.idTypeIntervenant || initialData?.idTypeIntervenant || null,
                 dureeEssaiMois: Number(dureeProlongationMois),
                 dateFinEssai: nouvelleDateFin,
-                idSite: affectationActive?.idSite,
-                idDepartement: affectationActive?.idDepartement,
-                idService: affectationActive?.idService,
-                idFonction: affectationActive?.idFonction,
-                idResponsableHierarchique: affectationActive?.idResponsableHierarchique || null,
-                idCategorieProfessionnelle: affectationActive?.idCategorieProfessionnelle,
-                idModeCalculPaie: affectationActive?.idModeCalculPaie,
-                salaireBase: affectationActive?.salaireBase,
+                idSite: affectationActive?.idSite || initialData?.idSite,
+                idDepartement: affectationActive?.idDepartement || initialData?.idDepartement,
+                idService: affectationActive?.idService || initialData?.idService,
+                idFonction: affectationActive?.idFonction || initialData?.idFonction,
+                idResponsableHierarchique: affectationActive?.idResponsableHierarchique || initialData?.idResponsableHierarchique || null,
+                idCategorieProfessionnelle: affectationActive?.idCategorieProfessionnelle || initialData?.idCategorieProfessionnelle,
+                idModeCalculPaie: affectationActive?.idModeCalculPaie || initialData?.idModeCalculPaie,
+                salaireBase: affectationActive?.salaireBase || initialData?.salaireBase,
                 dateEffet: dateEffet,
                 motif: motif,
                 commentaire: commentaire,
             };
 
-            const res = await contratService.creerBrouillonTransition(idEmploye, payload);
+            let res;
+            if (isEditMode && wfId) {
+                res = await contratService.modifierBrouillonWorkflow(wfId, payload);
+            } else {
+                res = await contratService.creerBrouillonTransition(idEmploye, payload);
+            }
+
             if (onSuccess) onSuccess(res);
             onClose();
         } catch (err) {

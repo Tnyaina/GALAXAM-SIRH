@@ -6,7 +6,7 @@ import contratService from '@/api/employe/contratService';
 import {
     DocumentFrame, DocumentHeader, Clause, DocumentFooter
 } from '@/components/carriere/ContractDocument';
-import { fmtDateFr } from '@/utils/carriereUtils';
+import { fmtDateFr, fmtDateInput } from '@/utils/carriereUtils';
 
 // ── COMPOSANT APERÇU AVENANT (Déclaré hors du render pour préserver le state) ──
 function ConfirmationPreview({
@@ -56,11 +56,13 @@ export default function ConfirmationEssaiModal({
     nomEmploye,
     contratActif,
     affectationActive,
+    initialData = null,
     onSuccess,
 }) {
-    const [dateEffet, setDateEffet] = useState(
-        contratActif?.dateFinEssai ? new Date(contratActif.dateFinEssai).toISOString().substring(0, 10) : new Date().toISOString().substring(0, 10)
-    );
+    const isEditMode = !!initialData;
+    const wfId = initialData?.idWorkflow || initialData?.workflow?.idWorkflow;
+
+    const [dateEffet, setDateEffet] = useState('');
     const [commentaire, setCommentaire] = useState('Période d\'essai concluante. Confirmation définitive à l\'emploi.');
     const [errorMsg, setErrorMsg] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -69,12 +71,24 @@ export default function ConfirmationEssaiModal({
 
     useEffect(() => {
         if (isOpen) {
+            const defaultDate = contratActif?.dateFinEssai
+                ? fmtDateInput(contratActif.dateFinEssai)
+                : fmtDateInput(new Date());
+
+            if (initialData) {
+                setDateEffet(fmtDateInput(initialData.dateEffet || initialData.dateEffetConfirmation) || defaultDate);
+                setCommentaire(initialData.commentaire || 'Période d\'essai concluante. Confirmation définitive à l\'emploi.');
+            } else {
+                setDateEffet(defaultDate);
+                setCommentaire('Période d\'essai concluante. Confirmation définitive à l\'emploi.');
+            }
+
             const t = setTimeout(() => setMounted(true), 10);
             return () => clearTimeout(t);
         }
         setMounted(false);
         setShowPreviewMobile(false);
-    }, [isOpen]);
+    }, [isOpen, initialData, contratActif]);
 
     if (!isOpen) return null;
 
@@ -88,26 +102,32 @@ export default function ConfirmationEssaiModal({
         try {
             const payload = {
                 codeTypeEvenement: 'CONFIRMATION_ESSAI',
-                idContratSource: contratActif?.idContrat || null,
-                idAffectationSource: affectationActive?.idAffectation || null,
+                idContratSource: contratActif?.idContrat || initialData?.idContratSource || null,
+                idAffectationSource: affectationActive?.idAffectation || initialData?.idAffectationSource || null,
                 // Même affectation et contrat reconduits
-                idFiliale: contratActif?.idFiliale || null,
-                idTypeContrat: contratActif?.idTypeContrat || null,
-                idTypeIntervenant: contratActif?.idTypeIntervenant || null,
-                idSite: affectationActive?.idSite,
-                idDepartement: affectationActive?.idDepartement,
-                idService: affectationActive?.idService,
-                idFonction: affectationActive?.idFonction,
-                idResponsableHierarchique: affectationActive?.idResponsableHierarchique || null,
-                idCategorieProfessionnelle: affectationActive?.idCategorieProfessionnelle,
-                idModeCalculPaie: affectationActive?.idModeCalculPaie,
-                salaireBase: affectationActive?.salaireBase,
+                idFiliale: contratActif?.idFiliale || initialData?.idFiliale || null,
+                idTypeContrat: contratActif?.idTypeContrat || initialData?.idTypeContrat || null,
+                idTypeIntervenant: contratActif?.idTypeIntervenant || initialData?.idTypeIntervenant || null,
+                idSite: affectationActive?.idSite || initialData?.idSite,
+                idDepartement: affectationActive?.idDepartement || initialData?.idDepartement,
+                idService: affectationActive?.idService || initialData?.idService,
+                idFonction: affectationActive?.idFonction || initialData?.idFonction,
+                idResponsableHierarchique: affectationActive?.idResponsableHierarchique || initialData?.idResponsableHierarchique || null,
+                idCategorieProfessionnelle: affectationActive?.idCategorieProfessionnelle || initialData?.idCategorieProfessionnelle,
+                idModeCalculPaie: affectationActive?.idModeCalculPaie || initialData?.idModeCalculPaie,
+                salaireBase: affectationActive?.salaireBase || initialData?.salaireBase,
                 dateEffet: dateEffet,
                 motif: 'Confirmation définitive de la période d\'essai',
                 commentaire: commentaire,
             };
 
-            const res = await contratService.creerBrouillonTransition(idEmploye, payload);
+            let res;
+            if (isEditMode && wfId) {
+                res = await contratService.modifierBrouillonWorkflow(wfId, payload);
+            } else {
+                res = await contratService.creerBrouillonTransition(idEmploye, payload);
+            }
+
             if (onSuccess) onSuccess(res);
             onClose();
         } catch (err) {

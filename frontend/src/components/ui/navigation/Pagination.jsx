@@ -72,7 +72,7 @@ export default function Pagination({
             </div>
 
             {/* Contrôles de navigation */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
                 {/* Première page */}
                 <Button
                     type="button"
@@ -80,9 +80,10 @@ export default function Pagination({
                     size="xs"
                     disabled={currentPage === 1}
                     onClick={() => onPageChange(1)}
-                    icon={<ChevronsLeft size={14} />}
-                    className="!min-h-0 !p-1.5"
+                    icon={<ChevronsLeft size={16} />}
+                    className="min-w-[40px] min-h-[40px] !p-2 flex items-center justify-center"
                     title="Première page"
+                    aria-label="Première page"
                 />
 
                 {/* Page précédente */}
@@ -92,13 +93,14 @@ export default function Pagination({
                     size="xs"
                     disabled={currentPage === 1}
                     onClick={() => onPageChange(currentPage - 1)}
-                    icon={<ChevronLeft size={14} />}
-                    className="!min-h-0 !p-1.5"
+                    icon={<ChevronLeft size={16} />}
+                    className="min-w-[40px] min-h-[40px] !p-2 flex items-center justify-center"
                     title="Page précédente"
+                    aria-label="Page précédente"
                 />
 
                 {/* Numéros de page */}
-                <div className="flex items-center gap-1 mx-1">
+                <div className="flex items-center gap-1.5 mx-1">
                     {getPageNumbers().map((p, idx) => {
                         if (p === '...') {
                             return (
@@ -113,8 +115,10 @@ export default function Pagination({
                                 key={`page-${p}`}
                                 type="button"
                                 onClick={() => onPageChange(p)}
+                                aria-label={`Page ${p}`}
+                                aria-current={isActive ? 'page' : undefined}
                                 className={`
-                  min-w-[28px] h-7 px-2 font-data text-xs font-semibold rounded-none border transition-colors cursor-pointer
+                  min-w-[40px] h-[40px] px-3 font-data text-xs font-semibold rounded-none border transition-colors cursor-pointer flex items-center justify-center
                   ${isActive
                                         ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)] text-white'
                                         : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)]'
@@ -134,9 +138,10 @@ export default function Pagination({
                     size="xs"
                     disabled={currentPage === totalPages}
                     onClick={() => onPageChange(currentPage + 1)}
-                    icon={<ChevronRight size={14} />}
-                    className="!min-h-0 !p-1.5"
+                    icon={<ChevronRight size={16} />}
+                    className="min-w-[40px] min-h-[40px] !p-2 flex items-center justify-center"
                     title="Page suivante"
+                    aria-label="Page suivante"
                 />
 
                 {/* Dernière page */}
@@ -146,9 +151,10 @@ export default function Pagination({
                     size="xs"
                     disabled={currentPage === totalPages}
                     onClick={() => onPageChange(totalPages)}
-                    icon={<ChevronsRight size={14} />}
-                    className="!min-h-0 !p-1.5"
+                    icon={<ChevronsRight size={16} />}
+                    className="min-w-[40px] min-h-[40px] !p-2 flex items-center justify-center"
                     title="Dernière page"
+                    aria-label="Dernière page"
                 />
             </div>
         </div>

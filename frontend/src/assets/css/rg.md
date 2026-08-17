@@ -87,14 +87,14 @@ Toujours privilégier les variables sémantiques du thème :
 | `--color-bg-subtle` | `#e0e1dd` | `#162335` | Fond de conteneurs discrets |
 | `--color-surface` | `#ffffff` | `#1b263b` | Fond des cartes, tables, modales |
 | `--color-surface-hover`| `#f0f2f5` | `#24334d` | Hover sur lignes et cartes |
-| `--color-fg` | `#0d1b2a` | `#e0e1dd` | Texte principal |
-| `--color-fg-muted` | `#415a77` | `#9ab0c7` | Texte secondaire / sous-titres |
-| `--color-fg-subtle`| `#778da9` | `#778da9` | Placeholders, légendes, hints |
+| `--color-fg` | `#0d1b2a` | `#f4f6f8` | Texte principal (Contraste high) |
+| `--color-fg-muted` | `#334862` | `#c2cfda` | Texte secondaire / sous-titres (WCAG AA > 7:1) |
+| `--color-fg-subtle`| `#4a617c` | `#9ab0c7` | Placeholders, légendes, hints (WCAG AA >= 4.5:1) |
 | `--color-border` | `#c9d5e3` | `#2a3a50` | Bordures principales |
 | `--color-border-subtle`| `#e0e1dd` | `#1e2c40` | Séparateurs, bordures douces |
-| `--color-accent` | `#415a77` | `#778da9` | Liens, accents, focus actif |
+| `--color-accent` | `#334862` | `#9ab0c7` | Liens, accents, focus actif |
 | `--color-sidebar-bg` | `#1b263b` | `#070e17` | Fond de navigation latérale |
-| `--color-sidebar-fg` | `#778da9` | `#778da9` | Texte / icônes sidebar |
+| `--color-sidebar-fg` | `#9ab0c7` | `#9ab0c7` | Texte / icônes sidebar |
 
 ---
 
@@ -119,7 +119,7 @@ Ne jamais recréer un bouton, input ou carte "from scratch". Les composants sont
 
 | Composant | Sous-dossier | Fichier | Points clés |
 | :--- | :--- | :--- | :--- |
-| `Button` | `forms/` | [`Button.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/forms/Button.jsx) | Variants : `primary/secondary/outline/ghost/danger/success` · sizes : `xs/sm/md/lg` · angles droits, uppercase. |
+| `Button` | `forms/` | [`Button.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/forms/Button.jsx) | Variants : `primary/secondary/outline/ghost/danger/success` · sizes : `xs/sm/md/lg` · angles droits, uppercase, zones tactiles min-h `40px` à `48px`. |
 | `Input` (+ `Textarea`, `Select`, `Checkbox`, `Radio`) | `forms/` | [`Input.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/forms/Input.jsx) | Focus visible via `var(--color-focus-ring)`. Labels uppercase. |
 | `Toggle` | `forms/` | [`Toggle.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/forms/Toggle.jsx) | Switch arrondi (exception de radius autorisée). |
 | `DatePicker` | `forms/` | [`DatePicker.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/forms/DatePicker.jsx) | Sélecteur de date personnalisé. |
@@ -140,7 +140,7 @@ Ne jamais recréer un bouton, input ou carte "from scratch". Les composants sont
 | `Stepper` | `navigation/` | [`Stepper.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/navigation/Stepper.jsx) | Visualisation des étapes d'un processus multi-étapes. |
 | `Tabs` | `navigation/` | [`Tabs.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/navigation/Tabs.jsx) | Onglets de navigation horizontaux. |
 | `Breadcrumb` | `navigation/` | [`Breadcrumb.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/navigation/Breadcrumb.jsx) | Fil d'Ariane pour la navigation contextuelle. |
-| `Pagination` | `navigation/` | [`Pagination.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/navigation/Pagination.jsx) | Contrôles de pagination pour les longs tableaux de données. |
+| `Pagination` | `navigation/` | [`Pagination.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/navigation/Pagination.jsx) | Contrôles de pagination avec cibles tactiles `min-w-[40px] min-h-[40px]`. |
 | `ConfirmDialog` | `overlays/` | [`ConfirmDialog.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/overlays/ConfirmDialog.jsx) | Modale de confirmation d'action. |
 | `SlideOver` | `overlays/` | [`SlideOver.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/overlays/SlideOver.jsx) | Panneau coulissant latéral (Drawer). |
 | `Tooltip` | `overlays/` | [`Tooltip.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/overlays/Tooltip.jsx) | Info-bulle directionnelle (top/bottom/left/right) au survol. |
@@ -158,9 +158,35 @@ Ne jamais recréer un bouton, input ou carte "from scratch". Les composants sont
 
 ---
 
-## 8. Checklist avant validation
+## 8. Normes d'Accessibilité WCAG AA (Lighthouse)
 
-- [ ] Les couleurs proviennent strictement de `index.css` via les tokens ou classes Tailwind (`brand-*`, `ink-*`, etc.).
+Tout nouveau composant ou modification UI **doit strictement respecter** les directives d'accessibilité suivantes :
+
+1. **Contraste des Couleurs (WCAG AA 1.4.3)** :
+   - Le texte normal (body, hints, placeholders) doit avoir un ratio de contraste d'au moins **4.5:1** avec son fond.
+   - Utiliser `--color-fg` (`#0d1b2a`), `--color-fg-muted` (`#334862`) ou `--color-fg-subtle` (`#4a617c`) en mode clair.
+   - Ne jamais utiliser un texte avec une couleur plus claire que `--color-fg-subtle` sur fond blanc/gris clair.
+
+2. **Cibles Tactiles et Espacement (WCAG 2.5.5 / 2.5.8)** :
+   - Les éléments interactifs (boutons, icônes cliquables, pagination, sélecteurs) doivent mesurer au moins **44px x 44px** (ou au minimum `min-w-[40px] min-h-[40px]`).
+   - Prévoir un espacement suffisant (`gap-2` ou `gap-1.5` minimum) entre deux cibles interactives adjacentes.
+
+3. **Repère Principal & Navigation (`<main id="main-content">`)** :
+   - Toute page (Layout authentifié, Login, StatusPage/Erreurs) **doit obligatoirement inclure un conteneur `<main id="main-content" tabIndex="-1">`**.
+   - Inclure le lien d'évitement accessible (`skip-link`) "Aller au contenu principal" au sommet du layout.
+
+4. **Formulaires & Attributs HTML** :
+   - Dans les fichiers HTML statiques (ex. `index.html`), utiliser l'attribut standard `class="..."` et non `className="..."`.
+   - Fournir un `aria-label` explicite pour tous les boutons d'icônes sans texte.
+
+---
+
+## 9. Checklist avant validation
+
+- [ ] Les couleurs proviennent strictly de `index.css` via les tokens ou classes Tailwind (`brand-*`, `ink-*`, etc.).
+- [ ] Le ratio de contraste des textes respecte la norme **WCAG AA (>= 4.5:1)** (`--color-fg-subtle` >= `#4a617c`).
+- [ ] Les cibles d'interaction tactiles (boutons, pagination, header) mesurent au moins **44px** (ou `min-w-[40px] min-h-[40px]`).
+- [ ] La page inclut un repère principal sémantique `<main id="main-content">`.
 - [ ] Aucun arrondi injustifié (`rounded-none` par défaut).
 - [ ] Réutilisation systématique des composants de `@/components/ui/`.
 - [ ] Typographie mono (`.font-data`) appliquée pour les codes logistiques, montants et dates.

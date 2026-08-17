@@ -1,7 +1,11 @@
 -- =====================================================================
--- SCRIPT POSTGRESQL : SIRH GALAXAM - MODULE CONGÉS & ABSENCES
--- Réf. §7 (et §6.3) du Recueil consolidé v3 + Code du Travail malgache
--- (Loi n° 2003-044, Art. 13, 85, 88) + arbitrages métier confirmés.
+-- SCRIPT POSTGRESQL : SIRH GALAXAM - MODULE CONGÉS & ABSENCES (COMPLET)
+-- Réf. conges.md + conges-cpl.md + Code du Travail malgache
+-- (Loi n° 2003-044, Art. 13, 85, 86, 87, 88) + arbitrages métier confirmés.
+--
+-- Hors périmètre (arbitrage confirmé) :
+--   - Pauses d'allaitement (non retenu)
+--   - Co-financement CNaPS / IJM maternité (reporté au module Paie)
 -- =====================================================================
 
 -- ------------------------------------------
@@ -31,7 +35,7 @@ CREATE TABLE ref_pool_conge_annuel (
     plafond_jours_an NUMERIC(5,1) NOT NULL
 );
 
--- Typologie des congés (§7.2 + Art. 13/85/88).
+-- Typologie des congés (Art. 13/85/86/87/88).
 CREATE TABLE ref_type_conge (
     id_type_conge SERIAL PRIMARY KEY,
     code VARCHAR(30) NOT NULL UNIQUE,              -- ANNUEL, EXCEPTIONNEL, MALADIE, MALADIE_SANS_SOLDE, MATERNITE, PATERNITE, SABBATIQUE, FORMATION, SANS_SOLDE
@@ -41,7 +45,7 @@ CREATE TABLE ref_type_conge (
     decompte_solde_acquis BOOLEAN DEFAULT TRUE,    -- FALSE : le congé n'entame pas le solde de congé annuel (droit légal distinct)
     exige_anciennete_min_mois INT DEFAULT 0,       -- 12 pour ANNUEL
 
-    duree_fixe_jours NUMERIC(5,1),                 -- durée légale non modifiable : 98 (MATERNITE)
+    duree_fixe_jours NUMERIC(5,1),                 -- durée légale de référence : 98 (MATERNITE, extensible à 119 via demande_conge.extension_pathologique_maternite)
 
     -- Maladie : plafond par ÉPISODE continu (pas remis à zéro chaque année civile,
     -- c'est la durée d'un arrêt donné qui compte, Art. 13). Au-delà, bascule
@@ -57,6 +61,14 @@ CREATE TABLE ref_type_conge (
     -- (MALADIE, MATERNITE, PATERNITE, EXCEPTIONNEL). Les seuils réels (2j / 15j)
     -- sont dans parametre_global pour rester ajustables sans migration.
     soumis_delai_preavis BOOLEAN DEFAULT FALSE,
+
+    -- TRUE = la période n'est PAS assimilée à du temps de travail effectif
+    -- (Art. 86/87 + assimilation légale) : le batch mensuel ACQUISITION doit
+    -- sauter l'employé sur cette période, et le calcul d'ancienneté
+    -- (éligibilité ANNUEL 12 mois, bonification 3 ans/5 ans) doit neutraliser
+    -- ces jours. FALSE (défaut) = assimilé à du temps de travail effectif
+    -- (ANNUEL, MALADIE dans l'épisode, MATERNITE, EXCEPTIONNEL, PATERNITE).
+    suspend_acquisition_solde BOOLEAN DEFAULT FALSE,
 
     exige_justificatif BOOLEAN DEFAULT FALSE,
     est_actif BOOLEAN DEFAULT TRUE,
@@ -105,6 +117,11 @@ CREATE TABLE demande_conge (
     derogation_solde_negatif BOOLEAN DEFAULT FALSE,   -- validé malgré solde insuffisant (anticipation)
     derogation_delai_preavis BOOLEAN DEFAULT FALSE,   -- validé malgré préavis non respecté
 
+    -- Extension maternité pour état pathologique (Art. 6 CNaPS) : porte le
+    -- plafond de 98j à 119j (98 + 21j max). Applicable uniquement si
+    -- id_type_conge = MATERNITE. Justificatif obligatoire dans ce cas.
+    extension_pathologique_maternite BOOLEAN DEFAULT FALSE,
+
     justificatif_fourni BOOLEAN DEFAULT FALSE,
     commentaire TEXT,
 
@@ -128,6 +145,10 @@ CREATE INDEX idx_demande_conge_motif ON demande_conge(id_motif_evenement_familia
 -- 4. SOLDE DE CONGÉ — approche "mouvements", pas un compteur figé
 -- ------------------------------------------
 --   ACQUISITION  : +2,5j générés automatiquement chaque mois travaillé
+--   BONIFICATION : +jours, majoration d'ancienneté (Art. 86/87 : +1j / tranche
+--                  de 5 ans au-delà de 3 ans d'ancienneté). Distinct
+--                  d'ACQUISITION pour garder un reporting propre entre le
+--                  crédit mensuel de base et la majoration légale.
 --   PRISE        : -nb_jours_decomptes, généré à la validation d'une demande
 --   AJUSTEMENT   : +/- régularisation manuelle DAF (avec commentaire obligatoire)
 --   ANNULATION   : +nb_jours_decomptes, si une demande validée est annulée après coup
@@ -137,8 +158,8 @@ CREATE INDEX idx_demande_conge_motif ON demande_conge(id_motif_evenement_familia
 CREATE TABLE mouvement_solde_conge (
     id_mouvement SERIAL PRIMARY KEY,
     id_employe INT NOT NULL REFERENCES employe(id_employe),
-    type_mouvement VARCHAR(20) NOT NULL CHECK (type_mouvement IN ('ACQUISITION','PRISE','AJUSTEMENT','ANNULATION','EXPIRATION')),
-    nb_jours NUMERIC(5,2) NOT NULL,
+    type_mouvement VARCHAR(20) NOT NULL CHECK (type_mouvement IN ('ACQUISITION','BONIFICATION','PRISE','AJUSTEMENT','ANNULATION','EXPIRATION')),
+    nb_jours NUMERIC(5,2) NOT NULL,          -- signé : positif pour ACQUISITION/BONIFICATION/AJUSTEMENT(+)/ANNULATION, négatif pour PRISE/EXPIRATION
     id_demande_conge INT REFERENCES demande_conge(id_demande_conge) ON DELETE SET NULL,
     date_mouvement DATE NOT NULL DEFAULT CURRENT_DATE,
     commentaire TEXT,
@@ -157,8 +178,9 @@ CREATE INDEX idx_mouvement_solde_date ON mouvement_solde_conge(date_mouvement);
 CREATE OR REPLACE VIEW v_solde_conge_employe AS
 SELECT
     id_employe,
-    COALESCE(SUM(nb_jours), 0) AS solde_actuel,
+    COALESCE(SUM(nb_jours), 0) AS solde_actuel,   -- somme algébrique : nb_jours déjà signé (négatif pour PRISE/EXPIRATION)
     COALESCE(SUM(nb_jours) FILTER (WHERE type_mouvement = 'ACQUISITION'), 0) AS total_acquis,
+    COALESCE(SUM(nb_jours) FILTER (WHERE type_mouvement = 'BONIFICATION'), 0) AS total_bonification,
     COALESCE(SUM(-nb_jours) FILTER (WHERE type_mouvement = 'PRISE'), 0) AS total_pris,
     COALESCE(SUM(-nb_jours) FILTER (WHERE type_mouvement = 'EXPIRATION'), 0) AS total_expire,
     MAX(date_mouvement) FILTER (WHERE type_mouvement = 'ACQUISITION') AS derniere_acquisition
@@ -192,6 +214,7 @@ SELECT
     tc.code AS code_type_conge,
     tc.libelle AS libelle_type_conge,
     tc.est_paye,
+    tc.suspend_acquisition_solde,
     d.id_motif_evenement_familial,
     m.code AS code_motif_evenement,
     m.libelle AS libelle_motif_evenement,
@@ -204,6 +227,7 @@ SELECT
     d.nb_jours_decomptes,
     d.derogation_solde_negatif,
     d.derogation_delai_preavis,
+    d.extension_pathologique_maternite,
     d.justificatif_fourni,
     d.commentaire,
     d.saisi_par,
@@ -238,25 +262,31 @@ ALTER TABLE notification_rh ADD CONSTRAINT chk_notif_type CHECK (type_alerte IN 
     'RETOUR_CONGE_J',                  -- fin de congé = aujourd'hui
     'MALADIE_PLAFOND_EPISODE_ATTEINT', -- un arrêt maladie continu atteint 30j (bascule sans solde) ou 180j (rupture possible)
     'POOL_EXCEPTIONNEL_EPUISE',        -- pool 10j/an (exceptionnel + paternité) atteint pour l'employé
-    'FRACTIONNEMENT_NON_RESPECTE'      -- fin d'exercice approchant sans tranche de 12j consécutifs posée
+    'FRACTIONNEMENT_NON_RESPECTE',     -- fin d'exercice approchant sans tranche de 12j consécutifs posée
+    'BONIFICATION_ANCIENNETE_APPLIQUEE' -- mouvement BONIFICATION généré à l'anniversaire d'ancienneté
 ));
 
 -- ------------------------------------------
 -- 7. PARAMÈTRES GLOBAUX
 -- ------------------------------------------
--- NB : DIVISEUR_HORAIRE_ABSENCE (=173.33) déjà renommé dans 26-08-05-sp0-ref.sql
--- (anciennement DIVISEUR_TAUX_CONGES — nom trompeur, il sert en réalité à
--- valoriser les ABSENCES, pas les congés).
-INSERT INTO parametre_global (code_parametre, valeur, description, date_debut) VALUES
-('DIVISEUR_JOURS_CALENDAIRE_CONGE', '30', 'Diviseur en jours calendaires/mois pour valoriser un jour de congé payé : (Salaire de base + HS) ÷ 30. Cohérent avec le décompte calendaire (sam/dim/fériés comptés).', '2026-01-01'),
-('PLAFOND_CUMUL_SOLDE_CONGE_JOURS', '90', 'Plafond légal du solde cumulé de congés payés (30j acquis/an x 3 ans de prescription, Art. 85)', '2026-01-01'),
-('DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS', '36', 'Durée au-delà de laquelle un jour de congé acquis et non pris expire (prescription triennale) — alimente le job batch générant les mouvements EXPIRATION', '2026-01-01'),
-('PLAFOND_SOLDE_CONGE_NEGATIF', '-10', 'Solde négatif maximum autorisable par dérogation RH lors d une prise de congé par anticipation (2 à 4 mois d acquisition future)', '2026-01-01'),
-('SEUIL_ALERTE_SOLDE_CONGE_FAIBLE', '3', 'Nombre de jours de solde en-dessous duquel l alerte SOLDE_CONGE_FAIBLE se déclenche', '2026-01-01'),
-('DELAI_PREAVIS_COURT_JOURS', '2', 'Préavis minimum (en jours avant date_debut) pour une demande courte durée (Art. 85)', '2026-01-01'),
-('DELAI_PREAVIS_LONG_JOURS', '15', 'Préavis minimum pour une demande longue durée (seuil défini par SEUIL_JOURS_PREAVIS_LONG)', '2026-01-01'),
-('SEUIL_JOURS_PREAVIS_LONG', '3', 'Nombre de jours posés à partir duquel le préavis long (DELAI_PREAVIS_LONG_JOURS) s applique au lieu du préavis court', '2026-01-01'),
-('FRACTIONNEMENT_TRANCHE_MIN_JOURS', '12', 'Nombre de jours consécutifs minimum devant être posés en une seule tranche au moins une fois par exercice pour le congé annuel (Art. 85)', '2026-01-01');
+-- NB : DIVISEUR_HORAIRE_ABSENCE (=173.33) déjà défini dans 26-08-05-sp0-ref.sql
+-- (sert à valoriser les ABSENCES, pas les congés).
+INSERT INTO parametre_global (code_parametre, categorie, valeur, description, date_debut) VALUES
+('DIVISEUR_JOURS_CALENDAIRE_CONGE', 'CONGE', '30', 'Diviseur en jours calendaires/mois pour valoriser un jour de congé payé : (Salaire de base + HS) ÷ 30. Cohérent avec le décompte calendaire (sam/dim/fériés comptés).', '2026-01-01'),
+('PLAFOND_CUMUL_SOLDE_CONGE_JOURS', 'CONGE', '90', 'Plafond légal du solde cumulé de congés payés (30j acquis/an x 3 ans de prescription, Art. 85)', '2026-01-01'),
+('DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS', 'CONGE', '36', 'Durée au-delà de laquelle un jour de congé acquis et non pris expire (prescription triennale) — alimente le job batch générant les mouvements EXPIRATION', '2026-01-01'),
+('PLAFOND_SOLDE_CONGE_NEGATIF', 'CONGE', '-10', 'Solde négatif maximum autorisable par dérogation RH lors d une prise de congé par anticipation (2 à 4 mois d acquisition future)', '2026-01-01'),
+('SEUIL_ALERTE_SOLDE_CONGE_FAIBLE', 'CONGE', '3', 'Nombre de jours de solde en-dessous duquel l alerte SOLDE_CONGE_FAIBLE se déclenche', '2026-01-01'),
+('DELAI_PREAVIS_COURT_JOURS', 'CONGE', '2', 'Préavis minimum (en jours avant date_debut) pour une demande courte durée (Art. 85)', '2026-01-01'),
+('DELAI_PREAVIS_LONG_JOURS', 'CONGE', '15', 'Préavis minimum pour une demande longue durée (seuil défini par SEUIL_JOURS_PREAVIS_LONG)', '2026-01-01'),
+('SEUIL_JOURS_PREAVIS_LONG', 'CONGE', '3', 'Nombre de jours posés à partir duquel le préavis long (DELAI_PREAVIS_LONG_JOURS) s applique au lieu du préavis court', '2026-01-01'),
+('FRACTIONNEMENT_TRANCHE_MIN_JOURS', 'CONGE', '12', 'Nombre de jours consécutifs minimum devant être posés en une seule tranche au moins une fois par exercice pour le congé annuel (Art. 85)', '2026-01-01'),
+('DUREE_MAX_MATERNITE_STANDARD_JOURS', 'CONGE', '98', 'Durée légale standard du congé maternité (14 semaines calendaires, Art. 85)', '2026-01-01'),
+('DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS', 'CONGE', '119', 'Durée maximale du congé maternité en cas d extension pour état pathologique (98 + 21j)', '2026-01-01'),
+('SEUIL_ANCIENNETE_BONIFICATION_ANS', 'CONGE', '3', 'Ancienneté minimale (en années) à partir de laquelle la bonification de congé s applique (Art. 86/87)', '2026-01-01'),
+('PALIER_ANNEES_BONIFICATION', 'CONGE', '5', 'Nombre d années par tranche donnant droit à un jour de bonification supplémentaire (Art. 86/87)', '2026-01-01'),
+('JOURS_BONIFICATION_PAR_PALIER', 'CONGE', '1', 'Nombre de jours de congé supplémentaires accordés par tranche d ancienneté atteinte (Art. 86/87)', '2026-01-01')
+ON CONFLICT (code_parametre) DO NOTHING;
 
 -- ------------------------------------------
 -- 8. DONNÉES INITIALES
@@ -268,28 +298,32 @@ INSERT INTO ref_pool_conge_annuel (code, libelle, plafond_jours_an) VALUES
 
 -- Types de congé — ordre volontaire : MALADIE_SANS_SOLDE créé avant MALADIE
 -- pour permettre la référence id_type_conge_bascule dès l'insertion.
-INSERT INTO ref_type_conge (code, libelle, est_paye, decompte_solde_acquis, exige_anciennete_min_mois, duree_fixe_jours, plafond_jours_episode, exige_justificatif, soumis_delai_preavis) VALUES
-('MALADIE_SANS_SOLDE', 'Congé maladie au-delà du maintien de salaire (prise en charge CNaPS)', FALSE, FALSE, 0, NULL, 150, TRUE, FALSE);
+-- suspend_acquisition_solde = TRUE uniquement pour les congés NON assimilés
+-- à du temps de travail effectif (SANS_SOLDE, SABBATIQUE, FORMATION,
+-- MALADIE_SANS_SOLDE). Les autres (défaut FALSE) continuent de générer
+-- de l'acquisition et de compter dans l'ancienneté.
+INSERT INTO ref_type_conge (code, libelle, est_paye, decompte_solde_acquis, exige_anciennete_min_mois, duree_fixe_jours, plafond_jours_episode, exige_justificatif, soumis_delai_preavis, suspend_acquisition_solde) VALUES
+('MALADIE_SANS_SOLDE', 'Congé maladie au-delà du maintien de salaire (prise en charge CNaPS)', FALSE, FALSE, 0, NULL, 150, TRUE, FALSE, TRUE);
 
-INSERT INTO ref_type_conge (code, libelle, est_paye, decompte_solde_acquis, exige_anciennete_min_mois, duree_fixe_jours, plafond_jours_episode, id_type_conge_bascule, exige_justificatif, soumis_delai_preavis) VALUES
+INSERT INTO ref_type_conge (code, libelle, est_paye, decompte_solde_acquis, exige_anciennete_min_mois, duree_fixe_jours, plafond_jours_episode, id_type_conge_bascule, exige_justificatif, soumis_delai_preavis, suspend_acquisition_solde) VALUES
 ('MALADIE', 'Congé maladie (maintien de salaire)', TRUE, FALSE, 0, NULL, 30,
     (SELECT id_type_conge FROM ref_type_conge WHERE code = 'MALADIE_SANS_SOLDE'),
-    TRUE, FALSE);
+    TRUE, FALSE, FALSE);
 
-INSERT INTO ref_type_conge (code, libelle, est_paye, decompte_solde_acquis, exige_anciennete_min_mois, duree_fixe_jours, id_pool_conge_annuel, exige_justificatif, soumis_delai_preavis) VALUES
+INSERT INTO ref_type_conge (code, libelle, est_paye, decompte_solde_acquis, exige_anciennete_min_mois, duree_fixe_jours, id_pool_conge_annuel, exige_justificatif, soumis_delai_preavis, suspend_acquisition_solde) VALUES
 ('EXCEPTIONNEL', 'Congé exceptionnel (événement familial)', TRUE, FALSE, 0, NULL,
     (SELECT id_pool FROM ref_pool_conge_annuel WHERE code = 'PERMISSIONS_FAMILIALES'),
-    TRUE, FALSE),
+    TRUE, FALSE, FALSE),
 ('PATERNITE', 'Congé paternité', TRUE, FALSE, 0, 3,
     (SELECT id_pool FROM ref_pool_conge_annuel WHERE code = 'PERMISSIONS_FAMILIALES'),
-    TRUE, FALSE);
+    TRUE, FALSE, FALSE);
 
-INSERT INTO ref_type_conge (code, libelle, est_paye, decompte_solde_acquis, exige_anciennete_min_mois, duree_fixe_jours, exige_justificatif, soumis_delai_preavis) VALUES
-('ANNUEL',     'Congé annuel payé',  TRUE,  TRUE,  12, NULL, FALSE, TRUE),
-('MATERNITE',  'Congé maternité',    TRUE,  FALSE, 0,  98,   TRUE,  FALSE),
-('SABBATIQUE', 'Congé sabbatique',   FALSE, FALSE, 0,  NULL, FALSE, TRUE),
-('FORMATION',  'Congé formation',    FALSE, FALSE, 0,  NULL, FALSE, TRUE),
-('SANS_SOLDE', 'Congé sans solde',   FALSE, FALSE, 0,  NULL, FALSE, FALSE);
+INSERT INTO ref_type_conge (code, libelle, est_paye, decompte_solde_acquis, exige_anciennete_min_mois, duree_fixe_jours, exige_justificatif, soumis_delai_preavis, suspend_acquisition_solde) VALUES
+('ANNUEL',     'Congé annuel payé',  TRUE,  TRUE,  12, NULL, FALSE, TRUE,  FALSE),
+('MATERNITE',  'Congé maternité',    TRUE,  FALSE, 0,  98,   TRUE,  FALSE, FALSE),
+('SABBATIQUE', 'Congé sabbatique',   FALSE, FALSE, 0,  NULL, FALSE, TRUE,  TRUE),
+('FORMATION',  'Congé formation',    FALSE, FALSE, 0,  NULL, FALSE, TRUE,  TRUE),
+('SANS_SOLDE', 'Congé sans solde',   FALSE, FALSE, 0,  NULL, FALSE, FALSE, TRUE);
 
 -- Sous-référentiel des motifs d'événements familiaux (Art. 88 / convention collective)
 INSERT INTO ref_motif_evenement_familial (code, libelle, nb_jours_autorises, justificatif_requis) VALUES
