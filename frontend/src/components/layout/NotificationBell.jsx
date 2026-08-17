@@ -139,8 +139,12 @@ export default function NotificationBell() {
 
     const handleNotifClick = useCallback((notif) => {
         marquerUne(notif.idNotification);
-        if (notif.lien) {
-            navigate(notif.lien);
+        let link = notif.lien;
+        if (link === '/conges') {
+            link = '/conges?tab=demandes';
+        }
+        if (link) {
+            navigate(link);
         }
         setOpen(false);
     }, [marquerUne, navigate]);

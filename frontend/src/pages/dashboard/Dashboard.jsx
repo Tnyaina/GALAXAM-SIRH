@@ -360,7 +360,7 @@ export default function Dashboard() {
                                                 {d.nbJoursDecomptes}j
                                             </span>
                                             <Link
-                                                to="/conges"
+                                                to="/conges?tab=demandes"
                                                 className="px-2.5 py-1 rounded-none text-[11px] font-semibold uppercase tracking-wide bg-[var(--color-brand-500)]/15 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/30 hover:bg-[var(--color-brand-500)] hover:text-white "
                                             >
                                                 Valider
