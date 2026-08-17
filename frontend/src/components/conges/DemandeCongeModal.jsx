@@ -21,6 +21,8 @@ export default function DemandeCongeModal({ idEmploye, referentiels, isOpen, onC
 
   // Simulation & State
   const [nbJoursDecomptes, setNbJoursDecomptes] = useState(0);
+  const [nbJoursWeekEnd, setNbJoursWeekEnd] = useState(0);
+  const [nbJoursOuvres, setNbJoursOuvres] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const toast = useToast();
@@ -55,12 +57,29 @@ export default function DemandeCongeModal({ idEmploye, referentiels, isOpen, onC
       if (dFin >= dDebut) {
         const diffTime = dFin.getTime() - dDebut.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24)) + 1;
+        
+        let countWeekends = 0;
+        let currentDate = new Date(dDebut);
+        while (currentDate <= dFin) {
+            const day = currentDate.getDay(); // 0 is Sunday, 6 is Saturday
+            if (day === 0 || day === 6) {
+                countWeekends++;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
         setNbJoursDecomptes(diffDays);
+        setNbJoursWeekEnd(countWeekends);
+        setNbJoursOuvres(diffDays - countWeekends);
       } else {
         setNbJoursDecomptes(0);
+        setNbJoursWeekEnd(0);
+        setNbJoursOuvres(0);
       }
     } else {
       setNbJoursDecomptes(0);
+      setNbJoursWeekEnd(0);
+      setNbJoursOuvres(0);
     }
   }, [dateDebut, dateFin]);
 
@@ -199,18 +218,31 @@ export default function DemandeCongeModal({ idEmploye, referentiels, isOpen, onC
 
           {/* Banner de simulation pédagogique du Décompte Calendaire Strict */}
           {nbJoursDecomptes > 0 && (
-            <div className="p-3 bg-info-500/10 border border-info-500/30 rounded-none space-y-1">
+            <div className="p-3 bg-info-500/10 border border-info-500/30 rounded-none space-y-3">
               <div className="flex items-center justify-between text-info-500 font-bold">
                 <span className="flex items-center gap-1.5 text-xs">
                   <Info className="w-4 h-4 text-info-500" />
-                  Décompte Calendaire Strict (Loi n° 2003-044) :
+                  Décompte Calendaire Strict :
                 </span>
                 <span className="font-data text-sm font-extrabold text-info-500">
-                  {nbJoursDecomptes} jour{nbJoursDecomptes > 1 ? 's' : ''} décompté{nbJoursDecomptes > 1 ? 's' : ''}
+                  {nbJoursDecomptes} jour{nbJoursDecomptes > 1 ? 's' : ''} au total
                 </span>
               </div>
-              <p className="text-[11px] text-[var(--color-fg-muted)]">
-                Formule : <code className="font-data">(date_fin - date_debut) + 1</code>. Tous les jours de l'intervalle (y compris samedis, dimanches et jours fériés chômés) sont comptabilisés dans le décompte du solde.
+              
+              <div className="flex items-center gap-4 text-xs font-medium text-[var(--color-fg-muted)] bg-[var(--color-surface)] p-2 border border-info-500/20">
+                <div className="flex-1 text-center">
+                  <span className="block text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">Jours en semaine</span>
+                  <span className="font-data text-info-600 dark:text-info-400 font-bold">{nbJoursOuvres}j</span>
+                </div>
+                <div className="text-info-500/40 font-bold">+</div>
+                <div className="flex-1 text-center">
+                  <span className="block text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">Week-ends inclus</span>
+                  <span className="font-data text-warning-600 dark:text-warning-500 font-bold">{nbJoursWeekEnd}j</span>
+                </div>
+              </div>
+              
+              <p className="text-[10px] text-[var(--color-fg-subtle)] leading-tight">
+                * Selon la législation, tous les jours de l'intervalle (y compris samedis, dimanches et jours fériés chômés) sont intégralement déduits du solde.
               </p>
             </div>
           )}
