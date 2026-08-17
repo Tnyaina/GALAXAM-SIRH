@@ -4,6 +4,7 @@ import { CheckCircle, XCircle, ShieldCheck, Percent, MapPin, Eye } from 'lucide-
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
 import { fmtDateInput } from '@/utils/paieUtils';
+import Tabs from '@/components/ui/navigation/Tabs';
 
 import CotisationsList from './cotisations/CotisationsList';
 import CotisationFormModal from './cotisations/CotisationFormModal';
@@ -252,41 +253,16 @@ export default function CotisationsIrsaTab() {
 
             {/* Onglets internes + Filtre d'affichage */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-3 shadow-sm">
-                <div className="flex gap-2 flex-wrap">
-                    <button
-                        onClick={() => setSubSection('cotisations')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
-                            subSection === 'cotisations'
-                                ? 'bg-[var(--color-brand-500)] text-white'
-                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                        }`}
-                    >
-                        <ShieldCheck size={16} />
-                        Cotisations Sociales & Santé ({cotisations.length})
-                    </button>
-                    <button
-                        onClick={() => setSubSection('site_cotisations')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
-                            subSection === 'site_cotisations'
-                                ? 'bg-[var(--color-brand-500)] text-white'
-                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                        }`}
-                    >
-                        <MapPin size={16} />
-                        Cotisations par Site ({filteredSiteCotisations.length})
-                    </button>
-                    <button
-                        onClick={() => setSubSection('irsa')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
-                            subSection === 'irsa'
-                                ? 'bg-[var(--color-brand-500)] text-white'
-                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                        }`}
-                    >
-                        <Percent size={16} />
-                        Barème Impôt IRSA ({tranchesIrsa.length} tranches)
-                    </button>
-                </div>
+                <Tabs
+                    tabs={[
+                        { id: 'cotisations', label: 'Cotisations Sociales & Santé', icon: <ShieldCheck size={16} />, count: cotisations.length },
+                        { id: 'site_cotisations', label: 'Cotisations par Site', icon: <MapPin size={16} />, count: filteredSiteCotisations.length },
+                        { id: 'irsa', label: 'Barème IRSA (Progressif)', icon: <Percent size={16} />, count: tranchesIrsa.length }
+                    ]}
+                    activeTab={subSection}
+                    onChange={setSubSection}
+                    variant="pills"
+                />
 
                 {subSection === 'site_cotisations' && (
                     <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none">

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, ShieldCheck, ListTodo } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
+import Tabs from '@/components/ui/navigation/Tabs';
 
 import RolesList from './roles/RolesList';
 import RoleFormModal from './roles/RoleFormModal';
@@ -309,35 +310,15 @@ export default function RolesAndPermissionsTab() {
                 <div className="lg:col-span-2 bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden">
                     {selectedRole ? (
                         <div>
-                            {/* Onglets internes */}
-                            <div className="flex border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4">
-                                <button
-                                    onClick={() => setRightTab('permissions')}
-                                    className={`
-                                        flex items-center gap-2 py-4 px-3 border-b-2 text-sm font-semibold transition-all cursor-pointer
-                                        ${rightTab === 'permissions'
-                                            ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-bold'
-                                            : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                                        }
-                                    `}
-                                >
-                                    <ShieldCheck size={16} />
-                                    Matrice des Permissions
-                                </button>
-                                <button
-                                    onClick={() => setRightTab('menus')}
-                                    className={`
-                                        flex items-center gap-2 py-4 px-3 border-b-2 text-sm font-semibold transition-all cursor-pointer
-                                        ${rightTab === 'menus'
-                                            ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-bold'
-                                            : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                                        }
-                                    `}
-                                >
-                                    <ListTodo size={16} />
-                                    Accès aux Menus
-                                </button>
-                            </div>
+                            <Tabs
+                                tabs={[
+                                    { id: 'permissions', label: 'Matrice des Permissions', icon: <ShieldCheck size={16} /> },
+                                    { id: 'menus', label: 'Accès aux Menus Navigation', icon: <ListTodo size={16} /> }
+                                ]}
+                                activeTab={rightTab}
+                                onChange={setRightTab}
+                                variant="underline"
+                            />
 
                             {/* Contenu */}
                             <div className="p-6">

@@ -4,6 +4,7 @@ import { CheckCircle, XCircle, Calendar, MapPin, Search, Filter } from 'lucide-r
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
 import { fmtDateInput } from '@/utils/paieUtils';
+import Tabs from '@/components/ui/navigation/Tabs';
 
 import JoursFeriesList from './feries/JoursFeriesList';
 import JoursFerieFormModal from './feries/JoursFerieFormModal';
@@ -226,30 +227,15 @@ export default function CalendrierFerieTab() {
 
             {/* Onglets internes + Filtres */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-3 shadow-sm">
-                <div className="flex gap-2 flex-wrap">
-                    <button
-                        onClick={() => setSubSection('feries')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
-                            subSection === 'feries'
-                                ? 'bg-[var(--color-brand-500)] text-white'
-                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                        }`}
-                    >
-                        <Calendar size={16} />
-                        Jours Fériés Nationaux ({filteredFeries.length})
-                    </button>
-                    <button
-                        onClick={() => setSubSection('sites_feries')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
-                            subSection === 'sites_feries'
-                                ? 'bg-[var(--color-brand-500)] text-white'
-                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                        }`}
-                    >
-                        <MapPin size={16} />
-                        Exceptions par Site ({filteredSiteFeries.length})
-                    </button>
-                </div>
+                <Tabs
+                    tabs={[
+                        { id: 'feries', label: 'Jours Fériés Nationaux', icon: <Calendar size={16} />, count: filteredFeries.length },
+                        { id: 'site_feries', label: 'Fériés Spécifiques par Site', icon: <MapPin size={16} />, count: filteredSiteFeries.length }
+                    ]}
+                    activeTab={subSection}
+                    onChange={setSubSection}
+                    variant="pills"
+                />
 
                 <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
                     <div className="relative flex-1 md:flex-initial">

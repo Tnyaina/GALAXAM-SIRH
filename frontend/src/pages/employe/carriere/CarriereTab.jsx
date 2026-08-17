@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, ShieldAlert } from 'lucide-react';
 import Loading from '@/components/ui/feedback/Loading';
 import contratService from '@/api/employe/contratService';
@@ -24,6 +25,7 @@ export default function CarriereTab({
     autoOpenWorkflowId = null,
     onEmployeUpdated,
 }) {
+    const [, setSearchParams] = useSearchParams();
     const toast = useToast();
     const {
         loading,
@@ -112,15 +114,16 @@ export default function CarriereTab({
         }
 
         try {
-            const url = new URL(window.location.href);
-            if (url.searchParams.has('wf')) {
-                url.searchParams.delete('wf');
-                window.history.replaceState({}, '', url.pathname + url.search);
-            }
+            setSearchParams(prev => {
+                if (!prev.has('wf')) return prev;
+                const next = new URLSearchParams(prev);
+                next.delete('wf');
+                return next;
+            }, { replace: true });
         } catch (e) {
             console.error('Erreur nettoyage URL wf:', e);
         }
-    }, [loading, autoOpenWorkflowId, workflowsList, brouillonWf]);
+    }, [loading, autoOpenWorkflowId, workflowsList, brouillonWf, setSearchParams]);
 
     const handleOpenCreateModal = () => {
         setEditInitialData(null);

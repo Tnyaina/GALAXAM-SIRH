@@ -4,6 +4,7 @@ import { Search, Plus, CheckCircle, XCircle, Building2, MapPin, Eye } from 'luci
 import organisationService from '@/api/admin/organisationService';
 import Button from '@/components/ui/forms/Button';
 import Loading from '@/components/ui/feedback/Loading';
+import Tabs from '@/components/ui/navigation/Tabs';
 
 import FilialesList from './filiales/FilialesList';
 import FilialeFormModal from './filiales/FilialeFormModal';
@@ -259,30 +260,15 @@ export default function FilialesSitesTab() {
 
             {/* Barre d'outils et sous-onglets */}
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-4 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => setActiveSubTab('filiales')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
-                            activeSubTab === 'filiales'
-                                ? 'bg-[var(--color-brand-500)] text-white'
-                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                        }`}
-                    >
-                        <Building2 size={16} />
-                        Filiales ({filiales.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveSubTab('sites')}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
-                            activeSubTab === 'sites'
-                                ? 'bg-[var(--color-brand-500)] text-white'
-                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                        }`}
-                    >
-                        <MapPin size={16} />
-                        Sites & Horaires ({sites.length})
-                    </button>
-                </div>
+                <Tabs
+                    tabs={[
+                        { id: 'filiales', label: 'Filiales', icon: <Building2 size={16} />, count: filiales.length },
+                        { id: 'sites', label: 'Sites & Horaires', icon: <MapPin size={16} />, count: sites.length }
+                    ]}
+                    activeTab={activeSubTab}
+                    onChange={setActiveSubTab}
+                    variant="pills"
+                />
 
                 <div className="flex gap-3 items-center flex-wrap">
                     <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap">

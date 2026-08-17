@@ -6,6 +6,7 @@ import Button from '@/components/ui/forms/Button';
 import Input, { Textarea } from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDateInput } from '@/utils/paieUtils';
+import Tabs from '@/components/ui/navigation/Tabs';
 
 export default function MajorationsParametresTab() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -130,30 +131,15 @@ export default function MajorationsParametresTab() {
             )}
 
             {/* Onglets internes */}
-            <div className="flex border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-2 shadow-sm">
-                <button
-                    onClick={() => setSubSection('majorations')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
-                        subSection === 'majorations'
-                            ? 'bg-[var(--color-brand-500)] text-white'
-                            : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                    }`}
-                >
-                    <Clock size={16} />
-                    Taux Majorations Heures Supp / Spéciales ({majorations.length})
-                </button>
-                <button
-                    onClick={() => setSubSection('parametres')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
-                        subSection === 'parametres'
-                            ? 'bg-[var(--color-brand-500)] text-white'
-                            : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
-                    }`}
-                >
-                    <Sliders size={16} />
-                    Paramètres Globaux de Paie ({parametres.length})
-                </button>
-            </div>
+            <Tabs
+                tabs={[
+                    { id: 'majorations', label: 'Taux Majorations Heures Supp / Spéciales', icon: <Clock size={16} />, count: majorations.length },
+                    { id: 'parametres', label: 'Paramètres Globaux de Paie', icon: <Sliders size={16} />, count: parametres.length }
+                ]}
+                activeTab={subSection}
+                onChange={setSubSection}
+                variant="pills"
+            />
 
             {/* SECTION 1: MAJORATIONS */}
             {subSection === 'majorations' && (
