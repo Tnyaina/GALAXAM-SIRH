@@ -10,6 +10,7 @@ import ConfirmationEssaiModal from './b/ConfirmationEssaiModal';
 import RenouvellementEssaiModal from './b/RenouvellementEssaiModal';
 import RuptureContratModal from './b/RuptureContratModal';
 import CertificatTravailModal from './b/CertificatTravailModal';
+import AttestationTravailModal from './b/AttestationTravailModal';
 import CarriereHeaderCard from '@/components/carriere/CarriereHeaderCard';
 import CarriereTimeline from '@/components/carriere/CarriereTimeline';
 import { useCarriere } from '@/hooks/useCarriere';
@@ -49,10 +50,16 @@ export default function CarriereTab({
     const [isRenouvellementModalOpen, setIsRenouvellementModalOpen] = useState(false);
     const [isRuptureModalOpen, setIsRuptureModalOpen] = useState(false);
     const [isCertificatModalOpen, setIsCertificatModalOpen] = useState(false);
+    const [isAttestationModalOpen, setIsAttestationModalOpen] = useState(false);
 
     const [selectedCertificatContrat, setSelectedCertificatContrat] = useState(null);
     const [selectedCertificatAffectation, setSelectedCertificatAffectation] = useState(null);
     const [loadingCertificatAffectation, setLoadingCertificatAffectation] = useState(false);
+
+    const [selectedAttestationContrat, setSelectedAttestationContrat] = useState(null);
+    const [selectedAttestationAffectation, setSelectedAttestationAffectation] = useState(null);
+    const [loadingAttestationAffectation, setLoadingAttestationAffectation] = useState(false);
+
     const [selectedWfModal, setSelectedWfModal] = useState(null);
     const [editInitialData, setEditInitialData] = useState(null);
     const [isTransitioning, setIsTransitioning] = useState(false);
@@ -94,6 +101,37 @@ export default function CarriereTab({
             }
         } finally {
             setLoadingCertificatAffectation(false);
+        }
+    };
+
+    /**
+     * Ouvre l'attestation de travail pour un contrat donné (ou le contrat actif par défaut).
+     */
+    const handleOpenAttestation = async (contrat = null) => {
+        const cible = contrat || contratActif || (contratsList.length > 0 ? contratsList[0] : null);
+        if (!cible) return;
+
+        setSelectedAttestationContrat(cible);
+        setSelectedAttestationAffectation(null);
+        setIsAttestationModalOpen(true);
+
+        if (contratActif && Number(cible.idContrat) === Number(contratActif.idContrat)) {
+            setSelectedAttestationAffectation(affectationActive);
+            return;
+        }
+
+        setLoadingAttestationAffectation(true);
+        try {
+            const aff = await contratService.getAffectationParContrat(idEmploye, cible.idContrat);
+            setSelectedAttestationAffectation(aff);
+        } catch (err) {
+            console.error('Erreur récupération affectation pour attestation:', err);
+            setSelectedAttestationAffectation(null);
+            if (toast) {
+                toast({ title: 'Erreur', message: 'Impossible de charger l\'affectation de ce contrat.', type: 'error' });
+            }
+        } finally {
+            setLoadingAttestationAffectation(false);
         }
     };
 
@@ -252,6 +290,7 @@ export default function CarriereTab({
                 onOpenEditModal={handleOpenEditModal}
                 onSelectWorkflowRecap={(wf) => { setSelectedWfModal(wf); setIsRecapModalOpen(true); }}
                 onOpenCertificat={handleOpenCertificat}
+                onOpenAttestation={handleOpenAttestation}
             />
 
             {/* Modales */}
@@ -346,6 +385,23 @@ export default function CarriereTab({
                         contratsList.length > 0
                             ? [...contratsList].sort((a, b) => new Date(a.dateDebut || 0) - new Date(b.dateDebut || 0))[0]?.dateDebut
                             : selectedCertificatContrat?.dateDebut
+                    }
+                />
+            )}
+
+            {isAttestationModalOpen && (
+                <AttestationTravailModal
+                    isOpen={isAttestationModalOpen}
+                    onClose={() => setIsAttestationModalOpen(false)}
+                    employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
+                    contrat={selectedAttestationContrat || contratActif || (contratsList.length > 0 ? contratsList[0] : null)}
+                    affectation={selectedAttestationAffectation || affectationActive}
+                    loadingAffectation={loadingAttestationAffectation}
+                    filiale={selectedAttestationContrat?.filiale || contratActif?.filiale}
+                    dateDebutInitiale={
+                        contratsList.length > 0
+                            ? [...contratsList].sort((a, b) => new Date(a.dateDebut || 0) - new Date(b.dateDebut || 0))[0]?.dateDebut
+                            : selectedAttestationContrat?.dateDebut
                     }
                 />
             )}
