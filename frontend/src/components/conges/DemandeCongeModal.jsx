@@ -215,19 +215,19 @@ export default function DemandeCongeModal({ idEmploye, referentiels, isOpen, onC
             </div>
           )}
 
-          {/* Banner d'information Bascule Maladie > 30j (Art. 13) */}
+          {/* Banner d'information Bascule Maladie > 30j */}
           {selectedType && selectedType.code === 'MALADIE' && nbJoursDecomptes > 30 && (
             <div className="p-3 bg-warning-500/10 border border-warning-500/30 rounded-none space-y-1">
               <div className="flex items-center gap-1.5 text-warning-500 font-bold text-xs">
                 <ShieldAlert className="w-4 h-4 text-warning-500" />
-                Bascule Automatique Art. 13 (Arrêt Maladie &gt; 30 jours) :
+                Bascule Automatique (Arrêt Maladie &gt; 30 jours) :
               </div>
               <p className="text-[11px] text-[var(--color-fg-muted)]">
                 Cette demande de <strong>{nbJoursDecomptes} jours</strong> sera automatiquement scindée lors de l'enregistrement :
                 <br />
-                • <strong>30 jours</strong> en <em>Maladie (Maintien de salaire 100%)</em>
+                • <strong>30 jours</strong> en Maladie (Maintien de salaire 100%)
                 <br />
-                • <strong>{nbJoursDecomptes - 30} jours</strong> en <em>Maladie Sans Solde (Prise en charge CNaPS)</em>
+                • <strong>{nbJoursDecomptes - 30} jours</strong> en Maladie Sans Solde (Prise en charge CNaPS)
               </p>
             </div>
           )}
