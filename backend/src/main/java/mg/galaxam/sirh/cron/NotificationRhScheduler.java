@@ -54,6 +54,13 @@ public class NotificationRhScheduler {
                 genererAlerteBrouillons48h(c);
                 genererAlerteCongesEnAttente48h(c);
                 genererAlertePiecesManquantes(c);
+                
+                // Alertes Congés
+                genererAlerteSoldeFaible(c);
+                genererAlerteRetourCongeJour(c);
+                genererAlerteFractionnement(c);
+                genererAlerteMaladieProlongee(c);
+                genererAlerteExpirationProche(c);
 
                 c.commit();
                 System.out.println("[NotificationRhScheduler] Notifications RH générées avec succès.");
@@ -83,7 +90,9 @@ public class NotificationRhScheduler {
                 "WHERE type_alerte IN (" +
                 "  'CONTRAT_EXPIRE_J','CONTRAT_EXPIRE_7J','CONTRAT_EXPIRE_30J'," +
                 "  'ESSAI_EXPIRE_J','ESSAI_EXPIRE_7J','ESSAI_EXPIRE_15J','ESSAI_EXPIRE_30J'," +
-                "  'BROUILLON_EN_ATTENTE','DOCUMENTS_MANQUANTS','CONGE_EN_ATTENTE'" +
+                "  'BROUILLON_EN_ATTENTE','DOCUMENTS_MANQUANTS','CONGE_EN_ATTENTE'," +
+                "  'SOLDE_CONGE_FAIBLE','RETOUR_CONGE_J','FRACTIONNEMENT_NON_RESPECTE','MALADIE_PLAFOND_EPISODE_ATTEINT'," +
+                "  'CONGE_EXPIRATION_PROCHE'" +
                 ") " +
                 "AND est_lue = FALSE";
         try (PreparedStatement ps = c.prepareStatement(sqlRecrre)) {
@@ -410,6 +419,172 @@ public class NotificationRhScheduler {
                     "Dossier incomplet - " + nomPrenom,
                     "Pieces obligatoires manquantes : " + docs + ".",
                     "/employes/" + idEmploye + "?tab=documents",
+                    idEmploye
+                );
+            }
+        }
+    }
+
+    private void genererAlerteSoldeFaible(Connection c) throws Exception {
+        String sql = "SELECT e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, s.solde_actuel " +
+                "FROM employe e " +
+                "JOIN v_solde_conge_employe s ON e.id_employe = s.id_employe " +
+                "JOIN contrat_travail ct ON ct.id_employe = e.id_employe " +
+                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "WHERE rsc.code = 'ACTIF' AND s.solde_actuel > 0 AND s.solde_actuel < 5";
+
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int idEmploye = rs.getInt("id_employe");
+                String nomPrenom = rs.getString("nom_prenom");
+                double solde = rs.getDouble("solde_actuel");
+
+                insererNotification(c,
+                    null,
+                    "SOLDE_CONGE_FAIBLE",
+                    "BASSE",
+                    "Solde de congé faible - " + nomPrenom,
+                    "Le solde de congés de " + nomPrenom + " est faible (" + solde + " jours restants).",
+                    "/employes/" + idEmploye + "?tab=conges",
+                    idEmploye
+                );
+            }
+        }
+    }
+
+    private void genererAlerteRetourCongeJour(Connection c) throws Exception {
+        String sql = "SELECT e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
+                "rtc.libelle AS type_conge " +
+                "FROM demande_conge dc " +
+                "JOIN employe e ON dc.id_employe = e.id_employe " +
+                "JOIN ref_statut_demande rsd ON dc.id_statut_demande = rsd.id_statut_demande " +
+                "JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
+                "WHERE rsd.code = 'VALIDE' AND dc.date_fin = CURRENT_DATE";
+
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int idEmploye = rs.getInt("id_employe");
+                String nomPrenom = rs.getString("nom_prenom");
+                String typeConge = rs.getString("type_conge");
+
+                insererNotification(c,
+                    null,
+                    "RETOUR_CONGE_J",
+                    "BASSE",
+                    "Fin de congé aujourd'hui - " + nomPrenom,
+                    nomPrenom + " termine son congé (" + typeConge + ") ce soir. Reprise prévue demain.",
+                    "/employes/" + idEmploye + "?tab=conges",
+                    idEmploye
+                );
+            }
+        }
+    }
+
+    private void genererAlerteFractionnement(Connection c) throws Exception {
+        // Ne tourne qu'en Novembre et Décembre (pour alerter en fin d'année)
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (today.getMonthValue() < 11) return;
+
+        // Cherche les employés n'ayant aucune demande de > 11 jours cette année
+        String sql = "SELECT e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom " +
+                "FROM employe e " +
+                "JOIN contrat_travail ct ON ct.id_employe = e.id_employe " +
+                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "WHERE rsc.code = 'ACTIF' " +
+                "AND NOT EXISTS (" +
+                "  SELECT 1 FROM demande_conge dc " +
+                "  JOIN ref_statut_demande rsd ON dc.id_statut_demande = rsd.id_statut_demande " +
+                "  JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
+                "  WHERE dc.id_employe = e.id_employe " +
+                "  AND rsd.code = 'VALIDE' AND rtc.code = 'ANNUEL' " +
+                "  AND EXTRACT(YEAR FROM dc.date_debut) = EXTRACT(YEAR FROM CURRENT_DATE) " +
+                "  AND dc.nb_jours_decomptes >= 12" +
+                ")";
+
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int idEmploye = rs.getInt("id_employe");
+                String nomPrenom = rs.getString("nom_prenom");
+
+                insererNotification(c,
+                    null,
+                    "FRACTIONNEMENT_NON_RESPECTE",
+                    "HAUTE",
+                    "Fractionnement obligatoire non respecté - " + nomPrenom,
+                    nomPrenom + " n'a pas posé sa tranche continue de 12 jours cette année (Art. 85). Veuillez régulariser.",
+                    "/employes/" + idEmploye + "?tab=conges",
+                    idEmploye
+                );
+            }
+        }
+    }
+
+    private void genererAlerteMaladieProlongee(Connection c) throws Exception {
+        String sql = "SELECT e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
+                "dc.nb_jours_decomptes " +
+                "FROM demande_conge dc " +
+                "JOIN employe e ON dc.id_employe = e.id_employe " +
+                "JOIN ref_statut_demande rsd ON dc.id_statut_demande = rsd.id_statut_demande " +
+                "JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
+                "WHERE rsd.code = 'VALIDE' AND rtc.code = 'MALADIE' " +
+                "AND dc.nb_jours_decomptes >= 30 " +
+                "AND CURRENT_DATE BETWEEN dc.date_debut AND dc.date_fin";
+
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int idEmploye = rs.getInt("id_employe");
+                String nomPrenom = rs.getString("nom_prenom");
+                double nbJours = rs.getDouble("nb_jours_decomptes");
+
+                insererNotification(c,
+                    null,
+                    "MALADIE_PLAFOND_EPISODE_ATTEINT",
+                    "CRITIQUE",
+                    "Arrêt Maladie > 30 jours (Bascule) - " + nomPrenom,
+                    nomPrenom + " est en arrêt maladie prolongé (" + nbJours + " jours). Rappel: au-delà de 30 jours continus, maintien de salaire suspendu (CNaPS).",
+                    "/employes/" + idEmploye + "?tab=conges",
+                    idEmploye
+                );
+            }
+        }
+    }
+
+    private void genererAlerteExpirationProche(Connection c) throws Exception {
+        // Prévision à J+30 de ce qui va expirer selon la règle FIFO
+        String sql = "SELECT e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
+                     "COALESCE(SUM(m.nb_jours) FILTER (WHERE m.type_mouvement IN ('ACQUISITION', 'BONIFICATION') " +
+                     "                               AND m.date_mouvement < (CURRENT_DATE + INTERVAL '30 days') - INTERVAL '36 months'), 0) AS total_acquis_anciens, " +
+                     "COALESCE(SUM(-m.nb_jours) FILTER (WHERE m.nb_jours < 0), 0) AS total_consomme " +
+                     "FROM mouvement_solde_conge m " +
+                     "JOIN employe e ON m.id_employe = e.id_employe " +
+                     "JOIN contrat_travail ct ON ct.id_employe = e.id_employe " +
+                     "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                     "WHERE rsc.code = 'ACTIF' " +
+                     "GROUP BY e.id_employe, e.nom, e.prenom " +
+                     "HAVING COALESCE(SUM(m.nb_jours) FILTER (WHERE m.type_mouvement IN ('ACQUISITION', 'BONIFICATION') " +
+                     "                                       AND m.date_mouvement < (CURRENT_DATE + INTERVAL '30 days') - INTERVAL '36 months'), 0) " +
+                     "       - COALESCE(SUM(-m.nb_jours) FILTER (WHERE m.nb_jours < 0), 0) > 0";
+
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int idEmploye = rs.getInt("id_employe");
+                String nomPrenom = rs.getString("nom_prenom");
+                double acquis = rs.getDouble("total_acquis_anciens");
+                double consomme = rs.getDouble("total_consomme");
+                double joursRisques = acquis - consomme;
+
+                insererNotification(c,
+                    null,
+                    "CONGE_EXPIRATION_PROCHE",
+                    "HAUTE",
+                    "Expiration de congés imminente - " + nomPrenom,
+                    "Attention, " + joursRisques + " jours de congés acquis par " + nomPrenom + " il y a presque 3 ans risquent d'expirer dans les 30 prochains jours s'ils ne sont pas pris.",
+                    "/employes/" + idEmploye + "?tab=conges",
                     idEmploye
                 );
             }
