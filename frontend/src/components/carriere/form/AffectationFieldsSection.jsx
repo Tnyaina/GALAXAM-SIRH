@@ -1,5 +1,6 @@
 import Input, { Select } from '@/components/ui/forms/Input';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 
 export default function AffectationFieldsSection({
     formData,
@@ -60,19 +61,18 @@ export default function AffectationFieldsSection({
                     ))}
                 </Select>
 
-                <Select
+                <SearchSelect
                     label="Fonction / Poste"
                     required
                     value={formData.idFonction}
-                    onChange={(e) => setField('idFonction', e.target.value)}
-                >
-                    <option value="">-- Sélectionner une fonction --</option>
-                    {fonctions.map(f => (
-                        <option key={f.idFonction} value={f.idFonction}>
-                            {f.codeFonction} — {f.libelle}
-                        </option>
-                    ))}
-                </Select>
+                    onChange={(val) => setField('idFonction', val)}
+                    options={fonctions.map((f) => ({
+                        value: f.idFonction,
+                        label: f.libelle,
+                        sublabel: f.codeFonction,
+                    }))}
+                    placeholder="Rechercher une fonction…"
+                />
 
                 <EmployeSearchSelect
                     label="Responsable Hiérarchique (N+1)"

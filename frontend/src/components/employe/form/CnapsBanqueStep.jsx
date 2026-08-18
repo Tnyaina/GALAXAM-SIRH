@@ -1,4 +1,5 @@
 import Input, { Select } from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 
 export default function CnapsBanqueStep({
     formData,
@@ -18,10 +19,17 @@ export default function CnapsBanqueStep({
             <div className="border-t border-ink-150 dark:border-ink-700 pt-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-ink-400 mb-3">Compte Bancaire Principal</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Select label="Banque" value={formData.compteBanquePrincipal.idBanque} onChange={e => setNested('compteBanquePrincipal', 'idBanque', e.target.value)}>
-                        <option value="">-- Sélectionner --</option>
-                        {banques.map(b => <option key={b.idBanque} value={b.idBanque}>{b.codeBanque} - {b.nomBanque}</option>)}
-                    </Select>
+                    <SearchSelect
+                        label="Banque"
+                        value={formData.compteBanquePrincipal.idBanque}
+                        onChange={(val) => setNested('compteBanquePrincipal', 'idBanque', val)}
+                        options={banques.map((b) => ({
+                            value: b.idBanque,
+                            label: b.nomBanque,
+                            sublabel: b.codeBanque,
+                        }))}
+                        placeholder="Rechercher une banque…"
+                    />
                     <Input label="Agence" value={formData.compteBanquePrincipal.agence} onChange={e => setNested('compteBanquePrincipal', 'agence', e.target.value)} placeholder="Agence" />
                     <Input label="N° Compte / RIB" value={formData.compteBanquePrincipal.numCompteRib} onChange={e => setNested('compteBanquePrincipal', 'numCompteRib', e.target.value)} placeholder="00000-00000-00000000000-00" />
                     <Input label="Titulaire du Compte" value={formData.compteBanquePrincipal.titulaireCompte} onChange={e => setNested('compteBanquePrincipal', 'titulaireCompte', e.target.value)} placeholder="Nom du titulaire" />
