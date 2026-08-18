@@ -1836,7 +1836,6 @@ INSERT INTO mouvement_solde_conge (
     (SELECT id_employe FROM employe WHERE matricule = '297'), 'ACQUISITION', 0.0, '2026-01-01', 'Solde initial repris'
 );
 
-INSERT INTO ref_fonction (code_fonction, libelle) VALUES ('FCT_396', '') ON CONFLICT (code_fonction) DO NOTHING;
 INSERT INTO contrat_travail (
     id_employe, id_filiale, id_type_contrat, id_type_intervenant, id_statut_contrat, 
     date_debut, date_signature, numero_contrat
@@ -1860,7 +1859,6 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_site FROM ref_site WHERE code_site = 'TNR'),
     (SELECT id_departement FROM ref_departement WHERE code_departement = 'LOG'),
     (SELECT id_service FROM ref_service WHERE code_service = 'ADM' AND id_departement = (SELECT id_departement FROM ref_departement WHERE code_departement = 'LOG')),
-    (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'FCT_396'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
     0.00,
@@ -1884,7 +1882,6 @@ INSERT INTO mouvement_solde_conge (
     (SELECT id_employe FROM employe WHERE matricule = '396'), 'ACQUISITION', 0.0, '2026-01-01', 'Solde initial repris'
 );
 
-INSERT INTO ref_fonction (code_fonction, libelle) VALUES ('FCT_397', '') ON CONFLICT (code_fonction) DO NOTHING;
 INSERT INTO contrat_travail (
     id_employe, id_filiale, id_type_contrat, id_type_intervenant, id_statut_contrat, 
     date_debut, date_signature, numero_contrat
@@ -1908,7 +1905,6 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_site FROM ref_site WHERE code_site = 'TNR'),
     (SELECT id_departement FROM ref_departement WHERE code_departement = 'LOG'),
     (SELECT id_service FROM ref_service WHERE code_service = 'ADM' AND id_departement = (SELECT id_departement FROM ref_departement WHERE code_departement = 'LOG')),
-    (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'FCT_397'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
     0.00,

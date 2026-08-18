@@ -28,7 +28,6 @@ export default function SiteCotisationsList({
             <Table>
                 <Thead>
                     <Th>Nom du Site</Th>
-                    <Th>Filiale</Th>
                     <Th>Cotisation Rattachée</Th>
                     <Th>Statut</Th>
                     <Th className="text-right">Actions</Th>
@@ -45,9 +44,6 @@ export default function SiteCotisationsList({
                             <Tr key={sc.idSiteCotisation}>
                                 <Td className="font-bold text-[var(--color-fg)]">
                                     {sc.siteLibelle} {sc.siteCode ? `(${sc.siteCode})` : ''}
-                                </Td>
-                                <Td muted className="text-xs font-semibold">
-                                    {sc.filialeRaisonSociale || '-'}
                                 </Td>
                                 <Td isData className="font-semibold text-[var(--color-brand-500)]">
                                     {sc.cotisationCode} - {sc.cotisationLibelle}

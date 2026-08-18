@@ -69,7 +69,20 @@ public class DemandeConge extends ClassMere {
         LocalDate dDebut = dateDebut.toLocalDate();
         LocalDate dFin = dateFin.toLocalDate();
         if (dFin.isBefore(dDebut)) return BigDecimal.ZERO;
+        
         long nbJours = ChronoUnit.DAYS.between(dDebut, dFin) + 1;
+        
+        // TODO: GESTION DES PÉRIODES CHÔMÉES (Ex: Cyclone) - Option A
+        // Actuellement, c'est l'Option B : un congé posé pendant un cyclone n'est pas remboursé.
+        // Si la Direction décide de recréditer les jours (Option A), il faut :
+        // 1. Passer `Connection c` et `Integer idSite` à cette méthode.
+        // 2. Faire une requête : SELECT count(*) FROM ref_periode_chomee WHERE id_site = ? AND date_debut <= ? AND (date_fin >= ? OR date_fin IS NULL)
+        // 3. Soustraire ces jours de `nbJours`.
+        // if (ParametrageGlobal.isCongesRemboursesPendantSuspension()) {
+        //     long joursA_deduire = calculerJoursChevauchementPeriodeChomee(dDebut, dFin, idSite, c);
+        //     nbJours -= joursA_deduire;
+        // }
+        
         return BigDecimal.valueOf(nbJours);
     }
 

@@ -140,6 +140,12 @@ export default function EmbaucheModal({
             return;
         }
 
+        const typeCtObj = typesContrat.find(tc => String(tc.idTypeContrat) === String(formData.idTypeContrat));
+        if (typeCtObj?.exigeDateFin && !formData.dateFin) {
+            setErrorMsg(`La date de fin est obligatoire pour le type de contrat "${typeCtObj.libelle || typeCtObj.code}".`);
+            return;
+        }
+
         const payload = {
             idFiliale: parseInt(formData.idFiliale),
             idTypeContrat: parseInt(formData.idTypeContrat),

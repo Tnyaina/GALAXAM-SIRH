@@ -206,6 +206,11 @@ export default function TransitionModal({
             return;
         }
 
+        if (selectedTypeContrat?.exigeDateFin && !formData.dateFin) {
+            setErrorMsg(`La date de fin est obligatoire pour le type de contrat "${selectedTypeContrat.libelle || selectedTypeContrat.code}".`);
+            return;
+        }
+
         const payload = {
             codeTypeEvenement: formData.codeTypeEvenement,
             dateEffet: formData.dateEffet,

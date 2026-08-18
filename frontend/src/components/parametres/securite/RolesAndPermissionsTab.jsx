@@ -129,7 +129,11 @@ export default function RolesAndPermissionsTab() {
     const handleToggleRoleStatus = async (role, e) => {
         e.stopPropagation();
         try {
-            await referentielService.toggleRoleStatus(role.idRole);
+            if (role.estActif) {
+                await referentielService.deactivateRole(role.idRole);
+            } else {
+                await referentielService.activateRole(role.idRole);
+            }
             setRoles(prev => prev.map(r => r.idRole === role.idRole ? { ...r, estActif: !r.estActif } : r));
         } catch (err) {
             setError("Erreur lors du changement de statut.");
