@@ -1,5 +1,5 @@
 import { useState, useMemo, lazy, Suspense } from 'react';
-import { Search, Plus, Check, X, Eye, XSquare, FileText, Clock, CheckCircle, XCircle, Ban } from 'lucide-react';
+import { Search, Plus, Check, X, Eye, XSquare, FileText, Clock, CheckCircle, XCircle, Ban, RefreshCw } from 'lucide-react';
 import congeService from '@/api/congeService';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Card, CardBody } from '@/components/ui/data-display/Card';
@@ -116,6 +116,11 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
   const openRefus   = (d)  => { setSelectedDemande(d); setActionError(null); setMotifRefus(''); setShowRefusModal(true); };
   const openDetail  = (d)  => { setSelectedDemande(d); setShowDetailModal(true); };
   const closeDetail = ()   => { setShowDetailModal(false); setSelectedDemande(null); };
+
+  const handleRefresh = async () => {
+    await loadData();
+    toast({ title: 'Actualisé', message: 'La liste des demandes a été mise à jour.', type: 'info', duration: 2000 });
+  };
 
   const handleValiderConfirm = async () => {
     if (!selectedDemande) return;
@@ -251,6 +256,9 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
                   <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-[var(--color-brand-400)] rounded-none " title="Recherche en cours..." />
                 )}
               </div>
+              <Button variant="outline" size="sm" iconLeft={<RefreshCw size={15} className={loading ? 'animate-spin' : ''} />} onClick={handleRefresh}>
+                Actualiser
+              </Button>
               <Button variant="primary" size="sm" iconLeft={<Plus size={15} />} onClick={() => setShowDemandeModal(true)}>
                 Nouvelle demande
               </Button>

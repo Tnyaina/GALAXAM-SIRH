@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle, ShieldAlert } from 'lucide-react';
+import { CheckCircle, ShieldAlert, RefreshCw } from 'lucide-react';
 import Loading from '@/components/ui/feedback/Loading';
+import Button from '@/components/ui/forms/Button';
 import contratService from '@/api/employe/contratService';
 import EmbaucheModal from './b/EmbaucheModal';
 import TransitionModal from './b/TransitionModal';
@@ -241,6 +242,14 @@ export default function CarriereTab({
 
     return (
         <div className="space-y-8">
+            <div className="flex justify-end">
+                <Button variant="outline" size="sm" iconLeft={<RefreshCw size={14} />} onClick={() => {
+                    refreshData();
+                    if (toast) toast({ title: 'Actualisé', message: 'Les données de la carrière ont été mises à jour.', type: 'info', duration: 2000 });
+                }}>
+                    Actualiser
+                </Button>
+            </div>
             {/* Header carte contrat + alerte période d'essai */}
             <CarriereHeaderCard
                 contratActif={contratActif}
