@@ -6,6 +6,8 @@ export default function Input({
   iconLeft,
   iconRight,
   className = '',
+  labelClassName = '',
+  containerClassName = '',
   onWheel,
   ...props
 }) {
@@ -21,9 +23,9 @@ export default function Input({
   };
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className={`flex flex-col gap-1 ${containerClassName}`}>
       {label && (
-        <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+        <label className={`text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
           {label}
           {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>

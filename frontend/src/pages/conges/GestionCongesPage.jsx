@@ -33,10 +33,13 @@ export default function GestionCongesPage() {
       setError(null);
 
       const [globalesRes, refRes] = await Promise.all([
-        congeService.getAllDemandes().catch(() => []),
+        congeService.getAllDemandes({ size: 1000 }).catch(() => null),
         congeService.getAllReferentiels().catch(() => null),
       ]);
-      setDemandesGlobales(globalesRes || []);
+      const listDemandes = Array.isArray(globalesRes)
+        ? globalesRes
+        : (globalesRes?.content || []);
+      setDemandesGlobales(listDemandes);
       setReferentiels(refRes);
 
     } catch (err) {
@@ -50,7 +53,8 @@ export default function GestionCongesPage() {
     loadGlobalData();
   }, []);
 
-  const nbEnAttente = demandesGlobales.filter(d => d.codeStatutDemande === 'EN_ATTENTE').length;
+  const demandesList = Array.isArray(demandesGlobales) ? demandesGlobales : [];
+  const nbEnAttente = demandesList.filter(d => d.codeStatutDemande === 'EN_ATTENTE').length;
 
   const tabsList = [
     {

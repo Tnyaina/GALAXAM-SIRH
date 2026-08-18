@@ -8,7 +8,6 @@ export default function SoldeCongeWidget({ soldeData, consommationPool }) {
   const totalAcquis = Number(soldeData.totalAcquis || 0);
   const totalPris = Number(soldeData.totalPris || 0);
   const totalBonification = Number(soldeData.totalBonification || 0);
-  const totalExpire = Number(soldeData.totalExpire || 0);
 
   // Pool partagé permissions exceptionnelles (10j / an max)
   const poolJoursConsommes = consommationPool && consommationPool.length > 0

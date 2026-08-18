@@ -1,4 +1,5 @@
 import Input, { Select } from '@/components/ui/forms/Input';
+import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 
 export default function AffectationFieldsSection({
     formData,
@@ -73,18 +74,13 @@ export default function AffectationFieldsSection({
                     ))}
                 </Select>
 
-                <Select
-                    label="Responsable Hiérarchique"
+                <EmployeSearchSelect
+                    label="Responsable Hiérarchique (N+1)"
                     value={formData.idResponsableHierarchique}
-                    onChange={(e) => setField('idResponsableHierarchique', e.target.value)}
-                >
-                    <option value="">-- Aucun / N+1 --</option>
-                    {responsables.map(r => (
-                        <option key={r.idEmploye} value={r.idEmploye}>
-                            {r.nomComplet || `${r.nom} ${r.prenom}`} ({r.matricule})
-                        </option>
-                    ))}
-                </Select>
+                    onChange={(empId) => setField('idResponsableHierarchique', empId)}
+                    employes={responsables}
+                    placeholder="Rechercher le manager N+1…"
+                />
 
                 <Select
                     label="Catégorie Professionnelle"

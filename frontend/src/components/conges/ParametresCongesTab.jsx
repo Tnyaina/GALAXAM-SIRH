@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, CheckCircle, ShieldAlert, FileText } from 'lucide-react';
+import { Settings, ShieldAlert, FileText } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -142,23 +142,41 @@ export default function ParametresCongesTab() {
                     <Tr>
                       <Th>Code</Th>
                       <Th>Libellé</Th>
-                      <Th className="text-center">Payé</Th>
+                      <Th className="text-center">Rémunération</Th>
+                      <Th className="text-center">Préavis Légal</Th>
+                      <Th className="text-center">Justificatif</Th>
+                      <Th className="text-center">Durée / Plafond</Th>
                       <Th className="text-center">Statut</Th>
                       <Th className="text-right">Actions</Th>
                     </Tr>
                   </Thead>
                   <Tbody>
                     {loading ? (
-                      <Tr><Td colSpan={5} className="text-center">Chargement...</Td></Tr>
+                      <Tr><Td colSpan={8} className="text-center">Chargement...</Td></Tr>
                     ) : types.length === 0 ? (
-                      <Tr><Td colSpan={5} className="text-center">Aucun type de congé configuré.</Td></Tr>
+                      <Tr><Td colSpan={8} className="text-center">Aucun type de congé configuré.</Td></Tr>
                     ) : (
                       types.map((type) => (
                         <Tr key={type.idTypeConge}>
                           <Td className="font-bold">{type.code}</Td>
                           <Td>{type.libelle}</Td>
                           <Td className="text-center">
-                            {type.estPaye ? <CheckCircle className="w-4 h-4 text-success-500 inline" /> : <span className="text-danger-500 font-bold">-</span>}
+                            <Badge variant={type.estPaye ? 'success' : 'danger'} size="sm">
+                              {type.estPaye ? 'Rémunéré' : 'Non payé'}
+                            </Badge>
+                          </Td>
+                          <Td className="text-center">
+                            <Badge variant={type.soumisDelaiPreavis ? 'warning' : 'neutral'} size="sm">
+                              {type.soumisDelaiPreavis ? 'Exigé (15j)' : 'Non soumis'}
+                            </Badge>
+                          </Td>
+                          <Td className="text-center">
+                            <Badge variant={type.exigeJustificatif ? 'info' : 'neutral'} size="sm">
+                              {type.exigeJustificatif ? 'Obligatoire' : 'Optionnel'}
+                            </Badge>
+                          </Td>
+                          <Td className="text-center text-xs font-medium">
+                            {type.dureeFixeJours ? `Fixe : ${type.dureeFixeJours}j` : type.plafondJoursEpisode ? `Max : ${type.plafondJoursEpisode}j/demande` : '-'}
                           </Td>
                           <Td className="text-center">
                             <Badge variant={type.estActif ? 'success' : 'neutral'} size="sm">
