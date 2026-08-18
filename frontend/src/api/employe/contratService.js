@@ -64,6 +64,7 @@ const contratService = {
      */
     creerBrouillonEmbauche: async (idEmploye, data) => {
         const response = await apiClient.post(`/employes/${idEmploye}/workflows/embauche-initiale`, data);
+        window.dispatchEvent(new Event('refresh-notifications'));
         return response.data;
     },
 
@@ -73,6 +74,7 @@ const contratService = {
      */
     creerBrouillonTransition: async (idEmploye, data) => {
         const response = await apiClient.post(`/employes/${idEmploye}/workflows/transition`, data);
+        window.dispatchEvent(new Event('refresh-notifications'));
         return response.data;
     },
 
@@ -82,6 +84,7 @@ const contratService = {
      */
     modifierBrouillonWorkflow: async (idWorkflow, data) => {
         const response = await apiClient.put(`/workflows/${idWorkflow}`, data);
+        window.dispatchEvent(new Event('refresh-notifications'));
         return response.data;
     },
 
@@ -105,6 +108,7 @@ const contratService = {
         const response = await apiClient.put(`/workflows/${idWorkflow}/valider`, {
             commentaireValidation: commentaire,
         });
+        window.dispatchEvent(new Event('refresh-notifications'));
         return response.data;
     },
 
@@ -118,6 +122,7 @@ const contratService = {
         const response = await apiClient.put(`/workflows/${idWorkflow}/annuler`, {
             commentaireValidation: motifAnnulation,
         });
+        window.dispatchEvent(new Event('refresh-notifications'));
         return response.data;
     },
 
@@ -129,6 +134,7 @@ const contratService = {
         const response = await apiClient.put(`/workflows/${idWorkflow}/annuler-planification`, {
             commentaireValidation: motifAnnulation,
         });
+        window.dispatchEvent(new Event('refresh-notifications'));
         return response.data;
     },
 

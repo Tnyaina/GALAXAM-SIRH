@@ -223,7 +223,10 @@ export default function CarriereTab({
 
     const workflowsValidesDuContrat = contratActif
         ? workflowsList
-            .filter((wf) => wf.codeStatutWorkflow === 'VALIDE' && (Number(wf.idContratCible) === Number(contratActif.idContrat) || Number(wf.idContratSource) === Number(contratActif.idContrat)))
+            .filter((wf) => wf.codeStatutWorkflow === 'VALIDE' && (
+                Number(wf.idContratCible) === Number(contratActif.idContrat) || 
+                (Number(wf.idContratSource) === Number(contratActif.idContrat) && !wf.idContratCible)
+            ))
             .sort((a, b) => new Date(b.dateEffet || b.dateDemande || 0) - new Date(a.dateEffet || a.dateDemande || 0))
         : [];
     const workflowCplActif = workflowsValidesDuContrat[0] || null;

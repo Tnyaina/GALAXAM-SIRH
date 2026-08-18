@@ -68,7 +68,7 @@ export function useContractReferentiels(enabled = true, excludeEmployeId = null)
                 contratService.getCategoriesPro(true),
                 contratService.getModesPaie(),
                 contratService.getTypesEvenementRh(),
-                employeService.getEmployes(),
+                employeService.getEmployes({ size: 10000, actif: true }),
             ]);
 
             const empArray = Array.isArray(empRes) ? empRes : (empRes?.content || []);

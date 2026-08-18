@@ -371,7 +371,7 @@ export default function TransitionModal({
                         {loadingRef ? (
                             <div className="py-12 flex justify-center"><Loading size="md" label="Chargement des référentiels..." /></div>
                         ) : (
-                            <form id="" onSubmit={handleSubmit} className="space-y-6">
+                            <form id="transition-form" onSubmit={handleSubmit} className="space-y-6">
                                 {errorMsg && (
                                     <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-none p-3 text-xs flex items-center gap-2">
                                         <ShieldAlert size={16} />
@@ -547,7 +547,7 @@ export default function TransitionModal({
                         </Button>
                         <Button
                             type="submit"
-                            form=""
+                            form="transition-form"
                             variant="primary"
                             size="sm"
                             loading={submitting}

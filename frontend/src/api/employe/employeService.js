@@ -18,6 +18,7 @@ const employeService = {
 
     createEmploye: async (data) => {
         const response = await apiClient.post('/employes', data);
+        window.dispatchEvent(new Event('refresh-notifications'));
         return response.data;
     },
 

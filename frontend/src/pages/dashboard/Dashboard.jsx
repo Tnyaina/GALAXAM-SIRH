@@ -3,6 +3,7 @@ import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import KpiGrid from '@/components/dashboard/KpiGrid';
 import CongesAValiderWidget from '@/components/dashboard/widgets/CongesAValiderWidget';
 import AbsentsWidget from '@/components/dashboard/widgets/AbsentsWidget';
+import BrouillonsEnAttenteWidget from '@/components/dashboard/widgets/BrouillonsEnAttenteWidget';
 import EcheancesWidget from '@/components/dashboard/widgets/EcheancesWidget';
 import ActiviteRhWidget from '@/components/dashboard/widgets/ActiviteRhWidget';
 import AccesRapidesWidget from '@/components/dashboard/widgets/AccesRapidesWidget';
@@ -19,6 +20,7 @@ export default function Dashboard() {
     const activite = data?.activiteRecente || [];
     const absentsAujourdhui = data?.absentsAujourdhui || [];
     const demandesCongeAValider = data?.demandesCongeAValider || [];
+    const brouillons = data?.brouillons || [];
 
     const totalAlertesContrats = alertesCritiques.length + alertes7j.length;
 
@@ -46,6 +48,10 @@ export default function Dashboard() {
                 <CongesAValiderWidget 
                     loading={loading} 
                     demandesCongeAValider={demandesCongeAValider} 
+                />
+                <BrouillonsEnAttenteWidget
+                    loading={loading}
+                    brouillons={brouillons}
                 />
                 <AbsentsWidget 
                     loading={loading} 

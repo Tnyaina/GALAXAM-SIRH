@@ -125,9 +125,16 @@ export function useNotifications() {
             load(true);
         }, 15000);
 
+        // Rafraîchissement manuel déclenché par d'autres composants
+        const handleForceRefresh = () => {
+            load(true);
+        };
+        window.addEventListener('refresh-notifications', handleForceRefresh);
+
         return () => {
             controller.abort();
             clearInterval(timer);
+            window.removeEventListener('refresh-notifications', handleForceRefresh);
         };
     }, [load]);
 
