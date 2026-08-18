@@ -21,6 +21,7 @@ const FamilleContactsTab = lazy(() => import('@/components/employe/tabs/FamilleC
 const HistoriqueStatutTab = lazy(() => import('@/components/employe/tabs/HistoriqueStatutTab'));
 const CongesTab = lazy(() => import('@/components/employe/tabs/CongesTab'));
 const UploadDocumentModal = lazy(() => import('@/components/employe/tabs/UploadDocumentModal'));
+import SEO from '@/components/system/SEO';
 
 const VALID_TABS = ['personnel', 'conges', 'documents', 'famille', 'carriere', 'historique'];
 
@@ -250,6 +251,10 @@ export default function EmployeFicheDetailPage() {
 
     return (
         <div className="space-y-6">
+            <SEO 
+                title={`Fiche de ${emp?.nom} ${emp?.prenom}`} 
+                description={`Fiche individuelle de ${emp?.nom} ${emp?.prenom} (${emp?.matricule})`} 
+            />
             {/* Lien retour */}
             <Link to="/employes" className="inline-flex items-center gap-2 text-sm text-brand-500 hover:underline font-semibold ">
                 <ArrowLeft size={16} />

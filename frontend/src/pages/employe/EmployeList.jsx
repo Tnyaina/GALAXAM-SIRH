@@ -12,6 +12,7 @@ import EmployeStatsCards from '@/components/employe/EmployeStatsCards';
 import EmployeFilterBar from '@/components/employe/EmployeFilterBar';
 import EmployeTable from '@/components/employe/EmployeTable';
 import Pagination from '@/components/ui/navigation/Pagination';
+import SEO from '@/components/system/SEO';
 
 const EmployeFormModal = lazy(() => import('./dossier/EmployeFormModal'));
 
@@ -171,6 +172,7 @@ export default function EmployeList() {
 
     return (
         <div className="space-y-6">
+            <SEO title="Fiches Employés" description="Répertoire du personnel et gestion des fiches individuelles." />
             {/* En-tête de la page */}
             <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">

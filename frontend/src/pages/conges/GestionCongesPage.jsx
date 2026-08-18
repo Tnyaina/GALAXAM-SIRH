@@ -13,6 +13,8 @@ const SoldesOverviewTab       = lazy(() => import('@/components/conges/SoldesOve
 const DemandesValidationTab   = lazy(() => import('@/components/conges/DemandesValidationTab'));
 const ParametresCongesTab     = lazy(() => import('@/components/conges/ParametresCongesTab'));
 
+import SEO from '@/components/system/SEO';
+
 export default function GestionCongesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'soldes';
@@ -73,7 +75,8 @@ export default function GestionCongesPage() {
   ];
 
   return (
-    <div className="space-y-6 font-sans ">
+    <div className="space-y-6 font-sans">
+      <SEO title="Congés & Absences" description="Gestion des demandes de congés et soldes." />
       {/* Lien retour */}
       <Link 
         to="/dashboard" 

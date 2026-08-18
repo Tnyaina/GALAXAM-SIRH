@@ -6,6 +6,7 @@ import AbsentsWidget from '@/components/dashboard/widgets/AbsentsWidget';
 import EcheancesWidget from '@/components/dashboard/widgets/EcheancesWidget';
 import ActiviteRhWidget from '@/components/dashboard/widgets/ActiviteRhWidget';
 import AccesRapidesWidget from '@/components/dashboard/widgets/AccesRapidesWidget';
+import SEO from '@/components/system/SEO';
 
 export default function Dashboard() {
     const { data, loading, error, refresh, lastRefresh } = useDashboard();
@@ -23,6 +24,8 @@ export default function Dashboard() {
 
     return (
         <div className="space-y-6">
+            <SEO title="Tableau de bord" description="Vue d'ensemble et indicateurs clés RH." />
+            
             <DashboardHeader 
                 loading={loading}
                 error={error}
