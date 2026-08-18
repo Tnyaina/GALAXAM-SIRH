@@ -149,8 +149,8 @@ const congeService = {
   /**
    * Récupère la liste des demandes de congé d'un employé
    */
-  getDemandesEmploye: async (idEmploye) => {
-    const response = await apiClient.get(`/conges/demandes/employe/${idEmploye}`);
+  getDemandesEmploye: async (idEmploye, params = {}) => {
+    const response = await apiClient.get(`/conges/demandes/employe/${idEmploye}`, { params });
     return response.data;
   },
 
@@ -169,16 +169,16 @@ const congeService = {
   /**
    * Récupère toutes les demandes de congé de l'entreprise
    */
-  getAllDemandes: async () => {
-    const response = await apiClient.get('/conges/demandes/all');
+  getAllDemandes: async (params = {}) => {
+    const response = await apiClient.get('/conges/demandes/all', { params });
     return response.data;
   },
 
   /**
    * Récupère toutes les demandes en attente de validation (statut EN_ATTENTE)
    */
-  getDemandesAValider: async () => {
-    const response = await apiClient.get('/conges/demandes/validation');
+  getDemandesAValider: async (params = {}) => {
+    const response = await apiClient.get('/conges/demandes/validation', { params });
     return response.data;
   },
 

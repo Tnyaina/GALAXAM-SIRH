@@ -7,6 +7,8 @@ import Alert from '@/components/ui/feedback/Alert';
 import Loading from '@/components/ui/feedback/Loading';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import Pagination from '@/components/ui/navigation/Pagination';
 
 import SoldeCongeWidget from '@/components/conges/SoldeCongeWidget';
 import MouvementsSoldeTable from '@/components/conges/MouvementsSoldeTable';
@@ -21,6 +23,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
   const [soldeEmploye, setSoldeEmploye] = useState(null);
   const [mouvements, setMouvements] = useState([]);
   const [demandesEmploye, setDemandesEmploye] = useState([]);
+  const [totalDemandes, setTotalDemandes] = useState(0);
   const [consommationPool, setConsommationPool] = useState([]);
   const [referentiels, setReferentiels] = useState(null);
 
@@ -29,6 +32,23 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
   const [showDemandeModal, setShowDemandeModal] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('demandes'); // 'demandes' ou 'registre'
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Confirm Dialog for Annulation
+  const [confirmAnnulerState, setConfirmAnnulerState] = useState({ isOpen: false, idDemande: null });
+
+  const loadDemandes = async () => {
+    try {
+      const res = await congeService.getDemandesEmploye(idEmploye, { page: currentPage, size: pageSize });
+      setDemandesEmploye(res?.content || []);
+      setTotalDemandes(res?.totalElements || 0);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -36,14 +56,15 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
       const [soldeRes, mvtRes, demRes, poolRes, refRes] = await Promise.all([
         congeService.getSoldeEmploye(idEmploye).catch(() => null),
         congeService.getMouvementsEmploye(idEmploye).catch(() => []),
-        congeService.getDemandesEmploye(idEmploye).catch(() => []),
+        congeService.getDemandesEmploye(idEmploye, { page: 1, size: pageSize }).catch(() => null),
         congeService.getConsommationPool(idEmploye).catch(() => []),
         congeService.getAllReferentiels().catch(() => null),
       ]);
 
       setSoldeEmploye(soldeRes);
       setMouvements(mvtRes || []);
-      setDemandesEmploye(demRes || []);
+      setDemandesEmploye(demRes?.content || []);
+      setTotalDemandes(demRes?.totalElements || 0);
       setConsommationPool(poolRes || []);
       setReferentiels(refRes);
     } catch (err) {
@@ -55,12 +76,34 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
 
   useEffect(() => {
     if (idEmploye) {
-      loadData();
+      if (currentPage === 1) {
+          loadData();
+      } else {
+          setCurrentPage(1); // will trigger the other effect if it was not 1
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idEmploye]);
 
+  useEffect(() => {
+    if (idEmploye && !loading) {
+      loadDemandes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize]);
 
+  const handleAnnulerConfirm = async () => {
+    if (confirmAnnulerState.idDemande) {
+      try {
+        await congeService.annulerDemande(confirmAnnulerState.idDemande);
+        loadData();
+      } catch (err) {
+        setError(err?.response?.data || err.message || 'Erreur lors de l\'annulation.');
+      } finally {
+        setConfirmAnnulerState({ isOpen: false, idDemande: null });
+      }
+    }
+  };
 
   if (loading && !soldeEmploye) {
     return (
@@ -142,7 +185,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                 <CardTitle>Historique des Demandes</CardTitle>
               </div>
               <span className="text-xs font-data text-[var(--color-fg-muted)]">
-                {demandesEmploye.length} demande(s)
+                {totalDemandes} demande{totalDemandes > 1 ? 's' : ''}
               </span>
             </div>
           </CardHeader>
@@ -218,12 +261,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                             <Button
                               variant="ghost"
                               size="xs"
-                              onClick={async () => {
-                                if (confirm(`Confirmer l'annulation de la demande #${d.idDemandeConge} ?`)) {
-                                  await congeService.annulerDemande(d.idDemandeConge);
-                                  loadData();
-                                }
-                              }}
+                              onClick={() => setConfirmAnnulerState({ isOpen: true, idDemande: d.idDemandeConge })}
                               className="rounded-none text-danger-500 hover:text-danger-600"
                             >
                               Annuler
@@ -236,6 +274,18 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                 </Tbody>
               </Table>
             </div>
+            
+            {/* Pagination */}
+            {totalDemandes > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalItems={totalDemandes}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+                className="bg-transparent border-t-0"
+              />
+            )}
           </CardBody>
         </Card>
       )}
@@ -257,6 +307,17 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
         isOpen={showDemandeModal}
         onClose={() => setShowDemandeModal(false)}
         onSuccess={loadData}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmAnnulerState.isOpen}
+        title="Annuler la demande"
+        message={`Voulez-vous vraiment annuler la demande #${confirmAnnulerState.idDemande} ?`}
+        confirmLabel="Annuler la demande"
+        cancelLabel="Fermer"
+        variant="danger"
+        onConfirm={handleAnnulerConfirm}
+        onClose={() => setConfirmAnnulerState({ isOpen: false, idDemande: null })}
       />
     </div>
   );

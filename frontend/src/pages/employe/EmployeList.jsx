@@ -11,6 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 import EmployeStatsCards from '@/components/employe/EmployeStatsCards';
 import EmployeFilterBar from '@/components/employe/EmployeFilterBar';
 import EmployeTable from '@/components/employe/EmployeTable';
+import Pagination from '@/components/ui/navigation/Pagination';
 
 const EmployeFormModal = lazy(() => import('./dossier/EmployeFormModal'));
 
@@ -20,9 +21,14 @@ export default function EmployeList() {
     const canWrite = hasPermission('EMPLOYE_WRITE');
     const canValidate = hasPermission('EMPLOYE_VALIDATE');
     const [employes, setEmployes] = useState([]);
+    const [totalEmployes, setTotalEmployes] = useState(0);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'ACTIVE', 'INACTIVE'
+
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     // Modales
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -39,13 +45,18 @@ export default function EmployeList() {
     const loadEmployes = useCallback(async () => {
         setLoading(true);
         try {
-            const params = {};
+            const params = {
+                page: currentPage,
+                size: pageSize
+            };
             if (searchQuery.trim()) params.q = searchQuery.trim();
             if (statusFilter === 'ACTIVE') params.actif = true;
             if (statusFilter === 'INACTIVE') params.actif = false;
 
             const data = await employeService.getEmployes(params);
-            setEmployes(data || []);
+            // data is now a PageDTO
+            setEmployes(data?.content || []);
+            setTotalEmployes(data?.totalElements || 0);
             setError('');
         } catch (err) {
             console.error('Erreur chargement employés:', err);
@@ -53,6 +64,11 @@ export default function EmployeList() {
         } finally {
             setLoading(false);
         }
+    }, [searchQuery, statusFilter, currentPage, pageSize]);
+
+    // Réinitialiser la pagination si les filtres changent
+    useEffect(() => {
+        setCurrentPage(1);
     }, [searchQuery, statusFilter]);
 
     useEffect(() => {
@@ -142,9 +158,11 @@ export default function EmployeList() {
     };
 
     // Stats
-    const totalEmployes = employes.length;
-    const totalActifs = employes.filter(e => e.estActif).length;
-    const totalInactifs = employes.filter(e => !e.estActif).length;
+    // Note: Pour avoir des statistiques globales exactes avec une pagination serveur, 
+    // il faudrait un endpoint dédié /stats. Ici on affiche le total de la recherche courante.
+    const displayTotal = totalEmployes;
+    const totalActifs = statusFilter === 'ACTIVE' ? totalEmployes : (statusFilter === 'ALL' ? '-' : 0);
+    const totalInactifs = statusFilter === 'INACTIVE' ? totalEmployes : (statusFilter === 'ALL' ? '-' : 0);
 
     return (
         <div className="space-y-6">
@@ -196,7 +214,7 @@ export default function EmployeList() {
 
             {/* Stats rapides */}
             <EmployeStatsCards
-                totalEmployes={totalEmployes}
+                totalEmployes={displayTotal}
                 totalActifs={totalActifs}
                 totalInactifs={totalInactifs}
             />
@@ -210,15 +228,29 @@ export default function EmployeList() {
             />
 
             {/* Tableau des employés */}
-            <EmployeTable
-                employes={employes}
-                loading={loading}
-                canWrite={canWrite}
-                canValidate={canValidate}
-                onOpenDetail={handleOpenDetail}
-                onOpenEdit={handleOpenEdit}
-                onToggleStatus={handleToggleStatus}
-            />
+            <div className="flex flex-col border border-ink-150 dark:border-ink-700 bg-white dark:bg-ink-900 shadow-sm">
+                <EmployeTable
+                    employes={employes}
+                    loading={loading}
+                    canWrite={canWrite}
+                    canValidate={canValidate}
+                    onOpenDetail={handleOpenDetail}
+                    onOpenEdit={handleOpenEdit}
+                    onToggleStatus={handleToggleStatus}
+                />
+                
+                {/* Pagination */}
+                {!loading && employes.length > 0 && (
+                    <Pagination
+                        currentPage={currentPage}
+                        totalItems={totalEmployes}
+                        pageSize={pageSize}
+                        onPageChange={setCurrentPage}
+                        onPageSizeChange={setPageSize}
+                        className="border-none shadow-none bg-ink-50 dark:bg-ink-950"
+                    />
+                )}
+            </div>
 
             {/* Modale d'édition / création d'employé */}
             {isFormOpen && (

@@ -14,6 +14,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
+import Pagination from '@/components/ui/navigation/Pagination';
 
 const DemandeCongeModal = lazy(() => import('@/components/conges/DemandeCongeModal'));
 
@@ -49,15 +50,52 @@ const STATUT_ICON = {
 
 // ─── Composant ───────────────────────────────────────────────────────────────
 
-export default function DemandesValidationTab({ loading, demandes = [], referentiels, onReload }) {
+export default function DemandesValidationTab({ referentiels, onReload: parentReload }) {
   const toast = useToast();
 
   // ── Filtres ────────────────────────────────────────────────────────────────
   const [activeStatut, setActiveStatut] = useState('EN_ATTENTE');
   const [searchRaw,    setSearchRaw]    = useState('');
+  
+  // Pagination & Données
+  const [demandes, setDemandes] = useState([]);
+  const [totalElements, setTotalElements] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Debounce de 350 ms (runtime.md §4 — évite les race conditions)
   const searchTerm = useDebounce(searchRaw, 350);
+
+  // Charger les données depuis le serveur
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = {
+        page: currentPage,
+        size: pageSize
+      };
+      if (activeStatut !== 'ALL') params.statut = activeStatut;
+      if (searchTerm) params.q = searchTerm;
+
+      const data = await congeService.getAllDemandes(params);
+      setDemandes(data?.content || []);
+      setTotalElements(data?.totalElements || 0);
+    } catch (err) {
+      console.error('Erreur de chargement:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, pageSize, activeStatut, searchTerm]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Réinitialiser la page à 1 si filtres changent
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeStatut, searchTerm]);
 
   // ── Modals ─────────────────────────────────────────────────────────────────
   const [showDemandeModal, setShowDemandeModal] = useState(false);
@@ -69,27 +107,9 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
   const [actionLoading,    setActionLoading]    = useState(false);
   const [actionError,      setActionError]      = useState(null);
 
-  // ── Dérivés filtrés (memoized) ─────────────────────────────────────────────
-  const counts = useMemo(() =>
-    demandes.reduce((acc, d) => {
-      acc[d.codeStatutDemande] = (acc[d.codeStatutDemande] || 0) + 1;
-      return acc;
-    }, {}),
-    [demandes]
-  );
-
-  const filtered = useMemo(() => {
-    const q = searchTerm.toLowerCase();
-    return demandes.filter((d) => {
-      const name = `${d.prenom || ''} ${d.nom || ''}`.trim().toLowerCase();
-      const type = (d.codeTypeConge || '').toLowerCase();
-      const matchSearch = !q || name.includes(q) || type.includes(q);
-      const matchStatut = activeStatut === 'ALL' || d.codeStatutDemande === activeStatut;
-      return matchSearch && matchStatut;
-    });
-  }, [demandes, searchTerm, activeStatut]);
-
-  const nbEnAttente = counts['EN_ATTENTE'] || 0;
+  // Les compteurs réels globaux par statut nécessiteraient un endpoint /stats.
+  // Pour la vue paginée, on se contente d'utiliser totalElements pour l'affichage courant.
+  const displayTotal = totalElements;
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const openValider = (d)  => { setSelectedDemande(d); setActionError(null); setShowValiderModal(true); };
@@ -106,7 +126,8 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
       toast({ title: 'Demande validee', message: `La demande #${selectedDemande.idDemandeConge} de ${selectedDemande.prenom} ${selectedDemande.nom} a ete validee.`, type: 'success', duration: 3000 });
       setShowValiderModal(false);
       setSelectedDemande(null);
-      if (onReload) onReload();
+      if (parentReload) parentReload();
+      loadData();
     } catch (err) {
       setActionError(err?.response?.data || err.message || 'Erreur lors de la validation.');
     } finally {
@@ -124,7 +145,8 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
       setShowRefusModal(false);
       setSelectedDemande(null);
       setMotifRefus('');
-      if (onReload) onReload();
+      if (parentReload) parentReload();
+      loadData();
     } catch (err) {
       setActionError(err?.response?.data || err.message || 'Erreur lors du refus.');
     } finally {
@@ -156,7 +178,7 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
     <div className="space-y-4 ">
 
       {/* ── Stepper workflow ─────────────────────────────────────────────── */}
-      {activeStatut === 'EN_ATTENTE' && nbEnAttente > 0 && (
+      {activeStatut === 'EN_ATTENTE' && displayTotal > 0 && (
         <div className="flex items-center gap-3 bg-[var(--color-brand-500)]/5 border border-[var(--color-brand-500)]/20 p-4">
           {[
             { step: 1, label: 'Soumission',        active: false },
@@ -186,9 +208,9 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
             {/* Filtres-pilules par statut */}
             <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
               {STATUTS.map((s) => {
-                const count    = s.key === 'ALL' ? demandes.length : (counts[s.key] || 0);
+                const count    = activeStatut === s.key ? displayTotal : '-';
                 const isActive = activeStatut === s.key;
-                const isUrgent = s.key === 'EN_ATTENTE' && count > 0;
+                const isUrgent = s.key === 'EN_ATTENTE' && isActive && displayTotal > 0;
                 const Icon     = s.icon;
                 return (
                   <button
@@ -241,16 +263,16 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
       <Card>
         <CardBody className="p-0">
           {/* En-tête contextuel */}
-          {activeStatut === 'EN_ATTENTE' && nbEnAttente > 0 && (
+          {activeStatut === 'EN_ATTENTE' && displayTotal > 0 && (
             <div className="px-4 py-2.5 border-b border-[var(--color-border-subtle)] bg-warning-500/5 flex items-center gap-2">
               <Clock size={13} className="text-warning-500 shrink-0" />
               <span className="text-xs font-semibold text-warning-500">
-                {nbEnAttente} demande{nbEnAttente > 1 ? 's' : ''} en attente de traitement
+                {displayTotal} demande{displayTotal > 1 ? 's' : ''} en attente de traitement
               </span>
             </div>
           )}
 
-          {filtered.length === 0 ? (
+          {demandes.length === 0 ? (
             <EmptyState
               title={searchTerm
                 ? `Aucun resultat pour "${searchTerm}"`
@@ -280,7 +302,7 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {filtered.map((d) => {
+                  {demandes.map((d) => {
                     const employeName = `${d.prenom || ''} ${d.nom || ''}`.trim() || `Employe ${d.idEmploye}`;
                     const isEnAttente = d.codeStatutDemande === 'EN_ATTENTE';
                     const StatutIcon  = STATUT_ICON[d.codeStatutDemande];
@@ -359,17 +381,17 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
                 </Tbody>
               </Table>
 
-              {/* Pied de tableau avec compteur de résultats */}
-              <div className="px-4 py-2 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between">
-                <span className="text-[11px] text-[var(--color-fg-subtle)]">
-                  {filtered.length} demande{filtered.length > 1 ? 's' : ''}
-                  {activeStatut !== 'ALL' && ` · filtre : ${STATUTS.find(s => s.key === activeStatut)?.label}`}
-                  {searchTerm && ` · recherche : "${searchTerm}"`}
-                </span>
-                {(activeStatut !== 'EN_ATTENTE' || !searchTerm) && demandes.length > 0 && (
-                  <span className="text-[11px] text-[var(--color-fg-subtle)]">{demandes.length} au total</span>
-                )}
-              </div>
+              {/* Pagination et compteurs de résultats */}
+              {displayTotal > 0 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalItems={displayTotal}
+                  pageSize={pageSize}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                  className="bg-[var(--color-bg-subtle)]"
+                />
+              )}
             </div>
           )}
         </CardBody>
@@ -535,7 +557,7 @@ export default function DemandesValidationTab({ loading, demandes = [], referent
           onClose={() => setShowDemandeModal(false)}
           idEmploye={null}
           referentiels={referentiels}
-          onSuccess={() => { setShowDemandeModal(false); if (onReload) onReload(); }}
+          onSuccess={() => { setShowDemandeModal(false); if (parentReload) parentReload(); loadData(); }}
         />
       </Suspense>
     </div>

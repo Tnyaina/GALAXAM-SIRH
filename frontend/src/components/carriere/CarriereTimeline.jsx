@@ -416,6 +416,7 @@ export default function CarriereTimeline({
                                 <thead>
                                     <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 font-bold uppercase tracking-widest text-[10px]">
                                         <th className="px-4 py-3">N° Contrat</th>
+                                        <th className="px-4 py-3">Intervenant</th>
                                         <th className="px-4 py-3">Dates (Début → Fin)</th>
                                         <th className="px-4 py-3">Date Signature</th>
                                         <th className="px-4 py-3">Effectif</th>
@@ -434,6 +435,9 @@ export default function CarriereTimeline({
                                             <tr key={ct.idContrat} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
                                                 <td className="px-4 py-3 font-mono font-bold text-brand-500">
                                                     {ct.numeroContrat}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {ct.libelleTypeIntervenant || '-'}
                                                 </td>
                                                 <td className="px-4 py-3 font-mono">
                                                     {fmtDate(ct.dateDebut)} → {fmtDate(ct.dateFin)}

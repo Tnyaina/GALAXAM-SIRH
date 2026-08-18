@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.List;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.api.dto.common.PageDTO;
 import mg.galaxam.sirh.api.dto.employe.DesactivationRequest;
 import mg.galaxam.sirh.api.dto.employe.EmployeFicheDetailDTO;
 import mg.galaxam.sirh.api.dto.employe.EmployeRequest;
@@ -30,10 +31,16 @@ public class EmployeController {
     @GetMapping
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getEmployes(@RequestParam(required = false) String q,
-                                         @RequestParam(required = false) Boolean actif) {
+                                         @RequestParam(required = false) Boolean actif,
+                                         @RequestParam(defaultValue = "1") int page,
+                                         @RequestParam(defaultValue = "10") int size) {
         try (Connection c = dataSource.getConnection()) {
-            List<EmployeCPL> list = EmployeCPL.rechercherEmployes(c, q, actif);
-            return ResponseEntity.ok(list);
+            int offset = (page - 1) * size;
+            long totalElements = EmployeCPL.compterEmployes(c, q, actif);
+            List<EmployeCPL> list = EmployeCPL.rechercherEmployes(c, q, actif, size, offset);
+            
+            PageDTO<EmployeCPL> pageDto = new PageDTO<>(list, totalElements, page, size);
+            return ResponseEntity.ok(pageDto);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

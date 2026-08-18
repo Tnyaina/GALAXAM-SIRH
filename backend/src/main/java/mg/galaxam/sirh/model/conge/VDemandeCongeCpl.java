@@ -102,12 +102,41 @@ public class VDemandeCongeCpl extends ClassMere {
         return null;
     }
 
-    public static List<VDemandeCongeCpl> listParEmploye(Integer idEmploye, Connection c) throws Exception {
-        List<VDemandeCongeCpl> list = new ArrayList<>();
-        if (idEmploye == null) return list;
-        String sql = "SELECT * FROM v_demande_conge_cpl WHERE id_employe = ? ORDER BY date_debut DESC, created_at DESC";
+    public static long countParEmploye(Integer idEmploye, Connection c) throws Exception {
+        if (idEmploye == null) return 0;
+        String sql = "SELECT COUNT(*) FROM v_demande_conge_cpl WHERE id_employe = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getLong(1);
+            }
+        }
+        return 0;
+    }
+
+    public static List<VDemandeCongeCpl> listParEmploye(Integer idEmploye, Connection c, Integer limit, Integer offset) throws Exception {
+        List<VDemandeCongeCpl> list = new ArrayList<>();
+        if (idEmploye == null) return list;
+        
+        StringBuilder sql = new StringBuilder("SELECT * FROM v_demande_conge_cpl WHERE id_employe = ? ORDER BY date_debut DESC, created_at DESC");
+        List<Object> params = new ArrayList<>();
+        params.add(idEmploye);
+        
+        if (limit != null) {
+            sql.append(" LIMIT ?");
+            params.add(limit);
+        }
+        if (offset != null) {
+            sql.append(" OFFSET ?");
+            params.add(offset);
+        }
+
+        try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                if (params.get(i) instanceof Integer) {
+                    ps.setInt(i + 1, (Integer) params.get(i));
+                }
+            }
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapResultSet(rs));
@@ -117,14 +146,67 @@ public class VDemandeCongeCpl extends ClassMere {
         return list;
     }
 
-    public static List<VDemandeCongeCpl> listAll(Connection c, String codeStatut) throws Exception {
+    public static long countAll(Connection c, String codeStatut, String keyword) throws Exception {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM v_demande_conge_cpl WHERE 1=1 ");
+        List<Object> params = new ArrayList<>();
+
+        if (codeStatut != null && !codeStatut.isBlank()) {
+            sql.append(" AND code_statut_demande = ? ");
+            params.add(codeStatut.trim().toUpperCase());
+        }
+
+        if (keyword != null && !keyword.isBlank()) {
+            sql.append(" AND (LOWER(nom) LIKE ? OR LOWER(prenom) LIKE ? OR LOWER(matricule) LIKE ? OR LOWER(libelle_type_conge) LIKE ?) ");
+            String search = "%" + keyword.trim().toLowerCase() + "%";
+            for (int i = 0; i < 4; i++) params.add(search);
+        }
+
+        try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                ps.setString(i + 1, (String) params.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getLong(1);
+            }
+        }
+        return 0;
+    }
+
+    public static List<VDemandeCongeCpl> listAll(Connection c, String codeStatut, String keyword, Integer limit, Integer offset) throws Exception {
         List<VDemandeCongeCpl> list = new ArrayList<>();
-        String sql = "SELECT * FROM v_demande_conge_cpl " +
-                (codeStatut != null && !codeStatut.isBlank() ? "WHERE code_statut_demande = ? " : "") +
-                "ORDER BY date_debut DESC, created_at DESC";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            if (codeStatut != null && !codeStatut.isBlank()) {
-                ps.setString(1, codeStatut.trim().toUpperCase());
+        StringBuilder sql = new StringBuilder("SELECT * FROM v_demande_conge_cpl WHERE 1=1 ");
+        List<Object> params = new ArrayList<>();
+
+        if (codeStatut != null && !codeStatut.isBlank()) {
+            sql.append(" AND code_statut_demande = ? ");
+            params.add(codeStatut.trim().toUpperCase());
+        }
+
+        if (keyword != null && !keyword.isBlank()) {
+            sql.append(" AND (LOWER(nom) LIKE ? OR LOWER(prenom) LIKE ? OR LOWER(matricule) LIKE ? OR LOWER(libelle_type_conge) LIKE ?) ");
+            String search = "%" + keyword.trim().toLowerCase() + "%";
+            for (int i = 0; i < 4; i++) params.add(search);
+        }
+
+        sql.append(" ORDER BY date_debut DESC, created_at DESC");
+
+        if (limit != null) {
+            sql.append(" LIMIT ?");
+            params.add(limit);
+        }
+        if (offset != null) {
+            sql.append(" OFFSET ?");
+            params.add(offset);
+        }
+
+        try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                Object p = params.get(i);
+                if (p instanceof Integer) {
+                    ps.setInt(i + 1, (Integer) p);
+                } else {
+                    ps.setString(i + 1, (String) p);
+                }
             }
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {

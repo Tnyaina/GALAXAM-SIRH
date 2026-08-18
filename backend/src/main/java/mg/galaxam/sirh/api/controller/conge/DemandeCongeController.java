@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.api.dto.common.PageDTO;
 import mg.galaxam.sirh.model.conge.DemandeConge;
 import mg.galaxam.sirh.model.conge.RefStatutDemandeConge;
 import mg.galaxam.sirh.model.conge.RefTypeConge;
@@ -151,10 +152,16 @@ public class DemandeCongeController {
     }
 
     @GetMapping("/employe/{idEmploye}")
-    public ResponseEntity<?> getDemandesEmploye(@PathVariable Integer idEmploye) {
+    public ResponseEntity<?> getDemandesEmploye(@PathVariable Integer idEmploye,
+                                                @RequestParam(defaultValue = "1") int page,
+                                                @RequestParam(defaultValue = "10") int size) {
         try (Connection c = dataSource.getConnection()) {
-            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listParEmploye(idEmploye, c);
-            return ResponseEntity.ok(list);
+            int offset = (page - 1) * size;
+            long total = VDemandeCongeCpl.countParEmploye(idEmploye, c);
+            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listParEmploye(idEmploye, c, size, offset);
+            
+            PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
+            return ResponseEntity.ok(pageDto);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -176,10 +183,16 @@ public class DemandeCongeController {
     }
 
     @GetMapping("/validation")
-    public ResponseEntity<?> getDemandesAValider() {
+    public ResponseEntity<?> getDemandesAValider(@RequestParam(required = false) String q,
+                                                 @RequestParam(defaultValue = "1") int page,
+                                                 @RequestParam(defaultValue = "10") int size) {
         try (Connection c = dataSource.getConnection()) {
-            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, "EN_ATTENTE");
-            return ResponseEntity.ok(list);
+            int offset = (page - 1) * size;
+            long total = VDemandeCongeCpl.countAll(c, "EN_ATTENTE", q);
+            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, "EN_ATTENTE", q, size, offset);
+            
+            PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
+            return ResponseEntity.ok(pageDto);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -188,10 +201,17 @@ public class DemandeCongeController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<?> getAllDemandes() {
+    public ResponseEntity<?> getAllDemandes(@RequestParam(required = false) String q,
+                                            @RequestParam(required = false) String statut,
+                                            @RequestParam(defaultValue = "1") int page,
+                                            @RequestParam(defaultValue = "10") int size) {
         try (Connection c = dataSource.getConnection()) {
-            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, null);
-            return ResponseEntity.ok(list);
+            int offset = (page - 1) * size;
+            long total = VDemandeCongeCpl.countAll(c, statut, q);
+            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, statut, q, size, offset);
+            
+            PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
+            return ResponseEntity.ok(pageDto);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

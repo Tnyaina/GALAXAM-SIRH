@@ -1,5 +1,5 @@
 import {
-    Briefcase, Calendar, Clock, Award, DollarSign, MapPin, FileText
+    Briefcase, Calendar, Clock, Award, DollarSign, MapPin, FileText, UserCircle
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -56,6 +56,11 @@ export default function CarriereHeaderCard({
                         icon={<FileText size={16} />}
                         label="Type de Contrat"
                         value={contratActif?.libelleTypeContrat}
+                    />
+                    <StatItem
+                        icon={<UserCircle size={16} />}
+                        label="Intervenant"
+                        value={contratActif?.libelleTypeIntervenant}
                     />
                     <StatItem
                         icon={<Award size={16} />}

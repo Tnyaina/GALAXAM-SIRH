@@ -6,6 +6,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { useToast } from '@/components/ui/feedback/Toast';
 import congeService from '@/api/congeService';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import TypeCongeModal from './TypeCongeModal';
 import MotifFamilialModal from './MotifFamilialModal';
 import { Edit2, Trash2 } from 'lucide-react';
@@ -22,6 +23,13 @@ export default function ParametresCongesTab() {
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showMotifModal, setShowMotifModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+
+  // ConfirmDialog state
+  const [confirmState, setConfirmState] = useState({
+    isOpen: false,
+    id: null,
+    type: null // 'TYPE_CONGE' ou 'MOTIF'
+  });
 
   const fetchParametres = async () => {
     setLoading(true);
@@ -53,27 +61,30 @@ export default function ParametresCongesTab() {
     setShowMotifModal(true);
   };
 
-  const handleDeleteType = async (id) => {
-    if (!window.confirm("Voulez-vous vraiment désactiver ce type de congé ?")) return;
-    try {
-      await congeService.supprimerTypeConge(id);
-      toast({ title: 'Succès', message: 'Type de congé désactivé.', type: 'success' });
-      fetchParametres();
-    } catch (err) {
-      console.error(err);
-      toast({ title: 'Erreur', message: 'Erreur lors de la désactivation.', type: 'error' });
-    }
+  const handleDeleteType = (id) => {
+    setConfirmState({ isOpen: true, id, type: 'TYPE_CONGE' });
   };
 
-  const handleDeleteMotif = async (id) => {
-    if (!window.confirm("Voulez-vous vraiment désactiver cet événement ?")) return;
+  const handleDeleteMotif = (id) => {
+    setConfirmState({ isOpen: true, id, type: 'MOTIF' });
+  };
+
+  const executeDelete = async () => {
+    if (!confirmState.id) return;
     try {
-      await congeService.supprimerMotifFamilial(id);
-      toast({ title: 'Succès', message: 'Événement désactivé.', type: 'success' });
+      if (confirmState.type === 'TYPE_CONGE') {
+        await congeService.supprimerTypeConge(confirmState.id);
+        toast({ title: 'Succès', message: 'Type de congé désactivé.', type: 'success' });
+      } else if (confirmState.type === 'MOTIF') {
+        await congeService.supprimerMotifFamilial(confirmState.id);
+        toast({ title: 'Succès', message: 'Événement désactivé.', type: 'success' });
+      }
       fetchParametres();
     } catch (err) {
       console.error(err);
       toast({ title: 'Erreur', message: 'Erreur lors de la désactivation.', type: 'error' });
+    } finally {
+      setConfirmState({ isOpen: false, id: null, type: null });
     }
   };
 
@@ -240,6 +251,21 @@ export default function ParametresCongesTab() {
         onClose={() => setShowMotifModal(false)} 
         initialData={selectedItem} 
         onSuccess={fetchParametres} 
+      />
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title="Confirmer la désactivation"
+        message={
+          confirmState.type === 'TYPE_CONGE'
+            ? "Voulez-vous vraiment désactiver ce type de congé ?"
+            : "Voulez-vous vraiment désactiver cet événement familial ?"
+        }
+        confirmLabel="Désactiver"
+        cancelLabel="Annuler"
+        variant="danger"
+        onConfirm={executeDelete}
+        onClose={() => setConfirmState({ isOpen: false, id: null, type: null })}
       />
     </div>
   );
