@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Users, CheckCircle, Clock, CalendarDays, RefreshCw, ChevronLeft, ChevronRight, CalendarClock, Search, ArrowUpDown, ArrowUp, ArrowDown, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Users, CheckCircle, Clock, CalendarDays, RefreshCw, ChevronLeft, ChevronRight, CalendarClock, Search, ArrowUpDown, ArrowUp, ArrowDown, X, ExternalLink } from 'lucide-react';
 import StatCard from '@/components/ui/data-display/StatCard';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -60,23 +61,24 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
 
   // Compute Gantt Data based on the real endpoint (mémoïsé)
   const ganttData = useMemo(() => {
+    const daysInMonthCount = new Date(year, month, 0).getDate();
     return (demandesGlobales || []).filter(d => {
       if (d.codeStatutDemande === 'REFUSE' || d.codeStatutDemande === 'ANNULE') return false;
 
       const start = new Date(d.dateDebut);
       const end = new Date(d.dateFin);
       const monthStart = new Date(year, month - 1, 1);
-      const monthEnd = new Date(year, month - 1, daysInMonth, 23, 59, 59);
+      const monthEnd = new Date(year, month - 1, daysInMonthCount, 23, 59, 59);
 
       return start <= monthEnd && end >= monthStart;
     }).map(d => {
       const start = new Date(d.dateDebut);
       const end = new Date(d.dateFin);
       const monthStart = new Date(year, month - 1, 1);
-      const monthEnd = new Date(year, month - 1, daysInMonth, 23, 59, 59);
+      const monthEnd = new Date(year, month - 1, daysInMonthCount, 23, 59, 59);
 
       const viewStart = start < monthStart ? 1 : start.getDate();
-      const viewEnd = end > monthEnd ? daysInMonth : end.getDate();
+      const viewEnd = end > monthEnd ? daysInMonthCount : end.getDate();
 
       return {
         employe: `${d.prenom || ''} ${d.nom || ''}`.trim() || `Employé #${d.idEmploye}`,
@@ -91,7 +93,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
         dureeJours: d.nbJoursDecomptes
       };
     });
-  }, [demandesGlobales, year, month, daysInMonth]);
+  }, [demandesGlobales, year, month]);
 
   const LANE_HEIGHT = 32;
 
@@ -100,7 +102,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
     return Object.values(
       ganttData.reduce((acc, item) => {
         const key = item.idEmploye ?? item.employe;
-        if (!acc[key]) acc[key] = { employe: item.employe, items: [] };
+        if (!acc[key]) acc[key] = { employe: item.employe, idEmploye: item.idEmploye, items: [] };
         acc[key].items.push(item);
         return acc;
       }, {})
@@ -119,7 +121,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
           }
           return { ...item, laneIndex };
         });
-        return { employe: row.employe, items: itemsWithLane, laneCount: laneEnds.length };
+        return { employe: row.employe, idEmploye: row.idEmploye, items: itemsWithLane, laneCount: laneEnds.length };
       });
   }, [ganttData]);
 
@@ -374,11 +376,21 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
                 return (
                   <div key={idx} className="flex border-b border-[var(--color-border-subtle)] last:border-0 hover:bg-[var(--color-surface-hover)]">
                     <div
-                      className="w-48 shrink-0 p-3 text-sm font-semibold text-[var(--color-fg)] border-r border-[var(--color-border-subtle)] truncate flex items-center"
-                      title={row.employe}
+                      className="w-48 shrink-0 p-3 text-sm font-semibold text-[var(--color-fg)] border-r border-[var(--color-border-subtle)] truncate flex items-center justify-between group"
+                      title={`Voir la fiche employé de ${row.employe}`}
                       style={{ minHeight: `${rowHeight + 8}px` }}
                     >
-                      {row.employe}
+                      {row.idEmploye ? (
+                        <Link
+                          to={`/employes/${row.idEmploye}`}
+                          className="hover:text-[var(--color-brand-500)] hover:underline truncate flex items-center gap-1 font-semibold text-[var(--color-fg)]"
+                        >
+                          <span className="truncate">{row.employe}</span>
+                          <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-[var(--color-brand-500)]" />
+                        </Link>
+                      ) : (
+                        <span className="truncate">{row.employe}</span>
+                      )}
                       {row.items.length > 1 && (
                         <span className="ml-1.5 text-[10px] font-normal text-[var(--color-fg-subtle)] shrink-0">
                           ({row.items.length})
@@ -485,7 +497,20 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
               <Tbody>
                 {paginatedTableData.map((item, idx) => (
                   <Tr key={idx}>
-                    <Td className="font-semibold text-[var(--color-fg)]">{item.employe}</Td>
+                    <Td className="font-semibold text-[var(--color-fg)]">
+                      {item.idEmploye ? (
+                        <Link
+                          to={`/employes/${item.idEmploye}`}
+                          className="hover:text-[var(--color-brand-500)] hover:underline inline-flex items-center gap-1 font-semibold text-[var(--color-fg)]"
+                          title={`Ouvrir la fiche de ${item.employe}`}
+                        >
+                          {item.employe}
+                          <ExternalLink size={12} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-brand-500)]" />
+                        </Link>
+                      ) : (
+                        item.employe
+                      )}
+                    </Td>
                     <Td><Badge variant="brand">{item.type}</Badge></Td>
                     <Td className="font-data">{formatDate(item.originalStart)}</Td>
                     <Td className="font-data">{formatDate(item.originalEnd)}</Td>

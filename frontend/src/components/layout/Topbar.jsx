@@ -1,4 +1,4 @@
-import { Menu, LogOut, Sun, Moon } from 'lucide-react';
+import { Menu, LogOut} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
@@ -7,7 +7,7 @@ import { Avatar } from '@/components/ui/data-display/Avatar';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 
-export default function Topbar({ onMenuClick, title, onThemeToggle, isDarkMode }) {
+export default function Topbar({ onMenuClick, title}) {
     const { user, logout, hasPermission } = useAuth();
     const navigate = useNavigate();
     const [showDropdown, setShowDropdown] = useState(false);
@@ -37,18 +37,6 @@ export default function Topbar({ onMenuClick, title, onThemeToggle, isDarkMode }
             <div className="flex items-center gap-2">
                 {/* Cloche notifications */}
                 {hasPermission('EMPLOYE_READ') && <NotificationBell />}
-
-                {/* Toggle thème */}
-                {onThemeToggle && (
-                    <Button
-                        variant="ghost"
-                        size="xs"
-                        onClick={onThemeToggle}
-                        className="!p-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-                        aria-label={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
-                        iconLeft={isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                    />
-                )}
 
                 {/* Profil utilisateur */}
                 <div className="relative">

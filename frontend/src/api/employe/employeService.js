@@ -6,6 +6,11 @@ const employeService = {
         return response.data;
     },
 
+    getEmployeStats: async (params = {}) => {
+        const response = await apiClient.get('/employes/stats', { params });
+        return response.data;
+    },
+
     getEmployeFicheDetail: async (id) => {
         const response = await apiClient.get(`/employes/${id}`);
         return response.data;

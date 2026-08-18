@@ -3,6 +3,7 @@ package mg.galaxam.sirh.api.controller.employe;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.api.dto.common.PageDTO;
 import mg.galaxam.sirh.api.dto.employe.DesactivationRequest;
@@ -27,6 +28,26 @@ public class EmployeController {
 
     @Autowired
     private DataSource dataSource;
+
+    @GetMapping("/stats")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getEmployeStats(@RequestParam(required = false) String q) {
+        try (Connection c = dataSource.getConnection()) {
+            long total = EmployeCPL.compterEmployes(c, q, null);
+            long actifs = EmployeCPL.compterEmployes(c, q, true);
+            long inactifs = EmployeCPL.compterEmployes(c, q, false);
+
+            return ResponseEntity.ok(Map.of(
+                "total", total,
+                "actifs", actifs,
+                "inactifs", inactifs
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors du calcul des statistiques.");
+        }
+    }
 
     @GetMapping
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")

@@ -74,7 +74,7 @@ export default function EmployeSearchSelect({
     } else {
       setSelectedEmployeObj(null);
     }
-  }, [value, listEmployes]);
+  }, [value, listEmployes, selectedEmployeObj]);
 
   // Fermeture du dropdown au clic extérieur
   useEffect(() => {

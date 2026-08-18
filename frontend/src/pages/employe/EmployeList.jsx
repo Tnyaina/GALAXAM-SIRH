@@ -22,6 +22,7 @@ export default function EmployeList() {
     const canValidate = hasPermission('EMPLOYE_VALIDATE');
     const [employes, setEmployes] = useState([]);
     const [totalEmployes, setTotalEmployes] = useState(0);
+    const [statsCounts, setStatsCounts] = useState({ total: 0, actifs: 0, inactifs: 0 });
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'ACTIVE', 'INACTIVE'
@@ -53,10 +54,16 @@ export default function EmployeList() {
             if (statusFilter === 'ACTIVE') params.actif = true;
             if (statusFilter === 'INACTIVE') params.actif = false;
 
-            const data = await employeService.getEmployes(params);
-            // data is now a PageDTO
+            const [data, stats] = await Promise.all([
+                employeService.getEmployes(params),
+                employeService.getEmployeStats({ q: searchQuery.trim() || undefined })
+            ]);
+
             setEmployes(data?.content || []);
             setTotalEmployes(data?.totalElements || 0);
+            if (stats) {
+                setStatsCounts(stats);
+            }
             setError('');
         } catch (err) {
             console.error('Erreur chargement employés:', err);
@@ -157,12 +164,10 @@ export default function EmployeList() {
         }
     };
 
-    // Stats
-    // Note: Pour avoir des statistiques globales exactes avec une pagination serveur, 
-    // il faudrait un endpoint dédié /stats. Ici on affiche le total de la recherche courante.
-    const displayTotal = totalEmployes;
-    const totalActifs = statusFilter === 'ACTIVE' ? totalEmployes : (statusFilter === 'ALL' ? '-' : 0);
-    const totalInactifs = statusFilter === 'INACTIVE' ? totalEmployes : (statusFilter === 'ALL' ? '-' : 0);
+    // Stats globales réelles calculées côté serveur
+    const displayTotal = statsCounts.total || totalEmployes;
+    const totalActifs = statsCounts.actifs;
+    const totalInactifs = statsCounts.inactifs;
 
     return (
         <div className="space-y-6">

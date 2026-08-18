@@ -1,4 +1,4 @@
-import Input, { Select } from '@/components/ui/forms/Input';
+import Input from '@/components/ui/forms/Input';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 
 export default function CnapsBanqueStep({
