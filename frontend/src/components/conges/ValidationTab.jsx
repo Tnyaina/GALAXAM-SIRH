@@ -8,7 +8,7 @@ import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
-import EmptyState from '@/components/ui/data-display/EmpyState';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
 

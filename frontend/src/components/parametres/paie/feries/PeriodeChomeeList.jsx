@@ -1,6 +1,6 @@
 import { Edit2, Trash2, Calendar, MapPin, CheckCircle, Clock } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import EmptyState from '@/components/ui/data-display/EmpyState';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import Badge from '@/components/ui/data-display/Badge';
 import { fmtDate } from '@/utils/paieUtils';
 

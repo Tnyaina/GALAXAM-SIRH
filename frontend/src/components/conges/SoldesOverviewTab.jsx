@@ -4,7 +4,7 @@ import { Users, CheckCircle, Clock, CalendarDays, RefreshCw, ChevronLeft, Chevro
 import StatCard from '@/components/ui/data-display/StatCard';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import EmptyState from '@/components/ui/data-display/EmpyState';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Badge from '@/components/ui/data-display/Badge';
 import Input from '@/components/ui/forms/Input';

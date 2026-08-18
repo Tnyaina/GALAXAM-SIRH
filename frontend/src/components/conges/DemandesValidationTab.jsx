@@ -9,7 +9,7 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import { Textarea } from '@/components/ui/forms/Input';
 import Alert from '@/components/ui/feedback/Alert';
-import EmptyState from '@/components/ui/data-display/EmpyState';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
