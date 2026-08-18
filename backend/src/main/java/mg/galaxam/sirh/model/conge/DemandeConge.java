@@ -120,15 +120,18 @@ public class DemandeConge extends ClassMere {
 
         // 4. Contrôle d'ancienneté minimale (ex: 12 mois pour ANNUEL)
         if (typeConge.getExigeAncienneteMinMois() != null && typeConge.getExigeAncienneteMinMois() > 0) {
-            ContratTravail contratActif = ContratTravail.rechercherActifParEmploye(idEmploye, c);
-            if (contratActif == null || contratActif.getDateDebut() == null) {
-                throw new IllegalArgumentException("Aucun contrat de travail actif trouvé pour vérifier l'ancienneté requise de " + typeConge.getExigeAncienneteMinMois() + " mois.");
-            }
-            LocalDate dateDebutContrat = contratActif.getDateDebut().toLocalDate();
-            long moisAnciennete = ChronoUnit.MONTHS.between(dateDebutContrat, dateDebut.toLocalDate());
-            if (moisAnciennete < typeConge.getExigeAncienneteMinMois() && !derogationSoldeNegatif) {
-                throw new IllegalArgumentException("L'ancienneté requise pour le congé " + typeConge.getLibelle() + " est de " +
-                        typeConge.getExigeAncienneteMinMois() + " mois (" + moisAnciennete + " mois constatés). Dérogation RH requise.");
+            if (!derogationSoldeNegatif) {
+                ContratTravail contratActif = ContratTravail.rechercherActifParEmploye(idEmploye, c);
+                if (contratActif == null || contratActif.getDateDebut() == null) {
+                    throw new IllegalArgumentException("Aucun contrat de travail actif trouvé pour vérifier l'ancienneté requise de " +
+                            typeConge.getExigeAncienneteMinMois() + " mois. Cochez la dérogation RH si vous souhaitez autoriser la prise de ce congé.");
+                }
+                LocalDate dateDebutContrat = contratActif.getDateDebut().toLocalDate();
+                long moisAnciennete = ChronoUnit.MONTHS.between(dateDebutContrat, dateDebut.toLocalDate());
+                if (moisAnciennete < typeConge.getExigeAncienneteMinMois()) {
+                    throw new IllegalArgumentException("L'ancienneté requise pour le congé " + typeConge.getLibelle() + " est de " +
+                            typeConge.getExigeAncienneteMinMois() + " mois (" + moisAnciennete + " mois constatés). Dérogation RH requise.");
+                }
             }
         }
 

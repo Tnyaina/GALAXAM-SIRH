@@ -3,6 +3,7 @@ package mg.galaxam.sirh.api.controller.conge;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
+import java.sql.PreparedStatement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -136,6 +137,17 @@ public class DemandeCongeController {
                 } else {
                     // Traitement standard
                     d.save(c);
+
+                    // Génération systématique de la notification RH pour la nouvelle demande
+                    DemandeConge.creerNotificationRh(
+                        "DEMANDE_CONGE_EN_ATTENTE",
+                        "NORMALE",
+                        "Nouvelle demande de congé",
+                        "Une nouvelle demande de congé (" + (typeConge != null ? typeConge.getLibelle() : "Absence") + ") a été enregistrée et est en attente de validation.",
+                        "/conges",
+                        d.getIdEmploye(),
+                        c
+                    );
                 }
 
                 c.commit();
@@ -231,6 +243,25 @@ public class DemandeCongeController {
                 Integer currentUserId = getCurrentUserId();
                 d.valider(currentUserId, c);
 
+                // Marquage de l'alerte en attente comme lue
+                try (PreparedStatement psNotif = c.prepareStatement(
+                        "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
+                        "WHERE id_employe_concerne = ? AND type_alerte = 'DEMANDE_CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
+                    psNotif.setInt(1, d.getIdEmploye());
+                    psNotif.executeUpdate();
+                }
+
+                // Création d'une notification de confirmation de la décision
+                DemandeConge.creerNotificationRh(
+                    "MOUVEMENT_APPLIQUE",
+                    "NORMALE",
+                    "Demande de congé validée",
+                    "La demande de congé (#" + id + ") a été validée avec succès.",
+                    "/conges",
+                    d.getIdEmploye(),
+                    c
+                );
+
                 c.commit();
 
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
@@ -261,6 +292,25 @@ public class DemandeCongeController {
                 Integer currentUserId = getCurrentUserId();
                 d.refuser(currentUserId, req.get("motifRefus"), c);
 
+                // Marquage de l'alerte en attente comme lue
+                try (PreparedStatement psNotif = c.prepareStatement(
+                        "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
+                        "WHERE id_employe_concerne = ? AND type_alerte = 'DEMANDE_CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
+                    psNotif.setInt(1, d.getIdEmploye());
+                    psNotif.executeUpdate();
+                }
+
+                // Création d'une notification d'information du refus avec le motif
+                DemandeConge.creerNotificationRh(
+                    "MOUVEMENT_APPLIQUE",
+                    "HAUTE",
+                    "Demande de congé refusée",
+                    "La demande de congé (#" + id + ") a été refusée. Motif : " + req.get("motifRefus"),
+                    "/conges",
+                    d.getIdEmploye(),
+                    c
+                );
+
                 c.commit();
 
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
@@ -286,6 +336,25 @@ public class DemandeCongeController {
 
                 Integer currentUserId = getCurrentUserId();
                 d.annuler(currentUserId, c);
+
+                // Marquage de l'alerte en attente comme lue
+                try (PreparedStatement psNotif = c.prepareStatement(
+                        "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
+                        "WHERE id_employe_concerne = ? AND type_alerte = 'DEMANDE_CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
+                    psNotif.setInt(1, d.getIdEmploye());
+                    psNotif.executeUpdate();
+                }
+
+                // Création d'une notification de confirmation de l'annulation
+                DemandeConge.creerNotificationRh(
+                    "MOUVEMENT_APPLIQUE",
+                    "NORMALE",
+                    "Demande de congé annulée",
+                    "La demande de congé (#" + id + ") a été annulée.",
+                    "/conges",
+                    d.getIdEmploye(),
+                    c
+                );
 
                 c.commit();
 
