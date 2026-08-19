@@ -29,7 +29,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'DG'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    10000000.00,
     '2002-01-01'
 );
 INSERT INTO workflow_rh (
@@ -76,7 +76,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'DAF'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    6000000.00,
     '2002-09-02'
 );
 INSERT INTO workflow_rh (
@@ -123,7 +123,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'AGENT_SURFACE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    500000.00,
     '2003-02-10'
 );
 INSERT INTO workflow_rh (
@@ -170,7 +170,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'OPE_MGR'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    4500000.00,
     '2003-06-16'
 );
 INSERT INTO workflow_rh (
@@ -217,7 +217,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'AGENT_B_D'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    750000.00,
     '2003-08-01'
 );
 INSERT INTO workflow_rh (
@@ -264,7 +264,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'CHEF_DECLARANT'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    3000000.00,
     '2011-12-26'
 );
 INSERT INTO workflow_rh (
@@ -311,7 +311,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'AGENT_TOUT_FAIRE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    650000.00,
     '2013-03-26'
 );
 INSERT INTO workflow_rh (
@@ -358,7 +358,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'AGENT_TOUT_FAIRE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    650000.00,
     '2013-03-26'
 );
 INSERT INTO workflow_rh (
@@ -405,7 +405,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'RESP_TOAMASINA'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    2800000.00,
     '2015-03-31'
 );
 INSERT INTO workflow_rh (
@@ -450,9 +450,9 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_departement FROM ref_departement WHERE code_departement = 'LOG'),
     (SELECT id_service FROM ref_service WHERE code_service = 'ADM' AND id_departement = (SELECT id_departement FROM ref_departement WHERE code_departement = 'LOG')),
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'ASSIST_DIR'),
-    (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
+    (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    1200000.00,
     '2015-11-03'
 );
 INSERT INTO workflow_rh (
@@ -499,7 +499,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'ASSIST_ADMIN'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    950000.00,
     '2018-07-04'
 );
 INSERT INTO workflow_rh (
@@ -546,7 +546,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'PASSEUR_PIECES'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    700000.00,
     '2019-08-26'
 );
 INSERT INTO workflow_rh (
@@ -593,7 +593,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'AGENT_SURFACE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    500000.00,
     '2017-07-26'
 );
 INSERT INTO workflow_rh (
@@ -640,7 +640,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'PASSEUR_PIECES'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    700000.00,
     '2021-04-26'
 );
 INSERT INTO workflow_rh (
@@ -687,7 +687,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'PASSEUR_PIECES'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    700000.00,
     '2022-08-01'
 );
 INSERT INTO workflow_rh (
@@ -734,7 +734,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'PASSEUR_PIECES'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    700000.00,
     '2024-10-26'
 );
 INSERT INTO workflow_rh (
@@ -781,7 +781,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'ASSIST_ADMIN'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    950000.00,
     '2025-02-26'
 );
 INSERT INTO workflow_rh (
@@ -828,7 +828,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'AIDE_COMPTABLE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    950000.00,
     '2025-08-26'
 );
 INSERT INTO workflow_rh (
@@ -875,7 +875,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'MANUTENTIONNAIRE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'JOURNALIER'),
-    0.00,
+    550000.00,
     '2026-06-03'
 );
 INSERT INTO workflow_rh (
@@ -922,7 +922,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'MANUTENTIONNAIRE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'JOURNALIER'),
-    0.00,
+    550000.00,
     '2026-06-03'
 );
 INSERT INTO workflow_rh (
@@ -969,7 +969,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'MANUTENTIONNAIRE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'JOURNALIER'),
-    0.00,
+    550000.00,
     '2026-06-03'
 );
 INSERT INTO workflow_rh (
@@ -1016,7 +1016,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'MANUTENTIONNAIRE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'JOURNALIER'),
-    0.00,
+    550000.00,
     '2026-06-03'
 );
 INSERT INTO workflow_rh (
@@ -1063,7 +1063,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'MANUTENTIONNAIRE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'JOURNALIER'),
-    0.00,
+    550000.00,
     '2026-06-03'
 );
 INSERT INTO workflow_rh (
@@ -1110,7 +1110,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'MANUTENTIONNAIRE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'JOURNALIER'),
-    0.00,
+    550000.00,
     '2026-06-03'
 );
 INSERT INTO workflow_rh (
@@ -1157,7 +1157,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'MANUTENTIONNAIRE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'JOURNALIER'),
-    0.00,
+    550000.00,
     '2026-06-03'
 );
 INSERT INTO workflow_rh (
@@ -1204,7 +1204,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'MANUTENTIONNAIRE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'JOURNALIER'),
-    0.00,
+    550000.00,
     '2026-06-03'
 );
 INSERT INTO workflow_rh (
@@ -1249,9 +1249,9 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_departement FROM ref_departement WHERE code_departement = 'LMD'),
     (SELECT id_service FROM ref_service WHERE code_service = 'ADM' AND id_departement = (SELECT id_departement FROM ref_departement WHERE code_departement = 'LMD')),
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'AGENT_PLANIF'),
-    (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
+    (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    800000.00,
     '2026-04-26'
 );
 INSERT INTO workflow_rh (
@@ -1298,7 +1298,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'CHEF_ZONE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    2000000.00,
     '2026-05-26'
 );
 INSERT INTO workflow_rh (
@@ -1345,7 +1345,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'RESP_ENTREPOT'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    2500000.00,
     '2026-06-01'
 );
 INSERT INTO workflow_rh (
@@ -1392,7 +1392,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'CHEF_ZONE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    2000000.00,
     '2026-06-03'
 );
 INSERT INTO workflow_rh (
@@ -1439,7 +1439,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'CHEF_ZONE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    2000000.00,
     '2026-06-15'
 );
 INSERT INTO workflow_rh (
@@ -1486,7 +1486,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'CHEF_ZONE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    2000000.00,
     '2026-06-15'
 );
 INSERT INTO workflow_rh (
@@ -1533,7 +1533,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'CHEF_ZONE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    2000000.00,
     '2026-06-23'
 );
 INSERT INTO workflow_rh (
@@ -1580,7 +1580,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'CHEF_ZONE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    2000000.00,
     '2026-07-16'
 );
 INSERT INTO workflow_rh (
@@ -1627,7 +1627,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'CHEF_ZONE'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    2000000.00,
     '2026-07-20'
 );
 INSERT INTO workflow_rh (
@@ -1674,7 +1674,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'COMMERCIAL_EXEC'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    2200000.00,
     '2026-01-01'
 );
 INSERT INTO workflow_rh (
@@ -1721,7 +1721,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'AIDE_DECLARANT'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    850000.00,
     '2026-01-01'
 );
 INSERT INTO workflow_rh (
@@ -1768,7 +1768,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'AGENT_FORMATION'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    700000.00,
     '2026-01-01'
 );
 INSERT INTO workflow_rh (
@@ -1815,7 +1815,7 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'AGENT_FORMATION'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    700000.00,
     '2026-01-01'
 );
 INSERT INTO workflow_rh (
@@ -1859,9 +1859,10 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_site FROM ref_site WHERE code_site = 'TNR'),
     (SELECT id_departement FROM ref_departement WHERE code_departement = 'LOG'),
     (SELECT id_service FROM ref_service WHERE code_service = 'ADM' AND id_departement = (SELECT id_departement FROM ref_departement WHERE code_departement = 'LOG')),
-    (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
+    (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'CHEF_COMPTABLE'),
+    (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'CADRE'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    3500000.00,
     '2026-01-01'
 );
 INSERT INTO workflow_rh (
@@ -1905,9 +1906,10 @@ INSERT INTO employe_affectation_carriere (
     (SELECT id_site FROM ref_site WHERE code_site = 'TNR'),
     (SELECT id_departement FROM ref_departement WHERE code_departement = 'LOG'),
     (SELECT id_service FROM ref_service WHERE code_service = 'ADM' AND id_departement = (SELECT id_departement FROM ref_departement WHERE code_departement = 'LOG')),
+    (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'AGENT_TRANSMISSION'),
     (SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE code = 'A'),
     (SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie WHERE code = 'MENSUEL'),
-    0.00,
+    700000.00,
     '2026-01-01'
 );
 INSERT INTO workflow_rh (

@@ -90,3 +90,6 @@ SET nom = EXCLUDED.nom,
     num_affiliation_cnaps = EXCLUDED.num_affiliation_cnaps,
     est_actif = EXCLUDED.est_actif,
     updated_at = CURRENT_TIMESTAMP;
+
+-- Situation familiale des consultants
+UPDATE employe SET situation_familiale = 'Marie' WHERE matricule IN ('396', '397');

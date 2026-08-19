@@ -52,13 +52,21 @@ export default function AffectationFieldsSection({
                     required
                     value={formData.idService}
                     onChange={(e) => setField('idService', e.target.value)}
+                    disabled={!formData.idDepartement}
                 >
-                    <option value="">-- Sélectionner un service --</option>
-                    {services.map(srv => (
-                        <option key={srv.idService} value={srv.idService}>
-                            {srv.codeService} — {srv.libelle}
-                        </option>
-                    ))}
+                    <option value="">
+                        {formData.idDepartement
+                            ? '-- Sélectionner un service --'
+                            : '-- Choisir un département d\'abord --'}
+                    </option>
+                    {services
+                        .filter(srv => !formData.idDepartement || String(srv.idDepartement) === String(formData.idDepartement))
+                        .map(srv => (
+                            <option key={srv.idService} value={srv.idService}>
+                                {srv.codeService} — {srv.libelle}
+                            </option>
+                        ))
+                    }
                 </Select>
 
                 <SearchSelect

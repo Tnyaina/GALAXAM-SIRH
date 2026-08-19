@@ -130,6 +130,10 @@ export function useTransitionForm({
     const setField = (field, val) => {
         setFormData(prev => {
             const updated = { ...prev, [field]: val };
+            // Quand le département change, reset le service (il peut ne pas appartenir au nouveau dept)
+            if (field === 'idDepartement') {
+                updated.idService = '';
+            }
             if (field === 'dateEffet' && (!prev.dateDebut || prev.dateDebut === prev.dateEffet)) {
                 updated.dateDebut = val;
             }
