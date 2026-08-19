@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FileText, ArrowRight } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import Badge from '@/components/ui/data-display/Badge';
 import EmptyState from '@/components/ui/data-display/EmptyState';
