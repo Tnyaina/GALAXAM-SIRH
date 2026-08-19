@@ -133,7 +133,7 @@ export default function IndemnitesSitesTab() {
     if (loading) {
         return (
             <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
             </div>
         );
     }
@@ -158,7 +158,7 @@ export default function IndemnitesSitesTab() {
             <div className="flex border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-2 shadow-sm">
                 <button
                     onClick={() => setSubSection('indemnites')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none  cursor-pointer ${
                         subSection === 'indemnites'
                             ? 'bg-[var(--color-brand-500)] text-white'
                             : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
@@ -169,7 +169,7 @@ export default function IndemnitesSitesTab() {
                 </button>
                 <button
                     onClick={() => setSubSection('sites_config')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none transition-all cursor-pointer ${
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none  cursor-pointer ${
                         subSection === 'sites_config'
                             ? 'bg-[var(--color-brand-500)] text-white'
                             : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'

@@ -158,7 +158,7 @@ export default function RefCarriereManagementTab() {
                                     <Td className="text-right">
                                         <button
                                             onClick={() => handleOpenEditCp(cp)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none transition-all cursor-pointer"
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
                                             title="Modifier"
                                         >
                                             <Edit2 size={16} />

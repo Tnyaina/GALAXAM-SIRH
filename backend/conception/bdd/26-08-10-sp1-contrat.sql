@@ -358,6 +358,7 @@ SELECT
     rtc.libelle                   AS libelle_type_contrat,
     rti.libelle                   AS libelle_type_intervenant,
     rf.raison_sociale             AS libelle_filiale,
+    ct_cbl.date_signature         AS date_signature_contrat,
     ct_cbl.date_debut             AS date_debut_contrat,
     ct_cbl.date_fin               AS date_fin_contrat,
     ct_cbl.duree_essai_mois,

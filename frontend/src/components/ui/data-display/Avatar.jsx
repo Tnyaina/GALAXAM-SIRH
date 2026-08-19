@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 /**
  * Avatar — Composant de photo de profil ou initiales employé.
- * `shape="round"` (défaut) : rounded-full — exception autorisée par le design system.
+ * `shape="round"` (défaut) : rounded-none — exception autorisée par le design system.
  * `shape="square"` : rounded-none — cohérent avec la règle d'or "PAS D'ARRONDI".
  * Dans les deux cas, la pastille de statut reste ronde (badge dot, toujours autorisé).
  */
@@ -16,7 +16,7 @@ const SIZES = {
 };
 
 const SHAPES = {
-    round: 'rounded-full',
+    round: 'rounded-none',
     square: 'rounded-none',
 };
 
@@ -94,7 +94,7 @@ export function Avatar({
                     role="img"
                     aria-label={STATUS_LABELS[status] || status}
                     className={`
-            absolute bottom-0 right-0 rounded-full ring-2 ring-[var(--color-surface)]
+            absolute bottom-0 right-0 rounded-none ring-2 ring-[var(--color-surface)]
             ${STATUS_SIZES[size]} ${STATUS_COLORS[status] || STATUS_COLORS.offline}
           `}
                 />

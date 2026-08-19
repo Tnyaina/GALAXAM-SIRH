@@ -54,7 +54,7 @@ export default function SlideOver({
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors shrink-0 rounded-none"
+                        className="p-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]  shrink-0 rounded-none"
                     >
                         <X size={18} />
                     </button>

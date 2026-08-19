@@ -25,7 +25,7 @@ export function Tooltip({ children, content, position = 'top' }) {
                     className={`
             absolute z-50 whitespace-nowrap px-2.5 py-1 text-[11px] font-medium
             bg-[var(--color-fg)] text-[var(--color-bg)] rounded-none shadow-md
-            pointer-events-none transition-opacity duration-150
+            pointer-events-none  
             ${positionClasses[position] || positionClasses.top}
           `}
                 >

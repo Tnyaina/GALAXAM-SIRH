@@ -49,6 +49,8 @@ public class DashboardController {
             summary.put("alertes30j",       buildAlertes30j(c));
             summary.put("brouillons",       buildBrouillons(c));
             summary.put("activiteRecente",  buildActiviteRecente(c));
+            summary.put("absentsAujourdhui", buildAbsentsAujourdhui(c));
+            summary.put("demandesCongeAValider", buildDemandesCongeAValider(c));
 
             return ResponseEntity.ok(summary);
         } catch (Exception e) {
@@ -56,6 +58,63 @@ public class DashboardController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Erreur lors du chargement du dashboard : " + e.getMessage());
         }
+    }
+
+    private List<Map<String, Object>> buildDemandesCongeAValider(Connection c) throws Exception {
+        List<Map<String, Object>> demandes = new ArrayList<>();
+        String sql = "SELECT d.id_demande_conge, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, e.matricule, " +
+                "tc.libelle AS type_conge, d.date_debut, d.date_fin, d.nb_jours_decomptes, d.commentaire " +
+                "FROM demande_conge d " +
+                "JOIN employe e ON d.id_employe = e.id_employe " +
+                "JOIN ref_type_conge tc ON d.id_type_conge = tc.id_type_conge " +
+                "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
+                "WHERE rsd.code = 'EN_ATTENTE' " +
+                "ORDER BY d.created_at DESC";
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("idDemandeConge", rs.getInt("id_demande_conge"));
+                row.put("idEmploye", rs.getInt("id_employe"));
+                row.put("nomPrenom", rs.getString("nom_prenom"));
+                row.put("matricule", rs.getString("matricule"));
+                row.put("typeConge", rs.getString("type_conge"));
+                row.put("dateDebut", rs.getDate("date_debut"));
+                row.put("dateFin", rs.getDate("date_fin"));
+                row.put("nbJoursDecomptes", rs.getBigDecimal("nb_jours_decomptes"));
+                row.put("commentaire", rs.getString("commentaire"));
+                demandes.add(row);
+            }
+        }
+        return demandes;
+    }
+
+    private List<Map<String, Object>> buildAbsentsAujourdhui(Connection c) throws Exception {
+        List<Map<String, Object>> absents = new ArrayList<>();
+        String sql = "SELECT d.id_demande_conge, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, e.matricule, " +
+                "tc.libelle AS type_conge, d.date_debut, d.date_fin, d.nb_jours_decomptes " +
+                "FROM demande_conge d " +
+                "JOIN employe e ON d.id_employe = e.id_employe " +
+                "JOIN ref_type_conge tc ON d.id_type_conge = tc.id_type_conge " +
+                "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
+                "WHERE rsd.code = 'VALIDE' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin " +
+                "ORDER BY d.date_fin ASC";
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("idDemandeConge", rs.getInt("id_demande_conge"));
+                row.put("idEmploye", rs.getInt("id_employe"));
+                row.put("nomPrenom", rs.getString("nom_prenom"));
+                row.put("matricule", rs.getString("matricule"));
+                row.put("typeConge", rs.getString("type_conge"));
+                row.put("dateDebut", rs.getDate("date_debut"));
+                row.put("dateFin", rs.getDate("date_fin"));
+                row.put("nbJoursDecomptes", rs.getBigDecimal("nb_jours_decomptes"));
+                absents.add(row);
+            }
+        }
+        return absents;
     }
 
     // =========================================================================
@@ -118,6 +177,24 @@ public class DashboardController {
                 "WHERE rsw.code = 'BROUILLON'")) {
             ResultSet rs = ps.executeQuery();
             kpis.put("brouillonsEnAttente", rs.next() ? rs.getInt(1) : 0);
+        }
+
+        // Demandes de congé en attente de validation
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT COUNT(*) FROM demande_conge d " +
+                "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
+                "WHERE rsd.code = 'EN_ATTENTE'")) {
+            ResultSet rs = ps.executeQuery();
+            kpis.put("demandesCongeEnAttente", rs.next() ? rs.getInt(1) : 0);
+        }
+
+        // Employés actuellement en congé / absence aujourd'hui
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT COUNT(*) FROM demande_conge d " +
+                "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
+                "WHERE rsd.code = 'VALIDE' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin")) {
+            ResultSet rs = ps.executeQuery();
+            kpis.put("employesEnCongeAujourdhui", rs.next() ? rs.getInt(1) : 0);
         }
 
         return kpis;
@@ -337,21 +414,33 @@ public class DashboardController {
     private List<Map<String, Object>> buildActiviteRecente(Connection c) throws Exception {
         List<Map<String, Object>> activite = new ArrayList<>();
 
-        String sql = "SELECT wf.id_workflow, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
+        // 1. Mouvements RH (Contrats)
+        String sqlWf = "SELECT wf.id_workflow AS id_ref, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
                 "e.matricule, tev.libelle AS type_evenement, rsw.libelle AS statut, " +
-                "wf.date_effet, wf.updated_at " +
+                "wf.date_effet, wf.updated_at, 'WORKFLOW' as source_type " +
                 "FROM workflow_rh wf " +
                 "JOIN employe e ON wf.id_employe = e.id_employe " +
                 "JOIN ref_type_evenement_rh tev ON wf.id_type_evenement_rh = tev.id_type_evenement_rh " +
                 "JOIN ref_statut_workflow rsw ON wf.id_statut_workflow = rsw.id_statut_workflow " +
-                "WHERE rsw.code IN ('VALIDE', 'ANNULE') " +
-                "ORDER BY wf.updated_at DESC " +
-                "LIMIT 8";
-        try (PreparedStatement ps = c.prepareStatement(sql);
+                "WHERE rsw.code IN ('VALIDE', 'ANNULE')";
+        
+        // 2. Demandes de congés traitées
+        String sqlCg = "SELECT dc.id_demande_conge AS id_ref, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
+                "e.matricule, 'Demande de congé (' || rtc.libelle || ')' AS type_evenement, rsd.libelle AS statut, " +
+                "dc.date_debut AS date_effet, dc.updated_at, 'CONGE' as source_type " +
+                "FROM demande_conge dc " +
+                "JOIN employe e ON dc.id_employe = e.id_employe " +
+                "JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
+                "JOIN ref_statut_demande_conge rsd ON dc.id_statut_demande_conge = rsd.id_statut_demande_conge " +
+                "WHERE rsd.code IN ('VALIDE', 'REFUSE', 'ANNULE')";
+
+        String sqlUnion = sqlWf + " UNION ALL " + sqlCg + " ORDER BY updated_at DESC LIMIT 10";
+
+        try (PreparedStatement ps = c.prepareStatement(sqlUnion);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Map<String, Object> row = new LinkedHashMap<>();
-                row.put("idWorkflow", rs.getInt("id_workflow"));
+                row.put("idRef", rs.getInt("id_ref"));
                 row.put("idEmploye", rs.getInt("id_employe"));
                 row.put("nomPrenom", rs.getString("nom_prenom"));
                 row.put("matricule", rs.getString("matricule"));
@@ -359,6 +448,7 @@ public class DashboardController {
                 row.put("statut", rs.getString("statut"));
                 row.put("dateEffet", rs.getDate("date_effet"));
                 row.put("updatedAt", rs.getTimestamp("updated_at"));
+                row.put("sourceType", rs.getString("source_type"));
                 activite.add(row);
             }
         }

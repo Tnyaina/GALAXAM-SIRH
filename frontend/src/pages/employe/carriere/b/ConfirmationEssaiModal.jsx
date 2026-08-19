@@ -153,9 +153,9 @@ export default function ConfirmationEssaiModal({
             {/* Modal Centré Split-Screen 50 / 50 */}
             <div
                 className={`
-                    relative bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-lg shadow-2xl
+                    relative bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-none shadow-2xl
                     w-full max-w-[94vw] h-[90vh] overflow-hidden flex flex-col
-                    transform transition-all duration-300 ease-out
+                    transform   
                     ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
                 `}
             >
@@ -173,12 +173,12 @@ export default function ConfirmationEssaiModal({
                             <button
                                 type="button"
                                 onClick={() => setShowPreviewMobile(v => !v)}
-                                className="lg:hidden flex items-center gap-1.5 text-xs font-semibold text-success-600 border border-success-500/30 rounded-sm px-2.5 py-1.5"
+                                className="lg:hidden flex items-center gap-1.5 text-xs font-semibold text-success-600 border border-success-500/30 rounded-none px-2.5 py-1.5"
                             >
                                 {showPreviewMobile ? <EyeOff size={14} /> : <Eye size={14} />}
                                 {showPreviewMobile ? 'Masquer l\'aperçu' : 'Voir l\'avenant'}
                             </button>
-                            <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-sm">
+                            <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-none">
                                 <X size={20} />
                             </button>
                         </div>
@@ -191,7 +191,7 @@ export default function ConfirmationEssaiModal({
                     {/* COLONNE GAUCHE (50%) : Formulaire */}
                     <form onSubmit={handleSubmit} className="w-full lg:w-1/2 min-w-0 overflow-y-auto p-6 space-y-6 border-b lg:border-b-0 lg:border-r border-ink-150 dark:border-ink-700">
                         {errorMsg && (
-                            <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-4 rounded text-xs font-semibold flex items-center gap-2">
+                            <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-4 rounded-none text-xs font-semibold flex items-center gap-2">
                                 <ShieldAlert size={16} className="flex-shrink-0" />
                                 <span>{errorMsg}</span>
                             </div>

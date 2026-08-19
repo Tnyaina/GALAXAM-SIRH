@@ -41,7 +41,7 @@ export function Thead({ children, className = '', ...props }) {
 export function Th({ children, sortable, sorted, onSort, className = '', ...props }) {
   return (
     <th
-      className={`px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] transition-colors
+      className={`px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] 
         ${sortable ? 'cursor-pointer hover:text-[var(--color-fg)] select-none' : ''}
         ${className}
       `}
@@ -84,7 +84,7 @@ export function Tbody({ children, className = '', ...props }) {
 export function Tr({ children, onClick, selected = false, className = '', ...props }) {
   return (
     <tr
-      className={`transition-colors
+      className={`
         ${selected
           ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-fg)]'
           : 'hover:bg-[var(--color-surface-hover)]'}

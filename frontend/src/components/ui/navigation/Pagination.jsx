@@ -118,7 +118,7 @@ export default function Pagination({
                                 aria-label={`Page ${p}`}
                                 aria-current={isActive ? 'page' : undefined}
                                 className={`
-                  min-w-[40px] h-[40px] px-3 font-data text-xs font-semibold rounded-none border transition-colors cursor-pointer flex items-center justify-center
+                  min-w-[40px] h-[40px] px-3 font-data text-xs font-semibold rounded-none border  cursor-pointer flex items-center justify-center
                   ${isActive
                                         ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)] text-white'
                                         : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)]'

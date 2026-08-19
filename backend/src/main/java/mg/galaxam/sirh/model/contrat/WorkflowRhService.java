@@ -45,6 +45,8 @@ public class WorkflowRhService {
         Integer idTypeEvenementEmbauche = resolveTypeEvenement("EMBAUCHE_INITIALE", c);
         Integer idMotifMouvement = resolveMotifMouvement("EMBAUCHE", c);
 
+        validerExigenceDateFin(req.getIdTypeContrat(), req.getDateFin(), c);
+
         // ── 1. Création du Contrat BROUILLON ────────────────────────────────────
         ContratTravail contrat = new ContratTravail();
         contrat.setIdEmploye(idEmploye);
@@ -183,6 +185,7 @@ public class WorkflowRhService {
             if (contrat == null) {
                 throw new IllegalStateException("Le contrat cible (id=" + workflow.getIdContratCible() + ") est introuvable.");
             }
+            validerExigenceDateFin(contrat.getIdTypeContrat(), contrat.getDateFin(), c);
             contrat.activer(c);
         }
 
@@ -273,6 +276,7 @@ public class WorkflowRhService {
         Integer idContratCibleId = contratActif != null ? contratActif.getIdContrat() : req.getIdContratSource();
 
         if (!estEvenementEssai && !estEvenementRupture && req.getIdTypeContrat() != null && (contratActif == null || !req.getIdTypeContrat().equals(contratActif.getIdTypeContrat()))) {
+            validerExigenceDateFin(req.getIdTypeContrat(), req.getDateFin(), c);
             ContratTravail contratCbl = new ContratTravail();
             contratCbl.setIdEmploye(idEmploye);
             contratCbl.setIdFiliale(req.getIdFiliale());
@@ -421,6 +425,10 @@ public class WorkflowRhService {
         if (workflow.getIdContratCible() != null && req.getIdTypeContrat() != null) {
             ContratTravail contrat = new ContratTravail().rechercherParId(workflow.getIdContratCible(), c);
             if (contrat != null) {
+                Integer targetTypeId = req.getIdTypeContrat() != null ? req.getIdTypeContrat() : contrat.getIdTypeContrat();
+                Date targetDateFin = req.getDateFin() != null ? req.getDateFin() : contrat.getDateFin();
+                validerExigenceDateFin(targetTypeId, targetDateFin, c);
+
                 if (req.getIdFiliale() != null) contrat.setIdFiliale(req.getIdFiliale());
                 if (req.getIdTypeContrat() != null) contrat.setIdTypeContrat(req.getIdTypeContrat());
                 if (req.getIdTypeIntervenant() != null) contrat.setIdTypeIntervenant(req.getIdTypeIntervenant());
@@ -477,6 +485,7 @@ public class WorkflowRhService {
                     if (workflow.getIdContratSource() != null) {
                         contratCbl.setIdContratPrecedent(workflow.getIdContratSource());
                     }
+                    validerExigenceDateFin(contratCbl.getIdTypeContrat(), contratCbl.getDateFin(), c);
                     contratCbl.activer(c);
                 }
             }
@@ -969,6 +978,23 @@ public class WorkflowRhService {
             ps.setString(6, lien);
             if (idEmployeConcerne != null) ps.setInt(7, idEmployeConcerne); else ps.setNull(7, Types.INTEGER);
             ps.executeUpdate();
+        }
+    }
+
+    private static void validerExigenceDateFin(Integer idTypeContrat, Date dateFin, Connection c) throws Exception {
+        if (idTypeContrat == null) return;
+        String sql = "SELECT libelle, exige_date_fin FROM ref_type_contrat WHERE id_type_contrat = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idTypeContrat);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    boolean exigeDateFin = rs.getBoolean("exige_date_fin");
+                    String libelle = rs.getString("libelle");
+                    if (exigeDateFin && dateFin == null) {
+                        throw new IllegalArgumentException("La date de fin est obligatoire pour le type de contrat \"" + libelle + "\".");
+                    }
+                }
+            }
         }
     }
 }

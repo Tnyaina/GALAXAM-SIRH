@@ -129,7 +129,11 @@ export default function RolesAndPermissionsTab() {
     const handleToggleRoleStatus = async (role, e) => {
         e.stopPropagation();
         try {
-            await referentielService.toggleRoleStatus(role.idRole);
+            if (role.estActif) {
+                await referentielService.deactivateRole(role.idRole);
+            } else {
+                await referentielService.activateRole(role.idRole);
+            }
             setRoles(prev => prev.map(r => r.idRole === role.idRole ? { ...r, estActif: !r.estActif } : r));
         } catch (err) {
             setError("Erreur lors du changement de statut.");
@@ -274,7 +278,7 @@ export default function RolesAndPermissionsTab() {
     if (loading) {
         return (
             <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
             </div>
         );
     }
@@ -324,7 +328,7 @@ export default function RolesAndPermissionsTab() {
                             <div className="p-6">
                                 {loadingDetails ? (
                                     <div className="flex justify-center py-12">
-                                        <div className="w-6 h-6 border-2 border-[var(--color-brand-500)] border-t-transparent rounded-full animate-spin"></div>
+                                        <div className="w-6 h-6 border-2 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
                                     </div>
                                 ) : rightTab === 'permissions' ? (
                                     <RolePermissionsMatrix

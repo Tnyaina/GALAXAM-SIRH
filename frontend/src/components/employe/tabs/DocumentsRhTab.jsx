@@ -28,7 +28,7 @@ export default function DocumentsRhTab({
         <div className="space-y-6">
             {/* Bannière Alerte Documents Obligatoires Manquants */}
             {canWrite && documentsData.obligatoiresManquants && documentsData.obligatoiresManquants.length > 0 && (
-                <div className="bg-warning-500/10 border border-warning-500/30 p-4 rounded-sm flex items-start gap-3">
+                <div className="bg-warning-500/10 border border-warning-500/30 p-4 rounded-none flex items-start gap-3">
                     <AlertTriangle size={20} className="text-warning-600 flex-shrink-0 mt-0.5" />
                     <div className="space-y-1">
                         <h4 className="text-xs font-bold uppercase tracking-wider text-warning-700">
@@ -43,7 +43,7 @@ export default function DocumentsRhTab({
                                     key={m.idTypeDocument}
                                     type="button"
                                     onClick={() => onOpenUploadModal(m.idTypeDocument)}
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-white dark:bg-ink-900 border border-warning-500/40 text-warning-700 hover:bg-warning-500/20 rounded-sm transition-all cursor-pointer"
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-white dark:bg-ink-900 border border-warning-500/40 text-warning-700 hover:bg-warning-500/20 rounded-none  cursor-pointer"
                                 >
                                     <Plus size={12} />
                                     {m.libelle}
@@ -86,7 +86,7 @@ export default function DocumentsRhTab({
                     <p className="text-xs text-ink-400">Cliquez sur Téléverser un Document pour en ajouter un.</p>
                 </div>
             ) : (
-                <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-sm">
+                <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-none">
                     <table className="w-full text-sm text-left">
                         <thead>
                             <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
@@ -103,7 +103,7 @@ export default function DocumentsRhTab({
                                 <tr key={doc.idDocument} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 bg-brand-500/10 text-brand-500 flex items-center justify-center rounded-sm font-bold text-xs">
+                                            <div className="w-8 h-8 bg-brand-500/10 text-brand-500 flex items-center justify-center rounded-none font-bold text-xs">
                                                 {doc.extension ? doc.extension.toUpperCase() : 'DOC'}
                                             </div>
                                             <div>
@@ -133,7 +133,7 @@ export default function DocumentsRhTab({
                                         <div className="flex justify-end gap-2">
                                             <button
                                                 onClick={() => onDownloadDoc(doc.idDocument, doc.nomOriginal)}
-                                                className="p-1.5 text-brand-500 hover:bg-brand-500/10 rounded-sm transition-all cursor-pointer"
+                                                className="p-1.5 text-brand-500 hover:bg-brand-500/10 rounded-none  cursor-pointer"
                                                 title="Visualiser / Télécharger"
                                             >
                                                 <Download size={16} />
@@ -141,7 +141,7 @@ export default function DocumentsRhTab({
                                             {canWrite && (
                                                 <button
                                                     onClick={() => onDeleteDoc(doc.idDocument, doc.nomOriginal)}
-                                                    className="p-1.5 text-danger-500 hover:bg-danger-500/10 rounded-sm transition-all cursor-pointer"
+                                                    className="p-1.5 text-danger-500 hover:bg-danger-500/10 rounded-none  cursor-pointer"
                                                     title="Supprimer"
                                                 >
                                                     <Trash2 size={16} />

@@ -139,6 +139,22 @@ const paieConfigService = {
     deleteSiteFerie: async (id) => {
         const response = await apiClient.delete(`/referentiel/calendrier-ferie/site-config/${id}`);
         return response.data;
+    },
+    getPeriodesChomees: async () => {
+        const response = await apiClient.get('/referentiel/calendrier-ferie/periodes');
+        return response.data;
+    },
+    createPeriodeChomee: async (data) => {
+        const response = await apiClient.post('/referentiel/calendrier-ferie/periodes', data);
+        return response.data;
+    },
+    updatePeriodeChomee: async (id, data) => {
+        const response = await apiClient.put(`/referentiel/calendrier-ferie/periodes/${id}`, data);
+        return response.data;
+    },
+    deletePeriodeChomee: async (id) => {
+        const response = await apiClient.delete(`/referentiel/calendrier-ferie/periodes/${id}`);
+        return response.data;
     }
 };
 

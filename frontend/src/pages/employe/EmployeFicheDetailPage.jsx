@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     ArrowLeft, User, Users, Briefcase, FileText, CheckCircle, XCircle, Folder,
-    Power, AlertTriangle
+    Power, AlertTriangle, Calendar
 } from 'lucide-react';
 import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
@@ -19,9 +19,11 @@ const FichePersonnelleTab = lazy(() => import('@/components/employe/tabs/FichePe
 const DocumentsRhTab = lazy(() => import('@/components/employe/tabs/DocumentsRhTab'));
 const FamilleContactsTab = lazy(() => import('@/components/employe/tabs/FamilleContactsTab'));
 const HistoriqueStatutTab = lazy(() => import('@/components/employe/tabs/HistoriqueStatutTab'));
+const CongesTab = lazy(() => import('@/components/employe/tabs/CongesTab'));
 const UploadDocumentModal = lazy(() => import('@/components/employe/tabs/UploadDocumentModal'));
+import SEO from '@/components/system/SEO';
 
-const VALID_TABS = ['personnel', 'documents', 'famille', 'carriere', 'historique'];
+const VALID_TABS = ['personnel', 'conges', 'documents', 'famille', 'carriere', 'historique'];
 
 const TabLoader = ({ label = "Chargement..." }) => (
     <div className="p-8 flex justify-center">
@@ -240,6 +242,7 @@ export default function EmployeFicheDetailPage() {
 
     const mainTabs = [
         { id: 'personnel', label: 'Fiche Personnelle', icon: <User size={16} /> },
+        { id: 'conges', label: 'Congés & Absences', icon: <Calendar size={16} /> },
         { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: <Folder size={16} /> },
         { id: 'famille', label: 'Famille & Contacts', icon: <Users size={16} /> },
         { id: 'carriere', label: 'Carrière & Affectation', icon: <Briefcase size={16} /> },
@@ -248,15 +251,19 @@ export default function EmployeFicheDetailPage() {
 
     return (
         <div className="space-y-6">
+            <SEO 
+                title={`Fiche de ${emp?.nom} ${emp?.prenom}`} 
+                description={`Fiche individuelle de ${emp?.nom} ${emp?.prenom} (${emp?.matricule})`} 
+            />
             {/* Lien retour */}
-            <Link to="/employes" className="inline-flex items-center gap-2 text-sm text-brand-500 hover:underline font-semibold transition-all">
+            <Link to="/employes" className="inline-flex items-center gap-2 text-sm text-brand-500 hover:underline font-semibold ">
                 <ArrowLeft size={16} />
                 Retour au Répertoire du personnel
             </Link>
 
             {/* Notifications */}
             {actionSuccess && (
-                <div className="bg-success-500/10 text-success-600 dark:text-success-500 border border-success-500/20 rounded-sm p-4 text-sm flex items-center gap-2">
+                <div className="bg-success-500/10 text-success-600 dark:text-success-500 border border-success-500/20 rounded-none p-4 text-sm flex items-center gap-2">
                     <CheckCircle size={16} />
                     {actionSuccess}
                 </div>
@@ -271,7 +278,7 @@ export default function EmployeFicheDetailPage() {
             />
 
             {/* Navigation par Onglets Structurés */}
-            <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
                 <Tabs 
                     tabs={mainTabs} 
                     activeTab={activeTab} 
@@ -286,6 +293,13 @@ export default function EmployeFicheDetailPage() {
                     {activeTab === 'personnel' && (
                         <Suspense fallback={<TabLoader label="Chargement de la fiche personnelle..." />}>
                             <FichePersonnelleTab emp={emp} comptes={comptes} />
+                        </Suspense>
+                    )}
+
+                    {/* Onglet 2: Congés & Absences */}
+                    {activeTab === 'conges' && (
+                        <Suspense fallback={<TabLoader label="Chargement des congés de l'employé..." />}>
+                            <CongesTab idEmploye={id} canWrite={canWrite} />
                         </Suspense>
                     )}
 
@@ -376,7 +390,7 @@ export default function EmployeFicheDetailPage() {
             {/* Modale de désactivation */}
             {isDesactivationModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
-                    <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
+                    <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
                         <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
                             <Power size={18} className="text-danger-500" />
                             Désactiver l'employé
@@ -387,7 +401,7 @@ export default function EmployeFicheDetailPage() {
                                     Spécifiez le motif de désactivation de l'employé{' '}
                                     <strong className="text-ink-800 dark:text-white">{emp.nom} {emp.prenom}</strong>.
                                 </p>
-                                <div className="bg-warning-500/10 border border-warning-500/30 p-3 rounded-sm text-xs text-warning-700 dark:text-warning-400 flex items-start gap-2">
+                                <div className="bg-warning-500/10 border border-warning-500/30 p-3 rounded-none text-xs text-warning-700 dark:text-warning-400 flex items-start gap-2">
                                     <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
                                     <span>
                                         <strong>Note RH :</strong> La désactivation passe le profil de l'employé en inactif. Veillez également à clôturer son contrat ou créer le mouvement RH de fin de contrat correspondant dans l'onglet <em>Carrière & Affectation</em>.
@@ -398,7 +412,7 @@ export default function EmployeFicheDetailPage() {
                                     <select
                                         value={motifDesactivation}
                                         onChange={(e) => setMotifDesactivation(e.target.value)}
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-sm bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
+                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-none bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
                                     >
                                         <option value="Demission">Démission</option>
                                         <option value="Licenciement">Licenciement</option>
@@ -413,13 +427,13 @@ export default function EmployeFicheDetailPage() {
                                 <button
                                     type="button"
                                     onClick={() => setIsDesactivationModalOpen(false)}
-                                    className="px-4 py-2 text-sm font-semibold hover:bg-ink-200 dark:hover:bg-ink-850 rounded-sm transition-colors cursor-pointer"
+                                    className="px-4 py-2 text-sm font-semibold hover:bg-ink-200 dark:hover:bg-ink-850 rounded-none  cursor-pointer"
                                 >
                                     Annuler
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 text-sm font-semibold bg-danger-500 hover:bg-danger-600 text-white rounded-sm transition-colors cursor-pointer"
+                                    className="px-4 py-2 text-sm font-semibold bg-danger-500 hover:bg-danger-600 text-white rounded-none  cursor-pointer"
                                 >
                                     Confirmer la Désactivation
                                 </button>

@@ -9,7 +9,7 @@ export function AccordionItem({ title, subtitle, children, defaultOpen = false }
             <button
                 type="button"
                 onClick={() => setOpen((v) => !v)}
-                className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-[var(--color-bg-subtle)] transition-colors rounded-none cursor-pointer"
+                className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-[var(--color-bg-subtle)]  rounded-none cursor-pointer"
             >
                 <div>
                     <p className="text-sm font-bold text-[var(--color-fg)]">{title}</p>
@@ -17,7 +17,7 @@ export function AccordionItem({ title, subtitle, children, defaultOpen = false }
                 </div>
                 <ChevronDown
                     size={16}
-                    className={`text-[var(--color-fg-muted)] transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+                    className={`text-[var(--color-fg-muted)]   ${open ? 'rotate-180' : ''}`}
                 />
             </button>
             {open && (

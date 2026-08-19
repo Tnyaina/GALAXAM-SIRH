@@ -7,6 +7,11 @@ export default function ContratFieldsSection({
     typesContrat = [],
     typesIntervenant = [],
 }) {
+    const selectedType = typesContrat.find(
+        (tc) => String(tc.idTypeContrat) === String(formData.idTypeContrat)
+    );
+    const exigeDateFin = selectedType?.exigeDateFin ?? false;
+
     return (
         <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-1 border-b border-ink-150 dark:border-ink-700">
@@ -89,11 +94,12 @@ export default function ContratFieldsSection({
                 />
 
                 <Input
-                    label="Date de Fin (CDD / Stage / Interim)"
+                    label="Date de Fin"
                     type="date"
+                    required={exigeDateFin}
                     value={formData.dateFin}
                     onChange={(e) => setField('dateFin', e.target.value)}
-                    hint="Optionnel si CDI"
+                    hint={exigeDateFin ? "Obligatoire pour ce type de contrat" : "Optionnel si CDI"}
                 />
 
                 <div className="flex items-end pb-2">

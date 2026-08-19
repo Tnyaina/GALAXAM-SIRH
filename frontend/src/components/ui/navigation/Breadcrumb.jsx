@@ -15,7 +15,7 @@ export function Breadcrumb({ items = [] }) {
                         ) : (
                             <a
                                 href={item.href}
-                                className="hover:text-[var(--color-brand-500)] transition-colors underline-offset-2 hover:underline"
+                                className="hover:text-[var(--color-brand-500)]  underline-offset-2 hover:underline"
                             >
                                 {item.label}
                             </a>

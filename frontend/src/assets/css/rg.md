@@ -40,11 +40,17 @@ Utilisé pour les boutons primaires, accents, focus, CTA et liens.
 
 | Token | Hex | Rôle / Usage |
 | :--- | :--- | :--- |
+| `brand-950` | `#070e17` | Ink ultra-sombre |
 | `brand-900` | `#0d1b2a` | Fond ultra-sombre / Ink 950 |
 | `brand-800` | `#1b263b` | Fond sidebar / cartes sombres |
-| `brand-500` | `#415a77` | **Accent principal** (CTA, focus, état actif, liens) |
-| `brand-hover` | `#334862` | Hover sur bouton principal / liens |
-| `brand-300` | `#778da9` | Accent secondaire / Badges soft / Muted |
+| `brand-700` | `#1d2c3e` | Arrière-plan foncé |
+| `brand-600` | `#26384f` | Survol sombre / Fond accentué |
+| `brand-500` | `#334862` | **Accent principal** (CTA, focus, état actif, liens) |
+| `brand-hover` | `#26384f` | Survol bouton principal / liens |
+| `brand-400` | `#3b5370` | Accent intermédiaire |
+| `brand-300` | `#4a617c` | Accent secondaire haute visibilité (WCAG AA >= 4.5:1) |
+| `brand-200` | `#c2cfda` | Bordure / Texte clair |
+| `brand-100` | `#e0e6ec` | Arrière-plan clair |
 | `brand-50` | `#f4f6f8` | Fond d'accent très clair |
 
 ### 2. Neutres — `ink` (Surfaces, texte, bordures)
@@ -57,10 +63,10 @@ Famille de neutres "Bleu-Gris" calibrée pour le contraste clair/sombre.
 | `ink-900` | `#1b263b` | Sidebar & conteneurs sombres |
 | `ink-800` | `#25334a` | Texte principal mode clair / boutons neutres |
 | `ink-700` | `#35475e` | Titres / bordures sombres |
-| `ink-600` | `#415a77` | Titres secondaires |
-| `ink-500` | `#5d7393` | Texte secondaire / icônes |
-| `ink-400` | `#778da9` | Muted / placeholders / bordures subtiles |
-| `ink-350` | `#9ab0c7` | Hint / Disabled |
+| `ink-600` | `#2b3e55` | Titres secondaires |
+| `ink-500` | `#334862` | Texte secondaire / icônes (Contraste > 7.2:1) |
+| `ink-400` | `#4a617c` | Muted / placeholders / bordures subtiles |
+| `ink-350` | `#4a617c` | Hint / Disabled |
 | `ink-200` | `#c9d5e3` | **Bordure par défaut** |
 | `ink-150` | `#e0e1dd` | **Bordure des cartes / Fond doux (`--color-bg-subtle`)** |
 | `ink-100` | `#f0f2f5` | Hover doux / surfaces secondaires |
@@ -71,9 +77,9 @@ Famille de neutres "Bleu-Gris" calibrée pour le contraste clair/sombre.
 | Statut | Jetons / Hex | Usage |
 | :--- | :--- | :--- |
 | **Succès** | `success-500` (`#16a34a`), `success-400` (`#4ade80`), `success-600` (`#15803d`) | `Alert type="success"`, badges validés, validations |
-| **Danger / Erreur** | `danger-500` (`#dc2626`), `danger-400` (`#f87171`), `danger-200` (`#fecaca`) | `Button variant="danger"`, erreurs de formulaire, alertes critiques |
-| **Warning (Ambre)** | `warning-500` (`#d97706`), `warning-100` (`#fef3c7`), `warning-600` (`#b45309`) | Badges warning, alertes d'attention, alertes stock/délais |
-| **Info (Indigo)** | `info-500` (`#4f46e5`), `info-100` (`#e0e7ff`), `info-600` (`#4338ca`) | Badges informatifs, notifications d'information |
+| **Danger / Erreur** | `danger-500` (`#dc2626`), `danger-400` (`#f87171`), `danger-200` (`#fecaca`), `danger-600` (`#b91c1c`) | `Button variant="danger"`, erreurs de formulaire, alertes critiques |
+| **Warning (Ambre)** | `warning-500` (`#b45309`), `warning-400` (`#d97706`), `warning-200` (`#fde68a`), `warning-100` (`#fef3c7`), `warning-50` (`#fffbe8`) | Badges warning, alertes d'attention |
+| **Info (Indigo)** | `info-500` (`#3730a3`), `info-600` (`#312e81`), `info-700` (`#1e1b4b`), `info-100` (`#e0e7ff`), `info-50` (`#f0f3ff`) | Badges informatifs, notifications d'information |
 
 ---
 
@@ -132,7 +138,7 @@ Ne jamais recréer un bouton, input ou carte "from scratch". Les composants sont
 | `StatCard` | `data-display/` | [`StatCard.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/StatCard.jsx) | Affichage de chiffres clés, de variations et d'icônes. |
 | `Table` (+ `Thead`, `Th`, `Tbody`, `Tr`, `Td`) | `data-display/` | [`Table.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/Table.jsx) | Tableaux de données formatés, interlignes nets et fond de survol. |
 | `AccordionItem` | `data-display/` | [`Accordion.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/Accordion.jsx) | Conteneur d'informations repliable. |
-| `EmpyState` | `data-display/` | [`EmpyState.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/EmpyState.jsx) | Placeholder visuel pour les listes ou tables vides. |
+| `EmptyState` | `data-display/` | [`EmptyState.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/data-display/EmptyState.jsx) | Placeholder visuel pour les listes ou tables vides. |
 | `Alert` | `feedback/` | [`Alert.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/feedback/Alert.jsx) | Types : `success/warning/error/info`, icônes assorties. |
 | `Loading` | `feedback/` | [`Loading.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/feedback/Loading.jsx) | Spinner ou dots avec gestion overlay / inline. |
 | `Skeleton` (+ `SkeletonTable`, etc.) | `feedback/` | [`Skeleton.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/ui/feedback/Skeleton.jsx) | Squelettes de chargement pour cards, tables et stats. |

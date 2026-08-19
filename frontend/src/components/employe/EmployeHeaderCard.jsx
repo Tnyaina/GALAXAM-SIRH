@@ -12,9 +12,9 @@ export default function EmployeHeaderCard({
     if (!emp) return null;
 
     return (
-        <div className="bg-white dark:bg-ink-900 rounded-sm shadow-sm border border-ink-150 dark:border-ink-700 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="bg-white dark:bg-ink-900 rounded-none shadow-sm border border-ink-150 dark:border-ink-700 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
-                <div className="w-20 h-20 bg-ink-50 dark:bg-ink-800 border-2 border-ink-200 dark:border-ink-700 rounded-sm overflow-hidden flex items-center justify-center text-ink-300 flex-shrink-0">
+                <div className="w-20 h-20 bg-ink-50 dark:bg-ink-800 border-2 border-ink-200 dark:border-ink-700 rounded-none overflow-hidden flex items-center justify-center text-ink-300 flex-shrink-0">
                     {emp.photoUrl ? (
                         <img src={getFullPhotoUrl(emp.photoUrl)} alt="Photo" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     ) : (

@@ -123,7 +123,44 @@ public class EmployeCPL extends ClassMere {
         return null;
     }
 
-    public static List<EmployeCPL> rechercherEmployes(Connection c, String query, Boolean estActif) throws Exception {
+    public static long compterEmployes(Connection c, String query, Boolean estActif) throws Exception {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM v_employe_cpl WHERE 1=1 ");
+        List<Object> params = new ArrayList<>();
+
+        if (estActif != null) {
+            sql.append(" AND est_actif = ? ");
+            params.add(estActif);
+        }
+
+        if (query != null && !query.isBlank()) {
+            sql.append(" AND (LOWER(matricule) LIKE ? OR LOWER(nom) LIKE ? OR LOWER(prenom) LIKE ? OR LOWER(cin_numero) LIKE ? OR LOWER(telephone) LIKE ?) ");
+            String search = "%" + query.trim().toLowerCase() + "%";
+            params.add(search);
+            params.add(search);
+            params.add(search);
+            params.add(search);
+            params.add(search);
+        }
+
+        try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                Object p = params.get(i);
+                if (p instanceof Boolean) {
+                    ps.setBoolean(i + 1, (Boolean) p);
+                } else {
+                    ps.setString(i + 1, (String) p);
+                }
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
+            }
+        }
+        return 0;
+    }
+
+    public static List<EmployeCPL> rechercherEmployes(Connection c, String query, Boolean estActif, Integer limit, Integer offset) throws Exception {
         List<EmployeCPL> list = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT * FROM v_employe_cpl WHERE 1=1 ");
 
@@ -145,12 +182,23 @@ public class EmployeCPL extends ClassMere {
         }
 
         sql.append(" ORDER BY nom ASC, prenom ASC");
+        
+        if (limit != null) {
+            sql.append(" LIMIT ?");
+            params.add(limit);
+        }
+        if (offset != null) {
+            sql.append(" OFFSET ?");
+            params.add(offset);
+        }
 
         try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
             for (int i = 0; i < params.size(); i++) {
                 Object p = params.get(i);
                 if (p instanceof Boolean) {
                     ps.setBoolean(i + 1, (Boolean) p);
+                } else if (p instanceof Integer) {
+                    ps.setInt(i + 1, (Integer) p);
                 } else {
                     ps.setString(i + 1, (String) p);
                 }
@@ -166,7 +214,7 @@ public class EmployeCPL extends ClassMere {
     }
 
     public static List<EmployeCPL> listAll(Connection c) throws Exception {
-        return rechercherEmployes(c, null, null);
+        return rechercherEmployes(c, null, null, null, null);
     }
 
     private static EmployeCPL mapResultSet(ResultSet rs) throws SQLException {

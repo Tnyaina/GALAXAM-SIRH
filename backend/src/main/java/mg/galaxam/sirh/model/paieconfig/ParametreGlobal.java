@@ -126,6 +126,29 @@ public class ParametreGlobal extends ClassMere {
         return list;
     }
 
+    public static List<ParametreGlobal> listByCategorie(String categorie, Connection c) throws Exception {
+        if (categorie == null || categorie.isBlank()) return listAll(c);
+        String sql = "SELECT id_parametre, code_parametre, valeur, description, categorie, date_debut, date_fin FROM parametre_global WHERE UPPER(categorie) = UPPER(?) ORDER BY code_parametre ASC";
+        List<ParametreGlobal> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, categorie.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ParametreGlobal item = new ParametreGlobal();
+                    item.idParametre = rs.getInt("id_parametre");
+                    item.codeParametre = rs.getString("code_parametre");
+                    item.valeur = rs.getString("valeur");
+                    item.description = rs.getString("description");
+                    item.categorie = rs.getString("categorie");
+                    item.dateDebut = rs.getDate("date_debut");
+                    item.dateFin = rs.getDate("date_fin");
+                    list.add(item);
+                }
+            }
+        }
+        return list;
+    }
+
     // Getters / Setters
     public Integer getIdParametre() { return idParametre; }
     public void setIdParametre(Integer idParametre) { this.idParametre = idParametre; }

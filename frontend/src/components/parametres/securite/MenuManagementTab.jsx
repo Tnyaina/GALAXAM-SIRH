@@ -277,14 +277,14 @@ export default function MenuManagementTab() {
                                         <div className="flex justify-end gap-2">
                                             <button
                                                 onClick={() => handleOpenEditModal(menu)}
-                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none transition-all cursor-pointer"
+                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
                                                 title="Modifier"
                                             >
                                                 <Edit2 size={16} />
                                             </button>
                                             <button
                                                 onClick={() => handleOpenDeleteModal(menu)}
-                                                className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none transition-all cursor-pointer"
+                                                className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none  cursor-pointer"
                                                 title="Supprimer"
                                             >
                                                 <Trash2 size={16} />

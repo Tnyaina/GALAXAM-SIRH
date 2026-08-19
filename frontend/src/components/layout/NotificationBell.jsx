@@ -52,7 +52,7 @@ const NotifRow = memo(function NotifRow({ notif, onClick }) {
             role="menuitem"
             onClick={() => onClick(notif)}
             className={`w-full text-left px-4 py-3 border-b border-[var(--color-border-subtle)] last:border-b-0
-                        hover:bg-[var(--color-surface-hover)] group transition-colors rounded-none cursor-pointer
+                        hover:bg-[var(--color-surface-hover)] group  rounded-none cursor-pointer
                         ${nonLue ? 'bg-[var(--color-brand-500)]/[0.04]' : ''}`}
         >
             <div className="flex items-start gap-3">
@@ -78,8 +78,8 @@ const NotifRow = memo(function NotifRow({ notif, onClick }) {
                     </p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0 pt-0.5">
-                    {nonLue && <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-brand-500)]" aria-hidden="true" />}
-                    <ChevronRight size={13} className="text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand-500)] transition-colors" />
+                    {nonLue && <span className="w-1.5 h-1.5 rounded-none bg-[var(--color-brand-500)]" aria-hidden="true" />}
+                    <ChevronRight size={13} className="text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand-500)] " />
                 </div>
             </div>
         </button>
@@ -139,8 +139,12 @@ export default function NotificationBell() {
 
     const handleNotifClick = useCallback((notif) => {
         marquerUne(notif.idNotification);
-        if (notif.lien) {
-            navigate(notif.lien);
+        let link = notif.lien;
+        if (link === '/conges') {
+            link = '/conges?tab=demandes';
+        }
+        if (link) {
+            navigate(link);
         }
         setOpen(false);
     }, [marquerUne, navigate]);
@@ -153,14 +157,14 @@ export default function NotificationBell() {
                     id="btn-notifications"
                     type="button"
                     onClick={() => setOpen((v) => !v)}
-                    className="relative flex items-center justify-center min-w-[44px] min-h-[44px] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
+                    className="relative flex items-center justify-center min-w-[44px] min-h-[44px] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)]  cursor-pointer"
                     aria-label="Notifications RH"
                     aria-expanded={open}
                     aria-haspopup="true"
                 >
                     <Bell size={18} strokeWidth={1.75} />
                     {totalNonLues > 0 && (
-                        <span className="absolute top-1 right-1 min-w-[16px] h-[16px] flex items-center justify-center text-[9px] font-bold leading-none text-white bg-[var(--color-danger-500)] rounded-full px-1 ring-2 ring-[var(--color-surface)] font-data">
+                        <span className="absolute top-1 right-1 min-w-[16px] h-[16px] flex items-center justify-center text-[9px] font-bold leading-none text-white bg-[var(--color-danger-500)] rounded-none px-1 ring-2 ring-[var(--color-surface)] font-data">
                             {totalNonLues > 99 ? '99+' : totalNonLues}
                         </span>
                     )}
@@ -193,7 +197,7 @@ export default function NotificationBell() {
                                 <button
                                     type="button"
                                     onClick={marquerToutesLues}
-                                    className="flex items-center gap-1 text-[11px] text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] font-medium px-2 py-1.5 min-h-[36px] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
+                                    className="flex items-center gap-1 text-[11px] text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] font-medium px-2 py-1.5 min-h-[36px] rounded-none hover:bg-[var(--color-bg-subtle)]  cursor-pointer"
                                     title="Tout marquer comme lu"
                                 >
                                     <CheckCheck size={14} strokeWidth={2} />
@@ -203,7 +207,7 @@ export default function NotificationBell() {
                             <button
                                 type="button"
                                 onClick={() => setOpen(false)}
-                                className="min-w-[36px] min-h-[36px] flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
+                                className="min-w-[36px] min-h-[36px] flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)]  cursor-pointer"
                                 aria-label="Fermer le panneau"
                             >
                                 <X size={16} strokeWidth={2} />
@@ -217,7 +221,7 @@ export default function NotificationBell() {
 
                         {!loading && notifications.length === 0 && (
                             <div className="p-8 text-center">
-                                <div className="w-11 h-11 bg-[var(--color-bg-subtle)] rounded-full flex items-center justify-center mx-auto mb-3">
+                                <div className="w-11 h-11 bg-[var(--color-bg-subtle)] rounded-none flex items-center justify-center mx-auto mb-3">
                                     <CheckCheck size={18} strokeWidth={1.75} className="text-[var(--color-success-500)]" />
                                 </div>
                                 <p className="text-sm font-bold text-[var(--color-fg)]">Aucune alerte en cours</p>
@@ -240,7 +244,7 @@ export default function NotificationBell() {
                             <button
                                 type="button"
                                 onClick={() => { navigate('/dashboard'); setOpen(false); }}
-                                className="flex items-center gap-1 text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] font-semibold transition-colors rounded-none cursor-pointer"
+                                className="flex items-center gap-1 text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] font-semibold  rounded-none cursor-pointer"
                             >
                                 Voir toutes les alertes sur le dashboard
                                 <ChevronRight size={12} strokeWidth={2.5} />

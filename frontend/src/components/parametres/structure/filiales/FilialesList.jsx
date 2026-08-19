@@ -40,14 +40,14 @@ export default function FilialesList({
                                 <div className="flex justify-end items-center gap-2">
                                     <button
                                         onClick={() => onOpenEdit(f)}
-                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none transition-all cursor-pointer"
+                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
                                         title="Modifier"
                                     >
                                         <Edit2 size={16} />
                                     </button>
                                     <button
                                         onClick={() => onToggleStatus(f)}
-                                        className={`px-2 py-1 text-xs font-bold rounded-none transition-all cursor-pointer uppercase ${
+                                        className={`px-2 py-1 text-xs font-bold rounded-none  cursor-pointer uppercase ${
                                             f.estActif
                                                 ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
                                                 : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'

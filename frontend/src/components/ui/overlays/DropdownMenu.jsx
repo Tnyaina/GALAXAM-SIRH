@@ -40,7 +40,7 @@ export function DropdownMenu({
                 <button
                     type="button"
                     onClick={() => setIsOpen((prev) => !prev)}
-                    className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none transition-colors cursor-pointer"
+                    className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
                     aria-label="Actions"
                 >
                     <MoreVertical size={16} />
@@ -52,7 +52,7 @@ export function DropdownMenu({
                 <div
                     className={`
             absolute top-full mt-1.5 z-50 w-52 bg-[var(--color-surface)] border border-[var(--color-border-subtle)]
-            shadow-lg rounded-none py-1 animate-in fade-in zoom-in-95 duration-100 ${alignClass}
+            shadow-lg rounded-none py-1 animate-in fade-in zoom-in-95  ${alignClass}
           `}
                     onClick={() => setIsOpen(false)}
                 >
@@ -83,7 +83,7 @@ export function DropdownItem({
             disabled={disabled}
             onClick={onClick}
             className={`
-        w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-left transition-colors cursor-pointer rounded-none
+        w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-left  cursor-pointer rounded-none
         disabled:opacity-40 disabled:cursor-not-allowed
         ${variantStyles[variant] || variantStyles.default}
         ${className}

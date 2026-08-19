@@ -37,7 +37,7 @@ export default function Button({
       disabled={disabled || loading}
       className={`
         inline-flex items-center justify-center font-semibold tracking-wide uppercase text-[0.75em]
-        transition-all duration-150 rounded-none
+          rounded-none
         focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)] focus:ring-offset-0
         disabled:opacity-40 disabled:cursor-not-allowed
         ${variants[variant]}

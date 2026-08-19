@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS site_cotisation CASCADE;
 DROP TABLE IF EXISTS parametre_global CASCADE;
 DROP TABLE IF EXISTS ref_taux_majoration CASCADE;
 DROP TABLE IF EXISTS ref_calendrier_ferie CASCADE;
+DROP TABLE IF EXISTS ref_periode_chomee CASCADE;
 DROP TABLE IF EXISTS ref_site CASCADE;
 DROP TABLE IF EXISTS ref_type_intervenant CASCADE;
 DROP TABLE IF EXISTS ref_indemnite CASCADE;
@@ -176,6 +177,16 @@ CREATE TABLE site_calendrier_ferie (
     id_site INT NOT NULL REFERENCES ref_site(id_site),
     id_ferie INT NOT NULL REFERENCES ref_calendrier_ferie(id_ferie),
     CONSTRAINT uk_site_ferie UNIQUE (id_site, id_ferie)
+);
+
+CREATE TABLE ref_periode_chomee (
+    id_periode SERIAL PRIMARY KEY,
+    libelle VARCHAR(150) NOT NULL,
+    id_site INT REFERENCES ref_site(id_site),
+    date_debut DATE NOT NULL,
+    date_fin DATE,
+    est_paye BOOLEAN DEFAULT TRUE,
+    taux_paiement NUMERIC(5,2) DEFAULT 100.00
 );
 
 CREATE TABLE parametre_global (

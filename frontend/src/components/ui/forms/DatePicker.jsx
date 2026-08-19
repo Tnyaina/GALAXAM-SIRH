@@ -39,7 +39,7 @@ export default function DatePicker({
                     max={fmtDateInput(max)}
                     className={`
             w-full bg-[var(--color-surface)] border-2 rounded-none text-sm text-[var(--color-fg)] font-data
-            pl-10 pr-4 py-2 outline-none transition-all duration-150 cursor-pointer
+            pl-10 pr-4 py-2 outline-none   cursor-pointer
             focus:ring-0 focus:border-[var(--color-brand-500)]
             disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
             ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}

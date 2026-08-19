@@ -21,7 +21,7 @@ export default function UploadDocumentModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
-            <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
+            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
                 <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
                     <Upload size={18} className="text-brand-500" />
                     Téléverser un Document RH
@@ -29,7 +29,7 @@ export default function UploadDocumentModal({
                 <form onSubmit={onSubmit}>
                     <div className="p-6 space-y-4">
                         {docErrorMsg && (
-                            <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 rounded-sm p-3 text-xs flex items-center gap-1.5">
+                            <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 rounded-none p-3 text-xs flex items-center gap-1.5">
                                 <ShieldAlert size={14} />
                                 {docErrorMsg}
                             </div>
@@ -56,7 +56,7 @@ export default function UploadDocumentModal({
                                 type="file"
                                 required
                                 onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                                className="w-full text-xs text-ink-700 dark:text-ink-300 border border-ink-200 dark:border-ink-700 p-2 rounded-sm bg-ink-50 dark:bg-ink-950"
+                                className="w-full text-xs text-ink-700 dark:text-ink-300 border border-ink-200 dark:border-ink-700 p-2 rounded-none bg-ink-50 dark:bg-ink-950"
                             />
                         </div>
 

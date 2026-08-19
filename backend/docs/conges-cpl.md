@@ -76,6 +76,10 @@ ailleurs, cette condition d'ancienneté d'un an ne s'applique pas aux
 congés d'événements familiaux ni aux congés de maternité ou de maladie,
 qui sont accessibles dès l'embauche du salarié^1^.
 
+> **Précision Technique & Best Practice RH (Calcul de l'Ancienneté)** : 
+> L'application évalue la condition de 12 mois continus en calculant l'écart entre la date de la demande et la **date de début du Contrat de Travail ACTIF**. 
+> Si un employé enchaîne un CDD puis un CDI sans interruption, la bonne pratique dans le SIRH est de **modifier le contrat actif existant** (changer le type et supprimer la date de fin) plutôt que de créer un nouveau contrat. Cela permet de préserver l'ancienneté globale pour l'acquisition et la jouissance des droits (ainsi que la future prime d'ancienneté à 5 ans).
+
 ### 1.3 Régime d'Acquisition et Calcul des Droits
 
 L'acquisition du congé payé annuel s'effectue au rythme de 2,5 jours
@@ -247,6 +251,9 @@ autorisations d'absence payées sont accordées aux salariés à
 l'occasion d'événements familiaux majeurs^1^. Ces absences n'imputent
 pas le solde des congés payés annuels, mais sont comptabilisées au sein
 d'un **pool annuel global plafonné à 10 jours calendaires par an**^1^.
+
+> **Précision Technique (Année Civile)** : 
+> Le décompte de ces 10 jours se fait strictement sur l'**année civile** (du 1er Janvier au 31 Décembre), indépendamment de la date d'embauche de l'employé. Chaque 1er Janvier, le système réinitialise implicitement le plafond pour tout le monde (la vue SQL filtre sur `EXTRACT(YEAR FROM date_debut)`).
 
 Une règle essentielle du droit malgache réside dans l'intégration du
 **Congé de Paternité** au sein de ce même quota de 10 jours^1^. La

@@ -6,6 +6,11 @@ const employeService = {
         return response.data;
     },
 
+    getEmployeStats: async (params = {}) => {
+        const response = await apiClient.get('/employes/stats', { params });
+        return response.data;
+    },
+
     getEmployeFicheDetail: async (id) => {
         const response = await apiClient.get(`/employes/${id}`);
         return response.data;
@@ -13,6 +18,7 @@ const employeService = {
 
     createEmploye: async (data) => {
         const response = await apiClient.post('/employes', data);
+        window.dispatchEvent(new Event('refresh-notifications'));
         return response.data;
     },
 
