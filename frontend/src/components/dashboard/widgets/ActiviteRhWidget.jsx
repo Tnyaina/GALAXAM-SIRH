@@ -10,9 +10,10 @@ import SkeletonListRows from './SkeletonListRows';
 
 const ActiviteRow = memo(function ActiviteRow({ ev }) {
     const isValide = ev.statut === 'Valide et applique par la DAF' || ev.statut?.toLowerCase().includes('valid');
+    const targetTab = ev.sourceType === 'CONGE' ? 'conges' : 'carriere';
     return (
         <Link
-            to={`/employes/${ev.idEmploye}?tab=carriere`}
+            to={`/employes/${ev.idEmploye}?tab=${targetTab}`}
             className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)] group"
         >
             <div className={`w-7 h-7 rounded-none flex items-center justify-center shrink-0 text-white text-[10px] font-bold ${isValide ? 'bg-[var(--color-success-500)]' : 'bg-[var(--color-fg-subtle)]'}`}>
