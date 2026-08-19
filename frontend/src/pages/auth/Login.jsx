@@ -8,6 +8,7 @@ import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
 import { Card, CardBody } from '@/components/ui/data-display/Card';
 import galaxamLogo from '@/assets/logo/galaxam-logo.png';
+import SEO from '@/components/system/SEO';
 
 export default function Login() {
     const navigate = useNavigate();
@@ -57,11 +58,12 @@ export default function Login() {
 
     return (
         <main className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg)] px-4 py-12">
+            <SEO title="Connexion" description="Connectez-vous à l'intranet RH de Galaxam." />
             <div className="w-full max-w-md">
                 <Card shadow="sm" bordered className="border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
                     <CardBody className="px-8 py-10 sm:px-10">
-                        {/* Logo */}
-                        <div className="flex justify-center">
+                        {/* Logo et Nom de l'application */}
+                        <div className="flex flex-col items-center gap-4">
                             <img
                                 src={galaxamLogo}
                                 alt="Galaxam Logistics"
@@ -70,6 +72,14 @@ export default function Login() {
                                 fetchPriority="high"
                                 decoding="async"
                             />
+                            <div className="text-center flex flex-col items-center justify-center -mt-2">
+                                <h1 className="text-[26px] font-black tracking-tighter text-[#012f41] uppercase leading-none">
+                                    Galaxam
+                                </h1>
+                                <span className="text-sm font-light tracking-[0.25em] text-gray-500 uppercase mt-0.5 ml-1">
+                                    Logistics
+                                </span>
+                            </div>
                         </div>
 
                         {/* Séparateur */}
@@ -112,7 +122,7 @@ export default function Login() {
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword((v) => !v)}
-                                        className="min-w-[44px] min-h-[44px] -mr-3 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] focus:outline-none transition-colors cursor-pointer"
+                                        className="min-w-[44px] min-h-[44px] -mr-3 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] focus:outline-none  cursor-pointer"
                                         aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                                     >
                                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}

@@ -68,7 +68,7 @@ export default function EmployeTable({
                                     <div className="flex justify-end items-center gap-2">
                                         <button
                                             onClick={() => onOpenDetail(emp)}
-                                            className="p-1.5 text-ink-400 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors cursor-pointer"
+                                            className="p-1.5 text-ink-400 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800  cursor-pointer"
                                             title="Voir la fiche"
                                         >
                                             <Eye size={16} />
@@ -76,7 +76,7 @@ export default function EmployeTable({
                                         {canWrite && (
                                             <button
                                                 onClick={() => onOpenEdit(emp)}
-                                                className="p-1.5 text-ink-400 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors cursor-pointer"
+                                                className="p-1.5 text-ink-400 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800  cursor-pointer"
                                                 title="Modifier"
                                             >
                                                 <Edit2 size={16} />

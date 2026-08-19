@@ -21,7 +21,7 @@ export default function Stepper({ steps, currentStep, onStepClick }) {
                             className={`flex items-center gap-2 ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
                         >
                             <span
-                                className={`w-7 h-7 flex items-center justify-center text-xs font-bold shrink-0 border transition-colors rounded-none font-data ${
+                                className={`w-7 h-7 flex items-center justify-center text-xs font-bold shrink-0 border  rounded-none font-data ${
                                     isDone
                                         ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)] text-white'
                                         : isActive

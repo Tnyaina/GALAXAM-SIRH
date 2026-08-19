@@ -1,4 +1,6 @@
 import Input, { Select } from '@/components/ui/forms/Input';
+import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 
 export default function AffectationFieldsSection({
     formData,
@@ -50,41 +52,43 @@ export default function AffectationFieldsSection({
                     required
                     value={formData.idService}
                     onChange={(e) => setField('idService', e.target.value)}
+                    disabled={!formData.idDepartement}
                 >
-                    <option value="">-- Sélectionner un service --</option>
-                    {services.map(srv => (
-                        <option key={srv.idService} value={srv.idService}>
-                            {srv.codeService} — {srv.libelle}
-                        </option>
-                    ))}
+                    <option value="">
+                        {formData.idDepartement
+                            ? '-- Sélectionner un service --'
+                            : '-- Choisir un département d\'abord --'}
+                    </option>
+                    {services
+                        .filter(srv => !formData.idDepartement || String(srv.idDepartement) === String(formData.idDepartement))
+                        .map(srv => (
+                            <option key={srv.idService} value={srv.idService}>
+                                {srv.codeService} — {srv.libelle}
+                            </option>
+                        ))
+                    }
                 </Select>
 
-                <Select
+                <SearchSelect
                     label="Fonction / Poste"
                     required
                     value={formData.idFonction}
-                    onChange={(e) => setField('idFonction', e.target.value)}
-                >
-                    <option value="">-- Sélectionner une fonction --</option>
-                    {fonctions.map(f => (
-                        <option key={f.idFonction} value={f.idFonction}>
-                            {f.codeFonction} — {f.libelle}
-                        </option>
-                    ))}
-                </Select>
+                    onChange={(val) => setField('idFonction', val)}
+                    options={fonctions.map((f) => ({
+                        value: f.idFonction,
+                        label: f.libelle,
+                        sublabel: f.codeFonction,
+                    }))}
+                    placeholder="Rechercher une fonction…"
+                />
 
-                <Select
-                    label="Responsable Hiérarchique"
+                <EmployeSearchSelect
+                    label="Responsable Hiérarchique (N+1)"
                     value={formData.idResponsableHierarchique}
-                    onChange={(e) => setField('idResponsableHierarchique', e.target.value)}
-                >
-                    <option value="">-- Aucun / N+1 --</option>
-                    {responsables.map(r => (
-                        <option key={r.idEmploye} value={r.idEmploye}>
-                            {r.nomComplet || `${r.nom} ${r.prenom}`} ({r.matricule})
-                        </option>
-                    ))}
-                </Select>
+                    onChange={(empId) => setField('idResponsableHierarchique', empId)}
+                    employes={responsables}
+                    placeholder="Rechercher le manager N+1…"
+                />
 
                 <Select
                     label="Catégorie Professionnelle"

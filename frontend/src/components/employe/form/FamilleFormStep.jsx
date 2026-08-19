@@ -39,7 +39,7 @@ export default function FamilleFormStep({
                     <div className="space-y-3">
                         {formData.enfants.map((enf, idx) => (
                             <div key={idx} className="p-4 bg-ink-50 dark:bg-ink-950 border border-ink-150 dark:border-ink-700 relative">
-                                <button type="button" onClick={() => removeEnfant(idx)} className="absolute top-3 right-3 text-danger-500 hover:bg-danger-500/10 p-1 rounded-sm transition-colors cursor-pointer">
+                                <button type="button" onClick={() => removeEnfant(idx)} className="absolute top-3 right-3 text-danger-500 hover:bg-danger-500/10 p-1 rounded-none  cursor-pointer">
                                     <Trash2 size={14} />
                                 </button>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pr-8">

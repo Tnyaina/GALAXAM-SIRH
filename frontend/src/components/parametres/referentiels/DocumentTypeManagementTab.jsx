@@ -192,14 +192,14 @@ export default function DocumentTypeManagementTab() {
                                         <button
                                             onClick={() => handleOpenEdit}
                                             onClickCapture={() => handleOpenEdit(t)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none transition-all cursor-pointer"
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
                                             title="Modifier"
                                         >
                                             <Edit2 size={16} />
                                         </button>
                                         <button
                                             onClick={() => handleToggleActif(t)}
-                                            className={`px-2 py-1 text-xs font-bold rounded-none transition-all cursor-pointer uppercase ${
+                                            className={`px-2 py-1 text-xs font-bold rounded-none  cursor-pointer uppercase ${
                                                 t.actif ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
                                             }`}
                                         >

@@ -28,7 +28,6 @@ export default function SiteCotisationsList({
             <Table>
                 <Thead>
                     <Th>Nom du Site</Th>
-                    <Th>Filiale</Th>
                     <Th>Cotisation Rattachée</Th>
                     <Th>Statut</Th>
                     <Th className="text-right">Actions</Th>
@@ -46,9 +45,6 @@ export default function SiteCotisationsList({
                                 <Td className="font-bold text-[var(--color-fg)]">
                                     {sc.siteLibelle} {sc.siteCode ? `(${sc.siteCode})` : ''}
                                 </Td>
-                                <Td muted className="text-xs font-semibold">
-                                    {sc.filialeRaisonSociale || '-'}
-                                </Td>
                                 <Td isData className="font-semibold text-[var(--color-brand-500)]">
                                     {sc.cotisationCode} - {sc.cotisationLibelle}
                                 </Td>
@@ -65,7 +61,7 @@ export default function SiteCotisationsList({
                                     {sc.estActif ? (
                                         <button
                                             onClick={() => onToggleStatus(sc)}
-                                            className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none transition-all cursor-pointer"
+                                            className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none  cursor-pointer"
                                             title="Désactiver l'association"
                                         >
                                             <Power size={16} />
@@ -73,7 +69,7 @@ export default function SiteCotisationsList({
                                     ) : (
                                         <button
                                             onClick={() => onToggleStatus(sc)}
-                                            className="p-1.5 text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10 rounded-none transition-all cursor-pointer"
+                                            className="p-1.5 text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10 rounded-none  cursor-pointer"
                                             title="Réactiver l'association"
                                         >
                                             <Check size={16} />

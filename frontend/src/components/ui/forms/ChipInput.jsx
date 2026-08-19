@@ -26,7 +26,7 @@ export function ChipInput({ tags = [], onChange, placeholder = 'Ajouter une vale
     };
 
     return (
-        <div className="flex flex-wrap items-center gap-1.5 p-2 bg-[var(--color-surface)] border-2 border-[var(--color-border)] focus-within:border-[var(--color-brand-500)] rounded-none transition-colors">
+        <div className="flex flex-wrap items-center gap-1.5 p-2 bg-[var(--color-surface)] border-2 border-[var(--color-border)] focus-within:border-[var(--color-brand-500)] rounded-none ">
             {tags.map((tag, index) => (
                 <span
                     key={index}
@@ -36,7 +36,7 @@ export function ChipInput({ tags = [], onChange, placeholder = 'Ajouter une vale
                     <button
                         type="button"
                         onClick={() => removeTag(index)}
-                        className="hover:text-[var(--color-danger-500)] transition-colors cursor-pointer"
+                        className="hover:text-[var(--color-danger-500)]  cursor-pointer"
                     >
                         <X size={12} />
                     </button>

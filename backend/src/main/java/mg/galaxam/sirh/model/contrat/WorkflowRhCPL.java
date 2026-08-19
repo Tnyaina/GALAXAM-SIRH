@@ -55,6 +55,7 @@ public class WorkflowRhCPL {
     private Integer dureeEssaiMois;
     private Date    dateFinEssai;
     private boolean comptabiliseEffectif;
+    private Date    dateSignature;
 
     // ─── Affectation cible enrichie ─────────────────────────────────────────────
     private Integer    idSite;
@@ -162,6 +163,7 @@ public class WorkflowRhCPL {
         w.dureeEssaiMois = getIntegerSafe(rs, "duree_essai_mois");
         w.dateFinEssai = getDateSafe(rs, "date_fin_essai");
         w.comptabiliseEffectif = rs.getBoolean("comptabilise_effectif");
+        w.dateSignature = rs.getDate("date_signature_contrat");
 
         w.idSite = getIntegerSafe(rs, "id_site");
         w.idDepartement = getIntegerSafe(rs, "id_departement");
@@ -218,7 +220,11 @@ public class WorkflowRhCPL {
     public Date getDateFinContrat() { return dateFinContrat; }
     public Integer getDureeEssaiMois() { return dureeEssaiMois; }
     public Date getDateFinEssai() { return dateFinEssai; }
+    public void setDateFinEssai(Date dateFinEssai) { this.dateFinEssai = dateFinEssai; }
     public boolean isComptabiliseEffectif() { return comptabiliseEffectif; }
+    public void setComptabiliseEffectif(boolean comptabiliseEffectif) { this.comptabiliseEffectif = comptabiliseEffectif; }
+    public Date getDateSignature() { return dateSignature; }
+    public void setDateSignature(Date dateSignature) { this.dateSignature = dateSignature; }
     public Integer getIdSite() { return idSite; }
     public Integer getIdDepartement() { return idDepartement; }
     public Integer getIdService() { return idService; }

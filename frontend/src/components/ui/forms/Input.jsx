@@ -6,6 +6,8 @@ export default function Input({
   iconLeft,
   iconRight,
   className = '',
+  labelClassName = '',
+  containerClassName = '',
   onWheel,
   ...props
 }) {
@@ -21,9 +23,9 @@ export default function Input({
   };
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className={`flex flex-col gap-1 ${containerClassName}`}>
       {label && (
-        <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+        <label className={`text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
           {label}
           {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
@@ -38,7 +40,7 @@ export default function Input({
           onWheel={handleWheel}
           className={`
             w-full bg-[var(--color-surface)] border-2 rounded-none text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]
-            px-4 py-2.5 outline-none transition-all duration-150
+            px-4 py-2.5 outline-none  
             focus:ring-0 focus:border-[var(--color-brand-500)]
             disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
             ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
@@ -72,7 +74,7 @@ export function Textarea({ label, error, hint, className = '', ...props }) {
       <textarea
         className={`
           w-full bg-[var(--color-surface)] border-2 rounded-none text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]
-          px-4 py-2.5 outline-none transition-all duration-150 resize-none
+          px-4 py-2.5 outline-none   resize-none
           focus:ring-0 focus:border-[var(--color-brand-500)]
           disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
           ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
@@ -98,7 +100,7 @@ export function Select({ label, error, hint, children, className = '', ...props 
       <select
         className={`
           w-full bg-[var(--color-surface)] border-2 rounded-none text-sm text-[var(--color-fg)]
-          px-4 py-2.5 outline-none transition-all duration-150 cursor-pointer
+          px-4 py-2.5 outline-none   cursor-pointer
           focus:ring-0 focus:border-[var(--color-brand-500)]
           disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
           ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
@@ -129,7 +131,7 @@ export function Checkbox({ label, error, hint, className = '', ...props }) {
           {...props}
         />
         {label && (
-          <span className="text-sm text-[var(--color-fg)] group-hover:text-[var(--color-brand-500)] transition-colors duration-150">
+          <span className="text-sm text-[var(--color-fg)] group-hover:text-[var(--color-brand-500)]  ">
             {label}
             {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
           </span>
@@ -156,7 +158,7 @@ export function Radio({ label, error, hint, className = '', ...props }) {
           {...props}
         />
         {label && (
-          <span className="text-sm text-[var(--color-fg)] group-hover:text-[var(--color-brand-500)] transition-colors duration-150">
+          <span className="text-sm text-[var(--color-fg)] group-hover:text-[var(--color-brand-500)]  ">
             {label}
             {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
           </span>

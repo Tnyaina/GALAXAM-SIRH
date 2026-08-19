@@ -24,6 +24,25 @@ import {
     WifiOff,
     Wrench,
     Home,
+    // HR Context Icons
+    Banknote,
+    Contact,
+    Plane,
+    Palmtree,
+    CalendarDays,
+    Calendar,
+    ClipboardCheck,
+    Settings2,
+    Wallet,
+    Network,
+    SlidersHorizontal,
+    ShieldCheck,
+    UserCircle,
+    Briefcase,
+    FileText,
+    Building2,
+    GraduationCap,
+    HeartPulse
 } from 'lucide-react';
 
 // Registre de résolution dynamique des icônes depuis leur nom (string stocké en BDD dans ref_menu.icone)
@@ -54,6 +73,24 @@ const ICON_MAP = {
     WifiOff,
     Wrench,
     Home,
+    Banknote,
+    Contact,
+    Plane,
+    Palmtree,
+    CalendarDays,
+    Calendar,
+    ClipboardCheck,
+    Settings2,
+    Wallet,
+    Network,
+    SlidersHorizontal,
+    ShieldCheck,
+    UserCircle,
+    Briefcase,
+    FileText,
+    Building2,
+    GraduationCap,
+    HeartPulse
 };
 
 export function getMenuIcon(name) {

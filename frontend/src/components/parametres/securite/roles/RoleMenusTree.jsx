@@ -12,7 +12,7 @@ export default function RoleMenusTree({
         const isChecked = selectedMenuIds.includes(menuItem.idMenu);
         return (
             <div key={menuItem.idMenu} className="space-y-1">
-                <label className="flex items-center gap-3 cursor-pointer py-1.5 px-2 hover:bg-[var(--color-surface-hover)] rounded-none transition-colors">
+                <label className="flex items-center gap-3 cursor-pointer py-1.5 px-2 hover:bg-[var(--color-surface-hover)] rounded-none ">
                     <input
                         type="checkbox"
                         checked={isChecked}

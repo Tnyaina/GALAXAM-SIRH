@@ -6,7 +6,7 @@
 export function Skeleton({ className = '', ...props }) {
   return (
     <div
-      className={`animate-pulse bg-[var(--color-bg-subtle)] rounded-none ${className}`}
+      className={` bg-[var(--color-bg-subtle)] rounded-none ${className}`}
       {...props}
     />
   );
@@ -22,7 +22,7 @@ export function SkeletonAvatar({ size = 'md', className = '' }) {
   };
 
   return (
-    <Skeleton className={`rounded-full shrink-0 ${sizes[size] ?? sizes.md} ${className}`} />
+    <Skeleton className={`rounded-none shrink-0 ${sizes[size] ?? sizes.md} ${className}`} />
   );
 }
 

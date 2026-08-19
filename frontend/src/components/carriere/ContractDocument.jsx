@@ -69,7 +69,7 @@ export function ArticleHeader({ n, icon, title, subtitle }) {
 
 export function DocumentFrame({ children, watermark = 'Brouillon', className = '' }) {
     return (
-        <div className={`relative bg-white dark:bg-ink-950 border border-ink-200 dark:border-ink-700 rounded-sm shadow-md overflow-hidden ${className}`}>
+        <div className={`relative bg-white dark:bg-ink-950 border border-ink-200 dark:border-ink-700 rounded-none shadow-md overflow-hidden ${className}`}>
             {/* Filigrane d'arrière-plan */}
             <div className="pointer-events-none select-none absolute inset-0 flex items-center justify-center overflow-hidden">
                 <span className="text-[58px] font-black uppercase tracking-[0.18em] text-ink-400/[0.05] dark:text-ink-300/[0.04] rotate-[-25deg] whitespace-nowrap">
@@ -135,7 +135,7 @@ export function DocumentFooter({ status = 'Brouillon (non actif)' }) {
             <div className="flex items-center justify-between text-[11px] font-sans text-ink-400 pt-1">
                 <span>Fait en double exemplaire</span>
                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-ink-300 dark:border-ink-600 uppercase tracking-wide text-[10px] font-bold text-ink-500 dark:text-ink-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />
+                    <span className="w-1.5 h-1.5 rounded-none bg-warning-500" />
                     {status}
                 </span>
             </div>
@@ -204,7 +204,7 @@ export function ContractPreview({
                 {formData?.motif && (
                     <div className="pt-2">
                         <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-brand-500">Article 4 — Motif</p>
-                        <p className="text-ink-600 dark:text-ink-300 italic text-[12.5px]">{formData?.motif}</p>
+                        <p className="text-ink-600 dark:text-ink-300  text-[12.5px]">{formData?.motif}</p>
                     </div>
                 )}
             </div>

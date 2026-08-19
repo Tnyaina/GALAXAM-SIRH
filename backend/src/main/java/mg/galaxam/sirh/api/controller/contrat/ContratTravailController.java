@@ -146,7 +146,8 @@ public class ContratTravailController {
             if (dateFinEssaiStr == null) {
                 WorkflowRhCPL wfWithEssai = workflows.stream()
                     .filter(w -> "VALIDE".equals(w.getCodeStatutWorkflow()) &&
-                                 (activeContratId.equals(w.getIdContratCible()) || activeContratId.equals(w.getIdContratSource())) &&
+                                 (activeContratId.equals(w.getIdContratCible()) || 
+                                  (activeContratId.equals(w.getIdContratSource()) && w.getIdContratCible() == null)) &&
                                  (w.getDateFinEssai() != null || w.getDureeEssaiMois() != null))
                     .findFirst().orElse(null);
                 if (wfWithEssai != null) {

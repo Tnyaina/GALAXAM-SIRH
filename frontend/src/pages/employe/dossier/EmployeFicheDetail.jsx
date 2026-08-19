@@ -42,7 +42,7 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto">
-            <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -67,7 +67,7 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
                             </div>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-1.5 text-ink-400 hover:text-ink-800 dark:hover:text-white hover:bg-ink-100 dark:hover:bg-ink-800 rounded-sm transition-colors cursor-pointer">
+                    <button onClick={onClose} className="p-1.5 text-ink-400 hover:text-ink-800 dark:hover:text-white hover:bg-ink-100 dark:hover:bg-ink-800 rounded-none  cursor-pointer">
                         <X size={18} />
                     </button>
                 </div>
@@ -232,7 +232,7 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
                         {emp.estActif ? (
                             <button
                                 onClick={() => onToggleStatus && onToggleStatus(detailData)}
-                                className="px-3 py-1.5 text-xs font-bold text-danger-500 hover:bg-danger-500/10 rounded-sm transition-all cursor-pointer flex items-center gap-1.5"
+                                className="px-3 py-1.5 text-xs font-bold text-danger-500 hover:bg-danger-500/10 rounded-none  cursor-pointer flex items-center gap-1.5"
                             >
                                 <Power size={14} />
                                 Désactiver
@@ -240,7 +240,7 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
                         ) : (
                             <button
                                 onClick={() => onToggleStatus && onToggleStatus(detailData)}
-                                className="px-3 py-1.5 text-xs font-bold text-success-500 hover:bg-success-500/10 rounded-sm transition-all cursor-pointer flex items-center gap-1.5"
+                                className="px-3 py-1.5 text-xs font-bold text-success-500 hover:bg-success-500/10 rounded-none  cursor-pointer flex items-center gap-1.5"
                             >
                                 <Power size={14} />
                                 Réactiver

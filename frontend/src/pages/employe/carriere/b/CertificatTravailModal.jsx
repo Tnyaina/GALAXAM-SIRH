@@ -145,9 +145,9 @@ export default function CertificatTravailModal({
             {/* Modale Container */}
             <div
                 className={`
-                    relative bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-lg shadow-2xl
+                    relative bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-none shadow-2xl
                     w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col
-                    transform transition-all duration-300 ease-out print:shadow-none print:border-none print:w-full print:max-w-none print:h-auto print:max-h-none print:overflow-visible print:transform-none print:p-0 print:bg-white
+                    transform    print:shadow-none print:border-none print:w-full print:max-w-none print:h-auto print:max-h-none print:overflow-visible print:transform-none print:p-0 print:bg-white
                     ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
                 `}
             >
@@ -168,7 +168,7 @@ export default function CertificatTravailModal({
                         >
                             Imprimer / Imprimer en PDF
                         </Button>
-                        <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-sm">
+                        <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-none">
                             <X size={20} />
                         </button>
                     </div>
@@ -178,11 +178,11 @@ export default function CertificatTravailModal({
                 <div className="px-6 py-2.5 bg-brand-500/5 dark:bg-brand-500/10 border-b border-ink-150 dark:border-ink-700 flex flex-wrap items-center justify-between gap-3 flex-shrink-0 print:hidden text-xs">
                     <div className="flex items-center gap-2">
                         <span className="font-semibold text-ink-600 dark:text-ink-300">Base d'ancienneté :</span>
-                        <div className="inline-flex p-0.5 bg-ink-150 dark:bg-ink-800 rounded-sm">
+                        <div className="inline-flex p-0.5 bg-ink-150 dark:bg-ink-800 rounded-none">
                             <button
                                 type="button"
                                 onClick={() => setTypeAnciennete('contrat')}
-                                className={`px-3 py-1 text-xs font-semibold rounded-xs transition-all cursor-pointer ${
+                                className={`px-3 py-1 text-xs font-semibold rounded-xs  cursor-pointer ${
                                     typeAnciennete === 'contrat'
                                         ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs font-bold'
                                         : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-white'
@@ -193,7 +193,7 @@ export default function CertificatTravailModal({
                             <button
                                 type="button"
                                 onClick={() => setTypeAnciennete('globale')}
-                                className={`px-3 py-1 text-xs font-semibold rounded-xs transition-all cursor-pointer ${
+                                className={`px-3 py-1 text-xs font-semibold rounded-xs  cursor-pointer ${
                                     typeAnciennete === 'globale'
                                         ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs font-bold'
                                         : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-white'

@@ -119,12 +119,12 @@ export default function RecapitulatifBrouillonModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto">
-            <div className="bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-2xl max-w-3xl w-full my-8 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl max-w-3xl w-full my-8 overflow-hidden flex flex-col max-h-[90vh]">
                 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 bg-ink-50/80 dark:bg-ink-950/60 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-brand-500/10 text-brand-500 rounded-full flex items-center justify-center font-bold">
+                        <div className="w-10 h-10 bg-brand-500/10 text-brand-500 rounded-none flex items-center justify-center font-bold">
                             <FileText size={20} />
                         </div>
                         <div>
@@ -149,7 +149,7 @@ export default function RecapitulatifBrouillonModal({
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-sm">
+                    <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-none">
                         <X size={18} />
                     </button>
                 </div>
@@ -157,7 +157,7 @@ export default function RecapitulatifBrouillonModal({
                 {/* Body Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     {errorMsg && (
-                        <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 rounded-sm p-4 text-xs flex items-center gap-2 font-medium">
+                        <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 rounded-none p-4 text-xs flex items-center gap-2 font-medium">
                             <ShieldAlert size={16} className="flex-shrink-0" />
                             <span>{errorMsg}</span>
                         </div>
@@ -165,7 +165,7 @@ export default function RecapitulatifBrouillonModal({
 
                     {/* Alerte Information */}
                     {isBrouillon ? (
-                        <div className="bg-brand-500/10 border border-brand-500/20 p-4 rounded-sm flex items-start gap-3">
+                        <div className="bg-brand-500/10 border border-brand-500/20 p-4 rounded-none flex items-start gap-3">
                             <Clock size={18} className="text-brand-500 flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
                                 <p className="font-bold text-brand-600 dark:text-brand-400">
@@ -177,7 +177,7 @@ export default function RecapitulatifBrouillonModal({
                             </div>
                         </div>
                     ) : isValide ? (
-                        <div className="bg-success-500/10 border border-success-500/20 p-4 rounded-sm flex items-start gap-3">
+                        <div className="bg-success-500/10 border border-success-500/20 p-4 rounded-none flex items-start gap-3">
                             <CheckCircle size={18} className="text-success-600 flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
                                 <p className="font-bold text-success-700 dark:text-success-400">
@@ -189,7 +189,7 @@ export default function RecapitulatifBrouillonModal({
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-danger-500/10 border border-danger-500/20 p-4 rounded-sm flex items-start gap-3">
+                        <div className="bg-danger-500/10 border border-danger-500/20 p-4 rounded-none flex items-start gap-3">
                             <XCircle size={18} className="text-danger-600 flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
                                 <p className="font-bold text-danger-700 dark:text-danger-400">
@@ -204,7 +204,7 @@ export default function RecapitulatifBrouillonModal({
 
                     {/* Bloc Synthèse Période d'Essai si l'événement concerne l'essai */}
                     {(isConfirmationEssai || isRenouvellementEssai || (isEmbauche && (workflowCpl.dureeEssaiMois || workflowCpl.dateFinEssai))) && (
-                        <div className="bg-warning-500/10 border border-warning-500/30 p-4 rounded-sm space-y-2">
+                        <div className="bg-warning-500/10 border border-warning-500/30 p-4 rounded-none space-y-2">
                             <div className="flex justify-between items-center text-xs font-bold text-warning-800 dark:text-warning-300">
                                 <span className="flex items-center gap-1.5">
                                     <Clock size={16} /> Synthèse Période d'Essai — {workflowCpl.libelleTypeEvenement || 'Mouvement'}
@@ -237,7 +237,7 @@ export default function RecapitulatifBrouillonModal({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         
                         {/* Carte 1 : Contrat de Travail */}
-                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-sm space-y-3">
+                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-none space-y-3">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 border-b border-ink-150 dark:border-ink-700 pb-2 flex items-center gap-1.5">
                                 <Building size={14} /> Contrat de Travail
                             </h3>
@@ -260,7 +260,7 @@ export default function RecapitulatifBrouillonModal({
                         </div>
 
                         {/* Carte 2 : Affectation & Rémunération */}
-                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-sm space-y-3">
+                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-none space-y-3">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 border-b border-ink-150 dark:border-ink-700 pb-2 flex items-center gap-1.5">
                                 <Landmark size={14} /> Affectation & Rémunération
                             </h3>
@@ -280,7 +280,7 @@ export default function RecapitulatifBrouillonModal({
 
                     {/* Bloc 3 : Motif & Justification */}
                     {(workflowCpl.motif || workflowCpl.commentaire) && (
-                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-sm space-y-2 text-xs">
+                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-none space-y-2 text-xs">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-ink-500 border-b border-ink-150 dark:border-ink-700 pb-2">
                                 {isEmbauche ? 'Motif & Justification de l\'embauche' : 'Motif & Justification de la décision RH'}
                             </h3>
@@ -297,7 +297,7 @@ export default function RecapitulatifBrouillonModal({
 
                     {/* Commentaire de validation — visible en continu, pas d'étape intermédiaire pour valider */}
                     {isBrouillon && !isCancelling && (
-                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-sm space-y-1">
+                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-none space-y-1">
                             <Textarea
                                 id="commentaireValidation"
                                 name="commentaireValidation"
@@ -312,7 +312,7 @@ export default function RecapitulatifBrouillonModal({
 
                     {/* Zone de confirmation pour l'annulation — motif obligatoire, seule action qui justifie une étape dédiée */}
                     {(isBrouillon || isPlanifieFutur) && isCancelling && (
-                        <div className="p-4 border rounded-sm space-y-3 bg-danger-500/10 border-danger-500/30">
+                        <div className="p-4 border rounded-none space-y-3 bg-danger-500/10 border-danger-500/30">
                             <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-danger-700 dark:text-danger-400">
                                 <AlertTriangle size={16} />
                                 {isPlanifieFutur ? 'Confirmation de l\'annulation de la planification RH' : 'Confirmation de l\'annulation du brouillon'}

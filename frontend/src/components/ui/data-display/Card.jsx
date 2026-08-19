@@ -25,7 +25,7 @@ export function Card({
         'bg-[var(--color-surface)] text-[var(--color-fg)] rounded-none',
         bordered ? 'border border-[var(--color-border-subtle)]' : '',
         shadows[shadow] ?? shadows.sm,
-        hover ? 'transition-all duration-150 hover:border-[var(--color-brand-500)] cursor-pointer' : '',
+        hover ? '  hover:border-[var(--color-brand-500)] cursor-pointer' : '',
         padding ? 'p-6' : '',
         className,
       ]

@@ -4,8 +4,10 @@ import java.sql.Connection;
 import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.api.dto.paieconfig.CalendrierFerieRequest;
+import mg.galaxam.sirh.api.dto.paieconfig.PeriodeChomeeRequest;
 import mg.galaxam.sirh.api.dto.paieconfig.SiteCalendrierFerieRequest;
 import mg.galaxam.sirh.model.paieconfig.RefCalendrierFerie;
+import mg.galaxam.sirh.model.paieconfig.RefPeriodeChomee;
 import mg.galaxam.sirh.model.paieconfig.SiteCalendrierFerie;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -166,6 +168,116 @@ public class CalendrierFerieController {
 
                 c.commit();
                 return ResponseEntity.ok("Affectation supprimée.");
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    // Périodes Chômées Exceptionnelles
+    @GetMapping("/periodes")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getAllPeriodesChomees() {
+        try (Connection c = dataSource.getConnection()) {
+            List<RefPeriodeChomee> list = RefPeriodeChomee.listAll(c);
+            return ResponseEntity.ok(list);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la récupération des périodes chômées.");
+        }
+    }
+
+    @PostMapping("/periodes")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> createPeriodeChomee(@RequestBody PeriodeChomeeRequest request) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefPeriodeChomee pc = new RefPeriodeChomee();
+                pc.setLibelle(request.getLibelle());
+                pc.setIdSite(request.getIdSite());
+                pc.setDateDebut(new java.sql.Date(request.getDateDebut().getTime()));
+                if (request.getDateFin() != null) {
+                    pc.setDateFin(new java.sql.Date(request.getDateFin().getTime()));
+                }
+                if (request.getEstPaye() != null) pc.setEstPaye(request.getEstPaye());
+                if (request.getTauxPaiement() != null) pc.setTauxPaiement(request.getTauxPaiement());
+
+                pc.save(c);
+                AuditLog.audit(c, "CREATION", "ref_periode_chomee", String.valueOf(pc.getIdPeriode()), null, pc);
+
+                c.commit();
+                return ResponseEntity.status(HttpStatus.CREATED).body(pc);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    @PutMapping("/periodes/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> updatePeriodeChomee(@PathVariable int id, @RequestBody PeriodeChomeeRequest request) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefPeriodeChomee pc = new RefPeriodeChomee();
+                RefPeriodeChomee existing = (RefPeriodeChomee) pc.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Période non trouvée.");
+                }
+
+                existing.setLibelle(request.getLibelle());
+                existing.setIdSite(request.getIdSite());
+                existing.setDateDebut(new java.sql.Date(request.getDateDebut().getTime()));
+                if (request.getDateFin() != null) {
+                    existing.setDateFin(new java.sql.Date(request.getDateFin().getTime()));
+                } else {
+                    existing.setDateFin(null);
+                }
+                if (request.getEstPaye() != null) existing.setEstPaye(request.getEstPaye());
+                if (request.getTauxPaiement() != null) existing.setTauxPaiement(request.getTauxPaiement());
+
+                existing.update(c);
+                AuditLog.audit(c, "MODIFICATION", "ref_periode_chomee", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    @DeleteMapping("/periodes/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deletePeriodeChomee(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefPeriodeChomee pc = new RefPeriodeChomee();
+                RefPeriodeChomee existing = (RefPeriodeChomee) pc.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Période non trouvée.");
+                }
+
+                existing.delete(c);
+                AuditLog.audit(c, "SUPPRESSION", "ref_periode_chomee", String.valueOf(id), existing, null);
+
+                c.commit();
+                return ResponseEntity.ok("Période supprimée.");
             } catch (Exception ex) {
                 c.rollback();
                 return ResponseEntity.badRequest().body(ex.getMessage());

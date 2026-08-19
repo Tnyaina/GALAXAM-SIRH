@@ -213,9 +213,9 @@ export default function RuptureContratModal({
             <div className="absolute inset-0" onClick={onClose} />
             <div
                 className={`
-                    relative bg-white dark:bg-ink-900 rounded-sm border border-ink-150 dark:border-ink-700 shadow-2xl
+                    relative bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl
                     w-full max-w-[1440px] max-h-[95vh] overflow-hidden flex flex-col
-                    transform transition-all duration-300 ease-out
+                    transform   
                     ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
                 `}
             >
@@ -233,12 +233,12 @@ export default function RuptureContratModal({
                             <button
                                 type="button"
                                 onClick={() => setShowPreviewMobile(v => !v)}
-                                className="lg:hidden flex items-center gap-1.5 text-xs font-semibold text-danger-600 border border-danger-500/30 rounded-sm px-2.5 py-1.5"
+                                className="lg:hidden flex items-center gap-1.5 text-xs font-semibold text-danger-600 border border-danger-500/30 rounded-none px-2.5 py-1.5"
                             >
                                 {showPreviewMobile ? <EyeOff size={14} /> : <Eye size={14} />}
                                 {showPreviewMobile ? 'Masquer l\'aperçu' : 'Voir le document'}
                             </button>
-                            <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-sm">
+                            <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-none">
                                 <X size={20} />
                             </button>
                         </div>
@@ -251,7 +251,7 @@ export default function RuptureContratModal({
                     {/* COLONNE GAUCHE (6/12) : Formulaire */}
                     <form onSubmit={handleSubmit} className={`p-7 space-y-6 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
                         {errorMsg && (
-                            <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-4 rounded-sm text-xs font-semibold flex items-center gap-2">
+                            <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-4 rounded-none text-xs font-semibold flex items-center gap-2">
                                 <ShieldAlert size={16} className="flex-shrink-0" />
                                 <span>{errorMsg}</span>
                             </div>
@@ -328,7 +328,7 @@ export default function RuptureContratModal({
                                                 name="preavisEffectue"
                                                 checked={Boolean(formData.preavisEffectue)}
                                                 onChange={handleChange}
-                                                className="w-4 h-4 text-danger-600 rounded border-ink-300 focus:ring-danger-500 cursor-pointer"
+                                                className="w-4 h-4 text-danger-600 rounded-none border-ink-300 focus:ring-danger-500 cursor-pointer"
                                             />
                                             <label htmlFor="preavisEffectue" className="text-xs font-bold text-ink-900 dark:text-white cursor-pointer">
                                                 Le préavis est exécuté/effectué par le salarié
@@ -371,7 +371,7 @@ export default function RuptureContratModal({
                                 <FileSignature size={14} className="text-danger-500" />
                                 Aperçu du document de rupture
                             </h3>
-                            <span className="text-[10px] font-mono font-bold text-danger-500 uppercase tracking-widest bg-danger-500/10 px-2 py-0.5 rounded-sm">
+                            <span className="text-[10px] font-mono font-bold text-danger-500 uppercase tracking-widest bg-danger-500/10 px-2 py-0.5 rounded-none">
                                 Temps Réel
                             </span>
                         </div>

@@ -13,9 +13,18 @@ function sortByRang(items) {
     return [...items].sort((a, b) => (a.rang ?? 0) - (b.rang ?? 0));
 }
 
-const isChildActive = (node, currentPath) => {
+const isUrlMatch = (href, location) => {
+    if (!href || href === '#') return false;
+    const fullPath = location.pathname + location.search;
+    if (href.includes('?')) {
+        return fullPath === href;
+    }
+    return location.pathname === href;
+};
+
+const isChildActive = (node, location) => {
     if (!node.sousMenus) return false;
-    return node.sousMenus.some(child => (child.href && currentPath === child.href) || isChildActive(child, currentPath));
+    return node.sousMenus.some(child => (child.href && isUrlMatch(child.href, location)) || isChildActive(child, location));
 };
 
 function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }) {
@@ -23,13 +32,14 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
     const hasChildren = item.sousMenus?.length > 0;
     const paddingLeft = `${16 + depth * 16}px`;
 
-    const [expanded, setExpanded] = useState(() => hasChildren && isChildActive(item, location.pathname));
+    const [expanded, setExpanded] = useState(() => hasChildren && isChildActive(item, location));
 
     useEffect(() => {
-        if (hasChildren && isChildActive(item, location.pathname)) {
+        if (hasChildren && isChildActive(item, location)) {
             setExpanded(prev => (prev ? prev : true));
         }
-    }, [location.pathname, hasChildren, item]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.pathname, location.search, hasChildren, item]);
 
     const handleParentClick = () => {
         if (collapsed) {
@@ -53,7 +63,7 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
                     className="
                         w-full flex items-center gap-3 pr-4 py-2.5
                         text-sm font-semibold rounded-none
-                        transition-colors duration-150 cursor-pointer
+                          cursor-pointer
                         hover:bg-[var(--color-sidebar-hover-bg)] hover:text-[var(--color-sidebar-fg-hover)]
                     "
                 >
@@ -67,14 +77,14 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
                     </span>
                     <ChevronDown
                         size={14}
-                        className={`shrink-0 transition-transform duration-200 ${
+                        className={`shrink-0   ${
                             expanded ? 'rotate-180 opacity-100' : 'opacity-60'
                         } ${collapsed ? 'lg:hidden' : ''}`}
                     />
                 </button>
 
                 <div
-                    className={`grid transition-all duration-200 ${
+                    className={`grid   ${
                         expanded && !collapsed ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
                     } ${collapsed ? 'lg:hidden' : ''}`}
                 >
@@ -95,6 +105,8 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
         );
     }
 
+    const isActive = isUrlMatch(item.href, location);
+
     return (
         <li>
             <NavLink
@@ -102,15 +114,15 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
                 end={true}
                 onClick={onClose}
                 title={collapsed ? item.libelle : undefined}
-                style={({ isActive }) => ({
+                style={{
                     paddingLeft,
                     backgroundColor: isActive ? 'var(--color-sidebar-active-bg)' : 'transparent',
                     color: isActive ? 'var(--color-sidebar-fg-active)' : 'var(--color-sidebar-fg)',
                     borderColor: isActive ? 'var(--color-sidebar-brand)' : 'transparent'
-                })}
+                }}
                 className="
                     group relative flex items-center gap-3 pr-4 py-2.5 text-sm font-medium
-                    border-l-2 rounded-none transition-colors duration-150
+                    border-l-2 rounded-none  
                     hover:bg-[var(--color-sidebar-hover-bg)] hover:text-[var(--color-sidebar-fg-hover)]
                 "
             >
@@ -157,7 +169,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                 className={`
                     fixed inset-y-0 left-0 z-50 flex flex-col rounded-none
                     bg-[var(--color-sidebar-bg)] border-r border-[var(--color-sidebar-border)] shadow-lg
-                    transition-all duration-300 ease-in-out
+                      
                     lg:static lg:translate-x-0 lg:shadow-none
                     w-[260px] ${collapsed ? 'lg:w-[76px]' : 'lg:w-[260px]'}
                     ${open ? 'translate-x-0' : '-translate-x-full'}
@@ -175,7 +187,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                         w-6 h-6 items-center justify-center rounded-none
                         border border-[var(--color-sidebar-border)]
                         hover:text-[var(--color-sidebar-fg-hover)] hover:border-[var(--color-sidebar-brand)]
-                        shadow-sm transition-colors duration-150 cursor-pointer
+                        shadow-sm   cursor-pointer
                     "
                 >
                     {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
@@ -207,7 +219,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                     {loading && (
                         <div className="px-4 space-y-2">
                             {[...Array(5)].map((_, i) => (
-                                <div key={i} className="h-8 bg-[var(--color-sidebar-hover-bg)] animate-pulse rounded-none" />
+                                <div key={i} className="h-8 bg-[var(--color-sidebar-hover-bg)]  rounded-none" />
                             ))}
                         </div>
                     )}

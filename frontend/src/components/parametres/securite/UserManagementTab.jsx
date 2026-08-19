@@ -267,7 +267,7 @@ export default function UserManagementTab() {
                                     <div className="flex justify-end items-center gap-2">
                                         <button
                                             onClick={() => handleOpenEditModal(user)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none transition-all cursor-pointer"
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
                                             title="Modifier"
                                         >
                                             <Edit2 size={16} />
@@ -275,14 +275,14 @@ export default function UserManagementTab() {
                                         {user.estActif ? (
                                             <button
                                                 onClick={() => handleOpenDeactivateModal(user)}
-                                                className="px-2 py-1 text-xs font-bold text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none transition-all cursor-pointer uppercase"
+                                                className="px-2 py-1 text-xs font-bold text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none  cursor-pointer uppercase"
                                             >
                                                 Désactiver
                                             </button>
                                         ) : (
                                             <button
                                                 onClick={() => handleActivate(user)}
-                                                className="px-2 py-1 text-xs font-bold text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10 rounded-none transition-all cursor-pointer uppercase"
+                                                className="px-2 py-1 text-xs font-bold text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10 rounded-none  cursor-pointer uppercase"
                                             >
                                                 Activer
                                             </button>

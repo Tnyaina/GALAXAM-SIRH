@@ -34,7 +34,7 @@ export function useDashboard() {
         return () => controller.abort();
     }, [load]);
 
-    return { data, loading, error, refresh: (sig) => load(sig), lastRefresh };
+    return { data, loading, error, refresh: () => load(), lastRefresh };
 }
 
 /**
@@ -125,9 +125,16 @@ export function useNotifications() {
             load(true);
         }, 15000);
 
+        // Rafraîchissement manuel déclenché par d'autres composants
+        const handleForceRefresh = () => {
+            load(true);
+        };
+        window.addEventListener('refresh-notifications', handleForceRefresh);
+
         return () => {
             controller.abort();
             clearInterval(timer);
+            window.removeEventListener('refresh-notifications', handleForceRefresh);
         };
     }, [load]);
 
@@ -135,7 +142,7 @@ export function useNotifications() {
         notifications, 
         totalNonLues, 
         loading, 
-        refresh: load, 
+        refresh: () => load(false), 
         marquerToutesLues, 
         marquerUne,
         annulerMarquage

@@ -38,7 +38,7 @@ export function ToastProvider({ children }) {
             className={`
               bg-[var(--color-surface)] border border-[var(--color-border-subtle)]
               rounded-none shadow-lg ${borders[t.type] || borders.info}
-              p-4 flex items-start gap-3 transition-all duration-150 animate-in slide-in-from-right
+              p-4 flex items-start gap-3   animate-in slide-in-from-right
             `}
           >
             {icons[t.type] || icons.info}
@@ -48,7 +48,7 @@ export function ToastProvider({ children }) {
             </div>
             <button
               onClick={() => remove(t.id)}
-              className="p-0.5 text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)] transition-colors rounded-none"
+              className="p-0.5 text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]  rounded-none"
               aria-label="Fermer la notification"
             >
               <X size={15} />
