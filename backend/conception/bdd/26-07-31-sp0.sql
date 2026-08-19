@@ -95,5 +95,4 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 
 -- ROLE_AGENT_POINTAGE (id_role 2) : Accès au Tableau de bord et au module de Pointage
 INSERT INTO role_menu (id_role, id_menu) VALUES
-(2, 'DASHBOARD'),
 (2, 'POINTAGE');

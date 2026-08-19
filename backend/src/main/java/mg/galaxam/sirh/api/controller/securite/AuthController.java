@@ -46,7 +46,7 @@ public class AuthController {
                 .secure(isSecure)
                 .path("/api/auth")
                 .maxAge(maxAgeSeconds)
-                .sameSite("Lax")
+                .sameSite(isSecure ? "None" : "Lax")
                 .build();
     }
 
@@ -86,7 +86,7 @@ public class AuthController {
                         String refreshToken = jwtService.generateRefreshToken(userDetails);
 
                         // Création du cookie HTTP-Only pour le Refresh Token
-                        boolean isSecure = httpRequest != null && httpRequest.isSecure();
+                        boolean isSecure = httpRequest != null && (httpRequest.isSecure() || "https".equalsIgnoreCase(httpRequest.getHeader("X-Forwarded-Proto")));
                         ResponseCookie refreshCookie = createRefreshCookie(refreshToken, isSecure, jwtService.getRefreshTokenExpirationMs() / 1000);
 
                         Map<String, Object> responseBody = new HashMap<>();
@@ -141,7 +141,7 @@ public class AuthController {
             String newAccessToken = jwtService.generateAccessToken(userDetails);
             String newRefreshToken = jwtService.generateRefreshToken(userDetails);
 
-            boolean isSecure = httpRequest != null && httpRequest.isSecure();
+            boolean isSecure = httpRequest != null && (httpRequest.isSecure() || "https".equalsIgnoreCase(httpRequest.getHeader("X-Forwarded-Proto")));
             ResponseCookie refreshCookie = createRefreshCookie(newRefreshToken, isSecure, jwtService.getRefreshTokenExpirationMs() / 1000);
 
             Map<String, Object> responseBody = new HashMap<>();
@@ -157,7 +157,7 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest httpRequest) {
-        boolean isSecure = httpRequest != null && httpRequest.isSecure();
+        boolean isSecure = httpRequest != null && (httpRequest.isSecure() || "https".equalsIgnoreCase(httpRequest.getHeader("X-Forwarded-Proto")));
         ResponseCookie deleteCookie = createRefreshCookie("", isSecure, 0);
 
         return ResponseEntity.ok()
