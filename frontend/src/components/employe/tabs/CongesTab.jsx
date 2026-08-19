@@ -233,6 +233,11 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                           >
                             {d.libelleStatutDemande}
                           </Badge>
+                          {d.codeStatutDemande === 'REFUSE' && d.motifRefus && (
+                            <div className="text-[11px] text-danger-500 font-medium mt-1 max-w-xs leading-tight" title={d.motifRefus}>
+                              Motif : {d.motifRefus}
+                            </div>
+                          )}
                         </Td>
                         <Td className="font-data text-xs">
                           Du {formatDateOnly(d.dateDebut)} au {formatDateOnly(d.dateFin)}

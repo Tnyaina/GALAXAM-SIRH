@@ -39,20 +39,30 @@ export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClo
     }
   }, [isOpen, idEmployeProp]);
 
-  // Pré-remplissage des durées fixes légales (ex: Paternité 3j, Maternité 98j)
+  // Pré-remplissage des durées fixes légales (ex: Paternité 3j, Maternité 98j, Événements familiaux)
   useEffect(() => {
-    if (selectedType && selectedType.dureeFixeJours && dateDebut) {
-      const dDebut = new Date(dateDebut);
-      let nbJoursFixes = Number(selectedType.dureeFixeJours);
+    let nbJoursFixes = null;
+
+    if (selectedType && selectedType.dureeFixeJours) {
+      nbJoursFixes = Number(selectedType.dureeFixeJours);
       if (isMaternite && extensionPathologiqueMaternite) {
         nbJoursFixes = 119;
       }
+    } else if (isExceptionnel && idMotifEvenementFamilial) {
+      const motif = motifsFamiliaux.find((m) => String(m.idMotif) === String(idMotifEvenementFamilial));
+      if (motif && motif.nbJoursAutorises) {
+        nbJoursFixes = Number(motif.nbJoursAutorises);
+      }
+    }
+
+    if (nbJoursFixes && dateDebut) {
+      const dDebut = new Date(dateDebut);
       const dFin = new Date(dDebut);
       dFin.setDate(dFin.getDate() + nbJoursFixes - 1);
       setDateFin(dFin.toISOString().split('T')[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idTypeConge, dateDebut, extensionPathologiqueMaternite]);
+  }, [idTypeConge, idMotifEvenementFamilial, dateDebut, extensionPathologiqueMaternite]);
 
   // Simulation automatique des jours calendaires stricts + validation inline des dates
   useEffect(() => {

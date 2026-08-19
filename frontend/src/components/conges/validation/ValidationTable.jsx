@@ -141,6 +141,11 @@ export default function ValidationTable({
                           </Badge>
                         </div>
                         <div className="flex flex-wrap gap-1 mt-1">
+                          {d.codeStatutDemande === 'REFUSE' && d.motifRefus && (
+                            <div className="text-[11px] text-danger-500 font-medium leading-tight max-w-xs" title={d.motifRefus}>
+                              Motif : {d.motifRefus}
+                            </div>
+                          )}
                           {d.derogationSoldeNegatif   && <Badge variant="danger"  size="sm">Solde négatif</Badge>}
                           {!d.justificatifFourni && d.codeTypeConge === 'MALADIE' && <Badge variant="warning" size="sm">Justificatif manquant</Badge>}
                         </div>
