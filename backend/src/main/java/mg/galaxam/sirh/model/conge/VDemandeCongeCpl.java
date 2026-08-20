@@ -40,6 +40,8 @@ public class VDemandeCongeCpl extends ClassMere {
     private boolean derogationSoldeNegatif;
     private boolean derogationDelaiPreavis;
     private boolean extensionPathologiqueMaternite;
+    private boolean estDemiJournee;
+    private String momentDemiJournee;
     private boolean justificatifFourni;
     private String commentaire;
 
@@ -247,6 +249,8 @@ public class VDemandeCongeCpl extends ClassMere {
         obj.setDerogationSoldeNegatif(rs.getBoolean("derogation_solde_negatif"));
         obj.setDerogationDelaiPreavis(rs.getBoolean("derogation_delai_preavis"));
         obj.setExtensionPathologiqueMaternite(rs.getBoolean("extension_pathologique_maternite"));
+        obj.setEstDemiJournee(rs.getBoolean("est_demi_journee"));
+        obj.setMomentDemiJournee(rs.getString("moment_demi_journee"));
         obj.setJustificatifFourni(rs.getBoolean("justificatif_fourni"));
         obj.setCommentaire(rs.getString("commentaire"));
 
@@ -336,6 +340,12 @@ public class VDemandeCongeCpl extends ClassMere {
 
     public boolean isExtensionPathologiqueMaternite() { return extensionPathologiqueMaternite; }
     public void setExtensionPathologiqueMaternite(boolean extensionPathologiqueMaternite) { this.extensionPathologiqueMaternite = extensionPathologiqueMaternite; }
+
+    public boolean isEstDemiJournee() { return estDemiJournee; }
+    public void setEstDemiJournee(boolean estDemiJournee) { this.estDemiJournee = estDemiJournee; }
+
+    public String getMomentDemiJournee() { return momentDemiJournee; }
+    public void setMomentDemiJournee(String momentDemiJournee) { this.momentDemiJournee = momentDemiJournee; }
 
     public boolean isJustificatifFourni() { return justificatifFourni; }
     public void setJustificatifFourni(boolean justificatifFourni) { this.justificatifFourni = justificatifFourni; }

@@ -86,7 +86,7 @@ export default function ValidationModals({
                 {[
                   ['Date de début',      formatDate(selectedDemande.dateDebut)],
                   ['Date de fin',        formatDate(selectedDemande.dateFin)],
-                  ['Décompte calendaire strict', `${selectedDemande.nbJoursDecomptes} jours`],
+                  ['Décompte calendaire strict', selectedDemande.estDemiJournee ? `0,5 jour (${selectedDemande.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'})` : `${selectedDemande.nbJoursDecomptes} jours`],
                   ['Date de soumission', formatDate(selectedDemande.dateDemande)],
                 ].map(([label, value]) => (
                   <div key={label}>
@@ -98,54 +98,48 @@ export default function ValidationModals({
 
               {/* Motif familial */}
               {selectedDemande.libelleMotifEvenement && (
-                <div className="p-3 bg-warning-500/8 border border-warning-500/20 space-y-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-warning-500">Motif familial</span>
-                  <p className="text-sm font-semibold text-[var(--color-fg)]">{selectedDemande.libelleMotifEvenement}</p>
+                <div className="p-3 border border-warning-500/30 bg-warning-500/5 text-xs text-warning-600 dark:text-warning-400 font-semibold">
+                  Motif d'événement familial : {selectedDemande.libelleMotifEvenement}
                 </div>
               )}
 
               {/* Commentaire */}
               {selectedDemande.commentaire && (
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Commentaire</span>
-                  <p className="text-sm bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3 text-[var(--color-fg)] leading-relaxed">
-                    {selectedDemande.commentaire}
+                <div className="space-y-1 pt-2 border-t border-[var(--color-border-subtle)]">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Commentaire de l'employé</span>
+                  <p className="text-xs text-[var(--color-fg)] italic bg-[var(--color-bg-subtle)] p-3 rounded-none border border-[var(--color-border-subtle)]">
+                    "{selectedDemande.commentaire}"
                   </p>
                 </div>
               )}
 
-              {/* Motif de refus */}
-              {selectedDemande.motifRefus && (
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-danger-500">Motif du refus</span>
-                  <p className="text-sm bg-danger-500/8 border border-danger-500/25 p-3 text-[var(--color-fg)] leading-relaxed">
-                    {selectedDemande.motifRefus}
-                  </p>
-                </div>
-              )}
+              {/* Justificatif */}
+              <div className="flex items-center gap-2 pt-2 border-t border-[var(--color-border-subtle)]">
+                <span className="text-xs font-bold text-[var(--color-fg-muted)]">Justificatif fourni :</span>
+                <Badge variant={selectedDemande.justificatifFourni ? 'success' : 'neutral'} size="sm">
+                  {selectedDemande.justificatifFourni ? 'Oui' : 'Non'}
+                </Badge>
+              </div>
 
-              {/* Dérogations */}
-              {(selectedDemande.derogationSoldeNegatif || selectedDemande.derogationDelaiPreavis || selectedDemande.extensionPathologiqueMaternite || selectedDemande.justificatifFourni) && (
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Mentions</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedDemande.derogationSoldeNegatif        && <Badge variant="danger"  size="sm">Dérogation solde négatif</Badge>}
-                    {selectedDemande.derogationDelaiPreavis        && <Badge variant="warning" size="sm">Dérogation préavis</Badge>}
-                    {selectedDemande.extensionPathologiqueMaternite && <Badge variant="danger"  size="sm">Extension pathologique (119j)</Badge>}
-                    {selectedDemande.justificatifFourni             && <Badge variant="success" size="sm">Justificatif fourni</Badge>}
-                  </div>
+              {/* Motif de refus si refusé */}
+              {selectedDemande.codeStatutDemande === 'REFUSE' && selectedDemande.motifRefus && (
+                <div className="p-3 border border-danger-500/30 bg-danger-500/5 space-y-1">
+                  <span className="text-xs font-bold text-danger-500 uppercase tracking-wider">Motif de refus</span>
+                  <p className="text-xs text-danger-600 dark:text-danger-400 font-medium">{selectedDemande.motifRefus}</p>
                 </div>
               )}
             </div>
 
-            {/* Footer avec actions contextuelles */}
-            <div className="flex items-center justify-between p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
+            {/* Actions footer */}
+            <div className="p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between">
               {selectedDemande.codeStatutDemande === 'EN_ATTENTE' ? (
                 <div className="flex items-center gap-2">
-                  <Button variant="danger"  size="sm" iconLeft={<X size={14}/>}
-                    onClick={() => { onCloseDetail(); onOpenRefus(selectedDemande); }}>Refuser</Button>
-                  <Button variant="success" size="sm" iconLeft={<Check size={14}/>}
-                    onClick={() => { onCloseDetail(); onOpenValider(selectedDemande); }}>Valider</Button>
+                  <Button variant="danger" size="sm" iconLeft={<X size={14} />} onClick={() => { onCloseDetail(); onOpenRefus(selectedDemande); }}>
+                    Refuser
+                  </Button>
+                  <Button variant="success" size="sm" iconLeft={<Check size={14} />} onClick={() => { onCloseDetail(); onOpenValider(selectedDemande); }}>
+                    Valider la demande
+                  </Button>
                 </div>
               ) : <span />}
               <Button variant="outline" size="sm" onClick={onCloseDetail}>Fermer</Button>
@@ -158,7 +152,7 @@ export default function ValidationModals({
       <ConfirmDialog
         isOpen={showValiderModal}
         title="Confirmer la validation"
-        message={`Valider la demande de ${selectedDemande?.prenom || ''} ${selectedDemande?.nom || ''} (${selectedDemande?.nbJoursDecomptes} jours de ${selectedDemande?.codeTypeConge}) ?`}
+        message={`Valider la demande de ${selectedDemande?.prenom || ''} ${selectedDemande?.nom || ''} (${selectedDemande?.estDemiJournee ? `0,5 jour ${selectedDemande?.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}` : `${selectedDemande?.nbJoursDecomptes} jours`} de ${selectedDemande?.codeTypeConge}) ?`}
         confirmLabel="Valider la demande"
         confirmVariant="success"
         onConfirm={onConfirmValider}

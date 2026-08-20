@@ -139,7 +139,16 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
 
                     {/* Durée */}
                     <Td className="text-center font-data font-extrabold text-[var(--color-brand-500)] text-xs">
-                      {d.nbJoursDecomptes}j
+                      {d.estDemiJournee ? (
+                        <div>
+                          <span className="text-info-600 dark:text-info-400">0,5j</span>
+                          <div className="text-[10px] text-[var(--color-fg-muted)] font-normal">
+                            {d.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}
+                          </div>
+                        </div>
+                      ) : (
+                        `${d.nbJoursDecomptes}j`
+                      )}
                     </Td>
 
                     {/* Options / Spécificités */}
