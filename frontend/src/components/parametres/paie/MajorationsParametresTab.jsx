@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, CheckCircle, XCircle, Clock, ShieldAlert, X } from 'lucide-react';
+import { Plus, Edit2, CheckCircle, XCircle, Clock, ShieldAlert, X, Info } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
@@ -19,7 +19,7 @@ export default function MajorationsParametresTab() {
     const [showMajorationModal, setShowMajorationModal] = useState(false);
     const [editingMajoration, setEditingMajoration] = useState(null);
     const [majorationFormData, setMajorationFormData] = useState({
-        typeMajoration: '', taux: 0, dateDebut: todayStr, dateFin: ''
+        typeMajoration: '', taux: 0, description: '', dateDebut: todayStr, dateFin: ''
     });
 
     const loadData = async () => {
@@ -83,6 +83,17 @@ export default function MajorationsParametresTab() {
                 </div>
             )}
 
+            {/* Bannière de rappel réglementaire et plafond légal */}
+            <div className="bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/20 p-4 rounded-none flex items-start gap-3">
+                <Info className="text-[var(--color-brand-500)] shrink-0 mt-0.5" size={18} />
+                <div className="text-xs text-[var(--color-fg-muted)] space-y-1">
+                    <p className="font-semibold text-[var(--color-fg)]">Cadre Réglementaire (Décret n°2007-563) :</p>
+                    <p>• Plafond légal maximal d'heures supplémentaires : <span className="font-bold text-[var(--color-fg)]">20h / semaine</span>.</p>
+                    <p>• 41ᵉ à 48ᵉ heure de la semaine : <span className="font-medium text-[var(--color-fg)]">+30%</span> | Au-delà de la 48ᵉ heure : <span className="font-medium text-[var(--color-fg)]">+50%</span>.</p>
+                    <p>• Travail de Nuit (22h - 5h) : <span className="font-medium text-[var(--color-fg)]">+30%</span> | Dimanche : <span className="font-medium text-[var(--color-fg)]">+40%</span> | Férié : <span className="font-medium text-[var(--color-fg)]">+100%</span>.</p>
+                </div>
+            </div>
+
             <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
                 <div className="flex justify-between items-center pb-3 border-b border-[var(--color-border-subtle)]">
                     <div>
@@ -90,12 +101,12 @@ export default function MajorationsParametresTab() {
                             <Clock size={18} className="text-[var(--color-brand-500)]" />
                             Taux de Majoration des Heures Supplémentaires, Nuit, Dimanche, Fériés
                         </h4>
-                        <p className="text-xs text-[var(--color-fg-muted)]">Configuration des pourcentages de majoration appliqués au calcul des heures spéciales.</p>
+                        <p className="text-xs text-[var(--color-fg-muted)]">Configuration et description exacte des taux de majoration appliqués au calcul des heures spéciales.</p>
                     </div>
                     <Button
                         onClick={() => {
                             setEditingMajoration(null);
-                            setMajorationFormData({ typeMajoration: '', taux: 0, dateDebut: todayStr, dateFin: '' });
+                            setMajorationFormData({ typeMajoration: '', taux: 0, description: '', dateDebut: todayStr, dateFin: '' });
                             setActionError(null);
                             setShowMajorationModal(true);
                         }}
@@ -110,6 +121,7 @@ export default function MajorationsParametresTab() {
                 <Table>
                     <Thead>
                         <Th>Type de Majoration</Th>
+                        <Th>Description / Raison Légale</Th>
                         <Th className="text-right">Taux (%)</Th>
                         <Th className="text-right">Taux Multiplicateur</Th>
                         <Th className="text-right">Actions</Th>
@@ -117,7 +129,7 @@ export default function MajorationsParametresTab() {
                     <Tbody>
                         {majorations.length === 0 ? (
                             <Tr>
-                                <Td colSpan={4} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
+                                <Td colSpan={5} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
                                     Aucun taux de majoration configuré.
                                 </Td>
                             </Tr>
@@ -128,6 +140,7 @@ export default function MajorationsParametresTab() {
                                 return (
                                     <Tr key={m.idTauxMajoration}>
                                         <Td isData className="font-bold text-[var(--color-brand-500)]">{m.typeMajoration}</Td>
+                                        <Td isData className="text-xs text-[var(--color-fg)]">{m.description || '-'}</Td>
                                         <Td isData className="text-right font-bold text-[var(--color-warning-500)]">+{percent}%</Td>
                                         <Td isData muted className="text-right">x{mult}</Td>
                                         <Td className="text-right">
@@ -137,6 +150,7 @@ export default function MajorationsParametresTab() {
                                                     setMajorationFormData({
                                                         typeMajoration: m.typeMajoration,
                                                         taux: m.taux,
+                                                        description: m.description || '',
                                                         dateDebut: fmtDateInput(m.dateDebut) || todayStr,
                                                         dateFin: fmtDateInput(m.dateFin) || ''
                                                     });
@@ -183,6 +197,12 @@ export default function MajorationsParametresTab() {
                                 value={majorationFormData.typeMajoration}
                                 onChange={(e) => setMajorationFormData({ ...majorationFormData, typeMajoration: e.target.value })}
                                 placeholder="Ex: HS_30, NUIT, FERIE"
+                            />
+                            <Input
+                                label="Description / Raison"
+                                value={majorationFormData.description}
+                                onChange={(e) => setMajorationFormData({ ...majorationFormData, description: e.target.value })}
+                                placeholder="Ex: 41ᵉ à 48ᵉ heure de la semaine"
                             />
                             <Input
                                 label="Taux (Ex: 0.30 pour +30%)"

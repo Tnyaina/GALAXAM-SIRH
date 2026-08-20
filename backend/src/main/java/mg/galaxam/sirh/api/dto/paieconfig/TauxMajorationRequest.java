@@ -6,6 +6,7 @@ import java.sql.Date;
 public class TauxMajorationRequest {
     private String typeMajoration;
     private BigDecimal taux;
+    private String description;
     private Date dateDebut;
     private Date dateFin;
 
@@ -13,6 +14,8 @@ public class TauxMajorationRequest {
     public void setTypeMajoration(String typeMajoration) { this.typeMajoration = typeMajoration; }
     public BigDecimal getTaux() { return taux; }
     public void setTaux(BigDecimal taux) { this.taux = taux; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
     public Date getDateDebut() { return dateDebut; }
     public void setDateDebut(Date dateDebut) { this.dateDebut = dateDebut; }
     public Date getDateFin() { return dateFin; }
