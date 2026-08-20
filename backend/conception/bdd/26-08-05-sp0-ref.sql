@@ -124,6 +124,7 @@ CREATE TABLE ref_taux_majoration (
     id_taux_majoration SERIAL PRIMARY KEY,
     type_majoration VARCHAR(20) NOT NULL,
     taux NUMERIC(5,2) NOT NULL,
+    description TEXT,
     date_debut DATE NOT NULL,
     date_fin DATE
 );
@@ -288,12 +289,12 @@ INSERT INTO bareme_irsa (numero_tranche, tranche_min, tranche_max, taux, date_de
 (6, 4000001.00, NULL, 25.00, '2026-01-01');
 
 -- 9. Majorations HS / Spéciales
-INSERT INTO ref_taux_majoration (type_majoration, taux, date_debut) VALUES
-('HS_30', 0.30, '2026-01-01'),
-('HS_50', 0.50, '2026-01-01'),
-('NUIT', 0.40, '2026-01-01'),
-('DIMANCHE', 0.30, '2026-01-01'),
-('FERIE', 1.00, '2026-01-01');
+INSERT INTO ref_taux_majoration (type_majoration, taux, description, date_debut) VALUES
+('HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine', '2026-01-01'),
+('HS_50', 0.50, 'Au-delà de la 48ᵉ heure', '2026-01-01'),
+('NUIT', 0.30, 'Heures de nuit (22h - 05h)', '2026-01-01'),
+('DIMANCHE', 0.40, 'Travail le dimanche', '2026-01-01'),
+('FERIE', 1.00, 'Travail jour férié', '2026-01-01');
 
 -- 10. Indemnités & Configuration des Sites (Conforme aux spécifications réelles)
 INSERT INTO ref_indemnite (code, libelle, imposable_irsa) VALUES
@@ -332,4 +333,5 @@ INSERT INTO parametre_global (code_parametre, categorie, valeur, description, da
 ('REDUCTION_IRSA_PAR_ENFANT', 'PAIE', '2000.00', 'Déduction d impôt IRSA par enfant à charge', '2026-01-01'),
 ('SEUIL_HEURES_JOUR', 'RH_GENERAL', '8', 'Nombre d heures normales quotidiennes', '2026-01-01'),
 ('SEUIL_HEURES_SEMAINE', 'RH_GENERAL', '40', 'Nombre d heures normales hebdomadaires', '2026-01-01'),
+('PLAFOND_HEURES_SUPP_SEMAINE', 'RH_GENERAL', '20', 'Plafond légal d heures supplémentaires par semaine (Décret n°2007-563)', '2026-01-01'),
 ('DIVISEUR_HORAIRE_ABSENCE', 'PAIE', '173.33', 'Heures mensuelles conventionnelles pour valoriser une absence', '2026-01-01');

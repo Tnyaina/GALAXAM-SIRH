@@ -58,6 +58,7 @@ public class TauxMajorationController {
                 RefTauxMajoration tm = new RefTauxMajoration();
                 tm.setTypeMajoration(request.getTypeMajoration());
                 tm.setTaux(request.getTaux());
+                tm.setDescription(request.getDescription());
                 tm.setDateDebut(request.getDateDebut());
                 tm.setDateFin(request.getDateFin());
 
@@ -90,6 +91,7 @@ public class TauxMajorationController {
 
                 existing.setTypeMajoration(request.getTypeMajoration());
                 existing.setTaux(request.getTaux());
+                existing.setDescription(request.getDescription());
                 existing.setDateDebut(request.getDateDebut());
                 existing.setDateFin(request.getDateFin());
 

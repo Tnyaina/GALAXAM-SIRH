@@ -116,3 +116,23 @@ L'application compilée s'ouvre sur `http://localhost:4173` et communique avec l
 1. Ouvrez Chrome en **Navigation Privée** (`Cmd + Shift + N`). *(Évite la pollution de mesure causée par vos extensions Chrome)*.
 2. Ouvrez les DevTools (`F12`) ➔ Onglet **Lighthouse**.
 3. Pour tester le site global : Sélectionnez **"Timespan" / "User Flow"**, cliquez sur **"Start timespan"**, naviguez sur plusieurs pages, puis cliquez sur **"End timespan"**.
+
+---
+
+## 🔬 6. Diagnostic & Explications des Alertes de Performance (Lighthouse)
+
+### 6.1. Latence de première requête / TTFB (~1000 ms)
+* **Constat** : Lighthouse indique *"Le serveur a répondu lentement (1006 ms observées)"*.
+* **Explication** : Sur l'hébergement Render (version gratuite), les conteneurs se mettent en veille après 15 minutes d'inactivité. La première requête subit donc un **Cold Start** (démarrage à froid) du serveur backend Java/Spring Boot.
+* **Solution Production** : 
+  * Activer une instance permanente (*Paid Instance*) ou un service de ping/heartbeat (ex: UptimeRobot) pour éviter la mise en veille du serveur.
+  * Mettre en place un CDN (ex: Cloudflare) pour servir les fichiers statiques HTML/CSS/JS directement au plus près des utilisateurs.
+
+### 6.2. Ressources JavaScript non utilisées (~28 Ko sur vendor-react)
+* **Constat** : Lighthouse signale des ressources JS inutilisées sur `vendor-react-xxx.js`.
+* **Explication** : React et React DOM sont regroupés dans un chunk dédié (`vendor-react`). React-DOM inclut la logique du moteur de réconciliation, la gestion du Synthetic Event System et la gestion du Virtual DOM. Lors du premier affichage statique de la page (paint initial), seul un sous-ensemble du moteur React est exécuté, ce que Lighthouse classe techniquement comme "code JS inutilisé".
+* **Impact** : Il s'agit d'un comportement normal et inhérent aux Single Page Applications (SPA) React modernisées avec découpage par vendor.
+
+### 6.3. Optimisation du LCP (Largest Contentful Paint) & Chaînes Critiques
+* **Découpage Granulaire** : Les icônes (`lucide-react`), le client HTTP (`axios`), le routeur (`react-router`) et React sont isolés dans des chunks indépendants via `manualChunks` dans `vite.config.js`.
+* **Affichage Progressif (Skeleton Loading)** : Les widgets du Dashboard (ex: *Échéances de contrats*, *Demandes à valider*) utilisent des Skeletons légers (`SkeletonListRows.jsx`) pour peindre la structure UI immédiatement avant la réception des données JSON.

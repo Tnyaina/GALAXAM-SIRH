@@ -23,6 +23,8 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, referentie
     idMotifEvenementFamilial, setIdMotifEvenementFamilial,
     dateDebut, setDateDebut,
     dateFin, setDateFin,
+    estDemiJournee, setEstDemiJournee,
+    momentDemiJournee, setMomentDemiJournee,
     commentaire, setCommentaire,
     justificatifFourni, setJustificatifFourni,
     
@@ -105,6 +107,10 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, referentie
               setDateDebut={setDateDebut}
               dateFin={dateFin}
               setDateFin={setDateFin}
+              estDemiJournee={estDemiJournee}
+              setEstDemiJournee={setEstDemiJournee}
+              momentDemiJournee={momentDemiJournee}
+              setMomentDemiJournee={setMomentDemiJournee}
               nbJoursDecomptes={nbJoursDecomptes}
               nbJoursOuvres={nbJoursOuvres}
               nbJoursWeekEnd={nbJoursWeekEnd}

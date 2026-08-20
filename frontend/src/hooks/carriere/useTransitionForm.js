@@ -174,19 +174,19 @@ export function useTransitionForm({
                 setErrorMsg('Le type de contrat et le type d\'intervenant de destination sont obligatoires.');
                 return;
             }
-        }
 
-        const selectedTypeContrat = typesContrat.find(tc => String(tc.idTypeContrat) === String(formData.idTypeContrat));
-        const selectedTypeIntervenant = typesIntervenant.find(ti => String(ti.idTypeIntervenant) === String(formData.idTypeIntervenant));
+            const selectedTypeContrat = typesContrat.find(tc => String(tc.idTypeContrat) === String(formData.idTypeContrat));
+            const selectedTypeIntervenant = typesIntervenant.find(ti => String(ti.idTypeIntervenant) === String(formData.idTypeIntervenant));
 
-        if (selectedTypeIntervenant?.code === 'STAGIAIRE' && selectedTypeContrat?.code !== 'STAGE') {
-            setErrorMsg("Un intervenant Stagiaire doit obligatoirement avoir un contrat de type Stage / Convention.");
-            return;
-        }
+            if (selectedTypeIntervenant?.code === 'STAGIAIRE' && selectedTypeContrat?.code !== 'STAGE') {
+                setErrorMsg("Un intervenant Stagiaire doit obligatoirement avoir un contrat de type Stage / Convention.");
+                return;
+            }
 
-        if (selectedTypeContrat?.exigeDateFin && !formData.dateFin) {
-            setErrorMsg(`La date de fin est obligatoire pour le type de contrat "${selectedTypeContrat.libelle || selectedTypeContrat.code}".`);
-            return;
+            if (selectedTypeContrat?.exigeDateFin && !formData.dateFin) {
+                setErrorMsg(`La date de fin est obligatoire pour le type de contrat "${selectedTypeContrat.libelle || selectedTypeContrat.code}".`);
+                return;
+            }
         }
 
         const payload = {

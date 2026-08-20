@@ -181,6 +181,15 @@ simulation exacte du nombre de jours qui seront débités avant que le
 salarié ne valide sa demande, évitant ainsi les contestations liées à
 l'inclusion des jours non travaillés^1^.
 
+### 2.4 Prise en charge des Demi-Journées de Congé (0,5 j)
+
+Afin de répondre à la réalité du terrain et aux besoins d'absences de courte durée (démarches administratives, impératifs personnels), le SIRH GALAXAM supporte la pose de **demi-journées de congé payé (0,5 j)** :
+
+- **Attributs de saisie** : `est_demi_journee = TRUE`, accompagné du choix du moment (`moment_demi_journee IN ('MATIN', 'APRES_MIDI')`).
+- **Contrainte de période** : La date de début et la date de fin doivent être strictement identiques (`date_debut = date_fin`).
+- **Impact sur le solde** : Le décompte est forfaitairement égal à **0,5 jour** (`nb_jours_decomptes = 0.5`).
+- **Traitement en paie** : Étant couverte par un solde de congé payé valide, la demi-journée donne droit au **maintien intégral de salaire (100%)**. Aucune retenue pour heure d'absence n'est opérée sur la paie. Seul le compteur de solde de congé est débité de 0,5 jour.
+
 ### 2.3 Règle Obligatoire de Fractionnement
 
 Afin de préserver le rôle de repos biologique et de récupération

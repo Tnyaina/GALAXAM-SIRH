@@ -26,6 +26,14 @@ L'entreprise applique un décompte en **Jours Calendaires** :
 - **Exemple 1 (1 semaine complète)** : Congé posé du Lundi au Dimanche (reprise le Lundi d'après) \-\> **7 jours décomptés**.  
 - **Exemple 2 (Vendredi posé)** : Si l'employé pose son Vendredi et revient le Lundi \-\> **3 jours décomptés** (Vendredi, Samedi, Dimanche).
 
+### C. Décompte des Demi-Journées de Congé (0,5 j)
+
+Le système autorise la pose de **demi-journées de congé payé** pour répondre aux besoins ponctuels des salariés (ex: démarche le matin, absence l'après-midi) :
+
+- **Règle de saisie** : `est_demi_journee = TRUE`, avec obligatoirement `date_debut = date_fin` et indication du moment (`moment_demi_journee = 'MATIN'` ou `'APRES_MIDI'`).
+- **Décompte du solde** : Le nombre de jours décomptés est fixé à **0,5 jour** (`nb_jours_decomptes = 0.5`).
+- **Paiement en Paie** : La demi-journée de congé payé étant couverte par le solde acquis, elle est **rémunérée à 100%** (aucun retrait sur la fiche de paie). Seul le compteur de solde est débité de 0,5 jour.
+
 ---
 
 ## 3\. Valorisation Financière (Congés vs Absences)

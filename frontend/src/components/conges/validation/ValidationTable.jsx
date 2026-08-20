@@ -125,8 +125,19 @@ export default function ValidationTable({
                         </div>
                       </Td>
                       <Td className="text-center font-data whitespace-nowrap">
-                        <span className="font-bold text-[var(--color-fg)] text-sm">{d.nbJoursDecomptes}</span>
-                        <span className="text-xs text-[var(--color-fg-muted)]"> j</span>
+                        {d.estDemiJournee ? (
+                          <div>
+                            <span className="font-bold text-info-600 dark:text-info-400 text-sm">0,5 j</span>
+                            <div className="text-[10px] text-[var(--color-fg-muted)] font-sans">
+                              {d.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="font-bold text-[var(--color-fg)] text-sm">{d.nbJoursDecomptes}</span>
+                            <span className="text-xs text-[var(--color-fg-muted)]"> j</span>
+                          </>
+                        )}
                       </Td>
                       <Td>
                         <div className="inline-flex items-center gap-1.5">
@@ -141,6 +152,11 @@ export default function ValidationTable({
                           </Badge>
                         </div>
                         <div className="flex flex-wrap gap-1 mt-1">
+                          {d.codeStatutDemande === 'REFUSE' && d.motifRefus && (
+                            <div className="text-[11px] text-danger-500 font-medium leading-tight max-w-xs" title={d.motifRefus}>
+                              Motif : {d.motifRefus}
+                            </div>
+                          )}
                           {d.derogationSoldeNegatif   && <Badge variant="danger"  size="sm">Solde négatif</Badge>}
                           {!d.justificatifFourni && d.codeTypeConge === 'MALADIE' && <Badge variant="warning" size="sm">Justificatif manquant</Badge>}
                         </div>
