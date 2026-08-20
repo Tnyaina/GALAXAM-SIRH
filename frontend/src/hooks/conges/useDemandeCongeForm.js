@@ -10,6 +10,10 @@ export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClo
   const [commentaire, setCommentaire] = useState('');
   const [justificatifFourni, setJustificatifFourni] = useState(false);
 
+  // Demi-journée
+  const [estDemiJournee, setEstDemiJournee] = useState(false);
+  const [momentDemiJournee, setMomentDemiJournee] = useState('MATIN');
+
   // Dérogations RH
   const [derogationSoldeNegatif, setDerogationSoldeNegatif] = useState(false);
   const [derogationDelaiPreavis, setDerogationDelaiPreavis] = useState(false);
@@ -36,11 +40,22 @@ export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClo
       setSelectedEmployeId(idEmployeProp ? String(idEmployeProp) : '');
       setError(null);
       setFieldErrors({});
+      setEstDemiJournee(false);
+      setMomentDemiJournee('MATIN');
     }
   }, [isOpen, idEmployeProp]);
 
+  // Si demi-journée activée, la date de fin doit égaler la date de début
+  useEffect(() => {
+    if (estDemiJournee && dateDebut) {
+      setDateFin(dateDebut);
+    }
+  }, [estDemiJournee, dateDebut]);
+
   // Pré-remplissage des durées fixes légales (ex: Paternité 3j, Maternité 98j, Événements familiaux)
   useEffect(() => {
+    if (estDemiJournee) return;
+
     let nbJoursFixes = null;
 
     if (selectedType && selectedType.dureeFixeJours) {
@@ -62,10 +77,24 @@ export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClo
       setDateFin(dFin.toISOString().split('T')[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idTypeConge, idMotifEvenementFamilial, dateDebut, extensionPathologiqueMaternite]);
+  }, [idTypeConge, idMotifEvenementFamilial, dateDebut, extensionPathologiqueMaternite, estDemiJournee]);
 
   // Simulation automatique des jours calendaires stricts + validation inline des dates
   useEffect(() => {
+    if (estDemiJournee) {
+      if (dateDebut) {
+        setNbJoursDecomptes(0.5);
+        setNbJoursWeekEnd(0);
+        setNbJoursOuvres(0.5);
+        setFieldErrors((prev) => ({ ...prev, dateFin: null }));
+      } else {
+        setNbJoursDecomptes(0);
+        setNbJoursWeekEnd(0);
+        setNbJoursOuvres(0);
+      }
+      return;
+    }
+
     if (dateDebut && dateFin) {
       const dDebut = new Date(dateDebut);
       const dFin = new Date(dateFin);
@@ -98,7 +127,7 @@ export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClo
       setNbJoursWeekEnd(0);
       setNbJoursOuvres(0);
     }
-  }, [dateDebut, dateFin]);
+  }, [dateDebut, dateFin, estDemiJournee]);
 
   const handleSubmit = async (e, showToast) => {
     e.preventDefault();
@@ -111,6 +140,9 @@ export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClo
     if (!dateFin) nextFieldErrors.dateFin = 'Renseignez la date de fin.';
     if (isExceptionnel && !idMotifEvenementFamilial) {
       nextFieldErrors.idMotifEvenementFamilial = "Sélectionnez un motif d'événement familial.";
+    }
+    if (estDemiJournee && !momentDemiJournee) {
+      nextFieldErrors.momentDemiJournee = "Sélectionnez le moment de la demi-journée.";
     }
 
     if (Object.keys(nextFieldErrors).length > 0) {
@@ -128,7 +160,9 @@ export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClo
         idTypeConge: parseInt(idTypeConge),
         idMotifEvenementFamilial: idMotifEvenementFamilial ? parseInt(idMotifEvenementFamilial) : null,
         dateDebut,
-        dateFin,
+        dateFin: estDemiJournee ? dateDebut : dateFin,
+        estDemiJournee,
+        momentDemiJournee: estDemiJournee ? momentDemiJournee : null,
         commentaire,
         justificatifFourni,
         derogationSoldeNegatif,
@@ -163,6 +197,8 @@ export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClo
     idMotifEvenementFamilial, setIdMotifEvenementFamilial,
     dateDebut, setDateDebut,
     dateFin, setDateFin,
+    estDemiJournee, setEstDemiJournee,
+    momentDemiJournee, setMomentDemiJournee,
     commentaire, setCommentaire,
     justificatifFourni, setJustificatifFourni,
     

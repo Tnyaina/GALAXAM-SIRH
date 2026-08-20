@@ -43,11 +43,13 @@ public class DemandeCongeController {
         try {
             Date dateDebut = Date.valueOf(req.get("dateDebut"));
             Date dateFin = Date.valueOf(req.get("dateFin"));
-            BigDecimal nbJours = DemandeConge.calculerNombreJoursDecomptes(dateDebut, dateFin);
+            boolean estDemiJournee = req.containsKey("estDemiJournee") && Boolean.parseBoolean(req.get("estDemiJournee").toString());
+            BigDecimal nbJours = DemandeConge.calculerNombreJoursDecomptes(dateDebut, dateFin, estDemiJournee);
 
             Map<String, Object> resp = new HashMap<>();
             resp.put("dateDebut", dateDebut);
             resp.put("dateFin", dateFin);
+            resp.put("estDemiJournee", estDemiJournee);
             resp.put("nbJoursDecomptes", nbJours);
             return ResponseEntity.ok(resp);
         } catch (Exception e) {
@@ -74,6 +76,13 @@ public class DemandeCongeController {
 
                 d.setDateDebut(Date.valueOf(req.get("dateDebut").toString()));
                 d.setDateFin(Date.valueOf(req.get("dateFin").toString()));
+
+                if (req.containsKey("estDemiJournee")) {
+                    d.setEstDemiJournee(Boolean.parseBoolean(req.get("estDemiJournee").toString()));
+                }
+                if (req.containsKey("momentDemiJournee") && req.get("momentDemiJournee") != null) {
+                    d.setMomentDemiJournee(req.get("momentDemiJournee").toString());
+                }
 
                 if (req.containsKey("derogationSoldeNegatif")) {
                     d.setDerogationSoldeNegatif(Boolean.parseBoolean(req.get("derogationSoldeNegatif").toString()));

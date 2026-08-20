@@ -34,6 +34,9 @@ public class DemandeConge extends ClassMere {
     private boolean derogationDelaiPreavis = false;
     private boolean extensionPathologiqueMaternite = false;
 
+    private boolean estDemiJournee = false;
+    private String momentDemiJournee; // MATIN ou APRES_MIDI
+
     private boolean justificatifFourni = false;
     private String commentaire;
 
@@ -62,27 +65,24 @@ public class DemandeConge extends ClassMere {
 
     /**
      * Règle de décompte en jours calendaires stricts (Code du Travail malgache Art. 85, 88).
-     * nb_jours_decomptes = (date_fin - date_debut) + 1
+     * Si estDemiJournee = true, le décompte est de 0.5 jour.
+     * Sinon, nb_jours_decomptes = (date_fin - date_debut) + 1.
      */
     public static BigDecimal calculerNombreJoursDecomptes(Date dateDebut, Date dateFin) {
+        return calculerNombreJoursDecomptes(dateDebut, dateFin, false);
+    }
+
+    public static BigDecimal calculerNombreJoursDecomptes(Date dateDebut, Date dateFin, boolean estDemiJournee) {
         if (dateDebut == null || dateFin == null) return BigDecimal.ZERO;
         LocalDate dDebut = dateDebut.toLocalDate();
         LocalDate dFin = dateFin.toLocalDate();
         if (dFin.isBefore(dDebut)) return BigDecimal.ZERO;
-        
+
+        if (estDemiJournee) {
+            return new BigDecimal("0.5");
+        }
+
         long nbJours = ChronoUnit.DAYS.between(dDebut, dFin) + 1;
-        
-        // TODO: GESTION DES PÉRIODES CHÔMÉES (Ex: Cyclone) - Option A
-        // Actuellement, c'est l'Option B : un congé posé pendant un cyclone n'est pas remboursé.
-        // Si la Direction décide de recréditer les jours (Option A), il faut :
-        // 1. Passer `Connection c` et `Integer idSite` à cette méthode.
-        // 2. Faire une requête : SELECT count(*) FROM ref_periode_chomee WHERE id_site = ? AND date_debut <= ? AND (date_fin >= ? OR date_fin IS NULL)
-        // 3. Soustraire ces jours de `nbJours`.
-        // if (ParametrageGlobal.isCongesRemboursesPendantSuspension()) {
-        //     long joursA_deduire = calculerJoursChevauchementPeriodeChomee(dDebut, dFin, idSite, c);
-        //     nbJours -= joursA_deduire;
-        // }
-        
         return BigDecimal.valueOf(nbJours);
     }
 
@@ -104,8 +104,20 @@ public class DemandeConge extends ClassMere {
             throw new IllegalArgumentException("La date de fin ne peut pas être antérieure à la date de début.");
         }
 
+        if (estDemiJournee) {
+            if (!dateDebut.equals(dateFin)) {
+                throw new IllegalArgumentException("Une demande de congé en demi-journée doit concerner la même journée (date début = date fin).");
+            }
+            if (momentDemiJournee == null || (!"MATIN".equalsIgnoreCase(momentDemiJournee) && !"APRES_MIDI".equalsIgnoreCase(momentDemiJournee))) {
+                throw new IllegalArgumentException("Veuillez préciser le moment de la demi-journée ('MATIN' ou 'APRES_MIDI').");
+            }
+            this.momentDemiJournee = momentDemiJournee.toUpperCase();
+        } else {
+            this.momentDemiJournee = null;
+        }
+
         // 1. Calcul dynamique du décompte en jours calendaires stricts
-        this.nbJoursDecomptes = calculerNombreJoursDecomptes(dateDebut, dateFin);
+        this.nbJoursDecomptes = calculerNombreJoursDecomptes(dateDebut, dateFin, estDemiJournee);
 
         // 2. Chargement du type de congé
         RefTypeConge typeConge = RefTypeConge.rechercherParId(idTypeConge, c);
@@ -362,8 +374,9 @@ public class DemandeConge extends ClassMere {
                 "id_employe, id_type_conge, id_statut_demande_conge, id_motif_evenement_familial, " +
                 "date_debut, date_fin, date_demande, nb_jours_decomptes, " +
                 "derogation_solde_negatif, derogation_delai_preavis, extension_pathologique_maternite, " +
+                "est_demi_journee, moment_demi_journee, " +
                 "justificatif_fourni, commentaire, saisi_par" +
-                ") VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE), ?, ?, ?, ?, ?, ?, ?)";
+                ") VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE), ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             int i = 1;
@@ -378,6 +391,8 @@ public class DemandeConge extends ClassMere {
             ps.setBoolean(i++, derogationSoldeNegatif);
             ps.setBoolean(i++, derogationDelaiPreavis);
             ps.setBoolean(i++, extensionPathologiqueMaternite);
+            ps.setBoolean(i++, estDemiJournee);
+            setNullableString(ps, i++, momentDemiJournee);
             ps.setBoolean(i++, justificatifFourni);
             setNullableString(ps, i++, commentaire);
             setNullableInt(ps, i++, saisiPar);
@@ -398,6 +413,7 @@ public class DemandeConge extends ClassMere {
                 "id_type_conge = ?, id_statut_demande_conge = ?, id_motif_evenement_familial = ?, " +
                 "date_debut = ?, date_fin = ?, date_demande = ?, nb_jours_decomptes = ?, " +
                 "derogation_solde_negatif = ?, derogation_delai_preavis = ?, extension_pathologique_maternite = ?, " +
+                "est_demi_journee = ?, moment_demi_journee = ?, " +
                 "justificatif_fourni = ?, commentaire = ?, valide_par = ?, date_validation = ?, motif_refus = ?, " +
                 "updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_demande_conge = ?";
@@ -414,6 +430,8 @@ public class DemandeConge extends ClassMere {
             ps.setBoolean(i++, derogationSoldeNegatif);
             ps.setBoolean(i++, derogationDelaiPreavis);
             ps.setBoolean(i++, extensionPathologiqueMaternite);
+            ps.setBoolean(i++, estDemiJournee);
+            setNullableString(ps, i++, momentDemiJournee);
             ps.setBoolean(i++, justificatifFourni);
             setNullableString(ps, i++, commentaire);
             setNullableInt(ps, i++, validePar);
@@ -483,6 +501,8 @@ public class DemandeConge extends ClassMere {
         obj.setDerogationSoldeNegatif(rs.getBoolean("derogation_solde_negatif"));
         obj.setDerogationDelaiPreavis(rs.getBoolean("derogation_delai_preavis"));
         obj.setExtensionPathologiqueMaternite(rs.getBoolean("extension_pathologique_maternite"));
+        obj.setEstDemiJournee(rs.getBoolean("est_demi_journee"));
+        obj.setMomentDemiJournee(rs.getString("moment_demi_journee"));
         obj.setJustificatifFourni(rs.getBoolean("justificatif_fourni"));
         obj.setCommentaire(rs.getString("commentaire"));
         obj.setSaisiPar(getNullableIntFromRs(rs, "saisi_par"));
@@ -550,6 +570,12 @@ public class DemandeConge extends ClassMere {
 
     public boolean isExtensionPathologiqueMaternite() { return extensionPathologiqueMaternite; }
     public void setExtensionPathologiqueMaternite(boolean extensionPathologiqueMaternite) { this.extensionPathologiqueMaternite = extensionPathologiqueMaternite; }
+
+    public boolean isEstDemiJournee() { return estDemiJournee; }
+    public void setEstDemiJournee(boolean estDemiJournee) { this.estDemiJournee = estDemiJournee; }
+
+    public String getMomentDemiJournee() { return momentDemiJournee; }
+    public void setMomentDemiJournee(String momentDemiJournee) { this.momentDemiJournee = momentDemiJournee; }
 
     public boolean isJustificatifFourni() { return justificatifFourni; }
     public void setJustificatifFourni(boolean justificatifFourni) { this.justificatifFourni = justificatifFourni; }

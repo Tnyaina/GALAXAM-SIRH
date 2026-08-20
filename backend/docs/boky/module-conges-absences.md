@@ -123,6 +123,10 @@ Table demande_conge {
   derogation_delai_preavis     BOOLEAN DEFAULT false
   extension_pathologique_maternite BOOLEAN DEFAULT false
   
+  -- Demi-journée (0,5 j)
+  est_demi_journee             BOOLEAN DEFAULT false
+  moment_demi_journee          VARCHAR(10) -- MATIN ou APRES_MIDI
+  
   -- Justificatif
   justificatif_fourni          BOOLEAN DEFAULT false
   commentaire                  TEXT
@@ -198,11 +202,18 @@ nb_jours_decomptes = (date_fin - date_debut) + 1
 
 ```java
 // Implémentation Java (DemandeConge.java)
-public static BigDecimal calculerNombreJoursDecomptes(Date dateDebut, Date dateFin) {
+public static BigDecimal calculerNombreJoursDecomptes(Date dateDebut, Date dateFin, boolean estDemiJournee) {
+    if (estDemiJournee) return new BigDecimal("0.5");
     long nbJours = ChronoUnit.DAYS.between(dateDebut.toLocalDate(), dateFin.toLocalDate()) + 1;
     return BigDecimal.valueOf(nbJours);
 }
 ```
+
+### RG-CON-01b : Décompte des Demi-Journées de Congé (0,5 j)
+
+**Règle** : Si `est_demi_journee = true`, `date_debut` doit égaler `date_fin` et `moment_demi_journee` doit être soit `'MATIN'` soit `'APRES_MIDI'`. Le décompte est fixé à **0,5 jour** (`nb_jours_decomptes = 0.5`). 
+
+**Valorisation paie** : Maintien de salaire à 100% (pas de retenue pour absence). Seul le solde de congé payé est débité de 0,5 jour.
 
 **Exemples concrets** :
 | Situation | Date début | Date fin | Reprise | Jours décomptés |

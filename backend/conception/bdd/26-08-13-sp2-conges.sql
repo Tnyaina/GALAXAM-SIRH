@@ -122,6 +122,10 @@ CREATE TABLE demande_conge (
     -- id_type_conge = MATERNITE. Justificatif obligatoire dans ce cas.
     extension_pathologique_maternite BOOLEAN DEFAULT FALSE,
 
+    -- Demi-journée de congé (0,5 j) : si TRUE, date_debut doit égaler date_fin et moment_demi_journee ('MATIN' ou 'APRES_MIDI') est renseigné.
+    est_demi_journee BOOLEAN DEFAULT FALSE,
+    moment_demi_journee VARCHAR(10) CHECK (moment_demi_journee IN ('MATIN', 'APRES_MIDI')),
+
     justificatif_fourni BOOLEAN DEFAULT FALSE,
     commentaire TEXT,
 
@@ -133,7 +137,11 @@ CREATE TABLE demande_conge (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT chk_demande_conge_dates CHECK (date_fin >= date_debut)
+    CONSTRAINT chk_demande_conge_dates CHECK (date_fin >= date_debut),
+    CONSTRAINT chk_demande_conge_demi_journee CHECK (
+        (est_demi_journee IS FALSE AND moment_demi_journee IS NULL) OR
+        (est_demi_journee IS TRUE AND date_debut = date_fin AND moment_demi_journee IN ('MATIN', 'APRES_MIDI'))
+    )
 );
 
 CREATE INDEX idx_demande_conge_employe ON demande_conge(id_employe);
@@ -228,6 +236,8 @@ SELECT
     d.derogation_solde_negatif,
     d.derogation_delai_preavis,
     d.extension_pathologique_maternite,
+    d.est_demi_journee,
+    d.moment_demi_journee,
     d.justificatif_fourni,
     d.commentaire,
     d.saisi_par,

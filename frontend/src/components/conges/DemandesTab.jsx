@@ -112,7 +112,15 @@ export default function DemandesTab({
                       <Td><Badge variant="brand">{demande.codeTypeConge || 'ANNUEL'}</Badge></Td>
                       <Td className="font-data">{formatDate(demande.dateDebut)}</Td>
                       <Td className="font-data">{formatDate(demande.dateFin)}</Td>
-                      <Td className="font-data">{demande.nbJoursDecomptes} j</Td>
+                      <Td className="font-data">
+                        {demande.estDemiJournee ? (
+                          <span className="inline-flex items-center gap-1 font-semibold text-info-600 dark:text-info-400">
+                            0,5 j ({demande.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'})
+                          </span>
+                        ) : (
+                          `${demande.nbJoursDecomptes} j`
+                        )}
+                      </Td>
                       <Td><Badge variant={getStatusBadgeVariant(demande.codeStatutDemande)} dot>{demande.codeStatutDemande}</Badge></Td>
                       <Td className="text-right">
                         <Button 
@@ -169,7 +177,13 @@ export default function DemandesTab({
                 </div>
                 <div className="space-y-1">
                   <span className="text-xs font-bold uppercase text-[var(--color-fg-muted)]">Durée estimée</span>
-                  <p className="font-data text-sm">{selectedDemande.nbJoursDecomptes} jours</p>
+                  <p className="font-data text-sm font-semibold">
+                    {selectedDemande.estDemiJournee ? (
+                      `0,5 jour (${selectedDemande.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'})`
+                    ) : (
+                      `${selectedDemande.nbJoursDecomptes} jours`
+                    )}
+                  </p>
                 </div>
                 <div className="space-y-1">
                   <span className="text-xs font-bold uppercase text-[var(--color-fg-muted)]">Date de demande</span>

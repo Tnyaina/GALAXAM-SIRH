@@ -4,6 +4,8 @@ import Input from '@/components/ui/forms/Input';
 export default function DatesCongeSection({
   dateDebut, setDateDebut,
   dateFin, setDateFin,
+  estDemiJournee, setEstDemiJournee,
+  momentDemiJournee, setMomentDemiJournee,
   nbJoursDecomptes, nbJoursOuvres, nbJoursWeekEnd,
   selectedType,
   isMaternite,
@@ -14,16 +16,92 @@ export default function DatesCongeSection({
     <>
       {/* ── Section 2 : Dates ────────────────────────────────────── */}
       <div className="space-y-3">
+        {/* Checkbox Demi-journée */}
+        <div className="flex items-center justify-between p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={estDemiJournee}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setEstDemiJournee(checked);
+                if (checked && dateDebut) {
+                  setDateFin(dateDebut);
+                }
+              }}
+              className="w-4 h-4 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
+            />
+            <span className="text-sm font-semibold text-[var(--color-fg)]">
+              Demande en demi-journée (0,5 jour)
+            </span>
+          </label>
+          {estDemiJournee && (
+            <span className="text-xs font-bold text-info-600 dark:text-info-400 bg-info-500/10 px-2 py-0.5 border border-info-500/20">
+              0,5 J
+            </span>
+          )}
+        </div>
+
+        {/* Sélection du moment si demi-journée */}
+        {estDemiJournee && (
+          <div className="p-3 bg-info-500/5 border border-info-500/20 space-y-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+              Moment de la journée <span className="text-danger-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className={`flex items-center gap-2 p-2.5 border cursor-pointer text-sm font-medium transition-colors ${
+                momentDemiJournee === 'MATIN' 
+                  ? 'border-[var(--color-brand-500)] bg-[var(--color-surface)] text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' 
+                  : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)]'
+              }`}>
+                <input
+                  type="radio"
+                  name="momentDemiJournee"
+                  value="MATIN"
+                  checked={momentDemiJournee === 'MATIN'}
+                  onChange={(e) => setMomentDemiJournee(e.target.value)}
+                  className="accent-[var(--color-brand-500)]"
+                />
+                Matin (08h - 12h)
+              </label>
+              <label className={`flex items-center gap-2 p-2.5 border cursor-pointer text-sm font-medium transition-colors ${
+                momentDemiJournee === 'APRES_MIDI' 
+                  ? 'border-[var(--color-brand-500)] bg-[var(--color-surface)] text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' 
+                  : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)]'
+              }`}>
+                <input
+                  type="radio"
+                  name="momentDemiJournee"
+                  value="APRES_MIDI"
+                  checked={momentDemiJournee === 'APRES_MIDI'}
+                  onChange={(e) => setMomentDemiJournee(e.target.value)}
+                  className="accent-[var(--color-brand-500)]"
+                />
+                Après-midi (13h - 17h)
+              </label>
+            </div>
+            {fieldErrors.momentDemiJournee && (
+              <p className="text-xs text-danger-500 flex items-center gap-1 mt-1">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {fieldErrors.momentDemiJournee}
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label className="block text-sm font-semibold text-[var(--color-fg)]">
-              Date de début <span className="text-danger-500">*</span>
+              Date {estDemiJournee ? 'du congé' : 'de début'} <span className="text-danger-500">*</span>
             </label>
             <Input
               type="date"
               value={dateDebut}
               onChange={(e) => {
-                setDateDebut(e.target.value);
+                const val = e.target.value;
+                setDateDebut(val);
+                if (estDemiJournee) {
+                  setDateFin(val);
+                }
                 setFieldErrors((prev) => ({ ...prev, dateDebut: null }));
               }}
               required
@@ -40,7 +118,8 @@ export default function DatesCongeSection({
             </label>
             <Input
               type="date"
-              value={dateFin}
+              value={estDemiJournee ? dateDebut : dateFin}
+              disabled={estDemiJournee}
               onChange={(e) => setDateFin(e.target.value)}
               required
             />
