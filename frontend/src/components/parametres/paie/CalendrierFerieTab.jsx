@@ -7,6 +7,7 @@ import { fmtDateInput } from '@/utils/paieUtils';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 import JoursFeriesList from './feries/JoursFeriesList';
 import JoursFerieFormModal from './feries/JoursFerieFormModal';
@@ -38,7 +39,7 @@ export default function CalendrierFerieTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
+    const toast = useToast();
 
     // Filtres
     const [search, setSearch] = useState('');
@@ -140,7 +141,6 @@ export default function CalendrierFerieTab() {
     const handleSaveFerie = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         if (!ferieFormData.dateFerie || !ferieFormData.libelle.trim()) {
             setActionError("La date et le libellé sont obligatoires.");
             return;
@@ -148,10 +148,10 @@ export default function CalendrierFerieTab() {
         try {
             if (editingFerie) {
                 await paieConfigService.updateCalendrierFerie(editingFerie.idFerie, ferieFormData);
-                setActionSuccess(`Jour férié "${ferieFormData.libelle}" modifié.`);
+                toast({ title: 'Succès', message: `Jour férié "${ferieFormData.libelle}" modifié.`, type: 'success' });
             } else {
                 await paieConfigService.createCalendrierFerie(ferieFormData);
-                setActionSuccess(`Jour férié "${ferieFormData.libelle}" ajouté.`);
+                toast({ title: 'Succès', message: `Jour férié "${ferieFormData.libelle}" ajouté.`, type: 'success' });
             }
             setShowFerieModal(false);
             loadData();
@@ -170,7 +170,6 @@ export default function CalendrierFerieTab() {
     const handleSaveSiteFerie = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         if (!siteFerieFormData.idSite || !siteFerieFormData.idFerie) {
             setActionError("Le site et le jour férié sont obligatoires.");
             return;
@@ -181,7 +180,7 @@ export default function CalendrierFerieTab() {
         };
         try {
             await paieConfigService.createSiteFerie(payload);
-            setActionSuccess("Jour férié associé au site.");
+            toast({ title: 'Succès', message: "Jour férié associé au site.", type: 'success' });
             setShowSiteFerieModal(false);
             loadData();
         } catch (err) {
@@ -190,11 +189,10 @@ export default function CalendrierFerieTab() {
     };
 
     const handleDeleteSiteFerie = async (id) => {
-        setActionSuccess(null);
         setActionError(null);
         try {
             await paieConfigService.deleteSiteFerie(id);
-            setActionSuccess("Association supprimée.");
+            toast({ title: 'Succès', message: "Association supprimée.", type: 'success' });
             setSiteFeries(prev => prev.filter(item => item.idSiteFerie !== id));
         } catch (err) {
             setActionError("Erreur lors de la suppression.");
@@ -227,7 +225,6 @@ export default function CalendrierFerieTab() {
     const handleSavePeriode = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         try {
             const payload = {
                 ...periodeFormData,
@@ -237,10 +234,10 @@ export default function CalendrierFerieTab() {
 
             if (editingPeriode) {
                 await paieConfigService.updatePeriodeChomee(editingPeriode.idPeriode, payload);
-                setActionSuccess(`Période "${periodeFormData.libelle}" modifiée.`);
+                toast({ title: 'Succès', message: `Période "${periodeFormData.libelle}" modifiée.`, type: 'success' });
             } else {
                 await paieConfigService.createPeriodeChomee(payload);
-                setActionSuccess(`Période "${periodeFormData.libelle}" ajoutée.`);
+                toast({ title: 'Succès', message: `Période "${periodeFormData.libelle}" ajoutée.`, type: 'success' });
             }
             setShowPeriodeModal(false);
             loadData();
@@ -250,11 +247,10 @@ export default function CalendrierFerieTab() {
     };
 
     const handleDeletePeriode = async (id) => {
-        setActionSuccess(null);
         setActionError(null);
         try {
             await paieConfigService.deletePeriodeChomee(id);
-            setActionSuccess("Période supprimée.");
+            toast({ title: 'Succès', message: "Période supprimée.", type: 'success' });
             setPeriodes(prev => prev.filter(p => p.idPeriode !== id));
         } catch (err) {
             setActionError("Erreur lors de la suppression.");
@@ -292,7 +288,6 @@ export default function CalendrierFerieTab() {
 
     return (
         <div className="space-y-6">
-            {actionSuccess && <Alert type="success" message={actionSuccess} />}
             {error && <Alert type="error" message={error} />}
 
             {/* Onglets internes + Filtres */}

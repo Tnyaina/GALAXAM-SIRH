@@ -8,6 +8,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import EmptyState from '@/components/ui/data-display/EmptyState';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 const CATEGORIES = ['Administratif', 'Identité', 'Recrutement', 'Contrat', 'Formation', 'Paie', 'Autre'];
 
@@ -15,7 +16,7 @@ export default function DocumentTypeManagementTab() {
     const [types, setTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [actionSuccess, setActionSuccess] = useState('');
+    const toast = useToast();
 
     const [showModal, setShowModal] = useState(false);
     const [selectedType, setSelectedType] = useState(null);
@@ -79,10 +80,10 @@ export default function DocumentTypeManagementTab() {
         try {
             if (selectedType) {
                 await documentRhService.updateTypeDocument(selectedType.idTypeDocument, formData);
-                setActionSuccess(`Type de document "${formData.libelle}" modifié avec succès.`);
+                toast({ title: 'Succès', message: `Type de document "${formData.libelle}" modifié avec succès.`, type: 'success' });
             } else {
                 await documentRhService.createTypeDocument(formData);
-                setActionSuccess(`Nouveau type de document "${formData.libelle}" créé.`);
+                toast({ title: 'Succès', message: `Nouveau type de document "${formData.libelle}" créé.`, type: 'success' });
             }
             setShowModal(false);
             loadData();
@@ -98,10 +99,10 @@ export default function DocumentTypeManagementTab() {
         try {
             if (t.actif) {
                 await documentRhService.deleteTypeDocument(t.idTypeDocument);
-                setActionSuccess(`Type "${t.libelle}" désactivé.`);
+                toast({ title: 'Succès', message: `Type "${t.libelle}" désactivé.`, type: 'success' });
             } else {
                 await documentRhService.updateTypeDocument(t.idTypeDocument, { ...t, actif: true });
-                setActionSuccess(`Type "${t.libelle}" réactivé.`);
+                toast({ title: 'Succès', message: `Type "${t.libelle}" réactivé.`, type: 'success' });
             }
             loadData();
         } catch (err) {
@@ -113,7 +114,6 @@ export default function DocumentTypeManagementTab() {
     return (
         <div className="space-y-6">
             {/* Notifications */}
-            {actionSuccess && <Alert type="success" message={actionSuccess} />}
             {error && !showModal && <Alert type="error" message={error} />}
 
             {/* Barre d'outils */}

@@ -7,6 +7,7 @@ import Alert from '@/components/ui/feedback/Alert';
 import { Select } from '@/components/ui/forms/Input';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 import EmployeStatsCards from '@/components/employe/EmployeStatsCards';
 import EmployeFilterBar from '@/components/employe/EmployeFilterBar';
@@ -42,7 +43,7 @@ export default function EmployeList() {
 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
-    const [actionSuccess, setActionSuccess] = useState('');
+    const toast = useToast();
 
     const loadEmployes = useCallback(async () => {
         setLoading(true);
@@ -106,15 +107,14 @@ export default function EmployeList() {
 
     const handleSaveForm = async (formData) => {
         setSubmitting(true);
-        setActionSuccess('');
         try {
             if (selectedEmployeForEdit) {
                 const empId = selectedEmployeForEdit.employe?.idEmploye || selectedEmployeForEdit.idEmploye;
                 await employeService.updateEmploye(empId, formData);
-                setActionSuccess('Fiche employé modifiée avec succès.');
+                toast({ title: 'Succès', message: 'Fiche employé modifiée avec succès.', type: 'success' });
             } else {
                 await employeService.createEmploye(formData);
-                setActionSuccess('Nouvel employé créé avec succès.');
+                toast({ title: 'Succès', message: 'Nouvel employé créé avec succès.', type: 'success' });
             }
             setIsFormOpen(false);
             loadEmployes();
@@ -143,7 +143,7 @@ export default function EmployeList() {
         try {
             await employeService.desactiverEmploye(employeToDesactiver.idEmploye, motifDesactivation);
             setIsDesactivationModalOpen(false);
-            setActionSuccess(`L'employé "${employeToDesactiver.nomComplet || employeToDesactiver.matricule}" a été désactivé.`);
+            toast({ title: 'Succès', message: `L'employé "${employeToDesactiver.nomComplet || employeToDesactiver.matricule}" a été désactivé.`, type: 'success' });
             loadEmployes();
         } catch (err) {
             console.error('Erreur désactivation:', err);
@@ -157,7 +157,7 @@ export default function EmployeList() {
         setError('');
         try {
             await employeService.reactiverEmploye(id);
-            setActionSuccess('Employé réactivé avec succès.');
+            toast({ title: 'Succès', message: 'Employé réactivé avec succès.', type: 'success' });
             loadEmployes();
         } catch (err) {
             console.error('Erreur réactivation:', err);
@@ -209,11 +209,6 @@ export default function EmployeList() {
             </div>
 
             {/* Notifications */}
-            {actionSuccess && (
-                <Alert type="success" onClose={() => setActionSuccess('')}>
-                    {actionSuccess}
-                </Alert>
-            )}
             {error && (
                 <Alert type="error" onClose={() => setError('')}>
                     {error}

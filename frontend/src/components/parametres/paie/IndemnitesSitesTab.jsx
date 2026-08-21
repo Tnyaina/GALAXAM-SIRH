@@ -12,6 +12,7 @@ import { fmtDateInput, fmtMoney, PERIODICITES_INDEMNITE } from '@/utils/paieUtil
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function IndemnitesSitesTab() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -36,7 +37,7 @@ export default function IndemnitesSitesTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
+    const toast = useToast();
 
     // Modale Indemnité
     const [showIndemniteModal, setShowIndemniteModal] = useState(false);
@@ -82,14 +83,13 @@ export default function IndemnitesSitesTab() {
     const handleSaveIndemnite = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         try {
             if (editingIndemnite) {
                 await paieConfigService.updateIndemnite(editingIndemnite.idIndemnite, indemniteFormData);
-                setActionSuccess(`Indemnité "${indemniteFormData.libelle}" modifiée.`);
+                toast({ title: 'Succès', message: `Indemnité "${indemniteFormData.libelle}" modifiée.`, type: 'success' });
             } else {
                 await paieConfigService.createIndemnite(indemniteFormData);
-                setActionSuccess(`Indemnité "${indemniteFormData.libelle}" créée.`);
+                toast({ title: 'Succès', message: `Indemnité "${indemniteFormData.libelle}" créée.`, type: 'success' });
             }
             setShowIndemniteModal(false);
             loadData();
@@ -102,7 +102,6 @@ export default function IndemnitesSitesTab() {
     const handleSaveSiteIndemnite = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         if (!siteIndemniteFormData.idSite || !siteIndemniteFormData.idIndemnite) {
             setActionError("Veuillez sélectionner un site et une indemnité.");
             return;
@@ -116,10 +115,10 @@ export default function IndemnitesSitesTab() {
         try {
             if (editingSiteIndemnite) {
                 await paieConfigService.updateSiteIndemnite(editingSiteIndemnite.idSiteIndemnite, payload);
-                setActionSuccess("Tarif d'indemnité par site modifié.");
+                toast({ title: 'Succès', message: "Tarif d'indemnité par site modifié.", type: 'success' });
             } else {
                 await paieConfigService.createSiteIndemnite(payload);
-                setActionSuccess("Nouveau tarif d'indemnité par site enregistré.");
+                toast({ title: 'Succès', message: "Nouveau tarif d'indemnité par site enregistré.", type: 'success' });
             }
             setShowSiteIndemniteModal(false);
             loadData();
@@ -144,7 +143,6 @@ export default function IndemnitesSitesTab() {
     return (
         <div className="space-y-6">
             {/* Notifications */}
-            {actionSuccess && <Alert type="success" message={actionSuccess} />}
             {error && <Alert type="error" message={error} />}
 
             {/* Onglets internes */}

@@ -12,6 +12,7 @@ import Loading from '@/components/ui/feedback/Loading';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 // Lazy loading des sous-onglets & modales de la fiche employé pour optimiser les performances
 const EmployeFormModal = lazy(() => import('./dossier/EmployeFormModal'));
@@ -41,7 +42,7 @@ export default function EmployeFicheDetailPage() {
     const [detailData, setDetailData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [actionSuccess, setActionSuccess] = useState('');
+    const toast = useToast();
 
     const [searchParams, setSearchParams] = useSearchParams();
     const tabFromUrl = searchParams.get('tab');
@@ -123,10 +124,9 @@ export default function EmployeFicheDetailPage() {
 
     const handleSaveForm = async (formData) => {
         setSubmitting(true);
-        setActionSuccess('');
         try {
             await employeService.updateEmploye(id, formData);
-            setActionSuccess('Fiche employé modifiée avec succès.');
+            toast({ title: 'Succès', message: 'Fiche employé modifiée avec succès.', type: 'success' });
             setIsFormOpen(false);
             loadEmployeDetail();
         } catch (err) {
@@ -143,7 +143,7 @@ export default function EmployeFicheDetailPage() {
         try {
             await employeService.desactiverEmploye(id, motifDesactivation);
             setIsDesactivationModalOpen(false);
-            setActionSuccess('Employé désactivé avec succès.');
+            toast({ title: 'Succès', message: 'Employé désactivé avec succès.', type: 'success' });
             loadEmployeDetail();
         } catch (err) {
             console.error('Erreur désactivation:', err);
@@ -177,7 +177,7 @@ export default function EmployeFicheDetailPage() {
         setUploadingDoc(true);
         try {
             await documentRhService.uploadDocument(id, selectedFile, selectedTypeId, docDate, docCommentaire);
-            setActionSuccess('Document RH téléversé avec succès.');
+            toast({ title: 'Succès', message: 'Document RH téléversé avec succès.', type: 'success' });
             setIsUploadDocModalOpen(false);
             loadDocuments();
         } catch (err) {
@@ -192,7 +192,7 @@ export default function EmployeFicheDetailPage() {
         if (!window.confirm(`Voulez-vous vraiment supprimer le document "${nomDoc}" ?`)) return;
         try {
             await documentRhService.deleteDocument(idDoc);
-            setActionSuccess(`Document "${nomDoc}" supprimé.`);
+            toast({ title: 'Succès', message: `Document "${nomDoc}" supprimé.`, type: 'success' });
             loadDocuments();
         } catch (err) {
             console.error('Erreur suppression document:', err);
@@ -259,14 +259,6 @@ export default function EmployeFicheDetailPage() {
                 <ArrowLeft size={16} />
                 Retour au Répertoire du personnel
             </Link>
-
-            {/* Notifications */}
-            {actionSuccess && (
-                <div className="bg-success-500/10 text-success-600 dark:text-success-500 border border-success-500/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
 
             {/* En-tête Profil Employé */}
             <EmployeHeaderCard

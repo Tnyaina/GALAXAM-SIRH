@@ -7,6 +7,7 @@ import { fmtDateInput } from '@/utils/paieUtils';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 import CotisationsList from './cotisations/CotisationsList';
 import CotisationFormModal from './cotisations/CotisationFormModal';
@@ -38,7 +39,7 @@ export default function CotisationsIrsaTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
+    const toast = useToast();
     const [showInactive, setShowInactive] = useState(false);
 
     // Modale Cotisation
@@ -112,14 +113,13 @@ export default function CotisationsIrsaTab() {
     const handleSaveCotisation = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         try {
             if (editingCotisation) {
                 await paieConfigService.updateCotisation(editingCotisation.idTypeCotisation, cotisationFormData);
-                setActionSuccess(`Cotisation "${cotisationFormData.libelle}" modifiée.`);
+                toast({ title: 'Succès', message: `Cotisation "${cotisationFormData.libelle}" modifiée.`, type: 'success' });
             } else {
                 await paieConfigService.createCotisation(cotisationFormData);
-                setActionSuccess(`Cotisation "${cotisationFormData.libelle}" créée.`);
+                toast({ title: 'Succès', message: `Cotisation "${cotisationFormData.libelle}" créée.`, type: 'success' });
             }
             setShowCotisationModal(false);
             loadData();
@@ -138,7 +138,6 @@ export default function CotisationsIrsaTab() {
     const handleSaveSiteCotisation = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         if (!siteCotisationFormData.idSite || !siteCotisationFormData.idTypeCotisation) {
             setActionError("Veuillez sélectionner un site et une cotisation.");
             return;
@@ -149,7 +148,7 @@ export default function CotisationsIrsaTab() {
         };
         try {
             await paieConfigService.createSiteCotisation(payload);
-            setActionSuccess("Cotisation associée au site.");
+            toast({ title: 'Succès', message: "Cotisation associée au site.", type: 'success' });
             setShowSiteCotisationModal(false);
             loadData();
         } catch (err) {
@@ -158,15 +157,14 @@ export default function CotisationsIrsaTab() {
     };
 
     const handleToggleSiteCotisationStatus = async (item) => {
-        setActionSuccess(null);
         setActionError(null);
         try {
             if (item.estActif) {
                 await paieConfigService.deactivateSiteCotisation(item.idSiteCotisation);
-                setActionSuccess(`Association "${item.siteLibelle} - ${item.cotisationLibelle}" désactivée.`);
+                toast({ title: 'Succès', message: `Association "${item.siteLibelle} - ${item.cotisationLibelle}" désactivée.`, type: 'success' });
             } else {
                 await paieConfigService.activateSiteCotisation(item.idSiteCotisation);
-                setActionSuccess(`Association "${item.siteLibelle} - ${item.cotisationLibelle}" réactivée.`);
+                toast({ title: 'Succès', message: `Association "${item.siteLibelle} - ${item.cotisationLibelle}" réactivée.`, type: 'success' });
             }
             setSiteCotisations(prev =>
                 prev.map(sc =>
@@ -206,7 +204,6 @@ export default function CotisationsIrsaTab() {
     const handleSaveIrsa = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         const payload = {
             ...irsaFormData,
             trancheMax: irsaFormData.trancheMax !== '' ? parseFloat(irsaFormData.trancheMax) : null
@@ -214,10 +211,10 @@ export default function CotisationsIrsaTab() {
         try {
             if (editingIrsa) {
                 await paieConfigService.updateBaremeIrsa(editingIrsa.idTranche, payload);
-                setActionSuccess(`Tranche IRSA #${irsaFormData.numeroTranche} modifiée.`);
+                toast({ title: 'Succès', message: `Tranche IRSA #${irsaFormData.numeroTranche} modifiée.`, type: 'success' });
             } else {
                 await paieConfigService.createBaremeIrsa(payload);
-                setActionSuccess(`Tranche IRSA #${irsaFormData.numeroTranche} créée.`);
+                toast({ title: 'Succès', message: `Tranche IRSA #${irsaFormData.numeroTranche} créée.`, type: 'success' });
             }
             setShowIrsaModal(false);
             loadData();
@@ -240,7 +237,6 @@ export default function CotisationsIrsaTab() {
 
     return (
         <div className="space-y-6">
-            {actionSuccess && <Alert type="success" message={actionSuccess} />}
             {error && <Alert type="error" message={error} />}
 
             {/* Onglets internes + Filtre d'affichage */}

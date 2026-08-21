@@ -8,6 +8,7 @@ import { fmtDateInput } from '@/utils/paieUtils';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 // Catégories correspondant directement aux modules du SIRH et aux graines SQL de la BDD
 const DEFAULT_CATEGORIES = [
@@ -24,7 +25,7 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
+    const toast = useToast();
 
     // Filtres & Tri
     const [searchTerm, setSearchTerm] = useState('');
@@ -125,11 +126,10 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
     const handleSave = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         try {
             if (editingParametre) {
                 await paieConfigService.updateParametreGlobal(editingParametre.idParametre, formData);
-                setActionSuccess(`Paramètre global "${formData.codeParametre}" modifié avec succès.`);
+                toast({ title: 'Succès', message: `Paramètre global "${formData.codeParametre}" modifié avec succès.`, type: 'success' });
             }
             setShowModal(false);
             loadData();
@@ -149,7 +149,6 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
     return (
         <div className="space-y-6">
             {/* Feedback messages */}
-            {actionSuccess && <Alert type="success" message={actionSuccess} />}
             {error && <Alert type="error" message={error} />}
 
             {/* En-tête & Barre de Contrôles / Filtres */}

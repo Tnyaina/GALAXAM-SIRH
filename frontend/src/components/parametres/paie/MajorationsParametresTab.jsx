@@ -8,6 +8,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { fmtDateInput } from '@/utils/paieUtils';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function MajorationsParametresTab() {
     const todayStr = fmtDateInput(new Date());
@@ -16,7 +17,7 @@ export default function MajorationsParametresTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
+    const toast = useToast();
 
     // Modale Majoration
     const [showMajorationModal, setShowMajorationModal] = useState(false);
@@ -47,14 +48,13 @@ export default function MajorationsParametresTab() {
     const handleSaveMajoration = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         try {
             if (editingMajoration) {
                 await paieConfigService.updateTauxMajoration(editingMajoration.idTauxMajoration, majorationFormData);
-                setActionSuccess(`Taux de majoration "${majorationFormData.typeMajoration}" modifié.`);
+                toast({ title: 'Succès', message: `Taux de majoration "${majorationFormData.typeMajoration}" modifié.`, type: 'success' });
             } else {
                 await paieConfigService.createTauxMajoration(majorationFormData);
-                setActionSuccess(`Taux de majoration "${majorationFormData.typeMajoration}" créé.`);
+                toast({ title: 'Succès', message: `Taux de majoration "${majorationFormData.typeMajoration}" créé.`, type: 'success' });
             }
             setShowMajorationModal(false);
             loadData();
@@ -73,7 +73,6 @@ export default function MajorationsParametresTab() {
 
     return (
         <div className="space-y-6">
-            {actionSuccess && <Alert type="success" message={actionSuccess} />}
             {error && <Alert type="error" message={error} />}
 
             {/* Bannière de rappel réglementaire et plafond légal */}
