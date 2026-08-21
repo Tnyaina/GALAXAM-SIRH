@@ -12,6 +12,7 @@ const IndemnitesSitesTab = lazy(() => import('@/components/parametres/paie/Indem
 const MajorationsParametresTab = lazy(() => import('@/components/parametres/paie/MajorationsParametresTab'));
 
 const MODULES = [
+    { id: 'general', label: 'Général & Système', icon: <Sliders size={18} /> },
     { id: 'paie', label: 'Paie & Rémunération', icon: <FileText size={18} /> },
     { id: 'conges', label: 'Congés & Absences', icon: <Calendar size={18} /> }
 ];
@@ -27,7 +28,10 @@ export default function ParametresModulesPanel() {
 
     const handleModuleChange = (moduleId) => {
         // Définir l'onglet par défaut du nouveau module
-        const defaultTab = moduleId === 'paie' ? 'parametres_globaux' : 'regles_acquisition';
+        let defaultTab = 'parametres_globaux';
+        if (moduleId === 'conges') defaultTab = 'parametres_globaux_conges';
+        else if (moduleId === 'general') defaultTab = 'parametres_globaux_systeme';
+        
         setSearchParams({ module: moduleId, tab: defaultTab });
     };
 
@@ -37,7 +41,7 @@ export default function ParametresModulesPanel() {
 
     // Définition des sous-onglets pour la Paie
     const paieTabs = [
-        { id: 'parametres_globaux', label: 'Règles Générales', icon: <Sliders size={16} /> },
+        { id: 'parametres_globaux', label: 'Constantes (Paie)', icon: <Sliders size={16} /> },
         { id: 'calendrier', label: 'Calendrier & Fériés', icon: <Calendar size={16} /> },
         { id: 'cotisations_irsa', label: 'Cotisations & Barèmes', icon: <ShieldCheck size={16} /> },
         { id: 'indemnites_sites', label: 'Indemnités (Sites)', icon: <Gift size={16} /> },
@@ -46,10 +50,16 @@ export default function ParametresModulesPanel() {
 
     // Définition des sous-onglets pour les Congés
     const congesTabs = [
-        { id: 'regles_acquisition', label: 'Règles d\'Acquisition (Congés)', icon: <Gift size={16} /> },
+        { id: 'parametres_globaux_conges', label: 'Constantes (Congés)', icon: <Sliders size={16} /> },
+        { id: 'regles_acquisition', label: 'Types & Motifs', icon: <Gift size={16} /> },
     ];
 
-    const currentTabs = activeModule === 'paie' ? paieTabs : congesTabs;
+    // Définition des sous-onglets pour le Système
+    const generalTabs = [
+        { id: 'parametres_globaux_systeme', label: 'Constantes Générales', icon: <Sliders size={16} /> },
+    ];
+
+    const currentTabs = activeModule === 'paie' ? paieTabs : activeModule === 'conges' ? congesTabs : generalTabs;
 
     return (
         <div className="space-y-6">
@@ -110,9 +120,15 @@ export default function ParametresModulesPanel() {
                 {/* Contenu de l'onglet actif avec le SkeletonTable standardisé */}
                 <div className="p-6">
                     <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
+                        {activeModule === 'general' && (
+                            <>
+                                {activeTab === 'parametres_globaux_systeme' && <ParametresGlobauxTab fixedCategory="RH_GENERAL" />}
+                            </>
+                        )}
+
                         {activeModule === 'paie' && (
                             <>
-                                {activeTab === 'parametres_globaux' && <ParametresGlobauxTab />}
+                                {activeTab === 'parametres_globaux' && <ParametresGlobauxTab fixedCategory="PAIE" />}
                                 {activeTab === 'calendrier' && <CalendrierFerieTab />}
                                 {activeTab === 'cotisations_irsa' && <CotisationsIrsaTab />}
                                 {activeTab === 'indemnites_sites' && <IndemnitesSitesTab />}
@@ -122,6 +138,7 @@ export default function ParametresModulesPanel() {
 
                         {activeModule === 'conges' && (
                             <>
+                                {activeTab === 'parametres_globaux_conges' && <ParametresGlobauxTab fixedCategory="CONGES" />}
                                 {activeTab === 'regles_acquisition' && <ParametresCongesTab />}
                             </>
                         )}

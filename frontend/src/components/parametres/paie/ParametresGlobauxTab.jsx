@@ -17,7 +17,7 @@ const DEFAULT_CATEGORIES = [
     { value: 'PAIE', label: 'Paie & Rémunération' }
 ];
 
-export default function ParametresGlobauxTab() {
+export default function ParametresGlobauxTab({ fixedCategory }) {
     const todayStr = fmtDateInput(new Date());
 
     const [parametres, setParametres] = useState([]);
@@ -28,7 +28,7 @@ export default function ParametresGlobauxTab() {
 
     // Filtres & Tri
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('ALL');
+    const [selectedCategory, setSelectedCategory] = useState(fixedCategory || 'ALL');
     const [sortBy, setSortBy] = useState('CODE_ASC');
 
     // Modale Paramètre Global
@@ -38,7 +38,7 @@ export default function ParametresGlobauxTab() {
         codeParametre: '',
         valeur: '',
         description: '',
-        categorie: 'PAIE',
+        categorie: fixedCategory || 'PAIE',
         dateDebut: todayStr,
         dateFin: ''
     });
@@ -121,7 +121,7 @@ export default function ParametresGlobauxTab() {
             });
     }, [parametres, selectedCategory, searchTerm, sortBy]);
 
-    // Sauvegarde (Création / Modification)
+    // Sauvegarde (Modification uniquement)
     const handleSave = async (e) => {
         e.preventDefault();
         setActionError(null);
@@ -130,9 +130,6 @@ export default function ParametresGlobauxTab() {
             if (editingParametre) {
                 await paieConfigService.updateParametreGlobal(editingParametre.idParametre, formData);
                 setActionSuccess(`Paramètre global "${formData.codeParametre}" modifié avec succès.`);
-            } else {
-                await paieConfigService.createParametreGlobal(formData);
-                setActionSuccess(`Paramètre global "${formData.codeParametre}" créé avec succès.`);
             }
             setShowModal(false);
             loadData();
@@ -167,26 +164,8 @@ export default function ParametresGlobauxTab() {
                             Constantes réglementaires, taux légaux, plafonds CNaPS, diviseurs horaires et variables du moteur.
                         </p>
                     </div>
-                    <Button
-                        onClick={() => {
-                            setEditingParametre(null);
-                            setFormData({
-                                codeParametre: '',
-                                valeur: '',
-                                description: '',
-                                categorie: 'PAIE',
-                                dateDebut: todayStr,
-                                dateFin: ''
-                            });
-                            setActionError(null);
-                            setShowModal(true);
-                        }}
-                        variant="primary"
-                        size="sm"
-                        iconLeft={<Plus size={16} />}
-                    >
-                        Nouveau Paramètre Global
-                    </Button>
+                    {/* Le bouton "Nouveau" a été retiré, car la création de paramètres globaux 
+                        nécessite une intervention dans le code source pour être utilisée. */}
                 </div>
 
                 {/* Barre de Recherche, Filtre par Catégorie et Tri */}
@@ -202,18 +181,20 @@ export default function ParametresGlobauxTab() {
                     </div>
 
                     {/* Select Filtre par Catégorie */}
-                    <div className="flex items-center gap-2">
-                        <Filter size={16} className="text-[var(--color-fg-muted)] shrink-0" />
-                        <Select
-                            value={selectedCategory}
-                            onChange={(e) => setSelectedCategory(e.target.value)}
-                        >
-                            <option value="ALL">Toutes les catégories</option>
-                            {availableCategories.map((c) => (
-                                <option key={c.value} value={c.value}>{c.label}</option>
-                            ))}
-                        </Select>
-                    </div>
+                    {!fixedCategory && (
+                        <div className="flex items-center gap-2">
+                            <Filter size={16} className="text-[var(--color-fg-muted)] shrink-0" />
+                            <Select
+                                value={selectedCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                            >
+                                <option value="ALL">Toutes les catégories</option>
+                                {availableCategories.map((c) => (
+                                    <option key={c.value} value={c.value}>{c.label}</option>
+                                ))}
+                            </Select>
+                        </div>
+                    )}
 
                     {/* Select Tri */}
                     <div className="flex items-center gap-2">
@@ -298,56 +279,50 @@ export default function ParametresGlobauxTab() {
                 </Table>
             </div>
 
-            {/* Modale d'Édition / Création */}
+            {/* Modale d'Édition */}
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
+                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-lg w-full overflow-hidden">
                         <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
                             <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
                                 <Sliders size={18} className="text-[var(--color-brand-500)]" />
-                                {editingParametre ? "Modifier le Paramètre Global" : "Nouveau Paramètre Global"}
+                                Modifier la Valeur du Paramètre
                             </h3>
-                            <button onClick={() => setShowModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
+                            <button type="button" onClick={() => setShowModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
                                 <X size={18} />
                             </button>
                         </div>
-                        <form onSubmit={handleSave} className="p-6 space-y-4">
+                        <form onSubmit={handleSave} className="p-6 space-y-5">
                             {actionError && <Alert type="error" message={actionError} />}
 
-                            <Input
-                                label="Code Paramètre"
-                                required
-                                disabled={!!editingParametre}
-                                value={formData.codeParametre}
-                                onChange={(e) => setFormData({ ...formData, codeParametre: e.target.value.toUpperCase() })}
-                                placeholder="Ex: PLAFOND_CNAPS, SME_COURANT, BASE_HORAIRE"
-                            />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Input
+                                    label="Code Paramètre"
+                                    value={formData.codeParametre}
+                                    readOnly
+                                    disabled
+                                    className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]"
+                                />
 
-                            <Select
-                                label="Catégorie"
-                                value={formData.categorie}
-                                onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
-                            >
-                                {DEFAULT_CATEGORIES.map((c) => (
-                                    <option key={c.value} value={c.value}>{c.label}</option>
-                                ))}
-                            </Select>
+                                <Input
+                                    label="Valeur *"
+                                    required
+                                    value={formData.valeur}
+                                    onChange={(e) => setFormData({ ...formData, valeur: e.target.value })}
+                                    placeholder="Ex: 262000.00"
+                                />
 
-                            <Input
-                                label="Valeur"
-                                required
-                                value={formData.valeur}
-                                onChange={(e) => setFormData({ ...formData, valeur: e.target.value })}
-                                placeholder="Ex: 262000.00"
-                            />
-
-                            <Textarea
-                                label="Description"
-                                rows={3}
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                placeholder="Description et formule d'utilisation de ce paramètre..."
-                            />
+                                <div className="col-span-1 md:col-span-2">
+                                    <Textarea
+                                        label="Description"
+                                        value={formData.description}
+                                        readOnly
+                                        disabled
+                                        rows={2}
+                                        className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]"
+                                    />
+                                </div>
+                            </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <Input
