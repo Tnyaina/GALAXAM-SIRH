@@ -1,5 +1,6 @@
 import { Upload, Camera } from 'lucide-react';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
+import Loading from '@/components/ui/feedback/Loading';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
 
 export default function CoordonneesPhotoStep({
@@ -26,7 +27,7 @@ export default function CoordonneesPhotoStep({
                         )}
                         {uploadingPhoto && (
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-none animate-spin"></div>
+                                <Loading type="spinner" color="brand" size="md" />
                             </div>
                         )}
                     </div>

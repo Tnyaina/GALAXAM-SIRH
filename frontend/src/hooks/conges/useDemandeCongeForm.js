@@ -1,7 +1,20 @@
 import { useState, useEffect } from 'react';
 import congeService from '@/api/congeService';
 
-export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClose, onSuccess }) {
+const formatDateForInput = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+    return val.substring(0, 10);
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiels, isOpen, onClose, onSuccess }) {
   const [selectedEmployeId, setSelectedEmployeId] = useState('');
   const [idTypeConge, setIdTypeConge] = useState('');
   const [idMotifEvenementFamilial, setIdMotifEvenementFamilial] = useState('');
@@ -37,13 +50,44 @@ export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClo
 
   useEffect(() => {
     if (isOpen) {
-      setSelectedEmployeId(idEmployeProp ? String(idEmployeProp) : '');
+      if (initialDemande) {
+        const empId = initialDemande.idEmploye || initialDemande.idEmployeConcerne || idEmployeProp || '';
+        setSelectedEmployeId(empId ? String(empId) : '');
+        setIdTypeConge(initialDemande.idTypeConge ? String(initialDemande.idTypeConge) : '');
+        setIdMotifEvenementFamilial(initialDemande.idMotifEvenementFamilial ? String(initialDemande.idMotifEvenementFamilial) : '');
+        setDateDebut(formatDateForInput(initialDemande.dateDebut));
+        setDateFin(formatDateForInput(initialDemande.dateFin));
+        setCommentaire(initialDemande.commentaire || '');
+        setJustificatifFourni(!!initialDemande.justificatifFourni);
+        setEstDemiJournee(!!initialDemande.estDemiJournee);
+        setMomentDemiJournee(initialDemande.momentDemiJournee || 'MATIN');
+        setDerogationSoldeNegatif(!!initialDemande.derogationSoldeNegatif);
+        setDerogationDelaiPreavis(!!initialDemande.derogationDelaiPreavis);
+        setExtensionPathologiqueMaternite(!!initialDemande.extensionPathologiqueMaternite);
+        if (initialDemande.derogationSoldeNegatif || initialDemande.derogationDelaiPreavis || initialDemande.extensionPathologiqueMaternite) {
+          setShowOptionsAvancees(true);
+        } else {
+          setShowOptionsAvancees(false);
+        }
+      } else {
+        setSelectedEmployeId(idEmployeProp ? String(idEmployeProp) : '');
+        setIdTypeConge('');
+        setIdMotifEvenementFamilial('');
+        setDateDebut('');
+        setDateFin('');
+        setCommentaire('');
+        setJustificatifFourni(false);
+        setEstDemiJournee(false);
+        setMomentDemiJournee('MATIN');
+        setDerogationSoldeNegatif(false);
+        setDerogationDelaiPreavis(false);
+        setExtensionPathologiqueMaternite(false);
+        setShowOptionsAvancees(false);
+      }
       setError(null);
       setFieldErrors({});
-      setEstDemiJournee(false);
-      setMomentDemiJournee('MATIN');
     }
-  }, [isOpen, idEmployeProp]);
+  }, [isOpen, idEmployeProp, initialDemande]);
 
   // Si demi-journée activée, la date de fin doit égaler la date de début
   useEffect(() => {
@@ -78,6 +122,19 @@ export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClo
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idTypeConge, idMotifEvenementFamilial, dateDebut, extensionPathologiqueMaternite, estDemiJournee]);
+
+  // Détection automatique de régularisation / saisie rétroactive (date de début dans le passé)
+  useEffect(() => {
+    if (dateDebut) {
+      const dDebut = new Date(dateDebut);
+      const today = new Date();
+      dDebut.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+      if (dDebut < today) {
+        setDerogationDelaiPreavis(true);
+      }
+    }
+  }, [dateDebut]);
 
   // Simulation automatique des jours calendaires stricts + validation inline des dates
   useEffect(() => {
@@ -155,6 +212,9 @@ export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClo
       setLoading(true);
       setError(null);
 
+      const isRetroactive = dateDebut && (new Date(dateDebut).setHours(0,0,0,0) < new Date().setHours(0,0,0,0));
+      const effectiveDerogationPreavis = derogationDelaiPreavis || isRetroactive;
+
       const payload = {
         idEmploye: parseInt(targetEmployeId),
         idTypeConge: parseInt(idTypeConge),
@@ -166,17 +226,28 @@ export function useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClo
         commentaire,
         justificatifFourni,
         derogationSoldeNegatif,
-        derogationDelaiPreavis,
+        derogationDelaiPreavis: effectiveDerogationPreavis,
         extensionPathologiqueMaternite,
       };
 
-      await congeService.creerDemande(payload);
-      showToast({
-        title: 'Demande soumise',
-        message: 'Votre demande de congé a été enregistrée avec succès.',
-        type: 'success',
-        duration: 3000
-      });
+      const isEditMode = !!initialDemande?.idDemandeConge;
+      if (isEditMode) {
+        await congeService.updateDemande(initialDemande.idDemandeConge, payload);
+        showToast({
+          title: 'Demande modifiée',
+          message: 'La demande de congé a été mise à jour avec succès.',
+          type: 'success',
+          duration: 3000
+        });
+      } else {
+        await congeService.creerDemande(payload);
+        showToast({
+          title: 'Demande soumise',
+          message: 'Votre demande de congé a été enregistrée avec succès.',
+          type: 'success',
+          duration: 3000
+        });
+      }
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {

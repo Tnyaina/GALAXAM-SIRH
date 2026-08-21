@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Shield, Users, ArrowLeft, Menu, FileText, Award } from 'lucide-react';
+import { Shield, Users, ArrowLeft, Menu } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -7,8 +7,6 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 const UserManagementTab = lazy(() => import('@/components/parametres/securite/UserManagementTab'));
 const RolesAndPermissionsTab = lazy(() => import('@/components/parametres/securite/RolesAndPermissionsTab'));
 const MenuManagementTab = lazy(() => import('@/components/parametres/securite/MenuManagementTab'));
-const DocumentTypeManagementTab = lazy(() => import('@/components/parametres/referentiels/DocumentTypeManagementTab'));
-const RefCarriereManagementTab = lazy(() => import('@/components/parametres/referentiels/RefCarriereManagementTab'));
 
 export default function SecuriteAdminPanel() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -21,9 +19,7 @@ export default function SecuriteAdminPanel() {
     const mainTabs = [
         { id: 'users', label: 'Gestion des Utilisateurs', icon: <Users size={16} /> },
         { id: 'roles', label: 'Rôles & Permissions', icon: <Shield size={16} /> },
-        { id: 'menus', label: 'Gestion des Menus', icon: <Menu size={16} /> },
-        { id: 'docTypes', label: 'Types de Documents RH', icon: <FileText size={16} /> },
-        { id: 'carriere', label: 'Référentiels Carrière & Paie', icon: <Award size={16} /> },
+        { id: 'menus', label: 'Gestion des Menus', icon: <Menu size={16} /> }
     ];
 
     return (
@@ -44,9 +40,9 @@ export default function SecuriteAdminPanel() {
                         <Shield size={24} />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-[var(--color-fg)]">Sécurité & Administration RH</h1>
+                        <h1 className="text-2xl font-bold text-[var(--color-fg)]">Sécurité & Accès</h1>
                         <p className="text-xs text-[var(--color-fg-muted)]">
-                            Gestion des utilisateurs, des rôles, des menus et des référentiels de documents et de carrière.
+                            Gestion des utilisateurs, des rôles, des permissions et des menus.
                         </p>
                     </div>
                 </div>
@@ -67,8 +63,6 @@ export default function SecuriteAdminPanel() {
                         {activeTab === 'users' && <UserManagementTab />}
                         {activeTab === 'roles' && <RolesAndPermissionsTab />}
                         {activeTab === 'menus' && <MenuManagementTab />}
-                        {activeTab === 'docTypes' && <DocumentTypeManagementTab />}
-                        {activeTab === 'carriere' && <RefCarriereManagementTab />}
                     </Suspense>
                 </div>
             </div>

@@ -10,6 +10,8 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import TypeCongeModal from './TypeCongeModal';
 import MotifFamilialModal from './MotifFamilialModal';
 import { Edit2, Trash2 } from 'lucide-react';
+import EmptyState from '@/components/ui/data-display/EmptyState';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 export default function ParametresCongesTab() {
   const [activeSubTab, setActiveSubTab] = useState('types');
@@ -137,6 +139,19 @@ export default function ParametresCongesTab() {
                 </div>
               </CardHeader>
               <CardBody className="p-0">
+                {loading ? (
+                    <div className="p-4"><SkeletonTable rows={5} columns={8} /></div>
+                ) : types.length === 0 ? (
+                    <div className="p-8">
+                        <EmptyState
+                            icon={Settings}
+                            title="Aucun type de congé configuré"
+                            description="Veuillez ajouter un type de congé pour commencer."
+                            actionLabel="Nouveau Type"
+                            onAction={() => { setSelectedItem(null); setShowTypeModal(true); }}
+                        />
+                    </div>
+                ) : (
                 <Table>
                   <Thead>
                     <Tr>
@@ -151,12 +166,7 @@ export default function ParametresCongesTab() {
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {loading ? (
-                      <Tr><Td colSpan={8} className="text-center">Chargement...</Td></Tr>
-                    ) : types.length === 0 ? (
-                      <Tr><Td colSpan={8} className="text-center">Aucun type de congé configuré.</Td></Tr>
-                    ) : (
-                      types.map((type) => (
+                      {types.map((type) => (
                         <Tr key={type.idTypeConge}>
                           <Td className="font-bold">{type.code}</Td>
                           <Td>{type.libelle}</Td>
@@ -192,10 +202,10 @@ export default function ParametresCongesTab() {
                             </div>
                           </Td>
                         </Tr>
-                      ))
-                    )}
+                      ))}
                   </Tbody>
                 </Table>
+                )}
               </CardBody>
             </Card>
           )}
@@ -214,6 +224,19 @@ export default function ParametresCongesTab() {
                 </div>
               </CardHeader>
               <CardBody className="p-0">
+                {loading ? (
+                    <div className="p-4"><SkeletonTable rows={5} columns={4} /></div>
+                ) : motifs.length === 0 ? (
+                    <div className="p-8">
+                        <EmptyState
+                            icon={ShieldAlert}
+                            title="Aucun événement configuré"
+                            description="Veuillez ajouter un événement familial pour commencer."
+                            actionLabel="Ajouter"
+                            onAction={() => { setSelectedItem(null); setShowMotifModal(true); }}
+                        />
+                    </div>
+                ) : (
                 <Table>
                   <Thead>
                     <Tr>
@@ -224,12 +247,7 @@ export default function ParametresCongesTab() {
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {loading ? (
-                      <Tr><Td colSpan={4} className="text-center">Chargement...</Td></Tr>
-                    ) : motifs.length === 0 ? (
-                      <Tr><Td colSpan={4} className="text-center">Aucun événement configuré.</Td></Tr>
-                    ) : (
-                      motifs.map((motif) => (
+                      {motifs.map((motif) => (
                         <Tr key={motif.idMotif}>
                           <Td className="font-semibold">{motif.libelle} ({motif.code})</Td>
                           <Td className="text-center font-data font-bold">{motif.nbJoursAutorises} jours</Td>
@@ -247,10 +265,10 @@ export default function ParametresCongesTab() {
                             </div>
                           </Td>
                         </Tr>
-                      ))
-                    )}
+                      ))}
                   </Tbody>
                 </Table>
+                )}
               </CardBody>
             </Card>
           )}

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, ShieldCheck, ListTodo } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
 import Tabs from '@/components/ui/navigation/Tabs';
+import { SkeletonCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 import RolesList from './roles/RolesList';
 import RoleFormModal from './roles/RoleFormModal';
@@ -277,8 +278,11 @@ export default function RolesAndPermissionsTab() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start p-4">
+                <SkeletonCard className="lg:col-span-1 h-[400px]" />
+                <div className="lg:col-span-2">
+                    <SkeletonTable rows={8} columns={4} />
+                </div>
             </div>
         );
     }
@@ -327,8 +331,8 @@ export default function RolesAndPermissionsTab() {
                             {/* Contenu */}
                             <div className="p-6">
                                 {loadingDetails ? (
-                                    <div className="flex justify-center py-12">
-                                        <div className="w-6 h-6 border-2 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
+                                    <div className="p-4">
+                                        <SkeletonTable rows={5} columns={4} />
                                     </div>
                                 ) : rightTab === 'permissions' ? (
                                     <RolePermissionsMatrix

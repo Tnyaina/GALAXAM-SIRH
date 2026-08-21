@@ -73,8 +73,8 @@ export default function ValidationFilters({
                 <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-[var(--color-brand-400)] rounded-none" title="Recherche en cours..." />
               )}
             </div>
-            <Button variant="outline" size="sm" iconLeft={<RefreshCw size={15} className={loading ? 'animate-spin' : ''} />} onClick={onRefresh}>
-              Actualiser
+            <Button variant="outline" size="sm" iconLeft={<RefreshCw size={15} />} loading={loading} onClick={onRefresh}>
+                Rafraîchir
             </Button>
             <Button variant="primary" size="sm" iconLeft={<Plus size={15} />} onClick={onNewDemande}>
               Nouvelle demande

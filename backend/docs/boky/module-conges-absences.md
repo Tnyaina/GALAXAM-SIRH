@@ -624,3 +624,15 @@ Base URL : `/api/conges`
 ---
 
 *Document généré pour mémoire de fin d'études — GALAXAM SIRH 2026*
+
+
+
+---
+
+## Perspectives d'Évolution (V2)
+
+### Gestion des Soldes par Millésime (Exercice)
+Bien que l'acquisition des congés se fasse mensuellement (ex: +2.5j via un job sur le solde global), l'application de la prescription (expiration au bout de 3 ans) est complexe avec un solde unique, car elle requiert un algorithme FIFO (First-In, First-Out) sur tout l'historique.
+**Évolution prévue** :
+- Créer une table `conge_compteur_annuel` pour tracer les acquisitions et les prises par période de référence (ex: Exercice 2024, Exercice 2025).
+- Le job d'expiration ciblera directement le reliquat d'un millésime obsolète, allégeant la logique de calcul du backend.

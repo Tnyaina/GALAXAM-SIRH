@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-disp
 import Badge from '@/components/ui/data-display/Badge';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import ExpandableList from './ExpandableList';
-import { fmtRelative } from '../DashboardUtils';
+import { fmtRelative } from '@/utils/formatters';
 import SkeletonListRows from './SkeletonListRows';
 
 const ActiviteRow = memo(function ActiviteRow({ ev }) {

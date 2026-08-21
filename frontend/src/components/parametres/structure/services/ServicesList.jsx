@@ -2,7 +2,8 @@ import { Layers, Plus, Edit2, Building } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 
 export default function ServicesList({
     selectedDepartement,
@@ -35,8 +36,8 @@ export default function ServicesList({
                     </div>
 
                     {loadingServices ? (
-                        <div className="flex justify-center items-center py-12">
-                            <Loading size="sm" label="Chargement des services..." />
+                        <div className="p-4">
+                            <SkeletonTable rows={5} columns={4} />
                         </div>
                     ) : (
                         <Table>
@@ -81,11 +82,9 @@ export default function ServicesList({
                                         </Tr>
                                     ))
                                 ) : (
-                                    <Tr>
-                                        <Td colSpan={4} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                            Aucun service rattaché à ce département.
+                                        <Td colSpan={4} className="p-0">
+                                            <EmptyState title="Aucun service" description="Aucun service rattaché à ce département." />
                                         </Td>
-                                    </Tr>
                                 )}
                             </Tbody>
                         </Table>

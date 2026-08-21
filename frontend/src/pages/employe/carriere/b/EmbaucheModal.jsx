@@ -248,7 +248,7 @@ export default function EmbaucheModal({
                     {/* Colonne 1 : Formulaire de Saisie (6/12) */}
                     <div className={`p-7 space-y-6 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
                         {loadingRef ? (
-                            <div className="py-12 flex justify-center"><Loading size="md" label="Chargement des référentiels..." /></div>
+                            <Loading display="page" label="Chargement des référentiels..." />
                         ) : (
                             <form id="embauche-form" onSubmit={handleSubmit} className="space-y-6">
                                 {errorMsg && (

@@ -7,6 +7,7 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Modal from '@/components/ui/overlays/Modal';
 
 // Utilities
 const formatDate = (timestamp) => {
@@ -141,73 +142,68 @@ export default function DemandesTab({
       </Card>
 
       {/* Modal Détail Demande */}
-      {selectedDemande && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none max-w-lg w-full shadow-2xl overflow-hidden font-sans">
-            <div className="flex items-center justify-between p-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[var(--color-brand-500)]" />
-                Détail de la demande #{selectedDemande.idDemandeConge}
-              </h4>
-              <button onClick={() => setSelectedDemande(null)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] font-bold">
-                ×
-              </button>
-            </div>
-            <div className="p-6 space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-[var(--color-border-subtle)]">
-                <div>
-                  <h3 className="text-lg font-bold text-[var(--color-fg)]">
-                    {`${selectedDemande.prenom || ''} ${selectedDemande.nom || ''}`.trim() || `Employé ${selectedDemande.idEmploye}`}
-                  </h3>
-                  <p className="text-sm text-[var(--color-fg-muted)]">Type: {selectedDemande.codeTypeConge || 'ANNUEL'}</p>
-                </div>
-                <Badge variant={getStatusBadgeVariant(selectedDemande.codeStatutDemande)} dot>
-                  {selectedDemande.codeStatutDemande}
-                </Badge>
+      <Modal
+        isOpen={!!selectedDemande}
+        onClose={() => setSelectedDemande(null)}
+        title={selectedDemande ? `Détail de la demande #${selectedDemande.idDemandeConge}` : ''}
+        icon={<Calendar className="w-4 h-4 text-[var(--color-brand-500)]" />}
+        size="lg"
+        footer={
+          <Button variant="outline" size="sm" onClick={() => setSelectedDemande(null)}>
+            Fermer
+          </Button>
+        }
+      >
+        {selectedDemande && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-[var(--color-border-subtle)]">
+              <div>
+                <h3 className="text-lg font-bold text-[var(--color-fg)]">
+                  {`${selectedDemande.prenom || ''} ${selectedDemande.nom || ''}`.trim() || `Employé ${selectedDemande.idEmploye}`}
+                </h3>
+                <p className="text-sm text-[var(--color-fg-muted)]">Type: {selectedDemande.codeTypeConge || 'ANNUEL'}</p>
               </div>
+              <Badge variant={getStatusBadgeVariant(selectedDemande.codeStatutDemande)} dot>
+                {selectedDemande.codeStatutDemande}
+              </Badge>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-xs font-bold uppercase text-[var(--color-fg-muted)]">Date de début</span>
-                  <p className="font-data text-sm">{formatDate(selectedDemande.dateDebut)}</p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-bold uppercase text-[var(--color-fg-muted)]">Date de fin</span>
-                  <p className="font-data text-sm">{formatDate(selectedDemande.dateFin)}</p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-bold uppercase text-[var(--color-fg-muted)]">Durée estimée</span>
-                  <p className="font-data text-sm font-semibold">
-                    {selectedDemande.estDemiJournee ? (
-                      `0,5 jour (${selectedDemande.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'})`
-                    ) : (
-                      `${selectedDemande.nbJoursDecomptes} jours`
-                    )}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-bold uppercase text-[var(--color-fg-muted)]">Date de demande</span>
-                  <p className="font-data text-sm">{formatDate(selectedDemande.dateDemande)}</p>
-                </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <span className="text-xs font-bold uppercase text-[var(--color-fg-muted)]">Date de début</span>
+                <p className="font-data text-sm">{formatDate(selectedDemande.dateDebut)}</p>
               </div>
+              <div className="space-y-1">
+                <span className="text-xs font-bold uppercase text-[var(--color-fg-muted)]">Date de fin</span>
+                <p className="font-data text-sm">{formatDate(selectedDemande.dateFin)}</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-bold uppercase text-[var(--color-fg-muted)]">Durée estimée</span>
+                <p className="font-data text-sm font-semibold">
+                  {selectedDemande.estDemiJournee ? (
+                    `0,5 jour (${selectedDemande.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'})`
+                  ) : (
+                    `${selectedDemande.nbJoursDecomptes} jours`
+                  )}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-bold uppercase text-[var(--color-fg-muted)]">Date de demande</span>
+                <p className="font-data text-sm">{formatDate(selectedDemande.dateDemande)}</p>
+              </div>
+            </div>
 
-              {selectedDemande.motif && (
-                <div className="space-y-2 pt-4 border-t border-[var(--color-border-subtle)]">
-                  <span className="text-xs font-bold uppercase text-[var(--color-fg-muted)]">Motif / Commentaire</span>
-                  <p className="text-sm bg-[var(--color-bg-subtle)] p-3 rounded-none text-[var(--color-fg)]">
-                    {selectedDemande.motif}
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center justify-end p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
-              <Button variant="outline" size="sm" onClick={() => setSelectedDemande(null)}>
-                Fermer
-              </Button>
-            </div>
+            {selectedDemande.motif && (
+              <div className="space-y-2 pt-4 border-t border-[var(--color-border-subtle)]">
+                <span className="text-xs font-bold uppercase text-[var(--color-fg-muted)]">Motif / Commentaire</span>
+                <p className="text-sm bg-[var(--color-bg-subtle)] p-3 rounded-none text-[var(--color-fg)]">
+                  {selectedDemande.motif}
+                </p>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

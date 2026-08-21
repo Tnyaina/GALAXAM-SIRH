@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, CheckCircle, XCircle, Clock, ShieldAlert, X, Info } from 'lucide-react';
+import {Edit2, Clock, X, Info } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { fmtDateInput } from '@/utils/paieUtils';
+import EmptyState from '@/components/ui/data-display/EmptyState';
+import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function MajorationsParametresTab() {
     const todayStr = fmtDateInput(new Date());
@@ -13,7 +17,7 @@ export default function MajorationsParametresTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
+    const toast = useToast();
 
     // Modale Majoration
     const [showMajorationModal, setShowMajorationModal] = useState(false);
@@ -44,14 +48,13 @@ export default function MajorationsParametresTab() {
     const handleSaveMajoration = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         try {
             if (editingMajoration) {
                 await paieConfigService.updateTauxMajoration(editingMajoration.idTauxMajoration, majorationFormData);
-                setActionSuccess(`Taux de majoration "${majorationFormData.typeMajoration}" modifié.`);
+                toast({ title: 'Succès', message: `Taux de majoration "${majorationFormData.typeMajoration}" modifié.`, type: 'success' });
             } else {
                 await paieConfigService.createTauxMajoration(majorationFormData);
-                setActionSuccess(`Taux de majoration "${majorationFormData.typeMajoration}" créé.`);
+                toast({ title: 'Succès', message: `Taux de majoration "${majorationFormData.typeMajoration}" créé.`, type: 'success' });
             }
             setShowMajorationModal(false);
             loadData();
@@ -62,26 +65,15 @@ export default function MajorationsParametresTab() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
+            <div className="p-4">
+                <SkeletonTable rows={5} columns={5} />
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {error && <Alert type="error" message={error} />}
 
             {/* Bannière de rappel réglementaire et plafond légal */}
             <div className="bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/20 p-4 rounded-none flex items-start gap-3">
@@ -103,7 +95,7 @@ export default function MajorationsParametresTab() {
                         </h4>
                         <p className="text-xs text-[var(--color-fg-muted)]">Configuration et description exacte des taux de majoration appliqués au calcul des heures spéciales.</p>
                     </div>
-                    <Button
+                    {/* <Button
                         onClick={() => {
                             setEditingMajoration(null);
                             setMajorationFormData({ typeMajoration: '', taux: 0, description: '', dateDebut: todayStr, dateFin: '' });
@@ -115,7 +107,7 @@ export default function MajorationsParametresTab() {
                         iconLeft={<Plus size={16} />}
                     >
                         Nouveau Taux de Majoration
-                    </Button>
+                    </Button> */}
                 </div>
 
                 <Table>
@@ -129,8 +121,8 @@ export default function MajorationsParametresTab() {
                     <Tbody>
                         {majorations.length === 0 ? (
                             <Tr>
-                                <Td colSpan={5} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                    Aucun taux de majoration configuré.
+                                <Td colSpan={5} className="p-0">
+                                    <EmptyState title="Aucun taux de majoration" description="Aucun taux de majoration configuré." />
                                 </Td>
                             </Tr>
                         ) : (
@@ -184,12 +176,7 @@ export default function MajorationsParametresTab() {
                             </button>
                         </div>
                         <form onSubmit={handleSaveMajoration} className="p-6 space-y-4">
-                            {actionError && (
-                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-2">
-                                    <ShieldAlert size={16} />
-                                    {actionError}
-                                </div>
-                            )}
+                            {actionError && <Alert type="error" message={actionError} />}
                             <Input
                                 label="Type Majoration"
                                 required

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import { AuthProvider } from "@/context/AuthContext";
 import Layout from "@/components/layout/Layout";
@@ -27,8 +27,9 @@ const EmployeFicheDetailPage = lazy(() => import("@/pages/employe/EmployeFicheDe
 
 // Administration / Paramètres
 const SecuriteAdminPanel = lazy(() => import("@/pages/parametres/securite/SecuriteAdminPanel"));
-const StructureAdminPanel = lazy(() => import("@/pages/parametres/structure/StructureAdminPanel"));
-const PaieConfigAdminPanel = lazy(() => import("@/pages/parametres/paie/PaieConfigAdminPanel"));
+const OrganisationAdminPanel = lazy(() => import("@/pages/parametres/organisation/OrganisationAdminPanel"));
+const ReferentielsRhAdminPanel = lazy(() => import("@/pages/parametres/referentiels/ReferentielsRhAdminPanel"));
+const ParametresModulesPanel = lazy(() => import("@/pages/parametres/modules/ParametresModulesPanel"));
 
 // Pages Système & Erreurs
 const Unauthorized = lazy(() => import("@/pages/systeme/Unauthorized"));
@@ -94,9 +95,11 @@ export default function Router() {
                     {/* Module Admin (Rôle ROLE_ADMIN requis)               */}
                     {/* ---------------------------------------------------- */}
                     <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
-                        <Route path="/admin" element={<SecuriteAdminPanel />} />
-                        <Route path="/admin/structure" element={<StructureAdminPanel />} />
-                        <Route path="/admin/paie-config" element={<PaieConfigAdminPanel />} />
+                        <Route path="/admin" element={<Navigate to="/admin/securite" replace />} />
+                        <Route path="/admin/securite" element={<SecuriteAdminPanel />} />
+                        <Route path="/admin/organisation" element={<OrganisationAdminPanel />} />
+                        <Route path="/admin/referentiels-rh" element={<ReferentielsRhAdminPanel />} />
+                        <Route path="/admin/parametres" element={<ParametresModulesPanel />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}

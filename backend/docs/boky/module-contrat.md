@@ -581,3 +581,15 @@ La table `employe_affectation_carriere` constitue en elle-même un **registre hi
 ---
 
 *Document généré pour mémoire de fin d'études — GALAXAM SIRH 2026*
+
+
+
+---
+
+## Perspectives d'Évolution (V2)
+
+### Gestion du Temps Partiel (Taux d'Activité)
+Actuellement, le système suppose que tous les employés travaillent à 100% (40h/semaine). 
+**Évolution prévue** :
+- Ajouter une colonne `taux_activite DECIMAL(5,2) DEFAULT 100.00` dans `employe_affectation_carriere`.
+- Proratiser dynamiquement le salaire de base et les seuils de calcul du module Pointage (ex: `8.0 * (taux_activite / 100)`) pour éviter qu'un employé à temps partiel ne soit comptabilisé comme étant en "déficit d'heures" chaque semaine.

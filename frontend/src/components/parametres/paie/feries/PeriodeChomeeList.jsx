@@ -1,4 +1,5 @@
 import { Edit2, Trash2, Calendar, MapPin, CheckCircle, Clock } from 'lucide-react';
+import Button from '@/components/ui/forms/Button';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Badge from '@/components/ui/data-display/Badge';
@@ -23,18 +24,20 @@ export default function PeriodeChomeeList({ periodes, sites, onOpenCreate, onOpe
     };
 
     return (
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between bg-[var(--color-bg-subtle)]">
+        <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-[var(--color-border-subtle)]">
                 <div>
-                    <h3 className="text-sm font-bold text-[var(--color-fg)]">Périodes Exceptionnelles</h3>
-                    <p className="text-xs text-[var(--color-fg-subtle)]">Gestion des suspensions (Cyclones, Événements majeurs)</p>
+                    <h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2">
+                        <Calendar size={18} className="text-[var(--color-brand-500)]" />
+                        Périodes Exceptionnelles ({periodes.length})
+                    </h3>
+                    <p className="text-xs text-[var(--color-fg-muted)]">
+                        Gestion des suspensions (Cyclones, Événements majeurs)
+                    </p>
                 </div>
-                <button
-                    onClick={onOpenCreate}
-                    className="flex items-center gap-2 bg-[var(--color-brand-500)] text-white px-3 py-1.5 text-xs font-bold shadow-sm hover:bg-[var(--color-brand-600)] transition-colors"
-                >
-                    <Calendar size={14} /> Déclarer une période
-                </button>
+                <Button onClick={onOpenCreate} variant="primary" size="sm" iconLeft={<Calendar size={16} />}>
+                    Déclarer une période
+                </Button>
             </div>
             
             <div className="overflow-x-auto">
