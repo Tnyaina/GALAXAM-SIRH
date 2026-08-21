@@ -21,6 +21,7 @@ export default function DepartementsServicesTab() {
     const [actionError, setActionError] = useState(null);
     const [actionSuccess, setActionSuccess] = useState(null);
     const [showInactive, setShowInactive] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
 
     // Modale Département
     const [showDeptModal, setShowDeptModal] = useState(false);
@@ -97,6 +98,7 @@ export default function DepartementsServicesTab() {
 
     const handleSaveDept = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setActionError(null);
         setActionSuccess(null);
 
@@ -109,6 +111,7 @@ export default function DepartementsServicesTab() {
             return;
         }
 
+        setSubmitting(true);
         try {
             if (editingDept) {
                 const updated = await organisationService.updateDepartement(editingDept.idDepartement, deptFormData);
@@ -125,12 +128,16 @@ export default function DepartementsServicesTab() {
             loadDepartements();
         } catch (err) {
             setActionError(err.response?.data || "Erreur de sauvegarde.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
     const handleToggleDeptStatus = async (dept, e) => {
         e.stopPropagation();
+        if (submitting) return;
         setActionSuccess(null);
+        setSubmitting(true);
         try {
             if (dept.estActif) {
                 await organisationService.deactivateDepartement(dept.idDepartement);
@@ -142,6 +149,8 @@ export default function DepartementsServicesTab() {
             loadDepartements();
         } catch {
             setError("Erreur lors de la modification du statut.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -170,6 +179,7 @@ export default function DepartementsServicesTab() {
 
     const handleSaveService = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setActionError(null);
         setActionSuccess(null);
 
@@ -191,6 +201,7 @@ export default function DepartementsServicesTab() {
             idDepartement: parseInt(serviceFormData.idDepartement)
         };
 
+        setSubmitting(true);
         try {
             if (editingService) {
                 await organisationService.updateService(editingService.idService, payload);
@@ -205,11 +216,15 @@ export default function DepartementsServicesTab() {
             }
         } catch (err) {
             setActionError(err.response?.data || "Erreur de sauvegarde.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
     const handleToggleServiceStatus = async (service) => {
+        if (submitting) return;
         setActionSuccess(null);
+        setSubmitting(true);
         try {
             if (service.estActif) {
                 await organisationService.deactivateService(service.idService);
@@ -223,49 +238,39 @@ export default function DepartementsServicesTab() {
             }
         } catch {
             setError("Erreur lors de la modification du statut.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
-    const filteredDepartements = showInactive ? departements : departements.filter(d => d.estActif !== false);
-    const filteredServices = showInactive ? services : services.filter(s => s.estActif !== false);
-
-    if (loading && departements.length === 0) {
-        return (
-            <div className="p-4">
-                <SkeletonTable rows={8} columns={4} />
-            </div>
-        );
-    }
+    const filteredDepartements = departements.filter(d => showInactive || d.estActif);
+    const filteredServices = services.filter(s => showInactive || s.estActif);
 
     return (
         <div className="space-y-6">
-            {/* Notifications */}
-            {actionSuccess && <Alert type="success" message={actionSuccess} />}
-            {error && <Alert type="error" message={error} />}
+            {error && (
+                <div className="p-4 bg-danger-500/10 text-danger-500 border border-danger-500/20 text-sm">
+                    {error}
+                </div>
+            )}
+            {actionSuccess && (
+                <div className="p-3 bg-success-500/10 text-success-600 border border-success-500/20 text-xs font-semibold">
+                    {actionSuccess}
+                </div>
+            )}
 
-            {/* Barre d'affichage désactivés */}
-            <div className="flex justify-end bg-[var(--color-surface)] p-2 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
-                <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none">
-                    <input
-                        type="checkbox"
-                        checked={showInactive}
-                        onChange={(e) => setShowInactive(e.target.checked)}
-                        className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
-                    />
-                    <Eye size={14} />
-                    <span>Afficher désactivés</span>
-                </label>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Colonne Gauche : Départements */}
                 <DepartementsList
                     departements={filteredDepartements}
                     selectedDepartement={selectedDepartement}
+                    loading={loading}
+                    showInactive={showInactive}
                     onSelectDepartement={setSelectedDepartement}
-                    onOpenCreate={handleOpenCreateDept}
-                    onOpenEdit={handleOpenEditDept}
-                    onToggleStatus={handleToggleDeptStatus}
+                    onOpenCreateDept={handleOpenCreateDept}
+                    onOpenEditDept={handleOpenEditDept}
+                    onToggleDeptStatus={handleToggleDeptStatus}
+                    onToggleShowInactive={() => setShowInactive(!showInactive)}
                 />
 
                 {/* Colonne Droite : Services */}
@@ -288,6 +293,7 @@ export default function DepartementsServicesTab() {
                 formData={deptFormData}
                 setFormData={setDeptFormData}
                 actionError={actionError}
+                submitting={submitting}
             />
 
             {/* Modale Service */}
@@ -300,6 +306,7 @@ export default function DepartementsServicesTab() {
                 setFormData={setServiceFormData}
                 departements={departements}
                 actionError={actionError}
+                submitting={submitting}
             />
         </div>
     );

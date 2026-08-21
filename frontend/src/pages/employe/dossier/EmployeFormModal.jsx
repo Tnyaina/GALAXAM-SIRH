@@ -204,6 +204,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
         setErrorMsg('');
 
         const finalNat = isCustomNat ? customNationalite : formData.nationalite;

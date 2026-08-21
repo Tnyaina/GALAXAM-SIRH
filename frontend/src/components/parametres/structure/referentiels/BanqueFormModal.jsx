@@ -10,6 +10,7 @@ export default function BanqueFormModal({
     formData,
     setFormData,
     actionError,
+    submitting = false,
 }) {
     if (!isOpen) return null;
 
@@ -62,7 +63,7 @@ export default function BanqueFormModal({
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">
                             Annuler
                         </Button>
-                        <Button type="submit" variant="primary" size="sm">
+                        <Button type="submit" variant="primary" size="sm" loading={submitting}>
                             {editingBanque ? "Enregistrer" : "Créer"}
                         </Button>
                     </div>

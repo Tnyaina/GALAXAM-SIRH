@@ -188,6 +188,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
 
   const handleSubmit = async (e, showToast) => {
     e.preventDefault();
+    if (loading) return;
 
     const targetEmployeId = idEmployeProp || selectedEmployeId;
     const nextFieldErrors = {};

@@ -94,6 +94,7 @@ export default function ConfirmationEssaiModal({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setErrorMsg('');
 
         if (!dateEffet) return setErrorMsg('La date de confirmation est obligatoire.');

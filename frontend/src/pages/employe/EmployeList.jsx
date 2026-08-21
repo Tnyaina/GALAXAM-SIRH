@@ -263,6 +263,7 @@ export default function EmployeList() {
     };
 
     const handleSaveForm = async (formData) => {
+        if (submitting) return;
         setSubmitting(true);
         try {
             if (selectedEmployeForEdit) {
@@ -294,7 +295,7 @@ export default function EmployeList() {
     };
 
     const handleDesactiverConfirm = async () => {
-        if (!employeToDesactiver) return;
+        if (!employeToDesactiver || submitting) return;
         setError('');
         setSubmitting(true);
         try {
@@ -311,7 +312,9 @@ export default function EmployeList() {
     };
 
     const handleReactiver = async (id) => {
+        if (submitting) return;
         setError('');
+        setSubmitting(true);
         try {
             await employeService.reactiverEmploye(id);
             toast({ title: 'Succès', message: 'Employé réactivé avec succès.', type: 'success' });
@@ -319,6 +322,8 @@ export default function EmployeList() {
         } catch (err) {
             console.error('Erreur réactivation:', err);
             setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la réactivation.');
+        } finally {
+            setSubmitting(false);
         }
     };
 

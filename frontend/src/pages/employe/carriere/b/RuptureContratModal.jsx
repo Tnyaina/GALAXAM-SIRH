@@ -161,6 +161,7 @@ export default function RuptureContratModal({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setErrorMsg('');
 
         const contratSourceId = contratActif?.idContrat || initialData?.idContratSource || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif.idContratSource : null);

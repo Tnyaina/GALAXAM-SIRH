@@ -30,16 +30,33 @@ export default function Button({
   loading = false,
   disabled = false,
   className = '',
+  onClick,
   ...props
 }) {
+  const isDisabled = Boolean(disabled || loading);
+
+  const handleClick = (e) => {
+    if (isDisabled) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (onClick) {
+      onClick(e);
+    }
+  };
+
   return (
     <button
-      disabled={disabled || loading}
+      disabled={isDisabled}
+      aria-disabled={isDisabled}
+      onClick={handleClick}
       className={`
         inline-flex items-center justify-center font-semibold tracking-wide uppercase text-[0.75em]
-          rounded-none
+        rounded-none transition-all duration-200 ease-in-out select-none
         focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)] focus:ring-offset-0
-        disabled:opacity-40 disabled:cursor-not-allowed
+        ${!isDisabled ? 'active:scale-[0.98] cursor-pointer' : 'opacity-50 cursor-not-allowed shadow-none pointer-events-none disabled:pointer-events-none'}
+        ${loading ? 'animate-pulse' : ''}
         ${variants[variant]}
         ${sizes[size]}
         ${className}
@@ -47,12 +64,12 @@ export default function Button({
       {...props}
     >
       {loading ? (
-        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+        <svg className="animate-spin w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
         </svg>
       ) : (iconLeft ?? icon)}
-      {children}
+      <span className={loading ? 'opacity-90' : ''}>{children}</span>
       {!loading && iconRight}
     </button>
   );

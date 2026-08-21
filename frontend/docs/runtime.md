@@ -199,17 +199,45 @@ Afficher :
 
 ---
 
-## 7. Double soumission
+## 7. Double soumission & Sécurité des formulaires (Anti-Martèlement)
 
-Après clic :
+Dans tout le projet GALAXAM SIRH, **toute possibilité de double soumission (double-click ou requêtes parallèles concurrentes) est strictement proscrite**.
 
-```text
-[ Enregistrer ]
-      ↓
-[ ⏳ Enregistrement... ]
+### 1. Norme au niveau du Composant UI (`<Button />`)
+
+Tous les formulaires du projet doivent impérativement utiliser le composant réutilisable `@/components/ui/forms/Button.jsx`. Ce composant applique une triple barrière de sécurité :
+
+- **Interception physique DOM (`handleClick`)** : Si `loading` ou `disabled` est vrai, l'événement de clic est stoppé de manière synchrone (`e.preventDefault()`, `e.stopPropagation()`).
+- **Blocage CSS Browser** : La classe `pointer-events-none disabled:pointer-events-none` est appliquée dynamiquement pour empêcher le navigateur de relayer tout clic supplémentaire.
+- **Feedback Visuel Animé** : L'icône du bouton est automatiquement remplacée par un spinner animé (`animate-spin`), avec opacité réduite (`opacity-50`) et curseur `not-allowed`.
+
+### 2. Standard de code synchrone obligatoire pour tout Formulaire / Modale
+
+Tout gestionnaire de soumission de formulaire (création, modification, suppression, activation/désactivation) **doit obligatoirement** suivre ce patron de conception :
+
+```javascript
+const handleSave = async (e) => {
+  e.preventDefault();
+  if (submitting || loading) return; // ⛔ Clause de garde synchrone immédiate (Anti-Double Submit)
+
+  setSubmitting(true);
+  try {
+    await service.saveData(formData);
+    toast({ title: 'Succès', message: 'Enregistrement réussi.', type: 'success' });
+    onClose();
+  } catch (err) {
+    setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement.');
+  } finally {
+    setSubmitting(false); // 🔓 Déverrouillage uniquement après la fin de la promesse HTTP
+  }
+};
 ```
 
-Désactiver le bouton et, pour les opérations sensibles, prévoir aussi l'idempotence côté backend.
+### 3. Obligation sur les Modales et Formulaires
+
+Chaque composant de type Modal (`FormModal`) doit :
+1. Déclarer et recevoir la propriété `submitting` (ou `loading`).
+2. Transmettre cette propriété au bouton de soumission `<Button type="submit" loading={submitting}>`.
 
 ---
 
