@@ -69,6 +69,27 @@ public class EmployeController {
         }
     }
 
+    @GetMapping("/options")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getEmployeOptions(@RequestParam(required = false, defaultValue = "true") Boolean actif) {
+        try (Connection c = dataSource.getConnection()) {
+            List<EmployeCPL> list = EmployeCPL.rechercherEmployes(c, null, actif, 1000, 0);
+            List<Map<String, Object>> options = list.stream().map(e -> Map.<String, Object>of(
+                "idEmploye", e.getTuppleID(),
+                "matricule", e.getMatricule() != null ? e.getMatricule() : "",
+                "nom", e.getNom() != null ? e.getNom() : "",
+                "prenom", e.getPrenom() != null ? e.getPrenom() : "",
+                "nomComplet", e.getNomComplet() != null ? e.getNomComplet() : "",
+                "photoUrl", e.getPhotoUrl() != null ? e.getPhotoUrl() : ""
+            )).toList();
+            return ResponseEntity.ok(options);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la récupération des options d'employés.");
+        }
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getEmployeFicheDetail(@PathVariable int id) {

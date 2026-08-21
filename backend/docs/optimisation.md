@@ -136,3 +136,20 @@ L'application compilée s'ouvre sur `http://localhost:4173` et communique avec l
 ### 6.3. Optimisation du LCP (Largest Contentful Paint) & Chaînes Critiques
 * **Découpage Granulaire** : Les icônes (`lucide-react`), le client HTTP (`axios`), le routeur (`react-router`) et React sont isolés dans des chunks indépendants via `manualChunks` dans `vite.config.js`.
 * **Affichage Progressif (Skeleton Loading)** : Les widgets du Dashboard (ex: *Échéances de contrats*, *Demandes à valider*) utilisent des Skeletons légers (`SkeletonListRows.jsx`) pour peindre la structure UI immédiatement avant la réception des données JSON.
+
+---
+
+## 🚀 7. Nouvelles Stratégies d'Optimisation des Données
+
+### 7.1. Caching des Référentiels (Spring Cache)
+* **Annotation** : `@EnableCaching` activé sur `SirhApplication.java`.
+* **Principe** : Les requêtes d'accès aux référentiels quasi-immuables (Filiales, Sites, Départements, Fonctions, Barèmes IRSA et cotisations) sont conservées en mémoire vive backend.
+* **Gain** : Évite les requêtes SQL répétés sur la BDD PostgreSQL lors de la navigation.
+
+### 7.2. Endpoint Options Ultra-Léger (`GET /api/employes/options`)
+* **Problème résolu** : Évite de charger les grands objets d'employés dans les listes déroulantes de modales et filtres.
+* **Données renvoyées** : DTO minimal contenant uniquement `{ idEmploye, matricule, nom, prenom, photoUrl }`.
+
+### 7.3. Modèle de Pagination Générique (`PageDTO<T>`)
+* **Structure** : `{ content: [...], totalElements: N, currentPage: 1, pageSize: 10, totalPages: M }`.
+* **Execution SQL** : Requêtes paramétrées avec `LIMIT ? OFFSET ?` pour garantir un temps de réponse constant quelle que soit la taille de l'effectif.
