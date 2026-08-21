@@ -11,6 +11,7 @@ export default function CotisationFormModal({
     formData,
     setFormData,
     actionError,
+    submitting = false,
 }) {
     if (!isOpen) return null;
 
@@ -91,7 +92,7 @@ export default function CotisationFormModal({
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">
                             Annuler
                         </Button>
-                        <Button type="submit" variant="primary" size="sm">
+                        <Button type="submit" variant="primary" size="sm" loading={submitting}>
                             {editingCotisation ? "Enregistrer" : "Créer"}
                         </Button>
                     </div>

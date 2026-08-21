@@ -11,6 +11,7 @@ export default function JoursFerieFormModal({
     formData,
     setFormData,
     actionError,
+    submitting = false,
 }) {
     if (!isOpen) return null;
 
@@ -68,7 +69,7 @@ export default function JoursFerieFormModal({
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">
                             Annuler
                         </Button>
-                        <Button type="submit" variant="primary" size="sm">
+                        <Button type="submit" variant="primary" size="sm" loading={submitting}>
                             {editingFerie ? "Enregistrer" : "Créer"}
                         </Button>
                     </div>

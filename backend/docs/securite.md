@@ -49,10 +49,11 @@ Sequence Diagram
 ### Règles d'Autorisation de Base
 
 Définies dans `SecurityConfig.java` :
-- **Accès Public** : Les endpoints `/auth/login`, `/auth/register`, `/auth/refresh` et `/auth/logout` sont ouverts à tous.
+- **Accès Public** : Les endpoints `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`, `/uploads/photos/**` (photos d'avatar) et `/error` sont ouverts.
+- **Protection des Documents Confidentiels** : Les fichiers déposés sous `/uploads/documents/**` requièrent obligatoirement une authentification valide (`JWT`).
 - **Rôle Administrateur** : Les endpoints sous `/admin/**` requièrent l'autorité `ROLE_ADMIN`.
 - **Rôle Pointage** : Les endpoints sous `/pointage/**` requièrent soit `ROLE_ADMIN`, soit `ROLE_AGENT_POINTAGE`.
-- **Annotation Method Security** : `@EnableMethodSecurity` est activé pour permettre des restrictions plus fines au niveau des méthodes des contrôleurs via l'annotation `@PreAuthorize("hasRole('ADMIN')")`.
+- **Annotation Method Security** : `@EnableMethodSecurity` est activé pour permettre des restrictions plus fines au niveau des méthodes des contrôleurs via l'annotation `@PreAuthorize("hasAuthority('...')")`.
 
 ---
 

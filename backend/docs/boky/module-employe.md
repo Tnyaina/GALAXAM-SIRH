@@ -329,7 +329,8 @@ Base URL : `/api/employes`
 
 | Méthode | URL | Description | Auth requise |
 |---|---|---|---|
-| `GET` | `/` | Liste paginée + filtres (nom, matricule, statut) | ✅ LECTURE |
+| `GET` | `/` | Liste paginée (`PageDTO`) + filtres (nom, matricule, statut) | ✅ LECTURE |
+| `GET` | `/options` | Liste ultra-légère pour Select/Modals (id, matricule, nom) | ✅ LECTURE |
 | `GET` | `/{id}` | Fiche complète d'un employé (toutes tables satellites) | ✅ LECTURE |
 | `POST` | `/` | Créer un nouvel employé | ✅ ÉCRITURE |
 | `PUT` | `/{id}` | Modifier la fiche d'un employé | ✅ ÉCRITURE |

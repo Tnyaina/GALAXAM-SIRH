@@ -1,14 +1,10 @@
-import Input, { Select } from '@/components/ui/forms/Input';
+import Input, { Select, AutocompleteInput } from '@/components/ui/forms/Input';
 
 export default function CiviliteStep({
     formData,
     set,
     villesStandards,
     nationalitesStandards,
-    isCustomNat,
-    customNationalite,
-    setCustomNationalite,
-    handleNationaliteChange,
 }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -28,34 +24,25 @@ export default function CiviliteStep({
             <Input label="Prénom(s)" required value={formData.prenom} onChange={e => set('prenom', e.target.value)} placeholder="Prénoms" />
             <Input label="Date de Naissance" required type="date" value={formData.dateNaissance} onChange={e => set('dateNaissance', e.target.value)} />
             
-            {/* Lieu de Naissance avec liste des villes */}
-            <Select label="Lieu de Naissance" required value={formData.lieuNaissance} onChange={e => set('lieuNaissance', e.target.value)}>
-                {villesStandards.map(v => <option key={v} value={v}>{v}</option>)}
-            </Select>
+            <AutocompleteInput 
+                label="Lieu de Naissance" 
+                required 
+                value={formData.lieuNaissance} 
+                onChange={e => set('lieuNaissance', e.target.value)} 
+                placeholder="Ex: Antananarivo, Toamasina..."
+                options={villesStandards}
+                listId="villes-list"
+            />
 
-            {/* Nationalité avec Select standardisé */}
-            <div>
-                <Select 
-                    label="Nationalité" 
-                    value={isCustomNat ? 'Autre' : formData.nationalite} 
-                    onChange={e => handleNationaliteChange(e.target.value)}
-                >
-                    {nationalitesStandards.map(n => <option key={n.value} value={n.value}>{n.label}</option>)}
-                </Select>
-                {isCustomNat && (
-                    <div className="mt-2">
-                        <Input 
-                            label="Préciser la nationalité" 
-                            value={customNationalite} 
-                            onChange={e => {
-                                setCustomNationalite(e.target.value);
-                                set('nationalite', e.target.value);
-                            }}
-                            placeholder="Ex: Canadienne" 
-                        />
-                    </div>
-                )}
-            </div>
+            <AutocompleteInput 
+                label="Nationalité" 
+                required 
+                value={formData.nationalite} 
+                onChange={e => set('nationalite', e.target.value)} 
+                placeholder="Ex: Malgache, Française..."
+                options={nationalitesStandards}
+                listId="nationalites-list"
+            />
 
             <Select label="Situation Familiale" value={formData.situationFamiliale} onChange={e => set('situationFamiliale', e.target.value)}>
                 <option value="Celibataire">Célibataire</option>

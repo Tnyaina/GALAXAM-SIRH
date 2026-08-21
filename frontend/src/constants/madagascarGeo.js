@@ -1,0 +1,72 @@
+/**
+ * Référentiel des données géographiques et nationalités pour Madagascar.
+ * Permet l'autocomplétion immédiate (0ms latence) sans bloquer la saisie libre.
+ */
+
+export const VILLES_MADAGASCAR = [
+    'Antananarivo',
+    'Toamasina',
+    'Antsirabe',
+    'Fianarantsoa',
+    'Mahajanga',
+    'Toliara',
+    'Antsiranana (Diego-Suarez)',
+    'Nosy Be',
+    'Taolagnaro (Fort-Dauphin)',
+    'Morondava',
+    'Sambava',
+    'Ambatondrazaka',
+    'Antalaha',
+    'Manakara',
+    'Ambositra',
+    'Ihosy',
+    'Tsiroanomandidy',
+    'Maintirano',
+    'Fenerive Est (Vohipeno)',
+    'Marovoay',
+    'Ambanja',
+    'Ambovombe',
+    'Ambohimangakely',
+    'Itaosy',
+    'Sabotsy Namehana',
+    'Andoharanofotsy',
+];
+
+export const REGIONS_MADAGASCAR = [
+    'Analamanga',
+    'Vakinankaratra',
+    'Itasy',
+    'Bongolava',
+    'Atsinanana',
+    'Analanjirofo',
+    'Alaotra-Mangoro',
+    'Boeny',
+    'Sofia',
+    'Betsiboka',
+    'Melaky',
+    'Haute Matsiatra',
+    'Vatovavy',
+    'Fitovinany',
+    'Ihorombe',
+    'Atsimo-Atsinanana',
+    'Atsimo-Andrefana',
+    'Androy',
+    'Anosy',
+    'Diana',
+    'Sava',
+    'Amoron\'i Mania',
+];
+
+export const NATIONALITES_STANDARDS = [
+    'Malgache',
+    'Française',
+    'Comorienne',
+    'Indienne',
+    'Chinoise',
+    'Mauricienne',
+    'Américaine',
+    'Allemande',
+    'Italienne',
+    'Suisse',
+    'Canadienne',
+];

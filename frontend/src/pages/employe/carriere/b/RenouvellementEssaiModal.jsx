@@ -139,6 +139,7 @@ export default function RenouvellementEssaiModal({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setErrorMsg('');
 
         if (!nouvelleDateFin) return setErrorMsg('La nouvelle date de fin d\'essai est obligatoire.');

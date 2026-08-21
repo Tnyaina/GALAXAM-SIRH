@@ -10,6 +10,7 @@ export default function TypeIntervenantFormModal({
     formData,
     setFormData,
     actionError,
+    submitting = false,
 }) {
     if (!isOpen) return null;
 
@@ -79,7 +80,7 @@ export default function TypeIntervenantFormModal({
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">
                             Annuler
                         </Button>
-                        <Button type="submit" variant="primary" size="sm">
+                        <Button type="submit" variant="primary" size="sm" loading={submitting}>
                             {editingIntervenant ? "Enregistrer" : "Créer"}
                         </Button>
                     </div>

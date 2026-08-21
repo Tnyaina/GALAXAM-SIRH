@@ -169,3 +169,35 @@ export function Radio({ label, error, hint, className = '', ...props }) {
     </div>
   );
 }
+
+export function AutocompleteInput({
+  label,
+  options = [],
+  id,
+  listId,
+  error,
+  hint,
+  className = '',
+  ...props
+}) {
+  const generatedId = id || listId || `list-${Math.random().toString(36).substring(2, 9)}`;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Input
+        label={label}
+        error={error}
+        hint={hint}
+        list={generatedId}
+        className={className}
+        {...props}
+      />
+      <datalist id={generatedId}>
+        {options.map((opt) => {
+          const val = typeof opt === 'string' ? opt : (opt.value || opt.label);
+          return <option key={val} value={val} />;
+        })}
+      </datalist>
+    </div>
+  );
+}

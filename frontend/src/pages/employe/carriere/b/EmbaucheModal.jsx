@@ -130,6 +130,7 @@ export default function EmbaucheModal({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setErrorMsg('');
 
         if (!formData.idFiliale || !formData.idTypeContrat || !formData.idTypeIntervenant ||

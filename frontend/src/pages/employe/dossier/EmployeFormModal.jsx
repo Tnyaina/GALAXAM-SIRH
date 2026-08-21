@@ -3,6 +3,7 @@ import { X, User, CreditCard, Phone, Users, ShieldAlert, Building } from 'lucide
 import referentielService from '@/api/admin/referentielService';
 import employeService from '@/api/employe/employeService';
 import Button from '@/components/ui/forms/Button';
+import { VILLES_MADAGASCAR, NATIONALITES_STANDARDS } from '@/constants/madagascarGeo';
 
 import CiviliteStep from '@/components/employe/form/CiviliteStep';
 import CinPermisStep from '@/components/employe/form/CinPermisStep';
@@ -10,23 +11,6 @@ import CoordonneesPhotoStep from '@/components/employe/form/CoordonneesPhotoStep
 import FamilleFormStep from '@/components/employe/form/FamilleFormStep';
 import UrgenceFormStep from '@/components/employe/form/UrgenceFormStep';
 import CnapsBanqueStep from '@/components/employe/form/CnapsBanqueStep';
-
-// Liste standardisée des nationalités pour éviter les incohérences
-const NATIONALITES_STANDARDS = [
-    { value: 'Malgache', label: 'Malgache' },
-    { value: 'Française', label: 'Française' },
-    { value: 'Comorienne', label: 'Comorienne' },
-    { value: 'Indienne', label: 'Indienne' },
-    { value: 'Chinoise', label: 'Chinoise' },
-    { value: 'Mauricienne', label: 'Mauricienne' },
-    { value: 'Autre', label: 'Autre (Saisie libre...)' },
-];
-
-// Liste des principales villes de Madagascar pour standardiser les lieux
-const VILLES_STANDARDS = [
-    'Antananarivo', 'Toamasina', 'Antsirabe', 'Fianarantsoa', 
-    'Mahajanga', 'Toliara', 'Antsiranana', 'Nosy Be', 'Taolagnaro', 'Morondava', 'Autre'
-];
 
 const EMPTY_FORM = {
     matricule: '', nom: '', prenom: '', sexe: 'M',
@@ -94,7 +78,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
         if (employeData) {
             const e = employeData.employe || employeData;
             const nat = e.nationalite || 'Malgache';
-            const isKnownNat = NATIONALITES_STANDARDS.some(n => n.value === nat);
+            const isKnownNat = NATIONALITES_STANDARDS.includes(nat);
 
             if (!isKnownNat && nat) {
                 setIsCustomNat(true);
@@ -204,6 +188,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
         setErrorMsg('');
 
         const finalNat = isCustomNat ? customNationalite : formData.nationalite;
@@ -289,7 +274,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                         <CiviliteStep
                             formData={formData}
                             set={set}
-                            villesStandards={VILLES_STANDARDS}
+                            villesStandards={VILLES_MADAGASCAR}
                             nationalitesStandards={NATIONALITES_STANDARDS}
                             isCustomNat={isCustomNat}
                             customNationalite={customNationalite}
@@ -303,7 +288,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                         <CinPermisStep
                             formData={formData}
                             set={set}
-                            villesStandards={VILLES_STANDARDS}
+                            villesStandards={VILLES_MADAGASCAR}
                         />
                     )}
 
@@ -312,7 +297,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                         <CoordonneesPhotoStep
                             formData={formData}
                             set={set}
-                            villesStandards={VILLES_STANDARDS}
+                            villesStandards={VILLES_MADAGASCAR}
                             uploadingPhoto={uploadingPhoto}
                             handlePhotoSelect={handlePhotoSelect}
                         />

@@ -10,6 +10,7 @@ export default function TypeContratFormModal({
     formData,
     setFormData,
     actionError,
+    submitting = false,
 }) {
     if (!isOpen) return null;
 
@@ -63,7 +64,7 @@ export default function TypeContratFormModal({
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">
                             Annuler
                         </Button>
-                        <Button type="submit" variant="primary" size="sm">
+                        <Button type="submit" variant="primary" size="sm" loading={submitting}>
                             {editingContrat ? "Enregistrer" : "Créer"}
                         </Button>
                     </div>

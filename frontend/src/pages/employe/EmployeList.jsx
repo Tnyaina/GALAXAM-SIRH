@@ -263,18 +263,26 @@ export default function EmployeList() {
     };
 
     const handleSaveForm = async (formData) => {
+        if (submitting) return;
         setSubmitting(true);
         try {
             if (selectedEmployeForEdit) {
                 const empId = selectedEmployeForEdit.employe?.idEmploye || selectedEmployeForEdit.idEmploye;
                 await employeService.updateEmploye(empId, formData);
                 toast({ title: 'Succès', message: 'Fiche employé modifiée avec succès.', type: 'success' });
+                setIsFormOpen(false);
+                loadEmployes();
             } else {
-                await employeService.createEmploye(formData);
+                const created = await employeService.createEmploye(formData);
                 toast({ title: 'Succès', message: 'Nouvel employé créé avec succès.', type: 'success' });
+                setIsFormOpen(false);
+                const newEmpId = created?.idEmploye || created?.employe?.idEmploye;
+                if (newEmpId) {
+                    navigate(`/employes/${newEmpId}`);
+                } else {
+                    loadEmployes();
+                }
             }
-            setIsFormOpen(false);
-            loadEmployes();
         } catch (err) {
             console.error('Erreur sauvegarde employé:', err);
             setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Erreur lors de l'enregistrement de l'employé.");
@@ -294,7 +302,7 @@ export default function EmployeList() {
     };
 
     const handleDesactiverConfirm = async () => {
-        if (!employeToDesactiver) return;
+        if (!employeToDesactiver || submitting) return;
         setError('');
         setSubmitting(true);
         try {
@@ -311,7 +319,9 @@ export default function EmployeList() {
     };
 
     const handleReactiver = async (id) => {
+        if (submitting) return;
         setError('');
+        setSubmitting(true);
         try {
             await employeService.reactiverEmploye(id);
             toast({ title: 'Succès', message: 'Employé réactivé avec succès.', type: 'success' });
@@ -319,6 +329,8 @@ export default function EmployeList() {
         } catch (err) {
             console.error('Erreur réactivation:', err);
             setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la réactivation.');
+        } finally {
+            setSubmitting(false);
         }
     };
 

@@ -266,14 +266,10 @@ ALTER TABLE notification_rh ADD CONSTRAINT chk_notif_type CHECK (type_alerte IN 
     'BROUILLON_EN_ATTENTE', 'MOUVEMENT_APPLIQUE',
     'DOCUMENTS_MANQUANTS', 'EMPLOYE_CREE', 'BROUILLON_CREE',
     -- Congés & absences
-    'DEMANDE_CONGE_EN_ATTENTE',        -- demande EN_ATTENTE non traitée depuis > 48h
-    'SOLDE_CONGE_FAIBLE',              -- solde employé passé sous un seuil configurable
-    'SOLDE_CONGE_NEGATIF',             -- solde devenu négatif suite à une dérogation d'anticipation
-    'RETOUR_CONGE_J',                  -- fin de congé = aujourd'hui
-    'MALADIE_PLAFOND_EPISODE_ATTEINT', -- un arrêt maladie continu atteint 30j (bascule sans solde) ou 180j (rupture possible)
-    'POOL_EXCEPTIONNEL_EPUISE',        -- pool 10j/an (exceptionnel + paternité) atteint pour l'employé
-    'FRACTIONNEMENT_NON_RESPECTE',     -- fin d'exercice approchant sans tranche de 12j consécutifs posée
-    'BONIFICATION_ANCIENNETE_APPLIQUEE' -- mouvement BONIFICATION généré à l'anniversaire d'ancienneté
+    'CONGE_EN_ATTENTE', 'DEMANDE_CONGE_EN_ATTENTE', 'CONGE_VALIDE', 'CONGE_REFUSE', 'CONGE_ANNULE',
+    'SOLDE_CONGE_FAIBLE', 'SOLDE_CONGE_NEGATIF', 'RETOUR_CONGE_J', 'CONGE_EXPIRATION_PROCHE',
+    'MALADIE_PLAFOND_EPISODE_ATTEINT', 'POOL_EXCEPTIONNEL_EPUISE',
+    'FRACTIONNEMENT_NON_RESPECTE', 'BONIFICATION_ANCIENNETE_APPLIQUEE'
 ));
 
 -- ------------------------------------------

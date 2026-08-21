@@ -266,7 +266,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                           )}
                         </Td>
                         <Td className="text-right">
-                          {canWrite && d.codeStatutDemande === 'EN_ATTENTE' && (
+                          {canWrite && (d.codeStatutDemande === 'EN_ATTENTE' || d.codeStatutDemande === 'BROUILLON') && (
                             <Button
                               variant="ghost"
                               size="xs"
@@ -276,7 +276,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                               Modifier
                             </Button>
                           )}
-                          {canWrite && d.codeStatutDemande !== 'ANNULE' && d.codeStatutDemande !== 'REFUSE' && (
+                          {canWrite && (d.codeStatutDemande === 'EN_ATTENTE' || d.codeStatutDemande === 'BROUILLON') && (
                             <Button
                               variant="ghost"
                               size="xs"
