@@ -20,7 +20,8 @@ export default function FonctionsTab() {
     const [editingFonction, setEditingFonction] = useState(null);
     const [formData, setFormData] = useState({
         codeFonction: '',
-        libelle: ''
+        libelle: '',
+        dispensePointage: false
     });
 
     const loadData = async () => {
@@ -43,7 +44,7 @@ export default function FonctionsTab() {
 
     const handleOpenCreate = () => {
         setEditingFonction(null);
-        setFormData({ codeFonction: '', libelle: '' });
+        setFormData({ codeFonction: '', libelle: '', dispensePointage: false });
         setActionError(null);
         setShowModal(true);
     };
@@ -52,7 +53,8 @@ export default function FonctionsTab() {
         setEditingFonction(fonction);
         setFormData({
             codeFonction: fonction.codeFonction,
-            libelle: fonction.libelle
+            libelle: fonction.libelle,
+            dispensePointage: fonction.dispensePointage || false
         });
         setActionError(null);
         setShowModal(true);
@@ -172,6 +174,7 @@ export default function FonctionsTab() {
                 <Thead>
                     <Th>Code Fonction</Th>
                     <Th>Intitulé du Poste</Th>
+                    <Th>Autonome (Sans Pointage)</Th>
                     <Th>Statut</Th>
                     <Th className="text-right">Actions</Th>
                 </Thead>
@@ -181,6 +184,13 @@ export default function FonctionsTab() {
                             <Tr key={f.idFonction}>
                                 <Td isData className="font-bold text-[var(--color-brand-500)]">{f.codeFonction}</Td>
                                 <Td className="font-bold text-[var(--color-fg)]">{f.libelle}</Td>
+                                <Td>
+                                    {f.dispensePointage ? (
+                                        <Badge variant="warning" size="sm">Oui</Badge>
+                                    ) : (
+                                        <Badge variant="default" size="sm">Non</Badge>
+                                    )}
+                                </Td>
                                 <Td>
                                     <Badge variant={f.estActif ? 'success' : 'default'} size="sm" dot>
                                         {f.estActif ? "Actif" : "Désactivé"}
@@ -211,7 +221,7 @@ export default function FonctionsTab() {
                         ))
                     ) : (
                         <Tr>
-                            <Td colSpan={4} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
+                            <Td colSpan={5} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
                                 Aucune fonction enregistrée.
                             </Td>
                         </Tr>
@@ -254,6 +264,15 @@ export default function FonctionsTab() {
                                 onChange={(e) => setFormData({ ...formData, libelle: e.target.value })}
                                 placeholder="Ex: Directeur Général"
                             />
+                            <label className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)] cursor-pointer p-3 border border-[var(--color-border-subtle)] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors mt-2">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.dispensePointage}
+                                    onChange={(e) => setFormData({ ...formData, dispensePointage: e.target.checked })}
+                                    className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
+                                />
+                                <span>Dispense de pointage (Poste autonome)</span>
+                            </label>
                             <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
                                 <Button type="button" onClick={() => setShowModal(false)} variant="ghost" size="sm">
                                     Annuler

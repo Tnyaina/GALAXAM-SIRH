@@ -228,29 +228,29 @@ INSERT INTO ref_service (code_service, libelle, id_departement) VALUES
 ('OPE', 'Opérations Terrain LMD', 2);
 
 -- 4. Fonctions (Liste officielle de l'entreprise)
-INSERT INTO ref_fonction (code_fonction, libelle) VALUES
-('DG', 'DG'),
-('DAF', 'DAF'),
-('CHEF_COMPTABLE', 'Chef Comptable'),
-('AIDE_COMPTABLE', 'Aide-Comptable'),
-('OPE_MGR', 'OPE Manager'),
-('CHEF_DECLARANT', 'Chef Déclarant'),
-('AIDE_DECLARANT', 'Aide-Déclarant'),
-('PASSEUR_PIECES', 'Passeur de pièces'),
-('RESP_TOAMASINA', 'Resp bureau Toamasina'),
-('RESP_ENTREPOT', 'Resp Entrepôt'),
-('CHEF_ZONE', 'Chef de zone'),
-('AGENT_PLANIF', 'Agent de planification'),
-('MANUTENTIONNAIRE', 'Manutentionnaire'),
-('COMMERCIAL_EXEC', 'Commercial Executive'),
-('ASSIST_DIR', 'Assist de Direction'),
-('ASSIST_ADMIN', 'Assistante Admin'),
-('AGENT_B_D', 'Agent B à D'),
-('AGENT_TRANSMISSION', 'Agent de transmission'),
-('AGENT_TOUT_FAIRE', 'Agent à tout faire'),
-('AGENT_SURFACE', 'Agent de surface'),
-('GARDIEN', 'Gardien'),
-('AGENT_FORMATION', 'Agent en formation')
+INSERT INTO ref_fonction (code_fonction, libelle, dispense_pointage) VALUES
+('DG', 'DG', true),
+('DAF', 'DAF', true),
+('CHEF_COMPTABLE', 'Chef Comptable', false),
+('AIDE_COMPTABLE', 'Aide-Comptable', false),
+('OPE_MGR', 'OPE Manager', false),
+('CHEF_DECLARANT', 'Chef Déclarant', false),
+('AIDE_DECLARANT', 'Aide-Déclarant', false),
+('PASSEUR_PIECES', 'Passeur de pièces', false),
+('RESP_TOAMASINA', 'Resp bureau Toamasina', false),
+('RESP_ENTREPOT', 'Resp Entrepôt', false),
+('CHEF_ZONE', 'Chef de zone', false),
+('AGENT_PLANIF', 'Agent de planification', false),
+('MANUTENTIONNAIRE', 'Manutentionnaire', false),
+('COMMERCIAL_EXEC', 'Commercial Executive', false),
+('ASSIST_DIR', 'Assist de Direction', false),
+('ASSIST_ADMIN', 'Assistante Admin', false),
+('AGENT_B_D', 'Agent B à D', false),
+('AGENT_TRANSMISSION', 'Agent de transmission', false),
+('AGENT_TOUT_FAIRE', 'Agent à tout faire', false),
+('AGENT_SURFACE', 'Agent de surface', false),
+('GARDIEN', 'Gardien', false),
+('AGENT_FORMATION', 'Agent en formation', false)
 ON CONFLICT (code_fonction) DO NOTHING;
 
 -- 5. Types de contrat & Intervenants

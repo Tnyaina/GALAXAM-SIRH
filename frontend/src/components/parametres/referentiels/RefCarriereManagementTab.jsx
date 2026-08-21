@@ -21,7 +21,7 @@ export default function RefCarriereManagementTab() {
     const [selectedCp, setSelectedCp] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
-    const [formDataCp, setFormDataCp] = useState({ code: '', libelle: '', description: '', actif: true });
+    const [formDataCp, setFormDataCp] = useState({ code: '', libelle: '', description: '', estEligibleHs: true, actif: true });
 
     const loadData = async () => {
         setLoading(true);
@@ -51,7 +51,7 @@ export default function RefCarriereManagementTab() {
 
     const handleOpenCreateCp = () => {
         setSelectedCp(null);
-        setFormDataCp({ code: '', libelle: '', description: '', actif: true });
+        setFormDataCp({ code: '', libelle: '', description: '', estEligibleHs: true, actif: true });
         setError('');
         setShowModalCp(true);
     };
@@ -62,6 +62,7 @@ export default function RefCarriereManagementTab() {
             code: cp.code || '',
             libelle: cp.libelle || '',
             description: cp.description || '',
+            estEligibleHs: cp.estEligibleHs !== undefined ? cp.estEligibleHs : true,
             actif: cp.actif !== undefined ? cp.actif : true
         });
         setError('');
@@ -141,6 +142,7 @@ export default function RefCarriereManagementTab() {
                             <Th>Code</Th>
                             <Th>Libellé</Th>
                             <Th>Description</Th>
+                            <Th>Éligible HS</Th>
                             <Th>Statut</Th>
                             <Th className="text-right">Actions</Th>
                         </Thead>
@@ -150,6 +152,13 @@ export default function RefCarriereManagementTab() {
                                     <Td isData className="font-bold text-[var(--color-brand-500)]">{cp.code}</Td>
                                     <Td className="font-bold text-[var(--color-fg)]">{cp.libelle}</Td>
                                     <Td muted className="text-xs">{cp.description || '-'}</Td>
+                                    <Td>
+                                        {cp.estEligibleHs ? (
+                                            <Badge variant="success" size="sm">Oui</Badge>
+                                        ) : (
+                                            <Badge variant="warning" size="sm">Non</Badge>
+                                        )}
+                                    </Td>
                                     <Td>
                                         <Badge variant={cp.actif ? 'success' : 'default'} size="sm" dot>
                                             {cp.actif ? 'Actif' : 'Inactif'}
@@ -269,6 +278,15 @@ export default function RefCarriereManagementTab() {
                                 onChange={e => setFormDataCp({ ...formDataCp, description: e.target.value })}
                                 placeholder="Précisions sur cette catégorie..."
                             />
+                            <label className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)] cursor-pointer p-3 border border-[var(--color-border-subtle)] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors mt-2">
+                                <input
+                                    type="checkbox"
+                                    checked={formDataCp.estEligibleHs}
+                                    onChange={(e) => setFormDataCp({ ...formDataCp, estEligibleHs: e.target.checked })}
+                                    className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
+                                />
+                                <span>Éligible aux Heures Supplémentaires</span>
+                            </label>
                             <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
                                 <Button type="button" onClick={() => setShowModalCp(false)} variant="ghost" size="sm">
                                     Annuler

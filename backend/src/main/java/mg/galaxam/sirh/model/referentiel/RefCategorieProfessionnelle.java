@@ -15,6 +15,7 @@ public class RefCategorieProfessionnelle extends ClassMere {
     private String code;
     private String libelle;
     private String description;
+    private boolean estEligibleHs = true;
     private boolean actif = true;
     private Timestamp createdAt;
     private Timestamp updatedAt;
@@ -47,12 +48,13 @@ public class RefCategorieProfessionnelle extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        String sql = "INSERT INTO ref_categorie_professionnelle (code, libelle, description, actif) VALUES (?, ?, ?, ?) RETURNING id_categorie_professionnelle";
+        String sql = "INSERT INTO ref_categorie_professionnelle (code, libelle, description, est_eligible_hs, actif) VALUES (?, ?, ?, ?, ?) RETURNING id_categorie_professionnelle";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
             ps.setString(3, description);
-            ps.setBoolean(4, actif);
+            ps.setBoolean(4, estEligibleHs);
+            ps.setBoolean(5, actif);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     this.idCategorieProfessionnelle = rs.getInt(1);
@@ -64,13 +66,14 @@ public class RefCategorieProfessionnelle extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        String sql = "UPDATE ref_categorie_professionnelle SET code = ?, libelle = ?, description = ?, actif = ?, updated_at = CURRENT_TIMESTAMP WHERE id_categorie_professionnelle = ?";
+        String sql = "UPDATE ref_categorie_professionnelle SET code = ?, libelle = ?, description = ?, est_eligible_hs = ?, actif = ?, updated_at = CURRENT_TIMESTAMP WHERE id_categorie_professionnelle = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
             ps.setString(3, description);
-            ps.setBoolean(4, actif);
-            ps.setInt(5, idCategorieProfessionnelle);
+            ps.setBoolean(4, estEligibleHs);
+            ps.setBoolean(5, actif);
+            ps.setInt(6, idCategorieProfessionnelle);
             ps.executeUpdate();
         }
         return this;
@@ -128,6 +131,7 @@ public class RefCategorieProfessionnelle extends ClassMere {
         cp.setCode(rs.getString("code"));
         cp.setLibelle(rs.getString("libelle"));
         cp.setDescription(rs.getString("description"));
+        cp.setEstEligibleHs(rs.getBoolean("est_eligible_hs"));
         cp.setActif(rs.getBoolean("actif"));
         cp.setCreatedAt(rs.getTimestamp("created_at"));
         cp.setUpdatedAt(rs.getTimestamp("updated_at"));
@@ -146,6 +150,9 @@ public class RefCategorieProfessionnelle extends ClassMere {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public boolean isEstEligibleHs() { return estEligibleHs; }
+    public void setEstEligibleHs(boolean estEligibleHs) { this.estEligibleHs = estEligibleHs; }
 
     public boolean isActif() { return actif; }
     public void setActif(boolean actif) { this.actif = actif; }
