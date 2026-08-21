@@ -4,18 +4,21 @@
 --             site_indemnite_config, ref_calendrier_ferie,
 --             site_calendrier_ferie, utilisateur, ref_categorie_professionnelle,
 --             demande_conge (26-08-13-sp2-conges.sql — matérialisation des jours CONGE)
+-- Version : 1.1.0 — Gel des données à la clôture, proratisation seuil hebdo
 -- ============================================================
 
 -- ------------------------------------------
 -- 0. NETTOYAGE PRÉALABLE (ordre inverse des dépendances)
 -- ------------------------------------------
 DROP VIEW IF EXISTS v_synthese_pointage_mensuelle CASCADE;
+DROP VIEW IF EXISTS v_hs_mensuelle CASCADE;
 DROP VIEW IF EXISTS v_pointage_semaine CASCADE;
 DROP VIEW IF EXISTS v_pointage_jour_cpl CASCADE;
 
+DROP TABLE IF EXISTS pointage_cumul_periode CASCADE;
+DROP TABLE IF EXISTS pointage_semaine_calcule CASCADE;
 DROP TABLE IF EXISTS pointage_jour CASCADE;
 DROP TABLE IF EXISTS employe_indemnite_derogation CASCADE;
-DROP TABLE IF EXISTS ref_grille_arrondi_pointage CASCADE;
 DROP TABLE IF EXISTS ref_tolerance_arrivee_pointage CASCADE;
 DROP TABLE IF EXISTS ref_statut_pointage_jour CASCADE;
 DROP TABLE IF EXISTS periode_paie CASCADE;
@@ -66,9 +69,13 @@ CREATE TABLE ref_statut_pointage_jour (
 INSERT INTO ref_statut_pointage_jour (code, libelle, decompte_absence, necessite_saisie) VALUES
     ('PRESENT', 'Présent', FALSE, TRUE),
     ('ABSENCE_NON_JUSTIFIEE', 'Absence non justifiée', TRUE, FALSE),
+    ('ANOMALIE_SAISIE', 'Pointage incomplet (anomalie)', FALSE, TRUE),
+    ('ABSENCE_JUSTIFIEE', 'Absence justifiée (avec motif)', TRUE, FALSE),
     ('CONGE', 'En congé (matérialisé depuis demande_conge)', FALSE, FALSE),
     ('FERIE_TRAVAILLE', 'Jour férié travaillé', FALSE, TRUE),
     ('FERIE_CHOME', 'Jour férié chômé', FALSE, FALSE),
+    ('SAMEDI_TRAVAILLE', 'Samedi travaillé', FALSE, TRUE),
+    ('DIMANCHE_TRAVAILLE', 'Dimanche travaillé', FALSE, TRUE),
     ('DISPENSE_POINTAGE', 'Poste autonome — dispense de pointage', FALSE, FALSE);
 
 -- Plafond d'arrivée anticipée : une seule règle par site (pas de paliers)
@@ -120,14 +127,17 @@ CREATE TABLE pointage_jour (
     heures_matin DECIMAL(4,2) DEFAULT 0,
     heures_am DECIMAL(4,2) DEFAULT 0,
     total_heures DECIMAL(4,2) DEFAULT 0,
+    heures_nuit DECIMAL(4,2) NOT NULL DEFAULT 0,
     minutes_retard INTEGER DEFAULT 0,
     minutes_depart_anticipe INTEGER DEFAULT 0,
 
     -- Indemnités (Niveau 3 de la cascade — ajustement du jour)
     indemnite_deplacement_recue BOOLEAN DEFAULT TRUE,
+    montant_deplacement_jour DECIMAL(10,2),
     indemnite_repas_recue BOOLEAN DEFAULT FALSE,
     montant_repas DECIMAL(10,2) DEFAULT 0,
     utilise_vehicule_fonction_jour BOOLEAN DEFAULT FALSE,
+    horaire_continu_jour BOOLEAN,
 
     motif_ajustement TEXT,
     saisi_par INTEGER REFERENCES utilisateur(id_utilisateur),
@@ -172,7 +182,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
 -- ============================================================
--- 4. VUES
+-- 4. VUES (temps réel — affichage avant clôture)
 -- ============================================================
 
 CREATE OR REPLACE VIEW v_pointage_jour_cpl AS
@@ -189,10 +199,11 @@ SELECT
     p.heure_entree_matin, p.heure_sortie_matin,
     p.heure_entree_am, p.heure_sortie_am,
     st.code AS code_statut, st.libelle AS libelle_statut,
-    p.heures_matin, p.heures_am, p.total_heures,
+    p.heures_matin, p.heures_am, p.total_heures, p.heures_nuit,
     p.minutes_retard, p.minutes_depart_anticipe,
-    p.indemnite_deplacement_recue, p.indemnite_repas_recue, p.montant_repas,
-    p.utilise_vehicule_fonction_jour,
+    p.indemnite_deplacement_recue, p.montant_deplacement_jour,
+    p.indemnite_repas_recue, p.montant_repas,
+    p.utilise_vehicule_fonction_jour, p.horaire_continu_jour,
     p.motif_ajustement, p.saisi_par, p.created_at, p.updated_at
 FROM pointage_jour p
 JOIN employe e ON p.id_employe = e.id_employe
@@ -200,28 +211,38 @@ JOIN periode_paie pp ON p.id_periode_paie = pp.id_periode_paie
 JOIN ref_site rs ON p.id_site = rs.id_site
 JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour;
 
--- Compensation hebdomadaire (RG-PTG-04) : base légale 40h/semaine
+-- Vue hebdomadaire avec proratisation du seuil par tronçon
+-- Partition par id_periode_paie : une semaine à cheval génère 2 lignes distinctes (une par période)
+-- Seuil proratisé : 8h × nb_jours_ouvrés_du_tronçon (pas un seuil fixe de 40h)
 CREATE OR REPLACE VIEW v_pointage_semaine AS
 SELECT
     p.id_employe,
+    p.id_periode_paie,
     date_trunc('week', p.date_pointage)::date AS debut_semaine,
-    SUM(p.total_heures) AS total_heures_semaine,
-    SUM(p.minutes_retard) / 60.0 AS heures_retard_semaine,
-    GREATEST(SUM(p.total_heures) - 40, 0) AS heures_hs_brutes,
-    GREATEST(40 - SUM(p.total_heures), 0) AS heures_deficit_non_compense
+    COUNT(*)                                  AS nb_jours_troncon,
+    COUNT(*) * 8.0                            AS seuil_heures_troncon,
+    SUM(p.total_heures)                       AS total_heures_semaine,
+    SUM(p.minutes_retard) / 60.0              AS heures_retard_semaine,
+    GREATEST(SUM(p.total_heures) - COUNT(*) * 8.0, 0)
+                                              AS heures_hs_brutes,
+    GREATEST(COUNT(*) * 8.0 - SUM(p.total_heures), 0)
+                                              AS heures_deficit_non_compense
 FROM pointage_jour p
 JOIN ref_statut_pointage_jour s ON p.id_statut_jour = s.id_statut_jour
-WHERE s.code IN ('PRESENT', 'FERIE_TRAVAILLE')
-GROUP BY p.id_employe, date_trunc('week', p.date_pointage);
+WHERE s.code IN ('PRESENT', 'FERIE_TRAVAILLE', 'SAMEDI_TRAVAILLE', 'DIMANCHE_TRAVAILLE')
+GROUP BY p.id_employe, p.id_periode_paie, date_trunc('week', p.date_pointage);
 
--- Synthèse mensuelle -> interface de sortie vers la Paie
+-- Vue mensuelle temps réel (affichage saisie). Remplacée par pointage_cumul_periode à la clôture.
 CREATE OR REPLACE VIEW v_synthese_pointage_mensuelle AS
 SELECT
     p.id_employe,
     p.id_periode_paie,
-    COUNT(*) FILTER (WHERE s.code = 'ABSENCE_NON_JUSTIFIEE')        AS nb_jours_absence,
+    COUNT(*) FILTER (WHERE s.code IN ('ABSENCE_NON_JUSTIFIEE', 'ABSENCE_JUSTIFIEE')) AS nb_jours_absence,
     COUNT(*) FILTER (WHERE s.code = 'FERIE_TRAVAILLE')              AS nb_jours_ferie_travaille,
+    COUNT(*) FILTER (WHERE s.code = 'SAMEDI_TRAVAILLE')             AS nb_jours_samedi_travaille,
+    COUNT(*) FILTER (WHERE s.code = 'DIMANCHE_TRAVAILLE')           AS nb_jours_dimanche_travaille,
     COALESCE(SUM(p.total_heures) FILTER (WHERE s.decompte_absence = FALSE), 0) AS total_heures_travaillees,
+    COALESCE(SUM(p.heures_nuit), 0)                                 AS heures_nuit_total,
     COUNT(*) FILTER (WHERE p.indemnite_deplacement_recue)           AS nb_jours_deplacement,
     COUNT(*) FILTER (WHERE p.indemnite_repas_recue)                 AS nb_jours_repas,
     COALESCE(SUM(p.montant_repas), 0)                               AS montant_repas_total
@@ -229,20 +250,80 @@ FROM pointage_jour p
 JOIN ref_statut_pointage_jour s ON p.id_statut_jour = s.id_statut_jour
 GROUP BY p.id_employe, p.id_periode_paie;
 
--- Heures HS mensuelles (agrégation des semaines contenues dans la période)
--- NOTE : jointe séparément car le découpage semaine/période n'est pas 1:1 (voir §11 du cahier des charges)
+-- Agrégat des HS brutes mensuelle depuis les tronçons hebdomadaires
 CREATE OR REPLACE VIEW v_hs_mensuelle AS
 SELECT
-    pp.id_periode_paie,
+    w.id_periode_paie,
     w.id_employe,
-    SUM(w.heures_hs_brutes) AS heures_hs_mensuelles
+    SUM(w.heures_hs_brutes)      AS heures_hs_brutes_mensuelles,
+    SUM(w.heures_deficit_non_compense) AS heures_deficit_mensuelles
 FROM v_pointage_semaine w
-JOIN periode_paie pp
-    ON w.debut_semaine BETWEEN pp.date_debut AND pp.date_fin
-GROUP BY pp.id_periode_paie, w.id_employe;
+GROUP BY w.id_periode_paie, w.id_employe;
 
 -- ============================================================
--- 5. EXTENSION DE notification_rh (nouveaux types d'alerte pointage)
+-- 5. TABLES DE SYNTHÈSE GELÉES À LA CLÔTURE (RG-PTG-14)
+-- Alimentées au passage en VALIDEE. Immuables après CLOTUREE.
+-- Garantissent la reproductibilité légale des bulletins de paie.
+-- ============================================================
+
+-- Tronçons hebdomadaires figés (un par semaine ISO × période × employé)
+CREATE TABLE pointage_semaine_calcule (
+    id_semaine_calcule       SERIAL PRIMARY KEY,
+    id_employe               INTEGER NOT NULL REFERENCES employe(id_employe),
+    id_periode_paie          INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie),
+    debut_semaine            DATE NOT NULL,          -- lundi ISO, peut être avant la période
+    nb_jours_troncon         INTEGER NOT NULL,        -- jours ouvrés réels du tronçon dans la période
+    seuil_heures_troncon     DECIMAL(5,2) NOT NULL,  -- nb_jours_troncon × 8
+    total_heures_travaillees DECIMAL(5,2) NOT NULL DEFAULT 0,
+    heures_retard            DECIMAL(5,2) NOT NULL DEFAULT 0,
+    heures_hs_brutes         DECIMAL(5,2) NOT NULL DEFAULT 0,  -- surplus au-dessus du seuil proratisé
+    heures_hs_nettes         DECIMAL(5,2) NOT NULL DEFAULT 0,  -- après déduction retards (0 si Cadre)
+    heures_deficit           DECIMAL(5,2) NOT NULL DEFAULT 0,  -- retard net non compensé
+    taux_hs_30_applique      DECIMAL(5,2) NOT NULL DEFAULT 0,
+    taux_hs_50_applique      DECIMAL(5,2) NOT NULL DEFAULT 0,
+    taux_nuit_applique       DECIMAL(5,2) NOT NULL DEFAULT 0,
+    taux_dimanche_applique   DECIMAL(5,2) NOT NULL DEFAULT 0,
+    taux_ferie_applique      DECIMAL(5,2) NOT NULL DEFAULT 0,
+    heures_hs_30             DECIMAL(5,2) NOT NULL DEFAULT 0,  -- MIN(heures_hs_nettes, 8)
+    heures_hs_50             DECIMAL(5,2) NOT NULL DEFAULT 0,  -- MAX(heures_hs_nettes - 8, 0)
+    gele_par                 INTEGER REFERENCES utilisateur(id_utilisateur),
+    gele_at                  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_semaine_calcule UNIQUE (id_employe, id_periode_paie, debut_semaine)
+);
+
+CREATE INDEX idx_semaine_calcule_employe_periode
+    ON pointage_semaine_calcule(id_employe, id_periode_paie);
+
+-- Cumul mensuel figé (une ligne par employé × période) — source de vérité pour la Paie
+CREATE TABLE pointage_cumul_periode (
+    id_cumul                 SERIAL PRIMARY KEY,
+    id_employe               INTEGER NOT NULL REFERENCES employe(id_employe),
+    id_periode_paie          INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie),
+    nb_jours_ouvrables       INTEGER NOT NULL,          -- fn_jours_ouvrables() à la date de gel
+    nb_jours_presents        INTEGER NOT NULL DEFAULT 0,
+    nb_jours_absence         INTEGER NOT NULL DEFAULT 0,
+    nb_jours_conge           INTEGER NOT NULL DEFAULT 0,
+    nb_jours_ferie_chome     INTEGER NOT NULL DEFAULT 0,
+    nb_jours_ferie_travaille INTEGER NOT NULL DEFAULT 0,
+    total_heures_travaillees DECIMAL(6,2) NOT NULL DEFAULT 0,
+    heures_hs_30             DECIMAL(6,2) NOT NULL DEFAULT 0,
+    heures_hs_50             DECIMAL(6,2) NOT NULL DEFAULT 0,
+    heures_nuit_total        DECIMAL(6,2) NOT NULL DEFAULT 0,
+    heures_absence_retenues  DECIMAL(6,2) NOT NULL DEFAULT 0,  -- retards nets non compensés → déduction paie
+    nb_jours_deplacement     INTEGER NOT NULL DEFAULT 0,
+    montant_deplacement      DECIMAL(10,2) NOT NULL DEFAULT 0,
+    nb_jours_repas           INTEGER NOT NULL DEFAULT 0,
+    montant_repas            DECIMAL(10,2) NOT NULL DEFAULT 0,
+    gele_par                 INTEGER REFERENCES utilisateur(id_utilisateur),
+    gele_at                  TIMESTAMP NOT NULL,
+    CONSTRAINT uk_cumul_employe_periode UNIQUE (id_employe, id_periode_paie)
+);
+
+CREATE INDEX idx_cumul_periode_employe
+    ON pointage_cumul_periode(id_employe, id_periode_paie);
+
+-- ============================================================
+-- 6. EXTENSION DE notification_rh (nouveaux types d'alerte pointage)
 -- ============================================================
 
 ALTER TABLE notification_rh DROP CONSTRAINT IF EXISTS chk_notif_type;
@@ -261,7 +342,33 @@ ALTER TABLE notification_rh ADD CONSTRAINT chk_notif_type CHECK (type_alerte IN 
 ));
 
 -- ============================================================
--- 6. AJOUT DU MODULE POINTAGE AU RBAC (si non présent)
+-- 7. MENUS RBAC NAVIGATION POINTAGE
+-- 6 menus distincts selon profil utilisateur (agent vs admin/DAF)
+-- Justification : séparation saisie / anomalies / synthèse / clôture / dérogations
+-- ============================================================
+INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
+    ('POINTAGE_JOURNALIER',  'Saisie & Pointage Quotidien', 'ClockCheck',    '/pointages/saisie',       1, 2, 'POINTAGE'),
+    ('POINTAGE_ANOMALIES',   'Gestion des Anomalies',       'AlertTriangle', '/pointages/anomalies',    2, 2, 'POINTAGE'),
+    ('POINTAGE_SYNTHESE',    'Synthèse Hebdo & Mensuelle',  'BarChart2',     '/pointages/synthese',     3, 2, 'POINTAGE'),
+    ('POINTAGE_PERIODES',    'Périodes de Paie',            'CalendarRange', '/pointages/periodes',     4, 2, 'POINTAGE'),
+    ('POINTAGE_CLOTURE',     'Validation & Clôture',        'Lock',          '/pointages/cloture',      5, 2, 'POINTAGE'),
+    ('POINTAGE_DEROGATIONS', 'Dérogations d''Indemnités',   'UserMinus',     '/pointages/derogations',  6, 2, 'POINTAGE')
+ON CONFLICT (id_menu) DO NOTHING;
+
+-- id_role 1 = ROLE_ADMIN (accès complet), id_role 2 = ROLE_AGENT_POINTAGE (saisie + anomalies)
+INSERT INTO role_menu (id_role, id_menu) VALUES
+    (1, 'POINTAGE_JOURNALIER'),
+    (1, 'POINTAGE_ANOMALIES'),
+    (1, 'POINTAGE_SYNTHESE'),
+    (1, 'POINTAGE_PERIODES'),
+    (1, 'POINTAGE_CLOTURE'),
+    (1, 'POINTAGE_DEROGATIONS'),
+    (2, 'POINTAGE_JOURNALIER'),
+    (2, 'POINTAGE_ANOMALIES')
+ON CONFLICT DO NOTHING;
+
+-- ============================================================
+-- 8. AJOUT DU MODULE POINTAGE AU RBAC (si non présent)
 -- ============================================================
 -- Rappel : ref_module contient déjà EMPLOYE, CONGE, POINTAGE, PAIE (26-07-29_init.sql)
 -- La matrice role_permission pour ROLE_AGENT_POINTAGE (lecture+écriture, sans validation)

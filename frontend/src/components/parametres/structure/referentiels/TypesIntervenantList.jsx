@@ -2,6 +2,7 @@ import { Plus, Edit2, UserCheck } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 
 export default function TypesIntervenantList({
     typesIntervenant = [],
@@ -71,11 +72,9 @@ export default function TypesIntervenantList({
                             </Tr>
                         ))
                     ) : (
-                        <Tr>
-                            <Td colSpan={7} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                Aucun type d'intervenant configuré.
+                            <Td colSpan={7} className="p-0">
+                                <EmptyState title="Aucun type d'intervenant" description="Aucun type d'intervenant configuré." />
                             </Td>
-                        </Tr>
                     )}
                 </Tbody>
             </Table>

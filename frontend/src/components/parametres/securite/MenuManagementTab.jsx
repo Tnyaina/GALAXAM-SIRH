@@ -1,12 +1,14 @@
 import { useState, useEffect, createElement } from 'react';
-import { Search, Plus, Edit2, Trash2, ShieldAlert, CheckCircle, XCircle, X } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, X } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
 import { getMenuIcon } from '@/utils/iconRegistry';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Input, { Select } from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import EmptyState from '@/components/ui/data-display/EmptyState';
+import Alert from '@/components/ui/feedback/Alert';
 
 const AVAILABLE_ICONS = [
     'Circle', 'LayoutDashboard', 'Users', 'Clock', 'UserCheck',
@@ -179,8 +181,8 @@ export default function MenuManagementTab() {
 
     if (loading && menus.length === 0) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <Loading size="md" label="Chargement des menus..." />
+            <div className="p-4">
+                <SkeletonTable rows={8} columns={7} />
             </div>
         );
     }
@@ -188,18 +190,8 @@ export default function MenuManagementTab() {
     return (
         <div className="space-y-6">
             {/* Notifications */}
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {actionSuccess && <Alert type="success" message={actionSuccess} />}
+            {error && <Alert type="error" message={error} />}
 
             {/* Barre d'outils */}
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-4 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
@@ -296,8 +288,8 @@ export default function MenuManagementTab() {
                         })
                     ) : (
                         <Tr>
-                            <Td colSpan={7} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                Aucun menu configuré en base de données.
+                            <Td colSpan={7} className="p-0">
+                                <EmptyState title="Aucun menu" description="Aucun menu configuré en base de données." />
                             </Td>
                         </Tr>
                     )}
@@ -318,12 +310,7 @@ export default function MenuManagementTab() {
                             </button>
                         </div>
                         <form onSubmit={handleSaveMenu} className="p-6 space-y-4 max-h-[500px] overflow-y-auto">
-                            {actionError && (
-                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-1.5">
-                                    <ShieldAlert size={14} />
-                                    {actionError}
-                                </div>
-                            )}
+                            {actionError && <Alert type="error" message={actionError} />}
                             <Input
                                 label="Code Identifiant (Unique)"
                                 required
@@ -426,12 +413,7 @@ export default function MenuManagementTab() {
                             </button>
                         </div>
                         <div className="p-6 space-y-3">
-                            {actionError && (
-                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-1.5">
-                                    <ShieldAlert size={14} />
-                                    {actionError}
-                                </div>
-                            )}
+                            {actionError && <Alert type="error" message={actionError} />}
                             <p className="text-sm text-[var(--color-fg-muted)]">
                                 Êtes-vous sûr de vouloir supprimer définitivement le menu <strong className="text-[var(--color-fg)]">{selectedMenu?.libelle}</strong> ?
                             </p>

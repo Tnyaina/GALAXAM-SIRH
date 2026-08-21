@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, Calendar, MapPin, Search, Filter } from 'lucide-react';
+import {   Calendar, MapPin, Search, Filter } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
 import { fmtDateInput } from '@/utils/paieUtils';
 import Tabs from '@/components/ui/navigation/Tabs';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 import JoursFeriesList from './feries/JoursFeriesList';
 import JoursFerieFormModal from './feries/JoursFerieFormModal';
@@ -36,7 +39,7 @@ export default function CalendrierFerieTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
+    const toast = useToast();
 
     // Filtres
     const [search, setSearch] = useState('');
@@ -60,8 +63,8 @@ export default function CalendrierFerieTab() {
         });
 
         siteFeries.forEach(sf => {
-            if (sf.dateFerie) {
-                const y = sf.dateFerie.substring(0, 4);
+            if (sf.ferieDate) {
+                const y = sf.ferieDate.substring(0, 4);
                 if (y && !isNaN(y)) yearsSet.add(y);
             }
         });
@@ -138,7 +141,6 @@ export default function CalendrierFerieTab() {
     const handleSaveFerie = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         if (!ferieFormData.dateFerie || !ferieFormData.libelle.trim()) {
             setActionError("La date et le libellé sont obligatoires.");
             return;
@@ -146,10 +148,10 @@ export default function CalendrierFerieTab() {
         try {
             if (editingFerie) {
                 await paieConfigService.updateCalendrierFerie(editingFerie.idFerie, ferieFormData);
-                setActionSuccess(`Jour férié "${ferieFormData.libelle}" modifié.`);
+                toast({ title: 'Succès', message: `Jour férié "${ferieFormData.libelle}" modifié.`, type: 'success' });
             } else {
                 await paieConfigService.createCalendrierFerie(ferieFormData);
-                setActionSuccess(`Jour férié "${ferieFormData.libelle}" ajouté.`);
+                toast({ title: 'Succès', message: `Jour férié "${ferieFormData.libelle}" ajouté.`, type: 'success' });
             }
             setShowFerieModal(false);
             loadData();
@@ -168,7 +170,6 @@ export default function CalendrierFerieTab() {
     const handleSaveSiteFerie = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         if (!siteFerieFormData.idSite || !siteFerieFormData.idFerie) {
             setActionError("Le site et le jour férié sont obligatoires.");
             return;
@@ -179,7 +180,7 @@ export default function CalendrierFerieTab() {
         };
         try {
             await paieConfigService.createSiteFerie(payload);
-            setActionSuccess("Jour férié associé au site.");
+            toast({ title: 'Succès', message: "Jour férié associé au site.", type: 'success' });
             setShowSiteFerieModal(false);
             loadData();
         } catch (err) {
@@ -188,11 +189,10 @@ export default function CalendrierFerieTab() {
     };
 
     const handleDeleteSiteFerie = async (id) => {
-        setActionSuccess(null);
         setActionError(null);
         try {
             await paieConfigService.deleteSiteFerie(id);
-            setActionSuccess("Association supprimée.");
+            toast({ title: 'Succès', message: "Association supprimée.", type: 'success' });
             setSiteFeries(prev => prev.filter(item => item.idSiteFerie !== id));
         } catch (err) {
             setActionError("Erreur lors de la suppression.");
@@ -225,7 +225,6 @@ export default function CalendrierFerieTab() {
     const handleSavePeriode = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         try {
             const payload = {
                 ...periodeFormData,
@@ -235,10 +234,10 @@ export default function CalendrierFerieTab() {
 
             if (editingPeriode) {
                 await paieConfigService.updatePeriodeChomee(editingPeriode.idPeriode, payload);
-                setActionSuccess(`Période "${periodeFormData.libelle}" modifiée.`);
+                toast({ title: 'Succès', message: `Période "${periodeFormData.libelle}" modifiée.`, type: 'success' });
             } else {
                 await paieConfigService.createPeriodeChomee(payload);
-                setActionSuccess(`Période "${periodeFormData.libelle}" ajoutée.`);
+                toast({ title: 'Succès', message: `Période "${periodeFormData.libelle}" ajoutée.`, type: 'success' });
             }
             setShowPeriodeModal(false);
             loadData();
@@ -248,11 +247,10 @@ export default function CalendrierFerieTab() {
     };
 
     const handleDeletePeriode = async (id) => {
-        setActionSuccess(null);
         setActionError(null);
         try {
             await paieConfigService.deletePeriodeChomee(id);
-            setActionSuccess("Période supprimée.");
+            toast({ title: 'Succès', message: "Période supprimée.", type: 'success' });
             setPeriodes(prev => prev.filter(p => p.idPeriode !== id));
         } catch (err) {
             setActionError("Erreur lors de la suppression.");
@@ -267,10 +265,10 @@ export default function CalendrierFerieTab() {
     });
 
     const filteredSiteFeries = siteFeries.filter(sf => {
-        const matchesYear = selectedYear === 'tous' || (sf.dateFerie && sf.dateFerie.startsWith(selectedYear));
+        const matchesYear = selectedYear === 'tous' || (sf.ferieDate && sf.ferieDate.startsWith(selectedYear));
         const matchesSite = !selectedSiteFilter || String(sf.idSite) === String(selectedSiteFilter);
-        const matchesSearch = !search || (sf.libelleFerie && sf.libelleFerie.toLowerCase().includes(search.toLowerCase())) ||
-            (sf.libelleSite && sf.libelleSite.toLowerCase().includes(search.toLowerCase()));
+        const matchesSearch = !search || (sf.ferieLibelle && sf.ferieLibelle.toLowerCase().includes(search.toLowerCase())) ||
+            (sf.siteLibelle && sf.siteLibelle.toLowerCase().includes(search.toLowerCase()));
         return matchesYear && matchesSite && matchesSearch;
     });
 
@@ -282,26 +280,15 @@ export default function CalendrierFerieTab() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
+            <div className="p-4">
+                <SkeletonTable rows={5} columns={5} />
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {error && <Alert type="error" message={error} />}
 
             {/* Onglets internes + Filtres */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-3 shadow-sm">

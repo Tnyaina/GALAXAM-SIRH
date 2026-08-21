@@ -22,6 +22,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -149,7 +150,7 @@ public class DemandeCongeController {
 
                     // Génération systématique de la notification RH pour la nouvelle demande
                     DemandeConge.creerNotificationRh(
-                        "DEMANDE_CONGE_EN_ATTENTE",
+                        "CONGE_EN_ATTENTE",
                         "NORMALE",
                         "Nouvelle demande de congé",
                         "Une nouvelle demande de congé (" + (typeConge != null ? typeConge.getLibelle() : "Absence") + ") a été enregistrée et est en attente de validation.",
@@ -170,6 +171,60 @@ public class DemandeCongeController {
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erreur lors de la création de la demande : " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> modifierDemande(@PathVariable Integer id, @RequestBody Map<String, Object> req) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                DemandeConge d = DemandeConge.rechercherParId(id, c);
+                if (d == null) return ResponseEntity.notFound().build();
+
+                String statutCode = d.getStatutCode(c);
+                if (!"EN_ATTENTE".equals(statutCode) && !"BROUILLON".equals(statutCode)) {
+                    return ResponseEntity.badRequest().body("Seules les demandes en attente ou en brouillon peuvent être modifiées.");
+                }
+
+                if (req.containsKey("idTypeConge")) d.setIdTypeConge(Integer.parseInt(req.get("idTypeConge").toString()));
+                if (req.containsKey("idMotifEvenementFamilial") && req.get("idMotifEvenementFamilial") != null) {
+                    d.setIdMotifEvenementFamilial(Integer.parseInt(req.get("idMotifEvenementFamilial").toString()));
+                } else if (req.containsKey("idMotifEvenementFamilial")) {
+                    d.setIdMotifEvenementFamilial(null);
+                }
+
+                if (req.containsKey("dateDebut")) d.setDateDebut(Date.valueOf(req.get("dateDebut").toString()));
+                if (req.containsKey("dateFin")) d.setDateFin(Date.valueOf(req.get("dateFin").toString()));
+                
+                if (req.containsKey("estDemiJournee")) d.setEstDemiJournee(Boolean.parseBoolean(req.get("estDemiJournee").toString()));
+                if (req.containsKey("momentDemiJournee") && req.get("momentDemiJournee") != null) {
+                    d.setMomentDemiJournee(req.get("momentDemiJournee").toString());
+                } else if (req.containsKey("momentDemiJournee")) {
+                    d.setMomentDemiJournee(null);
+                }
+                
+                if (req.containsKey("derogationSoldeNegatif")) d.setDerogationSoldeNegatif(Boolean.parseBoolean(req.get("derogationSoldeNegatif").toString()));
+                if (req.containsKey("derogationDelaiPreavis")) d.setDerogationDelaiPreavis(Boolean.parseBoolean(req.get("derogationDelaiPreavis").toString()));
+                if (req.containsKey("extensionPathologiqueMaternite")) d.setExtensionPathologiqueMaternite(Boolean.parseBoolean(req.get("extensionPathologiqueMaternite").toString()));
+                if (req.containsKey("justificatifFourni")) d.setJustificatifFourni(Boolean.parseBoolean(req.get("justificatifFourni").toString()));
+                if (req.containsKey("commentaire")) d.setCommentaire(req.get("commentaire") != null ? req.get("commentaire").toString() : null);
+
+                d.controler(c); // Recalcule les jours décomptés et revérifie les règles
+                d.update(c);
+                
+                c.commit();
+                
+                VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(d.getIdDemandeConge(), c);
+                return ResponseEntity.ok(cpl);
+            } catch (Exception e) {
+                c.rollback();
+                e.printStackTrace();
+                return ResponseEntity.badRequest().body(e.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Erreur serveur : " + e.getMessage());
         }
     }
 
@@ -242,12 +297,16 @@ public class DemandeCongeController {
     }
 
     @PostMapping("/{id}/valider")
-    public ResponseEntity<?> validerDemande(@PathVariable Integer id) {
+    public ResponseEntity<?> validerDemande(@PathVariable Integer id, @RequestParam(required = false, defaultValue = "false") boolean justificatifFourni) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
                 DemandeConge d = DemandeConge.rechercherParId(id, c);
                 if (d == null) return ResponseEntity.notFound().build();
+
+                if (justificatifFourni) {
+                    d.setJustificatifFourni(true);
+                }
 
                 Integer currentUserId = getCurrentUserId();
                 d.valider(currentUserId, c);
@@ -255,7 +314,7 @@ public class DemandeCongeController {
                 // Marquage de l'alerte en attente comme lue
                 try (PreparedStatement psNotif = c.prepareStatement(
                         "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
-                        "WHERE id_employe_concerne = ? AND type_alerte = 'DEMANDE_CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
+                        "WHERE id_employe_concerne = ? AND type_alerte = 'CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
                     psNotif.setInt(1, d.getIdEmploye());
                     psNotif.executeUpdate();
                 }
@@ -304,7 +363,7 @@ public class DemandeCongeController {
                 // Marquage de l'alerte en attente comme lue
                 try (PreparedStatement psNotif = c.prepareStatement(
                         "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
-                        "WHERE id_employe_concerne = ? AND type_alerte = 'DEMANDE_CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
+                        "WHERE id_employe_concerne = ? AND type_alerte = 'CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
                     psNotif.setInt(1, d.getIdEmploye());
                     psNotif.executeUpdate();
                 }
@@ -349,7 +408,7 @@ public class DemandeCongeController {
                 // Marquage de l'alerte en attente comme lue
                 try (PreparedStatement psNotif = c.prepareStatement(
                         "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
-                        "WHERE id_employe_concerne = ? AND type_alerte = 'DEMANDE_CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
+                        "WHERE id_employe_concerne = ? AND type_alerte = 'CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
                     psNotif.setInt(1, d.getIdEmploye());
                     psNotif.executeUpdate();
                 }

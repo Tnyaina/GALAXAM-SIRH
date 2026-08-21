@@ -14,10 +14,12 @@ public class RefFonction extends ClassMere {
     private Integer idFonction;
     private String codeFonction;
     private String libelle;
+    private boolean dispensePointage;
     private boolean estActif;
 
     public RefFonction() {
         this.setNomTable("REF_FONCTION");
+        this.dispensePointage = false;
         this.estActif = true;
     }
 
@@ -49,11 +51,12 @@ public class RefFonction extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        String sql = "INSERT INTO ref_fonction (code_fonction, libelle, est_actif) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO ref_fonction (code_fonction, libelle, dispense_pointage, est_actif) VALUES (?, ?, ?, ?)";
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, codeFonction);
             ps.setString(2, libelle);
-            ps.setBoolean(3, estActif);
+            ps.setBoolean(3, dispensePointage);
+            ps.setBoolean(4, estActif);
             ps.executeUpdate();
 
             try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -67,12 +70,13 @@ public class RefFonction extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        String sql = "UPDATE ref_fonction SET code_fonction = ?, libelle = ?, est_actif = ? WHERE id_fonction = ?";
+        String sql = "UPDATE ref_fonction SET code_fonction = ?, libelle = ?, dispense_pointage = ?, est_actif = ? WHERE id_fonction = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, codeFonction);
             ps.setString(2, libelle);
-            ps.setBoolean(3, estActif);
-            ps.setInt(4, idFonction);
+            ps.setBoolean(3, dispensePointage);
+            ps.setBoolean(4, estActif);
+            ps.setInt(5, idFonction);
             ps.executeUpdate();
         }
         return this;
@@ -94,7 +98,7 @@ public class RefFonction extends ClassMere {
     }
 
     public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT id_fonction, code_fonction, libelle, est_actif FROM ref_fonction WHERE id_fonction = ?";
+        String sql = "SELECT id_fonction, code_fonction, libelle, dispense_pointage, est_actif FROM ref_fonction WHERE id_fonction = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -107,7 +111,7 @@ public class RefFonction extends ClassMere {
     }
 
     public static RefFonction rechercherParCode(String code, Connection c) throws Exception {
-        String sql = "SELECT id_fonction, code_fonction, libelle, est_actif FROM ref_fonction WHERE code_fonction = ?";
+        String sql = "SELECT id_fonction, code_fonction, libelle, dispense_pointage, est_actif FROM ref_fonction WHERE code_fonction = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             try (ResultSet rs = ps.executeQuery()) {
@@ -121,7 +125,7 @@ public class RefFonction extends ClassMere {
 
     public static List<RefFonction> listAll(Connection c) throws Exception {
         List<RefFonction> list = new ArrayList<>();
-        String sql = "SELECT id_fonction, code_fonction, libelle, est_actif FROM ref_fonction ORDER BY id_fonction ASC";
+        String sql = "SELECT id_fonction, code_fonction, libelle, dispense_pointage, est_actif FROM ref_fonction ORDER BY id_fonction ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
@@ -136,6 +140,7 @@ public class RefFonction extends ClassMere {
         f.setIdFonction(rs.getInt("id_fonction"));
         f.setCodeFonction(rs.getString("code_fonction"));
         f.setLibelle(rs.getString("libelle"));
+        f.setDispensePointage(rs.getBoolean("dispense_pointage"));
         f.setEstActif(rs.getBoolean("est_actif"));
         return f;
     }
@@ -149,6 +154,9 @@ public class RefFonction extends ClassMere {
 
     public String getLibelle() { return libelle; }
     public void setLibelle(String libelle) { this.libelle = libelle; }
+
+    public boolean isDispensePointage() { return dispensePointage; }
+    public void setDispensePointage(boolean dispensePointage) { this.dispensePointage = dispensePointage; }
 
     public boolean isEstActif() { return estActif; }
     public void setEstActif(boolean estActif) { this.estActif = estActif; }

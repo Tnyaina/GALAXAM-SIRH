@@ -58,6 +58,7 @@ CREATE TABLE ref_fonction (
     id_fonction SERIAL PRIMARY KEY,
     code_fonction VARCHAR(20) NOT NULL UNIQUE,
     libelle VARCHAR(100) NOT NULL,
+    dispense_pointage BOOLEAN NOT NULL DEFAULT FALSE,  -- TRUE = poste autonome (présomption de présence 8h/j)
     est_actif BOOLEAN DEFAULT TRUE
 );
 
@@ -227,29 +228,29 @@ INSERT INTO ref_service (code_service, libelle, id_departement) VALUES
 ('OPE', 'Opérations Terrain LMD', 2);
 
 -- 4. Fonctions (Liste officielle de l'entreprise)
-INSERT INTO ref_fonction (code_fonction, libelle) VALUES
-('DG', 'DG'),
-('DAF', 'DAF'),
-('CHEF_COMPTABLE', 'Chef Comptable'),
-('AIDE_COMPTABLE', 'Aide-Comptable'),
-('OPE_MGR', 'OPE Manager'),
-('CHEF_DECLARANT', 'Chef Déclarant'),
-('AIDE_DECLARANT', 'Aide-Déclarant'),
-('PASSEUR_PIECES', 'Passeur de pièces'),
-('RESP_TOAMASINA', 'Resp bureau Toamasina'),
-('RESP_ENTREPOT', 'Resp Entrepôt'),
-('CHEF_ZONE', 'Chef de zone'),
-('AGENT_PLANIF', 'Agent de planification'),
-('MANUTENTIONNAIRE', 'Manutentionnaire'),
-('COMMERCIAL_EXEC', 'Commercial Executive'),
-('ASSIST_DIR', 'Assist de Direction'),
-('ASSIST_ADMIN', 'Assistante Admin'),
-('AGENT_B_D', 'Agent B à D'),
-('AGENT_TRANSMISSION', 'Agent de transmission'),
-('AGENT_TOUT_FAIRE', 'Agent à tout faire'),
-('AGENT_SURFACE', 'Agent de surface'),
-('GARDIEN', 'Gardien'),
-('AGENT_FORMATION', 'Agent en formation')
+INSERT INTO ref_fonction (code_fonction, libelle, dispense_pointage) VALUES
+('DG', 'DG', true),
+('DAF', 'DAF', true),
+('CHEF_COMPTABLE', 'Chef Comptable', false),
+('AIDE_COMPTABLE', 'Aide-Comptable', false),
+('OPE_MGR', 'OPE Manager', false),
+('CHEF_DECLARANT', 'Chef Déclarant', false),
+('AIDE_DECLARANT', 'Aide-Déclarant', false),
+('PASSEUR_PIECES', 'Passeur de pièces', false),
+('RESP_TOAMASINA', 'Resp bureau Toamasina', false),
+('RESP_ENTREPOT', 'Resp Entrepôt', false),
+('CHEF_ZONE', 'Chef de zone', false),
+('AGENT_PLANIF', 'Agent de planification', false),
+('MANUTENTIONNAIRE', 'Manutentionnaire', false),
+('COMMERCIAL_EXEC', 'Commercial Executive', false),
+('ASSIST_DIR', 'Assist de Direction', false),
+('ASSIST_ADMIN', 'Assistante Admin', false),
+('AGENT_B_D', 'Agent B à D', false),
+('AGENT_TRANSMISSION', 'Agent de transmission', false),
+('AGENT_TOUT_FAIRE', 'Agent à tout faire', false),
+('AGENT_SURFACE', 'Agent de surface', false),
+('GARDIEN', 'Gardien', false),
+('AGENT_FORMATION', 'Agent en formation', false)
 ON CONFLICT (code_fonction) DO NOTHING;
 
 -- 5. Types de contrat & Intervenants
@@ -324,14 +325,35 @@ INSERT INTO site_cotisation (id_site, id_type_cotisation) VALUES
 (2, 1),
 (2, 3);
 
--- 11. Paramètres Globaux Légaux et Opérationnels (Ref / Paie / RH Général)
+-- 11. Paramètres Globaux Légaux et Opérationnels
+-- ============================================================
+-- CONVENTION : séparés par CATEGORIE pour faciliter la lecture du code
+--   RH_GENERAL  : règles métier communes (pointage, temps de travail)
+--   POINTAGE    : seuils et montants spécifiques au module Pointage
+--   PAIE        : paramètres utilisés UNIQUEMENT par le module Paie (futur)
+-- ============================================================
 INSERT INTO parametre_global (code_parametre, categorie, valeur, description, date_debut) VALUES
-('SEUIL_SECOND_REPAS', 'RH_GENERAL', '19:30', 'Heure limite de sortie pour déclencher le 2nd repas', '2026-01-01'),
-('SME_COURANT', 'PAIE', '300000.00', 'Salaire Minimum Embauche en Ariary (2026)', '2026-01-01'),
-('PLAFOND_COTISATION_SME_MULT', 'PAIE', '8', 'Multiplicateur du SME pour plafonner CNaPS/OSTIE (8x SME)', '2026-01-01'),
-('MINIMUM_PERCEPTION_IRSA', 'PAIE', '3000.00', 'Minimum de perception légal IRSA en Ariary', '2026-01-01'),
-('REDUCTION_IRSA_PAR_ENFANT', 'PAIE', '2000.00', 'Déduction d impôt IRSA par enfant à charge', '2026-01-01'),
-('SEUIL_HEURES_JOUR', 'RH_GENERAL', '8', 'Nombre d heures normales quotidiennes', '2026-01-01'),
-('SEUIL_HEURES_SEMAINE', 'RH_GENERAL', '40', 'Nombre d heures normales hebdomadaires', '2026-01-01'),
-('PLAFOND_HEURES_SUPP_SEMAINE', 'RH_GENERAL', '20', 'Plafond légal d heures supplémentaires par semaine (Décret n°2007-563)', '2026-01-01'),
-('DIVISEUR_HORAIRE_ABSENCE', 'PAIE', '173.33', 'Heures mensuelles conventionnelles pour valoriser une absence', '2026-01-01');
+
+-- ---- RH_GENERAL : temps de travail (utilisés par Pointage) ----
+('SEUIL_HEURES_JOUR',          'RH_GENERAL', '8',      'Heures normales quotidiennes', '2026-01-01'),
+('SEUIL_HEURES_SEMAINE',       'RH_GENERAL', '40',     'Heures normales hebdomadaires', '2026-01-01'),
+('PLAFOND_HEURES_SUPP_SEMAINE','RH_GENERAL', '20',     'Plafond légal HS/semaine (Décret 2007-563)', '2026-01-01'),
+('SEUIL_HS_TRANCHE_1',         'RH_GENERAL', '8',      'Premières Xh HS/tronçon au taux 30% (41e−48e heure)', '2026-01-01'),
+
+-- ---- POINTAGE : seuils et montants spécifiques au module Pointage ----
+('SEUIL_NUIT_DEBUT',           'POINTAGE', '22:00', 'Début du travail de nuit (Art. 83 Code Travail Malgache)', '2026-01-01'),
+('SEUIL_NUIT_FIN',             'POINTAGE', '05:00', 'Fin du travail de nuit', '2026-01-01'),
+('SEUIL_2ND_REPAS_1',          'POINTAGE', '19:30', 'Heure sortie mini pour 2ᵉ repas tranche 1', '2026-01-01'),
+('MONTANT_2ND_REPAS_1',        'POINTAGE', '2000',  '2ᵉ repas tranche 1 en Ariary (19h30-21h00)', '2026-01-01'),
+('SEUIL_2ND_REPAS_2',          'POINTAGE', '21:00', 'Heure sortie mini pour 2ᵉ repas tranche 2', '2026-01-01'),
+('MONTANT_2ND_REPAS_2',        'POINTAGE', '4000',  '2ᵉ repas tranche 2 en Ariary (> 21h00)', '2026-01-01'),
+('SEUIL_PAUSE_MIDI_MIN',       'POINTAGE', '60',    'Pause midi minimale en minutes (détection « ne rentre pas midi » TMM)', '2026-01-01'),
+('REDUCTION_DEPLACT_REPAS_MIDI','POINTAGE', '1000', 'Déduction indemnité déplacement (en Ar) si repas midi reçu sur site TMM', '2026-01-01'),
+
+-- ---- PAIE : utilisés uniquement par le module Paie (futur) ----
+-- Ces paramètres sont déjà stockés ici pour anticiper, mais ne seront lus que par le module Paie.
+('SME_COURANT',                 'PAIE', '300000.00', 'Salaire Minimum Embauche en Ariary (2026)', '2026-01-01'),
+('DIVISEUR_HORAIRE_ABSENCE',    'PAIE', '173.33',    'Heures/mois pour valoriser une absence (40h x 52/12)', '2026-01-01'),
+('PLAFOND_COTISATION_SME_MULT', 'PAIE', '8',         '8 x SME = plafond de la base CNaPS/OSTIE', '2026-01-01'),
+('MINIMUM_PERCEPTION_IRSA',     'PAIE', '3000.00',   'Minimum de perception légal IRSA en Ariary', '2026-01-01'),
+('REDUCTION_IRSA_PAR_ENFANT',   'PAIE', '2000.00',   'Déduction IRSA par enfant à charge', '2026-01-01');

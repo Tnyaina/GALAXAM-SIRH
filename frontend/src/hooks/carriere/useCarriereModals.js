@@ -19,7 +19,6 @@ export function useCarriereModals({
     const [, setSearchParams] = useSearchParams();
     const toast = useToast();
 
-    const [actionSuccessMsg, setActionSuccessMsg] = useState('');
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [editInitialData, setEditInitialData] = useState(null);
 
@@ -49,11 +48,9 @@ export function useCarriereModals({
     // Actions de succès
     // -------------------------------------------------------------------------------------------------
     const handleSuccessAction = async (msg, createdWf = null) => {
-        setActionSuccessMsg(msg);
         if (toast) {
             toast({ title: 'Succès', message: msg, type: 'success' });
         }
-        setTimeout(() => setActionSuccessMsg(''), 6000);
 
         if (createdWf && createdWf.idWorkflow) {
             setIsTransitioning(true);
@@ -214,7 +211,6 @@ export function useCarriereModals({
 
     return {
         // États d'orchestration
-        actionSuccessMsg, setActionSuccessMsg,
         isTransitioning, setIsTransitioning,
         editInitialData, setEditInitialData,
         selectedWfModal, setSelectedWfModal,

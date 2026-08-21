@@ -2,6 +2,7 @@ import { Plus, Power, Check, MapPin } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 
 export default function SiteCotisationsList({
     siteCotisations = [],
@@ -25,22 +26,26 @@ export default function SiteCotisationsList({
                 </Button>
             </div>
 
-            <Table>
-                <Thead>
-                    <Th>Nom du Site</Th>
-                    <Th>Cotisation Rattachée</Th>
-                    <Th>Statut</Th>
-                    <Th className="text-right">Actions</Th>
-                </Thead>
-                <Tbody>
-                    {siteCotisations.length === 0 ? (
-                        <Tr>
-                            <Td colSpan={5} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                Aucune association site - cotisation enregistrée.
-                            </Td>
-                        </Tr>
-                    ) : (
-                        siteCotisations.map((sc) => (
+            {siteCotisations.length === 0 ? (
+                <div className="p-8">
+                    <EmptyState
+                        icon={MapPin}
+                        title="Aucune association"
+                        description="Aucune association site - cotisation n'a été enregistrée."
+                        actionLabel="Associer un Site"
+                        onAction={onOpenCreate}
+                    />
+                </div>
+            ) : (
+                <Table>
+                    <Thead>
+                        <Th>Nom du Site</Th>
+                        <Th>Cotisation Rattachée</Th>
+                        <Th>Statut</Th>
+                        <Th className="text-right">Actions</Th>
+                    </Thead>
+                    <Tbody>
+                        {siteCotisations.map((sc) => (
                             <Tr key={sc.idSiteCotisation}>
                                 <Td className="font-bold text-[var(--color-fg)]">
                                     {sc.siteLibelle} {sc.siteCode ? `(${sc.siteCode})` : ''}
@@ -77,10 +82,10 @@ export default function SiteCotisationsList({
                                     )}
                                 </Td>
                             </Tr>
-                        ))
-                    )}
-                </Tbody>
-            </Table>
+                        ))}
+                    </Tbody>
+                </Table>
+            )}
         </div>
     );
 }

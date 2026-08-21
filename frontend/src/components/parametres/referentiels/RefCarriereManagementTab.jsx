@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, CheckCircle, XCircle, ShieldAlert, Award, CreditCard, ArrowUpRight, X } from 'lucide-react';
+import { Plus, Edit2, Award, CreditCard, ArrowUpRight, X } from 'lucide-react';
 import contratService from '@/api/employe/contratService';
 import Input, { Textarea } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Alert from '@/components/ui/feedback/Alert';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 
 export default function RefCarriereManagementTab() {
     const [categoriesPro, setCategoriesPro] = useState([]);
@@ -21,7 +23,7 @@ export default function RefCarriereManagementTab() {
     const [selectedCp, setSelectedCp] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
-    const [formDataCp, setFormDataCp] = useState({ code: '', libelle: '', description: '', actif: true });
+    const [formDataCp, setFormDataCp] = useState({ code: '', libelle: '', description: '', estEligibleHs: true, actif: true });
 
     const loadData = async () => {
         setLoading(true);
@@ -51,7 +53,7 @@ export default function RefCarriereManagementTab() {
 
     const handleOpenCreateCp = () => {
         setSelectedCp(null);
-        setFormDataCp({ code: '', libelle: '', description: '', actif: true });
+        setFormDataCp({ code: '', libelle: '', description: '', estEligibleHs: true, actif: true });
         setError('');
         setShowModalCp(true);
     };
@@ -62,6 +64,7 @@ export default function RefCarriereManagementTab() {
             code: cp.code || '',
             libelle: cp.libelle || '',
             description: cp.description || '',
+            estEligibleHs: cp.estEligibleHs !== undefined ? cp.estEligibleHs : true,
             actif: cp.actif !== undefined ? cp.actif : true
         });
         setError('');
@@ -98,18 +101,8 @@ export default function RefCarriereManagementTab() {
     return (
         <div className="space-y-8">
             {/* Notifications */}
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && !showModalCp && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {actionSuccess && <Alert type="success" message={actionSuccess} />}
+            {error && !showModalCp && <Alert type="error" message={error} />}
 
             {/* Section 1: Catégories Professionnelles */}
             <div className="space-y-4">
@@ -132,8 +125,18 @@ export default function RefCarriereManagementTab() {
                 </div>
 
                 {loading ? (
-                    <div className="flex justify-center items-center py-8">
-                        <Loading size="md" label="Chargement des catégories..." />
+                    <div className="p-4">
+                        <SkeletonTable rows={5} columns={6} />
+                    </div>
+                ) : categoriesPro.length === 0 ? (
+                    <div className="p-8">
+                        <EmptyState 
+                            icon={Award}
+                            title="Aucune catégorie professionnelle"
+                            description="Vous n'avez pas encore configuré de catégorie professionnelle."
+                            actionLabel="Créer une catégorie"
+                            onAction={handleOpenCreateCp}
+                        />
                     </div>
                 ) : (
                     <Table>
@@ -141,6 +144,7 @@ export default function RefCarriereManagementTab() {
                             <Th>Code</Th>
                             <Th>Libellé</Th>
                             <Th>Description</Th>
+                            <Th>Éligible HS</Th>
                             <Th>Statut</Th>
                             <Th className="text-right">Actions</Th>
                         </Thead>
@@ -150,6 +154,13 @@ export default function RefCarriereManagementTab() {
                                     <Td isData className="font-bold text-[var(--color-brand-500)]">{cp.code}</Td>
                                     <Td className="font-bold text-[var(--color-fg)]">{cp.libelle}</Td>
                                     <Td muted className="text-xs">{cp.description || '-'}</Td>
+                                    <Td>
+                                        {cp.estEligibleHs ? (
+                                            <Badge variant="success" size="sm">Oui</Badge>
+                                        ) : (
+                                            <Badge variant="warning" size="sm">Non</Badge>
+                                        )}
+                                    </Td>
                                     <Td>
                                         <Badge variant={cp.actif ? 'success' : 'default'} size="sm" dot>
                                             {cp.actif ? 'Actif' : 'Inactif'}
@@ -243,10 +254,7 @@ export default function RefCarriereManagementTab() {
                         </div>
                         <form onSubmit={handleSubmitCp} className="p-6 space-y-4">
                             {error && (
-                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-1.5">
-                                    <ShieldAlert size={14} />
-                                    {error}
-                                </div>
+                                <Alert type="error" message={error} />
                             )}
                             <Input
                                 label="Code"
@@ -269,6 +277,15 @@ export default function RefCarriereManagementTab() {
                                 onChange={e => setFormDataCp({ ...formDataCp, description: e.target.value })}
                                 placeholder="Précisions sur cette catégorie..."
                             />
+                            <label className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)] cursor-pointer p-3 border border-[var(--color-border-subtle)] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors mt-2">
+                                <input
+                                    type="checkbox"
+                                    checked={formDataCp.estEligibleHs}
+                                    onChange={(e) => setFormDataCp({ ...formDataCp, estEligibleHs: e.target.checked })}
+                                    className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
+                                />
+                                <span>Éligible aux Heures Supplémentaires</span>
+                            </label>
                             <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
                                 <Button type="button" onClick={() => setShowModalCp(false)} variant="ghost" size="sm">
                                     Annuler

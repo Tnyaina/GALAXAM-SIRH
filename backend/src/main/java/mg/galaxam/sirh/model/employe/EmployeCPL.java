@@ -75,6 +75,19 @@ public class EmployeCPL extends ClassMere {
     private Integer nbEnfantsACharge;
     private Integer nbContactsUrgence;
 
+    // AFFECTATION CARRIERE & CONTRAT ACTIF (SYNTHESE)
+    private Integer idSite;
+    private String nomSite;
+    private Integer idDepartement;
+    private String nomDepartement;
+    private Integer idService;
+    private String nomService;
+    private Integer idFonction;
+    private String nomFonction;
+    private Integer idFiliale;
+    private String nomFiliale;
+    private Date dateEmbauche;
+
     public EmployeCPL() {
         this.setNomTable("V_EMPLOYE_CPL");
     }
@@ -111,7 +124,18 @@ public class EmployeCPL extends ClassMere {
     }
 
     public EmployeCPL rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT * FROM v_employe_cpl WHERE id_employe = ?";
+        String sql = "SELECT e.*, eac.id_site, rs.libelle AS nom_site, eac.id_departement, rd.libelle AS nom_departement, " +
+                "eac.id_service, rserv.libelle AS nom_service, eac.id_fonction, rf.libelle AS nom_fonction, " +
+                "ct.id_filiale, rfil.raison_sociale AS nom_filiale, ct.date_debut AS date_embauche " +
+                "FROM v_employe_cpl e " +
+                "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_affectation = COALESCE((SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ACTIVE' LIMIT 1), 1) " +
+                "LEFT JOIN ref_site rs ON eac.id_site = rs.id_site " +
+                "LEFT JOIN ref_departement rd ON eac.id_departement = rd.id_departement " +
+                "LEFT JOIN ref_service rserv ON eac.id_service = rserv.id_service " +
+                "LEFT JOIN ref_fonction rf ON eac.id_fonction = rf.id_fonction " +
+                "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
+                "LEFT JOIN ref_filiale rfil ON ct.id_filiale = rfil.id_filiale " +
+                "WHERE e.id_employe = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -124,16 +148,16 @@ public class EmployeCPL extends ClassMere {
     }
 
     public static long compterEmployes(Connection c, String query, Boolean estActif) throws Exception {
-        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM v_employe_cpl WHERE 1=1 ");
+        StringBuilder sql = new StringBuilder("SELECT COUNT(e.id_employe) FROM v_employe_cpl e WHERE 1=1 ");
         List<Object> params = new ArrayList<>();
 
         if (estActif != null) {
-            sql.append(" AND est_actif = ? ");
+            sql.append(" AND e.est_actif = ? ");
             params.add(estActif);
         }
 
         if (query != null && !query.isBlank()) {
-            sql.append(" AND (LOWER(matricule) LIKE ? OR LOWER(nom) LIKE ? OR LOWER(prenom) LIKE ? OR LOWER(cin_numero) LIKE ? OR LOWER(telephone) LIKE ?) ");
+            sql.append(" AND (LOWER(e.matricule) LIKE ? OR LOWER(e.nom) LIKE ? OR LOWER(e.prenom) LIKE ? OR LOWER(e.cin_numero) LIKE ? OR LOWER(e.telephone) LIKE ?) ");
             String search = "%" + query.trim().toLowerCase() + "%";
             params.add(search);
             params.add(search);
@@ -162,17 +186,28 @@ public class EmployeCPL extends ClassMere {
 
     public static List<EmployeCPL> rechercherEmployes(Connection c, String query, Boolean estActif, Integer limit, Integer offset) throws Exception {
         List<EmployeCPL> list = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT * FROM v_employe_cpl WHERE 1=1 ");
+        StringBuilder sql = new StringBuilder("SELECT e.*, eac.id_site, rs.libelle AS nom_site, eac.id_departement, rd.libelle AS nom_departement, " +
+                "eac.id_service, rserv.libelle AS nom_service, eac.id_fonction, rf.libelle AS nom_fonction, " +
+                "ct.id_filiale, rfil.raison_sociale AS nom_filiale, ct.date_debut AS date_embauche " +
+                "FROM v_employe_cpl e " +
+                "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_affectation = COALESCE((SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ACTIVE' LIMIT 1), 1) " +
+                "LEFT JOIN ref_site rs ON eac.id_site = rs.id_site " +
+                "LEFT JOIN ref_departement rd ON eac.id_departement = rd.id_departement " +
+                "LEFT JOIN ref_service rserv ON eac.id_service = rserv.id_service " +
+                "LEFT JOIN ref_fonction rf ON eac.id_fonction = rf.id_fonction " +
+                "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
+                "LEFT JOIN ref_filiale rfil ON ct.id_filiale = rfil.id_filiale " +
+                "WHERE 1=1 ");
 
         List<Object> params = new ArrayList<>();
 
         if (estActif != null) {
-            sql.append(" AND est_actif = ? ");
+            sql.append(" AND e.est_actif = ? ");
             params.add(estActif);
         }
 
         if (query != null && !query.isBlank()) {
-            sql.append(" AND (LOWER(matricule) LIKE ? OR LOWER(nom) LIKE ? OR LOWER(prenom) LIKE ? OR LOWER(cin_numero) LIKE ? OR LOWER(telephone) LIKE ?) ");
+            sql.append(" AND (LOWER(e.matricule) LIKE ? OR LOWER(e.nom) LIKE ? OR LOWER(e.prenom) LIKE ? OR LOWER(e.cin_numero) LIKE ? OR LOWER(e.telephone) LIKE ?) ");
             String search = "%" + query.trim().toLowerCase() + "%";
             params.add(search);
             params.add(search);
@@ -181,7 +216,7 @@ public class EmployeCPL extends ClassMere {
             params.add(search);
         }
 
-        sql.append(" ORDER BY nom ASC, prenom ASC");
+        sql.append(" ORDER BY e.nom ASC, e.prenom ASC");
         
         if (limit != null) {
             sql.append(" LIMIT ?");
@@ -215,6 +250,34 @@ public class EmployeCPL extends ClassMere {
 
     public static List<EmployeCPL> listAll(Connection c) throws Exception {
         return rechercherEmployes(c, null, null, null, null);
+    }
+
+    private static String getNullableStringFromRs(ResultSet rs, String colName) {
+        try {
+            return rs.getString(colName);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static Integer getNullableIntFromRs(ResultSet rs, String colName) {
+        try {
+            Object obj = rs.getObject(colName);
+            if (obj != null && obj instanceof Number) {
+                return ((Number) obj).intValue();
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static Date getNullableDateFromRs(ResultSet rs, String colName) {
+        try {
+            return rs.getDate(colName);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static EmployeCPL mapResultSet(ResultSet rs) throws SQLException {
@@ -275,6 +338,19 @@ public class EmployeCPL extends ClassMere {
         emp.setNbEnfants((Integer) rs.getObject("nb_enfants"));
         emp.setNbEnfantsACharge((Integer) rs.getObject("nb_enfants_a_charge"));
         emp.setNbContactsUrgence((Integer) rs.getObject("nb_contacts_urgence"));
+
+        // Affectation & Contrat
+        emp.setIdSite(getNullableIntFromRs(rs, "id_site"));
+        emp.setNomSite(getNullableStringFromRs(rs, "nom_site"));
+        emp.setIdDepartement(getNullableIntFromRs(rs, "id_departement"));
+        emp.setNomDepartement(getNullableStringFromRs(rs, "nom_departement"));
+        emp.setIdService(getNullableIntFromRs(rs, "id_service"));
+        emp.setNomService(getNullableStringFromRs(rs, "nom_service"));
+        emp.setIdFonction(getNullableIntFromRs(rs, "id_fonction"));
+        emp.setNomFonction(getNullableStringFromRs(rs, "nom_fonction"));
+        emp.setIdFiliale(getNullableIntFromRs(rs, "id_filiale"));
+        emp.setNomFiliale(getNullableStringFromRs(rs, "nom_filiale"));
+        emp.setDateEmbauche(getNullableDateFromRs(rs, "date_embauche"));
 
         return emp;
     }
@@ -423,4 +499,37 @@ public class EmployeCPL extends ClassMere {
 
     public Integer getNbContactsUrgence() { return nbContactsUrgence; }
     public void setNbContactsUrgence(Integer nbContactsUrgence) { this.nbContactsUrgence = nbContactsUrgence; }
+
+    public Integer getIdSite() { return idSite; }
+    public void setIdSite(Integer idSite) { this.idSite = idSite; }
+
+    public String getNomSite() { return nomSite; }
+    public void setNomSite(String nomSite) { this.nomSite = nomSite; }
+
+    public Integer getIdDepartement() { return idDepartement; }
+    public void setIdDepartement(Integer idDepartement) { this.idDepartement = idDepartement; }
+
+    public String getNomDepartement() { return nomDepartement; }
+    public void setNomDepartement(String nomDepartement) { this.nomDepartement = nomDepartement; }
+
+    public Integer getIdService() { return idService; }
+    public void setIdService(Integer idService) { this.idService = idService; }
+
+    public String getNomService() { return nomService; }
+    public void setNomService(String nomService) { this.nomService = nomService; }
+
+    public Integer getIdFonction() { return idFonction; }
+    public void setIdFonction(Integer idFonction) { this.idFonction = idFonction; }
+
+    public String getNomFonction() { return nomFonction; }
+    public void setNomFonction(String nomFonction) { this.nomFonction = nomFonction; }
+
+    public Integer getIdFiliale() { return idFiliale; }
+    public void setIdFiliale(Integer idFiliale) { this.idFiliale = idFiliale; }
+
+    public String getNomFiliale() { return nomFiliale; }
+    public void setNomFiliale(String nomFiliale) { this.nomFiliale = nomFiliale; }
+
+    public Date getDateEmbauche() { return dateEmbauche; }
+    public void setDateEmbauche(Date dateEmbauche) { this.dateEmbauche = dateEmbauche; }
 }

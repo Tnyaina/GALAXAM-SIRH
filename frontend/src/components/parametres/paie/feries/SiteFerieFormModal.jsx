@@ -2,6 +2,7 @@ import { MapPin, X, ShieldAlert } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Select } from '@/components/ui/forms/Input';
 import { fmtDate } from '@/utils/paieUtils';
+import Alert from '@/components/ui/feedback/Alert';
 
 export default function SiteFerieFormModal({
     isOpen,
@@ -29,12 +30,7 @@ export default function SiteFerieFormModal({
                 </div>
 
                 <form onSubmit={onSubmit} className="p-6 space-y-4">
-                    {actionError && (
-                        <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-2">
-                            <ShieldAlert size={16} />
-                            {actionError}
-                        </div>
-                    )}
+                    {actionError && <Alert type="error" message={actionError} />}
 
                     <Select
                         label="Site d'Exploitation"
@@ -57,7 +53,7 @@ export default function SiteFerieFormModal({
                         onChange={(e) => setFormData({ ...formData, idFerie: e.target.value })}
                     >
                         <option value="">-- Choisir un jour férié --</option>
-                        {feries.map((f) => (
+                        {feries.filter(f => f.estNational === false).map((f) => (
                             <option key={f.idFerie} value={f.idFerie}>
                                 {fmtDate(f.dateFerie)} — {f.libelle}
                             </option>

@@ -126,9 +126,10 @@ public class DemandeConge extends ClassMere {
         }
 
         // 3. Contrôle justificatif obligatoire
-        if (typeConge.isExigeJustificatif() && !justificatifFourni && ("VALIDE".equals(getStatutCode(c)))) {
-            throw new IllegalArgumentException("Un justificatif obligatoire (ex: certificat médical, acte) doit être fourni pour valider ce congé.");
-        }
+        // Assouplissement: On ne bloque plus la validation car le justificatif peut être fourni au retour
+        // if (typeConge.isExigeJustificatif() && !justificatifFourni && ("VALIDE".equals(getStatutCode(c)))) {
+        //     throw new IllegalArgumentException("Un justificatif obligatoire (ex: certificat médical, acte) doit être fourni pour valider ce congé.");
+        // }
 
         // 4. Contrôle d'ancienneté minimale (ex: 12 mois pour ANNUEL)
         if (typeConge.getExigeAncienneteMinMois() != null && typeConge.getExigeAncienneteMinMois() > 0) {
@@ -196,7 +197,7 @@ public class DemandeConge extends ClassMere {
         }
     }
 
-    private String getStatutCode(Connection c) throws Exception {
+    public String getStatutCode(Connection c) throws Exception {
         if (idStatutDemandeConge == null) return "BROUILLON";
         RefStatutDemandeConge st = RefStatutDemandeConge.rechercherParId(idStatutDemandeConge, c);
         return st != null ? st.getCode() : "BROUILLON";

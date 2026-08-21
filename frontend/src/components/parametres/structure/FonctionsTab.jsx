@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Edit2, CheckCircle, XCircle, Eye, Briefcase, X, ShieldAlert } from 'lucide-react';
+import { Search, Plus, Edit2, Eye, Briefcase, X } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Input from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import EmptyState from '@/components/ui/data-display/EmptyState';
+import Alert from '@/components/ui/feedback/Alert';
 
 export default function FonctionsTab() {
     const [fonctions, setFonctions] = useState([]);
@@ -20,7 +22,8 @@ export default function FonctionsTab() {
     const [editingFonction, setEditingFonction] = useState(null);
     const [formData, setFormData] = useState({
         codeFonction: '',
-        libelle: ''
+        libelle: '',
+        dispensePointage: false
     });
 
     const loadData = async () => {
@@ -43,7 +46,7 @@ export default function FonctionsTab() {
 
     const handleOpenCreate = () => {
         setEditingFonction(null);
-        setFormData({ codeFonction: '', libelle: '' });
+        setFormData({ codeFonction: '', libelle: '', dispensePointage: false });
         setActionError(null);
         setShowModal(true);
     };
@@ -52,7 +55,8 @@ export default function FonctionsTab() {
         setEditingFonction(fonction);
         setFormData({
             codeFonction: fonction.codeFonction,
-            libelle: fonction.libelle
+            libelle: fonction.libelle,
+            dispensePointage: fonction.dispensePointage || false
         });
         setActionError(null);
         setShowModal(true);
@@ -111,8 +115,8 @@ export default function FonctionsTab() {
 
     if (loading && fonctions.length === 0) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <Loading size="md" label="Chargement des fonctions/postes..." />
+            <div className="p-4">
+                <SkeletonTable rows={8} columns={5} />
             </div>
         );
     }
@@ -120,18 +124,8 @@ export default function FonctionsTab() {
     return (
         <div className="space-y-6">
             {/* Notifications */}
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {actionSuccess && <Alert type="success" message={actionSuccess} />}
+            {error && <Alert type="error" message={error} />}
 
             {/* Barre d'outils */}
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-4 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
@@ -172,6 +166,7 @@ export default function FonctionsTab() {
                 <Thead>
                     <Th>Code Fonction</Th>
                     <Th>Intitulé du Poste</Th>
+                    <Th>Autonome (Sans Pointage)</Th>
                     <Th>Statut</Th>
                     <Th className="text-right">Actions</Th>
                 </Thead>
@@ -181,6 +176,13 @@ export default function FonctionsTab() {
                             <Tr key={f.idFonction}>
                                 <Td isData className="font-bold text-[var(--color-brand-500)]">{f.codeFonction}</Td>
                                 <Td className="font-bold text-[var(--color-fg)]">{f.libelle}</Td>
+                                <Td>
+                                    {f.dispensePointage ? (
+                                        <Badge variant="warning" size="sm">Oui</Badge>
+                                    ) : (
+                                        <Badge variant="default" size="sm">Non</Badge>
+                                    )}
+                                </Td>
                                 <Td>
                                     <Badge variant={f.estActif ? 'success' : 'default'} size="sm" dot>
                                         {f.estActif ? "Actif" : "Désactivé"}
@@ -211,8 +213,8 @@ export default function FonctionsTab() {
                         ))
                     ) : (
                         <Tr>
-                            <Td colSpan={4} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                Aucune fonction enregistrée.
+                            <Td colSpan={5} className="p-0">
+                                <EmptyState title="Aucune fonction" description="Aucune fonction enregistrée." />
                             </Td>
                         </Tr>
                     )}
@@ -233,12 +235,7 @@ export default function FonctionsTab() {
                             </button>
                         </div>
                         <form onSubmit={handleSave} className="p-6 space-y-4">
-                            {actionError && (
-                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-1.5">
-                                    <ShieldAlert size={14} />
-                                    {actionError}
-                                </div>
-                            )}
+                            {actionError && <Alert type="error" message={actionError} />}
                             <Input
                                 label="Code Fonction"
                                 required
@@ -254,6 +251,15 @@ export default function FonctionsTab() {
                                 onChange={(e) => setFormData({ ...formData, libelle: e.target.value })}
                                 placeholder="Ex: Directeur Général"
                             />
+                            <label className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)] cursor-pointer p-3 border border-[var(--color-border-subtle)] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors mt-2">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.dispensePointage}
+                                    onChange={(e) => setFormData({ ...formData, dispensePointage: e.target.checked })}
+                                    className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
+                                />
+                                <span>Dispense de pointage (Poste autonome)</span>
+                            </label>
                             <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
                                 <Button type="button" onClick={() => setShowModal(false)} variant="ghost" size="sm">
                                     Annuler

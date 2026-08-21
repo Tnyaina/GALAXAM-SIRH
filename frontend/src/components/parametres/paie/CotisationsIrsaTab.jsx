@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, ShieldCheck, Percent, MapPin, Eye } from 'lucide-react';
+import {   ShieldCheck, Percent, MapPin, Eye } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
 import { fmtDateInput } from '@/utils/paieUtils';
 import Tabs from '@/components/ui/navigation/Tabs';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 import CotisationsList from './cotisations/CotisationsList';
 import CotisationFormModal from './cotisations/CotisationFormModal';
@@ -36,7 +39,7 @@ export default function CotisationsIrsaTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
+    const toast = useToast();
     const [showInactive, setShowInactive] = useState(false);
 
     // Modale Cotisation
@@ -110,14 +113,13 @@ export default function CotisationsIrsaTab() {
     const handleSaveCotisation = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         try {
             if (editingCotisation) {
                 await paieConfigService.updateCotisation(editingCotisation.idTypeCotisation, cotisationFormData);
-                setActionSuccess(`Cotisation "${cotisationFormData.libelle}" modifiée.`);
+                toast({ title: 'Succès', message: `Cotisation "${cotisationFormData.libelle}" modifiée.`, type: 'success' });
             } else {
                 await paieConfigService.createCotisation(cotisationFormData);
-                setActionSuccess(`Cotisation "${cotisationFormData.libelle}" créée.`);
+                toast({ title: 'Succès', message: `Cotisation "${cotisationFormData.libelle}" créée.`, type: 'success' });
             }
             setShowCotisationModal(false);
             loadData();
@@ -136,7 +138,6 @@ export default function CotisationsIrsaTab() {
     const handleSaveSiteCotisation = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         if (!siteCotisationFormData.idSite || !siteCotisationFormData.idTypeCotisation) {
             setActionError("Veuillez sélectionner un site et une cotisation.");
             return;
@@ -147,7 +148,7 @@ export default function CotisationsIrsaTab() {
         };
         try {
             await paieConfigService.createSiteCotisation(payload);
-            setActionSuccess("Cotisation associée au site.");
+            toast({ title: 'Succès', message: "Cotisation associée au site.", type: 'success' });
             setShowSiteCotisationModal(false);
             loadData();
         } catch (err) {
@@ -156,15 +157,14 @@ export default function CotisationsIrsaTab() {
     };
 
     const handleToggleSiteCotisationStatus = async (item) => {
-        setActionSuccess(null);
         setActionError(null);
         try {
             if (item.estActif) {
                 await paieConfigService.deactivateSiteCotisation(item.idSiteCotisation);
-                setActionSuccess(`Association "${item.siteLibelle} - ${item.cotisationLibelle}" désactivée.`);
+                toast({ title: 'Succès', message: `Association "${item.siteLibelle} - ${item.cotisationLibelle}" désactivée.`, type: 'success' });
             } else {
                 await paieConfigService.activateSiteCotisation(item.idSiteCotisation);
-                setActionSuccess(`Association "${item.siteLibelle} - ${item.cotisationLibelle}" réactivée.`);
+                toast({ title: 'Succès', message: `Association "${item.siteLibelle} - ${item.cotisationLibelle}" réactivée.`, type: 'success' });
             }
             setSiteCotisations(prev =>
                 prev.map(sc =>
@@ -204,7 +204,6 @@ export default function CotisationsIrsaTab() {
     const handleSaveIrsa = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         const payload = {
             ...irsaFormData,
             trancheMax: irsaFormData.trancheMax !== '' ? parseFloat(irsaFormData.trancheMax) : null
@@ -212,10 +211,10 @@ export default function CotisationsIrsaTab() {
         try {
             if (editingIrsa) {
                 await paieConfigService.updateBaremeIrsa(editingIrsa.idTranche, payload);
-                setActionSuccess(`Tranche IRSA #${irsaFormData.numeroTranche} modifiée.`);
+                toast({ title: 'Succès', message: `Tranche IRSA #${irsaFormData.numeroTranche} modifiée.`, type: 'success' });
             } else {
                 await paieConfigService.createBaremeIrsa(payload);
-                setActionSuccess(`Tranche IRSA #${irsaFormData.numeroTranche} créée.`);
+                toast({ title: 'Succès', message: `Tranche IRSA #${irsaFormData.numeroTranche} créée.`, type: 'success' });
             }
             setShowIrsaModal(false);
             loadData();
@@ -230,26 +229,15 @@ export default function CotisationsIrsaTab() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
+            <div className="p-4">
+                <SkeletonTable rows={5} columns={5} />
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {error && <Alert type="error" message={error} />}
 
             {/* Onglets internes + Filtre d'affichage */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-3 shadow-sm">

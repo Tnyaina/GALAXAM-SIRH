@@ -4,9 +4,10 @@ import congeService from '@/api/congeService';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import { Textarea } from '@/components/ui/forms/Input';
-import Alert from '@/components/ui/feedback/Alert';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
+import EmptyState from '@/components/ui/data-display/EmptyState';
+import Alert from '@/components/ui/feedback/Alert';
 
 const fmtDate = (d) => {
   if (!d) return '-';
@@ -86,6 +87,15 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
 
         {/* Liste des Demandes à Valider */}
         <div className="overflow-x-auto">
+          {(!demandesAValider || demandesAValider.length === 0) ? (
+            <div className="p-8 border-t border-[var(--color-border-subtle)]">
+                <EmptyState
+                    icon={CheckSquare}
+                    title="Aucune demande en attente"
+                    description="Il n'y a aucune demande de congé en attente de validation pour le moment."
+                />
+            </div>
+          ) : (
           <Table>
             <Thead>
               <Tr>
@@ -98,14 +108,7 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
               </Tr>
             </Thead>
             <Tbody>
-              {(!demandesAValider || demandesAValider.length === 0) ? (
-                <Tr>
-                  <Td colSpan="6" className="text-center py-6 text-[var(--color-fg-muted)] ">
-                    Aucune demande de congé en attente de validation pour le moment.
-                  </Td>
-                </Tr>
-              ) : (
-                demandesAValider.map((d) => (
+                {demandesAValider.map((d) => (
                   <Tr key={d.idDemandeConge}>
                     {/* Employé */}
                     <Td>
@@ -207,10 +210,10 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
                       </div>
                     </Td>
                   </Tr>
-                ))
-              )}
+                ))}
             </Tbody>
           </Table>
+          )}
         </div>
       </CardBody>
 

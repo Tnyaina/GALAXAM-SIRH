@@ -162,6 +162,14 @@ const congeService = {
     return response.data;
   },
 
+  /**
+   * Modifie une demande de congé existante
+   */
+  updateDemande: async (id, demandeData) => {
+    const response = await apiClient.put(`/conges/demandes/${id}`, demandeData);
+    return response.data;
+  },
+
   // =========================================================================
   // CIRCUIT DE VALIDATION RH & DAF
   // =========================================================================
@@ -185,8 +193,12 @@ const congeService = {
   /**
    * Valide une demande de congé (génère automatiquement le débit PRISE dans le ledger)
    */
-  validerDemande: async (id) => {
-    const response = await apiClient.post(`/conges/demandes/${id}/valider`);
+  validerDemande: async (id, options = {}) => {
+    let url = `/conges/demandes/${id}/valider`;
+    if (options.justificatifFourni) {
+      url += `?justificatifFourni=true`;
+    }
+    const response = await apiClient.post(url);
     return response.data;
   },
 

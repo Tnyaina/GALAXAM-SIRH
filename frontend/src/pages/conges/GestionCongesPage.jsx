@@ -11,7 +11,6 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 // Sous-composants Onglets
 const SoldesOverviewTab       = lazy(() => import('@/components/conges/SoldesOverviewTab'));
 const DemandesValidationTab   = lazy(() => import('@/components/conges/DemandesValidationTab'));
-const ParametresCongesTab     = lazy(() => import('@/components/conges/ParametresCongesTab'));
 
 import SEO from '@/components/system/SEO';
 
@@ -67,11 +66,7 @@ export default function GestionCongesPage() {
       id: 'demandes',
       label: 'Demandes & Validation',
       badge: nbEnAttente > 0 ? nbEnAttente : undefined,
-    },
-    {
-      id: 'parametres',
-      label: 'Parametres',
-    },
+    }
   ];
 
   return (
@@ -136,10 +131,6 @@ export default function GestionCongesPage() {
                 referentiels={referentiels}
                 onReload={loadGlobalData}
               />
-            )}
-
-            {activeTab === 'parametres' && (
-              <ParametresCongesTab />
             )}
           </Suspense>
         </div>

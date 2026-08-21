@@ -3,6 +3,7 @@ import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDate } from '@/utils/paieUtils';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 
 export default function SiteFeriesList({
     siteFeries = [],
@@ -27,33 +28,37 @@ export default function SiteFeriesList({
                 </Button>
             </div>
 
-            <Table>
-                <Thead>
-                    <Th>Site d'Exploitation</Th>
-                    <Th>Date Férié</Th>
-                    <Th>Fête / Événement</Th>
-                    <Th className="text-center">Chômé</Th>
-                    <Th className="text-right">Actions</Th>
-                </Thead>
-                <Tbody>
-                    {siteFeries.length === 0 ? (
-                        <Tr>
-                            <Td colSpan={5} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                Aucune association de jour férié spécifique par site pour {selectedYear}.
-                            </Td>
-                        </Tr>
-                    ) : (
-                        siteFeries.map((sf) => (
+            {siteFeries.length === 0 ? (
+                <div className="p-8">
+                    <EmptyState
+                        icon={MapPin}
+                        title="Aucun jour férié régional"
+                        description={`Aucune association de jour férié spécifique par site pour l'année ${selectedYear}.`}
+                        actionLabel="Affecter Férié à un Site"
+                        onAction={onOpenCreate}
+                    />
+                </div>
+            ) : (
+                <Table>
+                    <Thead>
+                        <Th>Site d'Exploitation</Th>
+                        <Th>Date Férié</Th>
+                        <Th>Fête / Événement</Th>
+                        <Th className="text-center">Chômé</Th>
+                        <Th className="text-right">Actions</Th>
+                    </Thead>
+                    <Tbody>
+                        {siteFeries.map((sf) => (
                             <Tr key={sf.idSiteFerie}>
                                 <Td className="font-bold text-[var(--color-fg)] flex items-center gap-2">
                                     <MapPin size={14} className="text-[var(--color-brand-500)]" />
-                                    {sf.libelleSite || `Site #${sf.idSite}`}
+                                    {sf.siteLibelle || `Site #${sf.idSite}`}
                                 </Td>
                                 <Td isData className="font-bold text-[var(--color-brand-500)]">
-                                    {fmtDate(sf.dateFerie)}
+                                    {fmtDate(sf.ferieDate)}
                                 </Td>
                                 <Td className="font-medium text-[var(--color-fg)]">
-                                    {sf.libelleFerie || '-'}
+                                    {sf.ferieLibelle || '-'}
                                 </Td>
                                 <Td className="text-center">
                                     <Badge variant={sf.estChome !== false ? 'success' : 'default'} size="sm">
@@ -70,10 +75,10 @@ export default function SiteFeriesList({
                                     </button>
                                 </Td>
                             </Tr>
-                        ))
-                    )}
-                </Tbody>
-            </Table>
+                        ))}
+                    </Tbody>
+                </Table>
+            )}
         </div>
     );
 }

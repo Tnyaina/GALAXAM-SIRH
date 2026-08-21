@@ -1,34 +1,35 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, CheckCircle, XCircle, Sliders, ShieldAlert, X, Search, Filter, ArrowUpDown } from 'lucide-react';
+import { Edit2, Sliders, X, Search, Filter, ArrowUpDown } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDateInput } from '@/utils/paieUtils';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import EmptyState from '@/components/ui/data-display/EmptyState';
+import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 // Catégories correspondant directement aux modules du SIRH et aux graines SQL de la BDD
 const DEFAULT_CATEGORIES = [
-    { value: 'PAIE', label: 'Paie & Rémunération' },
-    { value: 'CONGE', label: 'Congés & Absences' },
-    { value: 'POINTAGE', label: 'Pointage & Temps de Travail' },
-    { value: 'CONTRAT', label: 'Contrats & Carrière' },
-    { value: 'EMPLOYE', label: 'Gestion des Employés' },
     { value: 'RH_GENERAL', label: 'Règles RH Générales' },
-    { value: 'GENERAL', label: 'Général & Système' }
+    { value: 'CONGES', label: 'Congés & Absences' },
+    { value: 'POINTAGE', label: 'Pointage & Temps de Travail' },
+    { value: 'PAIE', label: 'Paie & Rémunération' }
 ];
 
-export default function ParametresGlobauxTab() {
+export default function ParametresGlobauxTab({ fixedCategory }) {
     const todayStr = fmtDateInput(new Date());
 
     const [parametres, setParametres] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
+    const toast = useToast();
 
     // Filtres & Tri
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('ALL');
+    const [selectedCategory, setSelectedCategory] = useState(fixedCategory || 'ALL');
     const [sortBy, setSortBy] = useState('CODE_ASC');
 
     // Modale Paramètre Global
@@ -38,7 +39,7 @@ export default function ParametresGlobauxTab() {
         codeParametre: '',
         valeur: '',
         description: '',
-        categorie: 'PAIE',
+        categorie: fixedCategory || 'PAIE',
         dateDebut: todayStr,
         dateFin: ''
     });
@@ -66,7 +67,7 @@ export default function ParametresGlobauxTab() {
         const categoriesSet = new Set(DEFAULT_CATEGORIES.map(c => c.value));
         parametres.forEach(p => {
             if (p.categorie) {
-                const normCat = p.categorie === 'CONGES' ? 'CONGE' : p.categorie;
+                const normCat = p.categorie === 'CONGE' ? 'CONGES' : p.categorie;
                 categoriesSet.add(normCat);
             }
         });
@@ -83,7 +84,7 @@ export default function ParametresGlobauxTab() {
     const filteredAndSortedParametres = useMemo(() => {
         return parametres
             .filter(item => {
-                const itemCatNorm = item.categorie === 'CONGES' ? 'CONGE' : (item.categorie || 'GENERAL');
+                const itemCatNorm = item.categorie === 'CONGE' ? 'CONGES' : (item.categorie || 'RH_GENERAL');
 
                 // Filtre par catégorie
                 if (selectedCategory !== 'ALL') {
@@ -121,18 +122,14 @@ export default function ParametresGlobauxTab() {
             });
     }, [parametres, selectedCategory, searchTerm, sortBy]);
 
-    // Sauvegarde (Création / Modification)
+    // Sauvegarde (Modification uniquement)
     const handleSave = async (e) => {
         e.preventDefault();
         setActionError(null);
-        setActionSuccess(null);
         try {
             if (editingParametre) {
                 await paieConfigService.updateParametreGlobal(editingParametre.idParametre, formData);
-                setActionSuccess(`Paramètre global "${formData.codeParametre}" modifié avec succès.`);
-            } else {
-                await paieConfigService.createParametreGlobal(formData);
-                setActionSuccess(`Paramètre global "${formData.codeParametre}" créé avec succès.`);
+                toast({ title: 'Succès', message: `Paramètre global "${formData.codeParametre}" modifié avec succès.`, type: 'success' });
             }
             setShowModal(false);
             loadData();
@@ -143,8 +140,8 @@ export default function ParametresGlobauxTab() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
+            <div className="p-4">
+                <SkeletonTable rows={5} columns={6} />
             </div>
         );
     }
@@ -152,18 +149,7 @@ export default function ParametresGlobauxTab() {
     return (
         <div className="space-y-6">
             {/* Feedback messages */}
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {error && <Alert type="error" message={error} />}
 
             {/* En-tête & Barre de Contrôles / Filtres */}
             <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
@@ -177,26 +163,8 @@ export default function ParametresGlobauxTab() {
                             Constantes réglementaires, taux légaux, plafonds CNaPS, diviseurs horaires et variables du moteur.
                         </p>
                     </div>
-                    <Button
-                        onClick={() => {
-                            setEditingParametre(null);
-                            setFormData({
-                                codeParametre: '',
-                                valeur: '',
-                                description: '',
-                                categorie: 'PAIE',
-                                dateDebut: todayStr,
-                                dateFin: ''
-                            });
-                            setActionError(null);
-                            setShowModal(true);
-                        }}
-                        variant="primary"
-                        size="sm"
-                        iconLeft={<Plus size={16} />}
-                    >
-                        Nouveau Paramètre Global
-                    </Button>
+                    {/* Le bouton "Nouveau" a été retiré, car la création de paramètres globaux 
+                        nécessite une intervention dans le code source pour être utilisée. */}
                 </div>
 
                 {/* Barre de Recherche, Filtre par Catégorie et Tri */}
@@ -212,18 +180,20 @@ export default function ParametresGlobauxTab() {
                     </div>
 
                     {/* Select Filtre par Catégorie */}
-                    <div className="flex items-center gap-2">
-                        <Filter size={16} className="text-[var(--color-fg-muted)] shrink-0" />
-                        <Select
-                            value={selectedCategory}
-                            onChange={(e) => setSelectedCategory(e.target.value)}
-                        >
-                            <option value="ALL">Toutes les catégories</option>
-                            {availableCategories.map((c) => (
-                                <option key={c.value} value={c.value}>{c.label}</option>
-                            ))}
-                        </Select>
-                    </div>
+                    {!fixedCategory && (
+                        <div className="flex items-center gap-2">
+                            <Filter size={16} className="text-[var(--color-fg-muted)] shrink-0" />
+                            <Select
+                                value={selectedCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                            >
+                                <option value="ALL">Toutes les catégories</option>
+                                {availableCategories.map((c) => (
+                                    <option key={c.value} value={c.value}>{c.label}</option>
+                                ))}
+                            </Select>
+                        </div>
+                    )}
 
                     {/* Select Tri */}
                     <div className="flex items-center gap-2">
@@ -234,7 +204,6 @@ export default function ParametresGlobauxTab() {
                         >
                             <option value="CODE_ASC">Code Paramètre (A → Z)</option>
                             <option value="CODE_DESC">Code Paramètre (Z → A)</option>
-                            <option value="CAT_ASC">Trier par Catégorie</option>
                             <option value="DATE_DESC">Date Début (Plus récents)</option>
                         </Select>
                     </div>
@@ -253,8 +222,8 @@ export default function ParametresGlobauxTab() {
                     <Tbody>
                         {filteredAndSortedParametres.length === 0 ? (
                             <Tr>
-                                <Td colSpan={6} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                    Aucun paramètre global ne correspond à vos critères de recherche.
+                                <Td colSpan={6} className="p-0">
+                                    <EmptyState title="Aucun paramètre" description="Aucun paramètre global ne correspond à vos critères de recherche." />
                                 </Td>
                             </Tr>
                         ) : (
@@ -308,61 +277,50 @@ export default function ParametresGlobauxTab() {
                 </Table>
             </div>
 
-            {/* Modale d'Édition / Création */}
+            {/* Modale d'Édition */}
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
+                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-lg w-full overflow-hidden">
                         <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
                             <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
                                 <Sliders size={18} className="text-[var(--color-brand-500)]" />
-                                {editingParametre ? "Modifier le Paramètre Global" : "Nouveau Paramètre Global"}
+                                Modifier la Valeur du Paramètre
                             </h3>
-                            <button onClick={() => setShowModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
+                            <button type="button" onClick={() => setShowModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
                                 <X size={18} />
                             </button>
                         </div>
-                        <form onSubmit={handleSave} className="p-6 space-y-4">
-                            {actionError && (
-                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-2">
-                                    <ShieldAlert size={16} />
-                                    {actionError}
+                        <form onSubmit={handleSave} className="p-6 space-y-5">
+                            {actionError && <Alert type="error" message={actionError} />}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Input
+                                    label="Code Paramètre"
+                                    value={formData.codeParametre}
+                                    readOnly
+                                    disabled
+                                    className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]"
+                                />
+
+                                <Input
+                                    label="Valeur *"
+                                    required
+                                    value={formData.valeur}
+                                    onChange={(e) => setFormData({ ...formData, valeur: e.target.value })}
+                                    placeholder="Ex: 262000.00"
+                                />
+
+                                <div className="col-span-1 md:col-span-2">
+                                    <Textarea
+                                        label="Description"
+                                        value={formData.description}
+                                        readOnly
+                                        disabled
+                                        rows={2}
+                                        className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]"
+                                    />
                                 </div>
-                            )}
-
-                            <Input
-                                label="Code Paramètre"
-                                required
-                                disabled={!!editingParametre}
-                                value={formData.codeParametre}
-                                onChange={(e) => setFormData({ ...formData, codeParametre: e.target.value.toUpperCase() })}
-                                placeholder="Ex: PLAFOND_CNAPS, SME_COURANT, BASE_HORAIRE"
-                            />
-
-                            <Select
-                                label="Catégorie"
-                                value={formData.categorie}
-                                onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
-                            >
-                                {DEFAULT_CATEGORIES.map((c) => (
-                                    <option key={c.value} value={c.value}>{c.label}</option>
-                                ))}
-                            </Select>
-
-                            <Input
-                                label="Valeur"
-                                required
-                                value={formData.valeur}
-                                onChange={(e) => setFormData({ ...formData, valeur: e.target.value })}
-                                placeholder="Ex: 262000.00"
-                            />
-
-                            <Textarea
-                                label="Description"
-                                rows={3}
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                placeholder="Description et formule d'utilisation de ce paramètre..."
-                            />
+                            </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <Input

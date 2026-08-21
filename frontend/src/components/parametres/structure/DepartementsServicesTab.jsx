@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, XCircle, Eye } from 'lucide-react';
+import {   Eye } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import { fmtDateInput } from '@/utils/paieUtils';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Alert from '@/components/ui/feedback/Alert';
 
 import DepartementsList from './departements/DepartementsList';
 import DepartementFormModal from './departements/DepartementFormModal';
@@ -230,8 +231,8 @@ export default function DepartementsServicesTab() {
 
     if (loading && departements.length === 0) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <Loading size="md" label="Chargement des départements et services..." />
+            <div className="p-4">
+                <SkeletonTable rows={8} columns={4} />
             </div>
         );
     }
@@ -239,18 +240,8 @@ export default function DepartementsServicesTab() {
     return (
         <div className="space-y-6">
             {/* Notifications */}
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {actionSuccess && <Alert type="success" message={actionSuccess} />}
+            {error && <Alert type="error" message={error} />}
 
             {/* Barre d'affichage désactivés */}
             <div className="flex justify-end bg-[var(--color-surface)] p-2 rounded-none border border-[var(--color-border-subtle)] shadow-sm">

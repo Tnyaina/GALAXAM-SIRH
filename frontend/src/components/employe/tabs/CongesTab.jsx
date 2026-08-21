@@ -7,6 +7,7 @@ import Alert from '@/components/ui/feedback/Alert';
 import Loading from '@/components/ui/feedback/Loading';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Pagination from '@/components/ui/navigation/Pagination';
 
@@ -37,6 +38,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
   const [pageSize, setPageSize] = useState(10);
 
   // Confirm Dialog for Annulation
+  const [selectedDemande, setSelectedDemande] = useState(null);
   const [confirmAnnulerState, setConfirmAnnulerState] = useState({ isOpen: false, idDemande: null });
 
   const loadDemandes = async () => {
@@ -130,14 +132,14 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
             size="xs"
             onClick={loadData}
             loading={loading}
-            iconLeft={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
+            iconLeft={<RefreshCw size={14} />}
             className="rounded-none text-[var(--color-fg-muted)]"
           />
           {canWrite && (
             <Button
               variant="primary"
               size="sm"
-              onClick={() => setShowDemandeModal(true)}
+              onClick={() => { setSelectedDemande(null); setShowDemandeModal(true); }}
               iconLeft={<Plus size={16} />}
               className="rounded-none font-bold uppercase"
             >
@@ -191,6 +193,15 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
           </CardHeader>
           <CardBody>
             <div className="overflow-x-auto">
+              {demandesEmploye.length === 0 ? (
+                <div className="p-8 border-t border-[var(--color-border-subtle)]">
+                    <EmptyState
+                        icon={Calendar}
+                        title="Aucune demande de congé"
+                        description="Aucune demande de congé n'est enregistrée pour cet employé."
+                    />
+                </div>
+              ) : (
               <Table>
                 <Thead>
                   <Tr>
@@ -203,14 +214,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {demandesEmploye.length === 0 ? (
-                    <Tr>
-                      <Td colSpan="6" className="text-center py-6 text-[var(--color-fg-muted)] ">
-                        Aucune demande de congé enregistrée.
-                      </Td>
-                    </Tr>
-                  ) : (
-                    demandesEmploye.map((d) => (
+                    {demandesEmploye.map((d) => (
                       <Tr key={d.idDemandeConge}>
                         <Td>
                           <div className="font-bold text-[var(--color-fg)]">{d.libelleTypeConge}</div>
@@ -262,6 +266,16 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                           )}
                         </Td>
                         <Td className="text-right">
+                          {canWrite && d.codeStatutDemande === 'EN_ATTENTE' && (
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={() => { setSelectedDemande(d); setShowDemandeModal(true); }}
+                              className="rounded-none mr-2 text-brand-500 hover:text-brand-600"
+                            >
+                              Modifier
+                            </Button>
+                          )}
                           {canWrite && d.codeStatutDemande !== 'ANNULE' && d.codeStatutDemande !== 'REFUSE' && (
                             <Button
                               variant="ghost"
@@ -274,10 +288,10 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                           )}
                         </Td>
                       </Tr>
-                    ))
-                  )}
+                    ))}
                 </Tbody>
               </Table>
+              )}
             </div>
             
             {/* Pagination */}
@@ -305,13 +319,14 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
         </div>
       )}
 
-      {/* Modal création demande */}
+      {/* Modal création/modification demande */}
       <DemandeCongeModal
         idEmploye={idEmploye}
+        initialDemande={selectedDemande}
         referentiels={referentiels}
         isOpen={showDemandeModal}
-        onClose={() => setShowDemandeModal(false)}
-        onSuccess={loadData}
+        onClose={() => { setShowDemandeModal(false); setSelectedDemande(null); }}
+        onSuccess={() => { setShowDemandeModal(false); setSelectedDemande(null); loadData(); }}
       />
 
       <ConfirmDialog
