@@ -5,7 +5,7 @@ import Input, { Textarea } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 export default function RefCarriereManagementTab() {
     const [categoriesPro, setCategoriesPro] = useState([]);
@@ -133,8 +133,8 @@ export default function RefCarriereManagementTab() {
                 </div>
 
                 {loading ? (
-                    <div className="flex justify-center items-center py-8">
-                        <Loading size="md" label="Chargement des catégories..." />
+                    <div className="p-4">
+                        <SkeletonTable rows={5} columns={6} />
                     </div>
                 ) : (
                     <Table>

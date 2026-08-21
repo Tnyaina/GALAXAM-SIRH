@@ -190,7 +190,8 @@ export default function EmployeList() {
                         onClick={loadEmployes}
                         variant="ghost"
                         size="sm"
-                        iconLeft={<RefreshCw size={16} className={loading ? 'animate-spin' : ''} />}
+                        loading={loading}
+                        iconLeft={<RefreshCw size={16} />}
                     >
                         Actualiser
                     </Button>

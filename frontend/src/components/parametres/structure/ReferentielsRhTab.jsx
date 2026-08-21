@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, FileText, UserCheck, Landmark } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
 
 import TypesContratList from './referentiels/TypesContratList';
@@ -198,8 +198,8 @@ export default function ReferentielsRhTab() {
 
     if (loading && typesContrat.length === 0) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <Loading size="md" label="Chargement des référentiels RH..." />
+            <div className="p-4">
+                <SkeletonTable rows={8} columns={4} />
             </div>
         );
     }

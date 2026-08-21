@@ -1,7 +1,7 @@
 import { Eye, Edit2, Users } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 export default function EmployeTable({
     employes = [],
@@ -14,8 +14,8 @@ export default function EmployeTable({
 }) {
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <Loading size="lg" label="Chargement des employés..." />
+            <div className="p-4">
+                <SkeletonTable rows={10} columns={7} />
             </div>
         );
     }

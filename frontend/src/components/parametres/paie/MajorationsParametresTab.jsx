@@ -4,6 +4,7 @@ import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { fmtDateInput } from '@/utils/paieUtils';
 
 export default function MajorationsParametresTab() {
@@ -62,8 +63,8 @@ export default function MajorationsParametresTab() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
+            <div className="p-4">
+                <SkeletonTable rows={5} columns={5} />
             </div>
         );
     }

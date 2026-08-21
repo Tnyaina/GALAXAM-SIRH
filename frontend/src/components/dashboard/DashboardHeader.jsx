@@ -87,7 +87,7 @@ export default function DashboardHeader({
                         variant="ghost"
                         size="sm"
                         className="bg-white/15 hover:bg-white/25 text-white border-transparent"
-                        icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
+                        icon={<RefreshCw size={14} />}
                     >
                         Actualiser
                     </Button>

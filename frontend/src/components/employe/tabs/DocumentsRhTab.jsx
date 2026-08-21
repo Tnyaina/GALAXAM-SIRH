@@ -1,7 +1,7 @@
 import { Folder, Upload, Download, Trash2, Plus, AlertTriangle } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 const fmtDate = (d) => {
     if (!d) return '-';
@@ -76,8 +76,8 @@ export default function DocumentsRhTab({
 
             {/* Grille/Tableau des Documents */}
             {loadingDocs ? (
-                <div className="py-12 flex justify-center">
-                    <Loading size="md" label="Chargement des documents..." />
+                <div className="p-4">
+                    <SkeletonTable rows={5} columns={6} />
                 </div>
             ) : documentsData.documents.length === 0 ? (
                 <div className="p-10 text-center bg-ink-50 dark:bg-ink-950 border border-dashed border-ink-200 dark:border-ink-700 space-y-2">

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, XCircle, Eye } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import { fmtDateInput } from '@/utils/paieUtils';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 import DepartementsList from './departements/DepartementsList';
 import DepartementFormModal from './departements/DepartementFormModal';
@@ -230,8 +230,8 @@ export default function DepartementsServicesTab() {
 
     if (loading && departements.length === 0) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <Loading size="md" label="Chargement des départements et services..." />
+            <div className="p-4">
+                <SkeletonTable rows={8} columns={4} />
             </div>
         );
     }

@@ -5,6 +5,7 @@ import Button from '@/components/ui/forms/Button';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDateInput } from '@/utils/paieUtils';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 // Catégories correspondant directement aux modules du SIRH et aux graines SQL de la BDD
 const DEFAULT_CATEGORIES = [
@@ -140,8 +141,8 @@ export default function ParametresGlobauxTab() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
+            <div className="p-4">
+                <SkeletonTable rows={5} columns={6} />
             </div>
         );
     }

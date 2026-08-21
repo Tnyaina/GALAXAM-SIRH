@@ -130,7 +130,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
             size="xs"
             onClick={loadData}
             loading={loading}
-            iconLeft={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
+            iconLeft={<RefreshCw size={14} />}
             className="rounded-none text-[var(--color-fg-muted)]"
           />
           {canWrite && (

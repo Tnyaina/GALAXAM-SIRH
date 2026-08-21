@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Search, Plus, CheckCircle, XCircle, Building2, MapPin, Eye } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import Button from '@/components/ui/forms/Button';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
 
 import FilialesList from './filiales/FilialesList';
@@ -236,8 +236,8 @@ export default function FilialesSitesTab() {
 
     if (loading && filiales.length === 0) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <Loading size="md" label="Chargement des filiales et sites..." />
+            <div className="p-4">
+                <SkeletonTable rows={8} columns={5} />
             </div>
         );
     }

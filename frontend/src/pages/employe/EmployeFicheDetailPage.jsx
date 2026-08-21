@@ -9,6 +9,7 @@ import documentRhService from '@/api/employe/documentRhService';
 import EmployeHeaderCard from '@/components/employe/EmployeHeaderCard';
 import Button from '@/components/ui/forms/Button';
 import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { useAuth } from '@/context/AuthContext';
 
@@ -26,8 +27,8 @@ import SEO from '@/components/system/SEO';
 const VALID_TABS = ['personnel', 'conges', 'documents', 'famille', 'carriere', 'historique'];
 
 const TabLoader = ({ label = "Chargement..." }) => (
-    <div className="p-8 flex justify-center">
-        <Loading size="md" label={label} />
+    <div className="p-6">
+        <SkeletonTable rows={5} columns={4} />
     </div>
 );
 
@@ -210,9 +211,7 @@ export default function EmployeFicheDetailPage() {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                <Loading size="lg" label="Chargement de la fiche employé..." />
-            </div>
+            <Loading display="page" label="Chargement de la fiche employé..." size="lg" />
         );
     }
 

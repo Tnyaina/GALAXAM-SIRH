@@ -5,6 +5,7 @@ import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
 import { fmtDateInput } from '@/utils/paieUtils';
 import Tabs from '@/components/ui/navigation/Tabs';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 import CotisationsList from './cotisations/CotisationsList';
 import CotisationFormModal from './cotisations/CotisationFormModal';
@@ -230,8 +231,8 @@ export default function CotisationsIrsaTab() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
+            <div className="p-4">
+                <SkeletonTable rows={5} columns={5} />
             </div>
         );
     }

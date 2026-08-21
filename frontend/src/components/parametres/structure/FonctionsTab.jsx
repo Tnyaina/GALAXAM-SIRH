@@ -5,7 +5,7 @@ import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Input from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 export default function FonctionsTab() {
     const [fonctions, setFonctions] = useState([]);
@@ -113,8 +113,8 @@ export default function FonctionsTab() {
 
     if (loading && fonctions.length === 0) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <Loading size="md" label="Chargement des fonctions/postes..." />
+            <div className="p-4">
+                <SkeletonTable rows={8} columns={5} />
             </div>
         );
     }

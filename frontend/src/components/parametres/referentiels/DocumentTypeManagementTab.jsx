@@ -5,7 +5,7 @@ import Input, { Textarea, Select, Checkbox } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import Loading from '@/components/ui/feedback/Loading';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 const CATEGORIES = ['Administratif', 'Identité', 'Recrutement', 'Contrat', 'Formation', 'Paie', 'Autre'];
 
@@ -145,8 +145,8 @@ export default function DocumentTypeManagementTab() {
 
             {/* Tableau */}
             {loading ? (
-                <div className="flex justify-center items-center py-12">
-                    <Loading size="lg" label="Chargement du référentiel..." />
+                <div className="p-4">
+                    <SkeletonTable rows={8} columns={6} />
                 </div>
             ) : types.length === 0 ? (
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-sm p-12 text-center">

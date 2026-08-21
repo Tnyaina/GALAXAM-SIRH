@@ -9,6 +9,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import Input, { Select, Checkbox } from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDateInput, fmtMoney, PERIODICITES_INDEMNITE } from '@/utils/paieUtils';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 export default function IndemnitesSitesTab() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -132,8 +133,8 @@ export default function IndemnitesSitesTab() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <div className="w-8 h-8 border-4 border-[var(--color-brand-500)] border-t-transparent rounded-none animate-spin"></div>
+            <div className="p-4">
+                <SkeletonTable rows={5} columns={5} />
             </div>
         );
     }
