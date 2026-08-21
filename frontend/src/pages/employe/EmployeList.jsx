@@ -270,12 +270,19 @@ export default function EmployeList() {
                 const empId = selectedEmployeForEdit.employe?.idEmploye || selectedEmployeForEdit.idEmploye;
                 await employeService.updateEmploye(empId, formData);
                 toast({ title: 'Succès', message: 'Fiche employé modifiée avec succès.', type: 'success' });
+                setIsFormOpen(false);
+                loadEmployes();
             } else {
-                await employeService.createEmploye(formData);
+                const created = await employeService.createEmploye(formData);
                 toast({ title: 'Succès', message: 'Nouvel employé créé avec succès.', type: 'success' });
+                setIsFormOpen(false);
+                const newEmpId = created?.idEmploye || created?.employe?.idEmploye;
+                if (newEmpId) {
+                    navigate(`/employes/${newEmpId}`);
+                } else {
+                    loadEmployes();
+                }
             }
-            setIsFormOpen(false);
-            loadEmployes();
         } catch (err) {
             console.error('Erreur sauvegarde employé:', err);
             setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Erreur lors de l'enregistrement de l'employé.");

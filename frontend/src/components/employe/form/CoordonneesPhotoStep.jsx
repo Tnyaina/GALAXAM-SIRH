@@ -1,5 +1,5 @@
 import { Upload, Camera } from 'lucide-react';
-import Input, { Textarea, Select } from '@/components/ui/forms/Input';
+import Input, { Textarea, AutocompleteInput } from '@/components/ui/forms/Input';
 import Loading from '@/components/ui/feedback/Loading';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
 
@@ -63,9 +63,14 @@ export default function CoordonneesPhotoStep({
                 <div className="md:col-span-2">
                     <Textarea label="Adresse Domicile" required rows={2} value={formData.adresse} onChange={e => set('adresse', e.target.value)} placeholder="Adresse complète" />
                 </div>
-                <Select label="Ville" value={formData.ville} onChange={e => set('ville', e.target.value)}>
-                    {villesStandards.map(v => <option key={v} value={v}>{v}</option>)}
-                </Select>
+                <AutocompleteInput 
+                    label="Ville" 
+                    value={formData.ville} 
+                    onChange={e => set('ville', e.target.value)} 
+                    placeholder="Ex: Antananarivo, Toamasina..."
+                    options={villesStandards}
+                    listId="coord-villes-list"
+                />
                 <Input label="Téléphone" required value={formData.telephone} onChange={e => set('telephone', e.target.value)} placeholder="Ex: 034 12 345 67" />
                 <Input label="Email" type="email" value={formData.email} onChange={e => set('email', e.target.value)} placeholder="email@domaine.mg" />
             </div>

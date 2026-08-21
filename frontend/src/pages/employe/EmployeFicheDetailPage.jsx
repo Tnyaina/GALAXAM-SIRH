@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
-    ArrowLeft, User, Users, Briefcase, FileText, CheckCircle, XCircle, Folder,
+    ArrowLeft, User, Users, Briefcase, FileText, XCircle, Folder,
     Power, AlertTriangle, Calendar
 } from 'lucide-react';
 import employeService from '@/api/employe/employeService';
@@ -25,7 +25,7 @@ const CongesTab = lazy(() => import('@/components/employe/tabs/CongesTab'));
 const UploadDocumentModal = lazy(() => import('@/components/employe/tabs/UploadDocumentModal'));
 import SEO from '@/components/system/SEO';
 
-const VALID_TABS = ['personnel', 'conges', 'documents', 'famille', 'carriere', 'historique'];
+const VALID_TABS = ['personnel','documents', 'famille', 'carriere','conges'];
 
 const TabLoader = () => (
     <div className="p-6">

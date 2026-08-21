@@ -313,8 +313,8 @@ public class DemandeConge extends ClassMere {
      */
     public DemandeConge annuler(Integer idUtilisateur, Connection c) throws Exception {
         String statutCourant = getStatutCode(c);
-        if ("ANNULE".equals(statutCourant) || "REFUSE".equals(statutCourant)) {
-            throw new IllegalStateException("Cette demande est déjà annulée ou refusée.");
+        if ("VALIDE".equals(statutCourant) || "ANNULE".equals(statutCourant) || "REFUSE".equals(statutCourant)) {
+            throw new IllegalStateException("Une demande de congé déjà validée, refusée ou annulée ne peut plus être annulée.");
         }
 
         RefTypeConge typeConge = RefTypeConge.rechercherParId(idTypeConge, c);
@@ -343,16 +343,28 @@ public class DemandeConge extends ClassMere {
     public static void creerNotificationRh(String typeAlerte, String priorite, String titre, String message, String lien, Integer idEmploye, Connection c) {
         String sql = "INSERT INTO notification_rh (type_alerte, priorite, titre, message, lien, id_employe_concerne, est_lue, date_creation) " +
                 "VALUES (?, ?, ?, ?, ?, ?, FALSE, CURRENT_TIMESTAMP)";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, typeAlerte);
-            ps.setString(2, priorite);
-            ps.setString(3, titre);
-            ps.setString(4, message);
-            ps.setString(5, lien);
-            if (idEmploye != null) ps.setInt(6, idEmploye);
-            else ps.setNull(6, Types.INTEGER);
-            ps.executeUpdate();
+        java.sql.Savepoint sp = null;
+        try {
+            if (c != null && !c.getAutoCommit()) {
+                sp = c.setSavepoint("notif_savepoint");
+            }
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
+                ps.setString(1, typeAlerte);
+                ps.setString(2, priorite);
+                ps.setString(3, titre);
+                ps.setString(4, message);
+                ps.setString(5, lien);
+                if (idEmploye != null) ps.setInt(6, idEmploye);
+                else ps.setNull(6, Types.INTEGER);
+                ps.executeUpdate();
+            }
+            if (sp != null) {
+                c.releaseSavepoint(sp);
+            }
         } catch (Exception e) {
+            if (sp != null && c != null) {
+                try { c.rollback(sp); } catch (Exception ignored) {}
+            }
             System.err.println("[DemandeConge] Impossible de créer la notification RH : " + e.getMessage());
         }
     }
