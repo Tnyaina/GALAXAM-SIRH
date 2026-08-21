@@ -16,10 +16,22 @@ export default function EmployeHeaderCard({
             <div className="flex items-center gap-5">
                 <div className="w-20 h-20 bg-ink-50 dark:bg-ink-800 border-2 border-ink-200 dark:border-ink-700 rounded-none overflow-hidden flex items-center justify-center text-ink-300 flex-shrink-0">
                     {emp.photoUrl ? (
-                        <img src={getFullPhotoUrl(emp.photoUrl)} alt="Photo" loading="lazy" decoding="async" className="w-full h-full object-cover" />
-                    ) : (
-                        <User size={36} />
-                    )}
+                        <img 
+                            src={getFullPhotoUrl(emp.photoUrl)} 
+                            alt="Photo" 
+                            loading="lazy" 
+                            decoding="async" 
+                            className="w-full h-full object-cover" 
+                            onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.style.display = 'none';
+                                if (e.currentTarget.nextElementSibling) {
+                                    e.currentTarget.nextElementSibling.classList.remove('hidden');
+                                }
+                            }}
+                        />
+                    ) : null}
+                    <User size={36} className={emp.photoUrl ? 'hidden' : ''} />
                 </div>
                 <div className="space-y-1">
                     <div className="flex items-center gap-3">

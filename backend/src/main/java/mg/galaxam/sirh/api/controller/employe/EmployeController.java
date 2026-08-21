@@ -200,7 +200,7 @@ public class EmployeController {
                         "VALUES (null, 'EMPLOYE_CREE', 'INFO', ?, ?, ?, ?)")) {
                     psNotif.setString(1, "Nouvel employe - " + emp.getNom() + " " + emp.getPrenom());
                     psNotif.setString(2, "La fiche de l'employé " + emp.getNom() + " " + emp.getPrenom() + " a été cree. Pensez a ajouter un contrat et les documents obligatoires.");
-                    psNotif.setString(3, "/employes/" + empId + "?tab=personnel");
+                    psNotif.setString(3, "/employes/" + empId + "?tab=documents");
                     psNotif.setInt(4, empId);
                     psNotif.executeUpdate();
                 }

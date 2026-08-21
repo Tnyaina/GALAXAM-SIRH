@@ -55,11 +55,11 @@ const NotifRow = memo(function NotifRow({ notif, onClick }) {
                                 {cfg.label}
                             </Badge>
                         )}
-                        <p className="text-[13px] font-semibold leading-tight truncate text-[var(--color-fg)]">
+                        <p className="text-[13px] font-semibold leading-tight text-[var(--color-fg)] whitespace-normal text-left">
                             {notif.titre}
                         </p>
                     </div>
-                    <p className="text-xs text-[var(--color-fg-muted)] mt-1 leading-snug line-clamp-2">
+                    <p className="text-xs text-[var(--color-fg-muted)] mt-1 leading-snug whitespace-normal text-left">
                         {notif.message}
                     </p>
                     <p className="text-[11px] text-[var(--color-fg-subtle)] mt-1.5 font-data">

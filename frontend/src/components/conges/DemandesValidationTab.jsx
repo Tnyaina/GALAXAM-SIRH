@@ -50,14 +50,15 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
   const openValider = (d) => { setSelectedDemande(d); setActionError(null); setShowValiderModal(true); };
   const openRefus = (d) => { setSelectedDemande(d); setActionError(null); setMotifRefus(''); setShowRefusModal(true); };
   const openDetail = (d) => { setSelectedDemande(d); setShowDetailModal(true); };
+  const openModifier = (d) => { setSelectedDemande(d); setShowDemandeModal(true); };
   const closeDetail = () => { setShowDetailModal(false); setSelectedDemande(null); };
 
-  const onConfirmValider = async () => {
+  const onConfirmValider = async (justificatifFourni) => {
     if (!selectedDemande) return;
     try {
       setActionLoading(true);
       setActionError(null);
-      await handleValider(selectedDemande.idDemandeConge);
+      await handleValider(selectedDemande.idDemandeConge, { justificatifFourni });
       toast({ title: 'Demande validée', message: `La demande #${selectedDemande.idDemandeConge} a été validée.`, type: 'success', duration: 3000 });
       setShowValiderModal(false);
       setSelectedDemande(null);
@@ -108,7 +109,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
         searchTerm={searchTerm}
         loading={loading}
         onRefresh={handleRefresh}
-        onNewDemande={() => setShowDemandeModal(true)}
+        onNewDemande={() => { setSelectedDemande(null); setShowDemandeModal(true); }}
       />
 
       {/* Tableau des données */}
@@ -134,6 +135,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
         onCloseDetail={closeDetail}
         onOpenValider={openValider}
         onOpenRefus={openRefus}
+        onOpenModifier={openModifier}
 
         showValiderModal={showValiderModal}
         onCloseValider={() => { setShowValiderModal(false); setSelectedDemande(null); }}
@@ -153,10 +155,11 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
       <Suspense fallback={null}>
         <DemandeCongeModal
           isOpen={showDemandeModal}
-          onClose={() => setShowDemandeModal(false)}
+          onClose={() => { setShowDemandeModal(false); setSelectedDemande(null); }}
           idEmploye={null}
+          initialDemande={selectedDemande}
           referentiels={referentiels}
-          onSuccess={() => { setShowDemandeModal(false); if (parentReload) parentReload(); loadData(); }}
+          onSuccess={() => { setShowDemandeModal(false); setSelectedDemande(null); if (parentReload) parentReload(); loadData(); }}
         />
       </Suspense>
     </div>

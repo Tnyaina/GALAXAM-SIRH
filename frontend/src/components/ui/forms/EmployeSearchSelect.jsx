@@ -107,12 +107,12 @@ export default function EmployeSearchSelect({
   // Filtrage local complémentaire si employesProp a été fourni
   const displayEmployes = employesProp
     ? listEmployes.filter((emp) => {
-        const query = empSearchQuery.toLowerCase().trim();
-        if (!query) return true;
-        const fullName = `${emp.nom || ''} ${emp.prenom || ''}`.toLowerCase();
-        const matricule = (emp.matricule || '').toLowerCase();
-        return fullName.includes(query) || matricule.includes(query);
-      })
+      const query = empSearchQuery.toLowerCase().trim();
+      if (!query) return true;
+      const fullName = `${emp.nom || ''} ${emp.prenom || ''}`.toLowerCase();
+      const matricule = (emp.matricule || '').toLowerCase();
+      return fullName.includes(query) || matricule.includes(query);
+    })
     : listEmployes;
 
   return (
@@ -167,11 +167,10 @@ export default function EmployeSearchSelect({
               onFocus={() => !disabled && setShowEmpDropdown(true)}
               placeholder={placeholder}
               aria-invalid={!!error}
-              className={`w-full pl-9 pr-4 py-2.5 bg-[var(--color-bg-subtle)] border rounded-none text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none text-sm ${
-                error
+              className={`w-full pl-9 pr-4 py-2.5 bg-[var(--color-bg-subtle)] border rounded-none text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none text-sm ${error
                   ? 'border-danger-500 focus:border-danger-500'
                   : 'border-[var(--color-border-subtle)] focus:border-[var(--color-brand-500)]'
-              }`}
+                }`}
             />
           </div>
 

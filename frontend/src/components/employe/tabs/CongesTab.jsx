@@ -38,6 +38,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
   const [pageSize, setPageSize] = useState(10);
 
   // Confirm Dialog for Annulation
+  const [selectedDemande, setSelectedDemande] = useState(null);
   const [confirmAnnulerState, setConfirmAnnulerState] = useState({ isOpen: false, idDemande: null });
 
   const loadDemandes = async () => {
@@ -138,7 +139,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => setShowDemandeModal(true)}
+              onClick={() => { setSelectedDemande(null); setShowDemandeModal(true); }}
               iconLeft={<Plus size={16} />}
               className="rounded-none font-bold uppercase"
             >
@@ -265,6 +266,16 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                           )}
                         </Td>
                         <Td className="text-right">
+                          {canWrite && d.codeStatutDemande === 'EN_ATTENTE' && (
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={() => { setSelectedDemande(d); setShowDemandeModal(true); }}
+                              className="rounded-none mr-2 text-brand-500 hover:text-brand-600"
+                            >
+                              Modifier
+                            </Button>
+                          )}
                           {canWrite && d.codeStatutDemande !== 'ANNULE' && d.codeStatutDemande !== 'REFUSE' && (
                             <Button
                               variant="ghost"
@@ -308,13 +319,14 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
         </div>
       )}
 
-      {/* Modal création demande */}
+      {/* Modal création/modification demande */}
       <DemandeCongeModal
         idEmploye={idEmploye}
+        initialDemande={selectedDemande}
         referentiels={referentiels}
         isOpen={showDemandeModal}
-        onClose={() => setShowDemandeModal(false)}
-        onSuccess={loadData}
+        onClose={() => { setShowDemandeModal(false); setSelectedDemande(null); }}
+        onSuccess={() => { setShowDemandeModal(false); setSelectedDemande(null); loadData(); }}
       />
 
       <ConfirmDialog
