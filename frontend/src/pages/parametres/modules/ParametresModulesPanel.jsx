@@ -4,13 +4,14 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
 
+const ParametresGlobauxTab = lazy(() => import('@/components/parametres/paie/ParametresGlobauxTab'));
+const ParametresCongesTab = lazy(() => import('@/components/conges/ParametresCongesTab'));
+const CalendrierFerieTab = lazy(() => import('@/components/parametres/paie/CalendrierFerieTab'));
 const CotisationsIrsaTab = lazy(() => import('@/components/parametres/paie/CotisationsIrsaTab'));
 const IndemnitesSitesTab = lazy(() => import('@/components/parametres/paie/IndemnitesSitesTab'));
 const MajorationsParametresTab = lazy(() => import('@/components/parametres/paie/MajorationsParametresTab'));
-const ParametresGlobauxTab = lazy(() => import('@/components/parametres/paie/ParametresGlobauxTab'));
-const CalendrierFerieTab = lazy(() => import('@/components/parametres/paie/CalendrierFerieTab'));
 
-export default function PaieConfigAdminPanel() {
+export default function ParametresModulesPanel() {
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'cotisations_irsa';
 
@@ -19,11 +20,12 @@ export default function PaieConfigAdminPanel() {
     };
 
     const mainTabs = [
-        { id: 'cotisations_irsa', label: 'Cotisations & Barème IRSA', icon: <ShieldCheck size={16} /> },
-        { id: 'indemnites_sites', label: 'Indemnités & Tarifs par Site', icon: <Gift size={16} /> },
-        { id: 'majorations', label: 'Majorations (Heures Supp)', icon: <Clock size={16} /> },
-        { id: 'parametres_globaux', label: 'Paramètres Globaux', icon: <Sliders size={16} /> },
-        { id: 'calendrier', label: 'Calendrier Jours Fériés & Chômés', icon: <Calendar size={16} /> },
+        { id: 'parametres_globaux', label: 'Règles Générales', icon: <Sliders size={16} /> },
+        { id: 'conges', label: 'Règles d\'Acquisition (Congés)', icon: <Gift size={16} /> },
+        { id: 'calendrier', label: 'Calendrier & Fériés', icon: <Calendar size={16} /> },
+        { id: 'cotisations_irsa', label: 'Cotisations & Barèmes', icon: <ShieldCheck size={16} /> },
+        { id: 'indemnites_sites', label: 'Indemnités (Sites)', icon: <Gift size={16} /> },
+        { id: 'majorations', label: 'Majorations & HS', icon: <Clock size={16} /> },
     ];
 
     return (
@@ -44,9 +46,9 @@ export default function PaieConfigAdminPanel() {
                         <Wrench size={24} />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-[var(--color-fg)]">Paramétrage Paie & Barèmes Fiscaux</h1>
+                        <h1 className="text-2xl font-bold text-[var(--color-fg)]">Paramétrage des Modules</h1>
                         <p className="text-xs text-[var(--color-fg-muted)]">
-                            Gestion des cotisations sociales, du barème IRSA, des indemnités par site, des majorations, des paramètres globaux et du calendrier des jours fériés.
+                            Configuration globale, règles de paie, gestion des congés et des calendriers fériés.
                         </p>
                     </div>
                 </div>
@@ -64,11 +66,12 @@ export default function PaieConfigAdminPanel() {
                 {/* Contenu de l'onglet actif avec le SkeletonTable standardisé */}
                 <div className="p-6">
                     <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
+                        {activeTab === 'parametres_globaux' && <ParametresGlobauxTab />}
+                        {activeTab === 'conges' && <ParametresCongesTab />}
+                        {activeTab === 'calendrier' && <CalendrierFerieTab />}
                         {activeTab === 'cotisations_irsa' && <CotisationsIrsaTab />}
                         {activeTab === 'indemnites_sites' && <IndemnitesSitesTab />}
                         {(activeTab === 'majorations' || activeTab === 'majorations_params') && <MajorationsParametresTab />}
-                        {activeTab === 'parametres_globaux' && <ParametresGlobauxTab />}
-                        {activeTab === 'calendrier' && <CalendrierFerieTab />}
                     </Suspense>
                 </div>
             </div>

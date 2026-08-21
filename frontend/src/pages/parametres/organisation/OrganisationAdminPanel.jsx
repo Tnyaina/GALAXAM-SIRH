@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Building2, Layers, Briefcase, FileCheck, ArrowLeft } from 'lucide-react';
+import { Building2, Layers, Briefcase, ArrowLeft } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -7,9 +7,8 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 const FilialesSitesTab = lazy(() => import('@/components/parametres/structure/FilialesSitesTab'));
 const DepartementsServicesTab = lazy(() => import('@/components/parametres/structure/DepartementsServicesTab'));
 const FonctionsTab = lazy(() => import('@/components/parametres/structure/FonctionsTab'));
-const ReferentielsRhTab = lazy(() => import('@/components/parametres/structure/ReferentielsRhTab'));
 
-export default function StructureAdminPanel() {
+export default function OrganisationAdminPanel() {
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'filiales';
 
@@ -20,8 +19,7 @@ export default function StructureAdminPanel() {
     const mainTabs = [
         { id: 'filiales', label: 'Filiales & Sites', icon: <Building2 size={16} /> },
         { id: 'departements', label: 'Départements & Services', icon: <Layers size={16} /> },
-        { id: 'fonctions', label: 'Postes & Fonctions', icon: <Briefcase size={16} /> },
-        { id: 'rh', label: 'Référentiels RH & Banques', icon: <FileCheck size={16} /> },
+        { id: 'fonctions', label: 'Postes & Fonctions', icon: <Briefcase size={16} /> }
     ];
 
     return (
@@ -42,9 +40,9 @@ export default function StructureAdminPanel() {
                         <Building2 size={24} />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-[var(--color-fg)]">Structure Organisationnelle & Référentiels RH</h1>
+                        <h1 className="text-2xl font-bold text-[var(--color-fg)]">Organisation & Structure</h1>
                         <p className="text-xs text-[var(--color-fg-muted)]">
-                            Gestion des filiales, des sites d'exploitation, départements, services, fonctions et types de contrat.
+                            Gestion des filiales, départements, services et fonctions de l'entreprise.
                         </p>
                     </div>
                 </div>
@@ -65,7 +63,6 @@ export default function StructureAdminPanel() {
                         {activeTab === 'filiales' && <FilialesSitesTab />}
                         {activeTab === 'departements' && <DepartementsServicesTab />}
                         {activeTab === 'fonctions' && <FonctionsTab />}
-                        {activeTab === 'rh' && <ReferentielsRhTab />}
                     </Suspense>
                 </div>
             </div>

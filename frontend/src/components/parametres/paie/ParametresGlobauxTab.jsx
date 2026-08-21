@@ -8,13 +8,10 @@ import { fmtDateInput } from '@/utils/paieUtils';
 
 // Catégories correspondant directement aux modules du SIRH et aux graines SQL de la BDD
 const DEFAULT_CATEGORIES = [
-    { value: 'PAIE', label: 'Paie & Rémunération' },
-    { value: 'CONGE', label: 'Congés & Absences' },
-    { value: 'POINTAGE', label: 'Pointage & Temps de Travail' },
-    { value: 'CONTRAT', label: 'Contrats & Carrière' },
-    { value: 'EMPLOYE', label: 'Gestion des Employés' },
     { value: 'RH_GENERAL', label: 'Règles RH Générales' },
-    { value: 'GENERAL', label: 'Général & Système' }
+    { value: 'CONGES', label: 'Congés & Absences' },
+    { value: 'POINTAGE', label: 'Pointage & Temps de Travail' },
+    { value: 'PAIE', label: 'Paie & Rémunération' }
 ];
 
 export default function ParametresGlobauxTab() {
@@ -66,7 +63,7 @@ export default function ParametresGlobauxTab() {
         const categoriesSet = new Set(DEFAULT_CATEGORIES.map(c => c.value));
         parametres.forEach(p => {
             if (p.categorie) {
-                const normCat = p.categorie === 'CONGES' ? 'CONGE' : p.categorie;
+                const normCat = p.categorie === 'CONGE' ? 'CONGES' : p.categorie;
                 categoriesSet.add(normCat);
             }
         });
@@ -83,7 +80,7 @@ export default function ParametresGlobauxTab() {
     const filteredAndSortedParametres = useMemo(() => {
         return parametres
             .filter(item => {
-                const itemCatNorm = item.categorie === 'CONGES' ? 'CONGE' : (item.categorie || 'GENERAL');
+                const itemCatNorm = item.categorie === 'CONGE' ? 'CONGES' : (item.categorie || 'RH_GENERAL');
 
                 // Filtre par catégorie
                 if (selectedCategory !== 'ALL') {

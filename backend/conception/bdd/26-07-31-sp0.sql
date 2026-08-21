@@ -66,14 +66,14 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 -- 3. Sous-menus de Niveau 2 - Congés & Absences
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
 ('CONGES_GENERAL', 'Vue Générale', 'Calendar', '/conges?tab=soldes', 1, 2, 'CONGES_MODULE'),
-('CONGES_DEMANDES','Demandes & Validation', 'ClipboardCheck', '/conges?tab=demandes', 2, 2, 'CONGES_MODULE'),
-('CONGES_PARAM','Paramètres des congés', 'Settings2', '/conges?tab=parametres', 3, 2, 'CONGES_MODULE');
+('CONGES_DEMANDES','Demandes & Validation', 'ClipboardCheck', '/conges?tab=demandes', 2, 2, 'CONGES_MODULE');
 
 -- 4. Sous-menus de Niveau 2 - Administration & Paramétrage
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-('ADMIN_STRUCT', 'Structure Organisationnelle', 'Network', '/admin/structure', 1, 2, 'ADMIN_MODULE'),
-('ADMIN_PAIE_CONF', 'Paramétrage de la Paie', 'SlidersHorizontal', '/admin/paie-config', 2, 2, 'ADMIN_MODULE'),
-('ADMIN_SECURITE', 'Sécurité & Droits', 'ShieldCheck', '/admin', 3, 2, 'ADMIN_MODULE');
+('ADMIN_SECURITE', 'Sécurité & Accès', 'ShieldCheck', '/admin/securite', 1, 2, 'ADMIN_MODULE'),
+('ADMIN_ORGANISATION', 'Organisation & Structure', 'Network', '/admin/organisation', 2, 2, 'ADMIN_MODULE'),
+('ADMIN_REFERENTIELS', 'Référentiels RH', 'BookType', '/admin/referentiels-rh', 3, 2, 'ADMIN_MODULE'),
+('ADMIN_PARAMETRES', 'Paramétrage des Modules', 'SlidersHorizontal', '/admin/parametres', 4, 2, 'ADMIN_MODULE');
 
 -- 5. Attribution des Menus aux Rôles (ROLE_ADMIN = id_role 1, ROLE_AGENT_POINTAGE = id_role 2)
 
@@ -85,13 +85,13 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'CONGES_MODULE'),
 (1, 'CONGES_GENERAL'),
 (1, 'CONGES_DEMANDES'),
-(1, 'CONGES_PARAM'),
 (1, 'POINTAGE'),
 (1, 'PAIE_MODULE'),
 (1, 'ADMIN_MODULE'),
-(1, 'ADMIN_STRUCT'),
-(1, 'ADMIN_PAIE_CONF'),
-(1, 'ADMIN_SECURITE');
+(1, 'ADMIN_SECURITE'),
+(1, 'ADMIN_ORGANISATION'),
+(1, 'ADMIN_REFERENTIELS'),
+(1, 'ADMIN_PARAMETRES');
 
 -- ROLE_AGENT_POINTAGE (id_role 2) : Accès au Tableau de bord et au module de Pointage
 INSERT INTO role_menu (id_role, id_menu) VALUES
