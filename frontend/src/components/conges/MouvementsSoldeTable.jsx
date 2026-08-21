@@ -6,6 +6,7 @@ import Button from '@/components/ui/forms/Button';
 import Input, { Textarea } from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 
 const formatDateTime = (timestamp) => {
   if (!timestamp) return '-';
@@ -113,6 +114,15 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
 
       <CardBody>
         <div className="overflow-x-auto">
+          {filteredMouvements.length === 0 ? (
+            <div className="p-8 border-t border-[var(--color-border-subtle)]">
+                <EmptyState
+                    icon={History}
+                    title="Aucun mouvement"
+                    description="Aucun mouvement de solde n'a été enregistré pour ce filtre."
+                />
+            </div>
+          ) : (
           <Table>
             <Thead>
               <Tr>
@@ -124,14 +134,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
               </Tr>
             </Thead>
             <Tbody>
-              {filteredMouvements.length === 0 ? (
-                <Tr>
-                  <Td colSpan="5" className="text-center py-6 text-[var(--color-fg-muted)] ">
-                    Aucun mouvement de solde enregistré.
-                  </Td>
-                </Tr>
-              ) : (
-                filteredMouvements.map((m) => {
+                {filteredMouvements.map((m) => {
                   const val = Number(m.nbJours || 0);
                   const isPositive = val > 0;
                   return (
@@ -157,10 +160,10 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
                       </Td>
                     </Tr>
                   );
-                })
-              )}
+                })}
             </Tbody>
           </Table>
+          )}
         </div>
       </CardBody>
 

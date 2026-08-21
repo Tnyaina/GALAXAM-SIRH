@@ -1,7 +1,7 @@
 import { Edit2 } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-
+import EmptyState from '@/components/ui/data-display/EmptyState';
 export default function FilialesList({
     filiales = [],
     onOpenEdit,
@@ -60,11 +60,11 @@ export default function FilialesList({
                         </Tr>
                     ))
                 ) : (
-                    <Tr>
-                        <Td colSpan={7} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                            Aucune filiale enregistrée.
-                        </Td>
-                    </Tr>
+                        <Tr>
+                            <Td colSpan={7} className="p-0">
+                                <EmptyState title="Aucune filiale" description="Aucune filiale enregistrée." />
+                            </Td>
+                        </Tr>
                 )}
             </Tbody>
         </Table>

@@ -3,6 +3,7 @@ import { Bell, CheckCheck, X, ChevronRight, AlertTriangle, Clock, FileText } fro
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '@/hooks/useDashboard';
 import Badge from '@/components/ui/data-display/Badge';
+import { fmtRelative } from '@/utils/formatters';
 import { Skeleton } from '@/components/ui/feedback/Skeleton';
 import { Tooltip } from '@/components/ui/overlays/Tooltip';
 
@@ -29,18 +30,6 @@ const PRIORITE_CONFIG = {
     },
 };
 
-function fmtRelative(dateStr) {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now - d;
-    const diffH = Math.floor(diffMs / 3600000);
-    if (diffH < 1) return 'Il y a quelques minutes';
-    if (diffH < 24) return `Il y a ${diffH}h`;
-    const diffJ = Math.floor(diffH / 24);
-    return `Il y a ${diffJ} jour(s)`;
-}
-
 const NotifRow = memo(function NotifRow({ notif, onClick }) {
     const cfg = PRIORITE_CONFIG[notif.priorite] || PRIORITE_CONFIG.NORMALE;
     const Icon = cfg.icon;
@@ -66,11 +55,11 @@ const NotifRow = memo(function NotifRow({ notif, onClick }) {
                                 {cfg.label}
                             </Badge>
                         )}
-                        <p className="text-[13px] font-semibold leading-tight truncate text-[var(--color-fg)]">
+                        <p className="text-[13px] font-semibold leading-tight text-[var(--color-fg)] whitespace-normal text-left">
                             {notif.titre}
                         </p>
                     </div>
-                    <p className="text-xs text-[var(--color-fg-muted)] mt-1 leading-snug line-clamp-2">
+                    <p className="text-xs text-[var(--color-fg-muted)] mt-1 leading-snug whitespace-normal text-left">
                         {notif.message}
                     </p>
                     <p className="text-[11px] text-[var(--color-fg-subtle)] mt-1.5 font-data">
@@ -140,9 +129,15 @@ export default function NotificationBell() {
     const handleNotifClick = useCallback((notif) => {
         marquerUne(notif.idNotification);
         let link = notif.lien;
-        if (link === '/conges') {
+        
+        // Rediriger les demandes de congés vers le panneau de validation des congés
+        const titreMsg = ((notif.titre || '') + ' ' + (notif.message || '')).toLowerCase();
+        if (titreMsg.includes('congé') || titreMsg.includes('conge')) {
+            link = '/conges?tab=demandes';
+        } else if (link === '/conges') {
             link = '/conges?tab=demandes';
         }
+        
         if (link) {
             navigate(link);
         }

@@ -1,6 +1,7 @@
 import { X, User, CreditCard, Phone, ShieldAlert, Edit2, Power, Calendar, MapPin, Heart, Baby, Landmark } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
+import { getFullPhotoUrl } from '@/utils/fileUtils';
 
 const InfoRow = ({ label, value, icon, mono = false }) => (
     <div className="flex items-start gap-3 py-2">
@@ -33,13 +34,6 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
         try { return new Date(d).toLocaleDateString('fr-FR'); } catch { return '-'; }
     };
 
-    const getFullPhotoUrl = (url) => {
-        if (!url) return null;
-        if (url.startsWith('http')) return url;
-        const cleanUrl = url.startsWith('/api') ? url : `/api${url.startsWith('/') ? '' : '/'}${url}`;
-        return `http://localhost:8080${cleanUrl}`;
-    };
-
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto">
             <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -48,10 +42,20 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
                     <div className="flex items-center gap-4">
                         <div className="w-14 h-14 bg-ink-50 dark:bg-ink-800 border border-ink-200 dark:border-ink-700 flex items-center justify-center text-ink-300 overflow-hidden">
                             {emp.photoUrl ? (
-                                <img src={getFullPhotoUrl(emp.photoUrl)} alt="Photo" className="w-full h-full object-cover" />
-                            ) : (
-                                <User size={28} />
-                            )}
+                                <img 
+                                    src={getFullPhotoUrl(emp.photoUrl)} 
+                                    alt="Photo" 
+                                    className="w-full h-full object-cover" 
+                                    onError={(e) => {
+                                        e.currentTarget.onerror = null;
+                                        e.currentTarget.style.display = 'none';
+                                        if (e.currentTarget.nextElementSibling) {
+                                            e.currentTarget.nextElementSibling.classList.remove('hidden');
+                                        }
+                                    }}
+                                />
+                            ) : null}
+                            <User size={28} className={emp.photoUrl ? 'hidden' : ''} />
                         </div>
                         <div>
                             <h2 className="text-lg font-bold text-ink-900 dark:text-white">

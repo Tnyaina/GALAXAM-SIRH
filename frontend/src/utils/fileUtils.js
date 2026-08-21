@@ -9,7 +9,7 @@ export const getFullPhotoUrl = (url) => {
     if (!url) return null;
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
 
-    // Récupération de l'URL d'API configurée (Vite env)
+    // Récupération du domaine de l'API backend
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/';
 
     let domain;
@@ -17,7 +17,11 @@ export const getFullPhotoUrl = (url) => {
         const parsed = new URL(apiBaseUrl);
         domain = parsed.origin;
     } catch {
-        domain = window.location.origin;
+        domain = 'http://localhost:8080';
+    }
+
+    if (url.startsWith('/uploads')) {
+        return `${domain}${url}`;
     }
 
     const cleanPath = url.startsWith('/api') ? url : `/api${url.startsWith('/') ? '' : '/'}${url}`;

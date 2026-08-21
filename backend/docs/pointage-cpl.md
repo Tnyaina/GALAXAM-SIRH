@@ -1,5 +1,15 @@
 # Conception Base de Données et Cahier des Charges Technique et Fonctionnel : Module Pointage & Présence — SIRH Galaxam
 
+> **Statut du document** : Complément technique aligné avec `pointage.md` v1.1.0
+> **Éléments validés** : Architecture BDD finale, algorithmes de calcul, tables d'indemnités, fonctions SQL (fn_get_jours_ouvrables_periode, fn_calcul_indemnite_repas_jour), RBAC.
+> **Éléments corrigés par rapport à la version initiale** :
+> - Architecture BDD : **1 table `pointage_jour`** unifiée + 2 tables gelées (`pointage_semaine_calcule`, `pointage_cumul_periode`) — les 3 tables séparées (`pointage_brut`, `pointage_journalier_calcule`, `pointage_cumul_periode`) sont **abandonnées**.
+> - Compensation : **hebdomadaire par tronçon proratisé** (`seuil = 8h × jours ouvrés du tronçon`) — la procédure `sp_calcul_compensation_mensuelle` est **remplacée** par la vue `v_pointage_semaine` + gel dans `pointage_semaine_calcule`.
+> - Semaine à cheval : **coupure ferme au 25 du mois**, pas de report de période.
+> **Éléments à conserver de ce document** : ratios indemnités par site (§Ratios), algorithme calcul dérives horaires, fonctions SQL utilitaires, matrice des statuts quotidiens.
+
+---
+
 ## Architecture Métier et Principes Directeurs du Module Pointage
 
 L'intégration du module de suivi des pointages et présences au sein du système d'information des ressources humaines (SIRH) Galaxam répond à l'exigence de rationaliser et de sécuriser le flux d'informations entre l'activité opérationnelle sur le terrain et le traitement de la paie mensuelle<sup>1</sup>. L'infrastructure de collecte s'appuie sur des dispositifs d'horodatage physiques et digitaux de type Clocker, enregistrant jusqu'à quatre empreintes horaires quotidiennes par salarié : l'entrée du matin, la sortie du matin, l'entrée de l'après-midi et la sortie de l'après-midi<sup>3</sup>. La conception proposée substitue aux retraitements manuels sur tableur un moteur de règles automatisé, garantissant la traçabilité intégrale des données conformément au Code du Travail malgache (Loi n° 2003-044) et au cadre réglementaire fiscal et social<sup>2</sup>.
@@ -20,7 +30,11 @@ Le module de pointage est positionné au centre du SIRH Galaxam et interagit ave
 
 ### Mécanisme de Compensation et Valorisation des Heures par Catégorie
 
-La durée légale du travail à Madagascar est établie à 8 heures par jour et 40 heures par semaine<sup>2</sup>. L'analyse des grilles de suivi Clocker met en exergue le principe de compensation bilatérale mensuelle formalisé par la règle « fenoina 8h foana ny andro vao mivadika HS »<sup>3</sup>. Ce principe comporte une distinction fondamentale selon la catégorie professionnelle du salarié :
+La durée légale du travail à Madagascar est établie à 8 heures par jour et 40 heures par semaine<sup>2</sup>. L'analyse des grilles de suivi Clocker met en exergue le principe de compensation bilérale par **tronçon hebdomadaire proratisé** formalisé par la règle « fenoina 8h foana ny andro vao mivadika HS »<sup>3</sup>.
+
+**Proratisation du seuil** : la période de paie allant du 26 au 25, les semaines en début et fin de période sont des **tronçons** (2 à 4 jours ouvrés). Le seuil d'heures normales est donc proratisé : `seuil_tronçon = nb_jours_ouvrés × 8h` — pas un seuil fixe de 40h qui créerait un faux déficit systématique. **Coupure ferme au 25** : chaque journée est rattachée à sa période calendaire réelle.
+
+Ce principe comporte une distinction fondamentale selon la catégorie professionnelle du salarié :
 
 1.  **Règle Générale (Personnel Non-Cadre)** :
 
@@ -108,6 +122,15 @@ Le calcul des durées s'effectue à partir des horodatages \(H_{EM}\) (Entrée M
     - Travail de nuit : Heures accomplies entre 22h00 et 05h00 qualifiées en NUIT (majoration de 30% ou 40% selon accord)<sup>2</sup>.
 
 ## Modélisation de la Base de Données PostgreSQL
+
+> **ARCHITECTURE FINALE VALIDÉE** (voir `pointage.md` §2 et `26-08-20-sp3-pointage.sql`) :
+>
+> L'architecture retenue est **1 table principale** `pointage_jour` + **2 tables de synthèse gelées** :
+> - `pointage_jour` — saisie quotidienne + calculs métier
+> - `pointage_semaine_calcule` — tronçons hebdomadaires figés à la validation
+> - `pointage_cumul_periode` — cumul mensuel figé, source de vérité pour la Paie
+>
+> Les 3 tables ci-dessous (`ref_horaire_site`, `pointage_brut`, `pointage_journalier_calcule`) étaient une proposition initiale **non retenue**. Elles sont conservées ici comme référence d'analyse uniquement.
 
 Le schéma relationnel PostgreSQL s'intègre aux structures existantes du SIRH (ref_site, employe, utilisateur, demande_conge, ref_categorie_professionnelle)<sup>1</sup>, en assurant une séparation étanche entre les horodatages bruts et les synthèses recalculées.
 
@@ -370,6 +393,8 @@ Le schéma relationnel PostgreSQL s'intègre aux structures existantes du SIRH (
 > LEFT JOIN ref_categorie_professionnelle rcp ON eac.id_categorie_professionnelle = rcp.id_categorie_professionnelle;
 
 ## Procédures Stockées et Fonctions PostgreSQL Métier
+
+> **Note** : La procédure `sp_calcul_compensation_mensuelle` ci-dessous était une proposition initiale basée sur une compensation **mensuelle**. La décision finale retient une compensation **hebdomadaire par tronçon proratisé** via `v_pointage_semaine` (voir `pointage.md` RG-PTG-04 et §2.7). Les fonctions utilitaires `fn_get_jours_ouvrables_periode` et `fn_calcul_indemnite_repas_jour` restent **validées** et réutilisées dans l'architecture finale (rebaptisée `fn_jours_ouvrables` dans le script).
 
 > SQL
 >

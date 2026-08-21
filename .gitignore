@@ -13,3 +13,4 @@
 *.log
 .temp/
 /backend/uploads/documents
+/backend/uploads/photos

@@ -84,12 +84,6 @@ export default function CarriereTab({
             />
 
             {/* Messages de Succès / Erreur */}
-            {modalsState.actionSuccessMsg && (
-                <div className="bg-success-500/10 text-success-700 dark:text-success-400 border border-success-500/30 p-4 rounded-none text-xs font-bold flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    <span>{modalsState.actionSuccessMsg}</span>
-                </div>
-            )}
 
             {errorMsg && (
                 <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 p-4 rounded-none text-xs flex items-center gap-2">

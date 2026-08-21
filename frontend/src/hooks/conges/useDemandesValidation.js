@@ -55,8 +55,8 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
     toast({ title: 'Actualisé', message: 'La liste des demandes a été mise à jour.', type: 'info', duration: 2000 });
   };
 
-  const handleValider = async (idDemandeConge) => {
-    await congeService.validerDemande(idDemandeConge);
+  const handleValider = async (idDemandeConge, options = {}) => {
+    await congeService.validerDemande(idDemandeConge, options);
     if (parentReload) parentReload();
     await loadData();
   };

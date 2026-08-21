@@ -58,6 +58,7 @@ public class FonctionController {
                 RefFonction f = new RefFonction();
                 f.setCodeFonction(request.getCodeFonction());
                 f.setLibelle(request.getLibelle());
+                f.setDispensePointage(request.isDispensePointage());
 
                 f.save(c);
                 AuditLog.audit(c, "CREATION", "ref_fonction", String.valueOf(f.getIdFonction()), null, f);
@@ -88,6 +89,7 @@ public class FonctionController {
 
                 existing.setCodeFonction(request.getCodeFonction());
                 existing.setLibelle(request.getLibelle());
+                existing.setDispensePointage(request.isDispensePointage());
 
                 existing.update(c);
                 AuditLog.audit(c, "MODIFICATION", "ref_fonction", String.valueOf(id), null, existing);

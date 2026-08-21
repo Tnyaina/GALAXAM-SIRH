@@ -13,7 +13,7 @@ import TypeCongeSection from './formulaire/TypeCongeSection';
 import DatesCongeSection from './formulaire/DatesCongeSection';
 import OptionsRHSection from './formulaire/OptionsRHSection';
 
-export default function DemandeCongeModal({ idEmploye: idEmployeProp, referentiels, isOpen, onClose, onSuccess }) {
+export default function DemandeCongeModal({ idEmploye: idEmployeProp, initialDemande, referentiels, isOpen, onClose, onSuccess }) {
   const toast = useToast();
 
   const {
@@ -42,7 +42,7 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, referentie
     
     // Méthodes
     handleSubmit, inputErrorClass
-  } = useDemandeCongeForm({ idEmployeProp, referentiels, isOpen, onClose, onSuccess });
+  } = useDemandeCongeForm({ idEmployeProp, initialDemande, referentiels, isOpen, onClose, onSuccess });
 
   if (!isOpen) return null;
 
@@ -54,12 +54,12 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, referentie
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border-subtle)] shrink-0">
           <h3 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2">
             <Calendar className="w-5 h-5 text-[var(--color-brand-500)]" />
-            Nouvelle demande de congé / absence
+            {initialDemande?.idDemandeConge ? `Modifier la demande #${initialDemande.idDemandeConge}` : 'Nouvelle demande de congé / absence'}
           </h3>
           <button
             onClick={onClose}
             aria-label="Fermer"
-            className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] text-xl leading-none w-8 h-8 flex items-center justify-center"
+            className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] text-xl leading-none w-8 h-8 flex items-center justify-center cursor-pointer"
           >
             ×
           </button>
@@ -124,6 +124,11 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, referentie
 
             {/* ── Section 3 : Justificatif & commentaire ─────────────────── */}
             <div className="space-y-4 pt-1 border-t border-[var(--color-border-subtle)] mt-4">
+              
+              {selectedType?.exigeJustificatif && (
+                <Alert type="warning" message="Un justificatif est requis pour ce type de congé (peut être fourni au retour si imprévu)." />
+              )}
+
               <label className="flex items-start gap-3 pt-4 cursor-pointer">
                 <input
                   type="checkbox"
@@ -180,7 +185,7 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, referentie
                 loading={loading}
                 className="rounded-none font-bold"
               >
-                {loading ? 'Enregistrement…' : 'Soumettre la demande'}
+                {loading ? 'Enregistrement…' : initialDemande?.idDemandeConge ? 'Enregistrer les modifications' : 'Soumettre la demande'}
               </Button>
             </div>
           </div>

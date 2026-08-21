@@ -3,7 +3,7 @@ import { CheckSquare, Check, X, ShieldAlert, Inbox, XSquare } from 'lucide-react
 import congeService from '@/api/congeService';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
-import { Textarea } from '@/components/ui/forms/Input';
+import { Textarea, Checkbox } from '@/components/ui/forms/Input';
 import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -23,6 +23,7 @@ export default function ValidationTab({ demandesAValider = [], onReload }) {
   const [selectedDemande, setSelectedDemande] = useState(null);
   const [showRefusModal, setShowRefusModal] = useState(false);
   const [showValiderModal, setShowValiderModal] = useState(false);
+  const [justificatifFourni, setJustificatifFourni] = useState(false);
   const [motifRefus, setMotifRefus] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -33,7 +34,7 @@ export default function ValidationTab({ demandesAValider = [], onReload }) {
     try {
       setLoading(true);
       setError(null);
-      await congeService.validerDemande(selectedDemande.idDemandeConge);
+      await congeService.validerDemande(selectedDemande.idDemandeConge, { justificatifFourni });
       toast({
         title: 'Succès',
         message: `La demande #${selectedDemande.idDemandeConge} a été validée avec succès.`,
@@ -79,6 +80,7 @@ export default function ValidationTab({ demandesAValider = [], onReload }) {
 
   const initValidation = (demande) => {
     setSelectedDemande(demande);
+    setJustificatifFourni(false);
     setShowValiderModal(true);
   };
 
@@ -218,7 +220,17 @@ export default function ValidationTab({ demandesAValider = [], onReload }) {
         onConfirm={handleValiderConfirm}
         onClose={() => { setShowValiderModal(false); setSelectedDemande(null); }}
         loading={loading}
-      />
+      >
+        {!selectedDemande?.justificatifFourni && (
+          <div className="mt-4 pt-4 border-t border-[var(--color-border-subtle)]">
+            <Checkbox
+              label="Marquer le justificatif comme fourni (Requis pour valider certains congés comme Maladie)"
+              checked={justificatifFourni}
+              onChange={(e) => setJustificatifFourni(e.target.checked)}
+            />
+          </div>
+        )}
+      </ConfirmDialog>
 
       {/* Modale Refus */}
       <Modal

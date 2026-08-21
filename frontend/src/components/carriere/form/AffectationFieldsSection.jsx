@@ -82,13 +82,15 @@ export default function AffectationFieldsSection({
                     placeholder="Rechercher une fonction…"
                 />
 
-                <EmployeSearchSelect
-                    label="Responsable Hiérarchique (N+1)"
-                    value={formData.idResponsableHierarchique}
-                    onChange={(empId) => setField('idResponsableHierarchique', empId)}
-                    employes={responsables}
-                    placeholder="Rechercher le manager N+1…"
-                />
+                <div className="md:col-span-2 border-t border-[var(--color-border-subtle)] pt-3 mt-1">
+                    <EmployeSearchSelect
+                        label="Responsable Hiérarchique (N+1)"
+                        value={formData.idResponsableHierarchique}
+                        onChange={(empId) => setField('idResponsableHierarchique', empId)}
+                        employes={responsables}
+                        placeholder="Rechercher le manager N+1…"
+                    />
+                </div>
 
                 <Select
                     label="Catégorie Professionnelle"

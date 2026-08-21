@@ -1,7 +1,7 @@
 import { Edit2 } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-
+import EmptyState from '@/components/ui/data-display/EmptyState';
 export default function SitesList({
     sites = [],
     onOpenEdit,
@@ -71,11 +71,11 @@ export default function SitesList({
                         </Tr>
                     ))
                 ) : (
-                    <Tr>
-                        <Td colSpan={7} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                            Aucun site d'exploitation enregistré.
-                        </Td>
-                    </Tr>
+                        <Tr>
+                            <Td colSpan={7} className="p-0">
+                                <EmptyState title="Aucun site" description="Aucun site d'exploitation enregistré." />
+                            </Td>
+                        </Tr>
                 )}
             </Tbody>
         </Table>
