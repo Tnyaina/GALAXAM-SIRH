@@ -76,6 +76,7 @@ CREATE TABLE ref_categorie_professionnelle (
     code VARCHAR(10) NOT NULL UNIQUE, -- CADRE, A, etc.
     libelle VARCHAR(100) NOT NULL,
     description TEXT,
+    est_eligible_hs BOOLEAN NOT NULL DEFAULT TRUE, -- TRUE par défaut, FALSE pour les CADRE
     actif BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP
@@ -313,9 +314,9 @@ INSERT INTO ref_mode_calcul_paie (code, libelle, description) VALUES
     ('JOURNALIER', 'Forfait journalier', 'Calcul au tarif par jour travaillé')
 ON CONFLICT (code) DO NOTHING;
 
-INSERT INTO ref_categorie_professionnelle (code, libelle, description) VALUES
-    ('CADRE', 'Cadre', 'Cadres et ingénieurs'),
-    ('A', 'Agent', 'Techniciens et agents')
+INSERT INTO ref_categorie_professionnelle (code, libelle, description, est_eligible_hs) VALUES
+    ('CADRE', 'Cadre', 'Cadres et ingénieurs', FALSE),
+    ('A', 'Agent', 'Techniciens et agents', TRUE)
 ON CONFLICT (code) DO NOTHING;
 
 -- ============================================================

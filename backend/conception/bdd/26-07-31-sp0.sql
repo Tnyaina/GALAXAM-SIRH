@@ -67,7 +67,7 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
 ('CONGES_GENERAL', 'Vue Générale', 'Calendar', '/conges?tab=soldes', 1, 2, 'CONGES_MODULE'),
 ('CONGES_DEMANDES','Demandes & Validation', 'ClipboardCheck', '/conges?tab=demandes', 2, 2, 'CONGES_MODULE'),
-('CONGES_PARAM','Paramètres', 'Settings2', '/conges?tab=parametres', 3, 2, 'CONGES_MODULE');
+('CONGES_PARAM','Paramètres des congés', 'Settings2', '/conges?tab=parametres', 3, 2, 'CONGES_MODULE');
 
 -- 4. Sous-menus de Niveau 2 - Administration & Paramétrage
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES

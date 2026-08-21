@@ -32,7 +32,7 @@
 │   FRONTEND (React.js / Vite)                                        │
 │   ├── /employes      → Module Employé                               │
 │   ├── /conges        → Module Congés & Absences                     │
-│   ├── /pointage      → Module Pointage (en cours)                   │
+│   ├── /pointages     → Module Pointage (en cours)                   │
 │   ├── /parametres    → Module Structure (référentiels)              │
 │   └── /systeme       → Module Admin (RBAC, utilisateurs)            │
 │                                                                     │
@@ -40,19 +40,24 @@
 │   ├── api/controller/employe    → CRUD employés & documents         │
 │   ├── api/controller/contrat    → Workflow RH & contrats            │
 │   ├── api/controller/conge      → Demandes & soldes de congé        │
+│   ├── api/controller/pointage   → Pointage, périodes, synthèses     │
 │   ├── api/controller/organisation → Référentiels structure          │
 │   ├── api/controller/securite   → Auth JWT + RBAC                   │
-│   └── cron/                     → 4 schedulers nocturnes            │
+│   └── cron/                     → 7 schedulers nocturnes             │
 │       ├── MouvementRhScheduler     00:00:00 quotidien               │
 │       ├── NotificationRhScheduler  00:05:00 quotidien               │
-│       ├── AcquisitionCongeScheduler 01:00:00 quotidien              │
+│       ├── PointageRappelScheduler  00:10:00 quotidien               │
+│       ├── PeriodePaieScheduler     00:15:00 quotidien               │
+│       ├── FerieChomeScheduler      00:20:00 quotidien               │
+│       ├── AcquisitionCongeScheduler 01:00:00 quotidien             │
 │       └── PurgeCongeScheduler      02:00:00 le 1er du mois          │
 │                                                                     │
 │   BASE DE DONNÉES (PostgreSQL)                                      │
 │   ├── Référentiels : ref_filiale, ref_site, ref_departement...      │
 │   ├── RH Core : employe, contrat_travail, affectation_carriere      │
 │   ├── Workflow : workflow_rh, audit_log, notification_rh            │
-│   └── Congés : demande_conge, mouvement_solde_conge, vues           │
+│   ├── Congés : demande_conge, mouvement_solde_conge, vues           │
+│   └── Pointage : pointage_jour, periode_paie, semaine_calcule...    │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -65,6 +70,9 @@
 |---|---|---|---|
 | `00:00:00` | `MouvementRhScheduler` | Quotidien | Applique les mouvements RH planifiés (mutations, promotions, ruptures) |
 | `00:05:00` | `NotificationRhScheduler` | Quotidien | Génère toutes les alertes RH (contrats, essais, congés, documents) |
+| `00:10:00` | `PointageRappelScheduler` | Quotidien | Détecte les employés sans pointage la veille (hors DISPENSE/CONGE/FERIE_CHOME) |
+| `00:15:00` | `PeriodePaieScheduler` | Quotidien | Fait passer `periode_paie` de `EN_COURS` à `A_VALIDER` quand `date_fin` dépassée |
+| `00:20:00` | `FerieChomeScheduler` | Quotidien | Pré-crée les lignes `pointage_jour` en statut `FERIE_CHOME` pour les jours à venir |
 | `01:00:00` | `AcquisitionCongeScheduler` | Quotidien | Crédite 2,5j aux employés dont c'est l'anniversaire d'embauche |
 | `02:00:00` | `PurgeCongeScheduler` | Mensuel (1er) | Purge les droits à congés prescrits (+36 mois, FIFO) |
 
@@ -92,6 +100,10 @@
 | `CONGE_EXPIRATION_PROCHE` | Congés | 🟠 HAUTE |
 | `POOL_EXCEPTIONNEL_EPUISE` | Congés | 🟠 HAUTE |
 | `BONIFICATION_ANCIENNETE_APPLIQUEE` | Congés | 🔵 BASSE |
+| `POINTAGE_MANQUANT` | Pointage | 🟠 HAUTE |
+| `PERIODE_POINTAGE_A_VALIDER` | Pointage | 🟠 HAUTE |
+| `PERIODE_POINTAGE_VALIDEE` | Pointage | 🔵 INFO |
+| `RETARD_RECURRENT` | Pointage | 🟡 NORMALE |
 
 ---
 
@@ -99,7 +111,7 @@
 
 | Module | État | Description |
 |---|---|---|
-| **Pointage** | 🔄 En cours | Saisie quotidienne, heures supplémentaires, synthèse mensuelle |
+| **Pointage** | 🗒️ Conception finalisée | Documents v1.1.0 validés, prêt pour implémentation |
 | **Paie** | 📅 Planifié | Calcul IRSA, CNAPS/OSTIE, bulletins de paie |
 | **Dashboard analytique** | 📅 Planifié | KPIs RH, tableaux de bord dirigeants |
 
