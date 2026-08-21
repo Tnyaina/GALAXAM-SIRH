@@ -7,6 +7,7 @@ import Alert from '@/components/ui/feedback/Alert';
 import Loading from '@/components/ui/feedback/Loading';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Pagination from '@/components/ui/navigation/Pagination';
 
@@ -191,6 +192,15 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
           </CardHeader>
           <CardBody>
             <div className="overflow-x-auto">
+              {demandesEmploye.length === 0 ? (
+                <div className="p-8 border-t border-[var(--color-border-subtle)]">
+                    <EmptyState
+                        icon={Calendar}
+                        title="Aucune demande de congé"
+                        description="Aucune demande de congé n'est enregistrée pour cet employé."
+                    />
+                </div>
+              ) : (
               <Table>
                 <Thead>
                   <Tr>
@@ -203,14 +213,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {demandesEmploye.length === 0 ? (
-                    <Tr>
-                      <Td colSpan="6" className="text-center py-6 text-[var(--color-fg-muted)] ">
-                        Aucune demande de congé enregistrée.
-                      </Td>
-                    </Tr>
-                  ) : (
-                    demandesEmploye.map((d) => (
+                    {demandesEmploye.map((d) => (
                       <Tr key={d.idDemandeConge}>
                         <Td>
                           <div className="font-bold text-[var(--color-fg)]">{d.libelleTypeConge}</div>
@@ -274,10 +277,10 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
                           )}
                         </Td>
                       </Tr>
-                    ))
-                  )}
+                    ))}
                 </Tbody>
               </Table>
+              )}
             </div>
             
             {/* Pagination */}

@@ -2,6 +2,7 @@ import { Plus, Edit2, Percent } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDate, fmtMoney } from '@/utils/paieUtils';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 
 export default function BaremeIrsaList({
     tranchesIrsa = [],
@@ -25,24 +26,28 @@ export default function BaremeIrsaList({
                 </Button>
             </div>
 
-            <Table>
-                <Thead>
-                    <Th>Tranche N°</Th>
-                    <Th className="text-right">Seuil Minimum (Ar)</Th>
-                    <Th className="text-right">Seuil Maximum (Ar)</Th>
-                    <Th className="text-right">Taux d'imposition</Th>
-                    <Th>Validité</Th>
-                    <Th className="text-right">Actions</Th>
-                </Thead>
-                <Tbody>
-                    {tranchesIrsa.length === 0 ? (
-                        <Tr>
-                            <Td colSpan={6} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                Aucune tranche IRSA configurée.
-                            </Td>
-                        </Tr>
-                    ) : (
-                        tranchesIrsa.map((t) => (
+            {tranchesIrsa.length === 0 ? (
+                <div className="p-8">
+                    <EmptyState
+                        icon={Percent}
+                        title="Aucune tranche IRSA"
+                        description="Aucune tranche IRSA n'a été configurée."
+                        actionLabel="Nouvelle Tranche IRSA"
+                        onAction={onOpenCreate}
+                    />
+                </div>
+            ) : (
+                <Table>
+                    <Thead>
+                        <Th>Tranche N°</Th>
+                        <Th className="text-right">Seuil Minimum (Ar)</Th>
+                        <Th className="text-right">Seuil Maximum (Ar)</Th>
+                        <Th className="text-right">Taux d'imposition</Th>
+                        <Th>Validité</Th>
+                        <Th className="text-right">Actions</Th>
+                    </Thead>
+                    <Tbody>
+                        {tranchesIrsa.map((t) => (
                             <Tr key={t.idTranche}>
                                 <Td isData className="font-bold text-[var(--color-brand-500)]">
                                     Tranche {t.numeroTranche}
@@ -69,10 +74,10 @@ export default function BaremeIrsaList({
                                     </button>
                                 </Td>
                             </Tr>
-                        ))
-                    )}
-                </Tbody>
-            </Table>
+                        ))}
+                    </Tbody>
+                </Table>
+            )}
         </div>
     );
 }

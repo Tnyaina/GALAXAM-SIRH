@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, FileText, UserCheck, Landmark } from 'lucide-react';
+import {   FileText, UserCheck, Landmark } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
+import Alert from '@/components/ui/feedback/Alert';
 
 import TypesContratList from './referentiels/TypesContratList';
 import TypeContratFormModal from './referentiels/TypeContratFormModal';
@@ -207,18 +208,8 @@ export default function ReferentielsRhTab() {
     return (
         <div className="space-y-6">
             {/* Notifications */}
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {actionSuccess && <Alert type="success" message={actionSuccess} />}
+            {error && <Alert type="error" message={error} />}
 
             {/* Onglets internes */}
             <Tabs

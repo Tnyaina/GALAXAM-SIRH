@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, CheckCircle, XCircle, Building2, MapPin, Eye } from 'lucide-react';
+import { Search, Plus, Building2, MapPin, Eye } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import Button from '@/components/ui/forms/Button';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
+import Alert from '@/components/ui/feedback/Alert';
 
 import FilialesList from './filiales/FilialesList';
 import FilialeFormModal from './filiales/FilialeFormModal';
@@ -245,18 +246,8 @@ export default function FilialesSitesTab() {
     return (
         <div className="space-y-6">
             {/* Notifications */}
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {actionSuccess && <Alert type="success" message={actionSuccess} />}
+            {error && <Alert type="error" message={error} />}
 
             {/* Barre d'outils et sous-onglets */}
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-4 rounded-none border border-[var(--color-border-subtle)] shadow-sm">

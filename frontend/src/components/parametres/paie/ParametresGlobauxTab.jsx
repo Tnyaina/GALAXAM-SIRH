@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, CheckCircle, XCircle, Sliders, ShieldAlert, X, Search, Filter, ArrowUpDown } from 'lucide-react';
+import { Plus, Edit2, Sliders, X, Search, Filter, ArrowUpDown } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDateInput } from '@/utils/paieUtils';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import EmptyState from '@/components/ui/data-display/EmptyState';
+import Alert from '@/components/ui/feedback/Alert';
 
 // Catégories correspondant directement aux modules du SIRH et aux graines SQL de la BDD
 const DEFAULT_CATEGORIES = [
@@ -150,18 +152,8 @@ export default function ParametresGlobauxTab() {
     return (
         <div className="space-y-6">
             {/* Feedback messages */}
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {actionSuccess && <Alert type="success" message={actionSuccess} />}
+            {error && <Alert type="error" message={error} />}
 
             {/* En-tête & Barre de Contrôles / Filtres */}
             <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
@@ -251,8 +243,8 @@ export default function ParametresGlobauxTab() {
                     <Tbody>
                         {filteredAndSortedParametres.length === 0 ? (
                             <Tr>
-                                <Td colSpan={6} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                    Aucun paramètre global ne correspond à vos critères de recherche.
+                                <Td colSpan={6} className="p-0">
+                                    <EmptyState title="Aucun paramètre" description="Aucun paramètre global ne correspond à vos critères de recherche." />
                                 </Td>
                             </Tr>
                         ) : (
@@ -320,12 +312,7 @@ export default function ParametresGlobauxTab() {
                             </button>
                         </div>
                         <form onSubmit={handleSave} className="p-6 space-y-4">
-                            {actionError && (
-                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-2">
-                                    <ShieldAlert size={16} />
-                                    {actionError}
-                                </div>
-                            )}
+                            {actionError && <Alert type="error" message={actionError} />}
 
                             <Input
                                 label="Code Paramètre"

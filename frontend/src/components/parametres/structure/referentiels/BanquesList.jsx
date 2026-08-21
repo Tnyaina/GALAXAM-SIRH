@@ -1,7 +1,7 @@
 import { Plus, Edit2, Landmark } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-
+import EmptyState from '@/components/ui/data-display/EmptyState';
 export default function BanquesList({
     banques = [],
     onOpenCreate,
@@ -48,11 +48,9 @@ export default function BanquesList({
                             </Tr>
                         ))
                     ) : (
-                        <Tr>
-                            <Td colSpan={4} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                Aucun établissement bancaire configuré.
+                            <Td colSpan={4} className="p-0">
+                                <EmptyState title="Aucune banque" description="Aucun établissement bancaire configuré." />
                             </Td>
-                        </Tr>
                     )}
                 </Tbody>
             </Table>

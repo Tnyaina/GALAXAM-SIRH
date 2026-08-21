@@ -26,7 +26,7 @@ import SEO from '@/components/system/SEO';
 
 const VALID_TABS = ['personnel', 'conges', 'documents', 'famille', 'carriere', 'historique'];
 
-const TabLoader = ({ label = "Chargement..." }) => (
+const TabLoader = () => (
     <div className="p-6">
         <SkeletonTable rows={5} columns={4} />
     </div>

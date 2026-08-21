@@ -3,6 +3,7 @@ import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDate } from '@/utils/paieUtils';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 
 export default function JoursFeriesList({
     feries = [],
@@ -28,23 +29,27 @@ export default function JoursFeriesList({
                 </Button>
             </div>
 
-            <Table>
-                <Thead>
-                    <Th>Date</Th>
-                    <Th>Libellé de la Fête / Commémoration</Th>
-                    <Th className="text-center">Chômé & Payé</Th>
-                    <Th className="text-center">Portée</Th>
-                    <Th className="text-right">Actions</Th>
-                </Thead>
-                <Tbody>
-                    {feries.length === 0 ? (
-                        <Tr>
-                            <Td colSpan={5} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                Aucun jour férié trouvé pour {selectedYear} {search ? `correspondant à "${search}"` : ''}.
-                            </Td>
-                        </Tr>
-                    ) : (
-                        feries.map((f) => (
+            {feries.length === 0 ? (
+                <div className="p-8">
+                    <EmptyState
+                        icon={Calendar}
+                        title="Aucun jour férié"
+                        description={`Aucun jour férié trouvé pour ${selectedYear} ${search ? `correspondant à "${search}"` : ''}.`}
+                        actionLabel="Ajouter un Jour Férié"
+                        onAction={onOpenCreate}
+                    />
+                </div>
+            ) : (
+                <Table>
+                    <Thead>
+                        <Th>Date</Th>
+                        <Th>Libellé de la Fête / Commémoration</Th>
+                        <Th className="text-center">Chômé & Payé</Th>
+                        <Th className="text-center">Portée</Th>
+                        <Th className="text-right">Actions</Th>
+                    </Thead>
+                    <Tbody>
+                        {feries.map((f) => (
                             <Tr key={f.idFerie}>
                                 <Td isData className="font-bold text-[var(--color-brand-500)]">
                                     {fmtDate(f.dateFerie)}
@@ -72,10 +77,10 @@ export default function JoursFeriesList({
                                     </button>
                                 </Td>
                             </Tr>
-                        ))
-                    )}
-                </Tbody>
-            </Table>
+                        ))}
+                    </Tbody>
+                </Table>
+            )}
         </div>
     );
 }

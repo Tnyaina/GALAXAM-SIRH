@@ -2,6 +2,7 @@ import { Plus, Edit2, ShieldCheck } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDate } from '@/utils/paieUtils';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 
 export default function CotisationsList({
     cotisations = [],
@@ -25,25 +26,29 @@ export default function CotisationsList({
                 </Button>
             </div>
 
-            <Table>
-                <Thead>
-                    <Th>Code</Th>
-                    <Th>Libellé</Th>
-                    <Th className="text-right">Taux Salarial</Th>
-                    <Th className="text-right">Taux Patronal</Th>
-                    <Th className="text-right">Taux Total</Th>
-                    <Th>Période d'Application</Th>
-                    <Th className="text-right">Actions</Th>
-                </Thead>
-                <Tbody>
-                    {cotisations.length === 0 ? (
-                        <Tr>
-                            <Td colSpan={7} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                Aucune cotisation enregistrée.
-                            </Td>
-                        </Tr>
-                    ) : (
-                        cotisations.map((c) => (
+            {cotisations.length === 0 ? (
+                <div className="p-8">
+                    <EmptyState
+                        icon={ShieldCheck}
+                        title="Aucune cotisation configurée"
+                        description="Veuillez ajouter les règles et cotisations sociales pour la paie."
+                        actionLabel="Nouvelle Cotisation"
+                        onAction={onOpenCreate}
+                    />
+                </div>
+            ) : (
+                <Table>
+                    <Thead>
+                        <Th>Code</Th>
+                        <Th>Libellé</Th>
+                        <Th className="text-right">Taux Salarial</Th>
+                        <Th className="text-right">Taux Patronal</Th>
+                        <Th className="text-right">Taux Total</Th>
+                        <Th>Période d'Application</Th>
+                        <Th className="text-right">Actions</Th>
+                    </Thead>
+                    <Tbody>
+                        {cotisations.map((c) => (
                             <Tr key={c.idTypeCotisation}>
                                 <Td isData className="font-bold text-[var(--color-brand-500)]">
                                     {c.code}
@@ -73,10 +78,10 @@ export default function CotisationsList({
                                     </button>
                                 </Td>
                             </Tr>
-                        ))
-                    )}
-                </Tbody>
-            </Table>
+                        ))}
+                    </Tbody>
+                </Table>
+            )}
         </div>
     );
 }

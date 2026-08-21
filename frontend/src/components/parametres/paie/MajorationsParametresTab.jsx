@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, CheckCircle, XCircle, Clock, ShieldAlert, X, Info } from 'lucide-react';
+import { Plus, Edit2, Clock, X, Info } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { fmtDateInput } from '@/utils/paieUtils';
+import EmptyState from '@/components/ui/data-display/EmptyState';
+import Alert from '@/components/ui/feedback/Alert';
 
 export default function MajorationsParametresTab() {
     const todayStr = fmtDateInput(new Date());
@@ -71,18 +73,8 @@ export default function MajorationsParametresTab() {
 
     return (
         <div className="space-y-6">
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {actionSuccess && <Alert type="success" message={actionSuccess} />}
+            {error && <Alert type="error" message={error} />}
 
             {/* Bannière de rappel réglementaire et plafond légal */}
             <div className="bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/20 p-4 rounded-none flex items-start gap-3">
@@ -130,8 +122,8 @@ export default function MajorationsParametresTab() {
                     <Tbody>
                         {majorations.length === 0 ? (
                             <Tr>
-                                <Td colSpan={5} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                    Aucun taux de majoration configuré.
+                                <Td colSpan={5} className="p-0">
+                                    <EmptyState title="Aucun taux de majoration" description="Aucun taux de majoration configuré." />
                                 </Td>
                             </Tr>
                         ) : (
@@ -185,12 +177,7 @@ export default function MajorationsParametresTab() {
                             </button>
                         </div>
                         <form onSubmit={handleSaveMajoration} className="p-6 space-y-4">
-                            {actionError && (
-                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-2">
-                                    <ShieldAlert size={16} />
-                                    {actionError}
-                                </div>
-                            )}
+                            {actionError && <Alert type="error" message={actionError} />}
                             <Input
                                 label="Type Majoration"
                                 required

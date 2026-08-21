@@ -2,6 +2,7 @@ import { Plus, Edit2, FileText } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 
 export default function TypesContratList({
     typesContrat = [],
@@ -53,11 +54,9 @@ export default function TypesContratList({
                             </Tr>
                         ))
                     ) : (
-                        <Tr>
-                            <Td colSpan={4} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                Aucun type de contrat configuré.
+                            <Td colSpan={4} className="p-0">
+                                <EmptyState title="Aucun type de contrat" description="Aucun type de contrat configuré." />
                             </Td>
-                        </Tr>
                     )}
                 </Tbody>
             </Table>

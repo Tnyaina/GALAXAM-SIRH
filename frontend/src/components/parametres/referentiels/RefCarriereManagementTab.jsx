@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, CheckCircle, XCircle, ShieldAlert, Award, CreditCard, ArrowUpRight, X } from 'lucide-react';
+import { Plus, Edit2, Award, CreditCard, ArrowUpRight, X } from 'lucide-react';
 import contratService from '@/api/employe/contratService';
 import Input, { Textarea } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Alert from '@/components/ui/feedback/Alert';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 
 export default function RefCarriereManagementTab() {
     const [categoriesPro, setCategoriesPro] = useState([]);
@@ -99,18 +101,8 @@ export default function RefCarriereManagementTab() {
     return (
         <div className="space-y-8">
             {/* Notifications */}
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && !showModalCp && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {actionSuccess && <Alert type="success" message={actionSuccess} />}
+            {error && !showModalCp && <Alert type="error" message={error} />}
 
             {/* Section 1: Catégories Professionnelles */}
             <div className="space-y-4">
@@ -135,6 +127,16 @@ export default function RefCarriereManagementTab() {
                 {loading ? (
                     <div className="p-4">
                         <SkeletonTable rows={5} columns={6} />
+                    </div>
+                ) : categoriesPro.length === 0 ? (
+                    <div className="p-8">
+                        <EmptyState 
+                            icon={Award}
+                            title="Aucune catégorie professionnelle"
+                            description="Vous n'avez pas encore configuré de catégorie professionnelle."
+                            actionLabel="Créer une catégorie"
+                            onAction={handleOpenCreateCp}
+                        />
                     </div>
                 ) : (
                     <Table>
@@ -252,10 +254,7 @@ export default function RefCarriereManagementTab() {
                         </div>
                         <form onSubmit={handleSubmitCp} className="p-6 space-y-4">
                             {error && (
-                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-1.5">
-                                    <ShieldAlert size={14} />
-                                    {error}
-                                </div>
+                                <Alert type="error" message={error} />
                             )}
                             <Input
                                 label="Code"

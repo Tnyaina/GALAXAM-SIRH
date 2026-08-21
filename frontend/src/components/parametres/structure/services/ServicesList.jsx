@@ -3,6 +3,7 @@ import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 
 export default function ServicesList({
     selectedDepartement,
@@ -81,11 +82,9 @@ export default function ServicesList({
                                         </Tr>
                                     ))
                                 ) : (
-                                    <Tr>
-                                        <Td colSpan={4} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                            Aucun service rattaché à ce département.
+                                        <Td colSpan={4} className="p-0">
+                                            <EmptyState title="Aucun service" description="Aucun service rattaché à ce département." />
                                         </Td>
-                                    </Tr>
                                 )}
                             </Tbody>
                         </Table>

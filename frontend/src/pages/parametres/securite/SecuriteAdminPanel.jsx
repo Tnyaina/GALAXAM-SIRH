@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Shield, Users, ArrowLeft, Menu, FileText, Award } from 'lucide-react';
+import { Shield, Users, ArrowLeft, Menu } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Edit2, CheckCircle, XCircle, Gift, MapPin, ShieldAlert, X } from 'lucide-react';
+import { Plus, Edit2, Gift, MapPin, X } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
 import contratService from '@/api/employe/contratService';
@@ -10,6 +10,8 @@ import Input, { Select, Checkbox } from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDateInput, fmtMoney, PERIODICITES_INDEMNITE } from '@/utils/paieUtils';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import EmptyState from '@/components/ui/data-display/EmptyState';
+import Alert from '@/components/ui/feedback/Alert';
 
 export default function IndemnitesSitesTab() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -142,18 +144,8 @@ export default function IndemnitesSitesTab() {
     return (
         <div className="space-y-6">
             {/* Notifications */}
-            {actionSuccess && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {actionSuccess}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {actionSuccess && <Alert type="success" message={actionSuccess} />}
+            {error && <Alert type="error" message={error} />}
 
             {/* Onglets internes */}
             <div className="flex border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-2 shadow-sm">
@@ -211,8 +203,8 @@ export default function IndemnitesSitesTab() {
                         <Tbody>
                             {indemnites.length === 0 ? (
                                 <Tr>
-                                    <Td colSpan={4} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                        Aucune indemnité enregistrée.
+                                    <Td colSpan={4} className="p-0">
+                                        <EmptyState title="Aucune indemnité" description="Aucune indemnité enregistrée." />
                                     </Td>
                                 </Tr>
                             ) : (
@@ -287,8 +279,8 @@ export default function IndemnitesSitesTab() {
                         <Tbody>
                             {siteIndemnites.length === 0 ? (
                                 <Tr>
-                                    <Td colSpan={5} className="py-8 text-center text-[var(--color-fg-muted)] text-xs">
-                                        Aucun tarif par site configuré.
+                                    <Td colSpan={5} className="p-0">
+                                        <EmptyState title="Aucun tarif par site" description="Aucun tarif par site configuré." />
                                     </Td>
                                 </Tr>
                             ) : (
@@ -351,12 +343,7 @@ export default function IndemnitesSitesTab() {
                             </button>
                         </div>
                         <form onSubmit={handleSaveIndemnite} className="p-6 space-y-4">
-                            {actionError && (
-                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-2">
-                                    <ShieldAlert size={16} />
-                                    {actionError}
-                                </div>
-                            )}
+                            {actionError && <Alert type="error" message={actionError} />}
                             <Input
                                 label="Code"
                                 required
@@ -404,12 +391,7 @@ export default function IndemnitesSitesTab() {
                             </button>
                         </div>
                         <form onSubmit={handleSaveSiteIndemnite} className="p-6 space-y-4">
-                            {actionError && (
-                                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-2">
-                                    <ShieldAlert size={16} />
-                                    {actionError}
-                                </div>
-                            )}
+                            {actionError && <Alert type="error" message={actionError} />}
                             <Select
                                 label="Site d'Exploitation"
                                 required
