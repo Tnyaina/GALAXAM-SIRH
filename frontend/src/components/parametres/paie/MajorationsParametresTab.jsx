@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Clock, X, Info } from 'lucide-react';
+import {Edit2, Clock, X, Info } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
@@ -96,7 +96,7 @@ export default function MajorationsParametresTab() {
                         </h4>
                         <p className="text-xs text-[var(--color-fg-muted)]">Configuration et description exacte des taux de majoration appliqués au calcul des heures spéciales.</p>
                     </div>
-                    <Button
+                    {/* <Button
                         onClick={() => {
                             setEditingMajoration(null);
                             setMajorationFormData({ typeMajoration: '', taux: 0, description: '', dateDebut: todayStr, dateFin: '' });
@@ -108,7 +108,7 @@ export default function MajorationsParametresTab() {
                         iconLeft={<Plus size={16} />}
                     >
                         Nouveau Taux de Majoration
-                    </Button>
+                    </Button> */}
                 </div>
 
                 <Table>

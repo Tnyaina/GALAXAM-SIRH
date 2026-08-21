@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, Sliders, X, Search, Filter, ArrowUpDown } from 'lucide-react';
+import { Edit2, Sliders, X, Search, Filter, ArrowUpDown } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
@@ -205,7 +205,6 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
                         >
                             <option value="CODE_ASC">Code Paramètre (A → Z)</option>
                             <option value="CODE_DESC">Code Paramètre (Z → A)</option>
-                            <option value="CAT_ASC">Trier par Catégorie</option>
                             <option value="DATE_DESC">Date Début (Plus récents)</option>
                         </Select>
                     </div>

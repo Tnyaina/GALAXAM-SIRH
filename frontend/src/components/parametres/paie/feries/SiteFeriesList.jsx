@@ -52,13 +52,13 @@ export default function SiteFeriesList({
                             <Tr key={sf.idSiteFerie}>
                                 <Td className="font-bold text-[var(--color-fg)] flex items-center gap-2">
                                     <MapPin size={14} className="text-[var(--color-brand-500)]" />
-                                    {sf.libelleSite || `Site #${sf.idSite}`}
+                                    {sf.siteLibelle || `Site #${sf.idSite}`}
                                 </Td>
                                 <Td isData className="font-bold text-[var(--color-brand-500)]">
-                                    {fmtDate(sf.dateFerie)}
+                                    {fmtDate(sf.ferieDate)}
                                 </Td>
                                 <Td className="font-medium text-[var(--color-fg)]">
-                                    {sf.libelleFerie || '-'}
+                                    {sf.ferieLibelle || '-'}
                                 </Td>
                                 <Td className="text-center">
                                     <Badge variant={sf.estChome !== false ? 'success' : 'default'} size="sm">

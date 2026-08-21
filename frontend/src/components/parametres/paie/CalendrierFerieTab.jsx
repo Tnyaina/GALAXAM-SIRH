@@ -62,8 +62,8 @@ export default function CalendrierFerieTab() {
         });
 
         siteFeries.forEach(sf => {
-            if (sf.dateFerie) {
-                const y = sf.dateFerie.substring(0, 4);
+            if (sf.ferieDate) {
+                const y = sf.ferieDate.substring(0, 4);
                 if (y && !isNaN(y)) yearsSet.add(y);
             }
         });
@@ -269,10 +269,10 @@ export default function CalendrierFerieTab() {
     });
 
     const filteredSiteFeries = siteFeries.filter(sf => {
-        const matchesYear = selectedYear === 'tous' || (sf.dateFerie && sf.dateFerie.startsWith(selectedYear));
+        const matchesYear = selectedYear === 'tous' || (sf.ferieDate && sf.ferieDate.startsWith(selectedYear));
         const matchesSite = !selectedSiteFilter || String(sf.idSite) === String(selectedSiteFilter);
-        const matchesSearch = !search || (sf.libelleFerie && sf.libelleFerie.toLowerCase().includes(search.toLowerCase())) ||
-            (sf.libelleSite && sf.libelleSite.toLowerCase().includes(search.toLowerCase()));
+        const matchesSearch = !search || (sf.ferieLibelle && sf.ferieLibelle.toLowerCase().includes(search.toLowerCase())) ||
+            (sf.siteLibelle && sf.siteLibelle.toLowerCase().includes(search.toLowerCase()));
         return matchesYear && matchesSite && matchesSearch;
     });
 

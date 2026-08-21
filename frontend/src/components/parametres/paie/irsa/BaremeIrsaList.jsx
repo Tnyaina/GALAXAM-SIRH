@@ -56,7 +56,7 @@ export default function BaremeIrsaList({
                                     {fmtMoney(t.trancheMin || 0)}
                                 </Td>
                                 <Td isData className="text-right font-semibold">
-                                    {t.trancheMax ? fmtMoney(t.trancheMax) : 'Illimité'}
+                                    {t.trancheMax ? fmtMoney(t.trancheMax) : 'Sans plafond'}
                                 </Td>
                                 <Td isData className="text-right font-bold text-[var(--color-danger-500)]">
                                     {t.taux}%
