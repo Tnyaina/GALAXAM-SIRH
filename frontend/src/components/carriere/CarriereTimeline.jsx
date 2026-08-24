@@ -42,6 +42,7 @@ export default function CarriereTimeline({
                 workflowCplActif={workflowCplActif}
                 workflowsList={workflowsList}
                 brouillonWf={brouillonWf}
+                workflowPlanifieFutur={workflowPlanifieFutur}
                 etatEssai={etatEssai}
                 estEssaiRenouveleFlag={estEssaiRenouveleFlag}
                 canWrite={canWrite}

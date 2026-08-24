@@ -70,12 +70,21 @@ export default function TimelineBanners({
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
                                 <h4 className="text-sm font-bold text-ink-900 dark:text-white">
-                                    Mouvement RH Planifié (Prendra effet le {fmtDate(workflowPlanifieFutur.dateEffet)})
+                                    {workflowPlanifieFutur.codeTypeEvenement === 'CONFIRMATION_ESSAI'
+                                        ? `Confirmation d'Essai Planifiée (Prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`
+                                        : workflowPlanifieFutur.codeTypeEvenement === 'RENOUVELLEMENT_ESSAI'
+                                            ? `Renouvellement d'Essai Planifié (Prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`
+                                            : `${workflowPlanifieFutur.libelleTypeEvenement || 'Mouvement RH'} Planifié (Prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`}
                                 </h4>
                                 <Badge variant="primary" size="sm">VALIDÉ — PLANIFIÉ</Badge>
                             </div>
                             <p className="text-xs text-ink-500 dark:text-ink-300">
-                                {workflowPlanifieFutur.libelleTypeEvenementRh || 'Transition'} — Poste cible : <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowPlanifieFutur.libelleFonction || '-'}</span> à <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowPlanifieFutur.libelleSite || '-'}</span> (Nouveau salaire : <span className="font-mono font-semibold text-brand-500">{fmtMoney(workflowPlanifieFutur.salaireBase)}</span>)
+                                {workflowPlanifieFutur.motif ? `Motif : ${workflowPlanifieFutur.motif} — ` : ''}
+                                {workflowPlanifieFutur.libelleFonction ? (
+                                    <>Poste cible : <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowPlanifieFutur.libelleFonction}</span> à <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowPlanifieFutur.libelleSite || '-'}</span></>
+                                ) : (
+                                    <span>L'événement a été validé et prendra effet automatiquement le {fmtDate(workflowPlanifieFutur.dateEffet)}.</span>
+                                )}
                             </p>
                         </div>
                     </div>
@@ -86,7 +95,7 @@ export default function TimelineBanners({
                         size="sm"
                         iconLeft={<Eye size={16} />}
                     >
-                        Consulter le Mouvement
+                        Consulter l'Événement
                     </Button>
                 </div>
             )}

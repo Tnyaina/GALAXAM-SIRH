@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { 
-    FileText, Building, Landmark, CheckCircle, Edit2, XCircle, 
+import { useState, useEffect } from 'react';
+import {
+    FileText, Building, Landmark, CheckCircle, Edit2, XCircle,
     AlertTriangle, ShieldAlert, Clock, X
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Textarea } from '@/components/ui/forms/Input';
 import contratService from '@/api/employe/contratService';
-import { 
-    fmtDate, fmtMoney, getWorkflowLibellesUI, 
-    calculerDateFinEssaiContextuelle 
+import {
+    fmtDate, fmtMoney, getWorkflowLibellesUI,
+    calculerDateFinEssaiContextuelle
 } from '@/utils/carriereUtils';
 
 function InfoRow({ label, value, highlight = false, badge = null }) {
@@ -33,19 +33,39 @@ export default function RecapitulatifBrouillonModal({
     onEdit,
     onActionSuccess,
 }) {
+    const [activeWf, setActiveWf] = useState(workflowCpl);
     const [isCancelling, setIsCancelling] = useState(false);
     const [commentaireValidation, setCommentaireValidation] = useState('');
     const [motifAnnulation, setMotifAnnulation] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
 
+    useEffect(() => {
+        setActiveWf(workflowCpl);
+        setIsCancelling(false);
+        setErrorMsg('');
+        setCommentaireValidation('');
+        setMotifAnnulation('');
+    }, [workflowCpl]);
+
+    const currentWf = activeWf || workflowCpl;
+
     const handleValiderConfirm = async () => {
+        if (!currentWf?.idWorkflow) return;
         setSubmitting(true);
         setErrorMsg('');
         try {
-            await contratService.validerWorkflow(workflowCpl.idWorkflow, commentaireValidation.trim() || null);
-            if (onActionSuccess) onActionSuccess('Workflow RH validé et appliqué avec succès !');
-            onClose();
+            await contratService.validerWorkflow(currentWf.idWorkflow, commentaireValidation.trim() || null);
+            let freshWf = null;
+            try {
+                freshWf = await contratService.getWorkflow(currentWf.idWorkflow);
+            } catch {
+                freshWf = { ...currentWf, codeStatutWorkflow: 'VALIDE', libelleStatutWorkflow: 'VALIDE' };
+            }
+            if (freshWf) setActiveWf(freshWf);
+            if (onActionSuccess) {
+                onActionSuccess('Workflow RH validé avec succès !', freshWf, { silent: true });
+            }
         } catch (err) {
             console.error('Erreur validation workflow:', err);
             const apiError = typeof err.response?.data === 'string' ? err.response.data : err.response?.data?.message;
@@ -56,16 +76,25 @@ export default function RecapitulatifBrouillonModal({
     };
 
     const handleAnnulerConfirm = async () => {
+        if (!currentWf?.idWorkflow) return;
         if (!motifAnnulation?.trim()) {
             return setErrorMsg("Le motif d'annulation est obligatoire.");
         }
         setSubmitting(true);
         setErrorMsg('');
         try {
-            await contratService.annulerWorkflow(workflowCpl.idWorkflow, motifAnnulation.trim());
+            await contratService.annulerWorkflow(currentWf.idWorkflow, motifAnnulation.trim());
+            let freshWf = null;
+            try {
+                freshWf = await contratService.getWorkflow(currentWf.idWorkflow);
+            } catch {
+                freshWf = { ...currentWf, codeStatutWorkflow: 'ANNULE', libelleStatutWorkflow: 'ANNULÉ' };
+            }
+            if (freshWf) setActiveWf(freshWf);
             setIsCancelling(false);
-            if (onActionSuccess) onActionSuccess('Workflow RH annulé avec succès.');
-            onClose();
+            if (onActionSuccess) {
+                onActionSuccess('Workflow RH annulé avec succès.', freshWf, { silent: true });
+            }
         } catch (err) {
             console.error('Erreur annulation workflow:', err);
             const apiError = typeof err.response?.data === 'string' ? err.response.data : err.response?.data?.message;
@@ -76,16 +105,25 @@ export default function RecapitulatifBrouillonModal({
     };
 
     const handleAnnulerPlanificationConfirm = async () => {
+        if (!currentWf?.idWorkflow) return;
         if (!motifAnnulation?.trim()) {
             return setErrorMsg("Le motif d'annulation est obligatoire.");
         }
         setSubmitting(true);
         setErrorMsg('');
         try {
-            await contratService.annulerWorkflowPlanifie(workflowCpl.idWorkflow, motifAnnulation.trim());
+            await contratService.annulerWorkflowPlanifie(currentWf.idWorkflow, motifAnnulation.trim());
+            let freshWf = null;
+            try {
+                freshWf = await contratService.getWorkflow(currentWf.idWorkflow);
+            } catch {
+                freshWf = { ...currentWf, codeStatutWorkflow: 'ANNULE', libelleStatutWorkflow: 'ANNULÉ' };
+            }
+            if (freshWf) setActiveWf(freshWf);
             setIsCancelling(false);
-            if (onActionSuccess) onActionSuccess('Planification RH annulée avec succès.');
-            onClose();
+            if (onActionSuccess) {
+                onActionSuccess('Planification RH annulée avec succès.', freshWf, { silent: true });
+            }
         } catch (err) {
             console.error('Erreur annulation planification workflow:', err);
             setErrorMsg(err.response?.data?.message || err.message || 'Erreur lors de l\'annulation.');
@@ -94,20 +132,20 @@ export default function RecapitulatifBrouillonModal({
         }
     };
 
-    if (!isOpen || !workflowCpl) return null;
+    if (!isOpen || !currentWf) return null;
 
-    const isBrouillon = workflowCpl.codeStatutWorkflow === 'BROUILLON';
-    const isValide = workflowCpl.codeStatutWorkflow === 'VALIDE';
+    const isBrouillon = currentWf.codeStatutWorkflow === 'BROUILLON';
+    const isValide = currentWf.codeStatutWorkflow === 'VALIDE';
     const todayStr = new Date().toISOString().substring(0, 10);
-    const dateEffetStr = workflowCpl.dateEffet ? String(workflowCpl.dateEffet).substring(0, 10) : '';
+    const dateEffetStr = currentWf.dateEffet ? String(currentWf.dateEffet).substring(0, 10) : '';
 
-    const { 
-        isEmbauche, isConfirmation: isConfirmationEssai, 
-        isRenouvellement: isRenouvellementEssai, 
+    const {
+        isEmbauche, isConfirmation: isConfirmationEssai,
+        isRenouvellement: isRenouvellementEssai,
         title: eventTitle, description: eventDescription
-    } = getWorkflowLibellesUI(workflowCpl);
+    } = getWorkflowLibellesUI(currentWf);
 
-    const getDateFinEssaiContextuelle = () => calculerDateFinEssaiContextuelle(workflowCpl);
+    const getDateFinEssaiContextuelle = () => calculerDateFinEssaiContextuelle(currentWf);
     const isPlanifieFutur = isValide && !isConfirmationEssai && !isRenouvellementEssai && dateEffetStr > todayStr;
 
     const getStatutBadgeVariant = (code) => {
@@ -120,7 +158,7 @@ export default function RecapitulatifBrouillonModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto">
             <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl max-w-3xl w-full my-8 overflow-hidden flex flex-col max-h-[90vh]">
-                
+
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 bg-ink-50/80 dark:bg-ink-950/60 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -132,19 +170,19 @@ export default function RecapitulatifBrouillonModal({
                                 <h2 className="font-bold text-base text-ink-900 dark:text-white">
                                     {isBrouillon ? eventTitle : 'Détail de l\'Événement RH'}
                                 </h2>
-                                <Badge variant={getStatutBadgeVariant(workflowCpl.codeStatutWorkflow)} size="sm">
-                                    {workflowCpl.libelleStatutWorkflow || workflowCpl.codeStatutWorkflow || 'BROUILLON'}
+                                <Badge variant={getStatutBadgeVariant(currentWf.codeStatutWorkflow)} size="sm">
+                                    {currentWf.libelleStatutWorkflow || currentWf.codeStatutWorkflow || 'BROUILLON'}
                                 </Badge>
                             </div>
                             <p className="text-xs text-ink-400">
-                                Contrat N° <span className="font-mono font-bold text-brand-500">{workflowCpl.numeroContratCible || workflowCpl.numeroContratSource || 'Nouveau'}</span> — {workflowCpl.nomPrenomEmploye} ({workflowCpl.matriculeEmploye})
+                                Contrat N° <span className="font-mono font-bold text-brand-500">{currentWf.numeroContratCible || currentWf.numeroContratSource || 'Nouveau'}</span> — {currentWf.nomPrenomEmploye} ({currentWf.matriculeEmploye})
                             </p>
                             <p className="text-[11px] text-ink-400 flex items-center gap-3 mt-0.5">
                                 <span>
-                                    Type d'événement : <span className="font-semibold text-ink-600 dark:text-ink-300">{workflowCpl.libelleTypeEvenement || workflowCpl.codeTypeEvenement || '-'}</span>
+                                    Type d'événement : <span className="font-semibold text-ink-600 dark:text-ink-300">{currentWf.libelleTypeEvenement || currentWf.codeTypeEvenement || '-'}</span>
                                 </span>
                                 <span>
-                                    Date de prise d'effet : <span className="font-mono font-semibold text-ink-600 dark:text-ink-300">{fmtDate(workflowCpl.dateEffet)}</span>
+                                    Date de prise d'effet : <span className="font-mono font-semibold text-ink-600 dark:text-ink-300">{fmtDate(currentWf.dateEffet)}</span>
                                 </span>
                             </p>
                         </div>
@@ -203,11 +241,11 @@ export default function RecapitulatifBrouillonModal({
                     )}
 
                     {/* Bloc Synthèse Période d'Essai si l'événement concerne l'essai */}
-                    {(isConfirmationEssai || isRenouvellementEssai || (isEmbauche && (workflowCpl.dureeEssaiMois || workflowCpl.dateFinEssai))) && (
+                    {(isConfirmationEssai || isRenouvellementEssai || (isEmbauche && (currentWf.dureeEssaiMois || currentWf.dateFinEssai))) && (
                         <div className="bg-warning-500/10 border border-warning-500/30 p-4 rounded-none space-y-2">
                             <div className="flex justify-between items-center text-xs font-bold text-warning-800 dark:text-warning-300">
                                 <span className="flex items-center gap-1.5">
-                                    <Clock size={16} /> Synthèse Période d'Essai — {workflowCpl.libelleTypeEvenement || 'Mouvement'}
+                                    <Clock size={16} /> Synthèse Période d'Essai — {currentWf.libelleTypeEvenement || 'Mouvement'}
                                 </span>
                                 <Badge variant={isConfirmationEssai ? 'success' : isRenouvellementEssai ? 'warning' : 'primary'} size="sm">
                                     {isConfirmationEssai ? 'ESSAI CONFIRMÉ' : isRenouvellementEssai ? 'ESSAI RENOUVELÉ' : 'PÉRIODE D\'ESSAI INITIALE'}
@@ -216,7 +254,7 @@ export default function RecapitulatifBrouillonModal({
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs pt-1 border-t border-warning-500/20">
                                 <div>
                                     <span className="text-ink-400 text-[10px] block font-semibold uppercase">Durée d'Essai :</span>
-                                    <span className="font-bold text-ink-800 dark:text-ink-100">{workflowCpl.dureeEssaiMois || '-'} Mois</span>
+                                    <span className="font-bold text-ink-800 dark:text-ink-100">{currentWf.dureeEssaiMois || '-'} Mois</span>
                                 </div>
                                 <div>
                                     <span className="text-ink-400 text-[10px] block font-semibold uppercase">
@@ -228,33 +266,33 @@ export default function RecapitulatifBrouillonModal({
                                 </div>
                                 <div>
                                     <span className="text-ink-400 text-[10px] block font-semibold uppercase">Date de Prise d'Effet :</span>
-                                    <span className="font-bold text-ink-800 dark:text-ink-100">{fmtDate(workflowCpl.dateEffet)}</span>
+                                    <span className="font-bold text-ink-800 dark:text-ink-100">{fmtDate(currentWf.dateEffet)}</span>
                                 </div>
                             </div>
                         </div>
                     )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        
+
                         {/* Carte 1 : Contrat de Travail */}
                         <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-none space-y-3">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 border-b border-ink-150 dark:border-ink-700 pb-2 flex items-center gap-1.5">
                                 <Building size={14} /> Contrat de Travail
                             </h3>
                             <div className="space-y-1">
-                                <InfoRow label="N° de Contrat" value={workflowCpl.numeroContratCible || workflowCpl.numeroContratSource} highlight />
-                                <InfoRow label="Type de Contrat" value={workflowCpl.libelleTypeContrat} />
-                                <InfoRow label="Type d'Intervenant" value={workflowCpl.libelleTypeIntervenant} />
-                                <InfoRow label="Filiale Employeuse" value={workflowCpl.libelleFiliale} />
-                                <InfoRow label="Date de Début" value={fmtDate(workflowCpl.dateDebutContrat)} />
-                                {workflowCpl.dateFinContrat && (
-                                    <InfoRow label="Date de Fin" value={fmtDate(workflowCpl.dateFinContrat)} />
+                                <InfoRow label="N° de Contrat" value={currentWf.numeroContratCible || currentWf.numeroContratSource} highlight />
+                                <InfoRow label="Type de Contrat" value={currentWf.libelleTypeContrat} />
+                                <InfoRow label="Type d'Intervenant" value={currentWf.libelleTypeIntervenant} />
+                                <InfoRow label="Filiale Employeuse" value={currentWf.libelleFiliale} />
+                                <InfoRow label="Date de Début" value={fmtDate(currentWf.dateDebutContrat)} />
+                                {currentWf.dateFinContrat && (
+                                    <InfoRow label="Date de Fin" value={fmtDate(currentWf.dateFinContrat)} />
                                 )}
-                                <InfoRow label="Date de Signature" value={fmtDate(workflowCpl.dateSignature)} />
-                                <InfoRow 
-                                    label="Comptabilisé Effectif" 
-                                    value={workflowCpl.comptabiliseEffectif ? 'Oui (Salarié)' : 'Non (Stage/Consultant)'}
-                                    badge={<Badge variant={workflowCpl.comptabiliseEffectif ? 'success' : 'default'} size="sm">{workflowCpl.comptabiliseEffectif ? 'Effectif' : 'Hors-effectif'}</Badge>}
+                                <InfoRow label="Date de Signature" value={fmtDate(currentWf.dateSignature)} />
+                                <InfoRow
+                                    label="Comptabilisé Effectif"
+                                    value={currentWf.comptabiliseEffectif ? 'Oui (Salarié)' : 'Non (Stage/Consultant)'}
+                                    badge={<Badge variant={currentWf.comptabiliseEffectif ? 'success' : 'default'} size="sm">{currentWf.comptabiliseEffectif ? 'Effectif' : 'Hors-effectif'}</Badge>}
                                 />
                             </div>
                         </div>
@@ -265,31 +303,31 @@ export default function RecapitulatifBrouillonModal({
                                 <Landmark size={14} /> Affectation & Rémunération
                             </h3>
                             <div className="space-y-1">
-                                <InfoRow label="Site / Implantation" value={workflowCpl.libelleSite} />
-                                <InfoRow label="Département" value={workflowCpl.libelleDepartement} />
-                                <InfoRow label="Service" value={workflowCpl.libelleService} />
-                                <InfoRow label="Fonction / Poste" value={workflowCpl.libelleFonction} />
-                                <InfoRow label="Catégorie Pro" value={workflowCpl.libelleCategoriePro} />
-                                <InfoRow label="Supérieur Hiérarchique" value={workflowCpl.nomPrenomResponsable} />
-                                <InfoRow label="Mode Calcul Paie" value={workflowCpl.libelleModeCalculPaie} />
-                                <InfoRow label="Salaire de Base" value={fmtMoney(workflowCpl.salaireBase)} highlight />
-                                <InfoRow label="Date de Prise d'Effet" value={fmtDate(workflowCpl.dateEffet)} />
+                                <InfoRow label="Site / Implantation" value={currentWf.libelleSite} />
+                                <InfoRow label="Département" value={currentWf.libelleDepartement} />
+                                <InfoRow label="Service" value={currentWf.libelleService} />
+                                <InfoRow label="Fonction / Poste" value={currentWf.libelleFonction} />
+                                <InfoRow label="Catégorie Pro" value={currentWf.libelleCategoriePro} />
+                                <InfoRow label="Supérieur Hiérarchique" value={currentWf.nomPrenomResponsable} />
+                                <InfoRow label="Mode Calcul Paie" value={currentWf.libelleModeCalculPaie} />
+                                <InfoRow label="Salaire de Base" value={fmtMoney(currentWf.salaireBase)} highlight />
+                                <InfoRow label="Date de Prise d'Effet" value={fmtDate(currentWf.dateEffet)} />
                             </div>
                         </div>
                     </div>
 
                     {/* Bloc 3 : Motif & Justification */}
-                    {(workflowCpl.motif || workflowCpl.commentaire) && (
+                    {(currentWf.motif || currentWf.commentaire) && (
                         <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-none space-y-2 text-xs">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-ink-500 border-b border-ink-150 dark:border-ink-700 pb-2">
                                 {isEmbauche ? 'Motif & Justification de l\'embauche' : 'Motif & Justification de la décision RH'}
                             </h3>
-                            {workflowCpl.motif && (
-                                <p className="text-xs text-ink-800 dark:text-ink-200">{workflowCpl.motif}</p>
+                            {currentWf.motif && (
+                                <p className="text-xs text-ink-800 dark:text-ink-200">{currentWf.motif}</p>
                             )}
-                            {workflowCpl.commentaire && (
+                            {currentWf.commentaire && (
                                 <p className="text-xs text-ink-400 border-t border-ink-150 dark:border-ink-800 pt-2">
-                                    <span className="font-semibold">Remarque :</span> {workflowCpl.commentaire}
+                                    <span className="font-semibold">Remarque :</span> {currentWf.commentaire}
                                 </p>
                             )}
                         </div>
@@ -362,7 +400,7 @@ export default function RecapitulatifBrouillonModal({
                             <div className="flex items-center gap-3">
                                 <Button
                                     type="button"
-                                    onClick={() => { onClose(); if (onEdit) onEdit(workflowCpl); }}
+                                    onClick={() => { onClose(); if (onEdit) onEdit(currentWf); }}
                                     variant="outline"
                                     size="md"
                                     iconLeft={<Edit2 size={16} />}

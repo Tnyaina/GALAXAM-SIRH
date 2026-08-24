@@ -166,8 +166,6 @@ export function trouverWorkflowPlanifieFutur(workflowsList, contratActifId = nul
     if (!Array.isArray(workflowsList)) return null;
     return workflowsList.find(
         w => w.codeStatutWorkflow === 'VALIDE' &&
-             !isConfirmationEssaiEvent(w.codeTypeEvenement) &&
-             !isRenouvellementEssaiEvent(w.codeTypeEvenement) &&
              w.dateEffet && fmtDateInput(w.dateEffet) > todayStr &&
              (!contratActifId || Number(w.idContratSource) === Number(contratActifId) || Number(w.idContratCible) === Number(contratActifId))
     ) || null;
