@@ -343,6 +343,7 @@ INSERT INTO parametre_global (code_parametre, categorie, valeur, description, da
 -- ---- POINTAGE : seuils et montants spécifiques au module Pointage ----
 ('SEUIL_NUIT_DEBUT',           'POINTAGE', '22:00', 'Début du travail de nuit (Art. 83 Code Travail Malgache)', '2026-01-01'),
 ('SEUIL_NUIT_FIN',             'POINTAGE', '05:00', 'Fin du travail de nuit', '2026-01-01'),
+('MONTANT_REPAS_MIDI',          'POINTAGE', '2000',  'Indemnité repas midi de référence en Ariary', '2026-01-01'),
 ('SEUIL_2ND_REPAS_1',          'POINTAGE', '19:30', 'Heure sortie mini pour 2ᵉ repas tranche 1', '2026-01-01'),
 ('MONTANT_2ND_REPAS_1',        'POINTAGE', '2000',  '2ᵉ repas tranche 1 en Ariary (19h30-21h00)', '2026-01-01'),
 ('SEUIL_2ND_REPAS_2',          'POINTAGE', '21:00', 'Heure sortie mini pour 2ᵉ repas tranche 2', '2026-01-01'),

@@ -344,17 +344,17 @@ ALTER TABLE notification_rh ADD CONSTRAINT chk_notif_type CHECK (type_alerte IN 
 
 -- ============================================================
 -- 7. MENUS RBAC NAVIGATION POINTAGE
--- 6 menus distincts selon profil utilisateur (agent vs admin/DAF)
--- Justification : séparation saisie / anomalies / synthèse / clôture / dérogations
+-- 4 menus d'exploitation essentiels
+-- Les dérogations et tolérances d'arrivées sont gérées dans Administration > Paramétrage des Modules > Pointage
 -- ============================================================
+DELETE FROM ref_menu WHERE id_menu IN ('POINTAGE_CLOTURE', 'POINTAGE_DEROGATIONS');
+
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
     ('POINTAGE_JOURNALIER',  'Saisie & Pointage Quotidien', 'ClockCheck',    '/pointages/saisie',       1, 2, 'POINTAGE'),
     ('POINTAGE_ANOMALIES',   'Gestion des Anomalies',       'AlertTriangle', '/pointages/anomalies',    2, 2, 'POINTAGE'),
     ('POINTAGE_SYNTHESE',    'Synthèse Hebdo & Mensuelle',  'BarChart2',     '/pointages/synthese',     3, 2, 'POINTAGE'),
-    ('POINTAGE_PERIODES',    'Périodes de Paie',            'CalendarRange', '/pointages/periodes',     4, 2, 'POINTAGE'),
-    ('POINTAGE_CLOTURE',     'Validation & Clôture',        'Lock',          '/pointages/cloture',      5, 2, 'POINTAGE'),
-    ('POINTAGE_DEROGATIONS', 'Dérogations d''Indemnités',   'UserMinus',     '/pointages/derogations',  6, 2, 'POINTAGE')
-ON CONFLICT (id_menu) DO NOTHING;
+    ('POINTAGE_PERIODES',    'Périodes de Paie & Clôture',  'CalendarRange', '/pointages/periodes',     4, 2, 'POINTAGE')
+ON CONFLICT (id_menu) DO UPDATE SET libelle = EXCLUDED.libelle, href = EXCLUDED.href;
 
 -- id_role 1 = ROLE_ADMIN (accès complet), id_role 2 = ROLE_AGENT_POINTAGE (saisie + anomalies)
 INSERT INTO role_menu (id_role, id_menu) VALUES
@@ -362,8 +362,6 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
     (1, 'POINTAGE_ANOMALIES'),
     (1, 'POINTAGE_SYNTHESE'),
     (1, 'POINTAGE_PERIODES'),
-    (1, 'POINTAGE_CLOTURE'),
-    (1, 'POINTAGE_DEROGATIONS'),
     (2, 'POINTAGE_JOURNALIER'),
     (2, 'POINTAGE_ANOMALIES')
 ON CONFLICT DO NOTHING;
@@ -375,15 +373,29 @@ ON CONFLICT DO NOTHING;
 -- La matrice role_permission pour ROLE_AGENT_POINTAGE (lecture+écriture, sans validation)
 -- et ROLE_ADMIN (accès total) est déjà en place — aucune action requise ici.
 
--- ============================================================
--- 7. SEED DE DÉMARRAGE
--- ============================================================
-
 INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode)
-VALUES ('2026-01', 'Décembre 2025 -> Janvier 2026', '2025-11-26', '2025-12-25',
-        (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'EN_COURS'));
+VALUES 
+    ('2026-01', 'Décembre 2025 -> Janvier 2026', '2025-11-26', '2025-12-25', (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'CLOTUREE')),
+    ('2026-08', 'Juillet 2026 -> Août 2026', '2026-07-26', '2026-08-25', (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'EN_COURS'))
+ON CONFLICT (code) DO NOTHING;
 
--- Exemple de dérogation permanente (véhicule de fonction) — à adapter aux 4 employés réels
--- INSERT INTO employe_indemnite_derogation (id_employe, id_indemnite, beneficie, motif, date_debut)
--- VALUES (<id_employe>, (SELECT id_indemnite FROM ref_indemnite WHERE code='DEPLACEMENT'), FALSE,
---         'Véhicule de fonction', '2026-01-01');
+-- Seed Pointages pour la semaine de test du 2026-08-24 au 2026-08-28
+INSERT INTO pointage_jour (
+    id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour,
+    heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am,
+    total_heures, minutes_retard, indemnite_deplacement_recue, indemnite_repas_recue, montant_repas
+)
+SELECT 
+    e.id_employe,
+    (SELECT id_periode_paie FROM periode_paie WHERE code = '2026-08' LIMIT 1),
+    COALESCE((SELECT id_site FROM employe_affectation_carriere WHERE id_employe = e.id_employe AND id_statut_affectation = 1 LIMIT 1), 1),
+    d.dt::date,
+    (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT'),
+    '08:00:00'::time, '12:00:00'::time, '13:00:00'::time, '17:00:00'::time,
+    8.00, 0, TRUE, TRUE, 2000.00
+FROM employe e
+CROSS JOIN (
+    VALUES ('2026-08-24'), ('2026-08-25'), ('2026-08-26'), ('2026-08-27'), ('2026-08-28')
+) AS d(dt)
+WHERE e.est_actif = TRUE
+ON CONFLICT (id_employe, date_pointage) DO NOTHING;
