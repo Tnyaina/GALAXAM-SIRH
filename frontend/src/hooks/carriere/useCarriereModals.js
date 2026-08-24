@@ -47,12 +47,12 @@ export function useCarriereModals({
     // -------------------------------------------------------------------------------------------------
     // Actions de succès
     // -------------------------------------------------------------------------------------------------
-    const handleSuccessAction = async (msg, createdWf = null) => {
+    const handleSuccessAction = async (msg, createdWf = null, opts = {}) => {
         if (toast) {
             toast({ title: 'Succès', message: msg, type: 'success' });
         }
 
-        if (createdWf && createdWf.idWorkflow) {
+        if (createdWf && createdWf.idWorkflow && !opts?.silent) {
             setIsTransitioning(true);
             try {
                 const freshWf = await contratService.getWorkflow(createdWf.idWorkflow);
@@ -65,7 +65,7 @@ export function useCarriereModals({
             }
         }
 
-        refreshData();
+        refreshData({ silent: opts?.silent });
         if (onEmployeUpdated) {
             onEmployeUpdated();
         }

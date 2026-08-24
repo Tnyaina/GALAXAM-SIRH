@@ -9,6 +9,7 @@ export default function ContratActifSection({
     workflowCplActif,
     workflowsList,
     brouillonWf,
+    workflowPlanifieFutur,
     etatEssai,
     estEssaiRenouveleFlag,
     canWrite,
@@ -83,24 +84,34 @@ export default function ContratActifSection({
                         </Button>
                     )}
                     {canWrite && !brouillonWf && (
-                        <>
-                            <Button
-                                onClick={onOpenTransition}
-                                variant="primary"
-                                size="sm"
-                                iconLeft={<RefreshCw size={16} />}
-                            >
-                                Mouvement / Transition RH
-                            </Button>
-                            <Button
-                                onClick={onOpenRupture}
-                                variant="danger"
-                                size="sm"
-                                iconLeft={<UserMinus size={16} />}
-                            >
-                                Rupture / Fin de Contrat
-                            </Button>
-                        </>
+                        workflowPlanifieFutur ? (
+                            <Badge variant="primary" size="sm" icon={<Clock size={12} />}>
+                                {workflowPlanifieFutur.codeTypeEvenement === 'CONFIRMATION_ESSAI'
+                                    ? `Confirmation d'Essai Planifiée au ${fmtDate(workflowPlanifieFutur.dateEffet)}`
+                                    : workflowPlanifieFutur.codeTypeEvenement === 'RENOUVELLEMENT_ESSAI'
+                                        ? `Renouvellement d'Essai Planifié au ${fmtDate(workflowPlanifieFutur.dateEffet)}`
+                                        : `Événement RH (${workflowPlanifieFutur.libelleTypeEvenement || workflowPlanifieFutur.codeTypeEvenement}) Planifié au ${fmtDate(workflowPlanifieFutur.dateEffet)}`}
+                            </Badge>
+                        ) : (
+                            <>
+                                <Button
+                                    onClick={onOpenTransition}
+                                    variant="primary"
+                                    size="sm"
+                                    iconLeft={<RefreshCw size={16} />}
+                                >
+                                    Mouvement / Transition RH
+                                </Button>
+                                <Button
+                                    onClick={onOpenRupture}
+                                    variant="danger"
+                                    size="sm"
+                                    iconLeft={<UserMinus size={16} />}
+                                >
+                                    Rupture / Fin de Contrat
+                                </Button>
+                            </>
+                        )
                     )}
                 </div>
             </div>
@@ -145,7 +156,17 @@ export default function ContratActifSection({
                                     }
                                 </span>
                             </div>
-                            {canWrite && (!brouillonWf || !['CONFIRMATION_ESSAI', 'RENOUVELLEMENT_ESSAI'].includes(brouillonWf?.codeTypeEvenement)) && (
+                            {workflowPlanifieFutur ? (
+                                <div className="pt-1.5 border-t border-current/20 flex flex-wrap items-center gap-2">
+                                    <Badge variant="primary" size="sm" icon={<Clock size={13} />}>
+                                        {workflowPlanifieFutur.codeTypeEvenement === 'CONFIRMATION_ESSAI'
+                                            ? `Confirmation d'essai planifiée (Prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`
+                                            : workflowPlanifieFutur.codeTypeEvenement === 'RENOUVELLEMENT_ESSAI'
+                                                ? `Renouvellement d'essai planifié (Prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`
+                                                : `Événement (${workflowPlanifieFutur.libelleTypeEvenement || workflowPlanifieFutur.codeTypeEvenement}) planifié au ${fmtDate(workflowPlanifieFutur.dateEffet)}`}
+                                    </Badge>
+                                </div>
+                            ) : canWrite && (!brouillonWf || !['CONFIRMATION_ESSAI', 'RENOUVELLEMENT_ESSAI'].includes(brouillonWf?.codeTypeEvenement)) && (
                                 <div className="pt-1.5 border-t border-current/20 flex flex-wrap items-center gap-2">
                                     <Button
                                         onClick={onOpenConfirmation}

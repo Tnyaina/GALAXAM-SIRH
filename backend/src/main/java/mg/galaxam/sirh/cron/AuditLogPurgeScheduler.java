@@ -20,14 +20,6 @@ public class AuditLogPurgeScheduler {
     private DataSource dataSource;
 
     /**
-     * Rattrapage automatique lors du démarrage du serveur Spring Boot.
-     */
-    @EventListener(ApplicationReadyEvent.class)
-    public void auDemarrageApplication() {
-        purgerAnciensLogsAudit();
-    }
-
-    /**
      * Exécuté le 1er de chaque mois à 04:00:00.
      * Supprime les entrées d'audit_log de plus de 365 jours.
      */

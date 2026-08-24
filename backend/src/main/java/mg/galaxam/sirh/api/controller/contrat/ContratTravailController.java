@@ -104,7 +104,8 @@ public class ContratTravailController {
             boolean estConfirme = workflows.stream().anyMatch(w ->
                 "VALIDE".equals(w.getCodeStatutWorkflow()) &&
                 "CONFIRMATION_ESSAI".equals(w.getCodeTypeEvenement()) &&
-                (activeContratId.equals(w.getIdContratCible()) || activeContratId.equals(w.getIdContratSource()))
+                (activeContratId.equals(w.getIdContratCible()) || activeContratId.equals(w.getIdContratSource())) &&
+                (w.getDateEffet() != null && !w.getDateEffet().after(new java.sql.Date(System.currentTimeMillis())))
             );
 
             boolean estRenouvele = workflows.stream().anyMatch(w ->

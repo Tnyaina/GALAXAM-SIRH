@@ -22,14 +22,6 @@ public class AcquisitionCongeScheduler {
     private DataSource dataSource;
 
     /**
-     * Rattrapage automatique au démarrage de l'application Spring Boot.
-     */
-    @EventListener(ApplicationReadyEvent.class)
-    public void auDemarrageApplication() {
-        acquerirCongesMensuels();
-    }
-
-    /**
      * Exécuté chaque jour à 01h00.
      * Pour chaque employé actif dont la date anniversaire d'embauche (date_debut du contrat)
      * correspond à la date du jour (gestion des 31/février incluse), on ajoute 2.5 jours.

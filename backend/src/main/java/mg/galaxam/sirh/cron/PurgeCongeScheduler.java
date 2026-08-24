@@ -21,14 +21,6 @@ public class PurgeCongeScheduler {
     private DataSource dataSource;
 
     /**
-     * Rattrapage automatique au démarrage de l'application Spring Boot.
-     */
-    @EventListener(ApplicationReadyEvent.class)
-    public void auDemarrageApplication() {
-        purgerCongesExpires();
-    }
-
-    /**
      * Exécuté chaque nuit à 02h00.
      * Calcule au jour le jour pour chaque employé s'il lui reste des jours de congés acquis il y a plus de 36 mois
      * qui n'ont pas encore été consommés (règle FIFO).

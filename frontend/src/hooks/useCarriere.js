@@ -26,9 +26,9 @@ export function useCarriere(idEmploye) {
         canRenew: false
     });
 
-    const loadCarriereData = useCallback(async () => {
+    const loadCarriereData = useCallback(async (opts = {}) => {
         if (!idEmploye) return;
-        setLoading(true);
+        if (!opts?.silent) setLoading(true);
         setErrorMsg('');
 
         try {
@@ -61,7 +61,7 @@ export function useCarriere(idEmploye) {
             console.error('Erreur chargement dossier carrière:', err);
             setErrorMsg('Impossible de charger les données du dossier carrière.');
         } finally {
-            setLoading(false);
+            if (!opts?.silent) setLoading(false);
         }
     }, [idEmploye]);
 
