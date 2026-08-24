@@ -428,10 +428,7 @@ Lors de la transition `EN_ATTENTE → VALIDE`, le système effectue dans l'ordre
 
 ### 6.1 `AcquisitionCongeScheduler` — Exécution Quotidienne à 01h00
 
-### 6.1 `AcquisitionCongeScheduler` — Exécution Quotidienne à 01h00 & au Démarrage
-
 ```java
-@EventListener(ApplicationReadyEvent.class)
 @Scheduled(cron = "0 0 1 * * ?")  // Chaque nuit à 01:00:00
 public void acquerirCongesMensuels()
 ```
@@ -453,10 +450,9 @@ WHERE EXTRACT(DAY FROM ct.date_debut) = EXTRACT(DAY FROM CURRENT_DATE)
       )
 ```
 
-### 6.2 `PurgeCongeScheduler` — Exécution Quotidienne à 02h00 & au Démarrage
+### 6.2 `PurgeCongeScheduler` — Exécution Quotidienne à 02h00
 
 ```java
-@EventListener(ApplicationReadyEvent.class)
 @Scheduled(cron = "0 0 2 * * ?")  // Chaque nuit à 02:00:00
 public void purgerCongesExpires()
 ```

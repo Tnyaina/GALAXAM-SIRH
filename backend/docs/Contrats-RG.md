@@ -290,7 +290,7 @@ La catégorie professionnelle (`A` ou `C`) a un impact direct sur la **gestion d
 
 ## 4. Workflow & Circuit d'Approbation
 
-### 4.1 Diagramme d'État du Workflow RH
+### 4.1 Diagramme d'État & Gestion des Événements Planifiés
 
 ```
 ┌────────────────┐
@@ -314,9 +314,15 @@ La catégorie professionnelle (`A` ou `C`) a un impact direct sur la **gestion d
                                     ┌──────────▼──────────┐
                                     │  MouvementRhScheduler│
                                     │  (00:00:00 chaque    │
-                                    │   nuit)              │
+                                    │   nuit & au startup) │
                                     └──────────────────────┘
 ```
+
+> **Règle d'Or (Événements Planifiés à Date Postérieure)** :
+> Lors de la validation de tout événement RH (Confirmation d'essai, Renouvellement d'essai, Mutation, Promotion, Revalorisation, Transformation CDI, Rupture de contrat) avec une **date d'effet future (`date_effet > aujourd'hui`)** :
+> 1. Le workflow est validé (`statut_workflow = 'VALIDE'`) et enregistré comme **événement planifié**.
+> 2. **Aucune modification n'est appliquée immédiatement** sur l'état de la période d'essai (`EN_COURS`), le contrat actif ou l'affectation active.
+> 3. Lorsque la date d'effet est atteinte ou dépassée (`date_effet <= CURRENT_DATE`), le job Cron `MouvementRhScheduler` (exécuté chaque nuit à 00:00:00 et au démarrage du serveur) détecte le workflow planifié et applique les effets réels (confirmation/prolongation de l'essai, activation de la nouvelle affectation/contrat, ou clôture/rupture du contrat).
 
 ### 4.2 Actions par Rôle
 
@@ -342,18 +348,17 @@ Un brouillon peut être corrigé avant validation. Le bouton `[ CORRIGER ]` rouv
 @Scheduled(cron = "0 0 0 * * ?")            // Chaque nuit à 00:00:00
 public void effectuerBasculementMouvementsPlanifies() {
     // Appelle WorkflowRhController.autoAppliquerMouvementsEchus(c)
-    // Applique tous les workflows dont la date_effet <= CURRENT_DATE
+    // Applique tous les workflows validés dont la date_effet <= CURRENT_DATE
 }
 ```
 
 **Logique d'application automatique :**
-```sql
-UPDATE workflow_rh SET id_statut_workflow = APPLIQUE
-WHERE statut = 'VALIDE' AND date_effet <= CURRENT_DATE;
--- + Clôture automatique de l'ancien contrat la veille
--- + Activation du nouveau contrat et affectation associée
--- + Cascadage du statut employé si rupture
-```
+- Détection de tous les workflows RH au statut `VALIDE` dont `date_effet <= CURRENT_DATE` :
+  - **Confirmations d'essai planifiées** : passage de la période d'essai à `CONFIRMEE` (`date_fin_reelle = date_effet`) et remise à `NULL` de `date_fin_essai`.
+  - **Renouvellements d'essai planifiés** : passage de la période 1 à `RENOUVELEE`, création de la période 2 (`EN_COURS`) et mise à jour de `date_fin_essai`.
+  - **Ruptures de contrat planifiées** : clôture du contrat source (`ROMPU`), clôture de l'affectation et désactivation si aucun autre contrat actif.
+  - **Transitions planifiées** : clôture du contrat/affectation source et activation du contrat/affectation cible.
+- Génération d'une notification RH `MOUVEMENT_APPLIQUE` pour avertir du basculement effectif.
 
 **Garanties :**
 - Exécuté en premier (avant le scheduler de notifications à 00h05).
