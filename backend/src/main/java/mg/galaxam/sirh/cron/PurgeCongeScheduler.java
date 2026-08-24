@@ -5,12 +5,14 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
  * Scheduler nocturne pour la purge triennale des droits aux congés.
- * S'exécute chaque 1er du mois à 02:00:00.
+ * S'exécute chaque nuit à 02:00:00 pour purger au jour le jour les droits ayant atteint 36 mois.
  */
 @Component
 public class PurgeCongeScheduler {
@@ -19,12 +21,20 @@ public class PurgeCongeScheduler {
     private DataSource dataSource;
 
     /**
-     * Exécuté le 1er de chaque mois à 02h00.
-     * Calcule pour chaque employé s'il lui reste des jours de congés acquis il y a plus de 36 mois
+     * Rattrapage automatique au démarrage de l'application Spring Boot.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void auDemarrageApplication() {
+        purgerCongesExpires();
+    }
+
+    /**
+     * Exécuté chaque nuit à 02h00.
+     * Calcule au jour le jour pour chaque employé s'il lui reste des jours de congés acquis il y a plus de 36 mois
      * qui n'ont pas encore été consommés (règle FIFO).
      * Si oui, génère un mouvement d'EXPIRATION.
      */
-    @Scheduled(cron = "0 0 2 1 * ?")
+    @Scheduled(cron = "0 0 2 * * ?")
     public void purgerCongesExpires() {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
