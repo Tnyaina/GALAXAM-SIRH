@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, ArrowLeft, FileText } from 'lucide-react';
+import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, ArrowLeft, FileText, ShieldAlert } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
@@ -11,10 +11,15 @@ const CotisationsIrsaTab = lazy(() => import('@/components/parametres/paie/Cotis
 const IndemnitesSitesTab = lazy(() => import('@/components/parametres/paie/IndemnitesSitesTab'));
 const MajorationsParametresTab = lazy(() => import('@/components/parametres/paie/MajorationsParametresTab'));
 
+// Composants de paramétrage Pointage
+const ToleranceArriveeSiteTab = lazy(() => import('@/components/parametres/pointage/ToleranceArriveeSiteTab'));
+const DerogationIndemnitesTab = lazy(() => import('@/components/parametres/pointage/DerogationIndemnitesTab'));
+
 const MODULES = [
     { id: 'general', label: 'Général & Système', icon: <Sliders size={18} /> },
     { id: 'paie', label: 'Paie & Rémunération', icon: <FileText size={18} /> },
-    { id: 'conges', label: 'Congés & Absences', icon: <Calendar size={18} /> }
+    { id: 'conges', label: 'Congés & Absences', icon: <Calendar size={18} /> },
+    { id: 'pointage', label: 'Pointage & Présence', icon: <Clock size={18} /> }
 ];
 
 export default function ParametresModulesPanel() {
@@ -24,12 +29,18 @@ export default function ParametresModulesPanel() {
     const activeModule = searchParams.get('module') || 'paie';
     
     // Niveau 2: Sous-onglet
-    const activeTab = searchParams.get('tab') || (activeModule === 'paie' ? 'parametres_globaux' : 'regles_acquisition');
+    const activeTab = searchParams.get('tab') || (
+        activeModule === 'paie' ? 'parametres_globaux' : 
+        activeModule === 'conges' ? 'regles_acquisition' :
+        activeModule === 'pointage' ? 'parametres_globaux_pointage' :
+        'parametres_globaux_systeme'
+    );
 
     const handleModuleChange = (moduleId) => {
         // Définir l'onglet par défaut du nouveau module
         let defaultTab = 'parametres_globaux';
         if (moduleId === 'conges') defaultTab = 'parametres_globaux_conges';
+        else if (moduleId === 'pointage') defaultTab = 'parametres_globaux_pointage';
         else if (moduleId === 'general') defaultTab = 'parametres_globaux_systeme';
         
         setSearchParams({ module: moduleId, tab: defaultTab });
@@ -54,12 +65,25 @@ export default function ParametresModulesPanel() {
         { id: 'regles_acquisition', label: 'Types & Motifs', icon: <Gift size={16} /> },
     ];
 
+    // Définition des sous-onglets pour le Pointage
+    const pointageTabs = [
+        { id: 'parametres_globaux_pointage', label: 'Constantes (Pointage)', icon: <Sliders size={16} /> },
+        { id: 'tolerance_pointage', label: 'Tolérances d\'Arrivée (Sites)', icon: <Clock size={16} /> },
+        { id: 'derogations_indemnites', label: 'Exclusions Indemnités', icon: <ShieldAlert size={16} /> },
+    ];
+
     // Définition des sous-onglets pour le Système
     const generalTabs = [
         { id: 'parametres_globaux_systeme', label: 'Constantes Générales', icon: <Sliders size={16} /> },
     ];
 
-    const currentTabs = activeModule === 'paie' ? paieTabs : activeModule === 'conges' ? congesTabs : generalTabs;
+    const currentTabs = activeModule === 'paie' 
+        ? paieTabs 
+        : activeModule === 'conges' 
+        ? congesTabs 
+        : activeModule === 'pointage'
+        ? pointageTabs
+        : generalTabs;
 
     return (
         <div className="space-y-6">
@@ -140,6 +164,14 @@ export default function ParametresModulesPanel() {
                             <>
                                 {activeTab === 'parametres_globaux_conges' && <ParametresGlobauxTab fixedCategory="CONGES" />}
                                 {activeTab === 'regles_acquisition' && <ParametresCongesTab />}
+                            </>
+                        )}
+
+                        {activeModule === 'pointage' && (
+                            <>
+                                {activeTab === 'parametres_globaux_pointage' && <ParametresGlobauxTab fixedCategory="POINTAGE" />}
+                                {activeTab === 'tolerance_pointage' && <ToleranceArriveeSiteTab />}
+                                {activeTab === 'derogations_indemnites' && <DerogationIndemnitesTab />}
                             </>
                         )}
                     </Suspense>

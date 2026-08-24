@@ -85,9 +85,10 @@ CREATE TABLE ref_tolerance_arrivee_pointage (
     heure_plafond TIME NOT NULL   -- ex 07:30 : toute arrivée avant cette heure compte comme 07:30
 );
 
--- Exemple de seed pour TNR (id_site = 1) : théorique 08:00, plafond 07:30
+-- Seed tolérance d'arrivée anticipée (TNR et TMM à 07:30)
 INSERT INTO ref_tolerance_arrivee_pointage (id_site, heure_plafond) VALUES
-    (1, '07:30');
+    (1, '07:30'),
+    (2, '07:30');
 
 -- Dérogation individuelle d'indemnité (Niveau 2 de la cascade — module-structure.md §4.1)
 CREATE TABLE employe_indemnite_derogation (
@@ -104,6 +105,13 @@ CREATE TABLE employe_indemnite_derogation (
 
 CREATE INDEX idx_derogation_employe ON employe_indemnite_derogation(id_employe, id_indemnite)
     WHERE date_fin IS NULL;
+
+-- Seed Dérogations d'indemnité Déplacement (Eric Jean-Joel, Tatamo, Tahiana, Mario)
+INSERT INTO employe_indemnite_derogation (id_employe, id_indemnite, beneficie, motif, date_debut) VALUES
+    ((SELECT id_employe FROM employe WHERE nom ILIKE '%RANDRASANA%' AND prenom ILIKE '%Eric%' LIMIT 1), 1, FALSE, 'Véhicule de fonction — non bénéficiaire déplacement', '2026-01-01'),
+    ((SELECT id_employe FROM employe WHERE nom ILIKE '%RALAMBOMANANA%' AND prenom ILIKE '%Tatamo%' LIMIT 1), 1, FALSE, 'Dérogation individuelle — non bénéficiaire déplacement', '2026-01-01'),
+    ((SELECT id_employe FROM employe WHERE nom ILIKE '%RAHARINIRINARIVELO%' AND prenom ILIKE '%Tahiana%' LIMIT 1), 1, FALSE, 'Dérogation individuelle — non bénéficiaire déplacement', '2026-01-01'),
+    ((SELECT id_employe FROM employe WHERE nom ILIKE '%NDIMBIARISON%' AND prenom ILIKE '%Mario%' LIMIT 1), 1, FALSE, 'Dérogation individuelle — non bénéficiaire déplacement', '2026-01-01');
 
 -- ============================================================
 -- 2. SAISIE QUOTIDIENNE
@@ -347,24 +355,6 @@ ALTER TABLE notification_rh ADD CONSTRAINT chk_notif_type CHECK (type_alerte IN 
 -- 4 menus d'exploitation essentiels
 -- Les dérogations et tolérances d'arrivées sont gérées dans Administration > Paramétrage des Modules > Pointage
 -- ============================================================
-DELETE FROM ref_menu WHERE id_menu IN ('POINTAGE_CLOTURE', 'POINTAGE_DEROGATIONS');
-
-INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-    ('POINTAGE_JOURNALIER',  'Saisie & Pointage Quotidien', 'ClockCheck',    '/pointages/saisie',       1, 2, 'POINTAGE'),
-    ('POINTAGE_ANOMALIES',   'Gestion des Anomalies',       'AlertTriangle', '/pointages/anomalies',    2, 2, 'POINTAGE'),
-    ('POINTAGE_SYNTHESE',    'Synthèse Hebdo & Mensuelle',  'BarChart2',     '/pointages/synthese',     3, 2, 'POINTAGE'),
-    ('POINTAGE_PERIODES',    'Périodes de Paie & Clôture',  'CalendarRange', '/pointages/periodes',     4, 2, 'POINTAGE')
-ON CONFLICT (id_menu) DO UPDATE SET libelle = EXCLUDED.libelle, href = EXCLUDED.href;
-
--- id_role 1 = ROLE_ADMIN (accès complet), id_role 2 = ROLE_AGENT_POINTAGE (saisie + anomalies)
-INSERT INTO role_menu (id_role, id_menu) VALUES
-    (1, 'POINTAGE_JOURNALIER'),
-    (1, 'POINTAGE_ANOMALIES'),
-    (1, 'POINTAGE_SYNTHESE'),
-    (1, 'POINTAGE_PERIODES'),
-    (2, 'POINTAGE_JOURNALIER'),
-    (2, 'POINTAGE_ANOMALIES')
-ON CONFLICT DO NOTHING;
 
 -- ============================================================
 -- 8. AJOUT DU MODULE POINTAGE AU RBAC (si non présent)

@@ -96,3 +96,22 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 -- ROLE_AGENT_POINTAGE (id_role 2) : Accès au Tableau de bord et au module de Pointage
 INSERT INTO role_menu (id_role, id_menu) VALUES
 (2, 'POINTAGE');
+
+DELETE FROM ref_menu WHERE id_menu IN ('POINTAGE_CLOTURE', 'POINTAGE_DEROGATIONS');
+
+INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
+    ('POINTAGE_JOURNALIER',  'Saisie & Pointage Quotidien', 'ClockCheck',    '/pointages/saisie',       1, 2, 'POINTAGE'),
+    ('POINTAGE_ANOMALIES',   'Gestion des Anomalies',       'AlertTriangle', '/pointages/anomalies',    2, 2, 'POINTAGE'),
+    ('POINTAGE_SYNTHESE',    'Synthèse Hebdo & Mensuelle',  'BarChart2',     '/pointages/synthese',     3, 2, 'POINTAGE'),
+    ('POINTAGE_PERIODES',    'Périodes de Paie & Clôture',  'CalendarRange', '/pointages/periodes',     4, 2, 'POINTAGE')
+ON CONFLICT (id_menu) DO UPDATE SET libelle = EXCLUDED.libelle, href = EXCLUDED.href;
+
+-- id_role 1 = ROLE_ADMIN (accès complet), id_role 2 = ROLE_AGENT_POINTAGE (saisie + anomalies)
+INSERT INTO role_menu (id_role, id_menu) VALUES
+    (1, 'POINTAGE_JOURNALIER'),
+    (1, 'POINTAGE_ANOMALIES'),
+    (1, 'POINTAGE_SYNTHESE'),
+    (1, 'POINTAGE_PERIODES'),
+    (2, 'POINTAGE_JOURNALIER'),
+    (2, 'POINTAGE_ANOMALIES')
+ON CONFLICT DO NOTHING;

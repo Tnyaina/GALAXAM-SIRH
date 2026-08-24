@@ -52,8 +52,8 @@ export default function Button({
       aria-disabled={isDisabled}
       onClick={handleClick}
       className={`
-        inline-flex items-center justify-center font-semibold tracking-wide uppercase text-[0.75em]
-        rounded-none transition-all duration-200 ease-in-out select-none
+        inline-flex flex-row items-center justify-center font-semibold tracking-wide uppercase text-[0.75em]
+        rounded-none transition-all duration-200 ease-in-out select-none whitespace-nowrap leading-none
         focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)] focus:ring-offset-0
         ${!isDisabled ? 'active:scale-[0.98] cursor-pointer' : 'opacity-50 cursor-not-allowed shadow-none pointer-events-none disabled:pointer-events-none'}
         ${loading ? 'animate-pulse' : ''}
@@ -69,7 +69,7 @@ export default function Button({
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
         </svg>
       ) : (iconLeft ?? icon)}
-      <span className={loading ? 'opacity-90' : ''}>{children}</span>
+      <span className={`inline-flex flex-row items-center justify-center gap-2 whitespace-nowrap leading-none ${loading ? 'opacity-90' : ''}`}>{children}</span>
       {!loading && iconRight}
     </button>
   );
