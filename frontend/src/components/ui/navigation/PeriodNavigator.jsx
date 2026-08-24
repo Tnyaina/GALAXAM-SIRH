@@ -1,6 +1,5 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, RotateCcw } from 'lucide-react';
-import Button from '@/components/ui/forms/Button';
 
 /**
  * PeriodNavigator — Composant professionnel de navigation temporelle.

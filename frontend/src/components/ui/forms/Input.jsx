@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 export default function Input({
   label,
   error,
@@ -180,7 +182,8 @@ export function AutocompleteInput({
   className = '',
   ...props
 }) {
-  const generatedId = id || listId || `list-${Math.random().toString(36).substring(2, 9)}`;
+  const reactId = useId();
+  const generatedId = id || listId || `list-${reactId}`;
 
   return (
     <div className="flex flex-col gap-1">

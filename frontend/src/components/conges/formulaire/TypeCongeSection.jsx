@@ -1,4 +1,3 @@
-import { AlertTriangle } from 'lucide-react';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 
 export default function TypeCongeSection({
@@ -6,7 +5,7 @@ export default function TypeCongeSection({
   idMotifEvenementFamilial, setIdMotifEvenementFamilial,
   typesConge, motifsFamiliaux,
   isExceptionnel, fieldErrors, setFieldErrors,
-  inputErrorClass // not strictly needed for SearchSelect but kept for signature
+  _inputErrorClass
 }) {
   return (
     <>

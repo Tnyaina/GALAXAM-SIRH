@@ -1,4 +1,4 @@
-import { MapPin, X, ShieldAlert } from 'lucide-react';
+import { MapPin, X } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Select } from '@/components/ui/forms/Input';
 import { fmtDate } from '@/utils/paieUtils';

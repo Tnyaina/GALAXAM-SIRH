@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import {   Eye } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import { fmtDateInput } from '@/utils/paieUtils';
-import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
-import Alert from '@/components/ui/feedback/Alert';
 
 import DepartementsList from './departements/DepartementsList';
 import DepartementFormModal from './departements/DepartementFormModal';

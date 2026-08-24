@@ -1,7 +1,7 @@
 import { Clock, Calendar, Eye } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
-import { fmtDate, fmtMoney } from '@/utils/carriereUtils';
+import { fmtDate } from '@/utils/carriereUtils';
 
 export default function TimelineBanners({
     brouillonWf,

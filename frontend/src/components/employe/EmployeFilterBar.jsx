@@ -1,4 +1,4 @@
-import { Search, Filter, RotateCcw, ArrowUpDown, Building, MapPin, Briefcase } from 'lucide-react';
+import { Search, RotateCcw, ArrowUpDown, Building, MapPin, Briefcase } from 'lucide-react';
 import Input, { Select } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
 

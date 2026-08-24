@@ -142,8 +142,8 @@ export default function EmployeList() {
             const factor = direction === 'asc' ? 1 : -1;
 
             return list.sort((a, b) => {
-                let valA = '';
-                let valB = '';
+                let valA;
+                let valB;
 
                 switch (key) {
                     case 'matricule':
