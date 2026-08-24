@@ -428,14 +428,18 @@ Lors de la transition `EN_ATTENTE → VALIDE`, le système effectue dans l'ordre
 
 ### 6.1 `AcquisitionCongeScheduler` — Exécution Quotidienne à 01h00
 
+### 6.1 `AcquisitionCongeScheduler` — Exécution Quotidienne à 01h00 & au Démarrage
+
 ```java
+@EventListener(ApplicationReadyEvent.class)
 @Scheduled(cron = "0 0 1 * * ?")  // Chaque nuit à 01:00:00
 public void acquerirCongesMensuels()
 ```
 
 **Logique d'exécution :**
 1. Sélectionne tous les employés actifs dont le **jour anniversaire d'embauche** correspond au jour en cours (gestion de fin de mois incluse).
-2. Pour chaque employé éligible :
+2. Vérification d'idempotence : s'assure qu'aucun mouvement `ACQUISITION` n'a déjà été crédité aujourd'hui pour cet employé.
+3. Pour chaque employé éligible :
    - Insère un mouvement `ACQUISITION` de +2,5 jours.
    - Si c'est également le **mois anniversaire** et que l'ancienneté ≥ 3 ans : calcule et insère la `BONIFICATION` (voir RG-CON-03).
    - Génère une notification `BONIFICATION_ANCIENNETE_APPLIQUEE` si bonus > 0.
@@ -449,21 +453,24 @@ WHERE EXTRACT(DAY FROM ct.date_debut) = EXTRACT(DAY FROM CURRENT_DATE)
       )
 ```
 
-### 6.2 `PurgeCongeScheduler` — Exécution le 1er de chaque mois à 02h00
+### 6.2 `PurgeCongeScheduler` — Exécution Quotidienne à 02h00 & au Démarrage
 
 ```java
-@Scheduled(cron = "0 0 2 1 * ?")  // Le 1er de chaque mois à 02:00:00
+@EventListener(ApplicationReadyEvent.class)
+@Scheduled(cron = "0 0 2 * * ?")  // Chaque nuit à 02:00:00
 public void purgerCongesExpires()
 ```
 
-Applique l'algorithme FIFO de prescription triennale décrit dans RG-CON-04.
+Applique au jour le jour l'algorithme FIFO de prescription triennale décrit dans RG-CON-04 (purge des droits acquis il y a plus de 36 mois).
 
 **Séquence d'exécution nocturne complète :**
 ```
-00:00:00  → MouvementRhScheduler   (mouvements de carrière planifiés)
-00:05:00  → NotificationRhScheduler (toutes les alertes RH)
-01:00:00  → AcquisitionCongeScheduler (acquisition mensuelle + bonifications)
-02:00:00  → PurgeCongeScheduler (1er du mois — purge triennale FIFO)
+00:00:00  → MouvementRhScheduler     (Basculement des mouvements RH planifiés)
+00:05:00  → NotificationRhScheduler   (Toutes les alertes RH & notifications)
+01:00:00  → AcquisitionCongeScheduler (Acquisition mensuelle + bonifications)
+02:00:00  → PurgeCongeScheduler       (Purge triennale FIFO quotidienne)
+03:30:00  → SessionSecurityScheduler  (Nettoyage notifications lues obsolètes)
+04:00:00  → AuditLogPurgeScheduler    (1er du mois — Purge logs d'audit > 1 an)
 ```
 
 ---

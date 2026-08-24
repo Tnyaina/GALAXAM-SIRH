@@ -5,6 +5,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -18,6 +20,14 @@ public class AcquisitionCongeScheduler {
 
     @Autowired
     private DataSource dataSource;
+
+    /**
+     * Rattrapage automatique au démarrage de l'application Spring Boot.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void auDemarrageApplication() {
+        acquerirCongesMensuels();
+    }
 
     /**
      * Exécuté chaque jour à 01h00.
@@ -45,6 +55,7 @@ public class AcquisitionCongeScheduler {
                 try (PreparedStatement ps = c.prepareStatement(sql);
                      ResultSet rs = ps.executeQuery()) {
                     
+                    String checkMouvement = "SELECT COUNT(*) FROM mouvement_solde_conge WHERE id_employe = ? AND type_mouvement = ? AND date_mouvement = CURRENT_DATE";
                     String insertMouvement = "INSERT INTO mouvement_solde_conge " +
                                              "(id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
                                              "VALUES (?, ?, ?, CURRENT_DATE, ?)";
@@ -53,7 +64,8 @@ public class AcquisitionCongeScheduler {
                                          "(type_alerte, priorite, titre, message, lien, id_employe_concerne) " +
                                          "VALUES ('BONIFICATION_ANCIENNETE_APPLIQUEE', 'BASSE', ?, ?, ?, ?)";
                     
-                    try (PreparedStatement psIn = c.prepareStatement(insertMouvement);
+                    try (PreparedStatement psCheck = c.prepareStatement(checkMouvement);
+                         PreparedStatement psIn = c.prepareStatement(insertMouvement);
                          PreparedStatement psNotif = c.prepareStatement(insertNotif)) {
                         
                         java.time.LocalDate today = java.time.LocalDate.now();
@@ -62,12 +74,22 @@ public class AcquisitionCongeScheduler {
                             int idEmploye = rs.getInt("id_employe");
                             java.sql.Date dateDebutSql = rs.getDate("date_debut");
                             
-                            // Log Mouvement Acquisition (2.5j)
-                            psIn.setInt(1, idEmploye);
-                            psIn.setString(2, "ACQUISITION");
-                            psIn.setDouble(3, 2.5);
-                            psIn.setString(4, "Acquisition mensuelle légale (2.5j)");
-                            psIn.executeUpdate();
+                            // Vérifier si l'acquisition a déjà été faite aujourd'hui
+                            psCheck.setInt(1, idEmploye);
+                            psCheck.setString(2, "ACQUISITION");
+                            boolean dejaAcquis = false;
+                            try (ResultSet rsChk = psCheck.executeQuery()) {
+                                if (rsChk.next() && rsChk.getInt(1) > 0) dejaAcquis = true;
+                            }
+
+                            if (!dejaAcquis) {
+                                // Log Mouvement Acquisition (2.5j)
+                                psIn.setInt(1, idEmploye);
+                                psIn.setString(2, "ACQUISITION");
+                                psIn.setDouble(3, 2.5);
+                                psIn.setString(4, "Acquisition mensuelle légale (2.5j)");
+                                psIn.executeUpdate();
+                            }
                             
                             // Vérification Bonification d'Ancienneté (Option A)
                             if (dateDebutSql != null) {
@@ -80,21 +102,30 @@ public class AcquisitionCongeScheduler {
                                     if (anneesAnciennete >= 3) {
                                         int bonus = anneesAnciennete / 5;
                                         if (bonus > 0) {
-                                            // 1. Mouvement BONIFICATION
-                                            psIn.setInt(1, idEmploye);
-                                            psIn.setString(2, "BONIFICATION");
-                                            psIn.setDouble(3, bonus);
-                                            psIn.setString(4, "Bonification d'ancienneté annuelle (" + anneesAnciennete + " ans = +" + bonus + "j)");
-                                            psIn.executeUpdate();
-                                            
-                                            // 3. Notification RH
-                                            psNotif.setString(1, "Bonification acquise - " + anneesAnciennete + " ans");
-                                            psNotif.setString(2, "Félicitations, vous avez reçu " + bonus + " jour(s) de bonification pour vos " + anneesAnciennete + " ans d'ancienneté.");
-                                            psNotif.setString(3, "/employes/" + idEmploye + "?tab=conges");
-                                            psNotif.setInt(4, idEmploye);
-                                            psNotif.executeUpdate();
-                                            
-                                            System.out.println("[AcquisitionCongeScheduler] Bonification accordée : Employé " + idEmploye + " -> +" + bonus + " jours.");
+                                            psCheck.setInt(1, idEmploye);
+                                            psCheck.setString(2, "BONIFICATION");
+                                            boolean dejaBonifie = false;
+                                            try (ResultSet rsChk = psCheck.executeQuery()) {
+                                                if (rsChk.next() && rsChk.getInt(1) > 0) dejaBonifie = true;
+                                            }
+
+                                            if (!dejaBonifie) {
+                                                // 1. Mouvement BONIFICATION
+                                                psIn.setInt(1, idEmploye);
+                                                psIn.setString(2, "BONIFICATION");
+                                                psIn.setDouble(3, bonus);
+                                                psIn.setString(4, "Bonification d'ancienneté annuelle (" + anneesAnciennete + " ans = +" + bonus + "j)");
+                                                psIn.executeUpdate();
+                                                
+                                                // 3. Notification RH
+                                                psNotif.setString(1, "Bonification acquise - " + anneesAnciennete + " ans");
+                                                psNotif.setString(2, "Félicitations, vous avez reçu " + bonus + " jour(s) de bonification pour vos " + anneesAnciennete + " ans d'ancienneté.");
+                                                psNotif.setString(3, "/employes/" + idEmploye + "?tab=conges");
+                                                psNotif.setInt(4, idEmploye);
+                                                psNotif.executeUpdate();
+                                                
+                                                System.out.println("[AcquisitionCongeScheduler] Bonification accordée : Employé " + idEmploye + " -> +" + bonus + " jours.");
+                                            }
                                         }
                                     }
                                 }

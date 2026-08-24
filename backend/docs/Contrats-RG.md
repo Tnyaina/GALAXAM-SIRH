@@ -335,26 +335,29 @@ Un brouillon peut être corrigé avant validation. Le bouton `[ CORRIGER ]` rouv
 
 ## 5. Automatisations & Schedulers
 
-### 5.1 `MouvementRhScheduler` — Exécution Nocturne à Minuit
+### 5.1 `MouvementRhScheduler` — Exécution Nocturne & Rattrapage au Démarrage
 
 ```java
-@Scheduled(cron = "0 0 0 * * ?")  // Chaque nuit à 00:00:00
+@EventListener(ApplicationReadyEvent.class) // Rattrapage automatique au démarrage
+@Scheduled(cron = "0 0 0 * * ?")            // Chaque nuit à 00:00:00
 public void effectuerBasculementMouvementsPlanifies() {
     // Appelle WorkflowRhController.autoAppliquerMouvementsEchus(c)
-    // Applique tous les workflows PLANIFIE dont la date_effet <= CURRENT_DATE
+    // Applique tous les workflows dont la date_effet <= CURRENT_DATE
 }
 ```
 
 **Logique d'application automatique :**
 ```sql
 UPDATE workflow_rh SET id_statut_workflow = APPLIQUE
-WHERE statut = 'PLANIFIE' AND date_effet <= CURRENT_DATE;
--- + Mise à jour des statuts de contrat et affectation associés
+WHERE statut = 'VALIDE' AND date_effet <= CURRENT_DATE;
+-- + Clôture automatique de l'ancien contrat la veille
+-- + Activation du nouveau contrat et affectation associée
 -- + Cascadage du statut employé si rupture
 ```
 
 **Garanties :**
 - Exécuté en premier (avant le scheduler de notifications à 00h05).
+- Rattrapage immédiat au démarrage/redémarrage du serveur (`ApplicationReadyEvent`) en cas de mise en veille ou d'arrêt à minuit.
 - Traitement atomique par workflow (chaque workflow est une transaction indépendante).
 - Journalisation des erreurs en cas d'échec (log système).
 
@@ -362,11 +365,12 @@ WHERE statut = 'PLANIFIE' AND date_effet <= CURRENT_DATE;
 
 ## 6. Système de Notifications RH
 
-### 6.1 `NotificationRhScheduler` — Exécution à 00h05
+### 6.1 `NotificationRhScheduler` — Exécution à 00h05 & au Démarrage
 
-Le scheduler de notifications tourne **5 minutes après** le scheduler de mouvements, pour garantir que les données sont à jour avant la génération des alertes.
+Le scheduler de notifications tourne **5 minutes après** le scheduler de mouvements (et automatiquement au démarrage du serveur), pour garantir que les données sont à jour avant la génération des alertes.
 
 ```java
+@EventListener(ApplicationReadyEvent.class)
 @Scheduled(cron = "0 5 0 * * ?")  // Chaque nuit à 00:05:00
 public void genererNotificationsRh()
 ```

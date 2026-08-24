@@ -469,38 +469,15 @@ public class WorkflowRhService {
         boolean estFutur = dateEffet != null && dateEffet.after(today);
 
         if (!estFutur) {
-            Date dateCloture = dateEffet != null
-                    ? Date.valueOf(dateEffet.toLocalDate().minusDays(1))
-                    : today;
-
+            appliquerTransitionDirecte(workflow, c);
+        } else {
             if (workflow.getIdContratCible() != null && !workflow.getIdContratCible().equals(workflow.getIdContratSource())) {
-                if (workflow.getIdContratSource() != null) {
-                    ContratTravail contratSrc = new ContratTravail().rechercherParId(workflow.getIdContratSource(), c);
-                    if (contratSrc != null) {
-                        contratSrc.cloturerContrat(dateCloture, null, "Clôturé suite à transition (" + workflow.getIdWorkflow() + ")", c);
-                    }
-                }
-                ContratTravail contratCbl = new ContratTravail().rechercherParId(workflow.getIdContratCible(), c);
-                if (contratCbl != null) {
-                    if (workflow.getIdContratSource() != null) {
-                        contratCbl.setIdContratPrecedent(workflow.getIdContratSource());
-                    }
-                    validerExigenceDateFin(contratCbl.getIdTypeContrat(), contratCbl.getDateFin(), c);
-                    contratCbl.activer(c);
-                }
-            }
-
-            if (workflow.getIdAffectationSource() != null) {
-                EmployeAffectationCarriere affSrc = new EmployeAffectationCarriere().rechercherParId(workflow.getIdAffectationSource(), c);
-                if (affSrc != null) {
-                    affSrc.fermer(dateCloture, c);
-                }
-            }
-
-            if (workflow.getIdAffectationCible() != null) {
-                EmployeAffectationCarriere affCbl = new EmployeAffectationCarriere().rechercherParId(workflow.getIdAffectationCible(), c);
-                if (affCbl != null) {
-                    affCbl.activer(c);
+                Integer idStatutASigner = resolveStatutContrat("A_SIGNER", c);
+                try (PreparedStatement psUp = c.prepareStatement(
+                        "UPDATE contrat_travail SET id_statut_contrat = ? WHERE id_contrat = ? AND id_statut_contrat = (SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'BROUILLON')")) {
+                    psUp.setInt(1, idStatutASigner);
+                    psUp.setInt(2, workflow.getIdContratCible());
+                    psUp.executeUpdate();
                 }
             }
         }
@@ -706,6 +683,48 @@ public class WorkflowRhService {
     }
 
     /**
+     * Applique directement les modifications de contrats et d'affectations liées à une transition.
+     */
+    private static void appliquerTransitionDirecte(WorkflowRh workflow, Connection c) throws Exception {
+        Date dateEffet = workflow.getDateEffet();
+        Date today = new Date(System.currentTimeMillis());
+        Date dateCloture = dateEffet != null
+                ? Date.valueOf(dateEffet.toLocalDate().minusDays(1))
+                : today;
+
+        if (workflow.getIdContratCible() != null && !workflow.getIdContratCible().equals(workflow.getIdContratSource())) {
+            if (workflow.getIdContratSource() != null) {
+                ContratTravail contratSrc = new ContratTravail().rechercherParId(workflow.getIdContratSource(), c);
+                if (contratSrc != null) {
+                    contratSrc.cloturerContrat(dateCloture, null, "Clôturé suite à transition (" + workflow.getIdWorkflow() + ")", c);
+                }
+            }
+            ContratTravail contratCbl = new ContratTravail().rechercherParId(workflow.getIdContratCible(), c);
+            if (contratCbl != null) {
+                if (workflow.getIdContratSource() != null) {
+                    contratCbl.setIdContratPrecedent(workflow.getIdContratSource());
+                }
+                validerExigenceDateFin(contratCbl.getIdTypeContrat(), contratCbl.getDateFin(), c);
+                contratCbl.activer(c);
+            }
+        }
+
+        if (workflow.getIdAffectationSource() != null) {
+            EmployeAffectationCarriere affSrc = new EmployeAffectationCarriere().rechercherParId(workflow.getIdAffectationSource(), c);
+            if (affSrc != null) {
+                affSrc.fermer(dateCloture, c);
+            }
+        }
+
+        if (workflow.getIdAffectationCible() != null) {
+            EmployeAffectationCarriere affCbl = new EmployeAffectationCarriere().rechercherParId(workflow.getIdAffectationCible(), c);
+            if (affCbl != null) {
+                affCbl.activer(c);
+            }
+        }
+    }
+
+    /**
      * Applique automatiquement tous les workflows validés dont la date d'effet est arrivée.
      */
     public static void autoAppliquerMouvementsEchus(Connection c) {
@@ -714,9 +733,14 @@ public class WorkflowRhService {
             String sql = "SELECT w.* FROM workflow_rh w " +
                          "JOIN ref_statut_workflow s ON w.id_statut_workflow = s.id_statut_workflow " +
                          "WHERE s.code = 'VALIDE' AND w.date_effet <= CURRENT_DATE " +
-                         "AND w.id_affectation_cible IN (" +
-                         "   SELECT id_affectation FROM employe_affectation_carriere " +
-                         "   WHERE id_statut_affectation = (SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'PLANIFIEE')" +
+                         "AND (" +
+                         "   w.id_affectation_cible IN (" +
+                         "       SELECT id_affectation FROM employe_affectation_carriere " +
+                         "       WHERE id_statut_affectation = (SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'PLANIFIEE')" +
+                         "   ) OR w.id_contrat_cible IN (" +
+                         "       SELECT id_contrat FROM contrat_travail " +
+                         "       WHERE id_statut_contrat != (SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'ACTIF')" +
+                         "   )" +
                          ")";
             try (var ps = c.prepareStatement(sql); var rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -732,26 +756,8 @@ public class WorkflowRhService {
                         wf.setDateEffet(rs.getDate("date_effet"));
 
                         Date dateEffet = wf.getDateEffet();
-                        Date dateCloture = dateEffet != null ? Date.valueOf(dateEffet.toLocalDate().minusDays(1)) : new Date(System.currentTimeMillis());
 
-                        if (wf.getIdContratCible() != null && !wf.getIdContratCible().equals(wf.getIdContratSource())) {
-                            if (wf.getIdContratSource() != null) {
-                                ContratTravail src = new ContratTravail().rechercherParId(wf.getIdContratSource(), c);
-                                if (src != null) src.cloturerContrat(dateCloture, null, "Clôture auto à date d'effet", c);
-                            }
-                            ContratTravail cbl = new ContratTravail().rechercherParId(wf.getIdContratCible(), c);
-                            if (cbl != null) cbl.activer(c);
-                        }
-
-                        if (wf.getIdAffectationSource() != null) {
-                            EmployeAffectationCarriere src = new EmployeAffectationCarriere().rechercherParId(wf.getIdAffectationSource(), c);
-                            if (src != null) src.fermer(dateCloture, c);
-                        }
-
-                        if (wf.getIdAffectationCible() != null) {
-                            EmployeAffectationCarriere cbl = new EmployeAffectationCarriere().rechercherParId(wf.getIdAffectationCible(), c);
-                            if (cbl != null) cbl.activer(c);
-                        }
+                        appliquerTransitionDirecte(wf, c);
 
                         String nomPrenom = "";
                         String typeEv = "Mouvement RH";
