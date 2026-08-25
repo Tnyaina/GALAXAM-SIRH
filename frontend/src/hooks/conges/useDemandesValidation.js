@@ -50,6 +50,15 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
     setCurrentPage(1);
   }, [activeStatut, searchTerm]);
 
+  const totalPages = Math.ceil(totalElements / pageSize) || 1;
+
+  // Sécurité ajustement : si la page courante dépasse le total de pages
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [totalPages, currentPage]);
+
   const handleRefresh = async () => {
     await loadData();
     toast({ title: 'Actualisé', message: 'La liste des demandes a été mise à jour.', type: 'info', duration: 2000 });

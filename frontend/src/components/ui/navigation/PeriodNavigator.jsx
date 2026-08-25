@@ -12,6 +12,7 @@ export default function PeriodNavigator({
     viewPeriod = 'jour', // 'jour' | 'semaine' | 'mois'
     selectedDate,        // Format 'YYYY-MM-DD'
     onDateChange,        // Callback (newDateStr)
+    allowFutureDates = true, // Permet de bloquer la navigation vers le futur
 }) {
     const dateInputRef = useRef(null);
 
@@ -108,6 +109,7 @@ export default function PeriodNavigator({
                         ref={dateInputRef}
                         type="date"
                         value={selectedDate}
+                        max={!allowFutureDates ? new Date().toISOString().substring(0, 10) : undefined}
                         onChange={(e) => e.target.value && onDateChange(e.target.value)}
                         className="sr-only"
                     />
@@ -117,7 +119,12 @@ export default function PeriodNavigator({
                 <button
                     type="button"
                     onClick={() => handleNavigate(1)}
-                    className="p-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] border-l border-[var(--color-border-subtle)] transition-colors"
+                    disabled={!allowFutureDates && viewPeriod === 'jour' && currDate >= new Date(new Date().setHours(0,0,0,0))}
+                    className={`p-2 text-[var(--color-fg-muted)] border-l border-[var(--color-border-subtle)] transition-colors ${
+                        (!allowFutureDates && viewPeriod === 'jour' && currDate >= new Date(new Date().setHours(0,0,0,0)))
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
+                    }`}
                     title="Période suivante"
                 >
                     <ChevronRight size={16} />

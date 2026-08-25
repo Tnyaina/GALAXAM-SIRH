@@ -149,7 +149,7 @@ export default function ValidationModals({
             {selectedDemande.commentaire && (
               <div className="space-y-1 pt-2 border-t border-[var(--color-border-subtle)]">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Commentaire de l'employé</span>
-                <p className="text-xs text-[var(--color-fg)] italic bg-[var(--color-bg-subtle)] p-3 rounded-none border border-[var(--color-border-subtle)]">
+                <p className="text-xs text-[var(--color-fg)] bg-[var(--color-bg-subtle)] p-3 rounded-none border border-[var(--color-border-subtle)]">
                   "{selectedDemande.commentaire}"
                 </p>
               </div>

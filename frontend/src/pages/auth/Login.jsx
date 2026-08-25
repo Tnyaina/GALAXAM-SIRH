@@ -23,7 +23,7 @@ export default function Login() {
 
     useEffect(() => {
         if (isAuthenticated && user) {
-            const redirectPath = user.role === 'ROLE_AGENT_POINTAGE' ? '/pointages' : '/dashboard';
+            const redirectPath = user.role === 'ROLE_AGENT_POINTAGE' ? '/pointages/saisie' : '/dashboard';
             navigate(redirectPath, { replace: true });
         }
     }, [isAuthenticated, user, navigate]);

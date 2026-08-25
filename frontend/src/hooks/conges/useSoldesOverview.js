@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 export function useSoldesOverview(demandesGlobales = []) {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
@@ -116,7 +116,20 @@ export function useSoldesOverview(demandesGlobales = []) {
     );
   }, [ganttRows, ganttSearch]);
 
+  // Réinitialiser la page Gantt si la recherche ou le mois change
+  useEffect(() => {
+    setGanttPage(1);
+  }, [ganttSearch, currentMonth]);
+
   const totalGanttItems = filteredGanttRows.length;
+  const totalGanttPages = Math.ceil(totalGanttItems / ganttPageSize) || 1;
+
+  // Sécurité ajustement Gantt : si ganttPage > totalGanttPages
+  useEffect(() => {
+    if (ganttPage > totalGanttPages && totalGanttPages > 0) {
+      setGanttPage(1);
+    }
+  }, [totalGanttPages, ganttPage]);
 
   const paginatedGanttRows = useMemo(() => {
     return filteredGanttRows.slice(
@@ -154,6 +167,15 @@ export function useSoldesOverview(demandesGlobales = []) {
 
   // Pagination du tableau récapitulatif
   const totalTableItems = sortedTableData.length;
+  const totalTablePages = Math.ceil(totalTableItems / tablePageSize) || 1;
+
+  // Sécurité ajustement Tableau : si tablePage > totalTablePages
+  useEffect(() => {
+    if (tablePage > totalTablePages && totalTablePages > 0) {
+      setTablePage(1);
+    }
+  }, [totalTablePages, tablePage]);
+
   const paginatedTableData = useMemo(() => {
     return sortedTableData.slice(
       (tablePage - 1) * tablePageSize,

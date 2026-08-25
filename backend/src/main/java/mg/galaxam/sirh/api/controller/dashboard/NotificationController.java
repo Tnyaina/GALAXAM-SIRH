@@ -39,7 +39,7 @@ public class NotificationController {
      * Limite à 50 notifications (performance UI).
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getNotifications() {
         try (Connection c = dataSource.getConnection()) {
             Integer idUtilisateur = getCurrentUserId(c);
@@ -95,7 +95,7 @@ public class NotificationController {
      * Marquer TOUTES les notifications de l'utilisateur comme lues.
      */
     @PutMapping("/marquer-lues")
-    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> marquerToutesLues() {
         try (Connection c = dataSource.getConnection()) {
             Integer idUtilisateur = getCurrentUserId(c);
@@ -119,7 +119,7 @@ public class NotificationController {
      * Marquer UNE notification spécifique comme lue.
      */
     @PutMapping("/{id}/lire")
-    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> marquerUne(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             String sql = "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +

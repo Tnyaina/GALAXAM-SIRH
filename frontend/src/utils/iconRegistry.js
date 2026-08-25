@@ -42,7 +42,12 @@ import {
     FileText,
     Building2,
     GraduationCap,
-    HeartPulse
+    HeartPulse,
+    CalendarRange,
+    ClockCheck,
+    AlertTriangle,
+    BarChart2,
+    BookType
 } from 'lucide-react';
 
 // Registre de résolution dynamique des icônes depuis leur nom (string stocké en BDD dans ref_menu.icone)
@@ -90,7 +95,12 @@ const ICON_MAP = {
     FileText,
     Building2,
     GraduationCap,
-    HeartPulse
+    HeartPulse,
+    CalendarRange,
+    ClockCheck,
+    AlertTriangle,
+    BarChart2,
+    BookType
 };
 
 export function getMenuIcon(name) {

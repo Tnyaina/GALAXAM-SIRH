@@ -1,3 +1,4 @@
+import { isValidElement } from 'react';
 import { Inbox } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 
@@ -21,7 +22,7 @@ export default function EmptyState({
       `}
         >
             <div className="w-14 h-14 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center text-[var(--color-fg-muted)] rounded-none shrink-0 shadow-sm">
-                <Icon size={26} />
+                {isValidElement(Icon) ? Icon : (Icon ? <Icon size={26} /> : <Inbox size={26} />)}
             </div>
 
             <div className="max-w-md space-y-1">

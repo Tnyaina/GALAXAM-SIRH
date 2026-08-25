@@ -64,6 +64,9 @@ public class NotificationRhScheduler {
                 genererAlerteMaladieProlongee(c);
                 genererAlerteExpirationProche(c);
 
+                // Alertes Pointage
+                genererAlertesPointageAnomalies(c);
+
                 c.commit();
                 System.out.println("[NotificationRhScheduler] Notifications RH générées avec succès.");
             } catch (Exception e) {
@@ -366,7 +369,7 @@ public class NotificationRhScheduler {
                 "EXTRACT(DAY FROM CURRENT_TIMESTAMP - dc.date_demande)::INT AS jours_attente " +
                 "FROM demande_conge dc " +
                 "JOIN employe e ON dc.id_employe = e.id_employe " +
-                "JOIN ref_statut_demande rsd ON dc.id_statut_demande = rsd.id_statut_demande " +
+                "JOIN ref_statut_demande_conge rsd ON dc.id_statut_demande_conge = rsd.id_statut_demande_conge " +
                 "JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
                 "WHERE rsd.code = 'EN_ATTENTE' " +
                 "AND dc.date_demande < CURRENT_TIMESTAMP - INTERVAL '48 hours'";
@@ -460,7 +463,7 @@ public class NotificationRhScheduler {
                 "rtc.libelle AS type_conge " +
                 "FROM demande_conge dc " +
                 "JOIN employe e ON dc.id_employe = e.id_employe " +
-                "JOIN ref_statut_demande rsd ON dc.id_statut_demande = rsd.id_statut_demande " +
+                "JOIN ref_statut_demande_conge rsd ON dc.id_statut_demande_conge = rsd.id_statut_demande_conge " +
                 "JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
                 "WHERE rsd.code = 'VALIDE' AND dc.date_fin = CURRENT_DATE";
 
@@ -497,7 +500,7 @@ public class NotificationRhScheduler {
                 "WHERE rsc.code = 'ACTIF' " +
                 "AND NOT EXISTS (" +
                 "  SELECT 1 FROM demande_conge dc " +
-                "  JOIN ref_statut_demande rsd ON dc.id_statut_demande = rsd.id_statut_demande " +
+                "  JOIN ref_statut_demande_conge rsd ON dc.id_statut_demande_conge = rsd.id_statut_demande_conge " +
                 "  JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
                 "  WHERE dc.id_employe = e.id_employe " +
                 "  AND rsd.code = 'VALIDE' AND rtc.code = 'ANNUEL' " +
@@ -529,7 +532,7 @@ public class NotificationRhScheduler {
                 "dc.nb_jours_decomptes " +
                 "FROM demande_conge dc " +
                 "JOIN employe e ON dc.id_employe = e.id_employe " +
-                "JOIN ref_statut_demande rsd ON dc.id_statut_demande = rsd.id_statut_demande " +
+                "JOIN ref_statut_demande_conge rsd ON dc.id_statut_demande_conge = rsd.id_statut_demande_conge " +
                 "JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
                 "WHERE rsd.code = 'VALIDE' AND rtc.code = 'MALADIE' " +
                 "AND dc.nb_jours_decomptes >= 30 " +
@@ -593,6 +596,38 @@ public class NotificationRhScheduler {
         }
     }
 
+    private void genererAlertesPointageAnomalies(Connection c) throws Exception {
+        // Détecter les périodes en cours proches de l'échéance (25 du mois) avec des anomalies non résolues
+        String sql = "SELECT pp.id_periode_paie, pp.code, pp.libelle, pp.date_fin, " +
+                "COUNT(p.id_pointage) AS nb_anomalies " +
+                "FROM periode_paie pp " +
+                "JOIN ref_statut_periode_paie rsp ON pp.id_statut_periode = rsp.id_statut_periode " +
+                "JOIN pointage_jour p ON pp.id_periode_paie = p.id_periode_paie " +
+                "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
+                "WHERE rsp.code = 'EN_COURS' " +
+                "AND (st.code = 'ANOMALIE_SAISIE' OR (p.heure_entree_matin IS NOT NULL AND p.heure_sortie_matin IS NULL) OR st.code = 'ABSENCE_NON_JUSTIFIEE') " +
+                "GROUP BY pp.id_periode_paie, pp.code, pp.libelle, pp.date_fin " +
+                "HAVING COUNT(p.id_pointage) > 0";
+
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int nbAnomalies = rs.getInt("nb_anomalies");
+                String codePeriode = rs.getString("code");
+                String libellePeriode = rs.getString("libelle");
+
+                insererNotification(c,
+                    null,
+                    "POINTAGE_MANQUANT",
+                    "HAUTE",
+                    "Anomalies de pointage en attente - " + codePeriode,
+                    "La période " + libellePeriode + " comporte " + nbAnomalies + " anomalie(s) de pointage non résolue(s) avant la clôture de paie.",
+                    "/pointages/anomalies",
+                    null
+                );
+            }
+        }
+    }
 
     // =========================================================================
     // Helper — Insertion d'une notification

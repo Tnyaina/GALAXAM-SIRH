@@ -1,3 +1,4 @@
+import { isValidElement } from 'react';
 import Button from '@/components/ui/forms/Button';
 
 /**
@@ -14,11 +15,22 @@ export function Tabs({
     // Choix dynamique de la couleur de fond
     const bgClass = bg === 'surface' ? 'bg-[var(--color-surface)]' : 'bg-[var(--color-bg-subtle)]';
 
+    const renderIcon = (icon) => {
+        if (!icon) return null;
+        if (isValidElement(icon)) return icon;
+        if (typeof icon === 'function' || (typeof icon === 'object' && icon !== null)) {
+            const IconComp = icon;
+            return <IconComp size={16} />;
+        }
+        return null;
+    };
+
     if (variant === 'underline') {
         return (
             <div className={`flex border-b border-[var(--color-border-subtle)] ${bgClass} px-4 overflow-x-auto gap-1 ${className}`}>
                 {tabs.map((tab) => {
                     const isActive = activeTab === tab.id;
+                    const badgeVal = tab.count !== undefined ? tab.count : tab.badge;
                     return (
                         <button
                             key={tab.id}
@@ -32,15 +44,15 @@ export function Tabs({
                                 }
                             `}
                         >
-                            {tab.icon}
+                            {renderIcon(tab.icon)}
                             <span>{tab.label}</span>
-                            {tab.count !== undefined && (
+                            {badgeVal !== undefined && (
                                 <span className={`px-2 py-0.5 text-xs font-data font-bold rounded-none ${
                                     isActive
                                         ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)]'
                                         : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'
                                 }`}>
-                                    {tab.count}
+                                    {badgeVal}
                                 </span>
                             )}
                         </button>

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
-    ArrowLeft, User, Users, Briefcase, FileText, XCircle, Folder,
-    Power, AlertTriangle, Calendar
+    ArrowLeft, User, Users, Briefcase, XCircle, Folder,
+    Power, AlertTriangle, Calendar, Clock
 } from 'lucide-react';
 import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
@@ -20,12 +20,12 @@ const CarriereTab = lazy(() => import('./carriere/CarriereTab'));
 const FichePersonnelleTab = lazy(() => import('@/components/employe/tabs/FichePersonnelleTab'));
 const DocumentsRhTab = lazy(() => import('@/components/employe/tabs/DocumentsRhTab'));
 const FamilleContactsTab = lazy(() => import('@/components/employe/tabs/FamilleContactsTab'));
-const HistoriqueStatutTab = lazy(() => import('@/components/employe/tabs/HistoriqueStatutTab'));
 const CongesTab = lazy(() => import('@/components/employe/tabs/CongesTab'));
+const PointageTab = lazy(() => import('@/components/employe/tabs/PointageTab'));
 const UploadDocumentModal = lazy(() => import('@/components/employe/tabs/UploadDocumentModal'));
 import SEO from '@/components/system/SEO';
 
-const VALID_TABS = ['personnel','documents', 'famille', 'carriere','conges'];
+const VALID_TABS = ['personnel', 'documents', 'famille', 'carriere', 'conges', 'pointage'];
 
 const TabLoader = () => (
     <div className="p-6">
@@ -241,11 +241,11 @@ export default function EmployeFicheDetailPage() {
 
     const mainTabs = [
         { id: 'personnel', label: 'Fiche Personnelle', icon: <User size={16} /> },
-        { id: 'conges', label: 'Congés & Absences', icon: <Calendar size={16} /> },
         { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: <Folder size={16} /> },
         { id: 'famille', label: 'Famille & Contacts', icon: <Users size={16} /> },
         { id: 'carriere', label: 'Carrière & Affectation', icon: <Briefcase size={16} /> },
-        { id: 'historique', label: 'Historique & Statut', icon: <FileText size={16} /> }
+        { id: 'conges', label: 'Congés & Absences', icon: <Calendar size={16} /> },
+        { id: 'pointage', label: 'Pointages & Présence', icon: <Clock size={16} /> }
     ];
 
     return (
@@ -284,13 +284,6 @@ export default function EmployeFicheDetailPage() {
                     {activeTab === 'personnel' && (
                         <Suspense fallback={<TabLoader label="Chargement de la fiche personnelle..." />}>
                             <FichePersonnelleTab emp={emp} comptes={comptes} />
-                        </Suspense>
-                    )}
-
-                    {/* Onglet 2: Congés & Absences */}
-                    {activeTab === 'conges' && (
-                        <Suspense fallback={<TabLoader label="Chargement des congés de l'employé..." />}>
-                            <CongesTab idEmploye={id} canWrite={canWrite} />
                         </Suspense>
                     )}
 
@@ -334,10 +327,17 @@ export default function EmployeFicheDetailPage() {
                         </Suspense>
                     )}
 
-                    {/* Onglet 5: Historique & Statut */}
-                    {activeTab === 'historique' && (
-                        <Suspense fallback={<TabLoader label="Chargement de l'historique du dossier..." />}>
-                            <HistoriqueStatutTab emp={emp} />
+                    {/* Onglet 5: Congés & Absences */}
+                    {activeTab === 'conges' && (
+                        <Suspense fallback={<TabLoader label="Chargement des congés de l'employé..." />}>
+                            <CongesTab idEmploye={id} canWrite={canWrite} />
+                        </Suspense>
+                    )}
+
+                    {/* Onglet 6: Pointages & Présence */}
+                    {activeTab === 'pointage' && (
+                        <Suspense fallback={<TabLoader label="Chargement des pointages de l'employé..." />}>
+                            <PointageTab idEmploye={id} />
                         </Suspense>
                     )}
 

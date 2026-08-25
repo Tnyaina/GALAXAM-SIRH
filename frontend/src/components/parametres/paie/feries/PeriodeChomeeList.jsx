@@ -76,7 +76,7 @@ export default function PeriodeChomeeList({ periodes, sites, onOpenCreate, onOpe
                                         {p.dateFin ? (
                                             <>Au <strong>{fmtDate(p.dateFin)}</strong></>
                                         ) : (
-                                            <span className="text-warning-500 font-semibold italic">Jusqu'à nouvel ordre</span>
+                                            <span className="text-warning-500 font-semibold">Jusqu'à nouvel ordre</span>
                                         )}
                                     </Td>
                                     <Td>

@@ -12,9 +12,9 @@ export default function Topbar({ onMenuClick, title}) {
     const navigate = useNavigate();
     const [showDropdown, setShowDropdown] = useState(false);
 
-    const handleLogout = () => {
-        logout();
-        navigate('/');
+    const handleLogout = async () => {
+        await logout();
+        navigate('/', { replace: true });
     };
 
     return (

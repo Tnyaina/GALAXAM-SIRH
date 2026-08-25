@@ -149,12 +149,11 @@ export const AuthProvider = ({ children }) => {
 
     // Déconnexion utilisateur
     const logout = async () => {
+        handleTokenUpdate(null);
         try {
             await apiClient.post('/auth/logout');
         } catch (error) {
             console.error("Erreur lors de la déconnexion sur le serveur", error);
-        } finally {
-            handleTokenUpdate(null);
         }
     };
 

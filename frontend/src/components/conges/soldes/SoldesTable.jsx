@@ -5,6 +5,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import Badge from '@/components/ui/data-display/Badge';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Pagination from '@/components/ui/navigation/Pagination';
+import { useAuth } from '@/context/AuthContext';
 
 const formatDate = (timestamp) => {
   if (!timestamp) return '-';
@@ -24,6 +25,8 @@ export default function SoldesTable({
   tablePageSize,
   setTablePageSize
 }) {
+  const { hasPermission } = useAuth();
+  const canViewEmploye = hasPermission('EMPLOYE_READ');
   const renderSortIcon = (field) => {
     if (tableSortField !== field) return <ArrowUpDown size={13} className="text-[var(--color-fg-subtle)] opacity-40 ml-1 inline-block" />;
     return tableSortOrder === 'asc'
@@ -67,11 +70,11 @@ export default function SoldesTable({
               {paginatedTableData.map((item, idx) => (
                 <Tr key={idx}>
                   <Td className="font-semibold text-[var(--color-fg)]">
-                    {item.idEmploye ? (
+                    {item.idEmploye && canViewEmploye ? (
                       <Link
-                        to={`/employes/${item.idEmploye}`}
+                        to={`/employes/${item.idEmploye}?tab=conges`}
                         className="hover:text-[var(--color-brand-500)] hover:underline inline-flex items-center gap-1 font-semibold text-[var(--color-fg)]"
-                        title={`Ouvrir la fiche de ${item.employe}`}
+                        title={`Ouvrir la fiche de ${item.employe} (onglet Congés)`}
                       >
                         {item.employe}
                         <ExternalLink size={12} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-brand-500)]" />

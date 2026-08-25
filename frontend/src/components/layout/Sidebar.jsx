@@ -151,9 +151,9 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
         window.localStorage.setItem(COLLAPSE_STORAGE_KEY, collapsed ? '1' : '0');
     }, [collapsed]);
 
-    const handleLogout = () => {
-        logout();
-        navigate('/');
+    const handleLogout = async () => {
+        await logout();
+        navigate('/', { replace: true });
     };
 
     return (

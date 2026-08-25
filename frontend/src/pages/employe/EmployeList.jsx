@@ -221,6 +221,15 @@ export default function EmployeList() {
         });
     }, [filteredEmployes, sortPreset, columnSortConfig]);
 
+    const totalPages = Math.ceil(sortedEmployes.length / pageSize) || 1;
+
+    // Sécurité ajustement : si la page courante dépasse le total de pages
+    useEffect(() => {
+        if (currentPage > totalPages && totalPages > 0) {
+            setCurrentPage(1);
+        }
+    }, [totalPages, currentPage]);
+
     // 3. Découpage pagination
     const paginatedEmployes = useMemo(() => {
         const start = (currentPage - 1) * pageSize;

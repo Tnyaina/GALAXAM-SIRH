@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 
@@ -17,6 +18,13 @@ export default function Pagination({
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
     const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
     const endItem = Math.min(currentPage * pageSize, totalItems);
+
+    // Sécurité ajustement : si currentPage dépasse totalPages (ex: filtre modifié ou suppression)
+    useEffect(() => {
+        if (currentPage > totalPages && totalPages > 0 && onPageChange) {
+            onPageChange(1);
+        }
+    }, [currentPage, totalPages, onPageChange]);
 
     // Génération des numéros de page avec ellipsis
     const getPageNumbers = () => {

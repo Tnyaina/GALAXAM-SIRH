@@ -17,6 +17,7 @@ import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,6 +37,7 @@ public class DemandeCongeController {
     private DataSource dataSource;
 
     @PostMapping("/simuler")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> simulerDemande(@RequestBody Map<String, String> req) {
         if (!req.containsKey("dateDebut") || !req.containsKey("dateFin")) {
             return ResponseEntity.badRequest().body("Les dates dateDebut et dateFin sont requises pour la simulation.");
@@ -59,6 +61,7 @@ public class DemandeCongeController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> creerDemande(@RequestBody Map<String, Object> req) {
         if (!req.containsKey("idEmploye") || !req.containsKey("idTypeConge") || !req.containsKey("dateDebut") || !req.containsKey("dateFin")) {
             return ResponseEntity.badRequest().body("L'idEmploye, l'idTypeConge, la dateDebut et la dateFin sont obligatoires.");
@@ -175,6 +178,7 @@ public class DemandeCongeController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> modifierDemande(@PathVariable Integer id, @RequestBody Map<String, Object> req) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -229,6 +233,7 @@ public class DemandeCongeController {
     }
 
     @GetMapping("/employe/{idEmploye}")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getDemandesEmploye(@PathVariable Integer idEmploye,
                                                 @RequestParam(defaultValue = "1") int page,
                                                 @RequestParam(defaultValue = "10") int size) {
@@ -247,6 +252,7 @@ public class DemandeCongeController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getDemandeParId(@PathVariable Integer id) {
         try (Connection c = dataSource.getConnection()) {
             VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
@@ -260,6 +266,7 @@ public class DemandeCongeController {
     }
 
     @GetMapping("/validation")
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getDemandesAValider(@RequestParam(required = false) String q,
                                                  @RequestParam(defaultValue = "1") int page,
                                                  @RequestParam(defaultValue = "10") int size) {
@@ -278,6 +285,7 @@ public class DemandeCongeController {
     }
 
     @GetMapping("/all")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllDemandes(@RequestParam(required = false) String q,
                                             @RequestParam(required = false) String statut,
                                             @RequestParam(defaultValue = "1") int page,
@@ -297,6 +305,7 @@ public class DemandeCongeController {
     }
 
     @PostMapping("/{id}/valider")
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> validerDemande(@PathVariable Integer id, @RequestParam(required = false, defaultValue = "false") boolean justificatifFourni) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -346,6 +355,7 @@ public class DemandeCongeController {
     }
 
     @PostMapping("/{id}/refuser")
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> refuserDemande(@PathVariable Integer id, @RequestBody Map<String, String> req) {
         if (!req.containsKey("motifRefus") || req.get("motifRefus").isBlank()) {
             return ResponseEntity.badRequest().body("Le motif de refus est obligatoire.");
@@ -395,6 +405,7 @@ public class DemandeCongeController {
     }
 
     @PostMapping("/{id}/annuler")
+    @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> annulerDemande(@PathVariable Integer id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

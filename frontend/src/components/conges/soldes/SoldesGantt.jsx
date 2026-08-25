@@ -6,6 +6,7 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Pagination from '@/components/ui/navigation/Pagination';
+import { useAuth } from '@/context/AuthContext';
 
 const formatDate = (timestamp) => {
   if (!timestamp) return '-';
@@ -39,6 +40,9 @@ export default function SoldesGantt({
   handleToday,
   onReload
 }) {
+  const { hasPermission } = useAuth();
+  const canViewEmploye = hasPermission('EMPLOYE_READ');
+
   return (
     <Card>
       <CardHeader>
@@ -176,9 +180,9 @@ export default function SoldesGantt({
                     title={`Voir la fiche employé de ${row.employe}`}
                     style={{ minHeight: `${rowHeight + 8}px` }}
                   >
-                    {row.idEmploye ? (
+                    {row.idEmploye && canViewEmploye ? (
                       <Link
-                        to={`/employes/${row.idEmploye}`}
+                        to={`/employes/${row.idEmploye}?tab=conges`}
                         className="hover:text-[var(--color-brand-500)] hover:underline truncate flex items-center gap-1 font-semibold text-[var(--color-fg)]"
                       >
                         <span className="truncate">{row.employe}</span>

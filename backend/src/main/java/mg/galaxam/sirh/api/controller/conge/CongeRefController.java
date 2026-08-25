@@ -13,6 +13,7 @@ import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -31,6 +32,7 @@ public class CongeRefController {
     private DataSource dataSource;
 
     @GetMapping("/all")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getAllReferentielsConge() {
         try (Connection c = dataSource.getConnection()) {
             Map<String, Object> result = new HashMap<>();
@@ -48,6 +50,7 @@ public class CongeRefController {
     }
 
     @GetMapping("/types")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getTypesConge(@RequestParam(value = "actifUniquement", required = false, defaultValue = "true") Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
             List<RefTypeConge> list = RefTypeConge.listAll(c, actifUniquement);
@@ -60,6 +63,7 @@ public class CongeRefController {
     }
 
     @GetMapping("/motifs")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getMotifsFamiliaux(@RequestParam(value = "actifUniquement", required = false, defaultValue = "true") Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
             List<RefMotifEvenementFamilial> list = RefMotifEvenementFamilial.listAll(c, actifUniquement);
@@ -72,6 +76,7 @@ public class CongeRefController {
     }
 
     @GetMapping("/pools")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getPools() {
         try (Connection c = dataSource.getConnection()) {
             List<RefPoolCongeAnnuel> list = RefPoolCongeAnnuel.listAll(c);
@@ -84,6 +89,7 @@ public class CongeRefController {
     }
 
     @GetMapping("/statuts")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getStatutsDemande() {
         try (Connection c = dataSource.getConnection()) {
             List<RefStatutDemandeConge> list = RefStatutDemandeConge.listAll(c);
@@ -100,6 +106,7 @@ public class CongeRefController {
     // =========================================================================
 
     @PostMapping("/types")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createTypeConge(@RequestBody RefTypeConge typeConge) {
         try (Connection c = dataSource.getConnection()) {
             typeConge.controler(c);
@@ -115,6 +122,7 @@ public class CongeRefController {
     }
 
     @PutMapping("/types/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateTypeConge(@PathVariable Integer id, @RequestBody RefTypeConge typeConge) {
         try (Connection c = dataSource.getConnection()) {
             RefTypeConge existant = RefTypeConge.rechercherParId(id, c);
@@ -135,6 +143,7 @@ public class CongeRefController {
     }
 
     @DeleteMapping("/types/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deactivateTypeConge(@PathVariable Integer id) {
         try (Connection c = dataSource.getConnection()) {
             RefTypeConge existant = RefTypeConge.rechercherParId(id, c);
@@ -156,6 +165,7 @@ public class CongeRefController {
     // =========================================================================
 
     @PostMapping("/motifs")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createMotifFamilial(@RequestBody RefMotifEvenementFamilial motif) {
         try (Connection c = dataSource.getConnection()) {
             motif.controler(c);
@@ -171,6 +181,7 @@ public class CongeRefController {
     }
 
     @PutMapping("/motifs/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateMotifFamilial(@PathVariable Integer id, @RequestBody RefMotifEvenementFamilial motif) {
         try (Connection c = dataSource.getConnection()) {
             RefMotifEvenementFamilial existant = RefMotifEvenementFamilial.rechercherParId(id, c);
@@ -191,6 +202,7 @@ public class CongeRefController {
     }
 
     @DeleteMapping("/motifs/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deactivateMotifFamilial(@PathVariable Integer id) {
         try (Connection c = dataSource.getConnection()) {
             RefMotifEvenementFamilial existant = RefMotifEvenementFamilial.rechercherParId(id, c);
