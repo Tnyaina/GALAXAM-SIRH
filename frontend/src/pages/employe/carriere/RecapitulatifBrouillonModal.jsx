@@ -135,7 +135,8 @@ export default function RecapitulatifBrouillonModal({
     if (!isOpen || !currentWf) return null;
 
     const isBrouillon = currentWf.codeStatutWorkflow === 'BROUILLON';
-    const isValide = currentWf.codeStatutWorkflow === 'VALIDE';
+    const isValide = currentWf.codeStatutWorkflow === 'ACTIF' || currentWf.codeStatutWorkflow === 'VALIDE';
+    const isPlanifie = currentWf.codeStatutWorkflow === 'PLANIFIE';
     const todayStr = new Date().toISOString().substring(0, 10);
     const dateEffetStr = currentWf.dateEffet ? String(currentWf.dateEffet).substring(0, 10) : '';
 
@@ -146,10 +147,11 @@ export default function RecapitulatifBrouillonModal({
     } = getWorkflowLibellesUI(currentWf);
 
     const getDateFinEssaiContextuelle = () => calculerDateFinEssaiContextuelle(currentWf);
-    const isPlanifieFutur = isValide && !isConfirmationEssai && !isRenouvellementEssai && dateEffetStr > todayStr;
+    const isPlanifieFutur = isPlanifie || (isValide && !isConfirmationEssai && !isRenouvellementEssai && dateEffetStr > todayStr);
 
     const getStatutBadgeVariant = (code) => {
-        if (code === 'VALIDE' || code === 'ACTIF') return 'success';
+        if (code === 'ACTIF' || code === 'VALIDE') return 'success';
+        if (code === 'PLANIFIE') return 'info';
         if (code === 'ANNULE' || code === 'ROMPU') return 'danger';
         if (code === 'BROUILLON') return 'warning';
         return 'default';

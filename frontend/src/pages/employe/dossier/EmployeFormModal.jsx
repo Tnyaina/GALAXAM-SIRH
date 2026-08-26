@@ -12,6 +12,15 @@ import FamilleFormStep from '@/components/employe/form/FamilleFormStep';
 import UrgenceFormStep from '@/components/employe/form/UrgenceFormStep';
 import CnapsBanqueStep from '@/components/employe/form/CnapsBanqueStep';
 
+const STEPS = [
+    { id: 'civilite', label: 'Identité', icon: User },
+    { id: 'cin', label: 'CIN & Permis', icon: CreditCard },
+    { id: 'coordonnees', label: 'Coordonnées & Photo', icon: Phone },
+    { id: 'famille', label: 'Famille', icon: Users },
+    { id: 'urgence', label: 'Urgence', icon: ShieldAlert },
+    { id: 'banque', label: 'CNaPS & Banque', icon: Building }
+];
+
 const EMPTY_FORM = {
     matricule: '', nom: '', prenom: '', sexe: 'M',
     dateNaissance: '', lieuNaissance: 'Antananarivo', nationalite: 'Malgache',
@@ -28,12 +37,15 @@ const EMPTY_FORM = {
 };
 
 export default function EmployeFormModal({ isOpen, onClose, onSave, employeData, isSubmitting }) {
-    const [activeTab, setActiveTab] = useState('civilite');
+    const [activeStep, setActiveStep] = useState(0);
     const [banques, setBanques] = useState([]);
     const [errorMsg, setErrorMsg] = useState('');
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const [customNationalite, setCustomNationalite] = useState('');
     const [isCustomNat, setIsCustomNat] = useState(false);
+
+    const [generatingMatricule, setGeneratingMatricule] = useState(false);
+    const [matriculeError, setMatriculeError] = useState('');
 
     const [formData, setFormData] = useState({ ...EMPTY_FORM });
 
@@ -72,7 +84,9 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
         } 
     };
 
-    useEffect(() => { loadBanques(); }, []);
+    useEffect(() => { 
+        loadBanques(); 
+    }, []);
 
     useEffect(() => {
         if (employeData) {
@@ -89,20 +103,30 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
             }
 
             setFormData({
-                matricule: e.matricule || '', nom: e.nom || '', prenom: e.prenom || '',
+                matricule: e.matricule || '', 
+                nom: e.nom || '', 
+                prenom: e.prenom || '',
                 sexe: e.sexe || 'M',
-                dateNaissance: fmtDate(e.dateNaissance), lieuNaissance: e.lieuNaissance || 'Antananarivo',
+                dateNaissance: fmtDate(e.dateNaissance), 
+                lieuNaissance: e.lieuNaissance || 'Antananarivo',
                 nationalite: isKnownNat ? nat : 'Autre',
-                pereNomPrenom: e.pereNomPrenom || '', mereNomPrenom: e.mereNomPrenom || '',
+                pereNomPrenom: e.pereNomPrenom || '', 
+                mereNomPrenom: e.mereNomPrenom || '',
                 situationFamiliale: e.situationFamiliale || 'Celibataire',
-                cinNumero: e.cinNumero || '', cinDateDelivrance: fmtDate(e.cinDateDelivrance),
+                cinNumero: e.cinNumero || '', 
+                cinDateDelivrance: fmtDate(e.cinDateDelivrance),
                 cinLieuDelivrance: e.cinLieuDelivrance || 'Antananarivo',
-                cinDuplicataDate: fmtDate(e.cinDuplicataDate), cinDuplicataLieu: e.cinDuplicataLieu || '',
+                cinDuplicataDate: fmtDate(e.cinDuplicataDate), 
+                cinDuplicataLieu: e.cinDuplicataLieu || '',
                 permisConduireNumero: e.permisConduireNumero || '',
                 permisConduireDateDelivrance: fmtDate(e.permisConduireDateDelivrance),
                 permisConduireLieuDelivrance: e.permisConduireLieuDelivrance || '',
-                adresse: e.adresse || '', ville: e.ville || 'Antananarivo', telephone: e.telephone || '', email: e.email || '',
-                numAffiliationCnaps: e.numAffiliationCnaps || '', photoUrl: e.photoUrl || '',
+                adresse: e.adresse || '', 
+                ville: e.ville || 'Antananarivo', 
+                telephone: e.telephone || '', 
+                email: e.email || '',
+                numAffiliationCnaps: e.numAffiliationCnaps || '', 
+                photoUrl: e.photoUrl || '',
                 dateDeclaration: fmtDate(e.dateDeclaration),
                 conjoint: {
                     nom: employeData.conjoint?.nom || e.conjointNom || '',
@@ -113,14 +137,21 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                     fonction: employeData.conjoint?.fonction || e.conjointFonction || ''
                 },
                 enfants: (employeData.enfants || []).map(enf => ({
-                    nom: enf.nom || '', prenom: enf.prenom || '', sexe: enf.sexe || 'M',
-                    dateNaissance: fmtDate(enf.dateNaissance), lieuNaissance: enf.lieuNaissance || '',
+                    nom: enf.nom || '', 
+                    prenom: enf.prenom || '', 
+                    sexe: enf.sexe || 'M',
+                    dateNaissance: fmtDate(enf.dateNaissance), 
+                    lieuNaissance: enf.lieuNaissance || '',
                     aCharge: enf.aCharge !== undefined ? enf.aCharge : true
                 })),
                 contactsUrgence: (employeData.contactsUrgence?.length > 0)
                     ? employeData.contactsUrgence.map(ct => ({
-                        nom: ct.nom || '', prenom: ct.prenom || '', lienParente: ct.lienParente || 'Autre',
-                        telephone: ct.telephone || '', adresse: ct.adresse || '', societe: ct.societe || ''
+                        nom: ct.nom || '', 
+                        prenom: ct.prenom || '', 
+                        lienParente: ct.lienParente || 'Autre',
+                        telephone: ct.telephone || '', 
+                        adresse: ct.adresse || '', 
+                        societe: ct.societe || ''
                     }))
                     : [{ nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }],
                 compteBanquePrincipal: {
@@ -136,7 +167,8 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
             setCustomNationalite('');
         }
         setErrorMsg('');
-        setActiveTab('civilite');
+        setMatriculeError('');
+        setActiveStep(0);
     }, [employeData, isOpen]);
 
     if (!isOpen) return null;
@@ -186,17 +218,98 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
     const removeContact = (i) => setFormData(prev => ({ ...prev, contactsUrgence: prev.contactsUrgence.filter((_, idx) => idx !== i) }));
     const setContact = (i, field, val) => { const u = [...formData.contactsUrgence]; u[i][field] = val; setFormData(prev => ({ ...prev, contactsUrgence: u })); };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (isSubmitting) return;
+    const handleGenerateMatricule = async () => {
+        try {
+            setGeneratingMatricule(true);
+            setMatriculeError('');
+            const nextMatricule = await employeService.getNextMatricule();
+            setFormData(prev => ({ ...prev, matricule: nextMatricule }));
+        } catch {
+            setMatriculeError("Erreur génération matricule");
+        } finally {
+            setGeneratingMatricule(false);
+        }
+    };
+
+    const handleBlurMatricule = async () => {
+        if (!formData.matricule) return;
+        try {
+            if (employeData && employeData.matricule === formData.matricule) {
+                setMatriculeError('');
+                return;
+            }
+            const exists = await employeService.checkMatriculeExists(formData.matricule);
+            if (exists) {
+                setMatriculeError("Ce matricule est déjà utilisé.");
+            } else {
+                setMatriculeError('');
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const validateStep = (stepIdx) => {
         setErrorMsg('');
+        const step = STEPS[stepIdx].id;
+        if (step === 'civilite') {
+            if (!formData.matricule || !formData.nom || !formData.prenom || !formData.dateNaissance) {
+                setErrorMsg("L'identité et le matricule sont obligatoires.");
+                return false;
+            }
+            if (matriculeError) {
+                setErrorMsg("Veuillez corriger les erreurs de matricule.");
+                return false;
+            }
+        }
+        if (step === 'cin') {
+            if (!formData.cinNumero) {
+                setErrorMsg("Le numéro de CIN est obligatoire.");
+                return false;
+            }
+        }
+        if (step === 'coordonnees') {
+            if (!formData.adresse || !formData.telephone) {
+                setErrorMsg("L'adresse et le téléphone sont obligatoires.");
+                return false;
+            }
+        }
+        return true;
+    };
 
-        const finalNat = isCustomNat ? customNationalite : formData.nationalite;
+    const handleNext = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        if (validateStep(activeStep)) {
+            setActiveStep(prev => prev + 1);
+        }
+    };
 
-        if (!formData.matricule || !formData.nom || !formData.prenom || !formData.dateNaissance || !formData.cinNumero || !formData.adresse || !formData.telephone) {
-            setErrorMsg('Veuillez remplir tous les champs obligatoires (*).');
+    const handlePrev = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        setActiveStep(prev => prev - 1);
+        setErrorMsg('');
+    };
+
+    const handleSave = (e) => {
+        e.preventDefault();
+        
+        // Si on n'est pas sur le dernier onglet, "Entrée" avance simplement à la suite
+        if (activeStep < STEPS.length - 1) {
+            handleNext();
             return;
         }
+
+        if (isSubmitting) return;
+        if (!validateStep(activeStep)) return;
+        
+        setErrorMsg('');
+        const finalNat = isCustomNat ? customNationalite : formData.nationalite;
 
         if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             setErrorMsg("L'adresse email saisie est invalide.");
@@ -213,15 +326,6 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
         });
     };
 
-    const tabs = [
-        { id: 'civilite', label: 'Identité', icon: User },
-        { id: 'cin', label: 'CIN & Permis', icon: CreditCard },
-        { id: 'coordonnees', label: 'Coordonnées & Photo', icon: Phone },
-        { id: 'famille', label: 'Famille', icon: Users },
-        { id: 'urgence', label: 'Urgence', icon: ShieldAlert },
-        { id: 'banque', label: 'CNaPS & Banque', icon: Building }
-    ];
-
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto">
             <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -233,35 +337,50 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                         </h2>
                         <p className="text-xs text-ink-400">Remplissez les informations de la fiche employé</p>
                     </div>
-                    <button onClick={onClose} className="p-1.5 text-ink-400 hover:text-ink-800 dark:hover:text-white hover:bg-ink-100 dark:hover:bg-ink-800 rounded-none  cursor-pointer">
+                    <button 
+                        type="button"
+                        onClick={onClose} 
+                        className="p-1.5 text-ink-400 hover:text-ink-800 dark:hover:text-white hover:bg-ink-100 dark:hover:bg-ink-800 rounded-none cursor-pointer"
+                    >
                         <X size={18} />
                     </button>
                 </div>
 
-                {/* Onglets */}
+                {/* Onglets Stepper */}
                 <div className="flex border-b border-ink-150 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-950/20 px-2 overflow-x-auto justify-between">
-                    {tabs.map(tab => {
-                        const Icon = tab.icon;
+                    {STEPS.map((step, idx) => {
+                        const Icon = step.icon;
+                        const isCompleted = idx < activeStep;
+                        const isActive = idx === activeStep;
+                        const canClick = employeData || isCompleted;
+
                         return (
                             <button
-                                key={tab.id}
+                                key={step.id}
                                 type="button"
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-1.5 py-3 px-3 border-b-2 text-xs font-semibold  whitespace-nowrap cursor-pointer ${
-                                    activeTab === tab.id
+                                onClick={() => {
+                                    if (canClick) {
+                                        setActiveStep(idx);
+                                        setErrorMsg('');
+                                    }
+                                }}
+                                className={`flex items-center gap-1.5 py-3 px-3 border-b-2 text-xs font-semibold whitespace-nowrap transition-colors ${
+                                    isActive
                                         ? 'border-brand-500 text-brand-500'
-                                        : 'border-transparent text-ink-400 hover:text-ink-900 dark:hover:text-white'
+                                        : canClick 
+                                            ? 'border-transparent text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-white cursor-pointer' 
+                                            : 'border-transparent text-ink-300 dark:text-ink-600 cursor-not-allowed opacity-60'
                                 }`}
                             >
                                 <Icon size={14} />
-                                {tab.label}
+                                {step.label}
                             </button>
                         );
                     })}
                 </div>
 
                 {/* Body Formulaire */}
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
+                <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-5">
                     {errorMsg && (
                         <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 rounded-none p-3 text-xs flex items-center gap-1.5">
                             <ShieldAlert size={14} />
@@ -270,7 +389,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                     )}
 
                     {/* Step 1: Identité */}
-                    {activeTab === 'civilite' && (
+                    {STEPS[activeStep].id === 'civilite' && (
                         <CiviliteStep
                             formData={formData}
                             set={set}
@@ -280,11 +399,15 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                             customNationalite={customNationalite}
                             setCustomNationalite={setCustomNationalite}
                             handleNationaliteChange={handleNationaliteChange}
+                            onGenerateMatricule={handleGenerateMatricule}
+                            onBlurMatricule={handleBlurMatricule}
+                            matriculeError={matriculeError}
+                            generatingMatricule={generatingMatricule}
                         />
                     )}
 
                     {/* Step 2: CIN & Permis */}
-                    {activeTab === 'cin' && (
+                    {STEPS[activeStep].id === 'cin' && (
                         <CinPermisStep
                             formData={formData}
                             set={set}
@@ -293,7 +416,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                     )}
 
                     {/* Step 3: Coordonnées & Photo */}
-                    {activeTab === 'coordonnees' && (
+                    {STEPS[activeStep].id === 'coordonnees' && (
                         <CoordonneesPhotoStep
                             formData={formData}
                             set={set}
@@ -304,7 +427,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                     )}
 
                     {/* Step 4: Famille */}
-                    {activeTab === 'famille' && (
+                    {STEPS[activeStep].id === 'famille' && (
                         <FamilleFormStep
                             formData={formData}
                             setNested={setNested}
@@ -315,7 +438,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                     )}
 
                     {/* Step 5: Urgence */}
-                    {activeTab === 'urgence' && (
+                    {STEPS[activeStep].id === 'urgence' && (
                         <UrgenceFormStep
                             formData={formData}
                             addContact={addContact}
@@ -325,7 +448,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                     )}
 
                     {/* Step 6: CNaPS & Banque */}
-                    {activeTab === 'banque' && (
+                    {STEPS[activeStep].id === 'banque' && (
                         <CnapsBanqueStep
                             formData={formData}
                             set={set}
@@ -335,11 +458,30 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                     )}
 
                     {/* Footer Boutons */}
-                    <div className="flex justify-end gap-3 pt-4 border-t border-ink-150 dark:border-ink-700">
+                    <div className="flex justify-between items-center pt-4 border-t border-ink-150 dark:border-ink-700">
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">Annuler</Button>
-                        <Button type="submit" variant="primary" size="sm" loading={isSubmitting}>
-                            {employeData ? 'Enregistrer' : 'Créer la Fiche'}
-                        </Button>
+                        
+                        <div className="flex items-center gap-3">
+                            {activeStep > 0 && (
+                                <Button type="button" onClick={handlePrev} variant="outline" size="sm">
+                                    Précédent
+                                </Button>
+                            )}
+                            
+                            {activeStep < STEPS.length - 1 ? (
+                                <button 
+                                    type="button" 
+                                    onClick={handleNext} 
+                                    className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-none transition-colors cursor-pointer"
+                                >
+                                    Suivant
+                                </button>
+                            ) : (
+                                <Button type="submit" variant="primary" size="sm" loading={isSubmitting}>
+                                    {employeData ? 'Enregistrer' : 'Créer la Fiche'}
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </form>
             </div>

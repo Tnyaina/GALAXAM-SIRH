@@ -16,8 +16,11 @@ import java.util.List;
  * Moteur d'événements RH : orchestre et trace toutes les transitions de carrière.
  *
  * Cycle de vie :
- *   BROUILLON → VALIDE  : La DAF prépare puis valide (les opérations SQL s'exécutent à la validation)
- *   BROUILLON → ANNULE  : La DAF annule avant validation
+ *   BROUILLON → PLANIFIE : La DAF valide avec date d'effet future
+ *   BROUILLON → ACTIF    : La DAF valide avec date d'effet immédiate (les opérations SQL s'exécutent)
+ *   PLANIFIE  → ACTIF    : Le scheduler applique le mouvement à la date d'effet
+ *   BROUILLON → ANNULE   : La DAF annule avant validation
+ *   PLANIFIE  → ANNULE   : La DAF annule une planification pas encore appliquée
  *
  * Liens source/cible :
  *   - id_contrat_source / id_contrat_cible : contrats concernés par la transition
@@ -29,7 +32,7 @@ public class WorkflowRh extends ClassMere {
     private Integer idWorkflow;
     private Integer idEmploye;
     private Integer idTypeEvenementRh;
-    private Integer idStatutWorkflow;
+    private Integer idStatutRh;
 
     private Integer idContratSource;
     private Integer idContratCible;
@@ -62,14 +65,14 @@ public class WorkflowRh extends ClassMere {
     public void controler(Connection c) throws Exception {
         if (idEmploye == null) throw new IllegalArgumentException("L'employé est obligatoire.");
         if (idTypeEvenementRh == null) throw new IllegalArgumentException("Le type d'événement RH est obligatoire.");
-        if (idStatutWorkflow == null) throw new IllegalArgumentException("Le statut du workflow est obligatoire.");
+        if (idStatutRh == null) throw new IllegalArgumentException("Le statut du workflow est obligatoire.");
         if (dateEffet == null) throw new IllegalArgumentException("La date d'effet est obligatoire.");
     }
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO workflow_rh (" +
-                "id_employe, id_type_evenement_rh, id_statut_workflow, " +
+                "id_employe, id_type_evenement_rh, id_statut_rh, " +
                 "id_contrat_source, id_contrat_cible, id_affectation_source, id_affectation_cible, " +
                 "date_demande, date_effet, motif, commentaire, id_demandeur, id_valideur" +
                 ") VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE), ?, ?, ?, ?, ?)";
@@ -78,7 +81,7 @@ public class WorkflowRh extends ClassMere {
             int i = 1;
             ps.setInt(i++, idEmploye);
             ps.setInt(i++, idTypeEvenementRh);
-            ps.setInt(i++, idStatutWorkflow);
+            ps.setInt(i++, idStatutRh);
             setNullableInt(ps, i++, idContratSource);
             setNullableInt(ps, i++, idContratCible);
             setNullableInt(ps, i++, idAffectationSource);
@@ -143,7 +146,7 @@ public class WorkflowRh extends ClassMere {
      */
     public void valider(Integer idValideurUtilisateur, Integer idContratCibleFinal, Integer idAffectationCibleFinal, Connection c) throws Exception {
         String sql = "UPDATE workflow_rh SET " +
-                "id_statut_workflow = (SELECT id_statut_workflow FROM ref_statut_workflow WHERE code = 'VALIDE'), " +
+                "id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF'), " +
                 "id_contrat_cible = COALESCE(?, id_contrat_cible), " +
                 "id_affectation_cible = COALESCE(?, id_affectation_cible), " +
                 "id_valideur = ?, " +
@@ -168,7 +171,7 @@ public class WorkflowRh extends ClassMere {
     public void annuler(Integer idValideurUtilisateur, String commentaireAnnulation, Connection c) throws Exception {
         // Vérification que le workflow est bien en BROUILLON
         String checkSql = "SELECT rsw.code FROM workflow_rh w " +
-                "JOIN ref_statut_workflow rsw ON w.id_statut_workflow = rsw.id_statut_workflow " +
+                "JOIN ref_statut_rh rsw ON w.id_statut_rh = rsw.id_statut_rh " +
                 "WHERE w.id_workflow = ?";
         String currentCode = null;
         try (PreparedStatement ps = c.prepareStatement(checkSql)) {
@@ -182,7 +185,7 @@ public class WorkflowRh extends ClassMere {
         }
 
         String sql = "UPDATE workflow_rh SET " +
-                "id_statut_workflow = (SELECT id_statut_workflow FROM ref_statut_workflow WHERE code = 'ANNULE'), " +
+                "id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ANNULE'), " +
                 "commentaire = COALESCE(commentaire || ' | Annulé : ' || ?, 'Annulé : ' || ?), " +
                 "id_valideur = ?, " +
                 "updated_at = CURRENT_TIMESTAMP " +
@@ -201,7 +204,7 @@ public class WorkflowRh extends ClassMere {
      */
     public void annulerPlanifie(Integer idValideurUtilisateur, String commentaireAnnulation, Connection c) throws Exception {
         String sql = "UPDATE workflow_rh SET " +
-                "id_statut_workflow = (SELECT id_statut_workflow FROM ref_statut_workflow WHERE code = 'ANNULE'), " +
+                "id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ANNULE'), " +
                 "commentaire = COALESCE(commentaire || ' | Annulation Planification : ' || ?, 'Annulation Planification : ' || ?), " +
                 "id_valideur = ?, " +
                 "updated_at = CURRENT_TIMESTAMP " +
@@ -268,7 +271,7 @@ public class WorkflowRh extends ClassMere {
      */
     public static WorkflowRh rechercherBrouillonParEmploye(Integer idEmploye, Connection c) throws Exception {
         String sql = "SELECT w.* FROM workflow_rh w " +
-                "JOIN ref_statut_workflow rsw ON w.id_statut_workflow = rsw.id_statut_workflow " +
+                "JOIN ref_statut_rh rsw ON w.id_statut_rh = rsw.id_statut_rh " +
                 "WHERE w.id_employe = ? AND rsw.code = 'BROUILLON' " +
                 "ORDER BY w.created_at DESC LIMIT 1";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -285,7 +288,7 @@ public class WorkflowRh extends ClassMere {
         w.setIdWorkflow(rs.getInt("id_workflow"));
         w.setIdEmploye(rs.getInt("id_employe"));
         w.setIdTypeEvenementRh(rs.getInt("id_type_evenement_rh"));
-        w.setIdStatutWorkflow(rs.getInt("id_statut_workflow"));
+        w.setIdStatutRh(rs.getInt("id_statut_rh"));
 
         int idContratSrc = rs.getInt("id_contrat_source");
         w.setIdContratSource(rs.wasNull() ? null : idContratSrc);
@@ -339,8 +342,8 @@ public class WorkflowRh extends ClassMere {
     public Integer getIdTypeEvenementRh() { return idTypeEvenementRh; }
     public void setIdTypeEvenementRh(Integer idTypeEvenementRh) { this.idTypeEvenementRh = idTypeEvenementRh; }
 
-    public Integer getIdStatutWorkflow() { return idStatutWorkflow; }
-    public void setIdStatutWorkflow(Integer idStatutWorkflow) { this.idStatutWorkflow = idStatutWorkflow; }
+    public Integer getIdStatutRh() { return idStatutRh; }
+    public void setIdStatutRh(Integer idStatutRh) { this.idStatutRh = idStatutRh; }
 
     public Integer getIdContratSource() { return idContratSource; }
     public void setIdContratSource(Integer idContratSource) { this.idContratSource = idContratSource; }

@@ -389,7 +389,7 @@ Le schéma relationnel PostgreSQL s'intègre aux structures existantes du SIRH (
 > c.statut_cloture  
 > FROM pointage_cumul_periode c  
 > JOIN employe e ON c.id_employe = e.id_employe  
-> LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_affectation = 2  
+> LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_rh = 2  
 > LEFT JOIN ref_categorie_professionnelle rcp ON eac.id_categorie_professionnelle = rcp.id_categorie_professionnelle;
 
 ## Procédures Stockées et Fonctions PostgreSQL Métier
@@ -485,7 +485,7 @@ Le schéma relationnel PostgreSQL s'intègre aux structures existantes du SIRH (
 > SELECT rcp.code INTO v_code_categorie  
 > FROM employe_affectation_carriere eac  
 > JOIN ref_categorie_professionnelle rcp ON eac.id_categorie_professionnelle = rcp.id_categorie_professionnelle  
-> WHERE eac.id_employe = p_id_employe AND eac.id_statut_affectation = 2  
+> WHERE eac.id_employe = p_id_employe AND eac.id_statut_rh = 2  
 > LIMIT 1;  
 >   
 > -- 2. Cumul des retards et des HS brutes de la période  

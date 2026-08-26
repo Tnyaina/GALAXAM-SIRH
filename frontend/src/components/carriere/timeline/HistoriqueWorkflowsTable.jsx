@@ -1,41 +1,9 @@
 import { Clock, Eye } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
-import Badge from '@/components/ui/data-display/Badge';
+import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import { fmtDate } from '@/utils/carriereUtils';
 
 export default function HistoriqueWorkflowsTable({ workflowsList = [], onSelectWorkflowRecap }) {
-    const todayStr = new Date().toISOString().substring(0, 10);
-
-    const getStatutBadge = (wf) => {
-        const statutCode = wf.codeStatutWorkflow;
-        const isPlanifie = statutCode === 'VALIDE' && wf.dateEffet && wf.dateEffet > todayStr;
-
-        if (isPlanifie) {
-            return <Badge variant="info" size="sm">PLANIFIÉ</Badge>;
-        }
-
-        switch (statutCode) {
-            case 'ACTIF':
-            case 'ACTIVE':
-            case 'VALIDE':
-                return <Badge variant="success" size="sm">VALIDÉ</Badge>;
-            case 'BROUILLON':
-                return <Badge variant="warning" size="sm">BROUILLON</Badge>;
-            case 'PLANIFIEE':
-            case 'PLANIFIE':
-                return <Badge variant="info" size="sm">PLANIFIÉ</Badge>;
-            case 'ANNULE':
-            case 'ANNULEE':
-            case 'ROMPU':
-                return <Badge variant="danger" size="sm">ANNULÉ</Badge>;
-            case 'CLOTURE':
-            case 'HISTORISEE':
-                return <Badge variant="default" size="sm">CLÔTURÉ</Badge>;
-            default:
-                return <Badge variant="primary" size="sm">{statutCode}</Badge>;
-        }
-    };
-
     return (
         <div className="space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2 pb-2 border-b border-ink-150 dark:border-ink-700">
@@ -73,7 +41,7 @@ export default function HistoriqueWorkflowsTable({ workflowsList = [], onSelectW
                                         {fmtDate(wf.dateEffet)}
                                     </td>
                                     <td className="px-4 py-3">
-                                        {getStatutBadge(wf)}
+                                        <StatusBadge status={wf.codeStatutWorkflow} label={wf.libelleStatutWorkflow} size="sm" />
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                         {wf.codeStatutWorkflow === 'BROUILLON' ? (

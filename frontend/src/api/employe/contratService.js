@@ -57,7 +57,7 @@ const contratService = {
 
     /**
      * ÉTAPE 1 — Créer un brouillon d'embauche initiale pour un employé.
-     * Crée atomiquement : contrat (BROUILLON) + affectation (PLANIFIEE) + workflow (BROUILLON).
+     * Crée atomiquement : contrat (BROUILLON) + affectation (PLANIFIE) + workflow (BROUILLON).
      * Retourne le WorkflowRhCPL (vue enrichie) pour la page de récapitulatif DAF.
      *
      * POST /employes/{idEmploye}/workflows/embauche-initiale

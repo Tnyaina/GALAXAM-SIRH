@@ -38,7 +38,7 @@ export default function CarriereTab({
 
     const workflowsValidesDuContrat = contratActif
         ? workflowsList
-            .filter((wf) => wf.codeStatutWorkflow === 'VALIDE' && (
+            .filter((wf) => (wf.codeStatutWorkflow === 'ACTIF' || wf.codeStatutWorkflow === 'VALIDE') && (
                 Number(wf.idContratCible) === Number(contratActif.idContrat) || 
                 (Number(wf.idContratSource) === Number(contratActif.idContrat) && !wf.idContratCible)
             ))

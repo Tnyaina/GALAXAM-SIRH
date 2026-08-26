@@ -308,9 +308,6 @@ export default function EmbaucheModal({
                                 <FileSignature size={14} className="text-brand-500" />
                                 Aperçu de la Convention / Contrat
                             </h3>
-                            <span className="text-[10px] font-mono font-bold text-brand-500 uppercase tracking-widest bg-brand-500/10 px-2 py-0.5 rounded-none">
-                                Temps Réel
-                            </span>
                         </div>
 
                         <ContractPreview

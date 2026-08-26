@@ -7,6 +7,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import EmptyState from '@/components/ui/data-display/EmptyState';
+import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 
 export default function DerogationIndemnitesTab() {
     const {
@@ -167,19 +168,12 @@ export default function DerogationIndemnitesTab() {
                         </div>
 
                         <form onSubmit={saveDerogation} className="space-y-4">
-                            <Select
+                            <EmployeSearchSelect
                                 label="Employé *"
                                 value={formData.idEmploye}
-                                onChange={(e) => setFormData({ ...formData, idEmploye: e.target.value })}
+                                onChange={(empId) => setFormData({ ...formData, idEmploye: empId })}
                                 required
-                            >
-                                <option value="">-- Sélectionner un employé --</option>
-                                {employes.map(e => (
-                                    <option key={e.idEmploye} value={e.idEmploye}>
-                                        {e.matricule} — {e.nom} {e.prenom}
-                                    </option>
-                                ))}
-                            </Select>
+                            />
 
                             <Select
                                 label="Indemnité *"

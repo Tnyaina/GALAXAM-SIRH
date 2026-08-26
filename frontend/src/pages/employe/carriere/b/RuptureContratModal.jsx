@@ -373,9 +373,6 @@ export default function RuptureContratModal({
                                 <FileSignature size={14} className="text-danger-500" />
                                 Aperçu du document de rupture
                             </h3>
-                            <span className="text-[10px] font-mono font-bold text-danger-500 uppercase tracking-widest bg-danger-500/10 px-2 py-0.5 rounded-none">
-                                Temps Réel
-                            </span>
                         </div>
                         <RupturePreview {...previewProps} />
                     </div>

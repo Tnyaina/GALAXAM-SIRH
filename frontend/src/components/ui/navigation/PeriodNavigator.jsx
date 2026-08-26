@@ -41,27 +41,26 @@ export default function PeriodNavigator({
 
         if (viewPeriod === 'jour') {
             return currDate.toLocaleDateString('fr-FR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-            });
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            }).replace(/\s+/g, ' ');
         }
 
         if (viewPeriod === 'semaine') {
-            const first = currDate.getDate() - (currDate.getDay() === 0 ? 6 : currDate.getDay() - 1);
-            const monday = new Date(new Date(currDate).setDate(first));
-            const sunday = new Date(new Date(currDate).setDate(first + 6));
+            const monday = new Date(currDate);
+            monday.setDate(currDate.getDate() - currDate.getDay() + (currDate.getDay() === 0 ? -6 : 1));
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
 
-            const mDay = monday.getDate();
-            const sDay = sunday.getDate();
-            const monthStr = monday.toLocaleDateString('fr-FR', { month: 'long' });
+            const monthStr = monday.toLocaleDateString('fr-FR', { month: 'long' }).replace(/\s+/g, ' ');
             const yearStr = monday.getFullYear();
 
-            return `${mDay} ${monthStr} — ${sDay} ${monthStr} ${yearStr}`;
+            return `Semaine du ${monday.getDate()} au ${sunday.getDate()} ${monthStr} ${yearStr}`;
         }
 
         if (viewPeriod === 'mois') {
-            const monthStr = currDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            const monthStr = currDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }).replace(/\s+/g, ' ');
             return monthStr.charAt(0).toUpperCase() + monthStr.slice(1);
         }
 

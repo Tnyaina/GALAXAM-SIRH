@@ -9,12 +9,10 @@ import { fmtRelative } from '@/utils/formatters';
 import SkeletonListRows from './SkeletonListRows';
 
 const ActiviteRow = memo(function ActiviteRow({ ev }) {
-    const isValide = ev.statutCode === 'VALIDE' || ev.statut === 'Valide et applique par la DAF' || (ev.statutLibelle || ev.statut || '')?.toLowerCase().includes('valid');
-    const isRejete = ev.statutCode === 'REJETE' || (ev.statutLibelle || ev.statut || '')?.toLowerCase().includes('rejet');
-
-    // Vérification de la prise d'effet future (Planifié)
-    const todayStr = new Date().toISOString().substring(0, 10);
-    const isPlanifie = isValide && ev.dateEffet && ev.dateEffet > todayStr;
+    const statutCode = (ev.statutCode || '').toUpperCase();
+    const isPlanifie = statutCode === 'PLANIFIE';
+    const isValide = statutCode === 'ACTIF' || statutCode === 'VALIDE' || (ev.statutLibelle || ev.statut || '')?.toLowerCase().includes('valid');
+    const isRejete = statutCode === 'ANNULE' || statutCode === 'REFUSE' || statutCode === 'REJETE' || (ev.statutLibelle || ev.statut || '')?.toLowerCase().includes('rejet');
 
     let badgeVariant = 'default';
     let statutText = 'En cours';

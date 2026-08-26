@@ -78,7 +78,7 @@ public class DashboardService {
                 "JOIN employe e ON d.id_employe = e.id_employe " +
                 "JOIN ref_type_conge tc ON d.id_type_conge = tc.id_type_conge " +
                 "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
-                "WHERE rsd.code = 'VALIDE' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin " +
+                "WHERE rsd.code = 'ACTIF' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin " +
                 "ORDER BY d.date_fin ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -108,7 +108,7 @@ public class DashboardService {
 
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(DISTINCT ct.id_employe) FROM contrat_travail ct " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "WHERE rsc.code = 'ACTIF' AND ct.comptabilise_effectif = TRUE")) {
             ResultSet rs = ps.executeQuery();
             kpis.put("effectifComptabilise", rs.next() ? rs.getInt(1) : 0);
@@ -122,7 +122,7 @@ public class DashboardService {
 
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(*) FROM contrat_travail ct " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "WHERE rsc.code = 'ACTIF' AND ct.date_fin IS NOT NULL AND ct.date_fin BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'")) {
             ResultSet rs = ps.executeQuery();
             kpis.put("contratsExpirant30j", rs.next() ? rs.getInt(1) : 0);
@@ -130,7 +130,7 @@ public class DashboardService {
 
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(*) FROM contrat_travail ct " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "JOIN contrat_periode_essai cpe ON ct.id_contrat = cpe.id_contrat " +
                 "WHERE rsc.code = 'ACTIF' AND cpe.statut = 'EN_COURS'")) {
             ResultSet rs = ps.executeQuery();
@@ -139,7 +139,7 @@ public class DashboardService {
 
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(*) FROM workflow_rh wf " +
-                "JOIN ref_statut_workflow rsw ON wf.id_statut_workflow = rsw.id_statut_workflow " +
+                "JOIN ref_statut_rh rsw ON wf.id_statut_rh = rsw.id_statut_rh " +
                 "WHERE rsw.code = 'BROUILLON'")) {
             ResultSet rs = ps.executeQuery();
             kpis.put("brouillonsEnAttente", rs.next() ? rs.getInt(1) : 0);
@@ -156,7 +156,7 @@ public class DashboardService {
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(*) FROM demande_conge d " +
                 "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
-                "WHERE rsd.code = 'VALIDE' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin")) {
+                "WHERE rsd.code = 'ACTIF' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin")) {
             ResultSet rs = ps.executeQuery();
             kpis.put("employesEnCongeAujourdhui", rs.next() ? rs.getInt(1) : 0);
         }
@@ -171,7 +171,7 @@ public class DashboardService {
                 "e.matricule, ct.date_fin, rtc.libelle AS type_contrat, ct.numero_contrat " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                 "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE AND ct.date_fin = CURRENT_DATE " +
                 "ORDER BY e.nom";
@@ -196,7 +196,7 @@ public class DashboardService {
                 "e.matricule, ct.date_fin_essai " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "JOIN contrat_periode_essai cpe ON ct.id_contrat = cpe.id_contrat " +
                 "WHERE rsc.code = 'ACTIF' AND cpe.statut = 'EN_COURS' AND ct.date_fin_essai = CURRENT_DATE " +
                 "ORDER BY e.nom";
@@ -226,7 +226,7 @@ public class DashboardService {
                 "(ct.date_fin - CURRENT_DATE) AS jours_restants " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                 "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE " +
                 "AND ct.date_fin > CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '7 days' " +
@@ -259,7 +259,7 @@ public class DashboardService {
                 "(ct.date_fin - CURRENT_DATE) AS jours_restants " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                 "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE " +
                 "AND ct.date_fin > CURRENT_DATE + INTERVAL '7 days' AND ct.date_fin <= CURRENT_DATE + INTERVAL '30 days' " +
@@ -290,8 +290,9 @@ public class DashboardService {
         String sql = "SELECT id_workflow, libelle_type_evenement AS type_evenement, " +
                 "id_employe, nom_prenom_employe AS nom_prenom, matricule_employe AS matricule, " +
                 "numero_contrat_cible AS reference_dossier, " +
+                "date_effet, " +
                 "created_at AS date_creation, " +
-                "EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at)) / 3600 AS heures_attente " +
+                "EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at)) / 86400 AS jours_attente " +
                 "FROM v_workflow_rh_cpl " +
                 "WHERE code_statut_workflow = 'BROUILLON' " +
                 "ORDER BY created_at ASC";
@@ -305,8 +306,9 @@ public class DashboardService {
                 row.put("idEmploye", rs.getInt("id_employe"));
                 row.put("nomPrenom", rs.getString("nom_prenom"));
                 row.put("matricule", rs.getString("matricule"));
+                row.put("dateEffet", rs.getDate("date_effet"));
                 row.put("dateCreation", rs.getTimestamp("date_creation"));
-                row.put("heuresAttente", Math.round(rs.getDouble("heures_attente")));
+                row.put("joursAttente", Math.round(rs.getDouble("jours_attente")));
                 brouillons.add(row);
             }
         }
@@ -317,21 +319,36 @@ public class DashboardService {
     public List<Map<String, Object>> buildActiviteRecente(Connection c) throws Exception {
         List<Map<String, Object>> activite = new ArrayList<>();
 
-        String sql = "SELECT id_workflow, libelle_type_evenement AS type_evenement, " +
-                "id_employe, nom_prenom_employe AS nom_prenom, matricule_employe AS matricule, " +
-                "numero_contrat_cible AS reference_dossier, " +
-                "code_statut_workflow AS statut_code, libelle_statut_workflow AS statut_libelle, " +
-                "date_effet, " +
-                "updated_at AS date_action " +
-                "FROM v_workflow_rh_cpl " +
-                "WHERE code_statut_workflow IN ('VALIDE', 'REJETE') " +
-                "ORDER BY updated_at DESC " +
-                "LIMIT 5";
+        String sql = "SELECT * FROM (" +
+                "    SELECT id_workflow AS id, 'CARRIERE' AS source_type, " +
+                "           libelle_type_evenement AS type_evenement, " +
+                "           id_employe, nom_prenom_employe AS nom_prenom, matricule_employe AS matricule, " +
+                "           numero_contrat_cible AS reference_dossier, " +
+                "           code_statut_workflow AS statut_code, libelle_statut_workflow AS statut_libelle, " +
+                "           date_effet, updated_at AS date_action " +
+                "    FROM v_workflow_rh_cpl " +
+                "    WHERE code_statut_workflow IN ('ACTIF', 'PLANIFIE', 'ANNULE', 'VALIDE') " +
+                "    UNION ALL " +
+                "    SELECT id_demande_conge AS id, 'CONGE' AS source_type, " +
+                "           'Demande de congé' AS type_evenement, " +
+                "           dc.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, e.matricule, " +
+                "           'Congé #' || id_demande_conge AS reference_dossier, " +
+                "           sc.code AS statut_code, sc.libelle AS statut_libelle, " +
+                "           dc.date_debut AS date_effet, dc.updated_at AS date_action " +
+                "    FROM demande_conge dc " +
+                "    JOIN employe e ON dc.id_employe = e.id_employe " +
+                "    JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
+                "    WHERE sc.code IN ('VALIDE', 'REFUSE', 'ANNULE', 'EN_ATTENTE') " +
+                ") AS combined " +
+                "ORDER BY date_action DESC " +
+                "LIMIT 8";
+                
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Map<String, Object> row = new LinkedHashMap<>();
-                row.put("idWorkflow", rs.getInt("id_workflow"));
+                row.put("id", rs.getInt("id"));
+                row.put("sourceType", rs.getString("source_type"));
                 row.put("typeEvenement", rs.getString("type_evenement"));
                 row.put("referenceDossier", rs.getString("reference_dossier"));
                 row.put("idEmploye", rs.getInt("id_employe"));

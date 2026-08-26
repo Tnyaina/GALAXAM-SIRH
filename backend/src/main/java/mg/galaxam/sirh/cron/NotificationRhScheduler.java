@@ -103,7 +103,7 @@ public class NotificationRhScheduler {
                 "e.matricule, rtc.libelle AS type_contrat, ct.numero_contrat " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                 "WHERE rsc.code = 'ACTIF' " +
                 "AND rtc.exige_date_fin = TRUE " +
@@ -138,7 +138,7 @@ public class NotificationRhScheduler {
                 "ct.date_fin - CURRENT_DATE AS jours " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                 "WHERE rsc.code = 'ACTIF' " +
                 "AND rtc.exige_date_fin = TRUE " +
@@ -175,7 +175,7 @@ public class NotificationRhScheduler {
                 "ct.date_fin - CURRENT_DATE AS jours " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                 "WHERE rsc.code = 'ACTIF' " +
                 "AND rtc.exige_date_fin = TRUE " +
@@ -206,7 +206,7 @@ public class NotificationRhScheduler {
         String sql = "SELECT e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "WHERE rsc.code = 'ACTIF' AND ct.date_fin_essai = CURRENT_DATE";
 
         try (PreparedStatement ps = c.prepareStatement(sql);
@@ -233,7 +233,7 @@ public class NotificationRhScheduler {
                 "ct.date_fin_essai - CURRENT_DATE AS jours " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "WHERE rsc.code = 'ACTIF' " +
                 "AND ct.date_fin_essai > CURRENT_DATE " +
                 "AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '7 days'";
@@ -263,7 +263,7 @@ public class NotificationRhScheduler {
                 "ct.date_fin_essai - CURRENT_DATE AS jours " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "WHERE rsc.code = 'ACTIF' " +
                 "AND ct.date_fin_essai > CURRENT_DATE + INTERVAL '7 days' " +
                 "AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '15 days'";
@@ -293,7 +293,7 @@ public class NotificationRhScheduler {
                 "ct.date_fin_essai - CURRENT_DATE AS jours " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "WHERE rsc.code = 'ACTIF' " +
                 "AND ct.date_fin_essai > CURRENT_DATE + INTERVAL '15 days' " +
                 "AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '30 days'";
@@ -325,7 +325,7 @@ public class NotificationRhScheduler {
                 "FROM workflow_rh wf " +
                 "JOIN employe e ON wf.id_employe = e.id_employe " +
                 "JOIN ref_type_evenement_rh tev ON wf.id_type_evenement_rh = tev.id_type_evenement_rh " +
-                "JOIN ref_statut_workflow rsw ON wf.id_statut_workflow = rsw.id_statut_workflow " +
+                "JOIN ref_statut_rh rsw ON wf.id_statut_rh = rsw.id_statut_rh " +
                 "WHERE rsw.code = 'BROUILLON' " +
                 "AND wf.created_at < CURRENT_TIMESTAMP - INTERVAL '48 hours'";
 
@@ -389,7 +389,7 @@ public class NotificationRhScheduler {
                 "STRING_AGG(rd.libelle, ', ') AS docs_manquants " +
                 "FROM employe e " +
                 "JOIN contrat_travail ct ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "CROSS JOIN ref_type_document rd " +
                 "WHERE rsc.code = 'ACTIF' AND rd.obligatoire = TRUE AND rd.actif = TRUE " +
                 "AND NOT EXISTS (" +
@@ -423,7 +423,7 @@ public class NotificationRhScheduler {
                 "FROM employe e " +
                 "JOIN v_solde_conge_employe s ON e.id_employe = s.id_employe " +
                 "JOIN contrat_travail ct ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "WHERE rsc.code = 'ACTIF' AND s.solde_actuel > 0 AND s.solde_actuel < 5";
 
         try (PreparedStatement ps = c.prepareStatement(sql);
@@ -453,7 +453,7 @@ public class NotificationRhScheduler {
                 "JOIN employe e ON dc.id_employe = e.id_employe " +
                 "JOIN ref_statut_demande_conge rsd ON dc.id_statut_demande_conge = rsd.id_statut_demande_conge " +
                 "JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
-                "WHERE rsd.code = 'VALIDE' AND dc.date_fin = CURRENT_DATE";
+                "WHERE rsd.code = 'ACTIF' AND dc.date_fin = CURRENT_DATE";
 
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -484,14 +484,14 @@ public class NotificationRhScheduler {
         String sql = "SELECT e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom " +
                 "FROM employe e " +
                 "JOIN contrat_travail ct ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "WHERE rsc.code = 'ACTIF' " +
                 "AND NOT EXISTS (" +
                 "  SELECT 1 FROM demande_conge dc " +
                 "  JOIN ref_statut_demande_conge rsd ON dc.id_statut_demande_conge = rsd.id_statut_demande_conge " +
                 "  JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
                 "  WHERE dc.id_employe = e.id_employe " +
-                "  AND rsd.code = 'VALIDE' AND rtc.code = 'ANNUEL' " +
+                "  AND rsd.code = 'ACTIF' AND rtc.code = 'ANNUEL' " +
                 "  AND EXTRACT(YEAR FROM dc.date_debut) = EXTRACT(YEAR FROM CURRENT_DATE) " +
                 "  AND dc.nb_jours_decomptes >= 12" +
                 ")";
@@ -522,7 +522,7 @@ public class NotificationRhScheduler {
                 "JOIN employe e ON dc.id_employe = e.id_employe " +
                 "JOIN ref_statut_demande_conge rsd ON dc.id_statut_demande_conge = rsd.id_statut_demande_conge " +
                 "JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
-                "WHERE rsd.code = 'VALIDE' AND rtc.code = 'MALADIE' " +
+                "WHERE rsd.code = 'ACTIF' AND rtc.code = 'MALADIE' " +
                 "AND dc.nb_jours_decomptes >= 30 " +
                 "AND CURRENT_DATE BETWEEN dc.date_debut AND dc.date_fin";
 
@@ -555,7 +555,7 @@ public class NotificationRhScheduler {
                      "FROM mouvement_solde_conge m " +
                      "JOIN employe e ON m.id_employe = e.id_employe " +
                      "JOIN contrat_travail ct ON ct.id_employe = e.id_employe " +
-                     "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                     "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                      "WHERE rsc.code = 'ACTIF' " +
                      "GROUP BY e.id_employe, e.nom, e.prenom " +
                      "HAVING COALESCE(SUM(m.nb_jours) FILTER (WHERE m.type_mouvement IN ('ACQUISITION', 'BONIFICATION') " +

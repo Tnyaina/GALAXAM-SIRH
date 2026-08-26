@@ -202,7 +202,7 @@ export default function SaisieQuotidiennePage() {
         const d = new Date(selectedDate);
         if (!Number.isNaN(d.getTime())) {
             isToday = d.toDateString() === new Date().toDateString();
-            dateLongue = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            dateLongue = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s+/g, ' ');
         }
     }
 

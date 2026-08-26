@@ -16,6 +16,16 @@ const employeService = {
         return response.data;
     },
 
+    getNextMatricule: async () => {
+        const response = await apiClient.get('/employes/matricule/next');
+        return response.data.matricule;
+    },
+
+    checkMatriculeExists: async (matricule) => {
+        const response = await apiClient.get('/employes/matricule/check', { params: { matricule } });
+        return response.data.exists;
+    },
+
     createEmploye: async (data) => {
         const response = await apiClient.post('/employes', data);
         window.dispatchEvent(new Event('refresh-notifications'));

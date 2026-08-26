@@ -1,21 +1,46 @@
 import Input, { Select, AutocompleteInput } from '@/components/ui/forms/Input';
+import Button from '@/components/ui/forms/Button';
+import { Wand2 } from 'lucide-react';
 
 export default function CiviliteStep({
     formData,
     set,
     villesStandards,
     nationalitesStandards,
+    isCustomNat,
+    customNationalite,
+    setCustomNationalite,
+    handleNationaliteChange,
+    onGenerateMatricule,
+    onBlurMatricule,
+    matriculeError,
+    generatingMatricule
 }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input 
-                label="Matricule" 
-                required 
-                value={formData.matricule} 
-                onChange={e => set('matricule', e.target.value)} 
-                placeholder="Ex: 101, 1002 ou EMP-001" 
-                hint="Saisie libre (code unique du dossier personnel)"
-            />
+            <div className="flex gap-2 items-end">
+                <Input 
+                    label="Matricule" 
+                    required 
+                    value={formData.matricule} 
+                    onChange={e => set('matricule', e.target.value)} 
+                    onBlur={onBlurMatricule}
+                    error={!!matriculeError}
+                    placeholder="Ex: 0001" 
+                    hint={matriculeError || "Saisie libre ou générée"}
+                    containerClassName="flex-1"
+                />
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={onGenerateMatricule}
+                    loading={generatingMatricule}
+                    className="mb-[22px] px-3 shrink-0"
+                    title="Générer automatiquement"
+                >
+                    <Wand2 size={16} />
+                </Button>
+            </div>
             <Select label="Sexe" required value={formData.sexe} onChange={e => set('sexe', e.target.value)}>
                 <option value="M">Masculin (M)</option>
                 <option value="F">Féminin (F)</option>

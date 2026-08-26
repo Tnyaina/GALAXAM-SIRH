@@ -39,9 +39,8 @@ public class WorkflowRhService {
         }
 
         // ── Résolution des statuts ────────────────────────────
-        Integer idStatutBrouillonContrat = resolveStatutContrat("BROUILLON", c);
-        Integer idStatutPlanifieeAffectation = resolveStatutAffectation("PLANIFIEE", c);
-        Integer idStatutBrouillonWorkflow = resolveStatutWorkflow("BROUILLON", c);
+        Integer idStatutBrouillon = resolveStatut("BROUILLON", c);
+        Integer idStatutPlanifie = resolveStatut("PLANIFIE", c);
         Integer idTypeEvenementEmbauche = resolveTypeEvenement("EMBAUCHE_INITIALE", c);
         Integer idMotifMouvement = resolveMotifMouvement("EMBAUCHE", c);
 
@@ -53,7 +52,7 @@ public class WorkflowRhService {
         contrat.setIdFiliale(req.getIdFiliale());
         contrat.setIdTypeContrat(req.getIdTypeContrat());
         contrat.setIdTypeIntervenant(req.getIdTypeIntervenant());
-        contrat.setIdStatutContrat(idStatutBrouillonContrat);
+        contrat.setIdStatutRh(idStatutBrouillon);
         contrat.setIdTypeEvenementInitial(idTypeEvenementEmbauche);
         contrat.setNumeroContrat(req.getNumeroContrat());
         contrat.setDateSignature(req.getDateSignature());
@@ -70,11 +69,11 @@ public class WorkflowRhService {
             enregistrerPeriodeEssaiInitiale(contrat, c);
         }
 
-        // ── 2. Création de l'Affectation PLANIFIEE ──────────────────────────────
+        // ── 2. Création de l'Affectation PLANIFIE ──────────────────────────────
         EmployeAffectationCarriere affectation = new EmployeAffectationCarriere();
         affectation.setIdEmploye(idEmploye);
         affectation.setIdContrat(contrat.getIdContrat());
-        affectation.setIdStatutAffectation(idStatutPlanifieeAffectation);
+        affectation.setIdStatutRh(idStatutPlanifie);
         affectation.setIdMotifMouvement(idMotifMouvement);
         affectation.setIdSite(req.getIdSite());
         affectation.setIdDepartement(req.getIdDepartement());
@@ -94,7 +93,7 @@ public class WorkflowRhService {
         WorkflowRh workflow = new WorkflowRh();
         workflow.setIdEmploye(idEmploye);
         workflow.setIdTypeEvenementRh(idTypeEvenementEmbauche);
-        workflow.setIdStatutWorkflow(idStatutBrouillonWorkflow);
+        workflow.setIdStatutRh(idStatutBrouillon);
         workflow.setIdContratCible(contrat.getIdContrat());
         workflow.setIdAffectationCible(affectation.getIdAffectation());
         workflow.setDateEffet(dateEffet);
@@ -129,7 +128,7 @@ public class WorkflowRhService {
             throw new IllegalArgumentException("Workflow introuvable (id=" + idWorkflow + ").");
         }
 
-        String statutCode = resolveCodeStatutWorkflow(workflow.getIdStatutWorkflow(), c);
+        String statutCode = resolveCodeStatutWorkflow(workflow.getIdStatutRh(), c);
         if (!"BROUILLON".equals(statutCode)) {
             throw new IllegalArgumentException("Ce workflow est déjà en statut '" + statutCode + "'. Seul un workflow BROUILLON peut être validé.");
         }
@@ -189,7 +188,7 @@ public class WorkflowRhService {
 
             // Clôturer tout ancien contrat actif restant pour cet employé pour éviter les doublons
             try (PreparedStatement psCloseOld = c.prepareStatement(
-                    "UPDATE contrat_travail SET id_statut_contrat = (SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'CLOTURE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_contrat <> ? AND id_statut_contrat = (SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'ACTIF')")) {
+                    "UPDATE contrat_travail SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'CLOTURE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_contrat <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
                 psCloseOld.setInt(1, workflow.getIdEmploye());
                 psCloseOld.setInt(2, workflow.getIdContratCible());
                 psCloseOld.executeUpdate();
@@ -207,7 +206,7 @@ public class WorkflowRhService {
 
             // Clôturer toute ancienne affectation active
             try (PreparedStatement psCloseOldAff = c.prepareStatement(
-                    "UPDATE employe_affectation_carriere SET id_statut_affectation = (SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'HISTORISEE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_affectation <> ? AND id_statut_affectation = (SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ACTIVE')")) {
+                    "UPDATE employe_affectation_carriere SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_affectation <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
                 psCloseOldAff.setInt(1, workflow.getIdEmploye());
                 psCloseOldAff.setInt(2, workflow.getIdAffectationCible());
                 psCloseOldAff.executeUpdate();
@@ -275,9 +274,8 @@ public class WorkflowRhService {
             }
         }
 
-        Integer idStatutBrouillonContrat = resolveStatutContrat("BROUILLON", c);
-        Integer idStatutPlanifieeAffectation = resolveStatutAffectation("PLANIFIEE", c);
-        Integer idStatutBrouillonWorkflow = resolveStatutWorkflow("BROUILLON", c);
+        Integer idStatutBrouillon = resolveStatut("BROUILLON", c);
+        Integer idStatutPlanifie = resolveStatut("PLANIFIE", c);
 
         String codeMotif = switch (req.getCodeTypeEvenement() != null ? req.getCodeTypeEvenement() : "") {
             case "PROMOTION" -> "PROMOTION";
@@ -300,7 +298,7 @@ public class WorkflowRhService {
             contratCbl.setIdFiliale(req.getIdFiliale());
             contratCbl.setIdTypeContrat(req.getIdTypeContrat());
             contratCbl.setIdTypeIntervenant(req.getIdTypeIntervenant());
-            contratCbl.setIdStatutContrat(idStatutBrouillonContrat);
+            contratCbl.setIdStatutRh(idStatutBrouillon);
             contratCbl.setIdTypeEvenementInitial(idTypeEvenement);
             contratCbl.setNumeroContrat(req.getNumeroContrat());
             contratCbl.setDateSignature(req.getDateSignature());
@@ -344,7 +342,7 @@ public class WorkflowRhService {
             EmployeAffectationCarriere affectationCbl = new EmployeAffectationCarriere();
             affectationCbl.setIdEmploye(idEmploye);
             affectationCbl.setIdContrat(idContratCibleId);
-            affectationCbl.setIdStatutAffectation(idStatutPlanifieeAffectation);
+            affectationCbl.setIdStatutRh(idStatutPlanifie);
             affectationCbl.setIdMotifMouvement(idMotifMouvement);
             affectationCbl.setIdSite(req.getIdSite());
             affectationCbl.setIdDepartement(req.getIdDepartement());
@@ -365,7 +363,7 @@ public class WorkflowRhService {
         WorkflowRh workflow = new WorkflowRh();
         workflow.setIdEmploye(idEmploye);
         workflow.setIdTypeEvenementRh(idTypeEvenement);
-        workflow.setIdStatutWorkflow(idStatutBrouillonWorkflow);
+        workflow.setIdStatutRh(idStatutBrouillon);
         workflow.setIdContratSource(contratActif != null ? contratActif.getIdContrat() : req.getIdContratSource());
         workflow.setIdContratCible(idContratCibleId);
         workflow.setIdAffectationSource(affectationActive != null ? affectationActive.getIdAffectation() : req.getIdAffectationSource());
@@ -411,8 +409,8 @@ public class WorkflowRhService {
         }
 
         String statutCode = "";
-        try (var psStat = c.prepareStatement("SELECT code FROM ref_statut_workflow WHERE id_statut_workflow = ?")) {
-            psStat.setInt(1, workflow.getIdStatutWorkflow());
+        try (var psStat = c.prepareStatement("SELECT code FROM ref_statut_rh WHERE id_statut_rh = ?")) {
+            psStat.setInt(1, workflow.getIdStatutRh());
             try (var rsStat = psStat.executeQuery()) {
                 if (rsStat.next()) statutCode = rsStat.getString("code");
             }
@@ -556,15 +554,31 @@ public class WorkflowRhService {
         if (!estFutur) {
             appliquerWorkflowEvenement(workflow, c);
         } else {
+            // Date future : le contrat passe A_SIGNER si c'est un nouveau contrat
             if (workflow.getIdContratCible() != null && !workflow.getIdContratCible().equals(workflow.getIdContratSource())) {
-                Integer idStatutASigner = resolveStatutContrat("A_SIGNER", c);
+                Integer idStatutASigner = resolveStatut("A_SIGNER", c);
                 try (PreparedStatement psUp = c.prepareStatement(
-                        "UPDATE contrat_travail SET id_statut_contrat = ? WHERE id_contrat = ? AND id_statut_contrat = (SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'BROUILLON')")) {
+                        "UPDATE contrat_travail SET id_statut_rh = ? WHERE id_contrat = ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'BROUILLON')")) {
                     psUp.setInt(1, idStatutASigner);
                     psUp.setInt(2, workflow.getIdContratCible());
                     psUp.executeUpdate();
                 }
             }
+            // Le workflow passe explicitement PLANIFIE (date future confirmed)
+            Integer idStatutPlanifie = resolveStatut("PLANIFIE", c);
+            try (PreparedStatement psWf = c.prepareStatement(
+                    "UPDATE workflow_rh SET id_statut_rh = ?, id_valideur = ?, updated_at = CURRENT_TIMESTAMP WHERE id_workflow = ?")) {
+                psWf.setInt(1, idStatutPlanifie);
+                if (currentUserId != null) psWf.setInt(2, currentUserId); else psWf.setNull(2, java.sql.Types.INTEGER);
+                psWf.setInt(3, workflow.getIdWorkflow());
+                psWf.executeUpdate();
+            }
+            String commentaire = (req != null && req.getCommentaireValidation() != null)
+                    ? req.getCommentaireValidation() : null;
+            if (commentaire != null && !commentaire.isBlank()) {
+                appendCommentaireWorkflow(workflow.getIdWorkflow(), commentaire, c);
+            }
+            return; // sortie anticipée — pas d'appel à workflow.valider() générique
         }
 
         String commentaire = (req != null && req.getCommentaireValidation() != null)
@@ -596,14 +610,14 @@ public class WorkflowRhService {
     }
 
     private static void appliquerRuptureFormelle(WorkflowRh workflow, Date dateEffet, Connection c) throws Exception {
-        Integer idStatutRompu = resolveStatutContrat("ROMPU", c);
+        Integer idStatutRompu = resolveStatut("ROMPU", c);
 
         if (workflow.getIdContratSource() != null) {
             ContratTravail src = new ContratTravail().rechercherParId(workflow.getIdContratSource(), c);
             if (src != null) {
                 src.cloturerContrat(dateEffet, null, "Rupture / Fin de contrat : " + (workflow.getMotif() != null ? workflow.getMotif() : ""), c);
                 try (PreparedStatement psStat = c.prepareStatement(
-                        "UPDATE contrat_travail SET id_statut_contrat = ?, date_fin = ?, updated_at = CURRENT_TIMESTAMP WHERE id_contrat = ?")) {
+                        "UPDATE contrat_travail SET id_statut_rh = ?, date_fin = ?, updated_at = CURRENT_TIMESTAMP WHERE id_contrat = ?")) {
                     psStat.setInt(1, idStatutRompu);
                     psStat.setDate(2, dateEffet);
                     psStat.setInt(3, workflow.getIdContratSource());
@@ -622,7 +636,7 @@ public class WorkflowRhService {
         boolean aAutreContratActif = false;
         try (PreparedStatement psCheck = c.prepareStatement(
                 "SELECT COUNT(*) FROM contrat_travail c " +
-                "JOIN ref_statut_contrat s ON c.id_statut_contrat = s.id_statut_contrat " +
+                "JOIN ref_statut_rh s ON c.id_statut_rh = s.id_statut_rh " +
                 "WHERE c.id_employe = ? AND s.code = 'ACTIF' AND c.id_contrat <> ?")) {
             psCheck.setInt(1, workflow.getIdEmploye());
             psCheck.setInt(2, workflow.getIdContratSource() != null ? workflow.getIdContratSource() : 0);
@@ -651,7 +665,7 @@ public class WorkflowRhService {
             throw new IllegalArgumentException("Workflow introuvable.");
         }
 
-        String statutCode = resolveCodeStatutWorkflow(workflow.getIdStatutWorkflow(), c);
+        String statutCode = resolveCodeStatutWorkflow(workflow.getIdStatutRh(), c);
         if (!"BROUILLON".equals(statutCode)) {
             throw new IllegalArgumentException("Ce workflow est déjà en statut '" + statutCode + "'. Seul un workflow BROUILLON peut être annulé via cette route.");
         }
@@ -680,6 +694,11 @@ public class WorkflowRhService {
             psClear.executeUpdate();
         }
 
+        creerNotificationRh(c, null, "MOUVEMENT_APPLIQUE", "NORMALE",
+                "Brouillon de mouvement rejeté",
+                "Le brouillon de mouvement pour l'employé (ID: " + workflow.getIdEmploye() + ") a été rejeté ou annulé.",
+                "/supervision", null);
+
         return WorkflowRhCPL.rechercherParId(idWorkflow, c);
     }
 
@@ -707,6 +726,11 @@ public class WorkflowRhService {
 
         AuditLog.audit(c, "ANNULATION_PLANIFICATION_WORKFLOW", "workflow_rh",
                 String.valueOf(idWorkflow), workflow, null);
+
+        creerNotificationRh(c, null, "MOUVEMENT_APPLIQUE", "HAUTE",
+                "Planification de mouvement annulée",
+                "Le mouvement RH planifié pour l'employé (ID: " + workflow.getIdEmploye() + ") a été annulé.",
+                "/supervision", null);
 
         return WorkflowRhCPL.rechercherParId(idWorkflow, c);
     }
@@ -760,9 +784,9 @@ public class WorkflowRhService {
         try {
             boolean initialAutoCommit = c.getAutoCommit();
             String sql = "SELECT w.* FROM workflow_rh w " +
-                         "JOIN ref_statut_workflow s ON w.id_statut_workflow = s.id_statut_workflow " +
+                         "JOIN ref_statut_rh s ON w.id_statut_rh = s.id_statut_rh " +
                          "JOIN ref_type_evenement_rh ev ON w.id_type_evenement_rh = ev.id_type_evenement_rh " +
-                         "WHERE s.code = 'VALIDE' AND w.date_effet <= CURRENT_DATE " +
+                         "WHERE s.code = 'PLANIFIE' AND w.date_effet <= CURRENT_DATE " +
                          "AND (" +
                          "   (ev.code = 'CONFIRMATION_ESSAI' AND EXISTS (" +
                          "       SELECT 1 FROM contrat_periode_essai pe " +
@@ -774,15 +798,15 @@ public class WorkflowRhService {
                          "   )) OR " +
                          "   (ev.code IN ('FIN_CONTRAT', 'RUPTURE_ESSAI', 'DEMISSION', 'LICENCIEMENT', 'RUPTURE_CONVENTIONNELLE', 'DEPART_RETRAITE') AND EXISTS (" +
                          "       SELECT 1 FROM contrat_travail ct " +
-                         "       JOIN ref_statut_contrat sc ON ct.id_statut_contrat = sc.id_statut_contrat " +
+                         "       JOIN ref_statut_rh sc ON ct.id_statut_rh = sc.id_statut_rh " +
                          "       WHERE ct.id_contrat = w.id_contrat_source AND sc.code = 'ACTIF'" +
                          "   )) OR " +
                          "   (w.id_affectation_cible IN (" +
                          "       SELECT id_affectation FROM employe_affectation_carriere " +
-                         "       WHERE id_statut_affectation = (SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'PLANIFIEE')" +
+                         "       WHERE id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'PLANIFIE')" +
                          "   ) OR w.id_contrat_cible IN (" +
                          "       SELECT id_contrat FROM contrat_travail " +
-                         "       WHERE id_statut_contrat != (SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'ACTIF')" +
+                         "       WHERE id_statut_rh != (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')" +
                          "   ))" +
                          ")";
             try (var ps = c.prepareStatement(sql); var rs = ps.executeQuery()) {
@@ -842,56 +866,20 @@ public class WorkflowRhService {
 
     // ─── Resolveurs & Helpers Privés ─────────────────────────────────────────────
 
-    private static Integer resolveStatutContrat(String code, Connection c) throws Exception {
-        try (var ps = c.prepareStatement("SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = ?")) {
+    /**
+     * Résout l'id_statut_rh depuis ref_statut_rh par son code.
+     * Remplace les anciens resolveStatutContrat/resolveStatutAffectation/resolveStatutWorkflow.
+     * La table ref_statut_rh est un ref fixe — on ne crée jamais de nouvelles lignes dynamiquement.
+     */
+    private static Integer resolveStatut(String code, Connection c) throws Exception {
+        try (var ps = c.prepareStatement("SELECT id_statut_rh FROM ref_statut_rh WHERE code = ?")) {
             ps.setString(1, code);
             try (var rs = ps.executeQuery()) {
                 if (rs.next()) return rs.getInt(1);
             }
         }
-        try (var psIns = c.prepareStatement("INSERT INTO ref_statut_contrat (code, libelle) VALUES (?, ?) ON CONFLICT (code) DO NOTHING")) {
-            psIns.setString(1, code);
-            psIns.setString(2, code);
-            psIns.executeUpdate();
-        }
-        try (var ps = c.prepareStatement("SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = ?")) {
-            ps.setString(1, code);
-            try (var rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
-            }
-        }
-        throw new IllegalStateException("Statut contrat introuvable : " + code);
-    }
-
-    private static Integer resolveStatutAffectation(String code, Connection c) throws Exception {
-        try (var ps = c.prepareStatement("SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = ?")) {
-            ps.setString(1, code);
-            try (var rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
-            }
-        }
-        try (var psIns = c.prepareStatement("INSERT INTO ref_statut_affectation (code, libelle) VALUES (?, ?) ON CONFLICT (code) DO NOTHING")) {
-            psIns.setString(1, code);
-            psIns.setString(2, code);
-            psIns.executeUpdate();
-        }
-        try (var ps = c.prepareStatement("SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = ?")) {
-            ps.setString(1, code);
-            try (var rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
-            }
-        }
-        throw new IllegalStateException("Statut affectation introuvable : " + code);
-    }
-
-    private static Integer resolveStatutWorkflow(String code, Connection c) throws Exception {
-        try (var ps = c.prepareStatement("SELECT id_statut_workflow FROM ref_statut_workflow WHERE code = ?")) {
-            ps.setString(1, code);
-            try (var rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
-            }
-        }
-        throw new IllegalStateException("Statut workflow introuvable : " + code);
+        throw new IllegalStateException("Statut RH introuvable dans ref_statut_rh : '" + code + "'. " +
+                "Valeurs attendues : BROUILLON, PLANIFIE, A_SIGNER, ACTIF, SUSPENDU, HISTORISE, CLOTURE, ROMPU, ANNULE");
     }
 
     private static Integer resolveTypeEvenement(String code, Connection c) throws Exception {
@@ -942,13 +930,13 @@ public class WorkflowRhService {
     }
 
     private static String resolveCodeStatutWorkflow(Integer id, Connection c) throws Exception {
-        try (var ps = c.prepareStatement("SELECT code FROM ref_statut_workflow WHERE id_statut_workflow = ?")) {
+        try (var ps = c.prepareStatement("SELECT code FROM ref_statut_rh WHERE id_statut_rh = ?")) {
             ps.setInt(1, id);
             try (var rs = ps.executeQuery()) {
                 if (rs.next()) return rs.getString(1);
             }
         }
-        throw new IllegalStateException("Statut workflow introuvable (id=" + id + ").");
+        throw new IllegalStateException("Statut RH introuvable (id=" + id + ").");
     }
 
     private static Integer resolveMotifMouvement(String code, Connection c) throws Exception {
@@ -978,10 +966,10 @@ public class WorkflowRhService {
 
     private void annulerContratBrouillon(Integer idContrat, Connection c) throws Exception {
         String sql = "UPDATE contrat_travail SET " +
-                "id_statut_contrat = COALESCE((SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'ANNULE'), " +
-                "(SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'ROMPU')), " +
+                "id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ANNULE'), " +
+                "(SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ROMPU')), " +
                 "updated_at = CURRENT_TIMESTAMP " +
-                "WHERE id_contrat = ? AND id_statut_contrat = (SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'BROUILLON')";
+                "WHERE id_contrat = ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'BROUILLON')";
         try (var ps = c.prepareStatement(sql)) {
             ps.setInt(1, idContrat);
             ps.executeUpdate();
@@ -990,9 +978,9 @@ public class WorkflowRhService {
 
     private void annulerAffectationPlanifiee(Integer idAffectation, Connection c) throws Exception {
         String sql = "UPDATE employe_affectation_carriere SET " +
-                "id_statut_affectation = (SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ANNULEE'), " +
+                "id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ANNULE'), " +
                 "updated_at = CURRENT_TIMESTAMP " +
-                "WHERE id_affectation = ? AND id_statut_affectation = (SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'PLANIFIEE')";
+                "WHERE id_affectation = ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'PLANIFIE')";
         try (var ps = c.prepareStatement(sql)) {
             ps.setInt(1, idAffectation);
             ps.executeUpdate();

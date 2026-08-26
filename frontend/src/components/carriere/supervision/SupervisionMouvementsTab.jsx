@@ -5,6 +5,7 @@ import contratService from '@/api/employe/contratService';
 import organisationService from '@/api/admin/organisationService';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -139,7 +140,8 @@ function SupervisionMouvementsTab() {
                     className="py-2 px-3 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] min-w-[150px]"
                 >
                     <option value="ALL">Tous les statuts</option>
-                    <option value="VALIDE">Validé / Effectif</option>
+                    <option value="ACTIF">Actif / Validé</option>
+                    <option value="PLANIFIE">Planifié (effet futur)</option>
                     <option value="BROUILLON">Brouillon</option>
                     <option value="ANNULE">Annulé</option>
                 </select>
@@ -290,13 +292,7 @@ function SupervisionMouvementsTab() {
 
                                         {/* Statut */}
                                         <td className="py-3.5 px-4">
-                                            {isPlanifie ? (
-                                                <Badge variant="primary" size="xs">Planifié</Badge>
-                                            ) : (
-                                                <Badge variant={getStatutBadgeVariant(wf.codeStatutWorkflow, wf.dateEffet)} size="xs">
-                                                    {wf.libelleStatutWorkflow || wf.codeStatutWorkflow}
-                                                </Badge>
-                                            )}
+                                            <StatusBadge status={wf.codeStatutWorkflow} label={wf.libelleStatutWorkflow} size="xs" />
                                         </td>
 
                                         {/* Actions */}

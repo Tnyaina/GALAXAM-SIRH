@@ -1,22 +1,18 @@
 import Badge from '@/components/ui/data-display/Badge';
 
 const STATUS_MAP = {
-    // Contrats
+    // Statuts RH Unifiés (Contrats, Affectations, Workflows)
     'ACTIF': { variant: 'success', label: 'Actif', dot: true },
+    'PLANIFIE': { variant: 'info', label: 'Planifié', dot: true },
     'BROUILLON': { variant: 'warning', label: 'Brouillon', dot: true },
     'A_SIGNER': { variant: 'info', label: 'À signer', dot: true },
     'SUSPENDU': { variant: 'warning', label: 'Suspendu', dot: true },
-    'CLOTURE': { variant: 'secondary', label: 'Clôturé', dot: false },
     'HISTORISE': { variant: 'secondary', label: 'Historisé', dot: false },
+    'CLOTURE': { variant: 'secondary', label: 'Clôturé', dot: false },
     'ROMPU': { variant: 'danger', label: 'Rompu', dot: false },
     'ANNULE': { variant: 'secondary', label: 'Annulé', dot: false },
 
-    // Affectations
-    'ACTIVE': { variant: 'success', label: 'Active', dot: true },
-    'PLANIFIEE': { variant: 'info', label: 'Planifiée', dot: true },
-    'HISTORISEE': { variant: 'secondary', label: 'Historisée', dot: false },
-
-    // Congés
+    // Congés (ref_statut_demande_conge)
     'EN_ATTENTE': { variant: 'warning', label: 'En attente', dot: true },
     'VALIDE': { variant: 'success', label: 'Validé', dot: true },
     'REFUSE': { variant: 'danger', label: 'Refusé', dot: false },

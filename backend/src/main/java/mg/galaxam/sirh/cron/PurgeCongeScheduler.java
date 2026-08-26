@@ -51,7 +51,12 @@ public class PurgeCongeScheduler {
                                              "(id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
                                              "VALUES (?, 'EXPIRATION', ?, CURRENT_DATE, 'Purge légale triennale (droits prescrits de +36 mois)')";
                     
-                    try (PreparedStatement psIn = c.prepareStatement(insertMouvement)) {
+                    String insertNotif = "INSERT INTO notification_rh " +
+                                         "(type_alerte, priorite, titre, message, lien, id_employe_concerne) " +
+                                         "VALUES ('ALERTE_ECHEANCE', 'HAUTE', ?, ?, ?, ?)";
+                    
+                    try (PreparedStatement psIn = c.prepareStatement(insertMouvement);
+                         PreparedStatement psNotif = c.prepareStatement(insertNotif)) {
                         while (rs.next()) {
                             int idEmploye = rs.getInt("id_employe");
                             double acquisAnciens = rs.getDouble("total_acquis_anciens");
@@ -62,7 +67,14 @@ public class PurgeCongeScheduler {
                                 psIn.setInt(1, idEmploye);
                                 psIn.setDouble(2, -joursAExpirer); // Négatif car c'est un débit
                                 psIn.executeUpdate();
-                                System.out.println("[PurgeCongeScheduler] Employé ID " + idEmploye + " : " + joursAExpirer + " jours expirés purgés.");
+                                
+                                psNotif.setString(1, "Congés expirés purgés");
+                                psNotif.setString(2, "Attention, " + joursAExpirer + " jours de congés acquis il y a plus de 3 ans ont expiré et ont été retirés de votre solde.");
+                                psNotif.setString(3, "/employes/" + idEmploye + "?tab=conges");
+                                psNotif.setInt(4, idEmploye);
+                                psNotif.executeUpdate();
+                                
+                                System.out.println("[PurgeCongeScheduler] Employé ID " + idEmploye + " : " + joursAExpirer + " jours expirés purgés et notification envoyée.");
                             }
                         }
                     }

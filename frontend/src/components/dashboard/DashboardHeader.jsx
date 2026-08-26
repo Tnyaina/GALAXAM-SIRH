@@ -63,7 +63,7 @@ export default function DashboardHeader({
             <div className="bg-[var(--color-brand-800)] text-white p-6 flex items-center justify-between gap-4 shadow-md">
                 <div>
                     <p className="text-[var(--color-brand-200)] text-xs font-medium mb-1 uppercase tracking-wider font-data">
-                        {now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        {now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).replace(/\s+/g, ' ')}
                     </p>
                     <h2 className="text-xl font-extrabold tracking-tight mb-1">
                         {greeting}, {user?.identifiant || 'utilisateur'}

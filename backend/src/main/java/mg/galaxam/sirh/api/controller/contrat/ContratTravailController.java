@@ -232,7 +232,7 @@ public class ContratTravailController {
                 }
 
                 // Vérifier que c'est un BROUILLON
-                String statutCode = resolveCodeStatutContrat(contrat.getIdStatutContrat(), c);
+                String statutCode = resolveCodeStatutContrat(contrat.getIdStatutRh(), c);
                 if (!"BROUILLON".equals(statutCode)) {
                     return ResponseEntity.badRequest()
                             .body("Seul un contrat en statut BROUILLON peut être modifié. " +
@@ -345,7 +345,7 @@ public class ContratTravailController {
 
     /**
      * Affectation liée à un contrat spécifique, quel que soit son statut
-     * (ACTIVE, HISTORISEE, PLANIFIEE...).
+     * (ACTIVE, HISTORISE, PLANIFIE...).
      *
      * Contrairement à /affectations/active (qui ne renvoie que l'affectation en cours),
      * cet endpoint permet de reconstituer fonction / site / département / catégorie pro
@@ -378,7 +378,7 @@ public class ContratTravailController {
     // =========================================================================
 
     private String resolveCodeStatutContrat(Integer id, Connection c) throws Exception {
-        try (var ps = c.prepareStatement("SELECT code FROM ref_statut_contrat WHERE id_statut_contrat = ?")) {
+        try (var ps = c.prepareStatement("SELECT code FROM ref_statut_rh WHERE id_statut_rh = ?")) {
             ps.setInt(1, id);
             try (var rs = ps.executeQuery()) {
                 if (rs.next()) return rs.getString(1);
@@ -510,7 +510,7 @@ public class ContratTravailController {
         map.put("idFiliale", ct.getIdFiliale());
         map.put("idTypeContrat", ct.getIdTypeContrat());
         map.put("idTypeIntervenant", ct.getIdTypeIntervenant());
-        map.put("idStatutContrat", ct.getIdStatutContrat());
+        map.put("idStatutRh", ct.getIdStatutRh());
         map.put("numeroContrat", ct.getNumeroContrat());
         map.put("dateSignature", ct.getDateSignature());
         map.put("dateDebut", ct.getDateDebut());
@@ -536,9 +536,9 @@ public class ContratTravailController {
         if (ct.getIdTypeIntervenant() != null && ct.getIdTypeIntervenant() > 0) {
             map.put("libelleTypeIntervenant", fetchLibelle(c, "SELECT libelle FROM ref_type_intervenant WHERE id_type_intervenant = ?", ct.getIdTypeIntervenant()));
         }
-        if (ct.getIdStatutContrat() != null && ct.getIdStatutContrat() > 0) {
-            try (PreparedStatement ps = c.prepareStatement("SELECT code, libelle FROM ref_statut_contrat WHERE id_statut_contrat = ?")) {
-                ps.setInt(1, ct.getIdStatutContrat());
+        if (ct.getIdStatutRh() != null && ct.getIdStatutRh() > 0) {
+            try (PreparedStatement ps = c.prepareStatement("SELECT code, libelle FROM ref_statut_rh WHERE id_statut_rh = ?")) {
+                ps.setInt(1, ct.getIdStatutRh());
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         map.put("codeStatutContrat", rs.getString("code"));

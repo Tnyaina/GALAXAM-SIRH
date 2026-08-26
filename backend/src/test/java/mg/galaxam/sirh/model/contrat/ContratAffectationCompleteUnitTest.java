@@ -22,7 +22,7 @@ public class ContratAffectationCompleteUnitTest {
         ct.setIdFiliale(1);
         ct.setIdTypeContrat(1); // CDI
         ct.setIdTypeIntervenant(1); // Salarié interne
-        ct.setIdStatutContrat(1); // BROUILLON
+        ct.setIdStatutRh(1); // BROUILLON
         ct.setDateDebut(Date.valueOf(dateDebut));
         ct.setDureeEssaiMois(dureeEssaiMois);
         ct.setDateFinEssai(Date.valueOf(dateFinEssai));
@@ -61,17 +61,17 @@ public class ContratAffectationCompleteUnitTest {
     void testValidationContratWorkflowActivation() {
         String statutWorkflowInitial = "BROUILLON";
         String statutContratInitial = "BROUILLON";
-        String statutAffectationInitiale = "PLANIFIEE";
+        String statutAffectationInitiale = "PLANIFIE";
 
         // Simulation de la validation DAF
-        String statutWorkflowFinal = "VALIDE";
+        String statutWorkflowFinal = "ACTIF";
         String statutContratFinal = "ACTIF";
-        String statutAffectationFinale = "ACTIVE";
+        String statutAffectationFinale = "ACTIF";
 
         assertNotEquals(statutWorkflowInitial, statutWorkflowFinal);
         assertEquals("ACTIF", statutContratFinal, "Le contrat doit passer à ACTIF dès validation.");
-        assertEquals("ACTIVE", statutAffectationFinale, "L'affectation doit passer à ACTIVE.");
-        System.out.println("✅ [TEST WORKFLOW] Validation du contrat initial effectuée avec succès (BROUILLON -> VALIDE -> ACTIF)");
+        assertEquals("ACTIF", statutAffectationFinale, "L'affectation doit passer à ACTIF.");
+        System.out.println("✅ [TEST WORKFLOW] Validation du contrat initial effectuée avec succès (BROUILLON -> ACTIF)");
     }
 
     @Test
@@ -159,7 +159,7 @@ public class ContratAffectationCompleteUnitTest {
         ContratTravail ct = new ContratTravail();
         ct.setDateDebut(Date.valueOf(dateDebut));
         ct.setDateFin(Date.valueOf(dateFin));
-        ct.setIdStatutContrat(3); // CLOTURE
+        ct.setIdStatutRh(3); // CLOTURE
         ct.setComptabiliseEffectif(false);
 
         assertFalse(ct.isComptabiliseEffectif(), "Un contrat clôturé ne doit plus être comptabilisé dans l'effectif actif.");

@@ -134,13 +134,13 @@ public class EmployeCPL extends ClassMere {
                 "rsc.code AS code_statut_contrat, rsc.libelle AS statut_contrat, " +
                 "ct.id_filiale, rfil.raison_sociale AS nom_filiale, ct.date_debut AS date_embauche " +
                 "FROM v_employe_cpl e " +
-                "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_affectation = COALESCE((SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ACTIVE' LIMIT 1), 1) " +
+                "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF' LIMIT 1), 1) " +
                 "LEFT JOIN ref_site rs ON eac.id_site = rs.id_site " +
                 "LEFT JOIN ref_departement rd ON eac.id_departement = rd.id_departement " +
                 "LEFT JOIN ref_service rserv ON eac.id_service = rserv.id_service " +
                 "LEFT JOIN ref_fonction rf ON eac.id_fonction = rf.id_fonction " +
                 "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
-                "LEFT JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "LEFT JOIN ref_filiale rfil ON ct.id_filiale = rfil.id_filiale " +
                 "WHERE e.id_employe = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -199,13 +199,13 @@ public class EmployeCPL extends ClassMere {
                 "rsc.code AS code_statut_contrat, rsc.libelle AS statut_contrat, " +
                 "ct.id_filiale, rfil.raison_sociale AS nom_filiale, ct.date_debut AS date_embauche " +
                 "FROM v_employe_cpl e " +
-                "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_affectation = COALESCE((SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ACTIVE' LIMIT 1), 1) " +
+                "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF' LIMIT 1), 1) " +
                 "LEFT JOIN ref_site rs ON eac.id_site = rs.id_site " +
                 "LEFT JOIN ref_departement rd ON eac.id_departement = rd.id_departement " +
                 "LEFT JOIN ref_service rserv ON eac.id_service = rserv.id_service " +
                 "LEFT JOIN ref_fonction rf ON eac.id_fonction = rf.id_fonction " +
                 "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
-                "LEFT JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "LEFT JOIN ref_filiale rfil ON ct.id_filiale = rfil.id_filiale " +
                 "WHERE 1=1 ");
 

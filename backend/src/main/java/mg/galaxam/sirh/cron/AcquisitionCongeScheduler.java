@@ -41,11 +41,11 @@ public class AcquisitionCongeScheduler {
                 // 1. Récupérer les employés éligibles (anniversaire mensuel d'embauche aujourd'hui)
                 String sql = "SELECT ct.id_employe, ct.date_debut " +
                              "FROM contrat_travail ct " +
-                             "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                             "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                              "WHERE rsc.code = 'ACTIF' " +
                              "AND ct.date_debut <= CURRENT_DATE - INTERVAL '1 month' " +
                              "AND (" +
-                             "    EXTRACT(DAY FROM ct.date_debut) = EXTRACT(DAY FROM CURRENT_DATE) " +
+                             "    EXTRACT(DAY FROM CURRENT_DATE) >= EXTRACT(DAY FROM ct.date_debut) " +
                              "    OR (" +
                              "        EXTRACT(MONTH FROM CURRENT_DATE + INTERVAL '1 day') != EXTRACT(MONTH FROM CURRENT_DATE) " +
                              "        AND EXTRACT(DAY FROM ct.date_debut) > EXTRACT(DAY FROM CURRENT_DATE)" +

@@ -29,6 +29,9 @@ public class EmployeController {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private mg.galaxam.sirh.model.employe.service.EmployeService employeService;
+
     @GetMapping("/stats")
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getEmployeStats(@RequestParam(required = false) String q) {
@@ -87,6 +90,32 @@ public class EmployeController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Erreur lors de la récupération des options d'employés.");
+        }
+    }
+
+    @GetMapping("/matricule/check")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> checkMatriculeExists(@RequestParam String matricule) {
+        try {
+            boolean exists = employeService.checkMatriculeExists(matricule);
+            return ResponseEntity.ok(Map.of("exists", exists));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la vérification du matricule.");
+        }
+    }
+
+    @GetMapping("/matricule/next")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getNextMatricule() {
+        try {
+            String matricule = employeService.generateNextMatricule();
+            return ResponseEntity.ok(Map.of("matricule", matricule));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la génération du matricule.");
         }
     }
 

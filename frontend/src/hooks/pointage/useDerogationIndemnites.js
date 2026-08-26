@@ -120,16 +120,16 @@ export function useDerogationIndemnites() {
 
             if (editingDerogation) {
                 await pointageParametreService.updateDerogation(editingDerogation.idDerogation, payload);
-                toast.success("Dérogation modifiée avec succès.");
+                toast({ type: 'success', message: "Dérogation modifiée avec succès." });
             } else {
                 await pointageParametreService.createDerogation(payload);
-                toast.success("Dérogation créée avec succès.");
+                toast({ type: 'success', message: "Dérogation créée avec succès." });
             }
 
             closeModal();
             await loadData();
         } catch (err) {
-            toast.error(err?.response?.data || "Erreur lors de l'enregistrement de la dérogation.");
+            toast({ type: 'error', message: err?.response?.data || "Erreur lors de l'enregistrement de la dérogation." });
         } finally {
             setSubmitting(false);
         }
@@ -141,10 +141,10 @@ export function useDerogationIndemnites() {
         }
         try {
             await pointageParametreService.deleteDerogation(id);
-            toast.success("Dérogation supprimée avec succès.");
+            toast({ type: 'success', message: "Dérogation supprimée avec succès." });
             await loadData();
         } catch {
-            toast.error("Erreur lors de la suppression.");
+            toast({ type: 'error', message: "Erreur lors de la suppression." });
         }
     };
 

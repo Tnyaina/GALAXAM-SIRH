@@ -351,8 +351,8 @@ public class DemandeConge extends ClassMere {
      */
     public DemandeConge annuler(Integer idUtilisateur, Connection c) throws Exception {
         String statutCourant = getStatutCode(c);
-        if ("VALIDE".equals(statutCourant) || "ANNULE".equals(statutCourant) || "REFUSE".equals(statutCourant)) {
-            throw new IllegalStateException("Une demande de congé déjà validée, refusée ou annulée ne peut plus être annulée.");
+        if ("ANNULE".equals(statutCourant) || "REFUSE".equals(statutCourant)) {
+            throw new IllegalStateException("Une demande de congé déjà refusée ou annulée ne peut plus être annulée.");
         }
 
         RefTypeConge typeConge = RefTypeConge.rechercherParId(idTypeConge, c);

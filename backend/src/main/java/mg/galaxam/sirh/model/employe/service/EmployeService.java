@@ -241,4 +241,38 @@ public class EmployeService {
             }
         }
     }
+
+    public boolean checkMatriculeExists(String matricule) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            String sql = "SELECT 1 FROM employe WHERE matricule = ?";
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
+                ps.setString(1, matricule);
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    return rs.next();
+                }
+            }
+        }
+    }
+
+    public String generateNextMatricule() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            String sql = "SELECT matricule FROM employe";
+            int maxSeq = 0;
+            try (PreparedStatement ps = c.prepareStatement(sql);
+                 java.sql.ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String mat = rs.getString(1);
+                    if (mat != null && mat.matches("\\d+")) {
+                        try {
+                            int val = Integer.parseInt(mat);
+                            if (val > maxSeq) {
+                                maxSeq = val;
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+            return String.format("%04d", maxSeq + 1);
+        }
+    }
 }

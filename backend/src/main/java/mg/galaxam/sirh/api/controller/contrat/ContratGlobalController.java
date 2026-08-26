@@ -60,7 +60,7 @@ public class ContratGlobalController {
 
             if (statut != null && !statut.isBlank() && !"ALL".equalsIgnoreCase(statut)) {
                 if ("PENDING".equalsIgnoreCase(statut) || "A_SIGNER".equalsIgnoreCase(statut)) {
-                    whereSql.append(" AND (rsc.code = 'BROUILLON' OR rsc.code = 'A_SIGNER' OR (rsc.code = 'VALIDE' AND ct.date_debut > CURRENT_DATE)) ");
+                    whereSql.append(" AND (rsc.code = 'BROUILLON' OR rsc.code = 'A_SIGNER' OR (rsc.code = 'ACTIF' AND ct.date_debut > CURRENT_DATE)) ");
                 } else if ("ACTIF".equalsIgnoreCase(statut)) {
                     whereSql.append(" AND rsc.code = 'ACTIF' AND (ct.date_debut <= CURRENT_DATE) ");
                 } else {
@@ -88,7 +88,7 @@ public class ContratGlobalController {
             if (doublonsOnly) {
                 whereSql.append(" AND ct.id_employe IN (" +
                         "  SELECT sub.id_employe FROM contrat_travail sub " +
-                        "  JOIN ref_statut_contrat sub_rsc ON sub.id_statut_contrat = sub_rsc.id_statut_contrat " +
+                        "  JOIN ref_statut_rh sub_rsc ON sub.id_statut_rh = sub_rsc.id_statut_rh " +
                         "  WHERE sub_rsc.code = 'ACTIF' GROUP BY sub.id_employe HAVING COUNT(*) > 1 " +
                         "  UNION " +
                         "  SELECT sub2.id_employe FROM contrat_travail sub2 " +
@@ -98,7 +98,7 @@ public class ContratGlobalController {
 
             String countSql = "SELECT COUNT(*) FROM contrat_travail ct " +
                     "JOIN employe e ON ct.id_employe = e.id_employe " +
-                    "LEFT JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                    "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "LEFT JOIN LATERAL (" +
                     "  SELECT id_site FROM employe_affectation_carriere " +
                     "  WHERE id_contrat = ct.id_contrat ORDER BY id_affectation DESC LIMIT 1" +
@@ -125,12 +125,12 @@ public class ContratGlobalController {
                     "FROM contrat_travail ct " +
                     "JOIN employe e ON ct.id_employe = e.id_employe " +
                     "LEFT JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
-                    "LEFT JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                    "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "LEFT JOIN LATERAL (" +
                     "  SELECT eac_sub.id_site, eac_sub.id_departement, eac_sub.id_fonction " +
                     "  FROM employe_affectation_carriere eac_sub " +
                     "  WHERE eac_sub.id_contrat = ct.id_contrat " +
-                    "  ORDER BY CASE WHEN eac_sub.id_statut_affectation = (SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ACTIVE') THEN 1 ELSE 2 END, eac_sub.id_affectation DESC LIMIT 1" +
+                    "  ORDER BY CASE WHEN eac_sub.id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') THEN 1 ELSE 2 END, eac_sub.id_affectation DESC LIMIT 1" +
                     ") eac ON TRUE " +
                     "LEFT JOIN ref_site rs ON eac.id_site = rs.id_site " +
                     "LEFT JOIN ref_departement rd ON eac.id_departement = rd.id_departement " +
@@ -213,7 +213,7 @@ public class ContratGlobalController {
 
             // 2. Contrats Actifs
             String sqlActifs = "SELECT COUNT(*) FROM contrat_travail ct " +
-                    "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                    "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "WHERE rsc.code = 'ACTIF' AND (ct.date_debut <= CURRENT_DATE)";
             try (PreparedStatement ps = c.prepareStatement(sqlActifs); ResultSet rs = ps.executeQuery()) {
                 stats.put("contratsActifs", rs.next() ? rs.getInt(1) : 0);
@@ -221,15 +221,15 @@ public class ContratGlobalController {
 
             // 3. En attente de signature / Planifiés
             String sqlAttente = "SELECT COUNT(*) FROM contrat_travail ct " +
-                    "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
-                    "WHERE rsc.code IN ('BROUILLON', 'A_SIGNER') OR (rsc.code = 'VALIDE' AND ct.date_debut > CURRENT_DATE)";
+                    "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                    "WHERE rsc.code IN ('BROUILLON', 'A_SIGNER') OR (rsc.code = 'ACTIF' AND ct.date_debut > CURRENT_DATE)";
             try (PreparedStatement ps = c.prepareStatement(sqlAttente); ResultSet rs = ps.executeQuery()) {
                 stats.put("enAttenteSignature", rs.next() ? rs.getInt(1) : 0);
             }
 
             // 4. Échéances < 60 jours (Fin de contrat ou Période d'essai)
             String sqlEcheances = "SELECT COUNT(*) FROM contrat_travail ct " +
-                    "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                    "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "WHERE rsc.code = 'ACTIF' AND (" +
                     "  (ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '60 days') OR " +
                     "  (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '60 days')" +
@@ -241,7 +241,7 @@ public class ContratGlobalController {
             // 5. Doublons potentiels (Employés avec plusieurs contrats actifs ou dates identiques)
             String sqlDoublons = "SELECT COUNT(DISTINCT id_employe) FROM (" +
                     "  SELECT id_employe FROM contrat_travail ct " +
-                    "  JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                    "  JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "  WHERE rsc.code = 'ACTIF' GROUP BY id_employe HAVING COUNT(*) > 1 " +
                     "  UNION " +
                     "  SELECT id_employe FROM contrat_travail " +
@@ -295,7 +295,7 @@ public class ContratGlobalController {
                     "FROM contrat_travail ct " +
                     "JOIN employe e ON ct.id_employe = e.id_employe " +
                     "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
-                    "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                    "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "WHERE rsc.code = 'ACTIF' AND ct.date_fin_essai IS NOT NULL " +
                     "AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '45 days' " +
                     "ORDER BY ct.date_fin_essai ASC LIMIT 3";
@@ -322,7 +322,7 @@ public class ContratGlobalController {
                     "FROM contrat_travail ct " +
                     "JOIN employe e ON ct.id_employe = e.id_employe " +
                     "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
-                    "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                    "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE " +
                     "AND ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '60 days' " +
                     "ORDER BY ct.date_fin ASC LIMIT 3";
@@ -366,7 +366,7 @@ public class ContratGlobalController {
                     "FROM contrat_travail ct " +
                     "JOIN employe e ON ct.id_employe = e.id_employe " +
                     "LEFT JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
-                    "LEFT JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                    "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "LEFT JOIN LATERAL (" +
                     "  SELECT id_site, id_departement, id_fonction FROM employe_affectation_carriere " +
                     "  WHERE id_contrat = ct.id_contrat ORDER BY id_affectation DESC LIMIT 1" +

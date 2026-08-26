@@ -364,8 +364,21 @@ public class DemandeCongeController {
                 DemandeConge d = DemandeConge.rechercherParId(id, c);
                 if (d == null) return ResponseEntity.notFound().build();
 
+                String ancienStatut = d.getStatutCode(c);
                 Integer currentUserId = getCurrentUserId();
                 congeService.annulerDemande(id, currentUserId, "Annulation", c);
+
+                if ("VALIDE".equals(ancienStatut)) {
+                    DemandeConge.creerNotificationRh(
+                        "ALERTE_ECHEANCE",
+                        "HAUTE",
+                        "Annulation d'un congé validé",
+                        "Une demande de congé (ID: " + id + ") qui était déjà validée vient d'être annulée.",
+                        "/conges",
+                        null, // Destiné aux RH/Admins
+                        c
+                    );
+                }
 
                 // Marquage de l'alerte en attente comme lue
                 try (PreparedStatement psNotif = c.prepareStatement(

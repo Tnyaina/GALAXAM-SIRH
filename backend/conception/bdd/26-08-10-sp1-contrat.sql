@@ -6,9 +6,7 @@ DROP TABLE IF EXISTS workflow_rh CASCADE;
 DROP TABLE IF EXISTS contrat_periode_essai CASCADE;
 DROP TABLE IF EXISTS contrat_travail CASCADE;
 
-DROP TABLE IF EXISTS ref_statut_contrat CASCADE;
-DROP TABLE IF EXISTS ref_statut_affectation CASCADE;
-DROP TABLE IF EXISTS ref_statut_workflow CASCADE;
+DROP TABLE IF EXISTS ref_statut_rh CASCADE;
 DROP TABLE IF EXISTS ref_type_evenement_rh CASCADE;
 DROP TABLE IF EXISTS ref_motif_sortie CASCADE;
 DROP TABLE IF EXISTS ref_motif_mouvement CASCADE;
@@ -19,22 +17,15 @@ DROP TABLE IF EXISTS ref_categorie_professionnelle CASCADE;
 -- 1. TABLES DE RÉFÉRENCE (Satellites & Lookups)
 -- ============================================================
 
-CREATE TABLE ref_statut_contrat (
-    id_statut_contrat SERIAL PRIMARY KEY,
-    code VARCHAR(30) NOT NULL UNIQUE, -- BROUILLON, A_SIGNER, ACTIF, SUSPENDU, CLOTURE, ROMPU
-    libelle VARCHAR(100) NOT NULL
-);
-
-CREATE TABLE ref_statut_affectation (
-    id_statut_affectation SERIAL PRIMARY KEY,
-    code VARCHAR(30) NOT NULL UNIQUE, -- PLANIFIEE, ACTIVE, HISTORISEE, ANNULEE
-    libelle VARCHAR(100) NOT NULL
-);
-
-CREATE TABLE ref_statut_workflow (
-    id_statut_workflow SERIAL PRIMARY KEY,
-    code VARCHAR(30) NOT NULL UNIQUE, -- BROUILLON, VALIDE, ANNULE
-    libelle VARCHAR(100) NOT NULL
+-- Table unifiée des statuts du cycle de vie RH
+-- Remplace : ref_statut_contrat, ref_statut_affectation, ref_statut_workflow
+-- Le champ `ordre` permet de comparer la progression (ex: WHERE ordre >= 30 = actif ou plus avancé)
+CREATE TABLE ref_statut_rh (
+    id_statut_rh  SERIAL PRIMARY KEY,
+    code          VARCHAR(30)  NOT NULL UNIQUE,
+    libelle       VARCHAR(100) NOT NULL,
+    ordre         INTEGER      NOT NULL,
+    est_terminal  BOOLEAN      NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE ref_type_evenement_rh (
@@ -92,7 +83,7 @@ CREATE TABLE contrat_travail (
     id_filiale INTEGER NOT NULL,
     id_type_contrat INTEGER NOT NULL,
     id_type_intervenant INTEGER NOT NULL,
-    id_statut_contrat INTEGER NOT NULL,
+    id_statut_rh INTEGER NOT NULL,
     id_type_evenement_initial INTEGER,
     id_contrat_precedent INTEGER,
     
@@ -116,14 +107,14 @@ CREATE TABLE contrat_travail (
     CONSTRAINT fk_contrat_filiale FOREIGN KEY (id_filiale) REFERENCES ref_filiale(id_filiale),
     CONSTRAINT fk_contrat_type FOREIGN KEY (id_type_contrat) REFERENCES ref_type_contrat(id_type_contrat),
     CONSTRAINT fk_contrat_intervenant FOREIGN KEY (id_type_intervenant) REFERENCES ref_type_intervenant(id_type_intervenant),
-    CONSTRAINT fk_contrat_statut FOREIGN KEY (id_statut_contrat) REFERENCES ref_statut_contrat(id_statut_contrat),
+    CONSTRAINT fk_contrat_statut_rh FOREIGN KEY (id_statut_rh) REFERENCES ref_statut_rh(id_statut_rh),
     CONSTRAINT fk_contrat_evenement FOREIGN KEY (id_type_evenement_initial) REFERENCES ref_type_evenement_rh(id_type_evenement_rh),
     CONSTRAINT fk_contrat_precedent FOREIGN KEY (id_contrat_precedent) REFERENCES contrat_travail(id_contrat),
     CONSTRAINT fk_contrat_motif_sortie FOREIGN KEY (id_motif_sortie) REFERENCES ref_motif_sortie(id_motif_sortie)
 );
 
 CREATE INDEX idx_contrat_employe ON contrat_travail(id_employe);
-CREATE INDEX idx_contrat_statut ON contrat_travail(id_statut_contrat);
+CREATE INDEX idx_contrat_statut ON contrat_travail(id_statut_rh);
 
 -- ============================================================
 -- 3. PÉRIODE D'ESSAI
@@ -154,7 +145,7 @@ CREATE TABLE workflow_rh (
     id_workflow SERIAL PRIMARY KEY,
     id_employe INTEGER NOT NULL,
     id_type_evenement_rh INTEGER NOT NULL,
-    id_statut_workflow INTEGER NOT NULL,
+    id_statut_rh INTEGER NOT NULL,
     
     -- Liens source / cible (contrat & affectation)
     -- NOTE : id_affectation_* ne sont pas référencés en retour depuis employe_affectation_carriere
@@ -180,7 +171,7 @@ CREATE TABLE workflow_rh (
     
     CONSTRAINT fk_wf_employe FOREIGN KEY (id_employe) REFERENCES employe(id_employe) ON DELETE CASCADE,
     CONSTRAINT fk_wf_type FOREIGN KEY (id_type_evenement_rh) REFERENCES ref_type_evenement_rh(id_type_evenement_rh),
-    CONSTRAINT fk_wf_statut FOREIGN KEY (id_statut_workflow) REFERENCES ref_statut_workflow(id_statut_workflow),
+    CONSTRAINT fk_wf_statut_rh FOREIGN KEY (id_statut_rh) REFERENCES ref_statut_rh(id_statut_rh),
     CONSTRAINT fk_wf_contrat_src FOREIGN KEY (id_contrat_source) REFERENCES contrat_travail(id_contrat),
     CONSTRAINT fk_wf_contrat_cbl FOREIGN KEY (id_contrat_cible) REFERENCES contrat_travail(id_contrat),
     CONSTRAINT fk_wf_demandeur FOREIGN KEY (id_demandeur) REFERENCES utilisateur(id_utilisateur) ON DELETE SET NULL,
@@ -195,7 +186,7 @@ CREATE TABLE employe_affectation_carriere (
     id_affectation SERIAL PRIMARY KEY,
     id_employe INTEGER NOT NULL,
     id_contrat INTEGER NOT NULL,
-    id_statut_affectation INTEGER NOT NULL,
+    id_statut_rh INTEGER NOT NULL,
     id_motif_mouvement INTEGER NOT NULL,
     -- SUPPRIMÉ : id_workflow_origine (dépendance circulaire éliminée)
     -- Pour retrouver le workflow d'origine : SELECT * FROM workflow_rh WHERE id_affectation_cible = :id
@@ -221,7 +212,7 @@ CREATE TABLE employe_affectation_carriere (
     
     CONSTRAINT fk_affectation_employe FOREIGN KEY(id_employe) REFERENCES employe(id_employe) ON DELETE CASCADE,
     CONSTRAINT fk_affectation_contrat FOREIGN KEY(id_contrat) REFERENCES contrat_travail(id_contrat) ON DELETE CASCADE,
-    CONSTRAINT fk_affectation_statut FOREIGN KEY(id_statut_affectation) REFERENCES ref_statut_affectation(id_statut_affectation),
+    CONSTRAINT fk_affectation_statut_rh FOREIGN KEY(id_statut_rh) REFERENCES ref_statut_rh(id_statut_rh),
     CONSTRAINT fk_affectation_motif FOREIGN KEY(id_motif_mouvement) REFERENCES ref_motif_mouvement(id_motif_mouvement),
     CONSTRAINT fk_affectation_site FOREIGN KEY(id_site) REFERENCES ref_site(id_site),
     CONSTRAINT fk_affectation_departement FOREIGN KEY(id_departement) REFERENCES ref_departement(id_departement),
@@ -234,7 +225,7 @@ CREATE TABLE employe_affectation_carriere (
 
 CREATE INDEX idx_affectation_employe ON employe_affectation_carriere(id_employe);
 CREATE INDEX idx_affectation_contrat ON employe_affectation_carriere(id_contrat);
-CREATE INDEX idx_affectation_statut ON employe_affectation_carriere(id_statut_affectation);
+CREATE INDEX idx_affectation_statut ON employe_affectation_carriere(id_statut_rh);
 
 -- Clés étrangères de workflow_rh vers employe_affectation_carriere
 -- (sens unique : workflow → affectation, jamais affectation → workflow)
@@ -246,27 +237,18 @@ ALTER TABLE workflow_rh
 -- 7. DONNÉES DE RÉFÉRENCE INITIALES (Seed Data)
 -- ============================================================
 
-INSERT INTO ref_statut_contrat (code, libelle) VALUES
-    ('BROUILLON', 'Brouillon'),
-    ('A_SIGNER', 'En attente de signature'),
-    ('ACTIF', 'Contrat actif'),
-    ('SUSPENDU', 'Contrat suspendu'),
-    ('CLOTURE', 'Contrat arrivé à terme'),
-    ('ROMPU', 'Contrat rompu anticipativement'),
-    ('ANNULE', 'Contrat annulé')
-ON CONFLICT (code) DO NOTHING;
-
-INSERT INTO ref_statut_affectation (code, libelle) VALUES
-    ('PLANIFIEE', 'Affectation future / planifiée'),
-    ('ACTIVE', 'Affectation actuelle en cours'),
-    ('HISTORISEE', 'Ancienne affectation clôturée'),
-    ('ANNULEE', 'Affectation annulée')
-ON CONFLICT (code) DO NOTHING;
-
-INSERT INTO ref_statut_workflow (code, libelle) VALUES
-    ('BROUILLON', 'Brouillon en préparation par la DAF'),
-    ('VALIDE', 'Validé et appliqué par la DAF'),
-    ('ANNULE', 'Annulé par la DAF')
+-- Statuts unifiés du cycle de vie RH (contrat, affectation, workflow)
+-- Ordre numérique : permet de comparer la progression (ex: ordre >= 30 = en vigueur ou plus avancé)
+INSERT INTO ref_statut_rh (code, libelle, ordre, est_terminal) VALUES
+    ('BROUILLON',  'Brouillon',                          10, FALSE),
+    ('PLANIFIE',   'Planifié (effet futur)',              20, FALSE),
+    ('A_SIGNER',   'En attente de signature',             25, FALSE),
+    ('ACTIF',      'Actif',                              30, FALSE),
+    ('SUSPENDU',   'Suspendu',                           35, FALSE),
+    ('HISTORISE',  'Historisé',                          40, TRUE),
+    ('CLOTURE',    'Clôturé',                            50, TRUE),
+    ('ROMPU',      'Rompu',                              60, TRUE),
+    ('ANNULE',     'Annulé',                             70, TRUE)
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO ref_type_evenement_rh (code, libelle) VALUES
@@ -323,23 +305,30 @@ ON CONFLICT (code) DO NOTHING;
 -- 8. VUE CPL ENRICHIE (Dédiée aux récapitulatifs & consultations)
 -- ============================================================
 
+-- ============================================================
+-- 8. VUE CPL ENRICHIE (Dédiée aux récapitulatifs & consultations)
+-- ============================================================
+-- Note : les alias code_statut_workflow / libelle_statut_workflow sont conservés
+-- intentionnellement pour ne pas casser le code Java (WorkflowRhCPL.mapResultSet)
+
 DROP VIEW IF EXISTS v_workflow_rh_cpl CASCADE;
 
 CREATE OR REPLACE VIEW v_workflow_rh_cpl AS
 SELECT
     w.id_workflow,
     w.id_employe,
-    e.nom || ' ' || e.prenom     AS nom_prenom_employe,
-    e.matricule                   AS matricule_employe,
-    tev.code                      AS code_type_evenement,
-    tev.libelle                   AS libelle_type_evenement,
-    rsw.code                      AS code_statut_workflow,
-    rsw.libelle                   AS libelle_statut_workflow,
+    e.nom || ' ' || e.prenom      AS nom_prenom_employe,
+    e.matricule                    AS matricule_employe,
+    tev.code                       AS code_type_evenement,
+    tev.libelle                    AS libelle_type_evenement,
+    rsw.code                       AS code_statut_workflow,
+    rsw.libelle                    AS libelle_statut_workflow,
+    rsw.ordre                      AS ordre_statut_workflow,
 
     w.id_contrat_source,
-    ct_src.numero_contrat         AS numero_contrat_source,
+    ct_src.numero_contrat          AS numero_contrat_source,
     w.id_contrat_cible,
-    ct_cbl.numero_contrat         AS numero_contrat_cible,
+    ct_cbl.numero_contrat          AS numero_contrat_cible,
     w.id_affectation_source,
     w.id_affectation_cible,
 
@@ -356,12 +345,12 @@ SELECT
     ct_cbl.id_filiale,
     ct_cbl.id_type_contrat,
     ct_cbl.id_type_intervenant,
-    rtc.libelle                   AS libelle_type_contrat,
-    rti.libelle                   AS libelle_type_intervenant,
-    rf.raison_sociale             AS libelle_filiale,
-    ct_cbl.date_signature         AS date_signature_contrat,
-    ct_cbl.date_debut             AS date_debut_contrat,
-    ct_cbl.date_fin               AS date_fin_contrat,
+    rtc.libelle                    AS libelle_type_contrat,
+    rti.libelle                    AS libelle_type_intervenant,
+    rf.raison_sociale              AS libelle_filiale,
+    ct_cbl.date_signature          AS date_signature_contrat,
+    ct_cbl.date_debut              AS date_debut_contrat,
+    ct_cbl.date_fin                AS date_fin_contrat,
     ct_cbl.duree_essai_mois,
     ct_cbl.date_fin_essai,
     ct_cbl.comptabilise_effectif,
@@ -374,35 +363,36 @@ SELECT
     eac.id_responsable_hierarchique,
     eac.id_categorie_professionnelle,
     eac.id_mode_calcul_paie,
-    rs.libelle                    AS libelle_site,
-    rd.libelle                    AS libelle_departement,
-    rsvc.libelle                  AS libelle_service,
-    rfc.libelle                   AS libelle_fonction,
+    rs.libelle                     AS libelle_site,
+    rd.libelle                     AS libelle_departement,
+    rsvc.libelle                   AS libelle_service,
+    rfc.libelle                    AS libelle_fonction,
     resp.nom || ' ' || resp.prenom AS nom_prenom_responsable,
-    rcp.libelle                   AS libelle_categorie_pro,
-    rmp.libelle                   AS libelle_mode_calcul_paie,
+    rcp.libelle                    AS libelle_categorie_pro,
+    rmp.libelle                    AS libelle_mode_calcul_paie,
     eac.salaire_base,
-    eac.date_debut                AS date_debut_affectation,
-    eac.date_fin                  AS date_fin_affectation,
-    rsa.libelle                   AS libelle_statut_affectation
+    eac.date_debut                 AS date_debut_affectation,
+    eac.date_fin                   AS date_fin_affectation,
+    rsa.libelle                    AS libelle_statut_affectation,
+    rsa.ordre                      AS ordre_statut_affectation
 
 FROM workflow_rh w
-JOIN employe e          ON w.id_employe = e.id_employe
-JOIN ref_type_evenement_rh tev ON w.id_type_evenement_rh = tev.id_type_evenement_rh
-JOIN ref_statut_workflow rsw    ON w.id_statut_workflow = rsw.id_statut_workflow
+JOIN employe e                    ON w.id_employe = e.id_employe
+JOIN ref_type_evenement_rh tev    ON w.id_type_evenement_rh = tev.id_type_evenement_rh
+JOIN ref_statut_rh rsw            ON w.id_statut_rh = rsw.id_statut_rh
 
-LEFT JOIN contrat_travail ct_src ON w.id_contrat_source = ct_src.id_contrat
-LEFT JOIN contrat_travail ct_cbl ON COALESCE(w.id_contrat_cible, w.id_contrat_source) = ct_cbl.id_contrat
-LEFT JOIN ref_type_contrat rtc  ON ct_cbl.id_type_contrat = rtc.id_type_contrat
+LEFT JOIN contrat_travail ct_src  ON w.id_contrat_source = ct_src.id_contrat
+LEFT JOIN contrat_travail ct_cbl  ON COALESCE(w.id_contrat_cible, w.id_contrat_source) = ct_cbl.id_contrat
+LEFT JOIN ref_type_contrat rtc    ON ct_cbl.id_type_contrat = rtc.id_type_contrat
 LEFT JOIN ref_type_intervenant rti ON ct_cbl.id_type_intervenant = rti.id_type_intervenant
-LEFT JOIN ref_filiale rf         ON ct_cbl.id_filiale = rf.id_filiale
+LEFT JOIN ref_filiale rf           ON ct_cbl.id_filiale = rf.id_filiale
 
 LEFT JOIN employe_affectation_carriere eac ON COALESCE(w.id_affectation_cible, w.id_affectation_source) = eac.id_affectation
-LEFT JOIN ref_site rs             ON eac.id_site = rs.id_site
-LEFT JOIN ref_departement rd      ON eac.id_departement = rd.id_departement
-LEFT JOIN ref_service rsvc        ON eac.id_service = rsvc.id_service
-LEFT JOIN ref_fonction rfc        ON eac.id_fonction = rfc.id_fonction
-LEFT JOIN employe resp            ON eac.id_responsable_hierarchique = resp.id_employe
+LEFT JOIN ref_statut_rh rsa        ON eac.id_statut_rh = rsa.id_statut_rh
+LEFT JOIN ref_site rs              ON eac.id_site = rs.id_site
+LEFT JOIN ref_departement rd       ON eac.id_departement = rd.id_departement
+LEFT JOIN ref_service rsvc         ON eac.id_service = rsvc.id_service
+LEFT JOIN ref_fonction rfc         ON eac.id_fonction = rfc.id_fonction
+LEFT JOIN employe resp             ON eac.id_responsable_hierarchique = resp.id_employe
 LEFT JOIN ref_categorie_professionnelle rcp ON eac.id_categorie_professionnelle = rcp.id_categorie_professionnelle
-LEFT JOIN ref_mode_calcul_paie rmp ON eac.id_mode_calcul_paie = rmp.id_mode_calcul_paie
-LEFT JOIN ref_statut_affectation rsa ON eac.id_statut_affectation = rsa.id_statut_affectation;
+LEFT JOIN ref_mode_calcul_paie rmp ON eac.id_mode_calcul_paie = rmp.id_mode_calcul_paie;
