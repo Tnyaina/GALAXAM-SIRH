@@ -20,7 +20,7 @@ const formatDateOnly = (dateString) => {
   return new Date(dateString).toLocaleDateString('fr-FR');
 };
 
-export default function CongesTab({ idEmploye, canWrite = false }) {
+export default function CongesTab({ idEmploye, employe, canWrite = false }) {
   const [soldeEmploye, setSoldeEmploye] = useState(null);
   const [mouvements, setMouvements] = useState([]);
   const [demandesEmploye, setDemandesEmploye] = useState([]);
@@ -152,7 +152,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
       {error && <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />}
 
       {/* Widget Synthese Solde */}
-      <SoldeCongeWidget soldeData={soldeEmploye} consommationPool={consommationPool} />
+      <SoldeCongeWidget soldeData={soldeEmploye} consommationPool={consommationPool} employe={employe} />
 
       {/* Navigation Sous-onglets */}
       <div className="flex border-b border-[var(--color-border-subtle)] mt-2">

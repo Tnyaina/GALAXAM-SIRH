@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ShieldCheck, X, ShieldAlert } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
@@ -13,7 +14,34 @@ export default function CotisationFormModal({
     actionError,
     submitting = false,
 }) {
+    const [localError, setLocalError] = useState(null);
+
     if (!isOpen) return null;
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        setLocalError(null);
+
+        const salarial = parseFloat(formData.tauxSalarial);
+        const patronal = parseFloat(formData.tauxPatronal);
+
+        if (isNaN(salarial) || salarial < 0 || salarial > 100) {
+            setLocalError("Le taux salarial doit être compris entre 0% et 100%.");
+            return;
+        }
+
+        if (isNaN(patronal) || patronal < 0 || patronal > 100) {
+            setLocalError("Le taux patronal doit être compris entre 0% et 100%.");
+            return;
+        }
+
+        if (formData.dateFin && formData.dateDebut && formData.dateFin < formData.dateDebut) {
+            setLocalError("La date de fin ne peut pas être antérieure à la date de début.");
+            return;
+        }
+
+        onSubmit(e);
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
@@ -28,11 +56,11 @@ export default function CotisationFormModal({
                     </button>
                 </div>
 
-                <form onSubmit={onSubmit} className="p-6 space-y-4">
-                    {actionError && (
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {(actionError || localError) && (
                         <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-2">
                             <ShieldAlert size={16} />
-                            {actionError}
+                            {localError || actionError}
                         </div>
                     )}
 
@@ -41,7 +69,7 @@ export default function CotisationFormModal({
                         required
                         disabled={!!editingCotisation}
                         value={formData.code}
-                        onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                         placeholder="Ex: CNAPS, OSTIE, FUNERAIRE"
                     />
 
@@ -57,6 +85,8 @@ export default function CotisationFormModal({
                         <Input
                             label="Taux Salarial (%)"
                             type="number"
+                            min="0"
+                            max="100"
                             step="0.01"
                             required
                             value={formData.tauxSalarial}
@@ -65,6 +95,8 @@ export default function CotisationFormModal({
                         <Input
                             label="Taux Patronal (%)"
                             type="number"
+                            min="0"
+                            max="100"
                             step="0.01"
                             required
                             value={formData.tauxPatronal}
@@ -83,6 +115,7 @@ export default function CotisationFormModal({
                         <Input
                             label="Date Fin (Optionnel)"
                             type="date"
+                            min={fmtDateInput(formData.dateDebut)}
                             value={fmtDateInput(formData.dateFin)}
                             onChange={(e) => setFormData({ ...formData, dateFin: e.target.value })}
                         />

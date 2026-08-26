@@ -28,6 +28,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { useAuth } from '@/context/AuthContext';
 import SEO from '@/components/system/SEO';
+import PointageSubNav from '@/components/pointage/PointageSubNav';
 
 const TYPE_CONFIG = {
     'INCOMPLET': { variant: 'warning', label: 'Pointage Incomplet', icon: Clock },
@@ -40,6 +41,7 @@ export default function AnomaliesPointagePage() {
         anomalies,
         stats,
         periodes,
+        sites,
         selectedSite,
         setSelectedSite,
         selectedPeriode,
@@ -302,8 +304,11 @@ export default function AnomaliesPointagePage() {
     };
 
     return (
-        <div className="space-y-6 font-sans">
+        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Gestion des Anomalies" description="Suivi et régularisation des anomalies et retards de pointage." />
+
+            {/* 0. Barre de sous-navigation Pointage */}
+            <PointageSubNav />
 
             {/* Lien retour */}
             <Link
@@ -436,8 +441,18 @@ export default function AnomaliesPointagePage() {
                             className="bg-transparent border border-ink-200 dark:border-ink-700 text-xs font-bold text-ink-800 dark:text-white p-2 outline-none"
                         >
                             <option value={0}>Tous les sites</option>
-                            <option value={1}>TNR — Antananarivo Siège</option>
-                            <option value={2}>TMM — Toamasina Agence</option>
+                            {sites && sites.length > 0 ? (
+                                sites.map((s) => (
+                                    <option key={s.idSite} value={s.idSite}>
+                                        {s.codeSite ? `${s.codeSite} — ` : ''}{s.libelle || s.nomSite || `Site ${s.idSite}`}
+                                    </option>
+                                ))
+                            ) : (
+                                <>
+                                    <option value={1}>TNR — Antananarivo Siège</option>
+                                    <option value={2}>TMM — Toamasina Agence</option>
+                                </>
+                            )}
                         </select>
                     </div>
 
@@ -600,10 +615,11 @@ export default function AnomaliesPointagePage() {
                     )}
                 </div>
 
-                {loading ? (
+                {loading && anomalies.length === 0 ? (
                     <SkeletonTable rows={6} cols={9} />
                 ) : (
-                    <Table>
+                    <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                        <Table>
                         <Thead>
                             <Tr>
                                 <Th className="w-10">
@@ -762,6 +778,7 @@ export default function AnomaliesPointagePage() {
                             )}
                         </Tbody>
                     </Table>
+                    </div>
                 )}
 
                 {/* Pagination */}

@@ -24,7 +24,8 @@ export default function CarriereTimeline({
     onOpenCertificat,
     onOpenAttestation,
 }) {
-    const displayContrats = (contratsList || []).filter(ct => ct.codeStatutContrat !== 'BROUILLON');
+    const safeContrats = Array.isArray(contratsList) ? contratsList : (contratsList?.items || contratsList?.content || []);
+    const displayContrats = safeContrats.filter(ct => ct && ct.codeStatutContrat !== 'BROUILLON');
 
     return (
         <div className="space-y-6">

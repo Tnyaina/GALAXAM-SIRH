@@ -1,18 +1,55 @@
-import { Calendar, Clock, ArrowDownCircle, ShieldAlert } from 'lucide-react';
+import { Calendar, Clock, ArrowDownCircle, ShieldAlert, Info, CheckCircle, AlertTriangle } from 'lucide-react';
 import StatCard from '@/components/ui/data-display/StatCard';
 
-export default function SoldeCongeWidget({ soldeData, consommationPool }) {
+export default function SoldeCongeWidget({ soldeData, consommationPool, employe }) {
   if (!soldeData) return null;
 
   const soldeActuel = Number(soldeData.soldeActuel || 0);
   const totalAcquis = Number(soldeData.totalAcquis || 0);
   const totalPris = Number(soldeData.totalPris || 0);
   const totalBonification = Number(soldeData.totalBonification || 0);
+  const totalCumule = totalAcquis + totalBonification;
+  const totalExpire = Number(soldeData.totalExpire || 0);
 
   // Pool partagé permissions exceptionnelles (10j / an max)
   const poolJoursConsommes = consommationPool && consommationPool.length > 0
     ? Number(consommationPool[0].joursConsommes || 0)
     : 0;
+
+  // Calcul de l'ancienneté et éligibilité légale au congé annuel payé (Règle des 12 mois - Art. 83)
+  const dateDebut = employe?.dateDebutContratActif || employe?.dateEmbauche;
+  let ancienneteInfo = null;
+
+  if (dateDebut) {
+    const dDebut = new Date(dateDebut);
+    if (!isNaN(dDebut.getTime())) {
+      const now = new Date();
+      let months = (now.getFullYear() - dDebut.getFullYear()) * 12 + (now.getMonth() - dDebut.getMonth());
+      if (now.getDate() < dDebut.getDate()) months--;
+      months = Math.max(0, months);
+
+      const years = Math.floor(months / 12);
+      const remMonths = months % 12;
+
+      const dateOuverture = new Date(dDebut);
+      dateOuverture.setFullYear(dateOuverture.getFullYear() + 1);
+
+      const isEligible = months >= 12;
+      const textAnciennete = years > 0
+        ? `${years} an${years > 1 ? 's' : ''}${remMonths > 0 ? ` et ${remMonths} mois` : ''}`
+        : `${months} mois`;
+
+      ancienneteInfo = {
+        isEligible,
+        months,
+        years,
+        remMonths,
+        textAnciennete,
+        dateDebutStr: dDebut.toLocaleDateString('fr-FR'),
+        dateOuvertureStr: dateOuverture.toLocaleDateString('fr-FR')
+      };
+    }
+  }
 
   const getSoldeColor = () => {
     if (soldeActuel < 0) return 'danger';
@@ -20,43 +57,108 @@ export default function SoldeCongeWidget({ soldeData, consommationPool }) {
     return 'success';
   };
 
-  const getSoldeLabel = () => {
-    if (soldeActuel < 0) return 'Solde négatif (Anticipation)';
-    if (soldeActuel <= 3) return 'Solde faible';
-    return 'Jours disponibles';
+  const formatJours = (val) => {
+    const num = Number(val || 0);
+    return Number.isInteger(num) ? num.toString() : num.toFixed(1);
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-      <StatCard 
-        title="Solde Actuel" 
-        value={soldeActuel > 0 ? `+${soldeActuel}` : soldeActuel} 
-        icon={<Calendar size={24} />} 
-        color={getSoldeColor()} 
-        changeLabel={getSoldeLabel()}
-      />
-      
-      <StatCard 
-        title="Droits Acquis" 
-        value={`+${totalAcquis + totalBonification}`} 
-        icon={<Clock size={24} />} 
-        color="info" 
-      />
-      
-      <StatCard 
-        title="Jours Posés" 
-        value={totalPris} 
-        icon={<ArrowDownCircle size={24} />} 
-        color="brand" 
-      />
-      
-      <StatCard 
-        title="Évènements Familiaux" 
-        value={`${poolJoursConsommes} / 10`} 
-        icon={<ShieldAlert size={24} />} 
-        color={poolJoursConsommes >= 10 ? 'danger' : poolJoursConsommes >= 7 ? 'warning' : 'success'} 
-        changeLabel="Jours consommés"
-      />
+    <div className="space-y-4">
+      {/* ── Bandeau Statut Éligibilité Légale au Congé Annuel (Art. 83) ── */}
+      {ancienneteInfo && (
+        ancienneteInfo.isEligible ? (
+          <div className="p-3.5 bg-success-500/10 border border-success-500/30 flex flex-wrap items-center justify-between gap-3 text-xs text-success-900 dark:text-success-200">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle size={17} className="text-success-600 dark:text-success-400 shrink-0" />
+              <div>
+                <span className="font-bold text-sm">Éligible aux congés payés annuels</span>
+                <p className="text-xs text-success-800 dark:text-success-300 mt-0.5">
+                  Ancienneté de <strong>{ancienneteInfo.textAnciennete}</strong> (embauché(e) le {ancienneteInfo.dateDebutStr}). Droit ouvert depuis le {ancienneteInfo.dateOuvertureStr}.
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] font-bold bg-success-500/20 text-success-800 dark:text-success-200 px-2.5 py-1 border border-success-500/30">
+              Droit Ouvert (≥ 1 an)
+            </span>
+          </div>
+        ) : (
+          <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle size={17} className="text-amber-600 shrink-0" />
+              <div>
+                <span className="font-bold text-sm">Période d'acquisition d'ancienneté en cours ({ancienneteInfo.months} mois / 12)</span>
+                <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
+                  L'ouverture du droit légal au congé annuel payé aura lieu le <strong>{ancienneteInfo.dateOuvertureStr}</strong> (Art. 83). Une <strong>dérogation RH</strong> est requise pour toute prise anticipée.
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] font-bold bg-amber-500/20 text-amber-800 dark:text-amber-200 px-2.5 py-1 border border-amber-500/30">
+              Ancienneté &lt; 1 an (Dérogation requise)
+            </span>
+          </div>
+        )
+      )}
+
+      {/* Grille des 4 Cartes Métier */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 1. Solde Net Utilisable */}
+        <StatCard
+          title="Solde Disponible"
+          value={`${soldeActuel > 0 ? '+' : ''}${formatJours(soldeActuel)} j`}
+          icon={<Calendar size={20} />}
+          color={getSoldeColor()}
+          subtext="Jours utilisables immédiatement"
+        />
+
+        {/* 2. Total des Droits Historiques */}
+        <StatCard
+          title="Cumul des Droits Acquis"
+          value={`+${formatJours(totalCumule)} j`}
+          icon={<Clock size={20} />}
+          color="info"
+          subtext="Total octroyé depuis l'embauche (2.5j/m)"
+        />
+
+        {/* 3. Déductions : Prises & Prescriptions */}
+        <StatCard
+          title={totalExpire > 0 ? "Congés Déduits & Prescrits" : "Congés Payés Posés"}
+          value={`${formatJours(totalPris + totalExpire)} j`}
+          icon={<ArrowDownCircle size={20} />}
+          color={totalExpire > 0 ? "warning" : "brand"}
+          subtext={totalExpire > 0 ? `${formatJours(totalPris)}j pris • ${formatJours(totalExpire)}j forclos (+36 mois)` : "Total congés payés consommés"}
+        />
+
+        {/* 4. Quota Événements Familiaux */}
+        <StatCard
+          title="Événements Familiaux"
+          value={`${formatJours(poolJoursConsommes)} / 10 j`}
+          icon={<ShieldAlert size={20} />}
+          color={poolJoursConsommes >= 10 ? 'danger' : poolJoursConsommes >= 7 ? 'warning' : 'success'}
+          subtext="Mariage, décès, naissance (non déduit du solde)"
+        />
+      </div>
+
+      {/* Bandeau explicatif de la formule du solde si prescription ou déductions */}
+      {totalExpire > 0 && (
+        <div className="px-4 py-2.5 bg-amber-500/10 border border-amber-500/30 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-2">
+            <Info size={16} className="text-amber-600 shrink-0" />
+            <span className="font-semibold">Décomposition du Solde :</span>
+            <span className="font-data">
+              <strong>+{formatJours(totalCumule)}j</strong> (Acquis)
+              <span className="mx-1.5 text-amber-700 dark:text-amber-400">−</span>
+              <strong>{formatJours(totalExpire)}j</strong> (Prescription légale &gt; 3 ans)
+              <span className="mx-1.5 text-amber-700 dark:text-amber-400">−</span>
+              <strong>{formatJours(totalPris)}j</strong> (Pris)
+              <span className="mx-1.5 text-amber-700 dark:text-amber-400">=</span>
+              <strong className="text-success-600 dark:text-success-400">+{formatJours(soldeActuel)} jours disponibles</strong>
+            </span>
+          </div>
+          <span className="text-[11px] text-amber-800 dark:text-amber-300">
+            Code du travail : prescription après 36 mois sans prise.
+          </span>
+        </div>
+      )}
     </div>
   );
 }

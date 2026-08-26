@@ -194,10 +194,13 @@ export default function MajorationsParametresTab() {
                             <Input
                                 label="Taux (Ex: 0.30 pour +30%)"
                                 type="number"
+                                min="0"
+                                max="5"
                                 step="0.01"
                                 required
                                 value={majorationFormData.taux}
                                 onChange={(e) => setMajorationFormData({ ...majorationFormData, taux: parseFloat(e.target.value) || 0 })}
+                                helpText="Ex: 0.30 pour +30%, 0.50 pour +50%, 1.00 pour +100%"
                             />
                             <div className="grid grid-cols-2 gap-4">
                                 <Input
@@ -210,6 +213,7 @@ export default function MajorationsParametresTab() {
                                 <Input
                                     label="Date Fin (Optionnel)"
                                     type="date"
+                                    min={fmtDateInput(majorationFormData.dateDebut)}
                                     value={fmtDateInput(majorationFormData.dateFin)}
                                     onChange={(e) => setMajorationFormData({ ...majorationFormData, dateFin: e.target.value })}
                                 />

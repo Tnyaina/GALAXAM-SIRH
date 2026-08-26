@@ -61,7 +61,8 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 
 -- 2. Sous-menus de Niveau 2 - Gestion du Personnel
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-('PERS_EMPLOYES', 'Fiches Employés', 'Contact', '/employes', 1, 2, 'GESTION_PERSONNEL');
+('PERS_EMPLOYES', 'Fiches Employés', 'Contact', '/employes', 1, 2, 'GESTION_PERSONNEL'),
+('PERS_CARRIERES', 'Contrats & Carrières', 'Briefcase', '/carrieres', 2, 2, 'GESTION_PERSONNEL');
 
 -- 3. Sous-menus de Niveau 2 - Congés & Absences
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
@@ -82,6 +83,7 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'DASHBOARD'),
 (1, 'GESTION_PERSONNEL'),
 (1, 'PERS_EMPLOYES'),
+(1, 'PERS_CARRIERES'),
 (1, 'CONGES_MODULE'),
 (1, 'CONGES_GENERAL'),
 (1, 'CONGES_DEMANDES'),

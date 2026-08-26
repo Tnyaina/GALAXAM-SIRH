@@ -24,6 +24,7 @@ const CongesTab = lazy(() => import('@/components/employe/tabs/CongesTab'));
 const PointageTab = lazy(() => import('@/components/employe/tabs/PointageTab'));
 const UploadDocumentModal = lazy(() => import('@/components/employe/tabs/UploadDocumentModal'));
 import SEO from '@/components/system/SEO';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 
 const VALID_TABS = ['personnel', 'documents', 'famille', 'carriere', 'conges', 'pointage'];
 
@@ -69,6 +70,9 @@ export default function EmployeFicheDetailPage() {
     const [docCommentaire, setDocCommentaire] = useState('');
     const [uploadingDoc, setUploadingDoc] = useState(false);
     const [docErrorMsg, setDocErrorMsg] = useState('');
+
+    // Modale Suppression Document RH
+    const [docToDelete, setDocToDelete] = useState(null);
 
     // Modale Édition Employé & Désactivation
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -188,15 +192,21 @@ export default function EmployeFicheDetailPage() {
         }
     };
 
-    const handleDeleteDoc = async (idDoc, nomDoc) => {
-        if (!window.confirm(`Voulez-vous vraiment supprimer le document "${nomDoc}" ?`)) return;
+    const handleDeleteDoc = (idDoc, nomDoc) => {
+        setDocToDelete({ idDoc, nomDoc });
+    };
+
+    const handleConfirmDeleteDoc = async () => {
+        if (!docToDelete) return;
         try {
-            await documentRhService.deleteDocument(idDoc);
-            toast({ title: 'Succès', message: `Document "${nomDoc}" supprimé.`, type: 'success' });
+            await documentRhService.deleteDocument(docToDelete.idDoc);
+            toast({ title: 'Succès', message: `Document "${docToDelete.nomDoc}" supprimé.`, type: 'success' });
             loadDocuments();
         } catch (err) {
             console.error('Erreur suppression document:', err);
             setError('Erreur lors de la suppression du document.');
+        } finally {
+            setDocToDelete(null);
         }
     };
 
@@ -239,6 +249,8 @@ export default function EmployeFicheDetailPage() {
     const contactsUrgence = detailData.contactsUrgence || [];
     const comptes = detailData.comptesBancaires || [];
 
+    const hasNoActiveContract = !emp?.idContratActif && !emp?.dateEmbauche && !emp?.nomFonction && (!emp?.statutContrat || emp?.statutContrat === 'Aucun contrat' || emp?.statutContrat === 'BROUILLON');
+
     const mainTabs = [
         { id: 'personnel', label: 'Fiche Personnelle', icon: <User size={16} /> },
         { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: <Folder size={16} /> },
@@ -249,7 +261,7 @@ export default function EmployeFicheDetailPage() {
     ];
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO 
                 title={`Fiche de ${emp?.nom} ${emp?.prenom}`} 
                 description={`Fiche individuelle de ${emp?.nom} ${emp?.prenom} (${emp?.matricule})`} 
@@ -267,6 +279,27 @@ export default function EmployeFicheDetailPage() {
                 onEdit={() => setIsFormOpen(true)}
                 onDesactiver={() => setIsDesactivationModalOpen(true)}
             />
+
+            {/* Bandeau d'orientation post-création si pas de contrat actif */}
+            {hasNoActiveContract && canWrite && (
+                <div className="bg-amber-500/10 border-l-4 border-amber-500 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
+                    <div className="flex items-center gap-3">
+                        <AlertTriangle className="text-amber-600 shrink-0" size={22} />
+                        <div>
+                            <p className="text-sm font-bold">Étape suivante recommandée : Contrat & Affectation</p>
+                            <p className="text-xs text-amber-800 dark:text-amber-300">Cet employé n'a pas encore de contrat actif. Veuillez créer son contrat initial pour l'inclure dans les feuilles de pointage et la gestion des congés.</p>
+                        </div>
+                    </div>
+                    <Button 
+                        size="sm" 
+                        variant="primary" 
+                        onClick={() => handleTabChange('carriere')}
+                        className="shrink-0"
+                    >
+                        Configurer le contrat
+                    </Button>
+                </div>
+            )}
 
             {/* Navigation par Onglets Structurés */}
             <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
@@ -330,7 +363,7 @@ export default function EmployeFicheDetailPage() {
                     {/* Onglet 5: Congés & Absences */}
                     {activeTab === 'conges' && (
                         <Suspense fallback={<TabLoader label="Chargement des congés de l'employé..." />}>
-                            <CongesTab idEmploye={id} canWrite={canWrite} />
+                            <CongesTab idEmploye={id} employe={emp} canWrite={canWrite} />
                         </Suspense>
                     )}
 
@@ -418,13 +451,13 @@ export default function EmployeFicheDetailPage() {
                                 <button
                                     type="button"
                                     onClick={() => setIsDesactivationModalOpen(false)}
-                                    className="px-4 py-2 text-sm font-semibold hover:bg-ink-200 dark:hover:bg-ink-850 rounded-none  cursor-pointer"
+                                    className="px-4 py-2 text-sm font-semibold hover:bg-ink-200 dark:hover:bg-ink-850 rounded-none cursor-pointer"
                                 >
                                     Annuler
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 text-sm font-semibold bg-danger-500 hover:bg-danger-600 text-white rounded-none  cursor-pointer"
+                                    className="px-4 py-2 text-sm font-semibold bg-danger-500 hover:bg-danger-600 text-white rounded-none cursor-pointer"
                                 >
                                     Confirmer la Désactivation
                                 </button>
@@ -433,6 +466,17 @@ export default function EmployeFicheDetailPage() {
                     </div>
                 </div>
             )}
+
+            {/* Modale de confirmation de suppression de document */}
+            <ConfirmDialog
+                isOpen={!!docToDelete}
+                title="Supprimer le document RH"
+                message={`Êtes-vous sûr de vouloir supprimer définitivement le document "${docToDelete?.nomDoc}" ? Cette action est irréversible.`}
+                confirmLabel="Supprimer"
+                variant="danger"
+                onConfirm={handleConfirmDeleteDoc}
+                onCancel={() => setDocToDelete(null)}
+            />
         </div>
     );
 }

@@ -120,6 +120,7 @@ export default function DatesCongeSection({
               type="date"
               value={estDemiJournee ? dateDebut : dateFin}
               disabled={estDemiJournee}
+              min={dateDebut || undefined}
               onChange={(e) => setDateFin(e.target.value)}
               required
             />

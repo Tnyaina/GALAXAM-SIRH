@@ -1,8 +1,10 @@
 import { lazy, Suspense } from 'react';
-import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, ArrowLeft, FileText, ShieldAlert } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText, ShieldAlert } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
+import PageHeader from '@/components/ui/navigation/PageHeader';
+import SEO from '@/components/system/SEO';
 
 const ParametresGlobauxTab = lazy(() => import('@/components/parametres/paie/ParametresGlobauxTab'));
 const ParametresCongesTab = lazy(() => import('@/components/conges/ParametresCongesTab'));
@@ -37,7 +39,6 @@ export default function ParametresModulesPanel() {
     );
 
     const handleModuleChange = (moduleId) => {
-        // Définir l'onglet par défaut du nouveau module
         let defaultTab = 'parametres_globaux';
         if (moduleId === 'conges') defaultTab = 'parametres_globaux_conges';
         else if (moduleId === 'pointage') defaultTab = 'parametres_globaux_pointage';
@@ -86,30 +87,16 @@ export default function ParametresModulesPanel() {
         : generalTabs;
 
     return (
-        <div className="space-y-6">
-            {/* Lien retour */}
-            <Link 
-                to="/dashboard" 
-                className="inline-flex items-center gap-2 text-sm text-[var(--color-brand-500)] hover:underline font-semibold "
-            >
-                <ArrowLeft size={16} />
-                Retour au Tableau de bord
-            </Link>
+        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+            <SEO title="Paramétrage des Modules" description="Configuration des barèmes, cotisations, majorations et règles métier." />
 
-            {/* En-tête de la page */}
-            <div className="bg-[var(--color-surface)] rounded-none shadow-sm border border-[var(--color-border-subtle)] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-[var(--color-brand-500)] text-white rounded-none flex items-center justify-center shadow-md shrink-0">
-                        <Wrench size={24} />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-[var(--color-fg)]">Paramétrage des Modules</h1>
-                        <p className="text-xs text-[var(--color-fg-muted)]">
-                            Configuration spécifique par domaine métier (Paie, Congés, Pointage, etc.)
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <PageHeader
+                title="Paramétrage des Modules Métier"
+                subtitle="Configuration technique des barèmes de paie, règles de congés, tolérances de pointage et constantes système."
+                icon={Wrench}
+                backLink="/dashboard"
+                backLabel="Retour au Tableau de bord"
+            />
 
             {/* Niveau 1 : Sélection du Module (Pills / Boutons horizontaux) */}
             <div className="flex flex-wrap gap-2">
@@ -133,7 +120,7 @@ export default function ParametresModulesPanel() {
             </div>
 
             {/* Niveau 2 : Sélecteur d'onglets principal avec persistance URL */}
-            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden">
+            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden flex flex-col">
                 <Tabs 
                     tabs={currentTabs} 
                     activeTab={activeTab === 'majorations_params' ? 'majorations' : activeTab} 

@@ -5,6 +5,7 @@ import Input from '@/components/ui/forms/Input';
 import Badge from '@/components/ui/data-display/Badge';
 
 export default function PointageToolbar({
+    sitesList = [],
     selectedSite,
     onSiteChange,
     selectedDate,
@@ -37,8 +38,18 @@ export default function PointageToolbar({
                             onChange={(e) => onSiteChange(Number(e.target.value))}
                             className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-xs font-bold text-[var(--color-fg)] px-3 py-2 outline-none rounded-none focus:border-[var(--color-brand-500)] cursor-pointer"
                         >
-                            <option value={1}>TNR — Antananarivo Siège</option>
-                            <option value={2}>TMM — Toamasina Agence</option>
+                            {sitesList && sitesList.length > 0 ? (
+                                sitesList.map((s) => (
+                                    <option key={s.idSite} value={s.idSite}>
+                                        {s.codeSite ? `${s.codeSite} — ` : ''}{s.libelle || s.nomSite || `Site ${s.idSite}`}
+                                    </option>
+                                ))
+                            ) : (
+                                <>
+                                    <option value={1}>TNR — Antananarivo Siège</option>
+                                    <option value={2}>TMM — Toamasina Agence</option>
+                                </>
+                            )}
                         </select>
                     </div>
 

@@ -11,12 +11,15 @@ export default function DatePicker({
     required = false,
     error,
     hint,
+    helpText,
+    helperText,
     min,
     max,
     disabled = false,
     className = '',
     ...props
 }) {
+    const hintText = hint || helpText || helperText;
     return (
         <div className="flex flex-col gap-1">
             {label && (
@@ -49,7 +52,7 @@ export default function DatePicker({
                 />
             </div>
             {error && <p className="text-xs text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-            {hint && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hint}</p>}
+            {hintText && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
         </div>
     );
 }

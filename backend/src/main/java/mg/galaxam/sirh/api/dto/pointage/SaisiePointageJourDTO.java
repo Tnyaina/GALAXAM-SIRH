@@ -112,4 +112,41 @@ public class SaisiePointageJourDTO {
 
     public String getMotifAjustement() { return motifAjustement; }
     public void setMotifAjustement(String motifAjustement) { this.motifAjustement = motifAjustement; }
+
+    private String siteNom;
+    private String codeCategorie;
+    private String libelleCategorie;
+    private boolean horaireContinu;
+    private Double heuresMatin;
+    private Double heuresAm;
+    private Double heuresNuit;
+    private Double montantRepas;
+    private String libelleStatut;
+
+    public String getSiteNom() { return siteNom; }
+    public void setSiteNom(String siteNom) { this.siteNom = siteNom; }
+
+    public String getCodeCategorie() { return codeCategorie; }
+    public void setCodeCategorie(String codeCategorie) { this.codeCategorie = codeCategorie; }
+
+    public String getLibelleCategorie() { return libelleCategorie; }
+    public void setLibelleCategorie(String libelleCategorie) { this.libelleCategorie = libelleCategorie; }
+
+    public boolean isHoraireContinu() { return horaireContinu; }
+    public void setHoraireContinu(boolean horaireContinu) { this.horaireContinu = horaireContinu; }
+
+    public Double getHeuresMatin() { return heuresMatin; }
+    public void setHeuresMatin(Double heuresMatin) { this.heuresMatin = heuresMatin; }
+
+    public Double getHeuresAm() { return heuresAm; }
+    public void setHeuresAm(Double heuresAm) { this.heuresAm = heuresAm; }
+
+    public Double getHeuresNuit() { return heuresNuit; }
+    public void setHeuresNuit(Double heuresNuit) { this.heuresNuit = heuresNuit; }
+
+    public Double getMontantRepas() { return montantRepas; }
+    public void setMontantRepas(Double montantRepas) { this.montantRepas = montantRepas; }
+
+    public String getLibelleStatut() { return libelleStatut; }
+    public void setLibelleStatut(String libelleStatut) { this.libelleStatut = libelleStatut; }
 }

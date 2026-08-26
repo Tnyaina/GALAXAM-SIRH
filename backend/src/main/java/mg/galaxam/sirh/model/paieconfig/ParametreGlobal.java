@@ -149,6 +149,82 @@ public class ParametreGlobal extends ClassMere {
         return list;
     }
 
+    /**
+     * Charge l'ensemble des paramètres globaux actifs sous forme de Map clé-valeur (clé en majuscules).
+     */
+    public static java.util.Map<String, String> loadActiveMap(Connection c) {
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        String sql = "SELECT code_parametre, valeur FROM parametre_global WHERE date_fin IS NULL OR date_fin >= CURRENT_DATE";
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                map.put(rs.getString("code_parametre").toUpperCase(), rs.getString("valeur"));
+            }
+        } catch (Exception e) {
+            System.err.println("[PARAMETRE GLOBAL] Erreur de chargement: " + e.getMessage());
+        }
+        return map;
+    }
+
+    /**
+     * Charge les paramètres actifs d'une catégorie spécifique sous forme de Map.
+     */
+    public static java.util.Map<String, String> loadActiveMapByCategorie(String categorie, Connection c) {
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        String sql = "SELECT code_parametre, valeur FROM parametre_global WHERE UPPER(categorie) = UPPER(?) AND (date_fin IS NULL OR date_fin >= CURRENT_DATE)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, categorie.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    map.put(rs.getString("code_parametre").toUpperCase(), rs.getString("valeur"));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[PARAMETRE GLOBAL] Erreur de chargement catégorie " + categorie + ": " + e.getMessage());
+        }
+        return map;
+    }
+
+    // Helper static getters typés
+    public static double getDouble(java.util.Map<String, String> params, String key, double defaultValue) {
+        if (params == null || key == null) return defaultValue;
+        try {
+            String val = params.get(key.toUpperCase());
+            return val != null ? Double.parseDouble(val.trim()) : defaultValue;
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    public static int getInt(java.util.Map<String, String> params, String key, int defaultValue) {
+        if (params == null || key == null) return defaultValue;
+        try {
+            String val = params.get(key.toUpperCase());
+            return val != null ? Integer.parseInt(val.trim()) : defaultValue;
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    public static String getString(java.util.Map<String, String> params, String key, String defaultValue) {
+        if (params == null || key == null) return defaultValue;
+        String val = params.get(key.toUpperCase());
+        return (val != null && !val.trim().isEmpty()) ? val.trim() : defaultValue;
+    }
+
+    public static java.time.LocalTime getLocalTime(java.util.Map<String, String> params, String key, java.time.LocalTime defaultValue) {
+        if (params == null || key == null) return defaultValue;
+        try {
+            String val = params.get(key.toUpperCase());
+            if (val == null || val.trim().isEmpty()) return defaultValue;
+            String s = val.trim();
+            if (s.length() == 5) s += ":00";
+            return java.time.LocalTime.parse(s);
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
     // Getters / Setters
     public Integer getIdParametre() { return idParametre; }
     public void setIdParametre(Integer idParametre) { this.idParametre = idParametre; }

@@ -6,7 +6,8 @@ import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.api.dto.pointage.PointageSyntheseMensuelleDTO;
 import mg.galaxam.sirh.api.dto.pointage.PointageTronconSemaineDTO;
-import mg.galaxam.sirh.service.pointage.PointageSyntheseService;
+import mg.galaxam.sirh.model.pointage.service.PointageSyntheseService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

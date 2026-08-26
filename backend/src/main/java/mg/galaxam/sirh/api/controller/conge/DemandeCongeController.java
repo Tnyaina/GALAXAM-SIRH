@@ -33,8 +33,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/conges/demandes")
 public class DemandeCongeController {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DemandeCongeController.class);
+
     @Autowired
     private DataSource dataSource;
+
+    @Autowired
+    private mg.galaxam.sirh.model.conge.service.CongeService congeService;
 
     @PostMapping("/simuler")
     @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
@@ -47,7 +52,7 @@ public class DemandeCongeController {
             Date dateDebut = Date.valueOf(req.get("dateDebut"));
             Date dateFin = Date.valueOf(req.get("dateFin"));
             boolean estDemiJournee = req.containsKey("estDemiJournee") && Boolean.parseBoolean(req.get("estDemiJournee").toString());
-            BigDecimal nbJours = DemandeConge.calculerNombreJoursDecomptes(dateDebut, dateFin, estDemiJournee);
+            BigDecimal nbJours = congeService.simulerNombreJours(dateDebut, dateFin, estDemiJournee);
 
             Map<String, Object> resp = new HashMap<>();
             resp.put("dateDebut", dateDebut);
@@ -56,6 +61,7 @@ public class DemandeCongeController {
             resp.put("nbJoursDecomptes", nbJours);
             return ResponseEntity.ok(resp);
         } catch (Exception e) {
+            log.warn("Erreur simulation congé : {}", e.getMessage());
             return ResponseEntity.badRequest().body("Erreur lors de la simulation : " + e.getMessage());
         }
     }
@@ -63,8 +69,11 @@ public class DemandeCongeController {
     @PostMapping
     @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> creerDemande(@RequestBody Map<String, Object> req) {
-        if (!req.containsKey("idEmploye") || !req.containsKey("idTypeConge") || !req.containsKey("dateDebut") || !req.containsKey("dateFin")) {
-            return ResponseEntity.badRequest().body("L'idEmploye, l'idTypeConge, la dateDebut et la dateFin sont obligatoires.");
+        if (!req.containsKey("idEmploye") || req.get("idEmploye") == null || req.get("idEmploye").toString().isBlank()) {
+            return ResponseEntity.badRequest().body("L'employé (idEmploye) est obligatoirement requis.");
+        }
+        if (!req.containsKey("idTypeConge") || !req.containsKey("dateDebut") || !req.containsKey("dateFin")) {
+            return ResponseEntity.badRequest().body("Le type de congé, la dateDebut et la dateFin sont obligatoires.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -104,65 +113,7 @@ public class DemandeCongeController {
                     d.setCommentaire(req.get("commentaire").toString());
                 }
 
-                // Résolution statut par défaut: EN_ATTENTE
-                RefStatutDemandeConge enAttente = RefStatutDemandeConge.rechercherParCode("EN_ATTENTE", c);
-                if (enAttente == null) {
-                    throw new IllegalStateException("Statut EN_ATTENTE non trouvé dans le référentiel.");
-                }
-                d.setIdStatutDemandeConge(enAttente.getIdStatutDemandeConge());
-                d.setSaisiPar(getCurrentUserId());
-
-                // ── Bascule Automatique Arrêt Maladie (Art. 13 : > 30 jours par épisode) ──
-                RefTypeConge typeConge = RefTypeConge.rechercherParId(d.getIdTypeConge(), c);
-                Date originalDateFin = d.getDateFin();
-                BigDecimal totalJoursOrigine = DemandeConge.calculerNombreJoursDecomptes(d.getDateDebut(), originalDateFin);
-
-                if (typeConge != null && "MALADIE".equals(typeConge.getCode()) && totalJoursOrigine.compareTo(BigDecimal.valueOf(30)) > 0) {
-                    // Tranche 1 : 30 premiers jours en MALADIE
-                    Date dateFinT1 = Date.valueOf(d.getDateDebut().toLocalDate().plusDays(29));
-                    d.setDateFin(dateFinT1);
-                    d.save(c);
-
-                    // Tranche 2 : du 31ème jour jusqu'à la fin en MALADIE_SANS_SOLDE
-                    if (typeConge.getIdTypeCongeBascule() != null) {
-                        DemandeConge d2 = new DemandeConge();
-                        d2.setIdEmploye(d.getIdEmploye());
-                        d2.setIdTypeConge(typeConge.getIdTypeCongeBascule());
-                        d2.setIdStatutDemandeConge(enAttente.getIdStatutDemandeConge());
-                        d2.setDateDebut(Date.valueOf(dateFinT1.toLocalDate().plusDays(1)));
-                        d2.setDateFin(originalDateFin);
-                        d2.setJustificatifFourni(d.isJustificatifFourni());
-                        d2.setCommentaire("(Bascule automatique Art. 13) " + (d.getCommentaire() != null ? d.getCommentaire() : ""));
-                        d2.setSaisiPar(d.getSaisiPar());
-                        d2.save(c);
-                    }
-
-                    // Génération d'une alerte RH
-                    DemandeConge.creerNotificationRh(
-                        "MALADIE_PLAFOND_EPISODE_ATTEINT",
-                        "HAUTE",
-                        "Bascule Automatique Arrêt Maladie (> 30j)",
-                        "L'arrêt maladie continu (" + totalJoursOrigine + "j) a été automatiquement scindé : 30 jours en maintien de salaire et la suite en Maladie Sans Solde (CNaPS).",
-                        "/conges/demandes/employe/" + d.getIdEmploye(),
-                        d.getIdEmploye(),
-                        c
-                    );
-                } else {
-                    // Traitement standard
-                    d.save(c);
-
-                    // Génération systématique de la notification RH pour la nouvelle demande
-                    DemandeConge.creerNotificationRh(
-                        "CONGE_EN_ATTENTE",
-                        "NORMALE",
-                        "Nouvelle demande de congé",
-                        "Une nouvelle demande de congé (" + (typeConge != null ? typeConge.getLibelle() : "Absence") + ") a été enregistrée et est en attente de validation.",
-                        "/conges",
-                        d.getIdEmploye(),
-                        c
-                    );
-                }
-
+                congeService.creerDemande(d, getCurrentUserId(), c);
                 c.commit();
 
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(d.getIdDemandeConge(), c);
@@ -172,7 +123,7 @@ public class DemandeCongeController {
                 throw e;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Erreur création demande congé : {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erreur lors de la création de la demande : " + e.getMessage());
         }
     }
@@ -318,7 +269,7 @@ public class DemandeCongeController {
                 }
 
                 Integer currentUserId = getCurrentUserId();
-                d.valider(currentUserId, c);
+                congeService.validerDemande(id, currentUserId, null, c);
 
                 // Marquage de l'alerte en attente comme lue
                 try (PreparedStatement psNotif = c.prepareStatement(
@@ -348,7 +299,7 @@ public class DemandeCongeController {
                 throw e;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Erreur validation demande congé : {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body("Erreur lors de la validation de la demande : " + e.getMessage());
         }
@@ -368,7 +319,7 @@ public class DemandeCongeController {
                 if (d == null) return ResponseEntity.notFound().build();
 
                 Integer currentUserId = getCurrentUserId();
-                d.refuser(currentUserId, req.get("motifRefus"), c);
+                congeService.refuserDemande(id, currentUserId, req.get("motifRefus"), c);
 
                 // Marquage de l'alerte en attente comme lue
                 try (PreparedStatement psNotif = c.prepareStatement(
@@ -398,7 +349,7 @@ public class DemandeCongeController {
                 throw e;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Erreur refus demande congé : {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body("Erreur lors du refus de la demande : " + e.getMessage());
         }
@@ -414,7 +365,7 @@ public class DemandeCongeController {
                 if (d == null) return ResponseEntity.notFound().build();
 
                 Integer currentUserId = getCurrentUserId();
-                d.annuler(currentUserId, c);
+                congeService.annulerDemande(id, currentUserId, "Annulation", c);
 
                 // Marquage de l'alerte en attente comme lue
                 try (PreparedStatement psNotif = c.prepareStatement(
@@ -444,7 +395,7 @@ public class DemandeCongeController {
                 throw e;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Erreur annulation demande congé : {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body("Erreur lors de l'annulation de la demande : " + e.getMessage());
         }

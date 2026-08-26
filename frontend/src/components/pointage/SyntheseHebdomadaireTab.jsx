@@ -1,12 +1,11 @@
 import { Link } from 'react-router-dom';
 import { 
     Clock, 
-    Calendar,
-    AlertCircle,
-    TrendingUp,
-    CheckCircle2,
-    CalendarRange,
-    FileText
+    AlertCircle, 
+    TrendingUp, 
+    CheckCircle2, 
+    CalendarRange, 
+    FileText 
 } from 'lucide-react';
 import Card, { CardBody } from '@/components/ui/data-display/Card';
 import StatCard from '@/components/ui/data-display/StatCard';

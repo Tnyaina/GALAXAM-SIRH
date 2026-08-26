@@ -236,6 +236,7 @@ const handleSave = async (e) => {
 ### 3. Obligation sur les Modales et Formulaires
 
 Chaque composant de type Modal (`FormModal`) doit :
+
 1. Déclarer et recevoir la propriété `submitting` (ou `loading`).
 2. Transmettre cette propriété au bouton de soumission `<Button type="submit" loading={submitting}>`.
 
@@ -332,14 +333,14 @@ Ajouter navigation clavier, validation locale et virtualisation.
 
 Mesures de contexte :
 
-| Métrique | Avant | Après |
-|---|---:|---:|
-| Requêtes Dashboard | 109 | 16 |
-| Ressources Dashboard | 12,5 Mo | 430 Ko |
-| JS fiche employé | 155 Ko | 29,1 Ko |
-| JS sécurité | 64 Ko | 5,5 Ko |
-| DOMContentLoaded | 186 ms | 54 ms |
-| Load | 272 ms | 134 ms |
+| Métrique            |   Avant |  Après |
+| -------------------- | ------: | ------: |
+| Requêtes Dashboard  |     109 |      16 |
+| Ressources Dashboard | 12,5 Mo |  430 Ko |
+| JS fiche employé    |  155 Ko | 29,1 Ko |
+| JS sécurité        |   64 Ko |  5,5 Ko |
+| DOMContentLoaded     |  186 ms |   54 ms |
+| Load                 |  272 ms |  134 ms |
 
 Ces chiffres doivent être remesurés après chaque évolution importante.
 

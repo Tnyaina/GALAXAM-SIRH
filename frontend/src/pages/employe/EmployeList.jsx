@@ -9,12 +9,13 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { useContractReferentiels } from '@/hooks/useContractReferentiels';
+import useDebounce from '@/hooks/useDebounce';
 
 import EmployeStatsCards from '@/components/employe/EmployeStatsCards';
 import EmployeFilterBar from '@/components/employe/EmployeFilterBar';
 import EmployeTable from '@/components/employe/EmployeTable';
 import Pagination from '@/components/ui/navigation/Pagination';
-import SEO from '@/components/system/SEO';
+import PageHeader from '@/components/ui/navigation/PageHeader';
 
 const EmployeFormModal = lazy(() => import('./dossier/EmployeFormModal'));
 
@@ -33,6 +34,7 @@ export default function EmployeList() {
 
     // Filtres
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebounce(searchQuery, 350);
     const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'ACTIVE', 'INACTIVE'
     const [siteFilter, setSiteFilter] = useState('');
     const [departementFilter, setDepartementFilter] = useState('');
@@ -61,10 +63,10 @@ export default function EmployeList() {
     const loadEmployes = useCallback(async () => {
         setLoading(true);
         try {
-            // Charger la liste globale pour permettre le multi-filtrage et multi-tri
+            // Charger la liste globale pour permettre le multi-filtrage et multi-tri instantané
             const [data, stats] = await Promise.all([
                 employeService.getEmployes({ size: 1000 }),
-                employeService.getEmployeStats({ q: searchQuery.trim() || undefined })
+                employeService.getEmployeStats()
             ]);
 
             const list = data?.content || (Array.isArray(data) ? data : []);
@@ -80,7 +82,7 @@ export default function EmployeList() {
         } finally {
             setLoading(false);
         }
-    }, [searchQuery]);
+    }, []);
 
     useEffect(() => {
         loadEmployes();
@@ -283,11 +285,15 @@ export default function EmployeList() {
                 loadEmployes();
             } else {
                 const created = await employeService.createEmploye(formData);
-                toast({ title: 'Succès', message: 'Nouvel employé créé avec succès.', type: 'success' });
+                toast({ 
+                    title: 'Employé créé avec succès', 
+                    message: 'Redirection vers la fiche carrière pour configurer le contrat initial...', 
+                    type: 'success' 
+                });
                 setIsFormOpen(false);
                 const newEmpId = created?.idEmploye || created?.employe?.idEmploye;
                 if (newEmpId) {
-                    navigate(`/employes/${newEmpId}`);
+                    navigate(`/employes/${newEmpId}?tab=carriere&action=new_contract`);
                 } else {
                     loadEmployes();
                 }
@@ -348,42 +354,37 @@ export default function EmployeList() {
     const totalInactifs = statsCounts.inactifs;
 
     return (
-        <div className="space-y-6">
-            <SEO title="Fiches Employés" description="Répertoire du personnel et gestion des fiches individuelles." />
-            {/* En-tête de la page */}
-            <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-brand-500 text-white flex items-center justify-center">
-                        <Users size={24} />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-ink-900 dark:text-white">Fiches Employés</h1>
-                        <p className="text-xs text-ink-400 dark:text-ink-300">Répertoire du personnel — gestion des fiches individuelles</p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <Button
-                        onClick={loadEmployes}
-                        variant="ghost"
-                        size="sm"
-                        loading={loading}
-                        iconLeft={<RefreshCw size={16} />}
-                    >
-                        Actualiser
-                    </Button>
-                    {canWrite && (
+        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+            <PageHeader
+                title="Fiches Employés"
+                subtitle="Répertoire du personnel — gestion des fiches individuelles, carrières et documents"
+                icon={Users}
+                backLink="/dashboard"
+                backLabel="Retour au Tableau de bord"
+                actions={
+                    <>
                         <Button
-                            onClick={handleOpenCreate}
-                            variant="primary"
+                            onClick={loadEmployes}
+                            variant="ghost"
                             size="sm"
-                            iconLeft={<UserPlus size={16} />}
+                            loading={loading}
+                            iconLeft={<RefreshCw size={16} />}
                         >
-                            Nouvel Employé
+                            Actualiser
                         </Button>
-                    )}
-                </div>
-            </div>
+                        {canWrite && (
+                            <Button
+                                onClick={handleOpenCreate}
+                                variant="primary"
+                                size="sm"
+                                iconLeft={<UserPlus size={16} />}
+                            >
+                                Nouvel Employé
+                            </Button>
+                        )}
+                    </>
+                }
+            />
 
             {/* Notifications */}
             {error && (
@@ -420,6 +421,7 @@ export default function EmployeList() {
                     setColumnSortConfig({ key: '', direction: 'asc' });
                 }}
                 onResetFilters={handleResetFilters}
+                totalFound={sortedEmployes.length}
             />
 
             {/* Tableau des employés */}

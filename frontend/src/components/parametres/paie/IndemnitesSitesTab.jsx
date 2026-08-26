@@ -428,6 +428,8 @@ export default function IndemnitesSitesTab() {
                                 <Input
                                     label="Montant (Ar)"
                                     type="number"
+                                    min="0"
+                                    step="100"
                                     required
                                     placeholder="Ex: 2500"
                                     value={siteIndemniteFormData.montantReference}
@@ -445,6 +447,7 @@ export default function IndemnitesSitesTab() {
                                 <Input
                                     label="Date Fin (Optionnel)"
                                     type="date"
+                                    min={fmtDateInput(siteIndemniteFormData.dateDebut)}
                                     value={fmtDateInput(siteIndemniteFormData.dateFin)}
                                     onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, dateFin: e.target.value })}
                                 />

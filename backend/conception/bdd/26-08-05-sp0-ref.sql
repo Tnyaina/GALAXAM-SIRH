@@ -218,7 +218,7 @@ INSERT INTO ref_filiale (code_filiale, raison_sociale, nif, stat, seuil_effectif
 -- 2. Départements
 INSERT INTO ref_departement (code_departement, libelle) VALUES
 ('LOG', 'Logistics'),
-('LMD', 'Projet LMD');
+('LMD', 'LMD');
 
 -- 3. Services (Hierarchie Département)
 INSERT INTO ref_service (code_service, libelle, id_departement) VALUES
@@ -338,7 +338,7 @@ INSERT INTO parametre_global (code_parametre, categorie, valeur, description, da
 ('SEUIL_HEURES_JOUR',          'RH_GENERAL', '8',      'Heures normales quotidiennes', '2026-01-01'),
 ('SEUIL_HEURES_SEMAINE',       'RH_GENERAL', '40',     'Heures normales hebdomadaires', '2026-01-01'),
 ('PLAFOND_HEURES_SUPP_SEMAINE','RH_GENERAL', '20',     'Plafond légal HS/semaine (Décret 2007-563)', '2026-01-01'),
-('SEUIL_HS_TRANCHE_1',         'RH_GENERAL', '8',      'Premières Xh HS/tronçon au taux 30% (41e−48e heure)', '2026-01-01'),
+('SEUIL_HS_TRANCHE_1',         'RH_GENERAL', '8',      'Les X premières heures supplémentaires de la semaine sont payées avec une majoration de +30%', '2026-01-01'),
 
 -- ---- POINTAGE : seuils et montants spécifiques au module Pointage ----
 ('SEUIL_NUIT_DEBUT',           'POINTAGE', '22:00', 'Début du travail de nuit (Art. 83 Code Travail Malgache)', '2026-01-01'),

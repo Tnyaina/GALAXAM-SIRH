@@ -29,9 +29,9 @@ export default function OptionsRHSection({
               className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
             />
             <span className="text-sm text-[var(--color-fg)]">
-              Autoriser un solde négatif
+              Dérogation RH : Prise par anticipation / Solde négatif
               <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">
-                La demande sera acceptée même si le solde de congés devient négatif.
+                Autorise la pose même si l'ancienneté est &lt; 12 mois (Art. 83) ou si le solde disponible est insuffisant.
               </span>
             </span>
           </label>

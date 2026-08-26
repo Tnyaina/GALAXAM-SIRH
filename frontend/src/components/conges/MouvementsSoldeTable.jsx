@@ -8,12 +8,13 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 
-const formatDateTime = (timestamp) => {
-  if (!timestamp) return '-';
-  const date = new Date(timestamp);
-  return date.toLocaleString('fr-FR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit'
+const formatDateMouvement = (dateVal, fallbackTimestamp) => {
+  const target = dateVal || fallbackTimestamp;
+  if (!target) return '-';
+  const date = new Date(target);
+  if (isNaN(date.getTime())) return String(target);
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
   });
 };
 
@@ -25,7 +26,9 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const filteredMouvements = (mouvements || []).filter((mvt) => {
+  const safeMouvements = Array.isArray(mouvements) ? mouvements : (mouvements?.items || mouvements?.content || mouvements?.data || []);
+  const filteredMouvements = safeMouvements.filter((mvt) => {
+    if (!mvt) return false;
     if (filterType === 'ALL') return true;
     return mvt.typeMouvement === filterType;
   });
@@ -140,7 +143,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
                   return (
                     <Tr key={m.idMouvement}>
                       <Td className="font-data text-xs">
-                        {formatDateTime(m.createdAt || m.dateMouvement)}
+                        {formatDateMouvement(m.dateMouvement, m.createdAt)}
                       </Td>
                       <Td>
                         <Badge variant={getTypeBadgeVariant(m.typeMouvement)} size="sm">

@@ -1,8 +1,9 @@
 package mg.galaxam.sirh.api.controller.pointage;
 
 import mg.galaxam.sirh.api.dto.pointage.PeriodePaieDTO;
+import mg.galaxam.sirh.model.pointage.service.PointageSyntheseService;
 import mg.galaxam.sirh.securite.CustomUserDetails;
-import mg.galaxam.sirh.service.pointage.PointageSyntheseService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

@@ -30,6 +30,21 @@ public class CongeSoldeController {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private mg.galaxam.sirh.cron.PurgeCongeScheduler purgeCongeScheduler;
+
+    @PostMapping("/purge-expiration")
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> declencherPurgeManuelle() {
+        try {
+            purgeCongeScheduler.purgerCongesExpires();
+            return ResponseEntity.ok(Map.of("success", true, "message", "Purge triennale des congés exécutée avec succès."));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la purge : " + e.getMessage());
+        }
+    }
+
     @GetMapping("/solde/employe/{idEmploye}")
     @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getSoldeEmploye(@PathVariable Integer idEmploye) {

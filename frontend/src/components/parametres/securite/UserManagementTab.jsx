@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, UserPlus, Edit2, ShieldAlert, X } from 'lucide-react';
+import { Search, UserPlus, Edit2, ShieldAlert, X, Eye } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -8,12 +8,12 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
-import { fmtDate } from '@/utils/paieUtils';
 
 export default function UserManagementTab() {
     const [users, setUsers] = useState([]);
     const [roles, setRoles] = useState([]);
     const [search, setSearch] = useState('');
+    const [showInactive, setShowInactive] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
@@ -180,9 +180,11 @@ export default function UserManagementTab() {
         }
     };
 
-    const filteredUsers = users.filter(u =>
-        u.identifiant.toLowerCase().includes(search.toLowerCase()) ||
-        (u.roleLibelle && u.roleLibelle.toLowerCase().includes(search.toLowerCase()))
+    const safeUsersList = Array.isArray(users) ? users : (users?.items || users?.content || []);
+    const filteredUsers = safeUsersList.filter(u =>
+        (showInactive || u.estActif !== false) &&
+        (u.identifiant?.toLowerCase().includes(search.toLowerCase()) ||
+        (u.roleLibelle && u.roleLibelle.toLowerCase().includes(search.toLowerCase())))
     );
 
     if (loading && users.length === 0) {
@@ -211,14 +213,26 @@ export default function UserManagementTab() {
                         className="w-full pl-9 pr-4 py-2 border border-[var(--color-border)] rounded-none bg-[var(--color-surface)] text-sm text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
                     />
                 </div>
-                <Button
-                    onClick={handleOpenCreateModal}
-                    variant="primary"
-                    size="sm"
-                    iconLeft={<UserPlus size={16} />}
-                >
-                    Nouvel Utilisateur
-                </Button>
+                <div className="flex items-center gap-3 flex-wrap">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1.5 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap">
+                        <input
+                            type="checkbox"
+                            checked={showInactive}
+                            onChange={(e) => setShowInactive(e.target.checked)}
+                            className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
+                        />
+                        <Eye size={14} />
+                        <span>Afficher désactivés</span>
+                    </label>
+                    <Button
+                        onClick={handleOpenCreateModal}
+                        variant="primary"
+                        size="sm"
+                        iconLeft={<UserPlus size={16} />}
+                    >
+                        Nouvel Utilisateur
+                    </Button>
+                </div>
             </div>
 
             {/* Tableau des utilisateurs */}
@@ -227,7 +241,6 @@ export default function UserManagementTab() {
                     <Th>Identifiant</Th>
                     <Th>Rôle</Th>
                     <Th>Statut</Th>
-                    <Th>Dernière Désactivation</Th>
                     <Th className="text-right">Actions</Th>
                 </Thead>
                 <Tbody>
@@ -244,16 +257,6 @@ export default function UserManagementTab() {
                                     <Badge variant={user.estActif ? 'success' : 'default'} size="sm" dot>
                                         {user.estActif ? 'Actif' : 'Désactivé'}
                                     </Badge>
-                                </Td>
-                                <Td muted className="text-xs max-w-xs truncate">
-                                    {!user.estActif && user.dateDesactivation ? (
-                                        <div>
-                                            <p>{fmtDate(user.dateDesactivation)}</p>
-                                            <p className="text-[var(--color-danger-500)] font-medium">Motif : {user.motifDesactivation}</p>
-                                        </div>
-                                    ) : (
-                                        <span>-</span>
-                                    )}
                                 </Td>
                                 <Td className="text-right">
                                     <div className="flex justify-end items-center gap-2">
@@ -312,6 +315,7 @@ export default function UserManagementTab() {
                                 label="Identifiant"
                                 required
                                 disabled={!!selectedUser}
+                                autoComplete="username"
                                 value={formData.identifiant}
                                 onChange={(e) => setFormData({ ...formData, identifiant: e.target.value })}
                                 placeholder="Ex: jean.dupont"
@@ -320,6 +324,7 @@ export default function UserManagementTab() {
                                 <Input
                                     label={`Mot de passe ${selectedUser ? "(Laisser vide pour ne pas modifier)" : ""}`}
                                     type={showPassword ? "text" : "password"}
+                                    autoComplete="new-password"
                                     required={!selectedUser}
                                     value={formData.motDePasse}
                                     onChange={(e) => setFormData({ ...formData, motDePasse: e.target.value })}
@@ -338,6 +343,7 @@ export default function UserManagementTab() {
                             <Input
                                 label="Confirmer le mot de passe"
                                 type={showPassword ? "text" : "password"}
+                                autoComplete="new-password"
                                 required={!selectedUser && !!formData.motDePasse}
                                 value={formData.confirmPassword}
                                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}

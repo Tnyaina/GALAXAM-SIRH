@@ -10,6 +10,9 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Scheduler pour l'acquisition mensuelle des droits aux congés.
  * S'exécute chaque nuit à 01:00:00 pour créditer les employés 
@@ -18,16 +21,20 @@ import org.springframework.stereotype.Component;
 @Component
 public class AcquisitionCongeScheduler {
 
+    private static final Logger log = LoggerFactory.getLogger(AcquisitionCongeScheduler.class);
+
     @Autowired
     private DataSource dataSource;
 
     /**
-     * Exécuté chaque jour à 01h00.
+     * Exécuté au démarrage (rattrapage) et chaque nuit à 01h00.
      * Pour chaque employé actif dont la date anniversaire d'embauche (date_debut du contrat)
      * correspond à la date du jour (gestion des 31/février incluse), on ajoute 2.5 jours.
      */
+    @EventListener(ApplicationReadyEvent.class)
     @Scheduled(cron = "0 0 1 * * ?")
     public void acquerirCongesMensuels() {
+        log.info("[SCHEDULER] Vérification de l'acquisition mensuelle des congés...");
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -36,6 +43,7 @@ public class AcquisitionCongeScheduler {
                              "FROM contrat_travail ct " +
                              "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
                              "WHERE rsc.code = 'ACTIF' " +
+                             "AND ct.date_debut <= CURRENT_DATE - INTERVAL '1 month' " +
                              "AND (" +
                              "    EXTRACT(DAY FROM ct.date_debut) = EXTRACT(DAY FROM CURRENT_DATE) " +
                              "    OR (" +
@@ -47,16 +55,25 @@ public class AcquisitionCongeScheduler {
                 try (PreparedStatement ps = c.prepareStatement(sql);
                      ResultSet rs = ps.executeQuery()) {
                     
-                    String checkMouvement = "SELECT COUNT(*) FROM mouvement_solde_conge WHERE id_employe = ? AND type_mouvement = ? AND date_mouvement = CURRENT_DATE";
+                    String checkMouvementMois = "SELECT COUNT(*) FROM mouvement_solde_conge " +
+                                                "WHERE id_employe = ? AND type_mouvement = 'ACQUISITION' " +
+                                                "AND EXTRACT(YEAR FROM date_mouvement) = EXTRACT(YEAR FROM CURRENT_DATE) " +
+                                                "AND EXTRACT(MONTH FROM date_mouvement) = EXTRACT(MONTH FROM CURRENT_DATE)";
+
+                    String checkMouvementAn = "SELECT COUNT(*) FROM mouvement_solde_conge " +
+                                              "WHERE id_employe = ? AND type_mouvement = 'BONIFICATION' " +
+                                              "AND EXTRACT(YEAR FROM date_mouvement) = EXTRACT(YEAR FROM CURRENT_DATE)";
+
                     String insertMouvement = "INSERT INTO mouvement_solde_conge " +
                                              "(id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
                                              "VALUES (?, ?, ?, CURRENT_DATE, ?)";
                                              
                     String insertNotif = "INSERT INTO notification_rh " +
                                          "(type_alerte, priorite, titre, message, lien, id_employe_concerne) " +
-                                         "VALUES ('BONIFICATION_ANCIENNETE_APPLIQUEE', 'BASSE', ?, ?, ?, ?)";
+                                         "VALUES ('MOUVEMENT_APPLIQUE', 'INFO', ?, ?, ?, ?)";
                     
-                    try (PreparedStatement psCheck = c.prepareStatement(checkMouvement);
+                    try (PreparedStatement psCheckMois = c.prepareStatement(checkMouvementMois);
+                         PreparedStatement psCheckAn = c.prepareStatement(checkMouvementAn);
                          PreparedStatement psIn = c.prepareStatement(insertMouvement);
                          PreparedStatement psNotif = c.prepareStatement(insertNotif)) {
                         
@@ -66,15 +83,14 @@ public class AcquisitionCongeScheduler {
                             int idEmploye = rs.getInt("id_employe");
                             java.sql.Date dateDebutSql = rs.getDate("date_debut");
                             
-                            // Vérifier si l'acquisition a déjà été faite aujourd'hui
-                            psCheck.setInt(1, idEmploye);
-                            psCheck.setString(2, "ACQUISITION");
-                            boolean dejaAcquis = false;
-                            try (ResultSet rsChk = psCheck.executeQuery()) {
-                                if (rsChk.next() && rsChk.getInt(1) > 0) dejaAcquis = true;
+                            // Vérifier si l'acquisition a déjà été faite pour le mois en cours
+                            psCheckMois.setInt(1, idEmploye);
+                            boolean dejaAcquisCeMois = false;
+                            try (ResultSet rsChk = psCheckMois.executeQuery()) {
+                                if (rsChk.next() && rsChk.getInt(1) > 0) dejaAcquisCeMois = true;
                             }
 
-                            if (!dejaAcquis) {
+                            if (!dejaAcquisCeMois) {
                                 // Log Mouvement Acquisition (2.5j)
                                 psIn.setInt(1, idEmploye);
                                 psIn.setString(2, "ACQUISITION");
@@ -94,14 +110,13 @@ public class AcquisitionCongeScheduler {
                                     if (anneesAnciennete >= 3) {
                                         int bonus = anneesAnciennete / 5;
                                         if (bonus > 0) {
-                                            psCheck.setInt(1, idEmploye);
-                                            psCheck.setString(2, "BONIFICATION");
-                                            boolean dejaBonifie = false;
-                                            try (ResultSet rsChk = psCheck.executeQuery()) {
-                                                if (rsChk.next() && rsChk.getInt(1) > 0) dejaBonifie = true;
+                                            psCheckAn.setInt(1, idEmploye);
+                                            boolean dejaBonifieCetteAnnee = false;
+                                            try (ResultSet rsChk = psCheckAn.executeQuery()) {
+                                                if (rsChk.next() && rsChk.getInt(1) > 0) dejaBonifieCetteAnnee = true;
                                             }
 
-                                            if (!dejaBonifie) {
+                                            if (!dejaBonifieCetteAnnee) {
                                                 // 1. Mouvement BONIFICATION
                                                 psIn.setInt(1, idEmploye);
                                                 psIn.setString(2, "BONIFICATION");

@@ -16,8 +16,7 @@ export default function PointageGridTable({
     onPageChange,
     onPageSizeChange,
     isReadOnlyForUser = false,
-    inputRefs,
-    getInputKey,
+    onRegisterInputRef,
     onUpdateHours,
     onUpdateIndemnite,
     onKeyDown,
@@ -182,7 +181,7 @@ export default function PointageGridTable({
                                     {/* 1. Entrée Matin */}
                                     <Td className={`text-center py-2.5 ${isCongeMatin ? 'bg-[var(--color-bg-subtle)]/70 opacity-80' : ''}`}>
                                         <TimeInput
-                                            inputRef={(el) => { if (inputRefs.current) inputRefs.current[getInputKey(row.idEmploye, 0)] = el; }}
+                                            inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 0, el)}
                                             value={row.heureEntreeMatin}
                                             disabled={isReadOnlyForUser || isCongeFull || isCongeMatin}
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureEntreeMatin', val)}
@@ -195,7 +194,7 @@ export default function PointageGridTable({
                                     {/* 2. Sortie Matin */}
                                     <Td className={`text-center py-2.5 ${isCongeMatin ? 'bg-[var(--color-bg-subtle)]/70 opacity-80' : ''}`}>
                                         <TimeInput
-                                            inputRef={(el) => { if (inputRefs.current) inputRefs.current[getInputKey(row.idEmploye, 1)] = el; }}
+                                            inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 1, el)}
                                             value={row.heureSortieMatin}
                                             disabled={isReadOnlyForUser || isCongeFull || isCongeMatin}
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieMatin', val)}
@@ -209,7 +208,7 @@ export default function PointageGridTable({
                                     {/* 3. Retour Pause */}
                                     <Td className={`text-center py-2.5 border-l border-l-[var(--color-border-subtle)] ${isCongeAm ? 'bg-[var(--color-bg-subtle)]/70 opacity-80' : ''}`}>
                                         <TimeInput
-                                            inputRef={(el) => { if (inputRefs.current) inputRefs.current[getInputKey(row.idEmploye, 2)] = el; }}
+                                            inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 2, el)}
                                             value={row.heureEntreeAm}
                                             disabled={isReadOnlyForUser || isCongeFull || isCongeAm}
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureEntreeAm', val)}
@@ -223,7 +222,7 @@ export default function PointageGridTable({
                                     {/* 4. Sortie Soir */}
                                     <Td className={`text-center py-2.5 ${isCongeAm ? 'bg-[var(--color-bg-subtle)]/70 opacity-80' : ''}`}>
                                         <TimeInput
-                                            inputRef={(el) => { if (inputRefs.current) inputRefs.current[getInputKey(row.idEmploye, 3)] = el; }}
+                                            inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 3, el)}
                                             value={row.heureSortieAm}
                                             disabled={isReadOnlyForUser || isCongeFull || isCongeAm}
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieAm', val)}
@@ -233,14 +232,38 @@ export default function PointageGridTable({
                                         />
                                     </Td>
 
-                                    {/* Totaux & Retards Cumulés */}
-                                    <Td className="font-mono text-xs font-bold text-[var(--color-fg)] text-center py-2.5">
-                                        {(() => {
-                                            const th = row.totalHeures || 0;
-                                            const h = Math.floor(th);
-                                            const m = Math.round((th - h) * 60);
-                                            return `${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}`;
-                                        })()}
+                                    {/* Totaux & Heures de Nuit */}
+                                    <Td className="text-center py-2.5">
+                                        <div className="flex flex-col items-center justify-center">
+                                            <span className="font-mono text-xs font-bold text-[var(--color-fg)]">
+                                                {(() => {
+                                                    const th = row.totalHeures || 0;
+                                                    const h = Math.floor(th);
+                                                    const m = Math.round((th - h) * 60);
+                                                    return `${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}`;
+                                                })()}
+                                            </span>
+                                            {(() => {
+                                                if (row.heureSortieAm && row.heureSortieAm > '22:00') {
+                                                    const parts = row.heureSortieAm.split(':').map(Number);
+                                                    const h = parts[0] || 0;
+                                                    const m = parts[1] || 0;
+                                                    const nightMins = (h * 60 + m) - (22 * 60);
+                                                    if (nightMins > 0) {
+                                                        const nightHours = (nightMins / 60).toFixed(1);
+                                                        return (
+                                                            <span 
+                                                                className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-1 py-0.2 mt-0.5" 
+                                                                title={`Heures de nuit majorées (+30%) : ${nightHours}h au-delà de 22h00`}
+                                                            >
+                                                                🌙 {nightHours}h nuit
+                                                            </span>
+                                                        );
+                                                    }
+                                                }
+                                                return null;
+                                            })()}
+                                        </div>
                                     </Td>
 
                                     <Td className={`font-mono text-xs font-semibold text-center py-2.5 ${(row.minutesRetard || 0) > 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)]'}`}>
@@ -298,7 +321,7 @@ export default function PointageGridTable({
 
                                     {/* Indemnité Repas */}
                                     <Td className="text-center py-2.5">
-                                        <div className="flex flex-col items-center justify-center gap-0.5">
+                                        <div className="flex flex-col items-center justify-center gap-1">
                                             <label className={`inline-flex items-center gap-1.5 ${isCongeFull || isReadOnlyForUser ? '' : 'cursor-pointer'} select-none`}>
                                                 <input
                                                     type="checkbox"
@@ -308,9 +331,34 @@ export default function PointageGridTable({
                                                     className="w-4 h-4 cursor-pointer accent-[var(--color-brand-500)]"
                                                 />
                                                 <span className={`text-[10px] font-semibold ${row.indemniteRepasRecue ? 'text-[var(--color-success-600)]' : 'text-[var(--color-fg-muted)]'}`}>
-                                                    {row.indemniteRepasRecue ? 'Reçue' : 'Non reçue'}
+                                                    {row.indemniteRepasRecue ? '2 000 Ar' : '0 Ar'}
                                                 </span>
                                             </label>
+
+                                            {/* Déclenchement automatique 2ème Repas Soir */}
+                                            {(() => {
+                                                if (row.heureSortieAm && row.heureSortieAm >= '21:00') {
+                                                    return (
+                                                        <span 
+                                                            className="inline-flex items-center text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1 py-0.2"
+                                                            title="Sortie après 21h00 : 2ème repas majoré (4 000 Ar)"
+                                                        >
+                                                            +4 000 Ar (Soir)
+                                                        </span>
+                                                    );
+                                                }
+                                                if (row.heureSortieAm && row.heureSortieAm >= '19:30') {
+                                                    return (
+                                                        <span 
+                                                            className="inline-flex items-center text-[9px] font-bold text-amber-600 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1 py-0.2"
+                                                            title="Sortie entre 19h30 et 21h00 : 2ème repas (2 000 Ar)"
+                                                        >
+                                                            +2 000 Ar (Soir)
+                                                        </span>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
                                         </div>
                                     </Td>
                                 </Tr>

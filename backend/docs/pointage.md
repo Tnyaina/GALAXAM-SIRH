@@ -662,30 +662,39 @@ dispense_pointage BOOLEAN NOT NULL DEFAULT FALSE
 -- TRUE = poste autonome → présomption de présence 8h/j, pas d'alerte manquant
 ```
 
-#### `parametre_global` — Réorganisé par catégorie
+#### `parametre_global` — 13 Paramètres Dynamiques (RH_GENERAL & POINTAGE)
 
-**Ancienne entrée supprimée** : `SEUIL_SECOND_REPAS` (remplacée par les deux tranches ci-dessous)
+Tous les calculs métier (durée légale, plafonds, tranches HS, heures de nuit, déjeuners, extras de soirée, déduction transport TMM) sont **100% dynamiques** et chargés en mémoire via `ParametreGlobal.loadActiveMap(Connection c)` (aucune valeur en dur dans le code Java ou React).
 
-**Ajoutés (catégorie POINTAGE)** :
+**Catégorie `RH_GENERAL` (4 paramètres)** :
 
-| Code                             | Valeur    | Rôle                                             |
-| -------------------------------- | --------- | ------------------------------------------------- |
-| `SEUIL_NUIT_DEBUT`             | `22:00` | Début travail de nuit (Art. 83 Code Travail MG)  |
-| `SEUIL_NUIT_FIN`               | `05:00` | Fin travail de nuit                               |
-| `SEUIL_2ND_REPAS_1`            | `19:30` | Seuil min sortie pour 2ᵉ repas tranche 1         |
-| `MONTANT_2ND_REPAS_1`          | `2000`  | Montant 2ᵉ repas tranche 1 (19h30–21h00)        |
-| `SEUIL_2ND_REPAS_2`            | `21:00` | Seuil min sortie pour 2ᵉ repas tranche 2         |
-| `MONTANT_2ND_REPAS_2`          | `4000`  | Montant 2ᵉ repas tranche 2 (> 21h00)             |
-| `SEUIL_PAUSE_MIDI_MIN`         | `60`    | Pause midi min en minutes (détection TMM)        |
-| `REDUCTION_DEPLACT_REPAS_MIDI` | `1000`  | Déduction déplacement si repas midi reçu (TMM) |
+| Code | Valeur BDD | Rôle & Utilisation Métier |
+| :--- | :---: | :--- |
+| `SEUIL_HEURES_JOUR` | `8` | Base normale quotidienne par jour ouvré ($N \times 8\text{h}$ par tronçon). |
+| `SEUIL_HEURES_SEMAINE` | `40` | Seuil pivot hebdomadaire de déclenchement des heures supplémentaires. |
+| `SEUIL_HS_TRANCHE_1` | `8` | Seuil maximal de la tranche 1 d'HS majorée à **+30%** (au-delà, passage à +50%). |
+| `PLAFOND_HEURES_SUPP_SEMAINE` | `20` | Plafond légal maximal d'heures supplémentaires autorisées par semaine (Décret 2007-563). |
 
-**Ajouté (catégorie RH_GENERAL)** :
+**Catégorie `POINTAGE` (9 paramètres)** :
 
-| Code                   | Valeur | Rôle                                     |
-| ---------------------- | ------ | ----------------------------------------- |
-| `SEUIL_HS_TRANCHE_1` | `8`  | Premières Xh HS au taux 30% par tronçon |
+| Code | Valeur BDD | Rôle & Utilisation Métier |
+| :--- | :---: | :--- |
+| `SEUIL_NUIT_DEBUT` | `22:00` | Début du travail de nuit (Art. 83 Code Travail Malgache) $\rightarrow$ calcul automatique dans `PointageSaisieService`. |
+| `SEUIL_NUIT_FIN` | `05:00` | Fin de la tranche nocturne matinale. |
+| `MONTANT_REPAS_MIDI` | `2000` (Ar) | Montant standard du déjeuner journalier si non surchargé par site (`site_indemnite_config`). |
+| `SEUIL_2ND_REPAS_1` | `19:30` | Heure minimale de sortie soirée pour déclencher le 1er extra repas soir. |
+| `MONTANT_2ND_REPAS_1` | `2000` (Ar) | Montant alloué pour sortie entre `19h30` et `21h00`. |
+| `SEUIL_2ND_REPAS_2` | `21:00` | Heure minimale de sortie soirée pour déclencher le 2e extra repas majoré. |
+| `MONTANT_2ND_REPAS_2` | `4000` (Ar) | Montant alloué pour sortie au-delà de `21h00`. |
+| `SEUIL_PAUSE_MIDI_MIN` | `60` (min) | Seuil de détection de pause midi continue (salarié restant déjeuner sur site). |
+| `REDUCTION_DEPLACT_REPAS_MIDI` | `1000` (Ar) | Déduction quotidienne sur l'indemnité déplacement à Tamatave (TMM) quand le repas est pris sur site (2 trajets au lieu de 4). |
 
-**Convention** : Les paramètres `PAIE` sont stockés mais ne seront lus que par le module Paie (futur).
+#### Architecture des Services Dédiés :
+- `mg.galaxam.sirh.model.paieconfig.ParametreGlobal` : Modèle central et chargeur universel `loadActiveMap(c)` avec accesseurs typés.
+- `mg.galaxam.sirh.model.pointage.service.PointageSaisieService` : Saisie quotidienne, heures de nuit, 0 tolérance aux retards, reconstitution des pauses.
+- `mg.galaxam.sirh.model.pointage.service.PointageAnomalieService` : Détection, classification et régularisation des anomalies.
+- `mg.galaxam.sirh.model.pointage.service.PointageSyntheseService` : Compensation hebdomadaire par tronçon, application de la déduction TMM et synthèse paie consolidée.
+- `mg.galaxam.sirh.model.dashboard.service.DashboardService` : Agrégation des KPIs et alertes RH.
 
 ---
 

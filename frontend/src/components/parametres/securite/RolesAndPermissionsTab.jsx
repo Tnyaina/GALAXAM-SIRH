@@ -24,6 +24,7 @@ export default function RolesAndPermissionsTab() {
     };
 
     const [roles, setRoles] = useState([]);
+    const [showInactive, setShowInactive] = useState(false);
     const [modules, setModules] = useState([]);
     const [menusTree, setMenusTree] = useState([]);
 
@@ -102,7 +103,7 @@ export default function RolesAndPermissionsTab() {
     };
 
     const handleOpenEditRole = (role, e) => {
-        e.stopPropagation();
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
         setEditingRole(role);
         setRoleFormData({ codeRole: role.codeRole, libelle: role.libelle });
         setRoleModalError(null);
@@ -128,7 +129,7 @@ export default function RolesAndPermissionsTab() {
     };
 
     const handleToggleRoleStatus = async (role, e) => {
-        e.stopPropagation();
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
         try {
             if (role.estActif) {
                 await referentielService.deactivateRole(role.idRole);
@@ -306,8 +307,10 @@ export default function RolesAndPermissionsTab() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 {/* Colonne Gauche : Liste des Rôles */}
                 <RolesList
-                    roles={roles}
+                    roles={roles.filter(r => showInactive || r.estActif)}
                     selectedRole={selectedRole}
+                    showInactive={showInactive}
+                    onToggleShowInactive={() => setShowInactive(!showInactive)}
                     onSelectRole={setSelectedRole}
                     onOpenCreateRole={handleOpenCreateRole}
                     onOpenEditRole={handleOpenEditRole}

@@ -86,7 +86,7 @@ VALUES (
         'CV',
         'Recrutement',
         'Curriculum vitae',
-        FALSE
+        TRUE
     ),
     (
         'Contrat de travail',

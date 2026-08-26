@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { 
     Clock, 
@@ -24,6 +23,7 @@ import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
 import { formatDate } from '@/utils/pointageUtils';
+import PointageSubNav from '@/components/pointage/PointageSubNav';
 
 // Onglets
 import SyntheseMensuelleTab from '@/components/pointage/SyntheseMensuelleTab';
@@ -56,7 +56,6 @@ export default function SynthesePointagePage() {
         // Mensuel
         syntheseList,
         loading,
-        error,
         stats,
         paginatedList,
         currentPage,
@@ -113,8 +112,11 @@ export default function SynthesePointagePage() {
     ];
 
     return (
-        <div className="space-y-6 font-sans">
+        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Synthèse des Pointages" description="Synthèse mensuelle et hebdomadaire, compensation des retards et calcul des indemnités." />
+
+            {/* 0. Barre de sous-navigation Pointage */}
+            <PointageSubNav />
 
             {/* Lien retour */}
             <Link
@@ -296,18 +298,18 @@ export default function SynthesePointagePage() {
                         </div>
                     </div>
 
-                    {loadingTroncons ? (
+                    {loadingTroncons && troncons.length === 0 ? (
                         <div className="p-8">
                             <SkeletonTable rows={4} columns={8} />
                         </div>
-                    ) : troncons.length === 0 ? (
+                    ) : !loadingTroncons && troncons.length === 0 ? (
                         <div className="p-8">
                             <p className="text-center text-sm text-[var(--color-fg-muted)]">
                                 Aucun enregistrement hebdomadaire trouvé pour cette période.
                             </p>
                         </div>
                     ) : (
-                        <div className="space-y-4">
+                        <div className={`space-y-4 transition-opacity duration-200 ${loadingTroncons ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                             <div className="overflow-x-auto border border-[var(--color-border-subtle)]">
                                 <table className="w-full text-xs text-left border-collapse">
                                     <thead className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-b border-[var(--color-border-subtle)] font-bold">

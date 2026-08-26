@@ -1,9 +1,10 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { CalendarDays, ArrowLeft } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { CalendarDays } from 'lucide-react';
 import congeService from '@/api/congeService';
 
 // Composants UI du Design System Galaxam
+import PageHeader from '@/components/ui/navigation/PageHeader';
 import Tabs from '@/components/ui/navigation/Tabs';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -29,22 +30,21 @@ export default function GestionCongesPage() {
   const [error, setError]     = useState(null);
 
   const loadGlobalData = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-
-      const [globalesRes, refRes] = await Promise.all([
-        congeService.getAllDemandes({ size: 1000 }).catch(() => null),
-        congeService.getAllReferentiels().catch(() => null),
+      const [resDemandes, resRefs] = await Promise.all([
+        congeService.getAllDemandes(),
+        congeService.getAllReferentiels(),
       ]);
-      const listDemandes = Array.isArray(globalesRes)
-        ? globalesRes
-        : (globalesRes?.content || []);
-      setDemandesGlobales(listDemandes);
-      setReferentiels(refRes);
-
+      const demandesList = Array.isArray(resDemandes) 
+        ? resDemandes 
+        : (resDemandes?.items || resDemandes?.content || resDemandes?.data || []);
+      setDemandesGlobales(demandesList);
+      setReferentiels(resRefs?.data || resRefs || null);
     } catch (err) {
-      setError(err?.response?.data || err.message || 'Erreur lors du chargement des donnees.');
+      console.error('Erreur lors du chargement des congés globaux:', err);
+      setError(err?.response?.data?.message || err?.userMessage || 'Impossible de récupérer les données des congés.');
     } finally {
       setLoading(false);
     }
@@ -54,50 +54,37 @@ export default function GestionCongesPage() {
     loadGlobalData();
   }, []);
 
-  const demandesList = Array.isArray(demandesGlobales) ? demandesGlobales : [];
-  const nbEnAttente = demandesList.filter(d => d.codeStatutDemande === 'EN_ATTENTE').length;
+  const demandesList = Array.isArray(demandesGlobales) 
+    ? demandesGlobales 
+    : (demandesGlobales?.items || demandesGlobales?.content || demandesGlobales?.data || []);
+
+  const nbEnAttente = demandesList.filter(
+    (d) => d.statutCode === 'EN_ATTENTE' || d.idStatutDemandeConge === 1
+  ).length;
 
   const tabsList = [
     {
       id: 'soldes',
-      label: 'Planning & Vue d\'ensemble',
+      label: 'Soldes & Planning prévisionnel',
     },
     {
       id: 'demandes',
-      label: 'Demandes & Validation',
+      label: 'Demandes & Validations',
       badge: nbEnAttente > 0 ? nbEnAttente : undefined,
     }
   ];
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
       <SEO title="Congés & Absences" description="Gestion des demandes de congés et soldes." />
-      {/* Lien retour */}
-      <Link 
-        to="/dashboard" 
-        className="inline-flex items-center gap-2 text-sm text-[var(--color-brand-500)] hover:underline font-semibold "
-      >
-        <ArrowLeft size={16} />
-        Retour au Tableau de bord
-      </Link>
 
-      {/* En-tête de la page (Design Premium sans animations/arrondis) */}
-      <div className="relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-sm p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        {/* Motif décoratif arrière-plan */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--color-brand-500)]/5 rounded-none blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-        
-        <div className="relative flex items-center gap-5">
-          <div className="w-14 h-14 bg-gradient-to-br from-[var(--color-brand-400)] to-[var(--color-brand-600)] text-white rounded-none flex items-center justify-center shadow-lg shadow-[var(--color-brand-500)]/20 shrink-0">
-            <CalendarDays size={26} strokeWidth={2.5} />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--color-fg)] tracking-tight">Gestion des Conges & Absences</h1>
-            <p className="text-sm text-[var(--color-fg-muted)] mt-1 font-medium">
-              Supervision globale, planning des equipes et traitement des demandes.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Gestion des Congés & Absences"
+        subtitle="Supervision globale, planning des équipes et traitement des demandes."
+        icon={CalendarDays}
+        backLink="/dashboard"
+        backLabel="Retour au Tableau de bord"
+      />
 
       {error && (
          <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />

@@ -22,7 +22,15 @@ export default function CiviliteStep({
             </Select>
             <Input label="Nom" required value={formData.nom} onChange={e => set('nom', e.target.value)} placeholder="Nom de famille" />
             <Input label="Prénom(s)" required value={formData.prenom} onChange={e => set('prenom', e.target.value)} placeholder="Prénoms" />
-            <Input label="Date de Naissance" required type="date" value={formData.dateNaissance} onChange={e => set('dateNaissance', e.target.value)} />
+            <Input 
+                label="Date de Naissance" 
+                required 
+                type="date" 
+                max={new Date(new Date().setFullYear(new Date().getFullYear() - 16)).toISOString().split('T')[0]}
+                value={formData.dateNaissance} 
+                onChange={e => set('dateNaissance', e.target.value)} 
+                hint="Âge légal minimum : 16 ans"
+            />
             
             <AutocompleteInput 
                 label="Lieu de Naissance" 

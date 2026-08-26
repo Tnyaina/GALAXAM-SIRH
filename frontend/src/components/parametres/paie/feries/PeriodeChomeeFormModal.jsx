@@ -64,6 +64,7 @@ export default function PeriodeChomeeFormModal({
                     <Input
                         label="Date de reprise (Fin)"
                         type="date"
+                        min={formData.dateDebut || undefined}
                         value={formData.dateFin}
                         onChange={(e) => handleChange('dateFin', e.target.value)}
                         helpText="Laissez vide si indéterminée"

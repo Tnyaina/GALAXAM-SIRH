@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { usePointageSaisie } from '@/hooks/pointage/usePointageSaisie';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
@@ -14,10 +14,11 @@ import PointageToolbar from '@/components/pointage/PointageToolbar';
 import PointageGridTable from '@/components/pointage/PointageGridTable';
 import PointageGanttView from '@/components/pointage/gantt/PointageGanttView';
 
-const SITES_LABELS = { 1: 'TNR — Antananarivo Siège', 2: 'TMM — Toamasina Agence' };
+import PointageSubNav from '@/components/pointage/PointageSubNav';
 
 export default function SaisieQuotidiennePage() {
     const {
+        sitesList,
         selectedSite,
         setSelectedSite,
         selectedDate,
@@ -104,7 +105,7 @@ export default function SaisieQuotidiennePage() {
 
     // Navigation Clavier Haute Vitesse (Mode tableur)
     const inputRefs = useRef({});
-    const getInputKey = (empId, fieldIndex) => `${empId}-${fieldIndex}`;
+    const getInputKey = useCallback((empId, fieldIndex) => `${empId}-${fieldIndex}`, []);
 
     const handleFocusNext = (empId, currentFieldIndex) => {
         const fieldsCount = 4;
@@ -205,10 +206,22 @@ export default function SaisieQuotidiennePage() {
         }
     }
 
-    const siteLabel = SITES_LABELS[selectedSite] || `Site ${selectedSite}`;
+    const currentSiteObj = (sitesList || []).find(s => s.idSite === selectedSite);
+    const siteLabel = currentSiteObj 
+        ? `${currentSiteObj.codeSite || ''} — ${currentSiteObj.libelle || currentSiteObj.nomSite || ''}` 
+        : `Site ${selectedSite}`;
+
+    const handleRegisterInputRef = useCallback((idEmploye, colIndex, el) => {
+        if (inputRefs?.current) {
+            inputRefs.current[getInputKey(idEmploye, colIndex)] = el;
+        }
+    }, [inputRefs, getInputKey]);
 
     return (
-        <div className="p-6 space-y-6 font-sans">
+        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+            {/* 0. Barre de sous-navigation Pointage */}
+            <PointageSubNav />
+
             {/* 1. En-tête de la Page */}
             <PointageHeader
                 siteLabel={siteLabel}
@@ -235,6 +248,7 @@ export default function SaisieQuotidiennePage() {
 
             {/* 5. Barre d'outils (Site, Date, Recherche & Actions) */}
             <PointageToolbar
+                sitesList={sitesList}
                 selectedSite={selectedSite}
                 onSiteChange={(site) => {
                     setSelectedSite(site);
@@ -259,28 +273,31 @@ export default function SaisieQuotidiennePage() {
             />
 
             {/* 6. Contenu Principal : Grille de Saisie ou Vue Gantt */}
-            {loading ? (
+            {loading && grilleData.length === 0 && viewMode === 'grille' ? (
                 <SkeletonTable rows={8} cols={9} />
             ) : viewMode === 'gantt' ? (
-                <PointageGanttView
-                    ganttData={ganttData}
-                    ganttPeriod={ganttPeriod}
-                    onPeriodChange={setGanttPeriod}
-                />
+                <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                    <PointageGanttView
+                        ganttData={ganttData}
+                        ganttPeriod={ganttPeriod}
+                        onPeriodChange={setGanttPeriod}
+                    />
+                </div>
             ) : (
-                <PointageGridTable
-                    grilleData={grilleData}
-                    siteParams={siteParams}
-                    currentPage={currentPage}
-                    onPageChange={setCurrentPage}
-                    isReadOnlyForUser={isReadOnlyForUser}
-                    inputRefs={inputRefs}
-                    getInputKey={getInputKey}
-                    onUpdateHours={updateRowHours}
-                    onUpdateIndemnite={updateRowIndemnite}
-                    onKeyDown={handleKeyDown}
-                    onFocusNext={handleFocusNext}
-                />
+                <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                    <PointageGridTable
+                        grilleData={grilleData}
+                        siteParams={siteParams}
+                        currentPage={currentPage}
+                        onPageChange={setCurrentPage}
+                        isReadOnlyForUser={isReadOnlyForUser}
+                        onRegisterInputRef={handleRegisterInputRef}
+                        onUpdateHours={updateRowHours}
+                        onUpdateIndemnite={updateRowIndemnite}
+                        onKeyDown={handleKeyDown}
+                        onFocusNext={handleFocusNext}
+                    />
+                </div>
             )}
 
             {/* Modale de Confirmation de Changement de Statut de Période */}

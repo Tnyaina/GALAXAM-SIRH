@@ -9,36 +9,32 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 /**
  * NotificationRhScheduler — Génère les notifications RH persistées en base.
  *
- * Pattern professionnel : le scheduler tourne chaque nuit APRÈS le scheduler
+ * Pattern professionnel : le scheduler tourne au démarrage et chaque nuit APRÈS le scheduler
  * de mouvements (00:05:00) pour que les données soient à jour.
  * Il supprime les anciennes notifications du même type avant d'en créer
  * de nouvelles (évite les doublons).
- *
- * Types générés :
- *   - CONTRAT_EXPIRE_J    : contrats dont la date_fin = aujourd'hui
- *   - CONTRAT_EXPIRE_7J   : contrats expirant dans les 7 prochains jours
- *   - CONTRAT_EXPIRE_30J  : contrats expirant dans 30 jours
- *   - ESSAI_EXPIRE_J      : essais arrivant à terme aujourd'hui
- *   - ESSAI_EXPIRE_7J     : essais arrivant à terme dans 7 jours
- *   - ESSAI_EXPIRE_30J  : essais arrivant à terme dans 30 jours
- *   - BROUILLON_EN_ATTENTE: workflows BROUILLON non traités depuis > 48h
- *   - CONGE_EN_ATTENTE    : demandes de congé EN_ATTENTE depuis > 48h
  */
 @Component
 public class NotificationRhScheduler {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationRhScheduler.class);
 
     @Autowired
     private DataSource dataSource;
 
     /**
-     * Exécuté chaque jour à 00:05:00 — après le scheduler de mouvements (00:00:00).
+     * Exécution automatique au démarrage de l'application (rattrapage immédiat)
+     * et chaque nuit à 00:05:00.
      */
+    @EventListener(ApplicationReadyEvent.class)
     @Scheduled(cron = "0 5 0 * * ?")
     public void genererNotificationsRh() {
+        log.info("[SCHEDULER] Lancement du cycle de génération des notifications RH...");
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -84,23 +80,15 @@ public class NotificationRhScheduler {
     // =========================================================================
 
     private void purguerAnciennesNotifications(Connection c) throws Exception {
-        // Supprimer les notifications non lues de plus de 60 jours
-        String sql = "DELETE FROM notification_rh WHERE date_creation < CURRENT_TIMESTAMP - INTERVAL '60 days'";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
+        // 1. Supprimer les notifications lues de plus de 7 jours (l'anti-resurfaçage les protège pendant 7j)
+        String sqlLues = "DELETE FROM notification_rh WHERE est_lue = TRUE AND date_creation < CURRENT_TIMESTAMP - INTERVAL '7 days'";
+        try (PreparedStatement ps = c.prepareStatement(sqlLues)) {
             ps.executeUpdate();
         }
 
-        // Supprimer les alertes récurrentes de J-1 non lues (seront re-générées pour aujourd'hui)
-        String sqlRecrre = "DELETE FROM notification_rh " +
-                "WHERE type_alerte IN (" +
-                "  'CONTRAT_EXPIRE_J','CONTRAT_EXPIRE_7J','CONTRAT_EXPIRE_30J'," +
-                "  'ESSAI_EXPIRE_J','ESSAI_EXPIRE_7J','ESSAI_EXPIRE_15J','ESSAI_EXPIRE_30J'," +
-                "  'BROUILLON_EN_ATTENTE','DOCUMENTS_MANQUANTS','CONGE_EN_ATTENTE'," +
-                "  'SOLDE_CONGE_FAIBLE','RETOUR_CONGE_J','FRACTIONNEMENT_NON_RESPECTE','MALADIE_PLAFOND_EPISODE_ATTEINT'," +
-                "  'CONGE_EXPIRATION_PROCHE'" +
-                ") " +
-                "AND est_lue = FALSE";
-        try (PreparedStatement ps = c.prepareStatement(sqlRecrre)) {
+        // 2. Supprimer les notifications non lues très anciennes (+30 jours)
+        String sqlNonLues = "DELETE FROM notification_rh WHERE est_lue = FALSE AND date_creation < CURRENT_TIMESTAMP - INTERVAL '30 days'";
+        try (PreparedStatement ps = c.prepareStatement(sqlNonLues)) {
             ps.executeUpdate();
         }
     }
@@ -422,7 +410,7 @@ public class NotificationRhScheduler {
                     "DOCUMENTS_MANQUANTS",
                     "HAUTE",
                     "Dossier incomplet - " + nomPrenom,
-                    "Pieces obligatoires manquantes : " + docs + ".",
+                    "Pièces obligatoires manquantes : " + docs + ".",
                     "/employes/" + idEmploye + "?tab=documents",
                     idEmploye
                 );
@@ -448,7 +436,7 @@ public class NotificationRhScheduler {
                 insererNotification(c,
                     null,
                     "SOLDE_CONGE_FAIBLE",
-                    "BASSE",
+                    "INFO",
                     "Solde de congé faible - " + nomPrenom,
                     "Le solde de congés de " + nomPrenom + " est faible (" + solde + " jours restants).",
                     "/employes/" + idEmploye + "?tab=conges",
@@ -477,7 +465,7 @@ public class NotificationRhScheduler {
                 insererNotification(c,
                     null,
                     "RETOUR_CONGE_J",
-                    "BASSE",
+                    "INFO",
                     "Fin de congé aujourd'hui - " + nomPrenom,
                     nomPrenom + " termine son congé (" + typeConge + ") ce soir. Reprise prévue demain.",
                     "/employes/" + idEmploye + "?tab=conges",
@@ -636,6 +624,40 @@ public class NotificationRhScheduler {
     private void insererNotification(Connection c, Integer idUtilisateur, String typeAlerte,
                                      String priorite, String titre, String message,
                                      String lien, Integer idEmploye) throws Exception {
+        // 1. Anti-doublon non lue : ne pas réinsérer si une alerte identique non lue existe déjà
+        String checkUnreadSql = "SELECT 1 FROM notification_rh WHERE type_alerte = ? " +
+                "AND id_employe_concerne IS NOT DISTINCT FROM ?::INTEGER " +
+                "AND id_utilisateur IS NOT DISTINCT FROM ?::INTEGER " +
+                "AND titre = ? AND est_lue = FALSE";
+        try (PreparedStatement chk = c.prepareStatement(checkUnreadSql)) {
+            chk.setString(1, typeAlerte);
+            if (idEmploye != null) chk.setInt(2, idEmploye); else chk.setNull(2, java.sql.Types.INTEGER);
+            if (idUtilisateur != null) chk.setInt(3, idUtilisateur); else chk.setNull(3, java.sql.Types.INTEGER);
+            chk.setString(4, titre);
+            try (ResultSet rs = chk.executeQuery()) {
+                if (rs.next()) {
+                    return; // Déjà présente non lue, ignorer le doublon
+                }
+            }
+        }
+
+        // 2. Anti-resurfaçage : si l'utilisateur l'a déjà lue / acquittée dans les 7 derniers jours, ne pas la recréer
+        String checkReadSql = "SELECT 1 FROM notification_rh WHERE type_alerte = ? " +
+                "AND id_employe_concerne IS NOT DISTINCT FROM ?::INTEGER " +
+                "AND id_utilisateur IS NOT DISTINCT FROM ?::INTEGER " +
+                "AND titre = ? AND est_lue = TRUE AND date_creation > CURRENT_TIMESTAMP - INTERVAL '7 days'";
+        try (PreparedStatement chk = c.prepareStatement(checkReadSql)) {
+            chk.setString(1, typeAlerte);
+            if (idEmploye != null) chk.setInt(2, idEmploye); else chk.setNull(2, java.sql.Types.INTEGER);
+            if (idUtilisateur != null) chk.setInt(3, idUtilisateur); else chk.setNull(3, java.sql.Types.INTEGER);
+            chk.setString(4, titre);
+            try (ResultSet rs = chk.executeQuery()) {
+                if (rs.next()) {
+                    return; // Déjà acquittée récemment par l'utilisateur, ne pas re-notifier
+                }
+            }
+        }
+
         String sql = "INSERT INTO notification_rh " +
                 "(id_utilisateur, type_alerte, priorite, titre, message, lien, id_employe_concerne) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?)";

@@ -1,15 +1,36 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import pointageSaisieService from '@/api/pointage/pointageSaisieService';
+import organisationService from '@/api/admin/organisationService';
 import periodePaieService from '@/services/periodePaieService';
 import { fmtDateInput } from '@/utils/paieUtils';
 
 export function usePointageSaisie() {
     const todayStr = fmtDateInput(new Date());
 
-    const [selectedSite, setSelectedSite] = useState(1); // 1 = TNR Siège, 2 = TMM Agence
+    const [sitesList, setSitesList] = useState([]);
+    const [selectedSite, setSelectedSite] = useState(1);
     const [selectedDate, setSelectedDate] = useState(todayStr);
     const [viewMode, setViewMode] = useState('grille'); // 'grille' | 'gantt'
     const [ganttPeriod, setGanttPeriod] = useState('semaine'); // 'jour' | 'semaine' | 'mois'
+
+    // Chargement dynamique des sites depuis l'API
+    useEffect(() => {
+        let isMounted = true;
+        const fetchSites = async () => {
+            try {
+                const sites = await organisationService.getSites();
+                if (isMounted && Array.isArray(sites) && sites.length > 0) {
+                    setSitesList(sites);
+                    // Si le site sélectionné n'est pas dans la liste, on choisit le premier
+                    setSelectedSite((prev) => (sites.some((s) => s.idSite === prev) ? prev : sites[0].idSite));
+                }
+            } catch (err) {
+                console.warn('Impossible de charger la liste des sites, utilisation des valeurs par défaut:', err);
+            }
+        };
+        fetchSites();
+        return () => { isMounted = false; };
+    }, []);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -33,46 +54,8 @@ export function usePointageSaisie() {
     const [error, setError] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
 
-    const loadData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            if (viewMode === 'grille') {
-                const data = await pointageSaisieService.getGrilleSaisie({
-                    idSite: selectedSite,
-                    date: selectedDate
-                });
-                if (data) {
-                    const sParams = data.siteParams || siteParams;
-                    if (data.siteParams) setSiteParams(data.siteParams);
-                    if (data.grilleData) {
-                        const computedData = data.grilleData.map((row) => calculateRowValues(row, sParams));
-                        setGrilleData(computedData);
-                    }
-                    setPeriodeInfo(data.periodeInfo || null);
-                }
-            } else {
-                const data = await pointageSaisieService.getGanttView({
-                    idSite: selectedSite,
-                    date: selectedDate,
-                    period: ganttPeriod
-                });
-                setGanttData(data || []);
-            }
-        } catch (err) {
-            console.error('Erreur chargement saisie pointages:', err);
-            setError("Impossible de charger les données de pointage pour ce site.");
-        } finally {
-            setLoading(false);
-        }
-    }, [selectedSite, selectedDate, viewMode, ganttPeriod]);
-
-    useEffect(() => {
-        loadData();
-    }, [loadData]);
-
     // Calcul des indicateurs et statut d'une ligne selon les paramètres du site (RG-PTG-01)
-    const calculateRowValues = (row, sParams) => {
+    const calculateRowValues = useCallback((row, sParams) => {
         const parseMins = (str) => {
             if (!str || str.length < 5 || str === '—') return null;
             const parts = str.split(':');
@@ -123,7 +106,7 @@ export function usePointageSaisie() {
         let totalMinutesRetard = retMatin + retAm;
 
         // Détection fine et rigoureuse du statut
-        let codeStatut = 'PRESENT';
+        let codeStatut;
         if (isCongeFull) {
             codeStatut = 'CONGE';
         } else if (hasValidationError) {
@@ -158,7 +141,53 @@ export function usePointageSaisie() {
             hasValidationError,
             isPauseAuto
         };
-    };
+    }, []);
+
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            if (viewMode === 'grille') {
+                const data = await pointageSaisieService.getGrilleSaisie({
+                    idSite: selectedSite,
+                    date: selectedDate
+                });
+                if (data) {
+                    const sParams = data.siteParams || {
+                        heureDebutMatin: '08:00',
+                        heureFinMatin: '12:00',
+                        heureDebutAm: '13:00',
+                        heureFinAm: '17:00',
+                        horaireContinu: false,
+                        siteDeplacementActif: true,
+                        siteRepasActif: false
+                    };
+                    if (data.siteParams) setSiteParams(data.siteParams);
+                    if (data.grilleData) {
+                        const computedData = data.grilleData.map((row) => calculateRowValues(row, sParams));
+                        setGrilleData(computedData);
+                    }
+                    setPeriodeInfo(data.periodeInfo || null);
+                }
+            } else {
+                const data = await pointageSaisieService.getGanttView({
+                    idSite: selectedSite,
+                    date: selectedDate,
+                    period: ganttPeriod
+                });
+                setGanttData(data || []);
+            }
+        } catch (err) {
+            console.error('Erreur chargement saisie pointages:', err);
+            setError("Impossible de charger les données de pointage pour ce site.");
+        } finally {
+            setLoading(false);
+        }
+    }, [selectedSite, selectedDate, viewMode, ganttPeriod, calculateRowValues]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     // Recalcul en temps réel lors de la modification des heures d'une ligne
     const updateRowHours = (idEmploye, field, value) => {
@@ -313,6 +342,7 @@ export function usePointageSaisie() {
     };
 
     return {
+        sitesList,
         selectedSite,
         setSelectedSite,
         selectedDate,

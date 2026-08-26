@@ -129,6 +129,8 @@ export default function AffectationFieldsSection({
                 <Input
                     label="Salaire de Base (Ar)"
                     type="number"
+                    min="0"
+                    step="1000"
                     required
                     value={formData.salaireBase}
                     onChange={(e) => setField('salaireBase', e.target.value)}

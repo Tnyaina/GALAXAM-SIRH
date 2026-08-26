@@ -27,6 +27,7 @@ public class PurgeCongeScheduler {
      * Si oui, génère un mouvement d'EXPIRATION.
      */
     @Scheduled(cron = "0 0 2 * * ?")
+    @EventListener(ApplicationReadyEvent.class)
     public void purgerCongesExpires() {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

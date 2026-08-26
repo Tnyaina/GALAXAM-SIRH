@@ -254,6 +254,43 @@ const contratService = {
         const response = await apiClient.get(`/employes/${idEmploye}/essai/etat`);
         return response.data;
     },
+
+    // =========================================================================
+    // SUPERVISION GLOBALE DES CONTRATS & CARRIÈRES
+    // =========================================================================
+
+    /**
+     * Recherche paginée de tous les contrats.
+     */
+    getContratsGlobal: async (params = {}) => {
+        const response = await apiClient.get('/contrats', { params });
+        return response.data;
+    },
+
+    /**
+     * Statistiques consolidées des contrats (KPIs).
+     */
+    getStatsSupervision: async () => {
+        const response = await apiClient.get('/contrats/stats');
+        return response.data;
+    },
+
+    /**
+     * Alertes prioritaires pour la supervision des contrats.
+     */
+    getAlertesPrioritaires: async () => {
+        const response = await apiClient.get('/contrats/alertes-prioritaires');
+        return response.data;
+    },
+
+    /**
+     * Recherche paginée globale de tous les mouvements et évolutions de carrière.
+     * GET /workflows
+     */
+    getWorkflowsGlobal: async (params = {}) => {
+        const response = await apiClient.get('/workflows', { params });
+        return response.data;
+    },
 };
 
 export default contratService;

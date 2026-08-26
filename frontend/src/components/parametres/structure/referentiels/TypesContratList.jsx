@@ -54,9 +54,11 @@ export default function TypesContratList({
                             </Tr>
                         ))
                     ) : (
+                        <Tr>
                             <Td colSpan={4} className="p-0">
                                 <EmptyState title="Aucun type de contrat" description="Aucun type de contrat configuré." />
                             </Td>
+                        </Tr>
                     )}
                 </Tbody>
             </Table>

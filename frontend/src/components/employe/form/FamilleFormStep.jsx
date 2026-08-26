@@ -17,7 +17,7 @@ export default function FamilleFormStep({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input label="Nom Conjoint" value={formData.conjoint.nom} onChange={e => setNested('conjoint', 'nom', e.target.value)} placeholder="Nom" />
                     <Input label="Prénom Conjoint" value={formData.conjoint.prenom} onChange={e => setNested('conjoint', 'prenom', e.target.value)} placeholder="Prénom" />
-                    <Input label="Date Naissance" type="date" value={formData.conjoint.dateNaissance} onChange={e => setNested('conjoint', 'dateNaissance', e.target.value)} />
+                    <Input label="Date Naissance" type="date" max={new Date(new Date().setFullYear(new Date().getFullYear() - 16)).toISOString().split('T')[0]} value={formData.conjoint.dateNaissance} onChange={e => setNested('conjoint', 'dateNaissance', e.target.value)} />
                     <Input label="Société / Employeur" value={formData.conjoint.societe} onChange={e => setNested('conjoint', 'societe', e.target.value)} placeholder="Société du conjoint" />
                     <Input label="Fonction / Profession" value={formData.conjoint.fonction} onChange={e => setNested('conjoint', 'fonction', e.target.value)} placeholder="Poste / Profession du conjoint" />
                 </div>
@@ -45,7 +45,7 @@ export default function FamilleFormStep({
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pr-8">
                                     <Input label="Nom" value={enf.nom} onChange={e => setEnfant(idx, 'nom', e.target.value)} placeholder="Nom" />
                                     <Input label="Prénom" value={enf.prenom} onChange={e => setEnfant(idx, 'prenom', e.target.value)} placeholder="Prénom" />
-                                    <Input label="Date Naissance" type="date" value={enf.dateNaissance} onChange={e => setEnfant(idx, 'dateNaissance', e.target.value)} />
+                                    <Input label="Date Naissance" type="date" max={new Date().toISOString().split('T')[0]} value={enf.dateNaissance} onChange={e => setEnfant(idx, 'dateNaissance', e.target.value)} />
                                     <Select label="Sexe" value={enf.sexe} onChange={e => setEnfant(idx, 'sexe', e.target.value)}>
                                         <option value="M">Garçon (M)</option>
                                         <option value="F">Fille (F)</option>

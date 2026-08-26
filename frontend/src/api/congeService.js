@@ -126,6 +126,14 @@ const congeService = {
     return response.data;
   },
 
+  /**
+   * Déclenche la purge légale triennale des congés prescrits (+36 mois)
+   */
+  declencherPurgeExpiration: async () => {
+    const response = await apiClient.post('/conges/purge-expiration');
+    return response.data;
+  },
+
   // =========================================================================
   // DEMANDES DE CONGÉS & SIMULATION
   // =========================================================================
@@ -215,6 +223,17 @@ const congeService = {
    */
   annulerDemande: async (id) => {
     const response = await apiClient.post(`/conges/demandes/${id}/annuler`);
+    return response.data;
+  },
+
+  // Alias rétrocompatibilité
+  getAllDemandesGlobales: async (params = {}) => {
+    const response = await apiClient.get('/conges/demandes/all', { params });
+    return response.data;
+  },
+
+  getReferentielsConge: async () => {
+    const response = await apiClient.get('/conges/referentiels/all');
     return response.data;
   },
 };

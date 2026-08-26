@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import pointageAnomalieService from '@/services/pointageAnomalieService';
 import periodePaieService from '@/services/periodePaieService';
+import organisationService from '@/api/admin/organisationService';
+import useDebounce from '@/hooks/useDebounce';
 
 export function usePointageAnomalies() {
     const [anomalies, setAnomalies] = useState([]);
     const [stats, setStats] = useState({ total: 0, incomplets: 0, retards: 0, absences: 0 });
     const [periodes, setPeriodes] = useState([]);
+    const [sites, setSites] = useState([]);
 
     const [selectedSite, setSelectedSite] = useState(0); // 0 = Tous
     const [selectedPeriode, setSelectedPeriode] = useState('');
@@ -15,6 +18,7 @@ export function usePointageAnomalies() {
     const [dateFin, setDateFin] = useState('');
     const [typeFilter, setTypeFilter] = useState('ALL'); // 'ALL' | 'INCOMPLET' | 'RETARD' | 'ABSENCE'
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearch = useDebounce(searchTerm, 350);
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -24,19 +28,25 @@ export function usePointageAnomalies() {
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
 
-    const loadPeriodes = useCallback(async () => {
+    const loadPeriodesEtSites = useCallback(async () => {
         try {
-            const data = await periodePaieService.getAllPeriodes();
-            setPeriodes(data || []);
-            if (data && data.length > 0 && !selectedPeriode) {
+            const [periodesData, sitesData] = await Promise.all([
+                periodePaieService.getAllPeriodes(),
+                organisationService.getSites()
+            ]);
+            const periodesList = Array.isArray(periodesData) ? periodesData : (periodesData?.items || periodesData?.content || []);
+            const sitesList = Array.isArray(sitesData) ? sitesData : (sitesData?.items || sitesData?.content || []);
+            setPeriodes(periodesList);
+            setSites(sitesList);
+            if (periodesList.length > 0) {
                 // Sélectionner par défaut la période en cours ou la plus récente
-                const active = data.find(p => p.statutCode === 'EN_COURS' || p.statutCode === 'A_VALIDER') || data[0];
-                if (active) setSelectedPeriode(active.idPeriodePaie);
+                const active = periodesList.find(p => p.statutCode === 'EN_COURS' || p.statutCode === 'A_VALIDER') || periodesList[0];
+                setSelectedPeriode(prev => prev || (active ? active.idPeriodePaie : ''));
             }
         } catch (err) {
-            console.error('Erreur chargement périodes pour anomalies:', err);
+            console.error('Erreur chargement périodes et sites pour anomalies:', err);
         }
-    }, [selectedPeriode]);
+    }, []);
 
     const loadAnomalies = useCallback(async () => {
         setLoading(true);
@@ -46,7 +56,7 @@ export function usePointageAnomalies() {
                 idSite: selectedSite > 0 ? selectedSite : undefined,
                 idPeriodePaie: selectedPeriode ? selectedPeriode : undefined,
                 typeAnomalie: typeFilter,
-                search: searchTerm.trim() || undefined
+                search: debouncedSearch.trim() || undefined
             };
 
             if (dateFilterMode === 'SPECIFIC' && selectedDate) {
@@ -58,7 +68,8 @@ export function usePointageAnomalies() {
 
             const res = await pointageAnomalieService.getAnomalies(params);
             if (res) {
-                setAnomalies(res.anomalies || []);
+                const list = Array.isArray(res.anomalies) ? res.anomalies : (res.anomalies?.items || res.anomalies?.content || []);
+                setAnomalies(list);
                 setStats(res.stats || { total: 0, incomplets: 0, retards: 0, absences: 0 });
             }
         } catch (err) {
@@ -67,16 +78,16 @@ export function usePointageAnomalies() {
         } finally {
             setLoading(false);
         }
-    }, [selectedSite, selectedPeriode, dateFilterMode, selectedDate, dateDebut, dateFin, typeFilter, searchTerm]);
+    }, [selectedSite, selectedPeriode, dateFilterMode, selectedDate, dateDebut, dateFin, typeFilter, debouncedSearch]);
 
     // Réinitialiser la pagination si les filtres changent
     useEffect(() => {
         setCurrentPage(1);
-    }, [selectedSite, selectedPeriode, dateFilterMode, selectedDate, dateDebut, dateFin, typeFilter, searchTerm]);
+    }, [selectedSite, selectedPeriode, dateFilterMode, selectedDate, dateDebut, dateFin, typeFilter, debouncedSearch]);
 
     useEffect(() => {
-        loadPeriodes();
-    }, [loadPeriodes]);
+        loadPeriodesEtSites();
+    }, [loadPeriodesEtSites]);
 
     useEffect(() => {
         loadAnomalies();
@@ -102,44 +113,20 @@ export function usePointageAnomalies() {
         }
     };
 
-    const regulariserStandard = async (anomalie) => {
-        const isTMM = anomalie.idSite === 2;
-        const payload = {
-            actionType: 'PRESENCE',
-            heureEntreeMatin: '08:00',
-            heureSortieMatin: '12:00',
-            heureEntreeAm: isTMM ? '14:00' : '13:00',
-            heureSortieAm: isTMM ? '18:00' : '17:00',
-            motifAjustement: 'Régularisation horaire normal',
-            idEmploye: anomalie.idEmploye,
-            datePointage: anomalie.datePointage,
-            idPeriodePaie: anomalie.idPeriodePaie,
-            idSite: anomalie.idSite
-        };
-        return regulariser(anomalie.idPointage || 0, payload);
+    const regulariserStandard = async (idPointage) => {
+        return regulariser(idPointage, { action: 'APPLY_STANDARD' });
     };
 
-    const justifierRetardRapide = async (anomalie, motif) => {
-        const payload = {
-            actionType: 'PRESENCE',
-            heureEntreeMatin: anomalie.heureEntreeMatin || '08:00',
-            heureSortieMatin: anomalie.heureSortieMatin || '12:00',
-            heureEntreeAm: anomalie.heureEntreeAm || '13:00',
-            heureSortieAm: anomalie.heureSortieAm || '17:00',
-            motifAjustement: motif || 'Retard justifié',
-            idEmploye: anomalie.idEmploye,
-            datePointage: anomalie.datePointage,
-            idPeriodePaie: anomalie.idPeriodePaie,
-            idSite: anomalie.idSite
-        };
-        return regulariser(anomalie.idPointage || 0, payload);
+    const justifierRetardRapide = async (idPointage, motif) => {
+        return regulariser(idPointage, { action: 'JUSTIFIER_RETARD', motifAjustement: motif });
     };
 
-    const regulariserBatch = async (items) => {
+    const regulariserBatch = async (ids, action, motifAjustement) => {
+        if (!ids || ids.length === 0) return { success: false, message: "Aucune anomalie sélectionnée." };
         setSaving(true);
         setError(null);
         try {
-            const res = await pointageAnomalieService.regulariserBatch(items);
+            const res = await pointageAnomalieService.regulariserBatch({ ids, action, motifAjustement });
             if (res.success) {
                 await loadAnomalies();
                 return res;
@@ -160,6 +147,7 @@ export function usePointageAnomalies() {
         anomalies,
         stats,
         periodes,
+        sites,
         selectedSite,
         setSelectedSite,
         selectedPeriode,

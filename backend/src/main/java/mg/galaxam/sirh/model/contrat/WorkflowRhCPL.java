@@ -10,6 +10,8 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
+import mg.galaxam.sirh.api.dto.common.PageDTO;
+
 /**
  * Vue complète (CPL) du workflow RH enrichie par JOINs.
  * Retourne les libellés lisibles au lieu des ID techniques.
@@ -104,6 +106,64 @@ public class WorkflowRhCPL {
             }
         }
         return list;
+    }
+
+    public static PageDTO<WorkflowRhCPL> listerGlobal(String q, String codeTypeEvenement, String codeStatut, Integer idSite, int page, int size, Connection c) throws Exception {
+        StringBuilder whereSql = new StringBuilder(" WHERE 1=1 ");
+        List<Object> params = new ArrayList<>();
+
+        if (q != null && !q.isBlank()) {
+            String like = "%" + q.trim().toUpperCase() + "%";
+            whereSql.append(" AND (UPPER(matricule_employe) LIKE ? OR UPPER(nom_prenom_employe) LIKE ? OR UPPER(COALESCE(motif, '')) LIKE ?) ");
+            params.add(like);
+            params.add(like);
+            params.add(like);
+        }
+
+        if (codeTypeEvenement != null && !codeTypeEvenement.isBlank() && !"ALL".equalsIgnoreCase(codeTypeEvenement)) {
+            whereSql.append(" AND code_type_evenement = ? ");
+            params.add(codeTypeEvenement.trim().toUpperCase());
+        }
+
+        if (codeStatut != null && !codeStatut.isBlank() && !"ALL".equalsIgnoreCase(codeStatut)) {
+            whereSql.append(" AND code_statut_workflow = ? ");
+            params.add(codeStatut.trim().toUpperCase());
+        }
+
+        if (idSite != null && idSite > 0) {
+            whereSql.append(" AND id_site = ? ");
+            params.add(idSite);
+        }
+
+        String countSql = "SELECT COUNT(*) FROM v_workflow_rh_cpl " + whereSql;
+        long totalElements = 0;
+        try (PreparedStatement psCount = c.prepareStatement(countSql)) {
+            for (int i = 0; i < params.size(); i++) {
+                psCount.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = psCount.executeQuery()) {
+                if (rs.next()) totalElements = rs.getLong(1);
+            }
+        }
+
+        int offset = (page - 1) * size;
+        String querySql = "SELECT * FROM v_workflow_rh_cpl " + whereSql + " ORDER BY COALESCE(date_effet, date_demande) DESC NULLS LAST, id_workflow DESC LIMIT ? OFFSET ?";
+        List<WorkflowRhCPL> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(querySql)) {
+            int pIdx = 1;
+            for (Object p : params) {
+                ps.setObject(pIdx++, p);
+            }
+            ps.setInt(pIdx++, size);
+            ps.setInt(pIdx, offset);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapResultSet(rs));
+                }
+            }
+        }
+
+        return new PageDTO<>(list, totalElements, page, size);
     }
 
     private static Integer getIntegerSafe(ResultSet rs, String colName) {

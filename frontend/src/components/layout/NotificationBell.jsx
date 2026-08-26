@@ -40,35 +40,42 @@ const NotifRow = memo(function NotifRow({ notif, onClick }) {
             type="button"
             role="menuitem"
             onClick={() => onClick(notif)}
-            className={`w-full text-left px-4 py-3 border-b border-[var(--color-border-subtle)] last:border-b-0
-                        hover:bg-[var(--color-surface-hover)] group  rounded-none cursor-pointer
-                        ${nonLue ? 'bg-[var(--color-brand-500)]/[0.04]' : ''}`}
+            className={`w-full text-left px-4 py-3.5 border-b border-[var(--color-border-subtle)] last:border-b-0
+                        hover:bg-[var(--color-surface-hover)] group transition-colors rounded-none cursor-pointer
+                        ${nonLue ? 'bg-[var(--color-brand-500)]/[0.03] border-l-2 border-l-[var(--color-brand-500)]' : 'border-l-2 border-l-transparent'}`}
         >
             <div className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-none flex items-center justify-center shrink-0 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
-                    <Icon size={14} className="text-[var(--color-fg-muted)]" strokeWidth={2} />
+                <div className={`w-8 h-8 rounded-none flex items-center justify-center shrink-0 border ${
+                    notif.priorite === 'CRITIQUE' || notif.priorite === 'HAUTE'
+                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
+                        : 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]'
+                }`}>
+                    <Icon size={15} strokeWidth={2} />
                 </div>
+                
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
                         {cfg.label && (
                             <Badge variant={cfg.variant} size="sm">
                                 {cfg.label}
                             </Badge>
                         )}
-                        <p className="text-[13px] font-semibold leading-tight text-[var(--color-fg)] whitespace-normal text-left">
+                        <p className="text-[13px] font-bold leading-tight text-[var(--color-fg)] whitespace-normal text-left">
                             {notif.titre}
                         </p>
                     </div>
-                    <p className="text-xs text-[var(--color-fg-muted)] mt-1 leading-snug whitespace-normal text-left">
+                    
+                    <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed whitespace-normal text-left">
                         {notif.message}
                     </p>
+                    
                     <p className="text-[11px] text-[var(--color-fg-subtle)] mt-1.5 font-data">
                         {fmtRelative(notif.dateCreation)}
                     </p>
                 </div>
-                <div className="flex flex-col items-end gap-1.5 shrink-0 pt-0.5">
-                    {nonLue && <span className="w-1.5 h-1.5 rounded-none bg-[var(--color-brand-500)]" aria-hidden="true" />}
-                    <ChevronRight size={13} className="text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand-500)] " />
+
+                <div className="flex items-center self-center shrink-0 pl-1 text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand-500)] group-hover:translate-x-0.5 transition-all">
+                    <ChevronRight size={15} />
                 </div>
             </div>
         </button>
@@ -130,12 +137,16 @@ export default function NotificationBell() {
         marquerUne(notif.idNotification);
         let link = notif.lien;
         
-        // Rediriger les demandes de congés vers le panneau de validation des congés
-        const titreMsg = ((notif.titre || '') + ' ' + (notif.message || '')).toLowerCase();
-        if (titreMsg.includes('congé') || titreMsg.includes('conge')) {
-            link = '/conges?tab=demandes';
-        } else if (link === '/conges') {
-            link = '/conges?tab=demandes';
+        // Si aucun lien précis n'est fourni ou s'il s'agit du lien générique /conges
+        if (!link || link === '/conges') {
+            const titreMsg = ((notif.titre || '') + ' ' + (notif.message || '')).toLowerCase();
+            if (titreMsg.includes('expiration') || titreMsg.includes('solde')) {
+                link = '/conges?tab=soldes';
+            } else if (titreMsg.includes('demande') || titreMsg.includes('validation')) {
+                link = '/conges?tab=demandes';
+            } else {
+                link = '/conges';
+            }
         }
         
         if (link) {

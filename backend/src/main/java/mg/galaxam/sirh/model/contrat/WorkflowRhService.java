@@ -186,6 +186,15 @@ public class WorkflowRhService {
                 throw new IllegalStateException("Le contrat cible (id=" + workflow.getIdContratCible() + ") est introuvable.");
             }
             validerExigenceDateFin(contrat.getIdTypeContrat(), contrat.getDateFin(), c);
+
+            // Clôturer tout ancien contrat actif restant pour cet employé pour éviter les doublons
+            try (PreparedStatement psCloseOld = c.prepareStatement(
+                    "UPDATE contrat_travail SET id_statut_contrat = (SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'CLOTURE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_contrat <> ? AND id_statut_contrat = (SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'ACTIF')")) {
+                psCloseOld.setInt(1, workflow.getIdEmploye());
+                psCloseOld.setInt(2, workflow.getIdContratCible());
+                psCloseOld.executeUpdate();
+            }
+
             contrat.activer(c);
         }
 
@@ -195,6 +204,15 @@ public class WorkflowRhService {
             if (affectation == null) {
                 throw new IllegalStateException("L'affectation cible (id=" + workflow.getIdAffectationCible() + ") est introuvable.");
             }
+
+            // Clôturer toute ancienne affectation active
+            try (PreparedStatement psCloseOldAff = c.prepareStatement(
+                    "UPDATE employe_affectation_carriere SET id_statut_affectation = (SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'HISTORISEE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_affectation <> ? AND id_statut_affectation = (SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ACTIVE')")) {
+                psCloseOldAff.setInt(1, workflow.getIdEmploye());
+                psCloseOldAff.setInt(2, workflow.getIdAffectationCible());
+                psCloseOldAff.executeUpdate();
+            }
+
             affectation.activer(c);
         }
 

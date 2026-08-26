@@ -155,15 +155,11 @@ export default function PointageTab({ idEmploye }) {
                                 <Tbody>
                                     {pointagesData.map((row) => {
                                         const isConge = row.statut === 'CONGE';
-                                        
-                                        let rowClassName = '';
-                                        if (isConge) {
-                                            rowClassName = '!bg-orange-100 dark:!bg-orange-900/30 border-l-4 !border-l-orange-500 opacity-100';
-                                        } else if (isPointageRowGrayed(row.statut)) {
-                                            rowClassName = 'bg-[var(--color-bg-subtle)]/70 opacity-80 border-l-4 border-l-transparent';
-                                        } else {
-                                            rowClassName = 'hover:bg-[var(--color-bg-subtle)]/30 border-l-4 border-l-transparent transition-colors';
-                                        }
+                                        const rowClassName = isConge
+                                            ? '!bg-orange-100 dark:!bg-orange-900/30 border-l-4 !border-l-orange-500 opacity-100'
+                                            : isPointageRowGrayed(row.statut)
+                                            ? 'bg-[var(--color-bg-subtle)]/70 opacity-80 border-l-4 border-l-transparent'
+                                            : 'hover:bg-[var(--color-bg-subtle)]/30 border-l-4 border-l-transparent transition-colors';
 
                                         return (
                                         <Tr 

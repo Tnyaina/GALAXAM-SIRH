@@ -97,6 +97,7 @@ export default function ContratFieldsSection({
                     label="Date de Fin"
                     type="date"
                     required={exigeDateFin}
+                    min={formData.dateDebut || undefined}
                     value={formData.dateFin}
                     onChange={(e) => setField('dateFin', e.target.value)}
                     hint={exigeDateFin ? "Obligatoire pour ce type de contrat" : "Optionnel si CDI"}

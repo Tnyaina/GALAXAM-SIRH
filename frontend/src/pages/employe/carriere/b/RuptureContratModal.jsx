@@ -101,8 +101,9 @@ export default function RuptureContratModal({
         setLoadingRef(true);
         try {
             const tevRes = await referentielService.getTypesEvenementRh();
-            const ruptures = (tevRes || []).filter(t =>
-                ['DEMISSION', 'LICENCIEMENT', 'RUPTURE_CONVENTIONNELLE', 'FIN_CONTRAT', 'RUPTURE_ESSAI', 'DEPART_RETRAITE'].includes(t.code)
+            const list = Array.isArray(tevRes) ? tevRes : (tevRes?.items || tevRes?.content || []);
+            const ruptures = list.filter(t =>
+                t && ['DEMISSION', 'LICENCIEMENT', 'RUPTURE_CONVENTIONNELLE', 'FIN_CONTRAT', 'RUPTURE_ESSAI', 'DEPART_RETRAITE'].includes(t.code)
             );
             setTypesEvenement(ruptures.length > 0 ? ruptures : [
                 { code: 'DEMISSION', libelle: 'Démission du salarié' },

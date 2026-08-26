@@ -28,6 +28,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { useAuth } from '@/context/AuthContext';
 import SEO from '@/components/system/SEO';
+import PointageSubNav from '@/components/pointage/PointageSubNav';
 
 const STATUT_CONFIG = {
     'BROUILLON': { 
@@ -216,8 +217,11 @@ export default function PeriodePaiePage() {
     };
 
     return (
-        <div className="space-y-6 font-sans">
+        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Périodes de Paie & Clôture" description="Gestion des périodes mensuelles de pointage et cycle de paie." />
+
+            {/* 0. Barre de sous-navigation Pointage */}
+            <PointageSubNav />
 
             {/* Lien retour */}
             <Link 
@@ -337,7 +341,8 @@ export default function PeriodePaiePage() {
                 {loading && periodes.length === 0 ? (
                     <SkeletonTable rows={5} cols={6} />
                 ) : (
-                    <Table>
+                    <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                        <Table>
                         <Thead>
                             <Tr>
                                 <Th>Code Période</Th>
@@ -432,6 +437,7 @@ export default function PeriodePaiePage() {
                             )}
                         </Tbody>
                     </Table>
+                    </div>
                 )}
             </div>
 

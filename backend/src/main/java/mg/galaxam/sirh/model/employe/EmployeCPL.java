@@ -76,6 +76,10 @@ public class EmployeCPL extends ClassMere {
     private Integer nbContactsUrgence;
 
     // AFFECTATION CARRIERE & CONTRAT ACTIF (SYNTHESE)
+    private Integer idContratActif;
+    private String numeroContratActif;
+    private String codeStatutContrat;
+    private String statutContrat;
     private Integer idSite;
     private String nomSite;
     private Integer idDepartement;
@@ -126,6 +130,8 @@ public class EmployeCPL extends ClassMere {
     public EmployeCPL rechercherParId(Integer id, Connection c) throws Exception {
         String sql = "SELECT e.*, eac.id_site, rs.libelle AS nom_site, eac.id_departement, rd.libelle AS nom_departement, " +
                 "eac.id_service, rserv.libelle AS nom_service, eac.id_fonction, rf.libelle AS nom_fonction, " +
+                "ct.id_contrat AS id_contrat_actif, ct.numero_contrat AS numero_contrat_actif, " +
+                "rsc.code AS code_statut_contrat, rsc.libelle AS statut_contrat, " +
                 "ct.id_filiale, rfil.raison_sociale AS nom_filiale, ct.date_debut AS date_embauche " +
                 "FROM v_employe_cpl e " +
                 "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_affectation = COALESCE((SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ACTIVE' LIMIT 1), 1) " +
@@ -134,6 +140,7 @@ public class EmployeCPL extends ClassMere {
                 "LEFT JOIN ref_service rserv ON eac.id_service = rserv.id_service " +
                 "LEFT JOIN ref_fonction rf ON eac.id_fonction = rf.id_fonction " +
                 "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
+                "LEFT JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
                 "LEFT JOIN ref_filiale rfil ON ct.id_filiale = rfil.id_filiale " +
                 "WHERE e.id_employe = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -188,6 +195,8 @@ public class EmployeCPL extends ClassMere {
         List<EmployeCPL> list = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT e.*, eac.id_site, rs.libelle AS nom_site, eac.id_departement, rd.libelle AS nom_departement, " +
                 "eac.id_service, rserv.libelle AS nom_service, eac.id_fonction, rf.libelle AS nom_fonction, " +
+                "ct.id_contrat AS id_contrat_actif, ct.numero_contrat AS numero_contrat_actif, " +
+                "rsc.code AS code_statut_contrat, rsc.libelle AS statut_contrat, " +
                 "ct.id_filiale, rfil.raison_sociale AS nom_filiale, ct.date_debut AS date_embauche " +
                 "FROM v_employe_cpl e " +
                 "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_affectation = COALESCE((SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ACTIVE' LIMIT 1), 1) " +
@@ -196,6 +205,7 @@ public class EmployeCPL extends ClassMere {
                 "LEFT JOIN ref_service rserv ON eac.id_service = rserv.id_service " +
                 "LEFT JOIN ref_fonction rf ON eac.id_fonction = rf.id_fonction " +
                 "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
+                "LEFT JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
                 "LEFT JOIN ref_filiale rfil ON ct.id_filiale = rfil.id_filiale " +
                 "WHERE 1=1 ");
 
@@ -340,6 +350,10 @@ public class EmployeCPL extends ClassMere {
         emp.setNbContactsUrgence((Integer) rs.getObject("nb_contacts_urgence"));
 
         // Affectation & Contrat
+        emp.setIdContratActif(getNullableIntFromRs(rs, "id_contrat_actif"));
+        emp.setNumeroContratActif(getNullableStringFromRs(rs, "numero_contrat_actif"));
+        emp.setCodeStatutContrat(getNullableStringFromRs(rs, "code_statut_contrat"));
+        emp.setStatutContrat(getNullableStringFromRs(rs, "statut_contrat"));
         emp.setIdSite(getNullableIntFromRs(rs, "id_site"));
         emp.setNomSite(getNullableStringFromRs(rs, "nom_site"));
         emp.setIdDepartement(getNullableIntFromRs(rs, "id_departement"));
@@ -354,6 +368,18 @@ public class EmployeCPL extends ClassMere {
 
         return emp;
     }
+
+    public Integer getIdContratActif() { return idContratActif; }
+    public void setIdContratActif(Integer idContratActif) { this.idContratActif = idContratActif; }
+
+    public String getNumeroContratActif() { return numeroContratActif; }
+    public void setNumeroContratActif(String numeroContratActif) { this.numeroContratActif = numeroContratActif; }
+
+    public String getCodeStatutContrat() { return codeStatutContrat; }
+    public void setCodeStatutContrat(String codeStatutContrat) { this.codeStatutContrat = codeStatutContrat; }
+
+    public String getStatutContrat() { return statutContrat; }
+    public void setStatutContrat(String statutContrat) { this.statutContrat = statutContrat; }
 
     // Getters and Setters
     public Integer getIdEmploye() { return idEmploye; }

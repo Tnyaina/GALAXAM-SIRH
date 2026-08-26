@@ -13,6 +13,8 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
 import mg.galaxam.sirh.model.contrat.ContratTravail;
 import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
 
@@ -195,6 +197,42 @@ public class DemandeConge extends ClassMere {
                         annee + ". (Consommé: " + consommeActuel + "j, Demandé: " + nbJoursDecomptes + "j). Dérogation RH requise.");
             }
         }
+
+        // 8. Contrôle de non-chevauchement des dates avec une autre demande active du même salarié
+        String sqlOverlap = "SELECT dc.id_demande_conge, dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.moment_demi_journee, " +
+                "tc.libelle AS libelle_conge, sc.code AS code_statut " +
+                "FROM demande_conge dc " +
+                "JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
+                "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
+                "WHERE dc.id_employe = ? " +
+                "AND dc.id_demande_conge != COALESCE(?, -1) " +
+                "AND sc.code NOT IN ('REFUSE', 'ANNULE', 'REJETE') " +
+                "AND dc.date_debut <= ? AND dc.date_fin >= ?";
+        try (PreparedStatement psOverlap = c.prepareStatement(sqlOverlap)) {
+            psOverlap.setInt(1, idEmploye);
+            psOverlap.setObject(2, idDemandeConge != null ? idDemandeConge : -1);
+            psOverlap.setDate(3, dateFin);
+            psOverlap.setDate(4, dateDebut);
+            try (ResultSet rsOverlap = psOverlap.executeQuery()) {
+                while (rsOverlap.next()) {
+                    boolean otherDemi = rsOverlap.getBoolean("est_demi_journee");
+                    String otherMoment = rsOverlap.getString("moment_demi_journee");
+                    // S'il s'agit de demi-journées complémentaires le même jour (ex: MATIN vs APRES_MIDI), on autorise
+                    if (this.estDemiJournee && otherDemi &&
+                            this.dateDebut.equals(this.dateFin) &&
+                            rsOverlap.getDate("date_debut").equals(this.dateDebut) &&
+                            this.momentDemiJournee != null && otherMoment != null &&
+                            !this.momentDemiJournee.equalsIgnoreCase(otherMoment)) {
+                        continue;
+                    }
+
+                    throw new IllegalArgumentException("Chevauchement détecté : l'employé a déjà une demande de congé (" +
+                            rsOverlap.getString("libelle_conge") + " du " + rsOverlap.getDate("date_debut") + " au " +
+                            rsOverlap.getDate("date_fin") + " - Statut: " + rsOverlap.getString("code_statut") +
+                            ") couvrant cette période.");
+                }
+            }
+        }
     }
 
     public String getStatutCode(Connection c) throws Exception {
@@ -371,12 +409,8 @@ public class DemandeConge extends ClassMere {
 
     private int getParamGlobalInt(String code, int defaultValue, Connection c) {
         try {
-            List<ParametreGlobal> params = ParametreGlobal.listByCategorie("CONGE", c);
-            for (ParametreGlobal p : params) {
-                if (code.equalsIgnoreCase(p.getCodeParametre())) {
-                    return Integer.parseInt(p.getValeur());
-                }
-            }
+            Map<String, String> map = ParametreGlobal.loadActiveMap(c);
+            return ParametreGlobal.getInt(map, code, defaultValue);
         } catch (Exception ignored) {}
         return defaultValue;
     }

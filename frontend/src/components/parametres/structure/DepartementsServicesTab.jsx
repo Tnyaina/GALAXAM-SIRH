@@ -39,17 +39,16 @@ export default function DepartementsServicesTab() {
         setError(null);
         try {
             const data = await organisationService.getDepartements();
-            setDepartements(data || []);
-            if (data?.length > 0 && !selectedDepartement) {
-                setSelectedDepartement(data[0]);
-            }
+            const list = Array.isArray(data) ? data : (data?.items || data?.content || []);
+            setDepartements(list);
+            setSelectedDepartement((prev) => prev || (list.length > 0 ? list[0] : null));
         } catch (err) {
             setError("Erreur lors du chargement des départements.");
             console.error(err);
         } finally {
             setLoading(false);
         }
-    }, [selectedDepartement]);
+    }, []);
 
     const loadServicesForDepartement = async (idDept) => {
         setLoadingServices(true);
@@ -82,7 +81,7 @@ export default function DepartementsServicesTab() {
     };
 
     const handleOpenEditDept = (dept, e) => {
-        e.stopPropagation();
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
         setEditingDept(dept);
         setDeptFormData({
             codeDepartement: dept.codeDepartement,
@@ -131,7 +130,7 @@ export default function DepartementsServicesTab() {
     };
 
     const handleToggleDeptStatus = async (dept, e) => {
-        e.stopPropagation();
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
         if (submitting) return;
         setActionSuccess(null);
         setSubmitting(true);

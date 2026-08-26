@@ -241,7 +241,15 @@ export default function ContratActifSection({
                     </div>
                     <div className="py-1 flex justify-between border-t border-ink-150 dark:border-ink-800 mt-1 pt-2">
                         <span className="text-ink-400">Salaire de Base :</span>
-                        <span className="font-bold text-brand-500 font-mono text-sm">{fmtMoney(affectationActive?.salaireBase)}</span>
+                        <span className="font-bold text-brand-500 font-mono text-sm">
+                            {fmtMoney(affectationActive?.salaireBase)} {
+                                (affectationActive?.libelleModeCalculPaie || workflowCplActif?.libelleModeCalculPaie || '').toLowerCase().includes('horaire')
+                                    ? '/ heure'
+                                    : (affectationActive?.libelleModeCalculPaie || workflowCplActif?.libelleModeCalculPaie || '').toLowerCase().includes('journal')
+                                        ? '/ jour'
+                                        : '/ mois'
+                            }
+                        </span>
                     </div>
                 </div>
             </div>

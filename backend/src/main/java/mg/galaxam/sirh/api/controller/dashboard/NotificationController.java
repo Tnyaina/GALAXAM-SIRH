@@ -136,6 +136,27 @@ public class NotificationController {
         }
     }
 
+    /**
+     * Supprimer toutes les notifications (effacer l'historique).
+     */
+    @DeleteMapping("/purger-toutes")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> purgerToutes() {
+        try (Connection c = dataSource.getConnection()) {
+            Integer idUtilisateur = getCurrentUserId(c);
+            String sql = "DELETE FROM notification_rh WHERE (id_utilisateur IS NULL OR id_utilisateur = ?)";
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
+                ps.setObject(1, idUtilisateur);
+                int deleted = ps.executeUpdate();
+                return ResponseEntity.ok(Map.of("supprimees", deleted));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la purge des notifications.");
+        }
+    }
+
     // =========================================================================
     // Utilitaire — Résolution de l'utilisateur courant
     // =========================================================================

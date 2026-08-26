@@ -106,13 +106,6 @@ CREATE TABLE employe_indemnite_derogation (
 CREATE INDEX idx_derogation_employe ON employe_indemnite_derogation(id_employe, id_indemnite)
     WHERE date_fin IS NULL;
 
--- Seed Dérogations d'indemnité Déplacement (Eric Jean-Joel, Tatamo, Tahiana, Mario)
-INSERT INTO employe_indemnite_derogation (id_employe, id_indemnite, beneficie, motif, date_debut) VALUES
-    ((SELECT id_employe FROM employe WHERE nom ILIKE '%RANDRASANA%' AND prenom ILIKE '%Eric%' LIMIT 1), 1, FALSE, 'Véhicule de fonction — non bénéficiaire déplacement', '2026-01-01'),
-    ((SELECT id_employe FROM employe WHERE nom ILIKE '%RALAMBOMANANA%' AND prenom ILIKE '%Tatamo%' LIMIT 1), 1, FALSE, 'Dérogation individuelle — non bénéficiaire déplacement', '2026-01-01'),
-    ((SELECT id_employe FROM employe WHERE nom ILIKE '%RAHARINIRINARIVELO%' AND prenom ILIKE '%Tahiana%' LIMIT 1), 1, FALSE, 'Dérogation individuelle — non bénéficiaire déplacement', '2026-01-01'),
-    ((SELECT id_employe FROM employe WHERE nom ILIKE '%NDIMBIARISON%' AND prenom ILIKE '%Mario%' LIMIT 1), 1, FALSE, 'Dérogation individuelle — non bénéficiaire déplacement', '2026-01-01');
-
 -- ============================================================
 -- 2. SAISIE QUOTIDIENNE
 -- ============================================================
@@ -349,43 +342,3 @@ ALTER TABLE notification_rh ADD CONSTRAINT chk_notif_type CHECK (type_alerte IN 
     'POINTAGE_MANQUANT', 'PERIODE_POINTAGE_A_VALIDER',
     'PERIODE_POINTAGE_VALIDEE', 'RETARD_RECURRENT'
 ));
-
--- ============================================================
--- 7. MENUS RBAC NAVIGATION POINTAGE
--- 4 menus d'exploitation essentiels
--- Les dérogations et tolérances d'arrivées sont gérées dans Administration > Paramétrage des Modules > Pointage
--- ============================================================
-
--- ============================================================
--- 8. AJOUT DU MODULE POINTAGE AU RBAC (si non présent)
--- ============================================================
--- Rappel : ref_module contient déjà EMPLOYE, CONGE, POINTAGE, PAIE (26-07-29_init.sql)
--- La matrice role_permission pour ROLE_AGENT_POINTAGE (lecture+écriture, sans validation)
--- et ROLE_ADMIN (accès total) est déjà en place — aucune action requise ici.
-
-INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode)
-VALUES 
-    ('2026-01', 'Décembre 2025 -> Janvier 2026', '2025-11-26', '2025-12-25', (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'CLOTUREE')),
-    ('2026-08', 'Juillet 2026 -> Août 2026', '2026-07-26', '2026-08-25', (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'EN_COURS'))
-ON CONFLICT (code) DO NOTHING;
-
--- Seed Pointages pour la semaine de test du 2026-08-24 au 2026-08-28
-INSERT INTO pointage_jour (
-    id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour,
-    heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am,
-    total_heures, minutes_retard, indemnite_deplacement_recue, indemnite_repas_recue, montant_repas
-)
-SELECT 
-    e.id_employe,
-    (SELECT id_periode_paie FROM periode_paie WHERE code = '2026-08' LIMIT 1),
-    COALESCE((SELECT id_site FROM employe_affectation_carriere WHERE id_employe = e.id_employe AND id_statut_affectation = 1 LIMIT 1), 1),
-    d.dt::date,
-    (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT'),
-    '08:00:00'::time, '12:00:00'::time, '13:00:00'::time, '17:00:00'::time,
-    8.00, 0, TRUE, TRUE, 2000.00
-FROM employe e
-CROSS JOIN (
-    VALUES ('2026-08-24'), ('2026-08-25'), ('2026-08-26'), ('2026-08-27'), ('2026-08-28')
-) AS d(dt)
-WHERE e.est_actif = TRUE
-ON CONFLICT (id_employe, date_pointage) DO NOTHING;

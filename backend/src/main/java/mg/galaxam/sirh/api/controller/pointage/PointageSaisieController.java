@@ -20,9 +20,13 @@ import java.util.*;
 public class PointageSaisieController {
 
     private final DataSource dataSource;
+    private final mg.galaxam.sirh.model.pointage.service.PointageSaisieService pointageSaisieService;
 
-    public PointageSaisieController(DataSource dataSource) {
+    public PointageSaisieController(
+            DataSource dataSource,
+            mg.galaxam.sirh.model.pointage.service.PointageSaisieService pointageSaisieService) {
         this.dataSource = dataSource;
+        this.pointageSaisieService = pointageSaisieService;
     }
 
     /**
@@ -192,217 +196,19 @@ public class PointageSaisieController {
             return ResponseEntity.badRequest().body(resp);
         }
 
-        int count = 0;
-        try (Connection c = dataSource.getConnection()) {
-            String dateCible = pointages.get(0).getDatePointage();
-            Map<String, Object> periode = getPeriodePaie(c, dateCible);
-            if (periode == null) {
-                resp.put("success", false);
-                resp.put("message", "Aucune période de paie n'est configurée pour cette date. Veuillez d'abord créer une période de paie.");
-                return ResponseEntity.badRequest().body(resp);
+        try {
+            Map<String, Object> result = pointageSaisieService.enregistrerPointagesBatch(pointages);
+            if (Boolean.TRUE.equals(result.get("success"))) {
+                return ResponseEntity.ok(result);
+            } else {
+                return ResponseEntity.badRequest().body(result);
             }
-            String statutPeriode = (String) periode.get("statut_code");
-
-            boolean isAdmin = org.springframework.security.core.context.SecurityContextHolder.getContext()
-                    .getAuthentication().getAuthorities().stream()
-                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-
-            if ("BROUILLON".equals(statutPeriode)) {
-                resp.put("success", false);
-                resp.put("message", "La période de paie est en statut Brouillon. Elle doit être ouverte avant de pouvoir saisir les pointages.");
-                return ResponseEntity.badRequest().body(resp);
-            }
-            if ("A_VALIDER".equals(statutPeriode) && !isAdmin) {
-                resp.put("success", false);
-                resp.put("message", "La saisie est clôturée pour cette période (en cours de validation DAF). Seule la DAF peut encore apporter des modifications.");
-                return ResponseEntity.badRequest().body(resp);
-            }
-            if ("VALIDEE".equals(statutPeriode) || "CLOTUREE".equals(statutPeriode)) {
-                resp.put("success", false);
-                resp.put("message", "La période de paie est validée et verrouillée. Aucune modification n'est permise (veuillez la rouvrir si une correction est requise).");
-                return ResponseEntity.badRequest().body(resp);
-            }
-            int idPeriodePaie = (Integer) periode.get("id_periode_paie");
-
-            c.setAutoCommit(false);
-
-            String sqlUpsert = "INSERT INTO pointage_jour (" +
-                    "id_employe, id_periode_paie, id_site, date_pointage, " +
-                    "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
-                    "id_statut_jour, heures_matin, heures_am, total_heures, minutes_retard, " +
-                    "indemnite_deplacement_recue, deplacement_matin, deplacement_am, " +
-                    "indemnite_repas_recue, montant_repas, motif_ajustement) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
-                    "ON CONFLICT (id_employe, date_pointage) DO UPDATE SET " +
-                    "id_periode_paie = EXCLUDED.id_periode_paie, " +
-                    "heure_entree_matin = EXCLUDED.heure_entree_matin, " +
-                    "heure_sortie_matin = EXCLUDED.heure_sortie_matin, " +
-                    "heure_entree_am = EXCLUDED.heure_entree_am, " +
-                    "heure_sortie_am = EXCLUDED.heure_sortie_am, " +
-                    "id_statut_jour = EXCLUDED.id_statut_jour, " +
-                    "total_heures = EXCLUDED.total_heures, " +
-                    "minutes_retard = EXCLUDED.minutes_retard, " +
-                    "indemnite_deplacement_recue = EXCLUDED.indemnite_deplacement_recue, " +
-                    "deplacement_matin = EXCLUDED.deplacement_matin, " +
-                    "deplacement_am = EXCLUDED.deplacement_am, " +
-                    "indemnite_repas_recue = EXCLUDED.indemnite_repas_recue, " +
-                    "montant_repas = EXCLUDED.montant_repas, " +
-                    "motif_ajustement = EXCLUDED.motif_ajustement, " +
-                    "updated_at = CURRENT_TIMESTAMP";
-
-            // Charger les configurations des sites pour reconstitution de la pause (RG-PTG-01)
-            Map<Integer, Boolean> siteContinuMap = new HashMap<>();
-            String sqlSites = "SELECT id_site, horaire_continu FROM ref_site";
-            try (PreparedStatement psSites = c.prepareStatement(sqlSites);
-                 ResultSet rsSites = psSites.executeQuery()) {
-                while (rsSites.next()) {
-                    siteContinuMap.put(rsSites.getInt("id_site"), rsSites.getBoolean("horaire_continu"));
-                }
-            }
-
-            // Charger les barèmes repas par site
-            Map<Integer, Double> siteRepasBaseMap = new HashMap<>();
-            String sqlRepas = "SELECT id_site, montant_reference FROM site_indemnite_config WHERE id_indemnite = 2 AND est_actif = TRUE";
-            try (PreparedStatement psRepas = c.prepareStatement(sqlRepas);
-                 ResultSet rsRepas = psRepas.executeQuery()) {
-                while (rsRepas.next()) {
-                    siteRepasBaseMap.put(rsRepas.getInt("id_site"), rsRepas.getDouble("montant_reference"));
-                }
-            }
-
-            // Charger les statuts de pointage officiels depuis ref_statut_pointage_jour
-            Map<String, Integer> statutMap = new HashMap<>();
-            String sqlStatuts = "SELECT id_statut_jour, code FROM ref_statut_pointage_jour";
-            try (PreparedStatement psSt = c.prepareStatement(sqlStatuts);
-                 ResultSet rsSt = psSt.executeQuery()) {
-                while (rsSt.next()) {
-                    statutMap.put(rsSt.getString("code"), rsSt.getInt("id_statut_jour"));
-                }
-            }
-
-            try (PreparedStatement ps = c.prepareStatement(sqlUpsert)) {
-                for (SaisiePointageJourDTO dto : pointages) {
-                    int empSiteId = dto.getIdSite() != null ? dto.getIdSite() : 1;
-                    boolean isContinu = siteContinuMap.getOrDefault(empSiteId, false);
-
-                    ps.setInt(1, dto.getIdEmploye());
-                    ps.setInt(2, idPeriodePaie);
-                    ps.setInt(3, empSiteId);
-                    ps.setDate(4, java.sql.Date.valueOf(dto.getDatePointage()));
-
-                    Time tEntreeMatin = parseTime(dto.getHeureEntreeMatin());
-                    Time tSortieMatin = parseTime(dto.getHeureSortieMatin());
-                    Time tEntreeAm = parseTime(dto.getHeureEntreeAm());
-                    Time tSortieAm = parseTime(dto.getHeureSortieAm());
-
-                    // Reconstitution automatique de la pause par défaut si Entrée Matin + Sortie Soir saisis seuls (RG-PTG-01)
-                    if (tEntreeMatin != null && tSortieAm != null && tSortieMatin == null && tEntreeAm == null) {
-                        tSortieMatin = Time.valueOf("12:00:00");
-                        tEntreeAm = Time.valueOf(isContinu ? "13:00:00" : "14:00:00");
-                    }
-
-                    ps.setTime(5, tEntreeMatin);
-                    ps.setTime(6, tSortieMatin);
-                    ps.setTime(7, tEntreeAm);
-                    ps.setTime(8, tSortieAm);
-
-                    double hMatin = calcHours(tEntreeMatin, tSortieMatin);
-                    double hAm = calcHours(tEntreeAm, tSortieAm);
-
-                    if ("MATIN".equalsIgnoreCase(dto.getTypeCongeJour())) hMatin = 4.0;
-                    if ("APRES_MIDI".equalsIgnoreCase(dto.getTypeCongeJour())) hAm = 4.0;
-                    if ("FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) {
-                        hMatin = 4.0;
-                        hAm = 4.0;
-                    }
-
-                    double totalH = dto.isEstAutonome() ? 8.0 : (hMatin + hAm);
-
-                    int retMins = 0;
-                    if (!dto.isEstAutonome()) {
-                        if (tEntreeMatin != null) {
-                            LocalTime startM = tEntreeMatin.toLocalTime();
-                            LocalTime normalM = LocalTime.of(8, 0);
-                            if (startM.isAfter(normalM)) {
-                                retMins += (int) Duration.between(normalM, startM).toMinutes();
-                            }
-                        }
-                        if (tEntreeAm != null) {
-                            LocalTime startA = tEntreeAm.toLocalTime();
-                            LocalTime normalA = isContinu ? LocalTime.of(13, 0) : LocalTime.of(14, 0);
-                            if (startA.isAfter(normalA)) {
-                                retMins += (int) Duration.between(normalA, startA).toMinutes();
-                            }
-                        }
-                    }
-
-                    String targetCode = "PRESENT";
-                    if ("FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) {
-                        targetCode = "CONGE";
-                    } else if (dto.isEstAutonome()) {
-                        targetCode = "DISPENSE_POINTAGE";
-                    } else if (totalH == 0.0 && tEntreeMatin == null && tSortieMatin == null && tEntreeAm == null && tSortieAm == null) {
-                        targetCode = "ABSENCE_NON_JUSTIFIEE";
-                    } else if ((tEntreeMatin != null && tSortieMatin == null) ||
-                               (tEntreeAm != null && tSortieAm == null) ||
-                               (tEntreeMatin == null && tSortieMatin != null) ||
-                               (tEntreeAm == null && tSortieAm != null) ||
-                               (tEntreeMatin != null && tSortieMatin != null && tEntreeAm == null && tSortieAm == null && !"APRES_MIDI".equalsIgnoreCase(dto.getTypeCongeJour())) ||
-                               (tEntreeMatin == null && tSortieMatin == null && tEntreeAm != null && tSortieAm != null && !"MATIN".equalsIgnoreCase(dto.getTypeCongeJour()))) {
-                        targetCode = "ANOMALIE_SAISIE";
-                    } else {
-                        targetCode = "PRESENT";
-                    }
-
-                    int idStatut = statutMap.getOrDefault(targetCode, 1);
-
-                    ps.setInt(9, idStatut);
-                    ps.setDouble(10, hMatin);
-                    ps.setDouble(11, hAm);
-                    ps.setDouble(12, totalH);
-                    ps.setInt(13, retMins);
-
-                    boolean depRecue = dto.isDeplacementMatin() || dto.isDeplacementAm();
-                    ps.setBoolean(14, depRecue);
-                    ps.setBoolean(15, dto.isDeplacementMatin());
-                    ps.setBoolean(16, dto.isDeplacementAm());
-
-                    double baseRepas = siteRepasBaseMap.getOrDefault(empSiteId, 0.0);
-                    double mRepas = 0.0;
-                    if (dto.isIndemniteRepasRecue()) {
-                        mRepas = baseRepas;
-                        if (tSortieAm != null) {
-                            LocalTime sAm = tSortieAm.toLocalTime();
-                            if (sAm.isAfter(LocalTime.of(21, 0))) {
-                                mRepas += 4000.0;
-                            } else if (sAm.isAfter(LocalTime.of(19, 30))) {
-                                mRepas += 2000.0;
-                            }
-                        }
-                    }
-
-                    ps.setBoolean(17, dto.isIndemniteRepasRecue());
-                    ps.setDouble(18, mRepas);
-                    ps.setString(19, dto.getMotifAjustement());
-
-                    ps.addBatch();
-                    count++;
-                }
-                ps.executeBatch();
-            }
-
-            c.commit();
         } catch (Exception e) {
             e.printStackTrace();
             resp.put("success", false);
             resp.put("message", "Erreur lors de la sauvegarde : " + e.getMessage());
             return ResponseEntity.internalServerError().body(resp);
         }
-
-        resp.put("success", true);
-        resp.put("count", count);
-        resp.put("message", count + " pointage(s) enregistrés avec succès.");
-        return ResponseEntity.ok(resp);
     }
 
     /**
@@ -695,5 +501,39 @@ public class PointageSaisieController {
             }
         }
         return null;
+    }
+
+    private Map<String, String> chargerParametresGlobaux(Connection c) {
+        Map<String, String> map = new HashMap<>();
+        String sql = "SELECT code_parametre, valeur FROM parametre_global WHERE date_fin IS NULL OR date_fin >= CURRENT_DATE";
+        try (Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                map.put(rs.getString("code_parametre").toUpperCase(), rs.getString("valeur"));
+            }
+        } catch (Exception e) {
+            System.err.println("[POINTAGE SAISIE] Erreur chargement paramètres globaux: " + e.getMessage());
+        }
+        return map;
+    }
+
+    private LocalTime parseLocalTime(String str, LocalTime defVal) {
+        if (str == null || str.trim().isEmpty()) return defVal;
+        try {
+            String s = str.trim();
+            if (s.length() == 5) s += ":00";
+            return LocalTime.parse(s);
+        } catch (Exception e) {
+            return defVal;
+        }
+    }
+
+    private double parseParamDouble(String str, double defVal) {
+        if (str == null || str.trim().isEmpty()) return defVal;
+        try {
+            return Double.parseDouble(str.trim());
+        } catch (Exception e) {
+            return defVal;
+        }
     }
 }

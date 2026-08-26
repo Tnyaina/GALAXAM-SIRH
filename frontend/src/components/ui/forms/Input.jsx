@@ -4,6 +4,8 @@ export default function Input({
   label,
   error,
   hint,
+  helpText,
+  helperText,
   icon,
   iconLeft,
   iconRight,
@@ -14,6 +16,7 @@ export default function Input({
   ...props
 }) {
   const leftIcon = icon || iconLeft;
+  const hintText = hint || helpText || helperText;
 
   const handleWheel = (e) => {
     if (props.type === 'number') {
@@ -59,16 +62,28 @@ export default function Input({
         )}
       </div>
       {error && <p className="text-xs text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hint && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hint}</p>}
+      {hintText && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }
 
-export function Textarea({ label, error, hint, className = '', ...props }) {
+export function Textarea({
+  label,
+  error,
+  hint,
+  helpText,
+  helperText,
+  containerClassName = '',
+  labelClassName = '',
+  className = '',
+  ...props
+}) {
+  const hintText = hint || helpText || helperText;
+
   return (
-    <div className="flex flex-col gap-1">
+    <div className={`flex flex-col gap-1 ${containerClassName}`}>
       {label && (
-        <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+        <label className={`text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
           {label}
           {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
@@ -85,16 +100,29 @@ export function Textarea({ label, error, hint, className = '', ...props }) {
         {...props}
       />
       {error && <p className="text-xs text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hint && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hint}</p>}
+      {hintText && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }
 
-export function Select({ label, error, hint, children, className = '', ...props }) {
+export function Select({
+  label,
+  error,
+  hint,
+  helpText,
+  helperText,
+  children,
+  containerClassName = '',
+  labelClassName = '',
+  className = '',
+  ...props
+}) {
+  const hintText = hint || helpText || helperText;
+
   return (
-    <div className="flex flex-col gap-1">
+    <div className={`flex flex-col gap-1 ${containerClassName}`}>
       {label && (
-        <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+        <label className={`text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
           {label}
           {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
@@ -113,14 +141,25 @@ export function Select({ label, error, hint, children, className = '', ...props 
         {children}
       </select>
       {error && <p className="text-xs text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hint && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hint}</p>}
+      {hintText && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }
 
-export function Checkbox({ label, error, hint, className = '', ...props }) {
+export function Checkbox({
+  label,
+  error,
+  hint,
+  helpText,
+  helperText,
+  containerClassName = '',
+  className = '',
+  ...props
+}) {
+  const hintText = hint || helpText || helperText;
+
   return (
-    <div className="flex flex-col gap-1">
+    <div className={`flex flex-col gap-1 ${containerClassName}`}>
       <label className="flex items-center gap-2 cursor-pointer group">
         <input
           type="checkbox"
@@ -140,14 +179,25 @@ export function Checkbox({ label, error, hint, className = '', ...props }) {
         )}
       </label>
       {error && <p className="text-xs text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hint && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hint}</p>}
+      {hintText && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }
 
-export function Radio({ label, error, hint, className = '', ...props }) {
+export function Radio({
+  label,
+  error,
+  hint,
+  helpText,
+  helperText,
+  containerClassName = '',
+  className = '',
+  ...props
+}) {
+  const hintText = hint || helpText || helperText;
+
   return (
-    <div className="flex flex-col gap-1">
+    <div className={`flex flex-col gap-1 ${containerClassName}`}>
       <label className="flex items-center gap-2 cursor-pointer group">
         <input
           type="radio"
@@ -167,7 +217,7 @@ export function Radio({ label, error, hint, className = '', ...props }) {
         )}
       </label>
       {error && <p className="text-xs text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hint && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hint}</p>}
+      {hintText && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }
@@ -179,18 +229,21 @@ export function AutocompleteInput({
   listId,
   error,
   hint,
+  helpText,
+  helperText,
   className = '',
   ...props
 }) {
   const reactId = useId();
   const generatedId = id || listId || `list-${reactId}`;
+  const hintText = hint || helpText || helperText;
 
   return (
     <div className="flex flex-col gap-1">
       <Input
         label={label}
         error={error}
-        hint={hint}
+        hint={hintText}
         list={generatedId}
         className={className}
         {...props}

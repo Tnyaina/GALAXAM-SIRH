@@ -93,8 +93,14 @@ export default function Login() {
                         </div>
 
                         {error && (
-                            <div className="mb-5">
-                                <Alert type="error" title="Erreur">{error}</Alert>
+                            <div className="mb-5 animate-in fade-in duration-200">
+                                <Alert 
+                                    type="error" 
+                                    title="Échec de la connexion"
+                                    onClose={() => setError('')}
+                                >
+                                    {error}
+                                </Alert>
                             </div>
                         )}
 
@@ -103,12 +109,11 @@ export default function Login() {
                                 label="Identifiant"
                                 type="text"
                                 name="identifiant"
-                                placeholder="Votre identifiant"
+                                placeholder="Votre identifiant (ex: admin)"
                                 icon={<User size={16} />}
                                 value={identifiant}
                                 onChange={handleIdentifiantChange}
                                 autoComplete="username"
-                                error={!!error}
                                 required
                             />
 
@@ -122,7 +127,7 @@ export default function Login() {
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword((v) => !v)}
-                                        className="min-w-[44px] min-h-[44px] -mr-3 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] focus:outline-none  cursor-pointer"
+                                        className="min-w-[44px] min-h-[44px] -mr-3 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] focus:outline-none cursor-pointer"
                                         aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                                     >
                                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -131,7 +136,6 @@ export default function Login() {
                                 value={password}
                                 onChange={handlePasswordChange}
                                 autoComplete="current-password"
-                                error={!!error}
                                 required
                             />
 

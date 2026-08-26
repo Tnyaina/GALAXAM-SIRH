@@ -43,9 +43,12 @@ export function useSoldesOverview(demandesGlobales = []) {
 
   // Compute Gantt Data based on the real endpoint (mémoïsé)
   const ganttData = useMemo(() => {
+    const rawList = Array.isArray(demandesGlobales) 
+      ? demandesGlobales 
+      : (demandesGlobales?.items || demandesGlobales?.content || demandesGlobales?.data || []);
     const daysInMonthCount = new Date(year, month, 0).getDate();
-    return (demandesGlobales || []).filter(d => {
-      if (d.codeStatutDemande === 'REFUSE' || d.codeStatutDemande === 'ANNULE') return false;
+    return rawList.filter(d => {
+      if (!d || d.codeStatutDemande === 'REFUSE' || d.codeStatutDemande === 'ANNULE') return false;
 
       const start = new Date(d.dateDebut);
       const end = new Date(d.dateFin);
@@ -184,10 +187,14 @@ export function useSoldesOverview(demandesGlobales = []) {
   }, [sortedTableData, tablePage, tablePageSize]);
 
   // Calculate KPIs
-  const kpiEnAttente = (demandesGlobales || []).filter(d => d.codeStatutDemande === 'EN_ATTENTE').length;
+  const safeDemandesList = Array.isArray(demandesGlobales)
+    ? demandesGlobales
+    : (demandesGlobales?.items || demandesGlobales?.content || demandesGlobales?.data || []);
 
-  const kpiValideCeMois = (demandesGlobales || []).filter(d => {
-    if (d.codeStatutDemande !== 'VALIDE') return false;
+  const kpiEnAttente = safeDemandesList.filter(d => d && (d.codeStatutDemande === 'EN_ATTENTE' || d.statutCode === 'EN_ATTENTE')).length;
+
+  const kpiValideCeMois = safeDemandesList.filter(d => {
+    if (!d || (d.codeStatutDemande !== 'VALIDE' && d.statutCode !== 'VALIDE')) return false;
     const end = new Date(d.dateFin);
     const monthStart = new Date(year, month - 1, 1);
     const monthEnd = new Date(year, month - 1, daysInMonth, 23, 59, 59);
@@ -196,8 +203,8 @@ export function useSoldesOverview(demandesGlobales = []) {
 
   const today = new Date();
   today.setHours(0,0,0,0);
-  const kpiAbsentsAuj = (demandesGlobales || []).filter(d => {
-    if (d.codeStatutDemande !== 'VALIDE') return false;
+  const kpiAbsentsAuj = safeDemandesList.filter(d => {
+    if (!d || (d.codeStatutDemande !== 'VALIDE' && d.statutCode !== 'VALIDE')) return false;
     const start = new Date(d.dateDebut);
     start.setHours(0,0,0,0);
     const end = new Date(d.dateFin);
@@ -205,7 +212,7 @@ export function useSoldesOverview(demandesGlobales = []) {
     return today >= start && today <= end;
   }).length;
 
-  const kpiTotalDemandes = (demandesGlobales || []).length;
+  const kpiTotalDemandes = safeDemandesList.length;
 
   return {
     // Current Month State

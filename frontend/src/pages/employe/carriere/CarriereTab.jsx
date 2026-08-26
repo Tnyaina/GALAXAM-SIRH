@@ -71,6 +71,7 @@ export default function CarriereTab({
             
             {/* Header carte contrat + alerte période d'essai */}
             <CarriereHeaderCard
+                employe={employe}
                 contratActif={contratActif}
                 affectationActive={affectationActive}
                 brouillonWf={brouillonWf}

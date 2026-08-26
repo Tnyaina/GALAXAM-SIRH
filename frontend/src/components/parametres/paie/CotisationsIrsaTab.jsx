@@ -182,7 +182,21 @@ export default function CotisationsIrsaTab() {
     // Handlers IRSA
     const handleOpenCreateIrsa = () => {
         setEditingIrsa(null);
-        setIrsaFormData({ numeroTranche: tranchesIrsa.length + 1, trancheMin: 0, trancheMax: '', taux: 0, dateDebut: todayStr, dateFin: '' });
+        const sorted = [...tranchesIrsa].sort((a, b) => (a.numeroTranche || 0) - (b.numeroTranche || 0));
+        const lastTranche = sorted.length > 0 ? sorted[sorted.length - 1] : null;
+        const nextNum = lastTranche ? (lastTranche.numeroTranche || 0) + 1 : 1;
+        const nextMin = lastTranche && lastTranche.trancheMax !== null && lastTranche.trancheMax !== undefined && lastTranche.trancheMax !== ''
+            ? parseFloat(lastTranche.trancheMax) + 1
+            : 0;
+
+        setIrsaFormData({
+            numeroTranche: nextNum,
+            trancheMin: nextMin,
+            trancheMax: '',
+            taux: 0,
+            dateDebut: todayStr,
+            dateFin: ''
+        });
         setActionError(null);
         setShowIrsaModal(true);
     };
@@ -318,6 +332,7 @@ export default function CotisationsIrsaTab() {
                 editingIrsa={editingIrsa}
                 formData={irsaFormData}
                 setFormData={setIrsaFormData}
+                existingTranches={tranchesIrsa}
                 actionError={actionError}
             />
         </div>

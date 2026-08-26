@@ -3,9 +3,9 @@ package mg.galaxam.sirh.cron;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import javax.sql.DataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class AuditLogPurgeScheduler {
+
+    private static final Logger log = LoggerFactory.getLogger(AuditLogPurgeScheduler.class);
 
     @Autowired
     private DataSource dataSource;
@@ -30,10 +32,10 @@ public class AuditLogPurgeScheduler {
              PreparedStatement ps = c.prepareStatement(sql)) {
             int nbSupprimes = ps.executeUpdate();
             if (nbSupprimes > 0) {
-                System.out.println("[AuditLogPurgeScheduler] Purge des logs d'audit effectuée : " + nbSupprimes + " entrées supprimées (> 1 an).");
+                log.info("[AuditLogPurgeScheduler] Purge des logs d'audit effectuée : {} entrées supprimées (> 1 an).", nbSupprimes);
             }
         } catch (Exception e) {
-            System.err.println("[AuditLogPurgeScheduler] Erreur lors de la purge des logs d'audit : " + e.getMessage());
+            log.error("[AuditLogPurgeScheduler] Erreur lors de la purge des logs d'audit : {}", e.getMessage(), e);
         }
     }
 }

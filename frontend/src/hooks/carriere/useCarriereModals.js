@@ -91,13 +91,17 @@ export function useCarriereModals({
 
         try {
             setSearchParams(prev => {
-                if (!prev.has('wf')) return prev;
+                if (!prev.has('wf') && !prev.has('action')) return prev;
                 const next = new URLSearchParams(prev);
+                if (next.get('action') === 'new_contract') {
+                    setIsEmbaucheModalOpen(true);
+                }
                 next.delete('wf');
+                next.delete('action');
                 return next;
             }, { replace: true });
         } catch (e) {
-            console.error('Erreur nettoyage URL wf:', e);
+            console.error('Erreur nettoyage URL wf/action:', e);
         }
     }, [loading, autoOpenWorkflowId, workflowsList, brouillonWf, setSearchParams]);
 

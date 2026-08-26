@@ -72,9 +72,11 @@ export default function TypesIntervenantList({
                             </Tr>
                         ))
                     ) : (
+                        <Tr>
                             <Td colSpan={7} className="p-0">
                                 <EmptyState title="Aucun type d'intervenant" description="Aucun type d'intervenant configuré." />
                             </Td>
+                        </Tr>
                     )}
                 </Tbody>
             </Table>

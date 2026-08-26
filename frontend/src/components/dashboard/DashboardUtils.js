@@ -2,3 +2,8 @@ export function fmtDate(d) {
     if (!d) return '—';
     return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
+
+export function fmtAriary(val) {
+    if (val === null || val === undefined || isNaN(Number(val))) return '—';
+    return Number(val).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}

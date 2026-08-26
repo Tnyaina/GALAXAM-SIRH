@@ -131,15 +131,46 @@ apiClient.interceptors.response.use(
             }
         }
 
-        if (error.response?.status === 403) {
-            const defaultMsg = "Accès refusé (403) : Vous ne disposez pas des autorisations nécessaires pour effectuer cette opération.";
-            if (!error.response?.data || typeof error.response.data === 'object') {
-                error.response.data = defaultMsg;
+        // Normalisation d'un message convivial pour l'utilisateur
+        let userMessage = "Une erreur inattendue est survenue.";
+        if (error.response) {
+            const data = error.response.data;
+            if (typeof data === 'string' && data.trim() !== '') {
+                userMessage = data;
+            } else if (data?.message) {
+                userMessage = data.message;
+            } else if (error.response.status === 400) {
+                userMessage = "Les informations fournies sont incomplètes ou invalides.";
+            } else if (error.response.status === 403) {
+                userMessage = "Vous ne disposez pas des autorisations requises pour cette opération.";
+            } else if (error.response.status === 404) {
+                userMessage = "L'élément demandé est introuvable ou a été supprimé.";
+            } else if (error.response.status === 409) {
+                userMessage = "Cette opération est en conflit avec des données existantes.";
+            } else if (error.response.status >= 500) {
+                userMessage = "Le serveur a rencontré un problème temporaire. Veuillez réessayer ultérieurement.";
             }
+        } else if (error.request) {
+            userMessage = "Impossible de joindre le serveur. Vérifiez votre connexion au réseau.";
         }
+
+        error.userMessage = userMessage;
 
         return Promise.reject(error);
     }
 );
+
+/**
+ * Extrait un message d'erreur lisible par un utilisateur final à partir de n'importe quelle erreur
+ */
+export const getErrorMessage = (error, fallback = "Une erreur est survenue lors de l'opération.") => {
+    if (!error) return fallback;
+    if (typeof error === 'string') return error;
+    if (error.userMessage) return error.userMessage;
+    if (error.response?.data?.message) return error.response.data.message;
+    if (typeof error.response?.data === 'string' && error.response.data.trim() !== '') return error.response.data;
+    if (error.message && !error.message.includes('status code')) return error.message;
+    return fallback;
+};
 
 export default apiClient;

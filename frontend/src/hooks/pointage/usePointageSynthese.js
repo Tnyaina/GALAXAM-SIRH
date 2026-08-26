@@ -109,7 +109,7 @@ export function usePointageSynthese() {
     useEffect(() => {
         loadSynthese();
         loadSyntheseHebdo();
-    }, [selectedPeriode, selectedSite, selectedSemaine, debouncedSearch]);
+    }, [loadSynthese, loadSyntheseHebdo]);
 
     // 4. Chargement des tronçons pour un employé spécifique (modale)
     const loadTroncons = useCallback(async (emp) => {

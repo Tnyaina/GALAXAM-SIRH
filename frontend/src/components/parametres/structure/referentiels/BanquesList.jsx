@@ -48,9 +48,11 @@ export default function BanquesList({
                             </Tr>
                         ))
                     ) : (
+                        <Tr>
                             <Td colSpan={4} className="p-0">
                                 <EmptyState title="Aucune banque" description="Aucun établissement bancaire configuré." />
                             </Td>
+                        </Tr>
                     )}
                 </Tbody>
             </Table>

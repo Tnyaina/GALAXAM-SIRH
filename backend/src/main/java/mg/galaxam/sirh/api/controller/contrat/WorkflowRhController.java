@@ -3,6 +3,7 @@ package mg.galaxam.sirh.api.controller.contrat;
 import java.sql.Connection;
 import java.util.List;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.api.dto.common.PageDTO;
 import mg.galaxam.sirh.api.dto.contrat.EmbaucheInitialeRequest;
 import mg.galaxam.sirh.api.dto.contrat.TransitionCarriereRequest;
 import mg.galaxam.sirh.api.dto.contrat.ValiderWorkflowRequest;
@@ -219,6 +220,24 @@ public class WorkflowRhController {
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
+        }
+    }
+
+    @GetMapping("/workflows")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getWorkflowsGlobal(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String codeTypeEvenement,
+            @RequestParam(required = false) String codeStatut,
+            @RequestParam(required = false) Integer idSite,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "15") int size) {
+        try (Connection c = dataSource.getConnection()) {
+            PageDTO<WorkflowRhCPL> result = WorkflowRhCPL.listerGlobal(q, codeTypeEvenement, codeStatut, idSite, page, size, c);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur récupération liste globale workflows.");
         }
     }
 

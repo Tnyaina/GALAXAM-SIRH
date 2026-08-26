@@ -1,5 +1,6 @@
 import { FileText, Award, FileCheck } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
 import { fmtDate } from '@/utils/carriereUtils';
 
 export default function HistoriqueContratsTable({
@@ -8,6 +9,8 @@ export default function HistoriqueContratsTable({
     onOpenCertificat,
     onOpenAttestation
 }) {
+    const today = new Date().setHours(0, 0, 0, 0);
+
     return (
         <div className="space-y-3 pt-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2 pb-2 border-b border-ink-150 dark:border-ink-700">
@@ -22,6 +25,7 @@ export default function HistoriqueContratsTable({
                         <thead>
                             <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 font-bold uppercase tracking-widest text-[10px]">
                                 <th className="px-4 py-3">N° Contrat</th>
+                                <th className="px-4 py-3">Statut</th>
                                 <th className="px-4 py-3">Intervenant</th>
                                 <th className="px-4 py-3">Dates (Début → Fin)</th>
                                 <th className="px-4 py-3">Date Signature</th>
@@ -32,15 +36,29 @@ export default function HistoriqueContratsTable({
                         </thead>
                         <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
                             {displayContrats.map((ct) => {
-                                const isContratEnCours = (contratActif && Number(ct.idContrat) === Number(contratActif.idContrat)) || ct.codeStatutContrat === 'ACTIF';
+                                const isDebutFutur = ct.dateDebut && new Date(ct.dateDebut).getTime() > today;
+                                const isAnnule = ct.codeStatutContrat === 'ANNULE';
                                 const isClotureOuRomp = ct.codeStatutContrat === 'CLOTURE' || ct.codeStatutContrat === 'ROMPU' || ct.codeStatutContrat === 'HISTORISE';
-                                const estDateFinEchue = ct.dateFin && new Date(ct.dateFin).getTime() < new Date().setHours(0, 0, 0, 0);
-                                const canGenerateCertificat = !isContratEnCours && (isClotureOuRomp || estDateFinEchue);
+                                const isPlanifie = isDebutFutur && !isAnnule && !isClotureOuRomp;
+                                const isContratEnCours = !isPlanifie && !isAnnule && ((contratActif && Number(ct.idContrat) === Number(contratActif.idContrat)) || ct.codeStatutContrat === 'ACTIF');
+                                const estDateFinEchue = ct.dateFin && new Date(ct.dateFin).getTime() < today;
+                                const canGenerateCertificat = !isContratEnCours && !isPlanifie && !isAnnule && (isClotureOuRomp || estDateFinEchue);
 
                                 return (
                                     <tr key={ct.idContrat} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
                                         <td className="px-4 py-3 font-mono font-bold text-brand-500">
                                             {ct.numeroContrat}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {isPlanifie ? (
+                                                <Badge variant="info" size="sm">PLANIFIÉ</Badge>
+                                            ) : isAnnule ? (
+                                                <Badge variant="danger" size="sm">ANNULÉ</Badge>
+                                            ) : isContratEnCours ? (
+                                                <Badge variant="success" size="sm">ACTIF</Badge>
+                                            ) : (
+                                                <Badge variant="default" size="sm">CLÔTURÉ</Badge>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3">
                                             {ct.libelleTypeIntervenant || '-'}
@@ -58,7 +76,11 @@ export default function HistoriqueContratsTable({
                                             {ct.description || '-'}
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            {canGenerateCertificat ? (
+                                            {isPlanifie ? (
+                                                <span className="text-[11px] text-ink-400 italic">Non démarré</span>
+                                            ) : isAnnule ? (
+                                                <span className="text-[11px] text-danger-500 italic">Annulé</span>
+                                            ) : canGenerateCertificat ? (
                                                 <Button
                                                     onClick={() => onOpenCertificat(ct)}
                                                     variant="outline"
@@ -67,7 +89,7 @@ export default function HistoriqueContratsTable({
                                                 >
                                                     Certificat
                                                 </Button>
-                                            ) : (
+                                            ) : isContratEnCours ? (
                                                 <Button
                                                     onClick={() => onOpenAttestation(ct)}
                                                     variant="outline"
@@ -76,7 +98,7 @@ export default function HistoriqueContratsTable({
                                                 >
                                                     Attestation
                                                 </Button>
-                                            )}
+                                            ) : null}
                                         </td>
                                     </tr>
                                 );

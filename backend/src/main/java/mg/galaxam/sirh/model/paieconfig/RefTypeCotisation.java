@@ -33,8 +33,30 @@ public class RefTypeCotisation extends ClassMere {
         return "id_type_cotisation";
     }
 
+    public void valider() {
+        if (code == null || code.isBlank()) {
+            throw new IllegalArgumentException("Le code de cotisation est obligatoire.");
+        }
+        if (libelle == null || libelle.isBlank()) {
+            throw new IllegalArgumentException("Le libellé de cotisation est obligatoire.");
+        }
+        if (tauxSalarial == null || tauxSalarial.compareTo(BigDecimal.ZERO) < 0 || tauxSalarial.compareTo(new BigDecimal("100")) > 0) {
+            throw new IllegalArgumentException("Le taux salarial doit être compris entre 0% et 100%.");
+        }
+        if (tauxPatronal == null || tauxPatronal.compareTo(BigDecimal.ZERO) < 0 || tauxPatronal.compareTo(new BigDecimal("100")) > 0) {
+            throw new IllegalArgumentException("Le taux patronal doit être compris entre 0% et 100%.");
+        }
+        if (dateDebut == null) {
+            throw new IllegalArgumentException("La date de début d'application est obligatoire.");
+        }
+        if (dateFin != null && dateFin.before(dateDebut)) {
+            throw new IllegalArgumentException("La date de fin ne peut pas être antérieure à la date de début.");
+        }
+    }
+
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
+        valider();
         String sql = "INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, date_debut, date_fin) " +
                      "VALUES (?, ?, ?, ?, ?, ?) RETURNING id_type_cotisation";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -56,6 +78,7 @@ public class RefTypeCotisation extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
+        valider();
         String sql = "UPDATE ref_type_cotisation SET code = ?, libelle = ?, taux_salarial = ?, taux_patronal = ?, " +
                      "date_debut = ?, date_fin = ? WHERE id_type_cotisation = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {

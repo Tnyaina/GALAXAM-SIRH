@@ -20,6 +20,8 @@ public class Utilisateur extends ClassMere {
     private boolean estActif;
     private Timestamp dateDesactivation;
     private String motifDesactivation;
+    private String refreshToken;
+    private Timestamp refreshTokenExpiration;
 
     private boolean motDePasseHash = false;
     private static final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
@@ -118,8 +120,8 @@ public class Utilisateur extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO utilisateur " +
-                "(identifiant, mot_de_passe_hache, id_role, est_actif, motif_desactivation, date_desactivation) " +
-                "VALUES (?, ?, ?, ?, ?, ?)";
+                "(identifiant, mot_de_passe_hache, id_role, est_actif, motif_desactivation, date_desactivation, refresh_token, refresh_token_expiration) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, identifiant);
@@ -128,6 +130,8 @@ public class Utilisateur extends ClassMere {
             ps.setBoolean(4, estActif);
             ps.setString(5, motifDesactivation);
             ps.setTimestamp(6, dateDesactivation);
+            ps.setString(7, refreshToken);
+            ps.setTimestamp(8, refreshTokenExpiration);
 
             ps.executeUpdate();
 
@@ -149,6 +153,8 @@ public class Utilisateur extends ClassMere {
                 "est_actif=?, " +
                 "motif_desactivation=?, " +
                 "date_desactivation=?, " +
+                "refresh_token=?, " +
+                "refresh_token_expiration=?, " +
                 "updated_at=CURRENT_TIMESTAMP " +
                 "WHERE id_utilisateur=?";
 
@@ -159,7 +165,9 @@ public class Utilisateur extends ClassMere {
             ps.setBoolean(4, estActif);
             ps.setString(5, motifDesactivation);
             ps.setTimestamp(6, dateDesactivation);
-            ps.setInt(7, idUtilisateur);
+            ps.setString(7, refreshToken);
+            ps.setTimestamp(8, refreshTokenExpiration);
+            ps.setInt(9, idUtilisateur);
 
             ps.executeUpdate();
         }
@@ -206,6 +214,38 @@ public class Utilisateur extends ClassMere {
         return null;
     }
 
+    public static Utilisateur rechercherParRefreshToken(String token, Connection c) throws Exception {
+        if (token == null || token.isBlank()) return null;
+        String sql = "SELECT * FROM utilisateur WHERE refresh_token = ? AND est_actif = TRUE AND (refresh_token_expiration IS NULL OR refresh_token_expiration > CURRENT_TIMESTAMP)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, token.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSet(rs);
+                }
+            }
+        }
+        return null;
+    }
+
+    public static void enregistrerRefreshToken(int idUtilisateur, String token, Timestamp expiration, Connection c) throws Exception {
+        String sql = "UPDATE utilisateur SET refresh_token = ?, refresh_token_expiration = ?, updated_at = CURRENT_TIMESTAMP WHERE id_utilisateur = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, token);
+            ps.setTimestamp(2, expiration);
+            ps.setInt(3, idUtilisateur);
+            ps.executeUpdate();
+        }
+    }
+
+    public static void revoquerRefreshToken(int idUtilisateur, Connection c) throws Exception {
+        String sql = "UPDATE utilisateur SET refresh_token = NULL, refresh_token_expiration = NULL, updated_at = CURRENT_TIMESTAMP WHERE id_utilisateur = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idUtilisateur);
+            ps.executeUpdate();
+        }
+    }
+
     private static Utilisateur mapResultSet(ResultSet rs) throws Exception {
         Utilisateur u = new Utilisateur();
         u.idUtilisateur = rs.getInt("id_utilisateur");
@@ -215,11 +255,12 @@ public class Utilisateur extends ClassMere {
         u.estActif = rs.getBoolean("est_actif");
         u.motifDesactivation = rs.getString("motif_desactivation");
         u.dateDesactivation = rs.getTimestamp("date_desactivation");
+        u.refreshToken = rs.getString("refresh_token");
+        u.refreshTokenExpiration = rs.getTimestamp("refresh_token_expiration");
         u.motDePasseHash = true;
         return u;
     }
 
-    // Getters & Setters
     // Méthodes de sélection
     public static List<Utilisateur> lister(Connection c) throws Exception {
         String sql = "SELECT * FROM utilisateur ORDER BY identifiant";
@@ -288,5 +329,21 @@ public class Utilisateur extends ClassMere {
 
     public void setMotifDesactivation(String motifDesactivation) {
         this.motifDesactivation = motifDesactivation;
+    }
+
+    public String getRefreshToken() {
+        return refreshToken;
+    }
+
+    public void setRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
+    }
+
+    public Timestamp getRefreshTokenExpiration() {
+        return refreshTokenExpiration;
+    }
+
+    public void setRefreshTokenExpiration(Timestamp refreshTokenExpiration) {
+        this.refreshTokenExpiration = refreshTokenExpiration;
     }
 }

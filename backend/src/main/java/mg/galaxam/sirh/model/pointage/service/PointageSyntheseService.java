@@ -1,7 +1,8 @@
-package mg.galaxam.sirh.service.pointage;
+package mg.galaxam.sirh.model.pointage.service;
 
 import mg.galaxam.sirh.api.dto.pointage.PointageSyntheseMensuelleDTO;
 import mg.galaxam.sirh.api.dto.pointage.PointageTronconSemaineDTO;
+import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
@@ -171,6 +172,9 @@ public class PointageSyntheseService {
             int idPeriodePaie, Date dateDebutPeriode, Date dateFinPeriode, String codePeriode,
             String libellePeriode, String statutPeriode, Integer idSiteFilter, String search, Connection c) throws Exception {
 
+        // 0. Chargement dynamique des paramètres globaux RH_GENERAL et POINTAGE
+        Map<String, String> paramsGlobaux = ParametreGlobal.loadActiveMap(c);
+
         // 1. Jours ouvrables par site pour le prorata de déplacement
         Map<Integer, Integer> joursOuvrablesParSite = new HashMap<>();
         try (Statement st = c.createStatement();
@@ -217,7 +221,7 @@ public class PointageSyntheseService {
         // 4. Liste des employés éligibles (avec EXACTEMENT une ligne par employé via DISTINCT ON)
         StringBuilder sqlEmp = new StringBuilder();
         sqlEmp.append("SELECT e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, ")
-              .append("COALESCE(eac.id_site, 1) AS id_site, rs.libelle AS site_nom, ")
+              .append("COALESCE(eac.id_site, 1) AS id_site, rs.code_site, rs.libelle AS site_nom, ")
               .append("rcp.code AS code_categorie, rcp.libelle AS libelle_categorie, ")
               .append("COALESCE(rf.dispense_pointage, FALSE) AS dispense_pointage, ")
               .append("(rcp.code = 'CADRE' OR COALESCE(rf.dispense_pointage, FALSE)) AS est_cadre ")
@@ -258,6 +262,7 @@ public class PointageSyntheseService {
                 while (rsEmp.next()) {
                     int idEmploye = rsEmp.getInt("id_employe");
                     int idSiteEmp = rsEmp.getInt("id_site");
+                    String codeSiteEmp = rsEmp.getString("code_site");
                     boolean estCadre = rsEmp.getBoolean("est_cadre");
 
                     PointageSyntheseMensuelleDTO dto = new PointageSyntheseMensuelleDTO();
@@ -284,9 +289,9 @@ public class PointageSyntheseService {
 
                     // Calcul hebdomadaire et mensuel pour cet employé
                     calculerCompteursDynamiques(
-                            dto, idEmploye, idPeriodePaie, estCadre, idSiteEmp, nbJoursOuvrables,
+                            dto, idEmploye, idPeriodePaie, estCadre, idSiteEmp, codeSiteEmp, nbJoursOuvrables,
                             baseDeplacementParSite, baseRepasParSite,
-                            derogationDeplacement, derogationRepas, c
+                            derogationDeplacement, derogationRepas, paramsGlobaux, c
                     );
 
                     result.add(dto);
@@ -299,10 +304,19 @@ public class PointageSyntheseService {
 
     private void calculerCompteursDynamiques(
             PointageSyntheseMensuelleDTO dto, int idEmploye, int idPeriodePaie, boolean estCadre,
-            int idSite, int nbJoursOuvrables, Map<Integer, Double> baseDeplacementParSite,
+            int idSite, String codeSite, int nbJoursOuvrables, Map<Integer, Double> baseDeplacementParSite,
             Map<Integer, Double> baseRepasParSite,
             Map<Integer, Boolean> derogationDeplacement, Map<Integer, Boolean> derogationRepas,
+            Map<String, String> paramsGlobaux,
             Connection c) throws Exception {
+
+        // Extraits des paramètres dynamiques
+        String seuil2ndRepas1 = getParamString(paramsGlobaux, "SEUIL_2ND_REPAS_1", "19:30:00");
+        double montant2ndRepas1 = getParamDouble(paramsGlobaux, "MONTANT_2ND_REPAS_1", 2000.0);
+        String seuil2ndRepas2 = getParamString(paramsGlobaux, "SEUIL_2ND_REPAS_2", "21:00:00");
+        double montant2ndRepas2 = getParamDouble(paramsGlobaux, "MONTANT_2ND_REPAS_2", 4000.0);
+        double seuilPauseMidiMin = getParamDouble(paramsGlobaux, "SEUIL_PAUSE_MIDI_MIN", 60.0);
+        double reductionDeplactRepasMidi = getParamDouble(paramsGlobaux, "REDUCTION_DEPLACT_REPAS_MIDI", 1000.0);
 
         // 1. Calculs des jours et des pointages du mois
         String sqlJours = "SELECT " +
@@ -328,14 +342,16 @@ public class PointageSyntheseService {
                 "    END" +
                 "), 0) AS nb_deplacement, " +
                 "COUNT(*) FILTER (WHERE p.indemnite_repas_recue = TRUE OR st.code IN ('PRESENT', 'DISPENSE_POINTAGE', 'FERIE_TRAVAILLE', 'SAMEDI_TRAVAILLE')) AS nb_repas, " +
+                "COUNT(*) FILTER (WHERE p.indemnite_repas_recue = TRUE OR (p.heure_sortie_matin IS NOT NULL AND p.heure_entree_am IS NOT NULL AND EXTRACT(EPOCH FROM (p.heure_entree_am - p.heure_sortie_matin))/60.0 <= " + seuilPauseMidiMin + ")) AS nb_repas_sur_site_midi, " +
                 "COALESCE(SUM(p.montant_repas), 0) AS total_montant_repas, " +
-                "COALESCE(SUM(CASE WHEN p.heure_sortie_am > '21:00:00' THEN 4000 WHEN p.heure_sortie_am > '19:30:00' THEN 2000 ELSE 0 END), 0) AS extra_repas_soiree " +
+                "COALESCE(SUM(CASE WHEN p.heure_sortie_am > '" + seuil2ndRepas2 + "' THEN " + montant2ndRepas2 + " WHEN p.heure_sortie_am > '" + seuil2ndRepas1 + "' THEN " + montant2ndRepas1 + " ELSE 0 END), 0) AS extra_repas_soiree " +
                 "FROM pointage_jour p " +
                 "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
                 "WHERE p.id_employe = ? AND p.id_periode_paie = ?";
 
         double extraRepasSoiree = 0.0;
         double nbDepJours = 0.0;
+        int nbRepasSurSiteMidi = 0;
         try (PreparedStatement ps = c.prepareStatement(sqlJours)) {
             ps.setInt(1, idEmploye);
             ps.setInt(2, idPeriodePaie);
@@ -357,6 +373,7 @@ public class PointageSyntheseService {
                     nbDepJours = rs.getDouble("nb_deplacement");
                     dto.setNbJoursDeplacement((int) Math.round(nbDepJours));
                     dto.setNbJoursRepas(rs.getInt("nb_repas"));
+                    nbRepasSurSiteMidi = rs.getInt("nb_repas_sur_site_midi");
                     dto.setMontantRepas(rs.getDouble("total_montant_repas"));
                     extraRepasSoiree = rs.getDouble("extra_repas_soiree");
                 }
@@ -370,6 +387,13 @@ public class PointageSyntheseService {
             double tauxJour = baseSite / nbJoursOuvrables;
             double montantDep = BigDecimal.valueOf(tauxJour * nbDepJours)
                     .setScale(2, RoundingMode.HALF_UP).doubleValue();
+
+            // Règle spécifique Tamatave (TMM) : déduction de REDUCTION_DEPLACT_REPAS_MIDI si repas sur site / journée continue
+            if ("TMM".equalsIgnoreCase(codeSite) && nbRepasSurSiteMidi > 0) {
+                double reductionMidi = nbRepasSurSiteMidi * reductionDeplactRepasMidi;
+                montantDep = Math.max(0.0, montantDep - reductionMidi);
+            }
+
             dto.setMontantDeplacement(montantDep);
         } else {
             dto.setMontantDeplacement(0.0);
@@ -378,7 +402,7 @@ public class PointageSyntheseService {
         // 3. Calcul du montant repas (Journalier du site * nb_jours_repas + extras soirée 19h30/21h)
         boolean aDroitRepas = derogationRepas.getOrDefault(idEmploye, true);
         if (aDroitRepas) {
-            double baseRepasJour = baseRepasParSite.getOrDefault(idSite, 0.0);
+            double baseRepasJour = baseRepasParSite.getOrDefault(idSite, getParamDouble(paramsGlobaux, "MONTANT_REPAS_MIDI", 2000.0));
             double montantRepasCalcule = (baseRepasJour * dto.getNbJoursRepas()) + extraRepasSoiree;
             if (dto.getMontantRepas() <= 0 && montantRepasCalcule > 0) {
                 dto.setMontantRepas(montantRepasCalcule);
@@ -391,7 +415,7 @@ public class PointageSyntheseService {
         }
 
         // 4. Compensation hebdomadaire par tronçon
-        List<PointageTronconSemaineDTO> troncons = getTronconsSemainesEmploye(idEmploye, idPeriodePaie, c);
+        List<PointageTronconSemaineDTO> troncons = getTronconsSemainesEmploye(idEmploye, idPeriodePaie, paramsGlobaux, c);
         double cumHs30 = 0.0;
         double cumHs50 = 0.0;
         double cumDeficit = 0.0;
@@ -410,9 +434,20 @@ public class PointageSyntheseService {
 
     /**
      * Retourne le détail des tronçons hebdomadaires pour un employé dans une période donnée.
-     * Applique la règle légale : proratisation (nb_jours * 8h), absorption des retards, ventilation HS 30/50 pour non-cadres, forçage à 0 pour cadres.
+     * Applique la règle légale : proratisation (nb_jours * seuilHeuresJour), absorption des retards, ventilation HS 30/50 pour non-cadres, forçage à 0 pour cadres.
      */
     public List<PointageTronconSemaineDTO> getTronconsSemainesEmploye(int idEmploye, int idPeriodePaie, Connection c) throws Exception {
+        Map<String, String> params = chargerParametresGlobaux(c);
+        return getTronconsSemainesEmploye(idEmploye, idPeriodePaie, params, c);
+    }
+
+    public List<PointageTronconSemaineDTO> getTronconsSemainesEmploye(int idEmploye, int idPeriodePaie, Map<String, String> paramsGlobaux, Connection c) throws Exception {
+        if (paramsGlobaux == null) {
+            paramsGlobaux = chargerParametresGlobaux(c);
+        }
+        double seuilHeuresJour = getParamDouble(paramsGlobaux, "SEUIL_HEURES_JOUR", 8.0);
+        double seuilHsTranche1 = getParamDouble(paramsGlobaux, "SEUIL_HS_TRANCHE_1", 8.0);
+
         // Vérifier si cadre
         boolean estCadre = false;
         String sqlCadre = "SELECT (rcp.code = 'CADRE' OR COALESCE(rf.dispense_pointage, FALSE)) AS est_cadre " +
@@ -439,7 +474,7 @@ public class PointageSyntheseService {
                 "MIN(p.date_pointage) AS premier_jour, " +
                 "MAX(p.date_pointage) AS dernier_jour, " +
                 "COUNT(*) AS nb_jours_troncon, " +
-                "COUNT(*) * 8.0 AS seuil_heures_troncon, " +
+                "COUNT(*) * " + seuilHeuresJour + " AS seuil_heures_troncon, " +
                 "COALESCE(SUM(p.total_heures) FILTER (WHERE st.decompte_absence = FALSE), 0) AS total_heures_semaine, " +
                 "COALESCE(SUM(p.minutes_retard), 0) / 60.0 AS heures_retard_semaine, " +
                 "COALESCE(SUM(p.total_heures) FILTER (WHERE st.code = 'DIMANCHE_TRAVAILLE' OR EXTRACT(ISODOW FROM p.date_pointage) = 7), 0) AS heures_dimanche, " +
@@ -497,8 +532,8 @@ public class PointageSyntheseService {
                         t.setHeuresHsNettes(hsNettes);
 
                         if (hsNettes > 0) {
-                            double hs30 = Math.min(8.0, hsNettes);
-                            double hs50 = Math.max(0.0, hsNettes - 8.0);
+                            double hs30 = Math.min(seuilHsTranche1, hsNettes);
+                            double hs50 = Math.max(0.0, hsNettes - seuilHsTranche1);
                             t.setHeuresHs30(hs30);
                             t.setHeuresHs50(hs50);
                         } else {
@@ -598,6 +633,12 @@ public class PointageSyntheseService {
      * Contrôle pré-clôture : vérifie s'il reste des anomalies non résolues sur la période.
      */
     public Map<String, Object> verifierPreCloture(int idPeriodePaie) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            return verifierPreCloture(idPeriodePaie, c);
+        }
+    }
+
+    public Map<String, Object> verifierPreCloture(int idPeriodePaie, Connection c) throws Exception {
         Map<String, Object> resp = new HashMap<>();
         String sql = "SELECT " +
                 "COUNT(*) FILTER (WHERE st.code = 'ANOMALIE_SAISIE' OR (p.heure_entree_matin IS NOT NULL AND p.heure_sortie_matin IS NULL) OR (p.heure_entree_am IS NOT NULL AND p.heure_sortie_am IS NULL)) AS incomplets, " +
@@ -607,8 +648,7 @@ public class PointageSyntheseService {
                 "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
                 "WHERE p.id_periode_paie = ?";
 
-        try (Connection c = dataSource.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idPeriodePaie);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -734,5 +774,38 @@ public class PointageSyntheseService {
             psDelCum.setInt(1, idPeriodePaie);
             psDelCum.executeUpdate();
         }
+    }
+
+    /**
+     * Charge l'ensemble des paramètres globaux applicables (RH_GENERAL, POINTAGE) depuis la BDD.
+     */
+    public Map<String, String> chargerParametresGlobaux(Connection c) {
+        Map<String, String> map = new HashMap<>();
+        String sql = "SELECT code_parametre, valeur FROM parametre_global WHERE date_fin IS NULL OR date_fin >= CURRENT_DATE";
+        try (Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                map.put(rs.getString("code_parametre").toUpperCase(), rs.getString("valeur"));
+            }
+        } catch (Exception e) {
+            System.err.println("[POINTAGE PARAMETRE] Erreur lors du chargement des paramètres globaux: " + e.getMessage());
+        }
+        return map;
+    }
+
+    private double getParamDouble(Map<String, String> params, String key, double defaultValue) {
+        if (params == null) return defaultValue;
+        try {
+            String val = params.get(key.toUpperCase());
+            return val != null ? Double.parseDouble(val.trim()) : defaultValue;
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    private String getParamString(Map<String, String> params, String key, String defaultValue) {
+        if (params == null) return defaultValue;
+        String val = params.get(key.toUpperCase());
+        return (val != null && !val.trim().isEmpty()) ? val.trim() : defaultValue;
     }
 }

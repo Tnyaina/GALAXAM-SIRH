@@ -224,33 +224,27 @@ Les jours fériés sont utilisés par :
 - Le module **Congés** : pour le décompte calendaire strict.
 - Le scheduler de **notifications** : pour anticiper les alertes de fin de contrat.
 
-### 4.4 Paramètres Globaux
+### 4.4 Paramètres Globaux (`parametre_global`)
 
-La table `parametre_global` centralise tous les **paramètres de calcul configurables** du système, avec historisation temporelle :
+La table `parametre_global` centralise l'intégralité des **32 paramètres de calcul configurables** du système, structurés en **4 catégories métiers** avec historisation temporelle et chargement universel en mémoire via `ParametreGlobal.loadActiveMap(Connection c)` :
 
 ```sql
 Table parametre_global {
   id_parametre    INTEGER PK
-  code_parametre  VARCHAR(50) UNIQUE  -- ex: 'SME_COURANT', 'SEUIL_SECOND_REPAS'
+  code_parametre  VARCHAR(50) UNIQUE  -- ex: 'SEUIL_HEURES_JOUR', 'SEUIL_NUIT_DEBUT'
   valeur          VARCHAR(100) NOT NULL
   description     TEXT
-  date_debut      DATE NOT NULL  -- Historisation
-  date_fin        DATE           -- NULL = valeur actuellement en vigueur
+  categorie       VARCHAR(30) NOT NULL -- 'RH_GENERAL', 'POINTAGE', 'CONGE', 'PAIE'
+  date_debut      DATE NOT NULL        -- Historisation
+  date_fin        DATE                 -- NULL = valeur actuellement en vigueur
 }
 ```
 
-**Paramètres clés du système** :
-
-| Code Paramètre | Valeur Exemple | Usage |
-|---|---|---|
-| `SME_COURANT` | `400000` | Salaire Minimum d'Embauche (plafond cotisations) |
-| `SEUIL_SECOND_REPAS` | `19:30` | Heure seuil pour 2ème repas du soir |
-| `DUREE_MAX_MATERNITE_STANDARD_JOURS` | `98` | Durée légale congé maternité |
-| `DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS` | `119` | Extension pathologique maternité |
-| `PLAFOND_SOLDE_CONGE_NEGATIF` | `-10` | Max jours anticipation congés |
-| `DELAI_PREAVIS_COURT_JOURS` | `2` | Préavis court (≤ 3j de congé) |
-| `DELAI_PREAVIS_LONG_JOURS` | `15` | Préavis long (> 3j de congé) |
-| `SEUIL_ALERTE_SOLDE_CONGE_FAIBLE` | `3` | Seuil déclencheur alerte solde faible |
+**Répartition par Catégorie Métier** :
+* **`RH_GENERAL` (4)** : `SEUIL_HEURES_JOUR` (8h), `SEUIL_HEURES_SEMAINE` (40h), `SEUIL_HS_TRANCHE_1` (8h à +30%), `PLAFOND_HEURES_SUPP_SEMAINE` (20h max).
+* **`POINTAGE` (9)** : `SEUIL_NUIT_DEBUT` (22:00), `SEUIL_NUIT_FIN` (05:00), `MONTANT_REPAS_MIDI` (2 000 Ar), `SEUIL_2ND_REPAS_1` (19:30), `MONTANT_2ND_REPAS_1` (2 000 Ar), `SEUIL_2ND_REPAS_2` (21:00), `MONTANT_2ND_REPAS_2` (4 000 Ar), `SEUIL_PAUSE_MIDI_MIN` (60 min), `REDUCTION_DEPLACT_REPAS_MIDI` (1 000 Ar).
+* **`CONGE` (14)** : Durées légales maternité, plafonds maladie, préavis de dépôt, solde négatif et seuils d'alertes.
+* **`PAIE` (5)** : Plafonds SMIG, diviseurs horaires légaux d'absence et seuils de tranches.
 
 ---
 

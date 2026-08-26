@@ -82,9 +82,11 @@ export default function ServicesList({
                                         </Tr>
                                     ))
                                 ) : (
+                                    <Tr>
                                         <Td colSpan={4} className="p-0">
                                             <EmptyState title="Aucun service" description="Aucun service rattaché à ce département." />
                                         </Td>
+                                    </Tr>
                                 )}
                             </Tbody>
                         </Table>

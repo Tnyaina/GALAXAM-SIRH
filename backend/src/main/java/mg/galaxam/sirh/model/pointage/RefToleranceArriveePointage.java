@@ -45,6 +45,7 @@ public class RefToleranceArriveePointage extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
+        controler(c);
         String sql = "INSERT INTO ref_tolerance_arrivee_pointage (id_site, heure_plafond) VALUES (?, ?) ON CONFLICT (id_site) DO UPDATE SET heure_plafond = EXCLUDED.heure_plafond RETURNING id_tolerance";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idSite);
@@ -60,6 +61,7 @@ public class RefToleranceArriveePointage extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
+        controler(c);
         String sql = "UPDATE ref_tolerance_arrivee_pointage SET id_site = ?, heure_plafond = ? WHERE id_tolerance = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idSite);

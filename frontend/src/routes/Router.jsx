@@ -27,6 +27,7 @@ const GestionCongesPage = lazy(() => import("@/pages/conges/GestionCongesPage"))
 // Module Employés
 const EmployeList = lazy(() => import("@/pages/employe/EmployeList"));
 const EmployeFicheDetailPage = lazy(() => import("@/pages/employe/EmployeFicheDetailPage"));
+const CarrieresSupervisionPage = lazy(() => import("@/pages/employe/CarrieresSupervisionPage"));
 
 // Administration / Paramètres
 const SecuriteAdminPanel = lazy(() => import("@/pages/parametres/securite/SecuriteAdminPanel"));
@@ -98,6 +99,7 @@ export default function Router() {
                     <Route element={<ProtectedRoute requiredPermission="EMPLOYE_READ" />}>
                         <Route path="/employes" element={<EmployeList />} />
                         <Route path="/employes/:id" element={<EmployeFicheDetailPage />} />
+                        <Route path="/carrieres" element={<CarrieresSupervisionPage />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}
