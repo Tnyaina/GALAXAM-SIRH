@@ -78,14 +78,6 @@ export default function ContratFieldsSection({
                 />
 
                 <Input
-                    label="Date de Signature"
-                    type="date"
-                    required
-                    value={formData.dateSignature}
-                    onChange={(e) => setField('dateSignature', e.target.value)}
-                />
-
-                <Input
                     label="Date de Début d'effet"
                     type="date"
                     required
@@ -101,6 +93,14 @@ export default function ContratFieldsSection({
                     value={formData.dateFin}
                     onChange={(e) => setField('dateFin', e.target.value)}
                     hint={exigeDateFin ? "Obligatoire pour ce type de contrat" : "Optionnel si CDI"}
+                />
+
+                <Input
+                    label="Date de Signature"
+                    type="date"
+                    required
+                    value={formData.dateSignature}
+                    onChange={(e) => setField('dateSignature', e.target.value)}
                 />
 
                 <div className="flex items-end pb-2">

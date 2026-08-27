@@ -91,8 +91,8 @@ export default function RuptureContratModal({
         codeTypeEvenement: 'DEMISSION',
         dateNotification: fmtDateInput(new Date()),
         dateEffet: fmtDateInput(new Date()),
-        dureePreavis: '1 Mois',
-        preavisEffectue: true,
+        dureePreavis: '',
+        preavisEffectue: false,
         motif: 'Démission du salarié pour convenances personnelles',
         commentaire: '',
     });

@@ -9,14 +9,12 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Scheduler pour l'acquisition mensuelle des droits aux congés.
- * S'exécute chaque nuit à 01:00:00 pour créditer les employés 
- * dont c'est la date d'anniversaire de contrat.
+ * S'exécute chaque nuit à 01:00:00 pour créditer les employés.
  */
 @Component
 public class AcquisitionCongeScheduler {
@@ -26,11 +24,6 @@ public class AcquisitionCongeScheduler {
     @Autowired
     private DataSource dataSource;
 
-    /**
-     * Exécuté au démarrage (rattrapage) et chaque nuit à 01h00.
-     * Pour chaque employé actif dont la date anniversaire d'embauche (date_debut du contrat)
-     * correspond à la date du jour (gestion des 31/février incluse), on ajoute 2.5 jours.
-     */
     @EventListener(ApplicationReadyEvent.class)
     @Scheduled(cron = "0 0 1 * * ?")
     public void acquerirCongesMensuels() {
@@ -38,7 +31,6 @@ public class AcquisitionCongeScheduler {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                // 1. Récupérer les employés éligibles (anniversaire mensuel d'embauche aujourd'hui)
                 String sql = "SELECT ct.id_employe, ct.date_debut " +
                              "FROM contrat_travail ct " +
                              "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
@@ -83,7 +75,6 @@ public class AcquisitionCongeScheduler {
                             int idEmploye = rs.getInt("id_employe");
                             java.sql.Date dateDebutSql = rs.getDate("date_debut");
                             
-                            // Vérifier si l'acquisition a déjà été faite pour le mois en cours
                             psCheckMois.setInt(1, idEmploye);
                             boolean dejaAcquisCeMois = false;
                             try (ResultSet rsChk = psCheckMois.executeQuery()) {
@@ -91,7 +82,6 @@ public class AcquisitionCongeScheduler {
                             }
 
                             if (!dejaAcquisCeMois) {
-                                // Log Mouvement Acquisition (2.5j)
                                 psIn.setInt(1, idEmploye);
                                 psIn.setString(2, "ACQUISITION");
                                 psIn.setDouble(3, 2.5);
@@ -99,14 +89,11 @@ public class AcquisitionCongeScheduler {
                                 psIn.executeUpdate();
                             }
                             
-                            // Vérification Bonification d'Ancienneté (Option A)
                             if (dateDebutSql != null) {
                                 java.time.LocalDate dateDebut = dateDebutSql.toLocalDate();
-                                // Si c'est le mois anniversaire
                                 if (dateDebut.getMonthValue() == today.getMonthValue()) {
-                                    int anneesAnciennete = today.getYear() - dateDebut.getYear();
+                                    int anneesAnciennete = java.time.Period.between(dateDebut, today).getYears();
                                     
-                                    // Règle: à partir de 3 ans, bonus = annees / 5
                                     if (anneesAnciennete >= 3) {
                                         int bonus = anneesAnciennete / 5;
                                         if (bonus > 0) {
@@ -117,21 +104,19 @@ public class AcquisitionCongeScheduler {
                                             }
 
                                             if (!dejaBonifieCetteAnnee) {
-                                                // 1. Mouvement BONIFICATION
                                                 psIn.setInt(1, idEmploye);
                                                 psIn.setString(2, "BONIFICATION");
                                                 psIn.setDouble(3, bonus);
                                                 psIn.setString(4, "Bonification d'ancienneté annuelle (" + anneesAnciennete + " ans = +" + bonus + "j)");
                                                 psIn.executeUpdate();
                                                 
-                                                // 3. Notification RH
                                                 psNotif.setString(1, "Bonification acquise - " + anneesAnciennete + " ans");
                                                 psNotif.setString(2, "Félicitations, vous avez reçu " + bonus + " jour(s) de bonification pour vos " + anneesAnciennete + " ans d'ancienneté.");
                                                 psNotif.setString(3, "/employes/" + idEmploye + "?tab=conges");
                                                 psNotif.setInt(4, idEmploye);
                                                 psNotif.executeUpdate();
                                                 
-                                                System.out.println("[AcquisitionCongeScheduler] Bonification accordée : Employé " + idEmploye + " -> +" + bonus + " jours.");
+                                                log.info("[AcquisitionCongeScheduler] Bonification accordée : Employé ID {} -> +{} jours.", idEmploye, bonus);
                                             }
                                         }
                                     }
@@ -140,16 +125,14 @@ public class AcquisitionCongeScheduler {
                         }
                     }
                 }
-                
                 c.commit();
-                System.out.println("[AcquisitionCongeScheduler] Acquisition mensuelle des congés effectuée avec succès.");
+                log.info("[AcquisitionCongeScheduler] Acquisition mensuelle des congés effectuée avec succès.");
             } catch (Exception e) {
                 c.rollback();
-                System.err.println("[AcquisitionCongeScheduler] Erreur lors de l'acquisition des congés : " + e.getMessage());
-                e.printStackTrace();
+                log.error("[AcquisitionCongeScheduler] Erreur lors de l'acquisition des congés : {}", e.getMessage(), e);
             }
         } catch (Exception e) {
-            System.err.println("[AcquisitionCongeScheduler] Erreur connexion BDD : " + e.getMessage());
+            log.error("[AcquisitionCongeScheduler] Erreur connexion BDD : {}", e.getMessage(), e);
         }
     }
 }

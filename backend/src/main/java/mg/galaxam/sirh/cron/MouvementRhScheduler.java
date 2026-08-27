@@ -37,7 +37,7 @@ public class MouvementRhScheduler {
      * Exécution automatique chaque jour à minuit (00:00:00).
      * Vérifie et applique tous les mouvements RH validés dont la date d'effet est atteinte.
      */
-    @Scheduled(cron = "0 0 0 * * ?")
+    @Scheduled(cron = "0 10 0 * * ?")
     public void effectuerBasculementMouvementsPlanifies() {
         try (Connection c = dataSource.getConnection()) {
             WorkflowRhService.autoAppliquerMouvementsEchus(c);

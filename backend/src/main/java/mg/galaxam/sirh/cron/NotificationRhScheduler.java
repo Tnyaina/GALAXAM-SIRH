@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
  * NotificationRhScheduler — Génère les notifications RH persistées en base.
  *
  * Pattern professionnel : le scheduler tourne au démarrage et chaque nuit APRÈS le scheduler
- * de mouvements (00:05:00) pour que les données soient à jour.
+ * de mouvements (02:30:00) pour que les données soient à jour.
  * Il supprime les anciennes notifications du même type avant d'en créer
  * de nouvelles (évite les doublons).
  */
@@ -29,10 +29,10 @@ public class NotificationRhScheduler {
 
     /**
      * Exécution automatique au démarrage de l'application (rattrapage immédiat)
-     * et chaque nuit à 00:05:00.
+     * et chaque nuit à 02:30:00.
      */
     @EventListener(ApplicationReadyEvent.class)
-    @Scheduled(cron = "0 5 0 * * ?")
+    @Scheduled(cron = "0 30 2 * * ?")
     public void genererNotificationsRh() {
         log.info("[SCHEDULER] Lancement du cycle de génération des notifications RH...");
         try (Connection c = dataSource.getConnection()) {

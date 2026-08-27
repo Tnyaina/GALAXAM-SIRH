@@ -46,7 +46,8 @@ public class ContratGlobalController {
 
             if (q != null && !q.isBlank()) {
                 String searchLike = "%" + q.trim().toUpperCase() + "%";
-                whereSql.append(" AND (UPPER(e.matricule) LIKE ? OR UPPER(e.nom) LIKE ? OR UPPER(e.prenom) LIKE ? OR UPPER(ct.numero_contrat) LIKE ?) ");
+                whereSql.append(
+                        " AND (UPPER(e.matricule) LIKE ? OR UPPER(e.nom) LIKE ? OR UPPER(e.prenom) LIKE ? OR UPPER(ct.numero_contrat) LIKE ?) ");
                 params.add(searchLike);
                 params.add(searchLike);
                 params.add(searchLike);
@@ -60,7 +61,8 @@ public class ContratGlobalController {
 
             if (statut != null && !statut.isBlank() && !"ALL".equalsIgnoreCase(statut)) {
                 if ("PENDING".equalsIgnoreCase(statut) || "A_SIGNER".equalsIgnoreCase(statut)) {
-                    whereSql.append(" AND (rsc.code = 'BROUILLON' OR rsc.code = 'A_SIGNER' OR (rsc.code = 'ACTIF' AND ct.date_debut > CURRENT_DATE)) ");
+                    whereSql.append(
+                            " AND (rsc.code = 'BROUILLON' OR rsc.code = 'A_SIGNER' OR (rsc.code = 'ACTIF' AND ct.date_debut > CURRENT_DATE)) ");
                 } else if ("ACTIF".equalsIgnoreCase(statut)) {
                     whereSql.append(" AND rsc.code = 'ACTIF' AND (ct.date_debut <= CURRENT_DATE) ");
                 } else {
@@ -75,24 +77,26 @@ public class ContratGlobalController {
             }
 
             if ("60J".equalsIgnoreCase(echeance)) {
-                whereSql.append(" AND ((ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '60 days') OR (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '60 days')) ");
+                whereSql.append(
+                        " AND ((ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '60 days') OR (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '60 days')) ");
             } else if ("30J".equalsIgnoreCase(echeance)) {
-                whereSql.append(" AND ((ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '30 days') OR (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '30 days')) ");
+                whereSql.append(
+                        " AND ((ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '30 days') OR (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '30 days')) ");
             } else if ("7J".equalsIgnoreCase(echeance)) {
-                whereSql.append(" AND ((ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '7 days') OR (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '7 days')) ");
+                whereSql.append(
+                        " AND ((ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '7 days') OR (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '7 days')) ");
             } else if ("ESSAI".equalsIgnoreCase(echeance)) {
-                whereSql.append(" AND ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '60 days' ");
+                whereSql.append(
+                        " AND ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '60 days' ");
             }
 
-            // Filtre doublons réels (employés ayant plus d'un contrat actif simultané ou contrats avec même date/type)
+            // Filtre doublons réels (employés ayant plus d'un contrat actif simultané ou
+            // contrats avec même date/type)
             if (doublonsOnly) {
                 whereSql.append(" AND ct.id_employe IN (" +
                         "  SELECT sub.id_employe FROM contrat_travail sub " +
                         "  JOIN ref_statut_rh sub_rsc ON sub.id_statut_rh = sub_rsc.id_statut_rh " +
                         "  WHERE sub_rsc.code = 'ACTIF' GROUP BY sub.id_employe HAVING COUNT(*) > 1 " +
-                        "  UNION " +
-                        "  SELECT sub2.id_employe FROM contrat_travail sub2 " +
-                        "  GROUP BY sub2.id_employe, sub2.id_type_contrat, sub2.date_debut HAVING COUNT(*) > 1" +
                         ") ");
             }
 
@@ -111,17 +115,20 @@ public class ContratGlobalController {
                     psCount.setObject(i + 1, params.get(i));
                 }
                 try (ResultSet rs = psCount.executeQuery()) {
-                    if (rs.next()) totalElements = rs.getLong(1);
+                    if (rs.next())
+                        totalElements = rs.getLong(1);
                 }
             }
 
             int offset = (page - 1) * size;
-            String querySql = "SELECT ct.id_contrat, ct.id_employe, ct.numero_contrat, ct.date_debut, ct.date_fin, ct.date_fin_essai, " +
+            String querySql = "SELECT ct.id_contrat, ct.id_employe, ct.numero_contrat, ct.date_debut, ct.date_fin, ct.date_fin_essai, "
+                    +
                     "e.matricule, e.nom, e.prenom, e.photo_url, " +
                     "rtc.code AS code_type_contrat, rtc.libelle AS libelle_type_contrat, " +
                     "rsc.code AS code_statut_contrat, rsc.libelle AS libelle_statut_contrat, " +
                     "rs.libelle AS nom_site, rd.libelle AS nom_departement, rf.libelle AS nom_fonction, " +
-                    "(EXISTS (SELECT 1 FROM contrat_travail dup WHERE dup.id_employe = ct.id_employe AND dup.id_contrat <> ct.id_contrat AND dup.date_debut = ct.date_debut AND dup.id_type_contrat = ct.id_type_contrat)) AS is_duplicate " +
+                    "(EXISTS (SELECT 1 FROM contrat_travail dup WHERE dup.id_employe = ct.id_employe AND dup.id_contrat <> ct.id_contrat AND dup.date_debut = ct.date_debut AND dup.id_type_contrat = ct.id_type_contrat)) AS is_duplicate "
+                    +
                     "FROM contrat_travail ct " +
                     "JOIN employe e ON ct.id_employe = e.id_employe " +
                     "LEFT JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
@@ -130,7 +137,8 @@ public class ContratGlobalController {
                     "  SELECT eac_sub.id_site, eac_sub.id_departement, eac_sub.id_fonction " +
                     "  FROM employe_affectation_carriere eac_sub " +
                     "  WHERE eac_sub.id_contrat = ct.id_contrat " +
-                    "  ORDER BY CASE WHEN eac_sub.id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') THEN 1 ELSE 2 END, eac_sub.id_affectation DESC LIMIT 1" +
+                    "  ORDER BY CASE WHEN eac_sub.id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') THEN 1 ELSE 2 END, eac_sub.id_affectation DESC LIMIT 1"
+                    +
                     ") eac ON TRUE " +
                     "LEFT JOIN ref_site rs ON eac.id_site = rs.id_site " +
                     "LEFT JOIN ref_departement rd ON eac.id_departement = rd.id_departement " +
@@ -160,7 +168,8 @@ public class ContratGlobalController {
                         dto.setDateFinEssai(rs.getDate("date_fin_essai"));
 
                         dto.setMatricule(rs.getString("matricule"));
-                        dto.setNomPrenom(rs.getString("nom") + " " + (rs.getString("prenom") != null ? rs.getString("prenom") : ""));
+                        dto.setNomPrenom(rs.getString("nom") + " "
+                                + (rs.getString("prenom") != null ? rs.getString("prenom") : ""));
                         dto.setPhotoUrl(rs.getString("photo_url"));
 
                         dto.setCodeTypeContrat(rs.getString("code_type_contrat"));
@@ -192,7 +201,8 @@ public class ContratGlobalController {
 
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur lors de la récupération globale des contrats.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la récupération globale des contrats.");
         }
     }
 
@@ -231,21 +241,21 @@ public class ContratGlobalController {
             String sqlEcheances = "SELECT COUNT(*) FROM contrat_travail ct " +
                     "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "WHERE rsc.code = 'ACTIF' AND (" +
-                    "  (ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '60 days') OR " +
-                    "  (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '60 days')" +
+                    "  (ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '60 days') OR "
+                    +
+                    "  (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '60 days')"
+                    +
                     ")";
             try (PreparedStatement ps = c.prepareStatement(sqlEcheances); ResultSet rs = ps.executeQuery()) {
                 stats.put("echeances60Jours", rs.next() ? rs.getInt(1) : 0);
             }
 
-            // 5. Doublons potentiels (Employés avec plusieurs contrats actifs ou dates identiques)
+            // 5. Doublons potentiels (Employés avec plusieurs contrats actifs ou dates
+            // identiques)
             String sqlDoublons = "SELECT COUNT(DISTINCT id_employe) FROM (" +
                     "  SELECT id_employe FROM contrat_travail ct " +
                     "  JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "  WHERE rsc.code = 'ACTIF' GROUP BY id_employe HAVING COUNT(*) > 1 " +
-                    "  UNION " +
-                    "  SELECT id_employe FROM contrat_travail " +
-                    "  GROUP BY id_employe, id_type_contrat, date_debut HAVING COUNT(*) > 1" +
                     ") dup";
             try (PreparedStatement ps = c.prepareStatement(sqlDoublons); ResultSet rs = ps.executeQuery()) {
                 stats.put("doublonsPotentiels", rs.next() ? rs.getInt(1) : 0);
@@ -269,7 +279,8 @@ public class ContratGlobalController {
             LocalDate today = LocalDate.now();
 
             // 1. Doublons détectés
-            String sqlDup = "SELECT e.id_employe, e.matricule, e.nom || ' ' || e.prenom AS nom_prenom, COUNT(*) as cnt " +
+            String sqlDup = "SELECT e.id_employe, e.matricule, e.nom || ' ' || e.prenom AS nom_prenom, COUNT(*) as cnt "
+                    +
                     "FROM contrat_travail ct " +
                     "JOIN employe e ON ct.id_employe = e.id_employe " +
                     "GROUP BY e.id_employe, e.matricule, e.nom, e.prenom, ct.id_type_contrat, ct.date_debut " +
@@ -281,7 +292,8 @@ public class ContratGlobalController {
                     a.put("variant", "danger");
                     a.put("idEmploye", rs.getInt("id_employe"));
                     a.put("titre", "Doublon de contrat détecté");
-                    a.put("description", "<b>" + rs.getString("nom_prenom") + " (#" + rs.getString("matricule") + ")</b> a " + rs.getInt("cnt") + " contrats avec paramètres identiques enregistrés.");
+                    a.put("description", "<b>" + rs.getString("nom_prenom") + " (#" + rs.getString("matricule")
+                            + ")</b> a " + rs.getInt("cnt") + " contrats avec paramètres identiques enregistrés.");
                     a.put("actionLabel", "Vérifier les doublons");
                     a.put("actionUrl", "/carrieres?doublonsOnly=true");
                     alertes.add(a);
@@ -289,7 +301,8 @@ public class ContratGlobalController {
             }
 
             // 2. Fins d'essai imminentes (< 45 jours)
-            String sqlEssai = "SELECT ct.id_contrat, e.id_employe, e.matricule, e.nom || ' ' || e.prenom AS nom_prenom, " +
+            String sqlEssai = "SELECT ct.id_contrat, e.id_employe, e.matricule, e.nom || ' ' || e.prenom AS nom_prenom, "
+                    +
                     "rtc.libelle as type_ct, ct.date_fin_essai, " +
                     "(ct.date_fin_essai - CURRENT_DATE) as jours_restants " +
                     "FROM contrat_travail ct " +
@@ -297,7 +310,8 @@ public class ContratGlobalController {
                     "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                     "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "WHERE rsc.code = 'ACTIF' AND ct.date_fin_essai IS NOT NULL " +
-                    "AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '45 days' " +
+                    "AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '45 days' "
+                    +
                     "ORDER BY ct.date_fin_essai ASC LIMIT 3";
             try (PreparedStatement ps = c.prepareStatement(sqlEssai); ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -308,7 +322,10 @@ public class ContratGlobalController {
                     a.put("idEmploye", rs.getInt("id_employe"));
                     a.put("idContrat", rs.getInt("id_contrat"));
                     a.put("titre", "Fin de période d'essai imminente");
-                    a.put("description", "<b>" + rs.getString("nom_prenom") + " (#" + rs.getString("matricule") + ")</b> — période d'essai du " + rs.getString("type_ct") + " expire le " + rs.getDate("date_fin_essai") + " (dans " + jours + " jours).");
+                    a.put("description",
+                            "<b>" + rs.getString("nom_prenom") + " (#" + rs.getString("matricule")
+                                    + ")</b> — période d'essai du " + rs.getString("type_ct") + " expire le "
+                                    + rs.getDate("date_fin_essai") + " (dans " + jours + " jours).");
                     a.put("actionLabel", "Confirmer la titularisation");
                     a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "?tab=carriere");
                     alertes.add(a);
@@ -316,7 +333,8 @@ public class ContratGlobalController {
             }
 
             // 3. Fins de CDD / Stage imminentes (< 60 jours)
-            String sqlFin = "SELECT ct.id_contrat, e.id_employe, e.matricule, e.nom || ' ' || e.prenom AS nom_prenom, " +
+            String sqlFin = "SELECT ct.id_contrat, e.id_employe, e.matricule, e.nom || ' ' || e.prenom AS nom_prenom, "
+                    +
                     "rtc.libelle as type_ct, ct.date_fin, " +
                     "(ct.date_fin - CURRENT_DATE) as jours_restants " +
                     "FROM contrat_travail ct " +
@@ -324,7 +342,8 @@ public class ContratGlobalController {
                     "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                     "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE " +
-                    "AND ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '60 days' " +
+                    "AND ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '60 days' "
+                    +
                     "ORDER BY ct.date_fin ASC LIMIT 3";
             try (PreparedStatement ps = c.prepareStatement(sqlFin); ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -335,7 +354,10 @@ public class ContratGlobalController {
                     a.put("idEmploye", rs.getInt("id_employe"));
                     a.put("idContrat", rs.getInt("id_contrat"));
                     a.put("titre", "Contrat " + rs.getString("type_ct") + " arrivant à échéance");
-                    a.put("description", "<b>" + rs.getString("nom_prenom") + " (#" + rs.getString("matricule") + ")</b> — " + rs.getString("type_ct") + " expire le " + rs.getDate("date_fin") + " (dans " + jours + " jours).");
+                    a.put("description",
+                            "<b>" + rs.getString("nom_prenom") + " (#" + rs.getString("matricule") + ")</b> — "
+                                    + rs.getString("type_ct") + " expire le " + rs.getDate("date_fin") + " (dans "
+                                    + jours + " jours).");
                     a.put("actionLabel", "Préparer le renouvellement");
                     a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "?tab=carriere");
                     alertes.add(a);
@@ -345,7 +367,8 @@ public class ContratGlobalController {
             return ResponseEntity.ok(alertes);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur récupération alertes prioritaires.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur récupération alertes prioritaires.");
         }
     }
 
@@ -357,7 +380,8 @@ public class ContratGlobalController {
     public void exportContratsCsv(HttpServletResponse response) {
         try (Connection c = dataSource.getConnection()) {
             response.setContentType("text/csv; charset=UTF-8");
-            response.setHeader("Content-Disposition", "attachment; filename=\"registre_contrats_" + LocalDate.now() + ".csv\"");
+            response.setHeader("Content-Disposition",
+                    "attachment; filename=\"registre_contrats_" + LocalDate.now() + ".csv\"");
 
             String sql = "SELECT e.matricule, e.nom, e.prenom, ct.numero_contrat, " +
                     "rtc.libelle AS type_contrat, rsc.libelle AS statut_contrat, " +
@@ -377,12 +401,13 @@ public class ContratGlobalController {
                     "ORDER BY e.matricule ASC, ct.date_debut DESC";
 
             try (PreparedStatement ps = c.prepareStatement(sql);
-                 ResultSet rs = ps.executeQuery();
-                 PrintWriter writer = response.getWriter()) {
+                    ResultSet rs = ps.executeQuery();
+                    PrintWriter writer = response.getWriter()) {
 
                 // BOM UTF-8 pour Excel
                 writer.write('\ufeff');
-                writer.println("Matricule;Nom;Prénom;N° Contrat;Type Contrat;Statut;Date Début;Date Fin;Date Fin Essai;Site;Département;Fonction");
+                writer.println(
+                        "Matricule;Nom;Prénom;N° Contrat;Type Contrat;Statut;Date Début;Date Fin;Date Fin Essai;Site;Département;Fonction");
 
                 while (rs.next()) {
                     writer.printf("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s%n",
@@ -397,8 +422,7 @@ public class ContratGlobalController {
                             safe(rs.getString("date_fin_essai")),
                             safe(rs.getString("site")),
                             safe(rs.getString("departement")),
-                            safe(rs.getString("fonction"))
-                    );
+                            safe(rs.getString("fonction")));
                 }
                 writer.flush();
             }
@@ -408,7 +432,8 @@ public class ContratGlobalController {
     }
 
     private String safe(String s) {
-        if (s == null) return "";
+        if (s == null)
+            return "";
         return s.replace(";", ",");
     }
 }

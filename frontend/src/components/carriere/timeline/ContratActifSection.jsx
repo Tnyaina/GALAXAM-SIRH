@@ -22,7 +22,7 @@ export default function ContratActifSection({
 }) {
     if (!contratActif) {
         if (brouillonWf) return null;
-        
+
         return (
             /* ⚪ EMPTY STATE : PAS DE CONTRAT ACTIF */
             <div className="p-10 text-center bg-white dark:bg-ink-900 border border-dashed border-ink-200 dark:border-ink-700 rounded-none space-y-4">
@@ -137,8 +137,8 @@ export default function ContratActifSection({
                     </div>
                     {etatEssai?.isEssaiActif && (
                         <div className={`py-2 px-2.5 my-1.5 border rounded-none space-y-2 ${etatEssai.isEssaiEchu
-                                ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
-                                : 'bg-warning-500/10 border-warning-500/20 text-warning-800 dark:text-warning-300'
+                            ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
+                            : 'bg-warning-500/10 border-warning-500/20 text-warning-800 dark:text-warning-300'
                             }`}>
                             <div className="flex justify-between items-center font-medium">
                                 <span className="flex items-center gap-1.5 font-bold">
@@ -168,8 +168,8 @@ export default function ContratActifSection({
                                 </div>
                             ) : canWrite && (!brouillonWf || !['CONFIRMATION_ESSAI', 'RENOUVELLEMENT_ESSAI'].includes(brouillonWf?.codeTypeEvenement)) && (
                                 <div className="pt-1.5 border-t border-current/20 flex flex-wrap items-center gap-2">
-                                    {/* Bouton Confirmer : visible si le backend dit canConfirm */}
-                                    {etatEssai.canConfirm !== false && (
+                                    {/* Bouton Confirmer : conditionné strictement par canConfirm */}
+                                    {etatEssai?.canConfirm === true && (
                                         <Button
                                             onClick={onOpenConfirmation}
                                             variant="success"
@@ -179,19 +179,19 @@ export default function ContratActifSection({
                                             Confirmer l'Essai
                                         </Button>
                                     )}
-                                    {/* Bouton Renouveler : visible si le backend dit canRenew */}
-                                    {etatEssai.canRenew ? (
+                                    {/* Bouton Renouveler : conditionné strictement par canRenew */}
+                                    {etatEssai?.canRenew === true ? (
                                         <Button
                                             onClick={onOpenRenouvellement}
                                             variant="outline"
                                             size="xs"
                                             iconLeft={<RefreshCw size={13} />}
                                         >
-                                            Renouveler l'Essai
+                                            Renouveller l'Essai
                                         </Button>
-                                    ) : etatEssai.nombreRenouvellements >= etatEssai.maxRenouvellements ? (
+                                    ) : (etatEssai?.nombreRenouvellements ?? 0) >= (etatEssai?.maxRenouvellements ?? 1) ? (
                                         <Badge variant="warning" size="sm">
-                                            Période {etatEssai.periodeActuelle || ''} — Max légal atteint ({etatEssai.nombreRenouvellements}/{etatEssai.maxRenouvellements})
+                                            Max légal atteint ({etatEssai.nombreRenouvellements}/{etatEssai.maxRenouvellements})
                                         </Badge>
                                     ) : null}
                                 </div>

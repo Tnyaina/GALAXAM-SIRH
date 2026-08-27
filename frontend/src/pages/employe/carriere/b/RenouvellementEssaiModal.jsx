@@ -154,19 +154,19 @@ export default function RenouvellementEssaiModal({
                 idFiliale: contratActif?.idFiliale || initialData?.idFiliale || null,
                 idTypeContrat: contratActif?.idTypeContrat || initialData?.idTypeContrat || null,
                 idTypeIntervenant: contratActif?.idTypeIntervenant || initialData?.idTypeIntervenant || null,
-                dureeEssaiMois: Number(dureeProlongationMois),
-                dateFinEssai: nouvelleDateFin,
-                idSite: affectationActive?.idSite || initialData?.idSite,
-                idDepartement: affectationActive?.idDepartement || initialData?.idDepartement,
-                idService: affectationActive?.idService || initialData?.idService,
-                idFonction: affectationActive?.idFonction || initialData?.idFonction,
+                dureeEssaiMois: dureeProlongationMois ? Number(dureeProlongationMois) : null,
+                dateFinEssai: nouvelleDateFin ? nouvelleDateFin : null, // 🔒 Sécurité chaîne vide -> null
+                idSite: affectationActive?.idSite || initialData?.idSite || null,
+                idDepartement: affectationActive?.idDepartement || initialData?.idDepartement || null,
+                idService: affectationActive?.idService || initialData?.idService || null,
+                idFonction: affectationActive?.idFonction || initialData?.idFonction || null,
                 idResponsableHierarchique: affectationActive?.idResponsableHierarchique || initialData?.idResponsableHierarchique || null,
-                idCategorieProfessionnelle: affectationActive?.idCategorieProfessionnelle || initialData?.idCategorieProfessionnelle,
-                idModeCalculPaie: affectationActive?.idModeCalculPaie || initialData?.idModeCalculPaie,
-                salaireBase: affectationActive?.salaireBase || initialData?.salaireBase,
-                dateEffet: dateEffet,
-                motif: motif,
-                commentaire: commentaire,
+                idCategorieProfessionnelle: affectationActive?.idCategorieProfessionnelle || initialData?.idCategorieProfessionnelle || null,
+                idModeCalculPaie: affectationActive?.idModeCalculPaie || initialData?.idModeCalculPaie || null,
+                salaireBase: affectationActive?.salaireBase || initialData?.salaireBase || null,
+                dateEffet: dateEffet ? dateEffet : null, // 🔒 Sécurité chaîne vide -> null
+                motif: motif ? motif.trim() : null,
+                commentaire: commentaire ? commentaire.trim() : null,
             };
 
             let res;
@@ -239,7 +239,7 @@ export default function RenouvellementEssaiModal({
 
                 {/* Corps : Split Screen 50 / 50 */}
                 <div className="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
-                    
+
                     {/* COLONNE GAUCHE (50%) : Formulaire */}
                     <form onSubmit={handleSubmit} className="w-full lg:w-1/2 min-w-0 overflow-y-auto p-6 space-y-6 border-b lg:border-b-0 lg:border-r border-ink-150 dark:border-ink-700">
                         {errorMsg && (

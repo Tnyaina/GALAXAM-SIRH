@@ -110,8 +110,8 @@ export default function CarriereHeaderCard({
             {/* ⚠️ BANNIÈRE PÉRIODE D'ESSAI EN COURS */}
             {(etatEssai?.aPeriodeEssai || etatEssai?.isEssaiActif) && (etatEssai?.dateFinEssai || etatEssai?.dateFinEssaiStr) && (
                 <div className={`p-4 rounded-none border flex flex-col md:flex-row md:items-center justify-between gap-4 ${etatEssai.isEssaiEchu
-                        ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
-                        : 'bg-warning-500/10 border-warning-500/30 text-warning-900 dark:text-warning-200'
+                    ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
+                    : 'bg-warning-500/10 border-warning-500/30 text-warning-900 dark:text-warning-200'
                     }`}>
                     <div className="flex items-start gap-3">
                         <div className="p-2 rounded-none bg-white dark:bg-ink-900 shadow-sm flex-shrink-0 mt-0.5">
@@ -144,18 +144,18 @@ export default function CarriereHeaderCard({
 
                     {canWrite && !workflowPlanifieFutur && (
                         <div className="flex items-center gap-2 self-end md:self-auto flex-shrink-0">
-                            {/* Renouveler : seulement si le backend autorise (canRenew) */}
-                            {etatEssai.canRenew && (
+                            {/* Renouveller : visible uniquement si le backend autorise explicitement canRenew */}
+                            {etatEssai?.canRenew === true && (
                                 <Button
                                     variant="secondary"
                                     size="xs"
                                     onClick={onOpenRenouvellement}
                                 >
-                                    Renouveler l'essai
+                                    Renouveller l'essai
                                 </Button>
                             )}
-                            {/* Confirmer : seulement si le backend autorise (canConfirm) */}
-                            {etatEssai.canConfirm !== false && (
+                            {/* Confirmer : visible uniquement si le backend autorise explicitement canConfirm */}
+                            {etatEssai?.canConfirm === true && (
                                 <Button
                                     variant="primary"
                                     size="xs"
