@@ -108,30 +108,33 @@ export default function CarriereHeaderCard({
             </div>
 
             {/* ⚠️ BANNIÈRE PÉRIODE D'ESSAI EN COURS */}
-            {etatEssai?.aPeriodeEssai && etatEssai?.dateFinEssai && (
-                <div className={`p-4 rounded-none border flex flex-col md:flex-row md:items-center justify-between gap-4 ${etatEssai.estPasse
+            {(etatEssai?.aPeriodeEssai || etatEssai?.isEssaiActif) && (etatEssai?.dateFinEssai || etatEssai?.dateFinEssaiStr) && (
+                <div className={`p-4 rounded-none border flex flex-col md:flex-row md:items-center justify-between gap-4 ${etatEssai.isEssaiEchu
                         ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
                         : 'bg-warning-500/10 border-warning-500/30 text-warning-900 dark:text-warning-200'
                     }`}>
                     <div className="flex items-start gap-3">
                         <div className="p-2 rounded-none bg-white dark:bg-ink-900 shadow-sm flex-shrink-0 mt-0.5">
-                            <Clock className={etatEssai.estPasse ? 'text-danger-500' : 'text-warning-500'} size={20} />
+                            <Clock className={etatEssai.isEssaiEchu ? 'text-danger-500' : 'text-warning-500'} size={20} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
                                 <h4 className="text-xs font-bold uppercase tracking-wider">
-                                    Période d'essai en cours {estEssaiRenouveleFlag && '(Renouvelée)'}
+                                    Période d'essai en cours
+                                    {etatEssai.periodeActuelle > 1 && ` (Renouvellement ${etatEssai.nombreRenouvellements}/${etatEssai.maxRenouvellements})`}
                                 </h4>
-                                {etatEssai.joursRestants !== null && (
-                                    <Badge variant={etatEssai.estPasse ? 'danger' : 'warning'} size="xs">
-                                        {etatEssai.estPasse
+                                {Number.isFinite(etatEssai.joursRestants) && (
+                                    <Badge variant={etatEssai.isEssaiEchu ? 'danger' : 'warning'} size="xs">
+                                        {etatEssai.isEssaiEchu
                                             ? `Dépassée de ${Math.abs(etatEssai.joursRestants)} jour(s)`
-                                            : `Reste ${etatEssai.joursRestants} jour(s)`}
+                                            : etatEssai.joursRestants === 0
+                                                ? `Dernier jour`
+                                                : `Reste ${etatEssai.joursRestants} jour(s)`}
                                     </Badge>
                                 )}
                             </div>
                             <p className="text-xs mt-1 text-ink-600 dark:text-ink-300">
-                                Échéance prévue le <strong>{fmtDate(etatEssai.dateFinEssai)}</strong>.
+                                Échéance prévue le <strong>{fmtDate(etatEssai.dateFinEssai || etatEssai.dateFinEssaiStr)}</strong>.
                                 {workflowPlanifieFutur
                                     ? ` Un événement (${workflowPlanifieFutur.libelleTypeEvenement || workflowPlanifieFutur.codeTypeEvenement}) est déjà planifié au ${fmtDate(workflowPlanifieFutur.dateEffet)}.`
                                     : ' Aucune action RH de confirmation ou de rupture n\'a encore été validée pour cet essai.'}
@@ -141,7 +144,8 @@ export default function CarriereHeaderCard({
 
                     {canWrite && !workflowPlanifieFutur && (
                         <div className="flex items-center gap-2 self-end md:self-auto flex-shrink-0">
-                            {!estEssaiRenouveleFlag && (
+                            {/* Renouveler : seulement si le backend autorise (canRenew) */}
+                            {etatEssai.canRenew && (
                                 <Button
                                     variant="secondary"
                                     size="xs"
@@ -150,13 +154,16 @@ export default function CarriereHeaderCard({
                                     Renouveler l'essai
                                 </Button>
                             )}
-                            <Button
-                                variant="primary"
-                                size="xs"
-                                onClick={onOpenConfirmation}
-                            >
-                                Confirmer l'essai
-                            </Button>
+                            {/* Confirmer : seulement si le backend autorise (canConfirm) */}
+                            {etatEssai.canConfirm !== false && (
+                                <Button
+                                    variant="primary"
+                                    size="xs"
+                                    onClick={onOpenConfirmation}
+                                >
+                                    Confirmer l'essai
+                                </Button>
+                            )}
                         </div>
                     )}
                 </div>

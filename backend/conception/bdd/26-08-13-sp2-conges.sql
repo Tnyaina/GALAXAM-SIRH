@@ -259,18 +259,8 @@ LEFT JOIN utilisateur uv ON uv.id_utilisateur = d.valide_par;
 -- ------------------------------------------
 -- 6. EXTENSION notification_rh (types d'alerte congés)
 -- ------------------------------------------
-ALTER TABLE notification_rh DROP CONSTRAINT IF EXISTS chk_notif_type;
-ALTER TABLE notification_rh ADD CONSTRAINT chk_notif_type CHECK (type_alerte IN (
-    'CONTRAT_EXPIRE_J', 'CONTRAT_EXPIRE_7J', 'CONTRAT_EXPIRE_30J',
-    'ESSAI_EXPIRE_J', 'ESSAI_EXPIRE_7J', 'ESSAI_EXPIRE_15J', 'ESSAI_EXPIRE_30J',
-    'BROUILLON_EN_ATTENTE', 'MOUVEMENT_APPLIQUE',
-    'DOCUMENTS_MANQUANTS', 'EMPLOYE_CREE', 'BROUILLON_CREE',
-    -- Congés & absences
-    'CONGE_EN_ATTENTE', 'DEMANDE_CONGE_EN_ATTENTE', 'CONGE_VALIDE', 'CONGE_REFUSE', 'CONGE_ANNULE',
-    'SOLDE_CONGE_FAIBLE', 'SOLDE_CONGE_NEGATIF', 'RETOUR_CONGE_J', 'CONGE_EXPIRATION_PROCHE',
-    'MALADIE_PLAFOND_EPISODE_ATTEINT', 'POOL_EXCEPTIONNEL_EPUISE',
-    'FRACTIONNEMENT_NON_RESPECTE', 'BONIFICATION_ANCIENNETE_APPLIQUEE'
-));
+-- NOTE : La contrainte chk_notif_type est définie de façon exhaustive
+-- dans 26-08-10-sp2-notifications.sql. Aucune modification nécessaire ici.
 
 -- ------------------------------------------
 -- 7. PARAMÈTRES GLOBAUX

@@ -94,14 +94,27 @@ export function useTransitionForm({
         } else {
             const baseContrat = contratActif || {};
             const baseAff = affectationActive || {};
+            const isExigeNouveau = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT']
+                .includes(defaultTypeEv);
+
+            let suggestedDateDebut = today;
+            if (isExigeNouveau && baseContrat.dateFin) {
+                try {
+                    const dFin = new Date(baseContrat.dateFin);
+                    dFin.setDate(dFin.getDate() + 1);
+                    suggestedDateDebut = fmtDateInput(dFin) || today;
+                } catch {
+                    suggestedDateDebut = today;
+                }
+            }
 
             setFormData({
                 codeTypeEvenement: defaultTypeEv,
                 idFiliale: baseContrat.idFiliale || filiales[0]?.idFiliale || '',
                 idTypeContrat: baseContrat.idTypeContrat || '',
                 idTypeIntervenant: baseContrat.idTypeIntervenant || '',
-                dateEffet: today,
-                dateDebut: today,
+                dateEffet: suggestedDateDebut,
+                dateDebut: suggestedDateDebut,
                 dateFin: '',
                 dateSignature: today,
                 comptabiliseEffectif: true,
@@ -109,7 +122,7 @@ export function useTransitionForm({
                 descriptionContrat: '',
                 commentaireContrat: '',
                 aPeriodeEssai: false,
-                dureeEssaiMois: '3',
+                dureeEssaiMois: defaultTypeEv === 'RENOUVELLEMENT_CDD' ? '0' : '3',
                 dateFinEssai: '',
                 idSite: baseAff.idSite || sites[0]?.idSite || '',
                 idDepartement: baseAff.idDepartement || departements[0]?.idDepartement || '',

@@ -224,7 +224,7 @@ function SupervisionMouvementsTab() {
                         <tbody className="divide-y divide-[var(--color-border-subtle)] text-[var(--color-fg)]">
                             {workflows.map((wf) => {
                                 const isFuture = wf.dateEffet && new Date(wf.dateEffet) > new Date();
-                                const isPlanifie = wf.codeStatutWorkflow === 'VALIDE' && isFuture;
+                                const isPlanifie = (wf.isPlanifie ?? (wf.codeStatutWorkflow === 'PLANIFIE')) || (isFuture && wf.codeStatutWorkflow !== 'ANNULE');
 
                                 return (
                                     <tr key={wf.idWorkflow} className="hover:bg-[var(--color-bg-subtle)]/50 transition-colors">

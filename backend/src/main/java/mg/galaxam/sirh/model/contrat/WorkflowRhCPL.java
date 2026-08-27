@@ -303,4 +303,11 @@ public class WorkflowRhCPL {
     public Date getDateDebutAffectation() { return dateDebutAffectation; }
     public Date getDateFinAffectation() { return dateFinAffectation; }
     public String getLibelleStatutAffectation() { return libelleStatutAffectation; }
+
+    // ─── Helpers Statuts (Flags sérialisés pour le frontend) ─────────────────
+    public boolean isBrouillon() { return "BROUILLON".equals(codeStatutWorkflow); }
+    public boolean isPlanifie()  { return "PLANIFIE".equals(codeStatutWorkflow); }
+    public boolean isActif()     { return "ACTIF".equals(codeStatutWorkflow); }
+    public boolean isAnnule()    { return "ANNULE".equals(codeStatutWorkflow); }
+    public boolean isEnAttente() { return isBrouillon() || isPlanifie(); }
 }

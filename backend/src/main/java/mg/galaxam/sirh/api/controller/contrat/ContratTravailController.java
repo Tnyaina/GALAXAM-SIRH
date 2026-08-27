@@ -93,88 +93,114 @@ public class ContratTravailController {
     public ResponseEntity<?> getEtatEssaiEmploye(@PathVariable Integer idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             ContratTravail contrat = ContratTravail.rechercherActifParEmploye(idEmploye, c);
-            List<WorkflowRhCPL> workflows = WorkflowRhCPL.listerParEmploye(idEmploye, c);
 
             if (contrat == null) {
-                return ResponseEntity.ok(new EtatEssaiDTO(false, false, false, false, false, null, null, false, false));
+                return ResponseEntity.ok(EtatEssaiDTO.vide());
             }
 
             final Integer activeContratId = contrat.getIdContrat();
 
-            boolean estConfirme = workflows.stream().anyMatch(w ->
-                "VALIDE".equals(w.getCodeStatutWorkflow()) &&
-                "CONFIRMATION_ESSAI".equals(w.getCodeTypeEvenement()) &&
-                (activeContratId.equals(w.getIdContratCible()) || activeContratId.equals(w.getIdContratSource())) &&
-                (w.getDateEffet() != null && !w.getDateEffet().after(new java.sql.Date(System.currentTimeMillis())))
-            );
+            // ── Lire le paramètre configurable de renouvellements max ──
+            int maxRenouvellements = 1;
+            try (var psParam = c.prepareStatement(
+                    "SELECT valeur FROM parametre_global WHERE code_parametre = 'MAX_RENOUVELLEMENTS_ESSAI' " +
+                    "AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) ORDER BY date_debut DESC LIMIT 1")) {
+                try (var rsParam = psParam.executeQuery()) {
+                    if (rsParam.next()) {
+                        try { maxRenouvellements = Integer.parseInt(rsParam.getString(1).trim()); } catch (NumberFormatException ignored) {}
+                    }
+                }
+            } catch (Exception ignored) {}
 
-            boolean estRenouvele = workflows.stream().anyMatch(w ->
-                ("VALIDE".equals(w.getCodeStatutWorkflow()) || "BROUILLON".equals(w.getCodeStatutWorkflow())) &&
-                "RENOUVELLEMENT_ESSAI".equals(w.getCodeTypeEvenement()) &&
-                (activeContratId.equals(w.getIdContratCible()) || activeContratId.equals(w.getIdContratSource()))
-            );
+            // ── Lire la période d'essai active depuis contrat_periode_essai ──
+            int periodeActuelle = 0;
+            int nombreRenouvellements = 0;
+            String dateFinEssaiStrFromPE = null;
+            boolean aPeriodeEnCours = false;
 
+            try (var psPe = c.prepareStatement(
+                    "SELECT numero_periode, date_fin_prevue, statut FROM contrat_periode_essai " +
+                    "WHERE id_contrat = ? ORDER BY numero_periode ASC")) {
+                psPe.setInt(1, activeContratId);
+                try (var rsPe = psPe.executeQuery()) {
+                    while (rsPe.next()) {
+                        int num = rsPe.getInt("numero_periode");
+                        String statut = rsPe.getString("statut");
+                        java.sql.Date dateFin = rsPe.getDate("date_fin_prevue");
+                        if ("EN_COURS".equals(statut)) {
+                            periodeActuelle = num;
+                            aPeriodeEnCours = true;
+                            if (dateFin != null) dateFinEssaiStrFromPE = dateFin.toString();
+                        }
+                        if (num > 1) nombreRenouvellements++;
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            // ── Détecter si essay confirmé (workflow ACTIF ou PLANIFIE de type CONFIRMATION_ESSAI) ──
+            // NOTE : les statuts valides sont ACTIF (appliqué) et PLANIFIE (futur), PAS 'VALIDE'
+            boolean estConfirme = false;
+            try (var psChkConf = c.prepareStatement(
+                    "SELECT COUNT(*) FROM workflow_rh w " +
+                    "JOIN ref_statut_rh s ON w.id_statut_rh = s.id_statut_rh " +
+                    "JOIN ref_type_evenement_rh ev ON w.id_type_evenement_rh = ev.id_type_evenement_rh " +
+                    "WHERE ev.code = 'CONFIRMATION_ESSAI' AND s.code IN ('ACTIF','PLANIFIE') " +
+                    "AND (w.id_contrat_cible = ? OR w.id_contrat_source = ?)")) {
+                psChkConf.setInt(1, activeContratId);
+                psChkConf.setInt(2, activeContratId);
+                try (var rsConf = psChkConf.executeQuery()) {
+                    if (rsConf.next()) estConfirme = rsConf.getInt(1) > 0;
+                }
+            } catch (Exception ignored) {}
+
+            // Si la période est confirmée : plus de PE active — retourner état terminal
             if (estConfirme) {
-                return ResponseEntity.ok(new EtatEssaiDTO(false, false, false, estConfirme, estRenouvele, null, null, false, false));
+                return ResponseEntity.ok(new EtatEssaiDTO(
+                    false, false, false, true, nombreRenouvellements > 0,
+                    null, contrat.getDureeEssaiMois(), false, false,
+                    0, nombreRenouvellements, maxRenouvellements, false, null
+                ));
             }
 
-            String dateFinEssaiStr = null;
+            // ── Récupérer la date de fin d'essai : priorité à contrat_periode_essai EN_COURS ──
+            String dateFinEssaiStr = dateFinEssaiStrFromPE;
             Integer dureeEssai = contrat.getDureeEssaiMois();
 
-            if (contrat.getDateFinEssai() != null) {
+            // Fallback 1 : champ date_fin_essai sur le contrat
+            if (dateFinEssaiStr == null && contrat.getDateFinEssai() != null) {
                 dateFinEssaiStr = contrat.getDateFinEssai().toString();
             }
-
-            // 1. Chercher dans contrat_periode_essai
-            if (dateFinEssaiStr == null) {
-                try (var psPe = c.prepareStatement(
-                        "SELECT date_fin_prevue FROM contrat_periode_essai WHERE id_contrat = ? AND statut IN ('EN_COURS', 'RENOUVELEE') ORDER BY numero_periode DESC LIMIT 1")) {
-                    psPe.setInt(1, contrat.getIdContrat());
-                    try (var rsPe = psPe.executeQuery()) {
-                        if (rsPe.next() && rsPe.getDate(1) != null) {
-                            dateFinEssaiStr = rsPe.getDate(1).toString();
-                        }
-                    }
-                } catch (Exception ignored) {}
-            }
-
-            // 2. Chercher d'après contrat.getDateDebut() + dureeEssai
+            // Fallback 2 : calcul depuis dateDebut + dureeEssai
             if (dateFinEssaiStr == null && contrat.getDateDebut() != null && dureeEssai != null && dureeEssai > 0) {
                 dateFinEssaiStr = contrat.getDateDebut().toLocalDate().plusMonths(dureeEssai).minusDays(1).toString();
             }
 
-            // 3. Fallback workflow_rh / workflow_rh_cpl (uniquement pour le contrat actif)
-            if (dateFinEssaiStr == null) {
-                WorkflowRhCPL wfWithEssai = workflows.stream()
-                    .filter(w -> "VALIDE".equals(w.getCodeStatutWorkflow()) &&
-                                 (activeContratId.equals(w.getIdContratCible()) || 
-                                  (activeContratId.equals(w.getIdContratSource()) && w.getIdContratCible() == null)) &&
-                                 (w.getDateFinEssai() != null || w.getDureeEssaiMois() != null))
-                    .findFirst().orElse(null);
-                if (wfWithEssai != null) {
-                    if (wfWithEssai.getDateFinEssai() != null) {
-                        dateFinEssaiStr = wfWithEssai.getDateFinEssai().toString();
-                    } else if (wfWithEssai.getDateDebutContrat() != null && wfWithEssai.getDureeEssaiMois() != null) {
-                        if (dureeEssai == null) dureeEssai = wfWithEssai.getDureeEssaiMois();
-                        dateFinEssaiStr = wfWithEssai.getDateDebutContrat().toLocalDate().plusMonths(dureeEssai).minusDays(1).toString();
-                    }
-                }
+            // Aucune période d'essai configurée sur ce contrat
+            if (dateFinEssaiStr == null && !aPeriodeEnCours) {
+                return ResponseEntity.ok(EtatEssaiDTO.vide());
             }
 
             if (dateFinEssaiStr == null) {
-                return ResponseEntity.ok(new EtatEssaiDTO(false, false, false, false, estRenouvele, null, dureeEssai, false, false));
+                return ResponseEntity.ok(new EtatEssaiDTO(
+                    false, false, false, false, nombreRenouvellements > 0,
+                    null, dureeEssai, false, false,
+                    periodeActuelle, nombreRenouvellements, maxRenouvellements, aPeriodeEnCours, null
+                ));
             }
 
             String todayStr = java.time.LocalDate.now().toString();
             boolean isDernierJour = dateFinEssaiStr.equals(todayStr);
             boolean isEssaiEchu = dateFinEssaiStr.compareTo(todayStr) < 0;
 
-            boolean canConfirm = true;
-            boolean canRenew = !estRenouvele;
+            // canConfirm : vrai si période EN_COURS et aucune confirmation planifiée
+            boolean canConfirm = aPeriodeEnCours && !estConfirme;
+            // canRenew : vrai si période EN_COURS ET renouvellements faits < max ET aucune confirmation planifiée
+            boolean canRenew = aPeriodeEnCours && (nombreRenouvellements < maxRenouvellements) && !estConfirme;
 
             return ResponseEntity.ok(new EtatEssaiDTO(
-                true, isDernierJour, isEssaiEchu, false, estRenouvele,
-                dateFinEssaiStr, dureeEssai, canConfirm, canRenew
+                aPeriodeEnCours, isDernierJour, isEssaiEchu, false, nombreRenouvellements > 0,
+                dateFinEssaiStr, dureeEssai, canConfirm, canRenew,
+                periodeActuelle, nombreRenouvellements, maxRenouvellements, aPeriodeEnCours, dateFinEssaiStr
             ));
 
         } catch (Exception e) {
@@ -599,8 +625,11 @@ public class ContratTravailController {
 
     /**
      * DTO de l'évaluation de la période d'essai calculée côté serveur.
+     * Tous les flags (canConfirm, canRenew, aPeriodeEssai) sont calculés par le backend —
+     * le frontend ne doit que les consommer, sans réimplémenter la logique métier.
      */
     public static class EtatEssaiDTO {
+        // Champs historiques (compatibilité)
         private boolean isEssaiActif;
         private boolean isDernierJour;
         private boolean isEssaiEchu;
@@ -611,11 +640,22 @@ public class ContratTravailController {
         private boolean canConfirm;
         private boolean canRenew;
 
+        // Nouveaux champs enrichis
+        private int periodeActuelle;          // Numéro de la période EN_COURS (0 si aucune)
+        private int nombreRenouvellements;    // Nb de renouvellements déjà effectués
+        private int maxRenouvellements;       // Valeur de MAX_RENOUVELLEMENTS_ESSAI
+        private boolean aPeriodeEssai;        // true = une PE est EN_COURS sur ce contrat
+        private String dateFinEssai;          // Alias de dateFinEssaiStr pour cohérence frontend
+        private Integer joursRestants;        // >0 = reste X jours, <0 = dépassé de X jours, null = inconnu
+
         public EtatEssaiDTO() {}
 
+        /** Constructeur complet (all-args) */
         public EtatEssaiDTO(boolean isEssaiActif, boolean isDernierJour, boolean isEssaiEchu,
                             boolean estConfirme, boolean estRenouvele, String dateFinEssaiStr,
-                            Integer dureeEssaiMois, boolean canConfirm, boolean canRenew) {
+                            Integer dureeEssaiMois, boolean canConfirm, boolean canRenew,
+                            int periodeActuelle, int nombreRenouvellements, int maxRenouvellements,
+                            boolean aPeriodeEssai, String dateFinEssai) {
             this.isEssaiActif = isEssaiActif;
             this.isDernierJour = isDernierJour;
             this.isEssaiEchu = isEssaiEchu;
@@ -625,6 +665,35 @@ public class ContratTravailController {
             this.dureeEssaiMois = dureeEssaiMois;
             this.canConfirm = canConfirm;
             this.canRenew = canRenew;
+            this.periodeActuelle = periodeActuelle;
+            this.nombreRenouvellements = nombreRenouvellements;
+            this.maxRenouvellements = maxRenouvellements;
+            this.aPeriodeEssai = aPeriodeEssai;
+            this.dateFinEssai = dateFinEssai;
+            // Calculer joursRestants si la date est disponible
+            if (dateFinEssai != null) {
+                try {
+                    long diff = java.time.temporal.ChronoUnit.DAYS.between(
+                        java.time.LocalDate.now(),
+                        java.time.LocalDate.parse(dateFinEssai.substring(0, 10))
+                    );
+                    this.joursRestants = (int) diff; // >0 reste, <0 dépassé, 0 dernier jour
+                } catch (Exception ignored) { this.joursRestants = null; }
+            }
+        }
+
+        /** Constructeur léger — retro-compat (9 paramètres) */
+        public EtatEssaiDTO(boolean isEssaiActif, boolean isDernierJour, boolean isEssaiEchu,
+                            boolean estConfirme, boolean estRenouvele, String dateFinEssaiStr,
+                            Integer dureeEssaiMois, boolean canConfirm, boolean canRenew) {
+            this(isEssaiActif, isDernierJour, isEssaiEchu, estConfirme, estRenouvele,
+                 dateFinEssaiStr, dureeEssaiMois, canConfirm, canRenew,
+                 0, 0, 1, isEssaiActif, dateFinEssaiStr);
+        }
+
+        /** Factory : état vide (aucune période d'essai) */
+        public static EtatEssaiDTO vide() {
+            return new EtatEssaiDTO(false, false, false, false, false, null, null, false, false);
         }
 
         public boolean isIsEssaiActif() { return isEssaiActif; }
@@ -645,5 +714,18 @@ public class ContratTravailController {
         public void setCanConfirm(boolean canConfirm) { this.canConfirm = canConfirm; }
         public boolean isCanRenew() { return canRenew; }
         public void setCanRenew(boolean canRenew) { this.canRenew = canRenew; }
+        // Nouveaux getters/setters
+        public int getPeriodeActuelle() { return periodeActuelle; }
+        public void setPeriodeActuelle(int periodeActuelle) { this.periodeActuelle = periodeActuelle; }
+        public int getNombreRenouvellements() { return nombreRenouvellements; }
+        public void setNombreRenouvellements(int nombreRenouvellements) { this.nombreRenouvellements = nombreRenouvellements; }
+        public int getMaxRenouvellements() { return maxRenouvellements; }
+        public void setMaxRenouvellements(int maxRenouvellements) { this.maxRenouvellements = maxRenouvellements; }
+        public boolean isAPeriodeEssai() { return aPeriodeEssai; }
+        public void setAPeriodeEssai(boolean aPeriodeEssai) { this.aPeriodeEssai = aPeriodeEssai; }
+        public String getDateFinEssai() { return dateFinEssai; }
+        public void setDateFinEssai(String dateFinEssai) { this.dateFinEssai = dateFinEssai; }
+        public Integer getJoursRestants() { return joursRestants; }
+        public void setJoursRestants(Integer joursRestants) { this.joursRestants = joursRestants; }
     }
 }

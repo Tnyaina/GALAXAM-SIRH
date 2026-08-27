@@ -44,7 +44,7 @@ export default function HistoriqueWorkflowsTable({ workflowsList = [], onSelectW
                                         <StatusBadge status={wf.codeStatutWorkflow} label={wf.libelleStatutWorkflow} size="sm" />
                                     </td>
                                     <td className="px-4 py-3 text-right">
-                                        {wf.codeStatutWorkflow === 'BROUILLON' ? (
+                                        {(wf.isBrouillon ?? (wf.codeStatutWorkflow === 'BROUILLON')) ? (
                                             <Button
                                                 onClick={() => onSelectWorkflowRecap(wf)}
                                                 variant="ghost"

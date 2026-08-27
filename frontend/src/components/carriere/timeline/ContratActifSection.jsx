@@ -62,7 +62,7 @@ export default function ContratActifSection({
                                 Contrat Actif N° {contratActif.numeroContrat}
                             </h3>
                             <Badge variant="success" size="sm">ACTIF</Badge>
-                            {(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai) && !workflowsList.some(w => w.codeStatutWorkflow === 'VALIDE' && w.codeTypeEvenement === 'CONFIRMATION_ESSAI' && (Number(w.idContratCible) === Number(contratActif.idContrat) || Number(w.idContratSource) === Number(contratActif.idContrat))) && (
+                            {(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai) && !workflowsList.some(w => (w.isActif ?? (w.codeStatutWorkflow === 'ACTIF')) && w.codeTypeEvenement === 'CONFIRMATION_ESSAI' && (Number(w.idContratCible) === Number(contratActif.idContrat) || Number(w.idContratSource) === Number(contratActif.idContrat))) && (
                                 <Badge variant="warning" size="sm" icon={<Clock size={12} />}>
                                     Période d'Essai (Fin le {fmtDate(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai)})
                                 </Badge>
@@ -168,15 +168,19 @@ export default function ContratActifSection({
                                 </div>
                             ) : canWrite && (!brouillonWf || !['CONFIRMATION_ESSAI', 'RENOUVELLEMENT_ESSAI'].includes(brouillonWf?.codeTypeEvenement)) && (
                                 <div className="pt-1.5 border-t border-current/20 flex flex-wrap items-center gap-2">
-                                    <Button
-                                        onClick={onOpenConfirmation}
-                                        variant="success"
-                                        size="xs"
-                                        iconLeft={<CheckCircle size={13} />}
-                                    >
-                                        Confirmer l'Essai
-                                    </Button>
-                                    {!estEssaiRenouveleFlag ? (
+                                    {/* Bouton Confirmer : visible si le backend dit canConfirm */}
+                                    {etatEssai.canConfirm !== false && (
+                                        <Button
+                                            onClick={onOpenConfirmation}
+                                            variant="success"
+                                            size="xs"
+                                            iconLeft={<CheckCircle size={13} />}
+                                        >
+                                            Confirmer l'Essai
+                                        </Button>
+                                    )}
+                                    {/* Bouton Renouveler : visible si le backend dit canRenew */}
+                                    {etatEssai.canRenew ? (
                                         <Button
                                             onClick={onOpenRenouvellement}
                                             variant="outline"
@@ -185,11 +189,11 @@ export default function ContratActifSection({
                                         >
                                             Renouveler l'Essai
                                         </Button>
-                                    ) : (
+                                    ) : etatEssai.nombreRenouvellements >= etatEssai.maxRenouvellements ? (
                                         <Badge variant="warning" size="sm">
-                                            2ème Période (Renouvelée — Max légal atteint)
+                                            Période {etatEssai.periodeActuelle || ''} — Max légal atteint ({etatEssai.nombreRenouvellements}/{etatEssai.maxRenouvellements})
                                         </Badge>
-                                    )}
+                                    ) : null}
                                 </div>
                             )}
                         </div>

@@ -165,7 +165,8 @@ export function getWorkflowLibellesUI(workflowCpl) {
 export function trouverWorkflowPlanifieFutur(workflowsList, contratActifId = null, todayStr = fmtDateInput(new Date())) {
     if (!Array.isArray(workflowsList)) return null;
     return workflowsList.find(
-        w => w.codeStatutWorkflow === 'VALIDE' &&
+        w => (w.isPlanifie ?? (w.codeStatutWorkflow === 'PLANIFIE')) &&
+             !w.isAnnule && w.codeStatutWorkflow !== 'ANNULE' &&
              w.dateEffet && fmtDateInput(w.dateEffet) > todayStr &&
              (!contratActifId || Number(w.idContratSource) === Number(contratActifId) || Number(w.idContratCible) === Number(contratActifId))
     ) || null;

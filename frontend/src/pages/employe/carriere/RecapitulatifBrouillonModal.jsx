@@ -60,7 +60,7 @@ export default function RecapitulatifBrouillonModal({
             try {
                 freshWf = await contratService.getWorkflow(currentWf.idWorkflow);
             } catch {
-                freshWf = { ...currentWf, codeStatutWorkflow: 'VALIDE', libelleStatutWorkflow: 'VALIDE' };
+                freshWf = { ...currentWf, codeStatutWorkflow: 'ACTIF', libelleStatutWorkflow: 'ACTIF', isActif: true, isBrouillon: false };
             }
             if (freshWf) setActiveWf(freshWf);
             if (onActionSuccess) {
@@ -134,11 +134,10 @@ export default function RecapitulatifBrouillonModal({
 
     if (!isOpen || !currentWf) return null;
 
-    const isBrouillon = currentWf.codeStatutWorkflow === 'BROUILLON';
-    const isValide = currentWf.codeStatutWorkflow === 'ACTIF' || currentWf.codeStatutWorkflow === 'VALIDE';
-    const isPlanifie = currentWf.codeStatutWorkflow === 'PLANIFIE';
-    const todayStr = new Date().toISOString().substring(0, 10);
-    const dateEffetStr = currentWf.dateEffet ? String(currentWf.dateEffet).substring(0, 10) : '';
+    const isBrouillon = currentWf.isBrouillon ?? (currentWf.codeStatutWorkflow === 'BROUILLON');
+    const isPlanifie = currentWf.isPlanifie ?? (currentWf.codeStatutWorkflow === 'PLANIFIE');
+    const isActif = currentWf.isActif ?? (currentWf.codeStatutWorkflow === 'ACTIF' || currentWf.codeStatutWorkflow === 'VALIDE');
+    const isAnnule = currentWf.isAnnule ?? (currentWf.codeStatutWorkflow === 'ANNULE');
 
     const {
         isEmbauche, isConfirmation: isConfirmationEssai,
@@ -147,7 +146,7 @@ export default function RecapitulatifBrouillonModal({
     } = getWorkflowLibellesUI(currentWf);
 
     const getDateFinEssaiContextuelle = () => calculerDateFinEssaiContextuelle(currentWf);
-    const isPlanifieFutur = isPlanifie || (isValide && !isConfirmationEssai && !isRenouvellementEssai && dateEffetStr > todayStr);
+    const isPlanifieFutur = isPlanifie;
 
     const getStatutBadgeVariant = (code) => {
         if (code === 'ACTIF' || code === 'VALIDE') return 'success';
@@ -216,7 +215,19 @@ export default function RecapitulatifBrouillonModal({
                                 </p>
                             </div>
                         </div>
-                    ) : isValide ? (
+                    ) : isPlanifie ? (
+                        <div className="bg-brand-500/10 border border-brand-500/30 p-4 rounded-none flex items-start gap-3">
+                            <Clock size={18} className="text-brand-600 dark:text-brand-400 flex-shrink-0 mt-0.5" />
+                            <div className="text-xs space-y-1">
+                                <p className="font-bold text-brand-700 dark:text-brand-300">
+                                    Événement RH Planifié (Prise d'effet le {fmtDate(currentWf.dateEffet)})
+                                </p>
+                                <p className="text-ink-500 dark:text-ink-300">
+                                    Ce mouvement RH a été validé et prendra automatiquement effet le {fmtDate(currentWf.dateEffet)}.
+                                </p>
+                            </div>
+                        </div>
+                    ) : isActif ? (
                         <div className="bg-success-500/10 border border-success-500/20 p-4 rounded-none flex items-start gap-3">
                             <CheckCircle size={18} className="text-success-600 flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
@@ -400,15 +411,6 @@ export default function RecapitulatifBrouillonModal({
                             </Button>
 
                             <div className="flex items-center gap-3">
-                                <Button
-                                    type="button"
-                                    onClick={() => { onClose(); if (onEdit) onEdit(currentWf); }}
-                                    variant="outline"
-                                    size="md"
-                                    iconLeft={<Edit2 size={16} />}
-                                >
-                                    Corriger / Modifier
-                                </Button>
 
                                 <Button
                                     type="button"

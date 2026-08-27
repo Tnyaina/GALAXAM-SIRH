@@ -13,7 +13,7 @@ export default function TimelineBanners({
     return (
         <>
             {/* 🟡 BANNIÈRE : BROUILLON D'EMBAUCHE / TRANSITION EN COURS */}
-            {brouillonWf && brouillonWf.codeStatutWorkflow === 'BROUILLON' && (
+            {brouillonWf && (brouillonWf.isBrouillon ?? (brouillonWf.codeStatutWorkflow === 'BROUILLON')) && (
                 <div className="bg-warning-500/10 border border-warning-500/30 p-5 rounded-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div className="flex items-start gap-3">
                         <div className="w-10 h-10 bg-warning-500/20 text-warning-700 dark:text-warning-400 rounded-none flex items-center justify-center font-bold flex-shrink-0">
