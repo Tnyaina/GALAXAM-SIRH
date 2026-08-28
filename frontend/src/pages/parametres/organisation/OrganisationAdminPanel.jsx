@@ -32,8 +32,11 @@ export default function OrganisationAdminPanel() {
                 title="Organisation & Structure"
                 subtitle="Gestion centralisée des filiales, sites d'affectation, départements, services et fonctions."
                 icon={Building2}
-                backLink="/dashboard"
-                backLabel="Retour au Tableau de bord"
+                breadcrumbs={[
+                    { label: 'Tableau de bord', href: '/' },
+                    { label: 'Paramètres', href: '/parametres/organisation' },
+                    { label: 'Organisation & Structure' }
+                ]}
             />
 
             {/* Sélecteur d'onglets principal avec Tabs Design System et persistance URL */}

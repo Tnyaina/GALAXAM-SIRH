@@ -10,7 +10,6 @@ import {
     Wrench,
     CheckCircle2,
     FileText,
-    ArrowLeft,
     ClockCheck,
     Check,
     Layers
@@ -23,12 +22,12 @@ import Alert from '@/components/ui/feedback/Alert';
 import Input from '@/components/ui/forms/Input';
 import Card, { CardBody } from '@/components/ui/data-display/Card';
 import Pagination from '@/components/ui/navigation/Pagination';
+import Breadcrumb from '@/components/ui/navigation/Breadcrumb';
 import Modal from '@/components/ui/overlays/Modal';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { useAuth } from '@/context/AuthContext';
 import SEO from '@/components/system/SEO';
-import PointageSubNav from '@/components/pointage/PointageSubNav';
 
 const TYPE_CONFIG = {
     'INCOMPLET': { variant: 'warning', label: 'Pointage Incomplet', icon: Clock },
@@ -307,17 +306,12 @@ export default function AnomaliesPointagePage() {
         <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Gestion des Anomalies" description="Suivi et régularisation des anomalies et retards de pointage." />
 
-            {/* 0. Barre de sous-navigation Pointage */}
-            <PointageSubNav />
-
-            {/* Lien retour */}
-            <Link
-                to="/dashboard"
-                className="inline-flex items-center gap-2 text-sm text-[var(--color-brand-500)] hover:underline font-semibold"
-            >
-                <ArrowLeft size={16} />
-                Retour au Tableau de bord
-            </Link>
+            {/* Fil d'Ariane */}
+            <Breadcrumb items={[
+                { label: 'Tableau de bord', href: '/' },
+                { label: 'Pointage & Présence', href: '/pointages/saisie' },
+                { label: 'Gestion des Anomalies' }
+            ]} />
 
             {/* En-tête standard Galaxam */}
             <div className="relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-sm p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">

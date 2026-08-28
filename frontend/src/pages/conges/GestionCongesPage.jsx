@@ -82,8 +82,10 @@ export default function GestionCongesPage() {
         title="Gestion des Congés & Absences"
         subtitle="Supervision globale, planning des équipes et traitement des demandes."
         icon={CalendarDays}
-        backLink="/dashboard"
-        backLabel="Retour au Tableau de bord"
+        breadcrumbs={[
+          { label: 'Tableau de bord', href: '/' },
+          { label: 'Congés & Absences' }
+        ]}
       />
 
       {error && (

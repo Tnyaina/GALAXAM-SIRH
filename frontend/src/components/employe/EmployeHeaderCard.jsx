@@ -35,7 +35,7 @@ export default function EmployeHeaderCard({
                     <User size={36} className={emp.photoUrl ? 'hidden' : ''} />
                 </div>
                 <div className="space-y-1">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                         <h1 className="text-2xl font-bold tracking-tight text-ink-900 dark:text-white">
                             {emp.nom} {emp.prenom}
                         </h1>
@@ -43,6 +43,15 @@ export default function EmployeHeaderCard({
                             <Badge variant="success" size="md" dot>Actif</Badge>
                         ) : (
                             <Badge variant="danger" size="md" dot>Inactif</Badge>
+                        )}
+                        {emp.alerteContratTexte && (
+                            <Badge 
+                                variant={emp.alerteContratNiveau === 'DANGER' ? 'danger' : emp.alerteContratNiveau === 'WARNING' ? 'warning' : 'primary'} 
+                                size="sm" 
+                                dot
+                            >
+                                {emp.alerteContratTexte}
+                            </Badge>
                         )}
                     </div>
                     <div className="flex items-center gap-4 text-xs text-ink-400">

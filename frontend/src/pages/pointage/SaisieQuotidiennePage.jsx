@@ -13,8 +13,7 @@ import PointageStatsCards from '@/components/pointage/PointageStatsCards';
 import PointageToolbar from '@/components/pointage/PointageToolbar';
 import PointageGridTable from '@/components/pointage/PointageGridTable';
 import PointageGanttView from '@/components/pointage/gantt/PointageGanttView';
-
-import PointageSubNav from '@/components/pointage/PointageSubNav';
+import Breadcrumb from '@/components/ui/navigation/Breadcrumb';
 
 export default function SaisieQuotidiennePage() {
     const {
@@ -219,8 +218,12 @@ export default function SaisieQuotidiennePage() {
 
     return (
         <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
-            {/* 0. Barre de sous-navigation Pointage */}
-            <PointageSubNav />
+            {/* Fil d'Ariane */}
+            <Breadcrumb items={[
+                { label: 'Tableau de bord', href: '/' },
+                { label: 'Pointage & Présence', href: '/pointages/saisie' },
+                { label: 'Saisie Quotidienne' }
+            ]} />
 
             {/* 1. En-tête de la Page */}
             <PointageHeader

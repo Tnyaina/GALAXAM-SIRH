@@ -23,6 +23,16 @@ const periodePaieService = {
     updateStatut: async (id, statutCode) => {
         const response = await apiClient.put(`/periodes/${id}/statut`, { statutCode });
         return response.data;
+    },
+
+    /**
+     * Simule et calcule côté serveur le nombre de jours ouvrables et calendaires (Backend-Driven)
+     */
+    simulerPeriode: async (dateDebut, dateFin) => {
+        const response = await apiClient.get('/periodes/simuler', {
+            params: { dateDebut, dateFin }
+        });
+        return response.data;
     }
 };
 

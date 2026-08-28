@@ -258,12 +258,13 @@ public class DemandeCongeController {
     @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllDemandes(@RequestParam(required = false) String q,
             @RequestParam(required = false) String statut,
+            @RequestParam(required = false) Integer idTypeConge,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         try (Connection c = dataSource.getConnection()) {
             int offset = (page - 1) * size;
-            long total = VDemandeCongeCpl.countAll(c, statut, q);
-            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, statut, q, size, offset);
+            long total = VDemandeCongeCpl.countAll(c, statut, q, idTypeConge);
+            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, statut, q, idTypeConge, size, offset);
 
             PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
             return ResponseEntity.ok(pageDto);

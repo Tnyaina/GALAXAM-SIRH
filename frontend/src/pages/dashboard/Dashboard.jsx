@@ -20,6 +20,7 @@ export default function Dashboard() {
 
     const activite = data?.activiteRecente || [];
     const absentsAujourdhui = data?.absentsAujourdhui || [];
+    const congesQuinzaine = data?.congesQuinzaine || [];
     const demandesCongeAValider = data?.demandesCongeAValider || [];
     const brouillons = data?.brouillons || [];
 
@@ -70,7 +71,7 @@ export default function Dashboard() {
                 />
                 <PlanningQuinzaineWidget 
                     loading={loading}
-                    absences={absentsAujourdhui}
+                    absences={congesQuinzaine.length > 0 ? congesQuinzaine : absentsAujourdhui}
                     className="h-full"
                 />
 

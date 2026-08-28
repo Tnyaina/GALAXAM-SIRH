@@ -32,8 +32,11 @@ export default function SecuriteAdminPanel() {
                 title="Sécurité & Contrôle d'Accès"
                 subtitle="Gestion des comptes utilisateurs, assignation des rôles RBAC, permissions et visibilité des menus."
                 icon={Shield}
-                backLink="/dashboard"
-                backLabel="Retour au Tableau de bord"
+                breadcrumbs={[
+                    { label: 'Tableau de bord', href: '/' },
+                    { label: 'Paramètres', href: '/parametres/securite' },
+                    { label: 'Sécurité & Contrôle d\'Accès' }
+                ]}
             />
 
             {/* Sélecteur d'onglets principal avec Tabs Design System et persistance URL */}

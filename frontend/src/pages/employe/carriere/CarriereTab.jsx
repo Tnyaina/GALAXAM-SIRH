@@ -81,6 +81,8 @@ export default function CarriereTab({
                 canWrite={canWrite}
                 onOpenConfirmation={modalsState.handleOpenConfirmationModal}
                 onOpenRenouvellement={modalsState.handleOpenRenouvellementModal}
+                onOpenTransition={() => modalsState.handleOpenTransitionModal()}
+                onOpenRupture={() => modalsState.handleOpenRuptureModal()}
                 onOpenRecap={() => modalsState.setIsRecapModalOpen(true)}
             />
 

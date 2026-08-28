@@ -30,10 +30,10 @@ public class PointageSyntheseController {
 
     /**
      * Récupère la synthèse mensuelle des pointages par employé pour une période donnée.
-     * Accessible par ROLE_ADMIN et ROLE_AGENT_POINTAGE.
+     * Accessible par ROLE_ADMIN, PAIE_READ ou POINTAGE_VALIDATE.
      */
     @GetMapping("/mensuelle")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('PAIE_READ') or hasAuthority('POINTAGE_VALIDATE')")
     public ResponseEntity<?> getSyntheseMensuelle(
             @RequestParam int idPeriodePaie,
             @RequestParam(required = false) Integer idSite,
@@ -54,7 +54,7 @@ public class PointageSyntheseController {
      * Récupère la synthèse hebdomadaire (vue globale par semaine S1..S5) pour tous les employés d'une période.
      */
     @GetMapping("/hebdomadaire")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('PAIE_READ') or hasAuthority('POINTAGE_VALIDATE')")
     public ResponseEntity<?> getSyntheseHebdomadaire(
             @RequestParam int idPeriodePaie,
             @RequestParam(required = false) Integer numeroSemaine,
@@ -74,7 +74,7 @@ public class PointageSyntheseController {
      * Récupère le détail des tronçons hebdomadaires (avec calcul de seuil proratisé et compensation) pour un employé.
      */
     @GetMapping("/employe/{idEmploye}/semaines")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('PAIE_READ') or hasAuthority('POINTAGE_VALIDATE')")
     public ResponseEntity<?> getTronconsSemainesEmploye(
             @PathVariable int idEmploye,
             @RequestParam int idPeriodePaie) {
@@ -92,7 +92,7 @@ public class PointageSyntheseController {
      * Effectue une vérification préalable avant clôture/validation de la période (état des anomalies restantes).
      */
     @GetMapping("/pre-cloture-check")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('PAIE_READ') or hasAuthority('POINTAGE_VALIDATE')")
     public ResponseEntity<?> getPreClotureCheck(@RequestParam int idPeriodePaie) {
         try (Connection c = dataSource.getConnection()) {
             Map<String, Object> check = pointageSyntheseService.verifierPreCloture(idPeriodePaie, c);

@@ -363,8 +363,10 @@ export default function EmployeList() {
                 title="Fiches Employés"
                 subtitle="Répertoire du personnel — gestion des fiches individuelles, carrières et documents"
                 icon={Users}
-                backLink="/dashboard"
-                backLabel="Retour au Tableau de bord"
+                breadcrumbs={[
+                    { label: 'Tableau de bord', href: '/' },
+                    { label: 'Collaborateurs' }
+                ]}
                 actions={
                     <>
                         <Button

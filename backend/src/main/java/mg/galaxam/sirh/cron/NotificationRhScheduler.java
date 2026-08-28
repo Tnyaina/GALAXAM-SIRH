@@ -453,7 +453,7 @@ public class NotificationRhScheduler {
                 "JOIN employe e ON dc.id_employe = e.id_employe " +
                 "JOIN ref_statut_demande_conge rsd ON dc.id_statut_demande_conge = rsd.id_statut_demande_conge " +
                 "JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
-                "WHERE rsd.code = 'ACTIF' AND dc.date_fin = CURRENT_DATE";
+                "WHERE rsd.code = 'VALIDE' AND dc.date_fin = CURRENT_DATE";
 
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -491,7 +491,7 @@ public class NotificationRhScheduler {
                 "  JOIN ref_statut_demande_conge rsd ON dc.id_statut_demande_conge = rsd.id_statut_demande_conge " +
                 "  JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
                 "  WHERE dc.id_employe = e.id_employe " +
-                "  AND rsd.code = 'ACTIF' AND rtc.code = 'ANNUEL' " +
+                "  AND rsd.code = 'VALIDE' AND rtc.code = 'ANNUEL' " +
                 "  AND EXTRACT(YEAR FROM dc.date_debut) = EXTRACT(YEAR FROM CURRENT_DATE) " +
                 "  AND dc.nb_jours_decomptes >= 12" +
                 ")";
@@ -522,7 +522,7 @@ public class NotificationRhScheduler {
                 "JOIN employe e ON dc.id_employe = e.id_employe " +
                 "JOIN ref_statut_demande_conge rsd ON dc.id_statut_demande_conge = rsd.id_statut_demande_conge " +
                 "JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
-                "WHERE rsd.code = 'ACTIF' AND rtc.code = 'MALADIE' " +
+                "WHERE rsd.code = 'VALIDE' AND rtc.code = 'MALADIE' " +
                 "AND dc.nb_jours_decomptes >= 30 " +
                 "AND CURRENT_DATE BETWEEN dc.date_debut AND dc.date_fin";
 

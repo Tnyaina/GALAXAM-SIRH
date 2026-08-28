@@ -14,6 +14,9 @@ const STATUTS = [
 export default function ValidationFilters({
   activeStatut,
   setActiveStatut,
+  selectedTypeConge,
+  setSelectedTypeConge,
+  referentiels,
   displayTotal,
   searchRaw,
   setSearchRaw,
@@ -22,6 +25,8 @@ export default function ValidationFilters({
   onRefresh,
   onNewDemande
 }) {
+  const typesConges = referentiels?.typesConges || referentiels?.types || [];
+
   return (
     <Card>
       <CardBody className="p-3">
@@ -58,8 +63,26 @@ export default function ValidationFilters({
             })}
           </div>
 
-          {/* Recherche + bouton nouvelle demande */}
-          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+          {/* Filtre Type de Congé + Recherche + Actions */}
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0">
+            {/* Sélecteur dynamique Type de Congé */}
+            {typesConges.length > 0 && (
+              <div className="w-full sm:w-44">
+                <select
+                  value={selectedTypeConge || ''}
+                  onChange={(e) => setSelectedTypeConge(e.target.value)}
+                  className="w-full h-8 text-xs bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] rounded-none px-2 py-1 focus:outline-none focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)] cursor-pointer"
+                >
+                  <option value="">Tous les types</option>
+                  {typesConges.map((t) => (
+                    <option key={t.idTypeConge} value={t.idTypeConge}>
+                      {t.libelleTypeConge || t.codeTypeConge}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="relative w-full sm:w-52">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none" />
               <Input

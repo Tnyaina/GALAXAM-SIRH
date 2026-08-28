@@ -7,8 +7,9 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
   const toast = useToast();
 
   // ── Filtres ────────────────────────────────────────────────────────────────
-  const [activeStatut, setActiveStatut] = useState('EN_ATTENTE');
-  const [searchRaw,    setSearchRaw]    = useState('');
+  const [activeStatut,       setActiveStatut]       = useState('EN_ATTENTE');
+  const [selectedTypeConge,  setSelectedTypeConge]  = useState('');
+  const [searchRaw,          setSearchRaw]          = useState('');
   
   // Pagination & Données
   const [demandes, setDemandes] = useState([]);
@@ -29,6 +30,7 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
         size: pageSize
       };
       if (activeStatut !== 'ALL') params.statut = activeStatut;
+      if (selectedTypeConge) params.idTypeConge = selectedTypeConge;
       if (searchTerm) params.q = searchTerm;
 
       const data = await congeService.getAllDemandes(params);
@@ -39,7 +41,7 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, activeStatut, searchTerm]);
+  }, [currentPage, pageSize, activeStatut, selectedTypeConge, searchTerm]);
 
   useEffect(() => {
     loadData();
@@ -48,7 +50,7 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
   // Réinitialiser la page à 1 si filtres changent
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeStatut, searchTerm]);
+  }, [activeStatut, selectedTypeConge, searchTerm]);
 
   const totalPages = Math.ceil(totalElements / pageSize) || 1;
 
@@ -91,6 +93,8 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
     // Filters
     activeStatut,
     setActiveStatut,
+    selectedTypeConge,
+    setSelectedTypeConge,
     searchRaw,
     setSearchRaw,
     searchTerm,

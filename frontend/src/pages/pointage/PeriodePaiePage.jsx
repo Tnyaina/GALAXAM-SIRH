@@ -1,5 +1,4 @@
-import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
 import {
     CalendarRange,
     Plus,
@@ -7,7 +6,6 @@ import {
     CheckCircle,
     Play,
     ArrowRight,
-    ArrowLeft,
     RotateCcw,
     Clock,
     CheckCheck,
@@ -15,6 +13,7 @@ import {
     ShieldCheck
 } from 'lucide-react';
 import { usePeriodePaie } from '@/hooks/pointage/usePeriodePaie';
+import periodePaieService from '@/services/periodePaieService';
 import { pointageSyntheseService } from '@/services/pointageSyntheseService';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
@@ -23,12 +22,12 @@ import Alert from '@/components/ui/feedback/Alert';
 import Input from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import Breadcrumb from '@/components/ui/navigation/Breadcrumb';
 import Card, { CardBody } from '@/components/ui/data-display/Card';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { useAuth } from '@/context/AuthContext';
 import SEO from '@/components/system/SEO';
-import PointageSubNav from '@/components/pointage/PointageSubNav';
 
 const STATUT_CONFIG = {
     'BROUILLON': {
@@ -83,6 +82,34 @@ export default function PeriodePaiePage() {
         dateFin: ''
     });
 
+    // Simulation server-driven des jours ouvrables (Backend-Driven)
+    const [simulation, setSimulation] = useState(null);
+    const [simulating, setSimulating] = useState(false);
+
+    useEffect(() => {
+        if (newPeriode.dateDebut && newPeriode.dateFin) {
+            if (new Date(newPeriode.dateDebut) <= new Date(newPeriode.dateFin)) {
+                let active = true;
+                setSimulating(true);
+                periodePaieService.simulerPeriode(newPeriode.dateDebut, newPeriode.dateFin)
+                    .then(data => {
+                        if (active) setSimulation(data);
+                    })
+                    .catch(() => {
+                        if (active) setSimulation(null);
+                    })
+                    .finally(() => {
+                        if (active) setSimulating(false);
+                    });
+                return () => { active = false; };
+            } else {
+                setSimulation(null);
+            }
+        } else {
+            setSimulation(null);
+        }
+    }, [newPeriode.dateDebut, newPeriode.dateFin]);
+
     // Modale de Confirmation de Statut (pour Rouvrir, Valider, Clôturer)
     const [confirmAction, setConfirmAction] = useState({
         isOpen: false,
@@ -111,11 +138,12 @@ export default function PeriodePaiePage() {
         if (success) {
             toast({
                 title: 'Période créée',
-                message: `La période "${newPeriode.libelle}" a été créée avec succès.`,
+                message: `La période "${newPeriode.libelle}" (${simulation?.nbJoursOuvrables ? simulation.nbJoursOuvrables + 'j ouvrables' : ''}) a été créée avec succès.`,
                 type: 'success'
             });
             setIsCreateModalOpen(false);
             setNewPeriode({ code: '', libelle: '', dateDebut: '', dateFin: '' });
+            setSimulation(null);
         } else {
             toast({
                 title: 'Erreur',
@@ -220,17 +248,12 @@ export default function PeriodePaiePage() {
         <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Périodes de Paie & Clôture" description="Gestion des périodes mensuelles de pointage et cycle de paie." />
 
-            {/* 0. Barre de sous-navigation Pointage */}
-            <PointageSubNav />
-
-            {/* Lien retour */}
-            <Link
-                to="/dashboard"
-                className="inline-flex items-center gap-2 text-sm text-[var(--color-brand-500)] hover:underline font-semibold"
-            >
-                <ArrowLeft size={16} />
-                Retour au Tableau de bord
-            </Link>
+            {/* Fil d'Ariane */}
+            <Breadcrumb items={[
+                { label: 'Tableau de bord', href: '/' },
+                { label: 'Pointage & Présence', href: '/pointages/saisie' },
+                { label: 'Périodes de Paie & Clôture' }
+            ]} />
 
             {/* En-tête standard Galaxam */}
             <div className="relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-sm p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -349,6 +372,7 @@ export default function PeriodePaiePage() {
                                     <Th>Libellé</Th>
                                     <Th>Date Début</Th>
                                     <Th>Date Fin</Th>
+                                    <Th className="text-center">Jours Ouvrables</Th>
                                     <Th>Statut</Th>
                                     <Th className="text-right">Actions sur le Cycle</Th>
                                 </Tr>
@@ -366,6 +390,18 @@ export default function PeriodePaiePage() {
                                             </Td>
                                             <Td className="text-xs font-mono">{p.dateDebut}</Td>
                                             <Td className="text-xs font-mono">{p.dateFin}</Td>
+                                            <Td className="text-center">
+                                                <div className="inline-flex items-center gap-1.5">
+                                                    <span className="px-2 py-0.5 font-bold font-data text-xs bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20">
+                                                        {p.nbJoursOuvrables ?? '-'} j
+                                                    </span>
+                                                    {p.nbJoursFeries > 0 && (
+                                                        <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400" title={`${p.nbJoursFeries} jour(s) férié(s) chômé(s)`}>
+                                                            ({p.nbJoursFeries} f.)
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </Td>
                                             <Td>
                                                 <Badge variant={STATUT_CONFIG[p.statutCode]?.variant || 'secondary'}>
                                                     {STATUT_CONFIG[p.statutCode]?.label || p.statutLibelle}
@@ -429,7 +465,7 @@ export default function PeriodePaiePage() {
                                 })}
                                 {periodes.length === 0 && !loading && (
                                     <Tr>
-                                        <Td colSpan={6} className="text-center py-12 text-ink-400 dark:text-ink-400">
+                                        <Td colSpan={7} className="text-center py-12 text-ink-400 dark:text-ink-400">
                                             <CalendarRange size={36} className="mx-auto mb-2 opacity-40" />
                                             Aucune période de paie configurée pour le moment.
                                         </Td>
@@ -481,6 +517,35 @@ export default function PeriodePaiePage() {
                             required
                         />
                     </div>
+
+                    {/* Bloc Synthèse Dynamique Calculée Côté Serveur (Backend-Driven) */}
+                    {simulating && (
+                        <div className="p-3 bg-ink-50 dark:bg-ink-900/40 border border-ink-200 dark:border-ink-800 text-xs text-ink-500 animate-pulse flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-brand-500 animate-ping"></span>
+                            Calcul officiel des jours ouvrables par le serveur...
+                        </div>
+                    )}
+
+                    {simulation && !simulating && (
+                        <div className="bg-brand-50/60 dark:bg-brand-950/30 border border-brand-200 dark:border-brand-800/50 p-3.5 flex items-center justify-between gap-4 text-xs">
+                            <div>
+                                <span className="text-ink-600 dark:text-ink-300 block text-[11px] uppercase tracking-wider font-semibold">
+                                    Jours Ouvrables Réels
+                                </span>
+                                <span className="font-bold text-lg text-brand-600 dark:text-brand-400 font-data">
+                                    {simulation.nbJoursOuvrables} jours
+                                </span>
+                                <span className="text-[10px] text-ink-500 block">
+                                    (Lun - Ven hors fériés chômés)
+                                </span>
+                            </div>
+                            <div className="text-right text-[11px] text-ink-600 dark:text-ink-300 space-y-0.5 border-l border-brand-200 dark:border-brand-800/40 pl-4">
+                                <div>Total calendaire : <strong className="font-data text-ink-900 dark:text-ink-100">{simulation.nbJoursCalendaires} j</strong></div>
+                                <div>Fériés chômés : <strong className="font-data text-ink-900 dark:text-ink-100">{simulation.nbJoursFeries} j</strong></div>
+                                <div>Week-ends : <strong className="font-data text-ink-900 dark:text-ink-100">{simulation.nbWeekends} j</strong></div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="pt-4 flex justify-end gap-3 border-t border-ink-150 dark:border-ink-700">
                         <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreateModalOpen(false)}>

@@ -134,6 +134,8 @@ CREATE TABLE pointage_jour (
 
     -- Indemnités (Niveau 3 de la cascade — ajustement du jour)
     indemnite_deplacement_recue BOOLEAN DEFAULT TRUE,
+    deplacement_matin BOOLEAN DEFAULT TRUE,
+    deplacement_am BOOLEAN DEFAULT TRUE,
     montant_deplacement_jour DECIMAL(10,2),
     indemnite_repas_recue BOOLEAN DEFAULT FALSE,
     montant_repas DECIMAL(10,2) DEFAULT 0,

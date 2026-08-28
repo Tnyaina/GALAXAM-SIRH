@@ -1,8 +1,7 @@
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { 
     Clock, 
     RefreshCw, 
-    ArrowLeft, 
     Search, 
     Building2, 
     Calendar,
@@ -20,10 +19,10 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
 import Tabs from '@/components/ui/navigation/Tabs';
+import Breadcrumb from '@/components/ui/navigation/Breadcrumb';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
 import { formatDate } from '@/utils/pointageUtils';
-import PointageSubNav from '@/components/pointage/PointageSubNav';
 
 // Onglets
 import SyntheseMensuelleTab from '@/components/pointage/SyntheseMensuelleTab';
@@ -115,17 +114,12 @@ export default function SynthesePointagePage() {
         <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Synthèse des Pointages" description="Synthèse mensuelle et hebdomadaire, compensation des retards et calcul des indemnités." />
 
-            {/* 0. Barre de sous-navigation Pointage */}
-            <PointageSubNav />
-
-            {/* Lien retour */}
-            <Link
-                to="/dashboard"
-                className="inline-flex items-center gap-2 text-sm text-[var(--color-brand-500)] hover:underline font-semibold"
-            >
-                <ArrowLeft size={16} />
-                Retour au Tableau de bord
-            </Link>
+            {/* Fil d'Ariane */}
+            <Breadcrumb items={[
+                { label: 'Tableau de bord', href: '/' },
+                { label: 'Pointage & Présence', href: '/pointages/saisie' },
+                { label: 'Synthèse des Pointages' }
+            ]} />
 
             {/* En-tête de la page */}
             <div className="relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-sm p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">

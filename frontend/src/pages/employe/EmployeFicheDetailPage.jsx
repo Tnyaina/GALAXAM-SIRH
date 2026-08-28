@@ -11,6 +11,7 @@ import Button from '@/components/ui/forms/Button';
 import Loading from '@/components/ui/feedback/Loading';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
+import Breadcrumb from '@/components/ui/navigation/Breadcrumb';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 
@@ -280,11 +281,12 @@ export default function EmployeFicheDetailPage() {
                 title={`Fiche de ${emp?.nom} ${emp?.prenom}`} 
                 description={`Fiche individuelle de ${emp?.nom} ${emp?.prenom} (${emp?.matricule})`} 
             />
-            {/* Lien retour */}
-            <Link to="/employes" className="inline-flex items-center gap-2 text-sm text-brand-500 hover:underline font-semibold ">
-                <ArrowLeft size={16} />
-                Retour au Répertoire du personnel
-            </Link>
+            {/* Fil d'Ariane */}
+            <Breadcrumb items={[
+                { label: 'Tableau de bord', href: '/' },
+                { label: 'Collaborateurs', href: '/employes' },
+                { label: `${emp?.nomComplet || `${emp?.nom || ''} ${emp?.prenom || ''}`.trim() || 'Fiche Collaborateur'}${emp?.matricule ? ` (${emp.matricule})` : ''}` }
+            ]} />
 
             {/* En-tête Profil Employé */}
             <EmployeHeaderCard

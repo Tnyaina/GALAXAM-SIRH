@@ -238,18 +238,30 @@ export default function EmployeTable({
 
                                     {/* 7. Statut */}
                                     <td className="px-5 py-3.5 whitespace-nowrap">
-                                        {emp.estActif ? (
-                                            <Badge variant="success" size="sm" dot>Actif</Badge>
-                                        ) : (
-                                            <div>
-                                                <Badge variant="default" size="sm" dot>Inactif</Badge>
-                                                {emp.motifDesactivation && (
-                                                    <div className="text-[10px] text-danger-500 font-medium mt-0.5" title={emp.motifDesactivation}>
-                                                        {emp.motifDesactivation}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
+                                        <div className="space-y-1">
+                                            {emp.estActif ? (
+                                                <Badge variant="success" size="sm" dot>Actif</Badge>
+                                            ) : (
+                                                <div>
+                                                    <Badge variant="default" size="sm" dot>Inactif</Badge>
+                                                    {emp.motifDesactivation && (
+                                                        <div className="text-[10px] text-danger-500 font-medium mt-0.5" title={emp.motifDesactivation}>
+                                                            {emp.motifDesactivation}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {emp.estActif && emp.alerteContratTexte && (
+                                                <div>
+                                                    <Badge 
+                                                        variant={emp.alerteContratNiveau === 'DANGER' ? 'danger' : emp.alerteContratNiveau === 'WARNING' ? 'warning' : 'brand'} 
+                                                        size="xs"
+                                                    >
+                                                        {emp.alerteContratTexte}
+                                                    </Badge>
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
 
                                     {/* 8. Actions */}

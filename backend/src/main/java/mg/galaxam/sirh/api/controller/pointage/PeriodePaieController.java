@@ -50,11 +50,23 @@ public class PeriodePaieController {
                 dto.setIdPeriodePaie(rs.getInt("id_periode_paie"));
                 dto.setCode(rs.getString("code"));
                 dto.setLibelle(rs.getString("libelle"));
-                dto.setDateDebut(rs.getDate("date_debut").toString());
-                dto.setDateFin(rs.getDate("date_fin").toString());
+                java.sql.Date dDeb = rs.getDate("date_debut");
+                java.sql.Date dFin = rs.getDate("date_fin");
+                dto.setDateDebut(dDeb != null ? dDeb.toString() : null);
+                dto.setDateFin(dFin != null ? dFin.toString() : null);
                 dto.setIdStatutPeriode(rs.getInt("id_statut_periode"));
                 dto.setStatutCode(rs.getString("statut_code"));
                 dto.setStatutLibelle(rs.getString("statut_libelle"));
+
+                if (dDeb != null && dFin != null) {
+                    int ouvrables = calculerJoursOuvrables(dDeb, dFin, c);
+                    long calendaires = java.time.temporal.ChronoUnit.DAYS.between(dDeb.toLocalDate(), dFin.toLocalDate()) + 1;
+                    int feries = compterJoursFeriesChomes(dDeb, dFin, c);
+                    dto.setNbJoursOuvrables(ouvrables);
+                    dto.setNbJoursCalendaires((int) calendaires);
+                    dto.setNbJoursFeries(feries);
+                }
+
                 list.add(dto);
             }
         } catch (SQLException e) {
@@ -63,6 +75,90 @@ public class PeriodePaieController {
         }
 
         return ResponseEntity.ok(list);
+    }
+
+    /**
+     * Endpoint de simulation / calcul prédictif côté serveur des jours ouvrables pour une période donnée.
+     * Respect strict du paradigme Backend-Driven (aucun calcul gratuit en front).
+     */
+    @GetMapping("/simuler")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    public ResponseEntity<Map<String, Object>> simulerPeriode(
+            @RequestParam String dateDebut,
+            @RequestParam String dateFin) {
+        Map<String, Object> resp = new HashMap<>();
+        try (Connection c = dataSource.getConnection()) {
+            java.sql.Date dDeb = java.sql.Date.valueOf(dateDebut);
+            java.sql.Date dFin = java.sql.Date.valueOf(dateFin);
+            if (dDeb.after(dFin)) {
+                resp.put("error", "La date de début doit être antérieure à la date de fin.");
+                return ResponseEntity.badRequest().body(resp);
+            }
+
+            int ouvrables = calculerJoursOuvrables(dDeb, dFin, c);
+            long calendaires = java.time.temporal.ChronoUnit.DAYS.between(dDeb.toLocalDate(), dFin.toLocalDate()) + 1;
+            int feries = compterJoursFeriesChomes(dDeb, dFin, c);
+
+            resp.put("dateDebut", dateDebut);
+            resp.put("dateFin", dateFin);
+            resp.put("nbJoursOuvrables", ouvrables);
+            resp.put("nbJoursCalendaires", (int) calendaires);
+            resp.put("nbJoursFeries", feries);
+            resp.put("nbWeekends", (int) (calendaires - ouvrables - feries));
+
+            return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            resp.put("error", "Format de date invalide (AAAA-MM-JJ requis) : " + e.getMessage());
+            return ResponseEntity.badRequest().body(resp);
+        }
+    }
+
+    private static int calculerJoursOuvrables(java.sql.Date dateDebut, java.sql.Date dateFin, Connection c) {
+        if (dateDebut == null || dateFin == null || dateDebut.after(dateFin)) {
+            return 0;
+        }
+        String sql = "SELECT COUNT(*) FROM generate_series(?::date, ?::date, '1 day'::interval) AS d " +
+                     "WHERE EXTRACT(ISODOW FROM d) < 6 " +
+                     "AND NOT EXISTS (" +
+                     "    SELECT 1 FROM ref_calendrier_ferie f " +
+                     "    WHERE f.date_ferie = d::date AND f.est_chome = TRUE" +
+                     ")";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, dateDebut);
+            ps.setDate(2, dateFin);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        } catch (Exception e) {
+            java.time.LocalDate start = dateDebut.toLocalDate();
+            java.time.LocalDate end = dateFin.toLocalDate();
+            int count = 0;
+            for (java.time.LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+                java.time.DayOfWeek dow = date.getDayOfWeek();
+                if (dow != java.time.DayOfWeek.SATURDAY && dow != java.time.DayOfWeek.SUNDAY) {
+                    count++;
+                }
+            }
+            return count;
+        }
+        return 0;
+    }
+
+    private static int compterJoursFeriesChomes(java.sql.Date dateDebut, java.sql.Date dateFin, Connection c) {
+        if (dateDebut == null || dateFin == null) return 0;
+        String sql = "SELECT COUNT(*) FROM ref_calendrier_ferie " +
+                     "WHERE date_ferie BETWEEN ? AND ? AND est_chome = TRUE " +
+                     "AND EXTRACT(ISODOW FROM date_ferie) < 6";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, dateDebut);
+            ps.setDate(2, dateFin);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        } catch (Exception ignored) {}
+        return 0;
     }
 
     @PostMapping

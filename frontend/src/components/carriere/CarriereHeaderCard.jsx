@@ -35,6 +35,8 @@ export default function CarriereHeaderCard({
     canWrite,
     onOpenConfirmation,
     onOpenRenouvellement,
+    onOpenTransition,
+    onOpenRupture,
 }) {
     const rawMode = affectationActive?.libelleModeCalculPaie || affectationActive?.libelleModePaie || 'Mensuel fixe';
     const isHoraire = rawMode.toLowerCase().includes('horaire');
@@ -181,6 +183,67 @@ export default function CarriereHeaderCard({
                             <Badge variant="warning" size="xs">
                                 Brouillon RH en cours
                             </Badge>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* 🔔 BANNIÈRE ÉCHÉANCE CONTRAT EN COURS (CDD, Prestation, Mission...) */}
+            {contratActif?.dateFin && (contratActif?.isFinProche || contratActif?.isFinEchue || (contratActif?.joursRestantsFin !== null && contratActif?.joursRestantsFin <= 60)) && (
+                <div className={`p-4 rounded-none border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                    contratActif.isFinEchue || (contratActif.joursRestantsFin !== null && contratActif.joursRestantsFin <= 7)
+                        ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
+                        : 'bg-warning-500/10 border-warning-500/30 text-warning-900 dark:text-warning-200'
+                }`}>
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-none bg-white dark:bg-ink-900 shadow-sm flex-shrink-0 mt-0.5">
+                            <Clock className={contratActif.isFinEchue || (contratActif.joursRestantsFin !== null && contratActif.joursRestantsFin <= 7) ? 'text-danger-500' : 'text-warning-500'} size={20} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h4 className="text-xs font-bold uppercase tracking-wider">
+                                    Échéance de contrat ({contratActif.libelleTypeContrat || 'CDD'})
+                                </h4>
+                                {contratActif.joursRestantsFin !== null && (
+                                    <Badge variant={contratActif.isFinEchue || contratActif.joursRestantsFin <= 7 ? 'danger' : 'warning'} size="xs">
+                                        {contratActif.isFinEchue
+                                            ? `Contrat échu de ${Math.abs(contratActif.joursRestantsFin)} jour(s)`
+                                            : contratActif.joursRestantsFin === 0
+                                                ? `Expire aujourd'hui`
+                                                : `Expire dans ${contratActif.joursRestantsFin} jour(s)`}
+                                    </Badge>
+                                )}
+                            </div>
+                            <p className="text-xs mt-1 text-ink-600 dark:text-ink-300">
+                                Date de fin contractuelle : <strong>{fmtDate(contratActif.dateFin)}</strong>.
+                                {workflowPlanifieFutur
+                                    ? ` Un événement (${workflowPlanifieFutur.libelleTypeEvenement || workflowPlanifieFutur.codeTypeEvenement}) est déjà planifié au ${fmtDate(workflowPlanifieFutur.dateEffet)}.`
+                                    : ' Pensez à anticiper le renouvellement, la titularisation ou la clôture du contrat.'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {canWrite && !workflowPlanifieFutur && !brouillonWf && (
+                        <div className="flex items-center gap-2 self-end md:self-auto flex-shrink-0">
+                            {onOpenTransition && (
+                                <Button
+                                    variant="secondary"
+                                    size="xs"
+                                    onClick={onOpenTransition}
+                                >
+                                    Renouveler / Titulariser
+                                </Button>
+                            )}
+                            {onOpenRupture && (
+                                <Button
+                                    variant="ghost"
+                                    size="xs"
+                                    className="text-danger-600 hover:bg-danger-500/10"
+                                    onClick={onOpenRupture}
+                                >
+                                    Clôturer le contrat
+                                </Button>
+                            )}
                         </div>
                     )}
                 </div>

@@ -27,6 +27,8 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
     setPageSize,
     activeStatut,
     setActiveStatut,
+    selectedTypeConge,
+    setSelectedTypeConge,
     searchRaw,
     setSearchRaw,
     searchTerm,
@@ -103,6 +105,9 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
       <ValidationFilters
         activeStatut={activeStatut}
         setActiveStatut={setActiveStatut}
+        selectedTypeConge={selectedTypeConge}
+        setSelectedTypeConge={setSelectedTypeConge}
+        referentiels={referentiels}
         displayTotal={totalElements}
         searchRaw={searchRaw}
         setSearchRaw={setSearchRaw}

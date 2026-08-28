@@ -213,8 +213,11 @@ export default function CarrieresSupervisionPage() {
                 title="Supervision Globale des Contrats & Carrières"
                 subtitle="Pilotage centralisé des contrats de travail, des périodes d'essai, des évolutions et mouvements de carrière."
                 icon={Briefcase}
-                backLink="/employes"
-                backLabel="Retour au répertoire du personnel"
+                breadcrumbs={[
+                    { label: 'Tableau de bord', href: '/' },
+                    { label: 'Collaborateurs', href: '/employes' },
+                    { label: 'Supervision des Carrières' }
+                ]}
                 actions={
                     <>
                         <Button

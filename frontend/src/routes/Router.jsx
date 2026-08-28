@@ -82,9 +82,9 @@ export default function Router() {
                         <Route path="/pointages" element={<Navigate to="/pointages/saisie" replace />} />
                         <Route path="/pointages/saisie" element={<SaisieQuotidiennePage />} />
                         <Route path="/pointages/anomalies" element={<AnomaliesPointagePage />} />
-                        <Route path="/pointages/synthese" element={<SynthesePointagePage />} />
                     </Route>
                     <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
+                        <Route path="/pointages/synthese" element={<SynthesePointagePage />} />
                         <Route path="/pointages/periodes" element={<PeriodePaiePage />} />
                     </Route>
 

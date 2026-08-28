@@ -36,6 +36,7 @@ public class DashboardService {
         summary.put("brouillons", buildBrouillons(c));
         summary.put("activiteRecente", buildActiviteRecente(c));
         summary.put("absentsAujourdhui", buildAbsentsAujourdhui(c));
+        summary.put("congesQuinzaine", buildCongesQuinzaine(c));
         summary.put("demandesCongeAValider", buildDemandesCongeAValider(c));
 
         return summary;
@@ -73,12 +74,15 @@ public class DashboardService {
     public List<Map<String, Object>> buildAbsentsAujourdhui(Connection c) throws Exception {
         List<Map<String, Object>> absents = new ArrayList<>();
         String sql = "SELECT d.id_demande_conge, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, e.matricule, " +
-                "tc.libelle AS type_conge, d.date_debut, d.date_fin, d.nb_jours_decomptes " +
+                "tc.libelle AS type_conge, d.date_debut, d.date_fin, d.nb_jours_decomptes, " +
+                "s.libelle AS nom_site, s.id_site " +
                 "FROM demande_conge d " +
                 "JOIN employe e ON d.id_employe = e.id_employe " +
                 "JOIN ref_type_conge tc ON d.id_type_conge = tc.id_type_conge " +
                 "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
-                "WHERE rsd.code = 'ACTIF' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin " +
+                "LEFT JOIN employe_affectation_carriere aff ON e.id_employe = aff.id_employe AND aff.date_fin IS NULL " +
+                "LEFT JOIN ref_site s ON aff.id_site = s.id_site " +
+                "WHERE rsd.code = 'VALIDE' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin " +
                 "ORDER BY d.date_fin ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -92,10 +96,46 @@ public class DashboardService {
                 row.put("dateDebut", rs.getDate("date_debut"));
                 row.put("dateFin", rs.getDate("date_fin"));
                 row.put("nbJoursDecomptes", rs.getBigDecimal("nb_jours_decomptes"));
+                row.put("nomSite", rs.getString("nom_site"));
+                row.put("idSite", rs.getObject("id_site"));
                 absents.add(row);
             }
         }
         return absents;
+    }
+
+    public List<Map<String, Object>> buildCongesQuinzaine(Connection c) throws Exception {
+        List<Map<String, Object>> conges = new ArrayList<>();
+        String sql = "SELECT d.id_demande_conge, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, e.matricule, " +
+                "tc.libelle AS type_conge, d.date_debut, d.date_fin, d.nb_jours_decomptes, " +
+                "s.libelle AS nom_site, s.id_site " +
+                "FROM demande_conge d " +
+                "JOIN employe e ON d.id_employe = e.id_employe " +
+                "JOIN ref_type_conge tc ON d.id_type_conge = tc.id_type_conge " +
+                "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
+                "LEFT JOIN employe_affectation_carriere aff ON e.id_employe = aff.id_employe AND aff.date_fin IS NULL " +
+                "LEFT JOIN ref_site s ON aff.id_site = s.id_site " +
+                "WHERE rsd.code = 'VALIDE' " +
+                "AND d.date_fin >= CURRENT_DATE AND d.date_debut <= CURRENT_DATE + INTERVAL '15 days' " +
+                "ORDER BY d.date_debut ASC";
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("idDemandeConge", rs.getInt("id_demande_conge"));
+                row.put("idEmploye", rs.getInt("id_employe"));
+                row.put("nomPrenom", rs.getString("nom_prenom"));
+                row.put("matricule", rs.getString("matricule"));
+                row.put("typeConge", rs.getString("type_conge"));
+                row.put("dateDebut", rs.getDate("date_debut"));
+                row.put("dateFin", rs.getDate("date_fin"));
+                row.put("nbJoursDecomptes", rs.getBigDecimal("nb_jours_decomptes"));
+                row.put("nomSite", rs.getString("nom_site"));
+                row.put("idSite", rs.getObject("id_site"));
+                conges.add(row);
+            }
+        }
+        return conges;
     }
 
     public Map<String, Object> buildKpis(Connection c) throws Exception {
@@ -156,7 +196,7 @@ public class DashboardService {
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(*) FROM demande_conge d " +
                 "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
-                "WHERE rsd.code = 'ACTIF' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin")) {
+                "WHERE rsd.code = 'VALIDE' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin")) {
             ResultSet rs = ps.executeQuery();
             kpis.put("employesEnCongeAujourdhui", rs.next() ? rs.getInt(1) : 0);
         }

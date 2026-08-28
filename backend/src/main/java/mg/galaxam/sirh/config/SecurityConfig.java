@@ -44,8 +44,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/login", "/auth/register", "/auth/refresh", "/auth/logout", "/uploads/photos/**", "/error").permitAll()
                 .requestMatchers("/uploads/documents/**").authenticated()
-                .requestMatchers("/admin/**").hasAuthority("ROLE_ADMIN")
-                .requestMatchers("/pointage/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_AGENT_POINTAGE")
+                .requestMatchers("/admin/**", "/securite/**").hasAuthority("ROLE_ADMIN")
+                .requestMatchers("/pointages/**", "/pointage/**", "/periodes/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_AGENT_POINTAGE")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

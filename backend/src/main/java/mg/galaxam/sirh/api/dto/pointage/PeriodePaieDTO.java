@@ -9,6 +9,9 @@ public class PeriodePaieDTO {
     private Integer idStatutPeriode;
     private String statutCode;
     private String statutLibelle;
+    private Integer nbJoursOuvrables;
+    private Integer nbJoursCalendaires;
+    private Integer nbJoursFeries;
 
     public PeriodePaieDTO() {
     }
@@ -75,5 +78,29 @@ public class PeriodePaieDTO {
 
     public void setStatutLibelle(String statutLibelle) {
         this.statutLibelle = statutLibelle;
+    }
+
+    public Integer getNbJoursOuvrables() {
+        return nbJoursOuvrables;
+    }
+
+    public void setNbJoursOuvrables(Integer nbJoursOuvrables) {
+        this.nbJoursOuvrables = nbJoursOuvrables;
+    }
+
+    public Integer getNbJoursCalendaires() {
+        return nbJoursCalendaires;
+    }
+
+    public void setNbJoursCalendaires(Integer nbJoursCalendaires) {
+        this.nbJoursCalendaires = nbJoursCalendaires;
+    }
+
+    public Integer getNbJoursFeries() {
+        return nbJoursFeries;
+    }
+
+    public void setNbJoursFeries(Integer nbJoursFeries) {
+        this.nbJoursFeries = nbJoursFeries;
     }
 }

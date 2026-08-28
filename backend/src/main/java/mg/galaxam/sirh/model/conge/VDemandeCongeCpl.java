@@ -148,13 +148,18 @@ public class VDemandeCongeCpl extends ClassMere {
         return list;
     }
 
-    public static long countAll(Connection c, String codeStatut, String keyword) throws Exception {
+    public static long countAll(Connection c, String codeStatut, String keyword, Integer idTypeConge) throws Exception {
         StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM v_demande_conge_cpl WHERE 1=1 ");
         List<Object> params = new ArrayList<>();
 
         if (codeStatut != null && !codeStatut.isBlank()) {
             sql.append(" AND code_statut_demande = ? ");
             params.add(codeStatut.trim().toUpperCase());
+        }
+
+        if (idTypeConge != null && idTypeConge > 0) {
+            sql.append(" AND id_type_conge = ? ");
+            params.add(idTypeConge);
         }
 
         if (keyword != null && !keyword.isBlank()) {
@@ -165,7 +170,12 @@ public class VDemandeCongeCpl extends ClassMere {
 
         try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
             for (int i = 0; i < params.size(); i++) {
-                ps.setString(i + 1, (String) params.get(i));
+                Object p = params.get(i);
+                if (p instanceof Integer) {
+                    ps.setInt(i + 1, (Integer) p);
+                } else {
+                    ps.setString(i + 1, (String) p);
+                }
             }
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return rs.getLong(1);
@@ -174,7 +184,11 @@ public class VDemandeCongeCpl extends ClassMere {
         return 0;
     }
 
-    public static List<VDemandeCongeCpl> listAll(Connection c, String codeStatut, String keyword, Integer limit, Integer offset) throws Exception {
+    public static long countAll(Connection c, String codeStatut, String keyword) throws Exception {
+        return countAll(c, codeStatut, keyword, null);
+    }
+
+    public static List<VDemandeCongeCpl> listAll(Connection c, String codeStatut, String keyword, Integer idTypeConge, Integer limit, Integer offset) throws Exception {
         List<VDemandeCongeCpl> list = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT * FROM v_demande_conge_cpl WHERE 1=1 ");
         List<Object> params = new ArrayList<>();
@@ -182,6 +196,11 @@ public class VDemandeCongeCpl extends ClassMere {
         if (codeStatut != null && !codeStatut.isBlank()) {
             sql.append(" AND code_statut_demande = ? ");
             params.add(codeStatut.trim().toUpperCase());
+        }
+
+        if (idTypeConge != null && idTypeConge > 0) {
+            sql.append(" AND id_type_conge = ? ");
+            params.add(idTypeConge);
         }
 
         if (keyword != null && !keyword.isBlank()) {
@@ -217,6 +236,10 @@ public class VDemandeCongeCpl extends ClassMere {
             }
         }
         return list;
+    }
+
+    public static List<VDemandeCongeCpl> listAll(Connection c, String codeStatut, String keyword, Integer limit, Integer offset) throws Exception {
+        return listAll(c, codeStatut, keyword, null, limit, offset);
     }
 
     private static VDemandeCongeCpl mapResultSet(ResultSet rs) throws Exception {

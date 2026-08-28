@@ -137,11 +137,11 @@ export default function ContratActifSection({
                     </h4>
                     <div className="py-1 flex justify-between">
                         <span className="text-ink-400">Type de Contrat :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowCplActif?.libelleTypeContrat || '-'}</span>
+                        <span className="font-semibold text-ink-800 dark:text-ink-100">{contratActif?.libelleTypeContrat || workflowCplActif?.libelleTypeContrat || '-'}</span>
                     </div>
                     <div className="py-1 flex justify-between">
                         <span className="text-ink-400">Filiale Employeuse :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowCplActif?.libelleFiliale || '-'}</span>
+                        <span className="font-semibold text-ink-800 dark:text-ink-100">{contratActif?.libelleFiliale || workflowCplActif?.libelleFiliale || '-'}</span>
                     </div>
                     <div className="py-1 flex justify-between">
                         <span className="text-ink-400">Date de Début :</span>
@@ -239,27 +239,27 @@ export default function ContratActifSection({
                     </h4>
                     <div className="py-1 flex justify-between">
                         <span className="text-ink-400">Site :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowCplActif?.libelleSite || '-'}</span>
+                        <span className="font-semibold text-ink-800 dark:text-ink-100">{affectationActive?.libelleSite || workflowCplActif?.libelleSite || '-'}</span>
                     </div>
                     <div className="py-1 flex justify-between">
                         <span className="text-ink-400">Département :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowCplActif?.libelleDepartement || '-'}</span>
+                        <span className="font-semibold text-ink-800 dark:text-ink-100">{affectationActive?.libelleDepartement || workflowCplActif?.libelleDepartement || '-'}</span>
                     </div>
                     <div className="py-1 flex justify-between">
                         <span className="text-ink-400">Service :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowCplActif?.libelleService || '-'}</span>
+                        <span className="font-semibold text-ink-800 dark:text-ink-100">{affectationActive?.libelleService || workflowCplActif?.libelleService || '-'}</span>
                     </div>
                     <div className="py-1 flex justify-between">
                         <span className="text-ink-400">Fonction / Poste :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowCplActif?.libelleFonction || '-'}</span>
+                        <span className="font-semibold text-ink-800 dark:text-ink-100">{affectationActive?.libelleFonction || workflowCplActif?.libelleFonction || '-'}</span>
                     </div>
                     <div className="py-1 flex justify-between">
                         <span className="text-ink-400">Catégorie Pro :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowCplActif?.libelleCategoriePro || '-'}</span>
+                        <span className="font-semibold text-ink-800 dark:text-ink-100">{affectationActive?.libelleCategoriePro || affectationActive?.libelleCategorieProfessionnelle || workflowCplActif?.libelleCategoriePro || '-'}</span>
                     </div>
                     <div className="py-1 flex justify-between">
                         <span className="text-ink-400">Supérieur N+1 :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{workflowCplActif?.nomPrenomResponsable || '-'}</span>
+                        <span className="font-semibold text-ink-800 dark:text-ink-100">{affectationActive?.nomPrenomResponsable || affectationActive?.nomResponsableHierarchique || workflowCplActif?.nomPrenomResponsable || '-'}</span>
                     </div>
                     <div className="py-1 flex justify-between border-t border-ink-150 dark:border-ink-800 mt-1 pt-2">
                         <span className="text-ink-400">Salaire de Base :</span>

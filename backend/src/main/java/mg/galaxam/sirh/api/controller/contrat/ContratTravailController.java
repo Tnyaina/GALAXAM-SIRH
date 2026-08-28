@@ -755,6 +755,36 @@ public class ContratTravailController {
             map.putAll(ancMap);
         }
 
+        // Métriques d'échéance et alertes (Fin de contrat & Fin d'essai) Backend-Driven
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (ct.getDateFin() != null) {
+            java.time.LocalDate dFin = ct.getDateFin().toLocalDate();
+            long diffFin = java.time.temporal.ChronoUnit.DAYS.between(today, dFin);
+            map.put("joursRestantsFin", (int) diffFin);
+            map.put("isFinEchue", diffFin < 0);
+            map.put("isFinAujourdhui", diffFin == 0);
+            map.put("isFinProche", diffFin >= 0 && diffFin <= 60);
+        } else {
+            map.put("joursRestantsFin", null);
+            map.put("isFinEchue", false);
+            map.put("isFinAujourdhui", false);
+            map.put("isFinProche", false);
+        }
+
+        if (ct.getDateFinEssai() != null) {
+            java.time.LocalDate dEssai = ct.getDateFinEssai().toLocalDate();
+            long diffEssai = java.time.temporal.ChronoUnit.DAYS.between(today, dEssai);
+            map.put("joursRestantsEssai", (int) diffEssai);
+            map.put("isEssaiEchu", diffEssai < 0);
+            map.put("isEssaiAujourdhui", diffEssai == 0);
+            map.put("isEssaiProche", diffEssai >= 0 && diffEssai <= 60);
+        } else {
+            map.put("joursRestantsEssai", null);
+            map.put("isEssaiEchu", false);
+            map.put("isEssaiAujourdhui", false);
+            map.put("isEssaiProche", false);
+        }
+
         return map;
     }
 
@@ -803,6 +833,13 @@ public class ContratTravailController {
                     aff.getIdModeCalculPaie());
             map.put("libelleModeCalculPaie", modeLib);
             map.put("libelleModePaie", modeLib);
+        }
+        if (aff.getIdResponsableHierarchique() != null && aff.getIdResponsableHierarchique() > 0) {
+            String respName = fetchLibelle(c,
+                    "SELECT nom || ' ' || prenom FROM employe WHERE id_employe = ?",
+                    aff.getIdResponsableHierarchique());
+            map.put("nomPrenomResponsable", respName);
+            map.put("nomResponsableHierarchique", respName);
         }
 
         return map;
