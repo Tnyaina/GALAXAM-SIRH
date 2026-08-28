@@ -16,7 +16,8 @@ SET deplacement_matin = COALESCE(indemnite_deplacement_recue, TRUE),
 WHERE deplacement_matin IS NULL OR deplacement_am IS NULL;
 
 -- 3. Mise à jour de la vue v_pointage_complet
-CREATE OR REPLACE VIEW v_pointage_complet AS
+DROP VIEW IF EXISTS v_pointage_complet CASCADE;
+CREATE VIEW v_pointage_complet AS
 SELECT
     p.id_pointage,
     p.id_employe,
@@ -43,7 +44,8 @@ JOIN ref_site rs ON p.id_site = rs.id_site
 JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour;
 
 -- 4. Mise à jour de la vue v_synthese_pointage_mensuelle avec décompte fractionné
-CREATE OR REPLACE VIEW v_synthese_pointage_mensuelle AS
+DROP VIEW IF EXISTS v_synthese_pointage_mensuelle CASCADE;
+CREATE VIEW v_synthese_pointage_mensuelle AS
 SELECT
     p.id_employe,
     p.id_periode_paie,
@@ -66,3 +68,21 @@ SELECT
 FROM pointage_jour p
 JOIN ref_statut_pointage_jour s ON p.id_statut_jour = s.id_statut_jour
 GROUP BY p.id_employe, p.id_periode_paie;
+
+-- 5. Table universelle d'ajustements dynamiques des indemnités journalières (Extensibilité Future)
+CREATE TABLE IF NOT EXISTS pointage_indemnite_jour (
+    id_pointage_indemnite SERIAL PRIMARY KEY,
+    id_pointage INT NOT NULL REFERENCES pointage_jour(id_pointage) ON DELETE CASCADE,
+    id_indemnite INT NOT NULL REFERENCES ref_indemnite(id_indemnite),
+    fraction VARCHAR(20) NOT NULL DEFAULT 'JOUR_ENTIER', -- 'MATIN', 'APRES_MIDI', 'JOUR_ENTIER'
+    quantite NUMERIC(4,2) NOT NULL DEFAULT 1.0,          -- 0.5, 1.0, 2.0
+    montant_calcule NUMERIC(12,2) DEFAULT 0,
+    accorde BOOLEAN NOT NULL DEFAULT TRUE,
+    motif_ajustement TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_pointage_indemnite_fraction UNIQUE (id_pointage, id_indemnite, fraction)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pointage_indemnite_ptg ON pointage_indemnite_jour(id_pointage);
+CREATE INDEX IF NOT EXISTS idx_pointage_indemnite_ref ON pointage_indemnite_jour(id_indemnite);

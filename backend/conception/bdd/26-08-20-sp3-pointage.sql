@@ -17,6 +17,7 @@ DROP VIEW IF EXISTS v_pointage_jour_cpl CASCADE;
 
 DROP TABLE IF EXISTS pointage_cumul_periode CASCADE;
 DROP TABLE IF EXISTS pointage_semaine_calcule CASCADE;
+DROP TABLE IF EXISTS pointage_indemnite_jour CASCADE;
 DROP TABLE IF EXISTS pointage_jour CASCADE;
 DROP TABLE IF EXISTS employe_indemnite_derogation CASCADE;
 DROP TABLE IF EXISTS ref_tolerance_arrivee_pointage CASCADE;
@@ -162,6 +163,24 @@ CREATE INDEX idx_pointage_periode ON pointage_jour(id_periode_paie);
 CREATE INDEX idx_pointage_date ON pointage_jour(date_pointage);
 CREATE INDEX idx_pointage_statut ON pointage_jour(id_statut_jour);
 
+-- Table universelle d'ajustements dynamiques des indemnités journalières (Extensibilité Future)
+CREATE TABLE IF NOT EXISTS pointage_indemnite_jour (
+    id_pointage_indemnite SERIAL PRIMARY KEY,
+    id_pointage INT NOT NULL REFERENCES pointage_jour(id_pointage) ON DELETE CASCADE,
+    id_indemnite INT NOT NULL REFERENCES ref_indemnite(id_indemnite),
+    fraction VARCHAR(20) NOT NULL DEFAULT 'JOUR_ENTIER', -- 'MATIN', 'APRES_MIDI', 'JOUR_ENTIER'
+    quantite NUMERIC(4,2) NOT NULL DEFAULT 1.0,          -- 0.5, 1.0, 2.0
+    montant_calcule NUMERIC(12,2) DEFAULT 0,
+    accorde BOOLEAN NOT NULL DEFAULT TRUE,
+    motif_ajustement TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_pointage_indemnite_fraction UNIQUE (id_pointage, id_indemnite, fraction)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pointage_indemnite_ptg ON pointage_indemnite_jour(id_pointage);
+CREATE INDEX IF NOT EXISTS idx_pointage_indemnite_ref ON pointage_indemnite_jour(id_indemnite);
+
 -- ============================================================
 -- 3. FONCTION : JOURS OUVRABLES DU MOIS (pour prorata des indemnités)
 -- ============================================================
@@ -188,7 +207,8 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 -- 4. VUES (temps réel — affichage avant clôture)
 -- ============================================================
 
-CREATE OR REPLACE VIEW v_pointage_jour_cpl AS
+DROP VIEW IF EXISTS v_pointage_jour_cpl CASCADE;
+CREATE VIEW v_pointage_jour_cpl AS
 SELECT
     p.id_pointage,
     p.id_employe,
@@ -204,7 +224,7 @@ SELECT
     st.code AS code_statut, st.libelle AS libelle_statut,
     p.heures_matin, p.heures_am, p.total_heures, p.heures_nuit,
     p.minutes_retard, p.minutes_depart_anticipe,
-    p.indemnite_deplacement_recue, p.montant_deplacement_jour,
+    p.indemnite_deplacement_recue, p.deplacement_matin, p.deplacement_am, p.montant_deplacement_jour,
     p.indemnite_repas_recue, p.montant_repas,
     p.utilise_vehicule_fonction_jour, p.horaire_continu_jour,
     p.motif_ajustement, p.saisi_par, p.created_at, p.updated_at
@@ -217,7 +237,8 @@ JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour;
 -- Vue hebdomadaire avec proratisation du seuil par tronçon
 -- Partition par id_periode_paie : une semaine à cheval génère 2 lignes distinctes (une par période)
 -- Seuil proratisé : 8h × nb_jours_ouvrés_du_tronçon (pas un seuil fixe de 40h)
-CREATE OR REPLACE VIEW v_pointage_semaine AS
+DROP VIEW IF EXISTS v_pointage_semaine CASCADE;
+CREATE VIEW v_pointage_semaine AS
 SELECT
     p.id_employe,
     p.id_periode_paie,
@@ -236,7 +257,8 @@ WHERE s.code IN ('PRESENT', 'FERIE_TRAVAILLE', 'SAMEDI_TRAVAILLE', 'DIMANCHE_TRA
 GROUP BY p.id_employe, p.id_periode_paie, date_trunc('week', p.date_pointage);
 
 -- Vue mensuelle temps réel (affichage saisie). Remplacée par pointage_cumul_periode à la clôture.
-CREATE OR REPLACE VIEW v_synthese_pointage_mensuelle AS
+DROP VIEW IF EXISTS v_synthese_pointage_mensuelle CASCADE;
+CREATE VIEW v_synthese_pointage_mensuelle AS
 SELECT
     p.id_employe,
     p.id_periode_paie,
@@ -246,7 +268,14 @@ SELECT
     COUNT(*) FILTER (WHERE s.code = 'DIMANCHE_TRAVAILLE')           AS nb_jours_dimanche_travaille,
     COALESCE(SUM(p.total_heures) FILTER (WHERE s.decompte_absence = FALSE), 0) AS total_heures_travaillees,
     COALESCE(SUM(p.heures_nuit), 0)                                 AS heures_nuit_total,
-    COUNT(*) FILTER (WHERE p.indemnite_deplacement_recue)           AS nb_jours_deplacement,
+    COALESCE(SUM(
+        CASE 
+            WHEN p.deplacement_matin IS NOT NULL AND p.deplacement_am IS NOT NULL 
+                THEN (CASE WHEN p.deplacement_matin = TRUE THEN 0.5 ELSE 0.0 END + CASE WHEN p.deplacement_am = TRUE THEN 0.5 ELSE 0.0 END)
+            WHEN p.indemnite_deplacement_recue = TRUE THEN 1.0
+            ELSE 0.0 
+        END
+    ), 0) AS nb_jours_deplacement,
     COUNT(*) FILTER (WHERE p.indemnite_repas_recue)                 AS nb_jours_repas,
     COALESCE(SUM(p.montant_repas), 0)                               AS montant_repas_total
 FROM pointage_jour p
@@ -254,7 +283,8 @@ JOIN ref_statut_pointage_jour s ON p.id_statut_jour = s.id_statut_jour
 GROUP BY p.id_employe, p.id_periode_paie;
 
 -- Agrégat des HS brutes mensuelle depuis les tronçons hebdomadaires
-CREATE OR REPLACE VIEW v_hs_mensuelle AS
+DROP VIEW IF EXISTS v_hs_mensuelle CASCADE;
+CREATE VIEW v_hs_mensuelle AS
 SELECT
     w.id_periode_paie,
     w.id_employe,
@@ -313,7 +343,7 @@ CREATE TABLE pointage_cumul_periode (
     heures_hs_50             DECIMAL(6,2) NOT NULL DEFAULT 0,
     heures_nuit_total        DECIMAL(6,2) NOT NULL DEFAULT 0,
     heures_absence_retenues  DECIMAL(6,2) NOT NULL DEFAULT 0,  -- retards nets non compensés → déduction paie
-    nb_jours_deplacement     INTEGER NOT NULL DEFAULT 0,
+    nb_jours_deplacement     DECIMAL(5,2) NOT NULL DEFAULT 0,
     montant_deplacement      DECIMAL(10,2) NOT NULL DEFAULT 0,
     nb_jours_repas           INTEGER NOT NULL DEFAULT 0,
     montant_repas            DECIMAL(10,2) NOT NULL DEFAULT 0,

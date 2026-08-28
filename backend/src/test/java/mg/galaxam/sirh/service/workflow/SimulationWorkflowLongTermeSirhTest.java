@@ -4,8 +4,6 @@ import mg.galaxam.sirh.model.conge.DemandeConge;
 import mg.galaxam.sirh.model.conge.service.CongeService;
 import mg.galaxam.sirh.model.employe.Employe;
 import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
-import mg.galaxam.sirh.model.pointage.service.PointageSaisieService;
-import mg.galaxam.sirh.model.pointage.service.PointageSyntheseService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

@@ -68,7 +68,7 @@ export default function TimeInput({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
-            className={`w-20 px-2 py-1 text-xs font-mono font-bold text-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)] outline-none rounded-none transition-colors ${className}`}
+            className={`h-8 w-[76px] px-1.5 text-xs font-mono font-bold text-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] focus:border-[var(--color-brand-500)] focus:ring-2 focus:ring-[var(--color-brand-500)]/20 outline-none rounded-none disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-fg-muted)]/70 disabled:cursor-not-allowed shadow-2xs transition-all ${className}`}
         />
     );
 }

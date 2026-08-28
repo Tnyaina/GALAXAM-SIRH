@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { Plus, Edit2, Gift, MapPin, X } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
-import contratService from '@/api/employe/contratService';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Input, { Select, Checkbox } from '@/components/ui/forms/Input';
@@ -32,7 +31,6 @@ export default function IndemnitesSitesTab() {
     const [indemnites, setIndemnites] = useState([]);
     const [siteIndemnites, setSiteIndemnites] = useState([]);
     const [sites, setSites] = useState([]);
-    const [modesPaie, setModesPaie] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -57,16 +55,14 @@ export default function IndemnitesSitesTab() {
         setLoading(true);
         setError(null);
         try {
-            const [indData, siteIndData, sitesData, mpData] = await Promise.all([
+            const [indData, siteIndData, sitesData] = await Promise.all([
                 paieConfigService.getIndemnites(),
                 paieConfigService.getSiteIndemnites(),
-                organisationService.getSites(),
-                contratService.getModesPaie()
+                organisationService.getSites()
             ]);
             setIndemnites(indData || []);
             setSiteIndemnites(siteIndData || []);
             setSites(sitesData || []);
-            setModesPaie(mpData?.filter(m => m.actif !== false) || []);
         } catch (err) {
             setError("Erreur lors du chargement des indemnités.");
             console.error(err);
@@ -127,10 +123,8 @@ export default function IndemnitesSitesTab() {
         }
     };
 
-    // Liste des options de périodicité : API ref_mode_calcul_paie en priorité, sinon constante statique
-    const periodiciteOptions = modesPaie.length > 0 
-        ? modesPaie.map(m => ({ value: m.code, label: m.libelle }))
-        : PERIODICITES_INDEMNITE;
+    // Liste des options de mode de calcul d'indemnité explicites
+    const periodiciteOptions = PERIODICITES_INDEMNITE;
 
     if (loading) {
         return (
@@ -293,7 +287,7 @@ export default function IndemnitesSitesTab() {
                                         </Td>
                                         <Td>
                                             <Badge variant="default" size="sm">
-                                                {si.periodicite}
+                                                {PERIODICITES_INDEMNITE.find(p => p.value === si.periodicite)?.label?.split(' ')[0] || si.periodicite}
                                             </Badge>
                                         </Td>
                                         <Td isData className="text-right font-bold text-[var(--color-brand-500)]">

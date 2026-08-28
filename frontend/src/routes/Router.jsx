@@ -15,11 +15,8 @@ const Login = lazy(() => import("@/pages/auth/Login"));
 // Module Dashboard
 const Dashboard = lazy(() => import("@/pages/dashboard/Dashboard"));
 
-// Module Pointage
-const SaisieQuotidiennePage = lazy(() => import("@/pages/pointage/SaisieQuotidiennePage"));
+// Module Pointage & Périodes de Paie
 const PeriodePaiePage = lazy(() => import("@/pages/pointage/PeriodePaiePage"));
-const AnomaliesPointagePage = lazy(() => import("@/pages/pointage/AnomaliesPointagePage"));
-const SynthesePointagePage = lazy(() => import("@/pages/pointage/SynthesePointagePage"));
 
 // Module Congés & Absences
 const GestionCongesPage = lazy(() => import("@/pages/conges/GestionCongesPage"));
@@ -76,15 +73,10 @@ export default function Router() {
                     </Route>
 
                     {/* ---------------------------------------------------- */}
-                    {/* Module Pointage (Rôles requis)                      */}
+                    {/* Module Périodes de Paie                              */}
                     {/* ---------------------------------------------------- */}
                     <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN", "ROLE_AGENT_POINTAGE"]} />}>
-                        <Route path="/pointages" element={<Navigate to="/pointages/saisie" replace />} />
-                        <Route path="/pointages/saisie" element={<SaisieQuotidiennePage />} />
-                        <Route path="/pointages/anomalies" element={<AnomaliesPointagePage />} />
-                    </Route>
-                    <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
-                        <Route path="/pointages/synthese" element={<SynthesePointagePage />} />
+                        <Route path="/pointages" element={<Navigate to="/pointages/periodes" replace />} />
                         <Route path="/pointages/periodes" element={<PeriodePaiePage />} />
                     </Route>
 

@@ -12,7 +12,7 @@ export default function AccesRapidesWidget({ className = '' }) {
                 {[
                     { to: '/conges', label: 'Gestion des Congés & Absences', icon: Calendar },
                     { to: '/employes', label: 'Gestion du Personnel & Fiches', icon: Users },
-                    { to: '/pointages/saisie', label: 'Pointage & Temps de travail', icon: Clock },
+                    { to: '/pointages/periodes', label: 'Périodes de Paie', icon: Clock },
                 ].map(({ to, label, icon: Icon }) => (
                     <Link
                         key={to}

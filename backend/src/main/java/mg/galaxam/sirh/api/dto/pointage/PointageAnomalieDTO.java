@@ -28,6 +28,8 @@ public class PointageAnomalieDTO {
     private String motifAjustement;
     
     private Boolean indemniteDeplacementRecue;
+    private Boolean deplacementMatin = true;
+    private Boolean deplacementAm = true;
     private Boolean indemniteRepasRecue;
     
     private Integer idPeriodePaie;
@@ -36,6 +38,12 @@ public class PointageAnomalieDTO {
     private String statutPeriodeCode;
 
     // Getters and Setters
+    public Boolean getDeplacementMatin() { return deplacementMatin; }
+    public void setDeplacementMatin(Boolean deplacementMatin) { this.deplacementMatin = deplacementMatin; }
+
+    public Boolean getDeplacementAm() { return deplacementAm; }
+    public void setDeplacementAm(Boolean deplacementAm) { this.deplacementAm = deplacementAm; }
+
     public Integer getIdPointage() { return idPointage; }
     public void setIdPointage(Integer idPointage) { this.idPointage = idPointage; }
 

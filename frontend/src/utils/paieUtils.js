@@ -3,9 +3,9 @@
  */
 
 export const PERIODICITES_INDEMNITE = [
-    { value: 'JOURNALIER', label: 'Journalier' },
-    { value: 'MENSUEL', label: 'Mensuel' },
-    { value: 'HORAIRE', label: 'Horaire' },
+    { value: 'MENSUEL_PRORATISE', label: 'Mensuel proratisé (selon présences & jours ouvrables)' },
+    { value: 'JOURNALIER', label: 'Forfait journalier (par jour présent validé)' },
+    { value: 'FIXE_MENSUEL', label: 'Mensuel fixe (indépendant du pointage)' },
 ];
 
 /**

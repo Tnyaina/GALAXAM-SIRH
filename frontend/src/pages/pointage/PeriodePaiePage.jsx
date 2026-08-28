@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { usePeriodePaie } from '@/hooks/pointage/usePeriodePaie';
 import periodePaieService from '@/services/periodePaieService';
-import { pointageSyntheseService } from '@/services/pointageSyntheseService';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -190,23 +189,13 @@ export default function PeriodePaiePage() {
                 confirmLabel: 'Transmettre pour validation'
             });
         } else if (nextStatutCode === 'VALIDEE') {
-            // À valider -> Validée (avec vérification préalable des anomalies)
-            let warningDetails = '';
-            try {
-                const check = await pointageSyntheseService.getPreClotureCheck(periode.idPeriodePaie);
-                if (check && check.totalAnomalies > 0) {
-                    warningDetails = `\n\n Information importante : Il subsiste ${check.totalAnomalies} anomalie(s) non régularisée(s) sur cette période (${check.totalIncomplets} pointages incomplets, ${check.totalAbsencesInjustifiees} absences non justifiées, ${check.totalRetardsNonJustifies} retards sans motif). Vous pouvez valider dès maintenant pour geler les données en l'état ou vérifier la page des anomalies au préalable.`;
-                }
-            } catch (err) {
-                console.error('Erreur vérification anomalies :', err);
-            }
-
+            // À valider -> Validée
             setConfirmAction({
                 isOpen: true,
                 periode,
                 targetStatut: nextStatutCode,
                 title: 'Validation de la période & Gel des données Paie',
-                message: `Vous êtes sur le point de valider la période "${periode.libelle}". Tous les pointages seront verrouillés et les cumuls légaux (heures normales, HS 30/50, indemnités) seront gelés définitivement pour la Paie.${warningDetails}`,
+                message: `Vous êtes sur le point de valider la période "${periode.libelle}". Tous les cumuls légaux seront validés définitivement pour la Paie.`,
                 variant: 'primary',
                 confirmLabel: 'Valider et figer les données'
             });
