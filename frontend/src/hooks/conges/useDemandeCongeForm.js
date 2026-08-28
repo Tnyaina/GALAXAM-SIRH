@@ -213,22 +213,22 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
       setLoading(true);
       setError(null);
 
-      const isRetroactive = dateDebut && (new Date(dateDebut).setHours(0,0,0,0) < new Date().setHours(0,0,0,0));
+      const isRetroactive = dateDebut && (new Date(dateDebut).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0));
       const effectiveDerogationPreavis = derogationDelaiPreavis || isRetroactive;
 
       const payload = {
-        idEmploye: parseInt(targetEmployeId),
-        idTypeConge: parseInt(idTypeConge),
-        idMotifEvenementFamilial: idMotifEvenementFamilial ? parseInt(idMotifEvenementFamilial) : null,
-        dateDebut,
-        dateFin: estDemiJournee ? dateDebut : dateFin,
-        estDemiJournee,
+        idEmploye: parseInt(targetEmployeId, 10),
+        idTypeConge: parseInt(idTypeConge, 10),
+        idMotifEvenementFamilial: isExceptionnel && idMotifEvenementFamilial ? parseInt(idMotifEvenementFamilial, 10) : null,
+        dateDebut: dateDebut || null,
+        dateFin: estDemiJournee ? dateDebut : (dateFin || null),
+        estDemiJournee: Boolean(estDemiJournee),
         momentDemiJournee: estDemiJournee ? momentDemiJournee : null,
-        commentaire,
-        justificatifFourni,
-        derogationSoldeNegatif,
-        derogationDelaiPreavis: effectiveDerogationPreavis,
-        extensionPathologiqueMaternite,
+        commentaire: commentaire ? commentaire.trim() : null,
+        justificatifFourni: Boolean(justificatifFourni),
+        derogationSoldeNegatif: Boolean(derogationSoldeNegatif),
+        derogationDelaiPreavis: Boolean(effectiveDerogationPreavis),
+        extensionPathologiqueMaternite: Boolean(extensionPathologiqueMaternite),
       };
 
       const isEditMode = !!initialDemande?.idDemandeConge;
@@ -273,7 +273,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
     momentDemiJournee, setMomentDemiJournee,
     commentaire, setCommentaire,
     justificatifFourni, setJustificatifFourni,
-    
+
     derogationSoldeNegatif, setDerogationSoldeNegatif,
     derogationDelaiPreavis, setDerogationDelaiPreavis,
     extensionPathologiqueMaternite, setExtensionPathologiqueMaternite,
@@ -281,10 +281,10 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
 
     nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres,
     loading, error, fieldErrors, setFieldErrors,
-    
+
     typesConge, motifsFamiliaux, selectedType,
     isExceptionnel, isMaternite,
-    
+
     handleSubmit,
     inputErrorClass
   };

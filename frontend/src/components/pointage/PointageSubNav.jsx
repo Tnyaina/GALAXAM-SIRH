@@ -3,23 +3,23 @@ import { Clock, BarChart2, AlertTriangle, CalendarDays } from 'lucide-react';
 
 const NAV_ITEMS = [
     {
-        to: '/pointage',
+        to: '/pointages',
         label: 'Saisie Quotidienne',
         icon: Clock,
         end: true
     },
     {
-        to: '/pointage/synthese',
+        to: '/pointages/synthese',
         label: 'Synthèse & Export',
         icon: BarChart2
     },
     {
-        to: '/pointage/anomalies',
+        to: '/pointages/anomalies',
         label: 'Anomalies de Pointage',
         icon: AlertTriangle
     },
     {
-        to: '/pointage/periodes',
+        to: '/pointages/periodes',
         label: 'Périodes de Paie',
         icon: CalendarDays
     }

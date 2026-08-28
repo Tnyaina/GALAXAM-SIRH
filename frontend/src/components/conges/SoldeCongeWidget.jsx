@@ -17,7 +17,7 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe 
     : 0;
 
   // Calcul de l'ancienneté et éligibilité légale au congé annuel payé (Règle des 12 mois - Art. 83)
-  const dateDebut = employe?.dateDebutContratActif || employe?.dateEmbauche;
+  const dateDebut = employe?.dateEmbauche || employe?.dateDebutContratActif || employe?.dateDebut;
   let ancienneteInfo = null;
 
   if (dateDebut) {
@@ -71,7 +71,7 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe 
             <div className="flex items-center gap-2.5">
               <CheckCircle size={17} className="text-success-600 dark:text-success-400 shrink-0" />
               <div>
-                <span className="font-bold text-sm">Éligible aux congés payés annuels</span>
+                <span className="font-bold text-sm">Éligible aux congés payés annuels (Art. 85)</span>
                 <p className="text-xs text-success-800 dark:text-success-300 mt-0.5">
                   Ancienneté de <strong>{ancienneteInfo.textAnciennete}</strong> (embauché(e) le {ancienneteInfo.dateDebutStr}). Droit ouvert depuis le {ancienneteInfo.dateOuvertureStr}.
                 </p>
@@ -88,7 +88,7 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe 
               <div>
                 <span className="font-bold text-sm">Période d'acquisition d'ancienneté en cours ({ancienneteInfo.months} mois / 12)</span>
                 <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
-                  L'ouverture du droit légal au congé annuel payé aura lieu le <strong>{ancienneteInfo.dateOuvertureStr}</strong> (Art. 83). Une <strong>dérogation RH</strong> est requise pour toute prise anticipée.
+                  L'ouverture du droit légal au congé annuel payé aura lieu le <strong>{ancienneteInfo.dateOuvertureStr}</strong> (Art. 85). Une <strong>dérogation RH</strong> est requise pour toute prise anticipée.
                 </p>
               </div>
             </div>

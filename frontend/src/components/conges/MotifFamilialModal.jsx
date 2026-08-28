@@ -48,6 +48,8 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
     try {
       const payload = {
         ...formData,
+        code: formData.code ? formData.code.trim().toUpperCase() : '',
+        libelle: formData.libelle ? formData.libelle.trim() : '',
         nbJoursAutorises: formData.nbJoursAutorises ? parseFloat(formData.nbJoursAutorises) : 0,
         estActif: true
       };
@@ -92,7 +94,7 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
               placeholder="Code unique"
               disabled={!!initialData}
             />
-            
+
             <Input
               label="Libellé"
               required

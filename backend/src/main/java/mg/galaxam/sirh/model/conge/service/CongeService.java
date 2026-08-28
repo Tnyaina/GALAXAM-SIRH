@@ -18,6 +18,10 @@ public class CongeService {
         if (dateDebut == null || dateFin == null) {
             throw new IllegalArgumentException("Les dates de début et de fin sont obligatoires pour la simulation.");
         }
+        if (estDemiJournee && !dateDebut.equals(dateFin)) {
+            throw new IllegalArgumentException(
+                    "Une simulation en demi-journée doit avoir des dates de début et de fin identiques.");
+        }
         return DemandeConge.calculerNombreJoursDecomptes(dateDebut, dateFin, estDemiJournee);
     }
 
@@ -42,9 +46,11 @@ public class CongeService {
         // Bascule automatique Arrêt Maladie si > 30 jours (Art. 13)
         RefTypeConge typeConge = RefTypeConge.rechercherParId(d.getIdTypeConge(), c);
         Date originalDateFin = d.getDateFin();
-        BigDecimal totalJoursOrigine = DemandeConge.calculerNombreJoursDecomptes(d.getDateDebut(), originalDateFin, d.isEstDemiJournee());
+        BigDecimal totalJoursOrigine = DemandeConge.calculerNombreJoursDecomptes(d.getDateDebut(), originalDateFin,
+                d.isEstDemiJournee());
 
-        if (typeConge != null && "MALADIE".equals(typeConge.getCode()) && totalJoursOrigine.compareTo(BigDecimal.valueOf(30)) > 0) {
+        if (typeConge != null && "MALADIE".equals(typeConge.getCode())
+                && totalJoursOrigine.compareTo(BigDecimal.valueOf(30)) > 0) {
             Date dateFinT1 = Date.valueOf(d.getDateDebut().toLocalDate().plusDays(29));
             d.setDateFin(dateFinT1);
             d.save(c);
@@ -57,38 +63,40 @@ public class CongeService {
                 d2.setDateDebut(Date.valueOf(dateFinT1.toLocalDate().plusDays(1)));
                 d2.setDateFin(originalDateFin);
                 d2.setJustificatifFourni(d.isJustificatifFourni());
-                d2.setCommentaire("(Bascule automatique Art. 13) " + (d.getCommentaire() != null ? d.getCommentaire() : ""));
+                d2.setCommentaire(
+                        "(Bascule automatique Art. 13) " + (d.getCommentaire() != null ? d.getCommentaire() : ""));
                 d2.setSaisiPar(d.getSaisiPar());
                 d2.save(c);
             }
 
             DemandeConge.creerNotificationRh(
-                "MALADIE_PLAFOND_EPISODE_ATTEINT",
-                "HAUTE",
-                "Bascule Automatique Arrêt Maladie (> 30j)",
-                "L'arrêt maladie continu (" + totalJoursOrigine + "j) a été automatiquement scindé : 30 jours en maintien de salaire et la suite en Maladie Sans Solde (CNaPS).",
-                "/conges/demandes/employe/" + d.getIdEmploye(),
-                d.getIdEmploye(),
-                c
-            );
+                    "MALADIE_PLAFOND_EPISODE_ATTEINT",
+                    "HAUTE",
+                    "Bascule Automatique Arrêt Maladie (> 30j)",
+                    "L'arrêt maladie continu (" + totalJoursOrigine
+                            + "j) a été automatiquement scindé : 30 jours en maintien de salaire et la suite en Maladie Sans Solde (CNaPS).",
+                    "/conges/demandes/employe/" + d.getIdEmploye(),
+                    d.getIdEmploye(),
+                    c);
         } else {
             d.save(c);
 
             DemandeConge.creerNotificationRh(
-                "CONGE_EN_ATTENTE",
-                "NORMALE",
-                "Nouvelle demande de congé",
-                "Une nouvelle demande de congé (" + (typeConge != null ? typeConge.getLibelle() : "Absence") + ") a été enregistrée et est en attente de validation.",
-                "/conges",
-                d.getIdEmploye(),
-                c
-            );
+                    "CONGE_EN_ATTENTE",
+                    "NORMALE",
+                    "Nouvelle demande de congé",
+                    "Une nouvelle demande de congé (" + (typeConge != null ? typeConge.getLibelle() : "Absence")
+                            + ") a été enregistrée et est en attente de validation.",
+                    "/conges",
+                    d.getIdEmploye(),
+                    c);
         }
 
         return d;
     }
 
-    public DemandeConge validerDemande(int idDemande, Integer currentUserId, String commentaireValidation, Connection c) throws Exception {
+    public DemandeConge validerDemande(int idDemande, Integer currentUserId, String commentaireValidation, Connection c)
+            throws Exception {
         DemandeConge d = new DemandeConge().rechercherParId(idDemande, c);
         if (d == null) {
             throw new IllegalArgumentException("Demande de congé introuvable (ID: " + idDemande + ").");
@@ -98,7 +106,8 @@ public class CongeService {
         return d;
     }
 
-    public DemandeConge refuserDemande(int idDemande, Integer currentUserId, String motifRefus, Connection c) throws Exception {
+    public DemandeConge refuserDemande(int idDemande, Integer currentUserId, String motifRefus, Connection c)
+            throws Exception {
         DemandeConge d = new DemandeConge().rechercherParId(idDemande, c);
         if (d == null) {
             throw new IllegalArgumentException("Demande de congé introuvable (ID: " + idDemande + ").");
@@ -108,7 +117,8 @@ public class CongeService {
         return d;
     }
 
-    public DemandeConge annulerDemande(int idDemande, Integer currentUserId, String motifAnnulation, Connection c) throws Exception {
+    public DemandeConge annulerDemande(int idDemande, Integer currentUserId, String motifAnnulation, Connection c)
+            throws Exception {
         DemandeConge d = new DemandeConge().rechercherParId(idDemande, c);
         if (d == null) {
             throw new IllegalArgumentException("Demande de congé introuvable (ID: " + idDemande + ").");

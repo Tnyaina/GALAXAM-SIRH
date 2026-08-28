@@ -31,7 +31,7 @@ export default function OptionsRHSection({
             <span className="text-sm text-[var(--color-fg)]">
               Dérogation RH : Prise par anticipation / Solde négatif
               <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">
-                Autorise la pose même si l'ancienneté est &lt; 12 mois (Art. 83) ou si le solde disponible est insuffisant.
+                Autorise la pose même si l'ancienneté est &lt; 12 mois (Art. 85) ou si le solde disponible est insuffisant.
               </span>
             </span>
           </label>

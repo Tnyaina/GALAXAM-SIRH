@@ -66,7 +66,8 @@ public class DemandeConge extends ClassMere {
     }
 
     /**
-     * Règle de décompte en jours calendaires stricts (Code du Travail malgache Art. 85, 88).
+     * Règle de décompte en jours calendaires stricts (Code du Travail malgache Art.
+     * 85, 88).
      * Si estDemiJournee = true, le décompte est de 0.5 jour.
      * Sinon, nb_jours_decomptes = (date_fin - date_debut) + 1.
      */
@@ -75,10 +76,12 @@ public class DemandeConge extends ClassMere {
     }
 
     public static BigDecimal calculerNombreJoursDecomptes(Date dateDebut, Date dateFin, boolean estDemiJournee) {
-        if (dateDebut == null || dateFin == null) return BigDecimal.ZERO;
+        if (dateDebut == null || dateFin == null)
+            return BigDecimal.ZERO;
         LocalDate dDebut = dateDebut.toLocalDate();
         LocalDate dFin = dateFin.toLocalDate();
-        if (dFin.isBefore(dDebut)) return BigDecimal.ZERO;
+        if (dFin.isBefore(dDebut))
+            return BigDecimal.ZERO;
 
         if (estDemiJournee) {
             return new BigDecimal("0.5");
@@ -108,10 +111,13 @@ public class DemandeConge extends ClassMere {
 
         if (estDemiJournee) {
             if (!dateDebut.equals(dateFin)) {
-                throw new IllegalArgumentException("Une demande de congé en demi-journée doit concerner la même journée (date début = date fin).");
+                throw new IllegalArgumentException(
+                        "Une demande de congé en demi-journée doit concerner la même journée (date début = date fin).");
             }
-            if (momentDemiJournee == null || (!"MATIN".equalsIgnoreCase(momentDemiJournee) && !"APRES_MIDI".equalsIgnoreCase(momentDemiJournee))) {
-                throw new IllegalArgumentException("Veuillez préciser le moment de la demi-journée ('MATIN' ou 'APRES_MIDI').");
+            if (momentDemiJournee == null || (!"MATIN".equalsIgnoreCase(momentDemiJournee)
+                    && !"APRES_MIDI".equalsIgnoreCase(momentDemiJournee))) {
+                throw new IllegalArgumentException(
+                        "Veuillez préciser le moment de la demi-journée ('MATIN' ou 'APRES_MIDI').");
             }
             this.momentDemiJournee = momentDemiJournee.toUpperCase();
         } else {
@@ -128,24 +134,43 @@ public class DemandeConge extends ClassMere {
         }
 
         // 3. Contrôle justificatif obligatoire
-        // Assouplissement: On ne bloque plus la validation car le justificatif peut être fourni au retour
-        // if (typeConge.isExigeJustificatif() && !justificatifFourni && ("VALIDE".equals(getStatutCode(c)))) {
-        //     throw new IllegalArgumentException("Un justificatif obligatoire (ex: certificat médical, acte) doit être fourni pour valider ce congé.");
+        // Assouplissement: On ne bloque plus la validation car le justificatif peut
+        // être fourni au retour
+        // if (typeConge.isExigeJustificatif() && !justificatifFourni &&
+        // ("VALIDE".equals(getStatutCode(c)))) {
+        // throw new IllegalArgumentException("Un justificatif obligatoire (ex:
+        // certificat médical, acte) doit être fourni pour valider ce congé.");
         // }
 
-        // 4. Contrôle d'ancienneté minimale (ex: 12 mois pour ANNUEL)
+        // 4. Contrôle d'ancienneté minimale (remontée de l'ancienneté historique
+        // complète)
         if (typeConge.getExigeAncienneteMinMois() != null && typeConge.getExigeAncienneteMinMois() > 0) {
             if (!derogationSoldeNegatif) {
                 ContratTravail contratActif = ContratTravail.rechercherActifParEmploye(idEmploye, c);
                 if (contratActif == null || contratActif.getDateDebut() == null) {
-                    throw new IllegalArgumentException("Aucun contrat de travail actif trouvé pour vérifier l'ancienneté requise de " +
-                            typeConge.getExigeAncienneteMinMois() + " mois. Cochez la dérogation RH si vous souhaitez autoriser la prise de ce congé.");
+                    throw new IllegalArgumentException(
+                            "Aucun contrat de travail actif trouvé pour vérifier l'ancienneté requise. Dérogation RH requise.");
                 }
-                LocalDate dateDebutContrat = contratActif.getDateDebut().toLocalDate();
-                long moisAnciennete = ChronoUnit.MONTHS.between(dateDebutContrat, dateDebut.toLocalDate());
+
+                LocalDate dateDebutInitiale = contratActif.getDateDebut().toLocalDate();
+                Integer idCtPrec = contratActif.getIdContratPrecedent();
+                while (idCtPrec != null) {
+                    ContratTravail ctPrec = new ContratTravail().rechercherParId(idCtPrec, c);
+                    if (ctPrec != null && ctPrec.getDateDebut() != null) {
+                        dateDebutInitiale = ctPrec.getDateDebut().toLocalDate();
+                        idCtPrec = ctPrec.getIdContratPrecedent();
+                    } else {
+                        break;
+                    }
+                }
+
+                long moisAnciennete = java.time.temporal.ChronoUnit.MONTHS.between(dateDebutInitiale,
+                        dateDebut.toLocalDate());
                 if (moisAnciennete < typeConge.getExigeAncienneteMinMois()) {
-                    throw new IllegalArgumentException("L'ancienneté requise pour le congé " + typeConge.getLibelle() + " est de " +
-                            typeConge.getExigeAncienneteMinMois() + " mois (" + moisAnciennete + " mois constatés). Dérogation RH requise.");
+                    throw new IllegalArgumentException(
+                            "L'ancienneté requise pour le congé " + typeConge.getLibelle() + " est de " +
+                                    typeConge.getExigeAncienneteMinMois() + " mois (" + moisAnciennete
+                                    + " mois constatés). Dérogation RH requise.");
                 }
             }
         }
@@ -160,15 +185,18 @@ public class DemandeConge extends ClassMere {
             int delaiCourt = getParamGlobalInt("DELAI_PREAVIS_COURT_JOURS", 2, c);
             int delaiLong = getParamGlobalInt("DELAI_PREAVIS_LONG_JOURS", 15, c);
 
-            int preavisRequis = (nbJoursDecomptes.compareTo(BigDecimal.valueOf(seuilLong)) > 0) ? delaiLong : delaiCourt;
+            int preavisRequis = (nbJoursDecomptes.compareTo(BigDecimal.valueOf(seuilLong)) > 0) ? delaiLong
+                    : delaiCourt;
 
             if (joursPreavis < preavisRequis) {
-                throw new IllegalArgumentException("Le préavis minimum requis pour cette demande est de " + preavisRequis + " jours (" +
+                throw new IllegalArgumentException("Le préavis minimum requis pour cette demande est de "
+                        + preavisRequis + " jours (" +
                         joursPreavis + " jours constatés). Vous devez solliciter une dérogation RH de préavis.");
             }
         }
 
-        // 6. Contrôle Maternité (98 jours standard, ou 119 jours si extension pathologique)
+        // 6. Contrôle Maternité (98 jours standard, ou 119 jours si extension
+        // pathologique)
         if ("MATERNITE".equals(typeConge.getCode())) {
             int dureeMaxStd = getParamGlobalInt("DUREE_MAX_MATERNITE_STANDARD_JOURS", 98, c);
             int dureeMaxPatho = getParamGlobalInt("DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS", 119, c);
@@ -177,14 +205,17 @@ public class DemandeConge extends ClassMere {
             if (nbJoursDecomptes.compareTo(BigDecimal.valueOf(maxPlafond)) > 0) {
                 throw new IllegalArgumentException("La durée maximale autorisée pour un congé maternité est de " +
                         maxPlafond + " jours (" + nbJoursDecomptes + "j demandés)." +
-                        (!extensionPathologiqueMaternite ? " Activez l'extension pathologique si un justificatif médical le justifie (119j max)." : ""));
+                        (!extensionPathologiqueMaternite
+                                ? " Activez l'extension pathologique si un justificatif médical le justifie (119j max)."
+                                : ""));
             }
         }
 
         // 7. Contrôle Pool Annuel Partagé 10j/an (Art. 88 : EXCEPTIONNEL + PATERNITE)
         if (typeConge.getIdPoolCongeAnnuel() != null) {
             int annee = dateDebut.toLocalDate().getYear();
-            List<VPoolCongeAnnuelConsommation> pools = VPoolCongeAnnuelConsommation.listParEmployeEtAnnee(idEmploye, annee, c);
+            List<VPoolCongeAnnuelConsommation> pools = VPoolCongeAnnuelConsommation.listParEmployeEtAnnee(idEmploye,
+                    annee, c);
             BigDecimal consommeActuel = BigDecimal.ZERO;
             for (VPoolCongeAnnuelConsommation p : pools) {
                 if (typeConge.getIdPoolCongeAnnuel().equals(p.getIdPool()) && p.getJoursConsommes() != null) {
@@ -193,13 +224,18 @@ public class DemandeConge extends ClassMere {
             }
             BigDecimal totalApresDemande = consommeActuel.add(nbJoursDecomptes);
             if (totalApresDemande.compareTo(BigDecimal.valueOf(10)) > 0 && !derogationSoldeNegatif) {
-                throw new IllegalArgumentException("Le quota du pool annuel des permissions exceptionnelles (10 jours/an Art. 88) est dépassé pour l'année " +
-                        annee + ". (Consommé: " + consommeActuel + "j, Demandé: " + nbJoursDecomptes + "j). Dérogation RH requise.");
+                throw new IllegalArgumentException(
+                        "Le quota du pool annuel des permissions exceptionnelles (10 jours/an Art. 88) est dépassé pour l'année "
+                                +
+                                annee + ". (Consommé: " + consommeActuel + "j, Demandé: " + nbJoursDecomptes
+                                + "j). Dérogation RH requise.");
             }
         }
 
-        // 8. Contrôle de non-chevauchement des dates avec une autre demande active du même salarié
-        String sqlOverlap = "SELECT dc.id_demande_conge, dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.moment_demi_journee, " +
+        // 8. Contrôle de non-chevauchement des dates avec une autre demande active du
+        // même salarié
+        String sqlOverlap = "SELECT dc.id_demande_conge, dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.moment_demi_journee, "
+                +
                 "tc.libelle AS libelle_conge, sc.code AS code_statut " +
                 "FROM demande_conge dc " +
                 "JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
@@ -217,7 +253,8 @@ public class DemandeConge extends ClassMere {
                 while (rsOverlap.next()) {
                     boolean otherDemi = rsOverlap.getBoolean("est_demi_journee");
                     String otherMoment = rsOverlap.getString("moment_demi_journee");
-                    // S'il s'agit de demi-journées complémentaires le même jour (ex: MATIN vs APRES_MIDI), on autorise
+                    // S'il s'agit de demi-journées complémentaires le même jour (ex: MATIN vs
+                    // APRES_MIDI), on autorise
                     if (this.estDemiJournee && otherDemi &&
                             this.dateDebut.equals(this.dateFin) &&
                             rsOverlap.getDate("date_debut").equals(this.dateDebut) &&
@@ -226,7 +263,8 @@ public class DemandeConge extends ClassMere {
                         continue;
                     }
 
-                    throw new IllegalArgumentException("Chevauchement détecté : l'employé a déjà une demande de congé (" +
+                    throw new IllegalArgumentException("Chevauchement détecté : l'employé a déjà une demande de congé ("
+                            +
                             rsOverlap.getString("libelle_conge") + " du " + rsOverlap.getDate("date_debut") + " au " +
                             rsOverlap.getDate("date_fin") + " - Statut: " + rsOverlap.getString("code_statut") +
                             ") couvrant cette période.");
@@ -236,13 +274,15 @@ public class DemandeConge extends ClassMere {
     }
 
     public String getStatutCode(Connection c) throws Exception {
-        if (idStatutDemandeConge == null) return "BROUILLON";
+        if (idStatutDemandeConge == null)
+            return "BROUILLON";
         RefStatutDemandeConge st = RefStatutDemandeConge.rechercherParId(idStatutDemandeConge, c);
         return st != null ? st.getCode() : "BROUILLON";
     }
 
     /**
-     * Valide la demande de congé, vérifie les soldes et génère le mouvement PRISE si applicable.
+     * Valide la demande de congé, vérifie les soldes et génère le mouvement PRISE
+     * si applicable.
      */
     public DemandeConge valider(Integer idValideur, Connection c) throws Exception {
         String statutCourant = getStatutCode(c);
@@ -255,19 +295,24 @@ public class DemandeConge extends ClassMere {
             throw new IllegalArgumentException("Type de congé non valide.");
         }
 
-        // Si le type de congé entame le solde acquis (ex: ANNUEL), vérifier le solde et générer le mouvement PRISE
+        // Si le type de congé entame le solde acquis (ex: ANNUEL), vérifier le solde et
+        // générer le mouvement PRISE
         if (typeConge.isDecompteSoldeAcquis()) {
             VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
-            BigDecimal soldeDisponible = solde != null && solde.getSoldeActuel() != null ? solde.getSoldeActuel() : BigDecimal.ZERO;
+            BigDecimal soldeDisponible = solde != null && solde.getSoldeActuel() != null ? solde.getSoldeActuel()
+                    : BigDecimal.ZERO;
             BigDecimal nouveauSolde = soldeDisponible.subtract(nbJoursDecomptes);
 
             if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0) {
                 if (!derogationSoldeNegatif) {
-                    throw new IllegalArgumentException("Solde de congé insuffisant (" + soldeDisponible + "j disponibles pour " + nbJoursDecomptes + "j demandés). Dérogation RH de solde négatif requise.");
+                    throw new IllegalArgumentException(
+                            "Solde de congé insuffisant (" + soldeDisponible + "j disponibles pour " + nbJoursDecomptes
+                                    + "j demandés). Dérogation RH de solde négatif requise.");
                 }
                 int plafondNegatif = getParamGlobalInt("PLAFOND_SOLDE_CONGE_NEGATIF", -10, c);
                 if (nouveauSolde.compareTo(BigDecimal.valueOf(plafondNegatif)) < 0) {
-                    throw new IllegalArgumentException("Le solde négatif maximal d'anticipation autorisé est de " + plafondNegatif + " jours (" + nouveauSolde + "j calculés).");
+                    throw new IllegalArgumentException("Le solde négatif maximal d'anticipation autorisé est de "
+                            + plafondNegatif + " jours (" + nouveauSolde + "j calculés).");
                 }
             }
 
@@ -285,7 +330,8 @@ public class DemandeConge extends ClassMere {
             int seuilFaible = getParamGlobalInt("SEUIL_ALERTE_SOLDE_CONGE_FAIBLE", 3, c);
             if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0) {
                 creerNotificationRh("SOLDE_CONGE_NEGATIF", "HAUTE", "Solde Négatif sous Dérogation",
-                        "Le solde de congé de l'employé est passé en négatif (" + nouveauSolde + "j) suite à une dérogation RH.",
+                        "Le solde de congé de l'employé est passé en négatif (" + nouveauSolde
+                                + "j) suite à une dérogation RH.",
                         "/conges/soldes", idEmploye, c);
             } else if (nouveauSolde.compareTo(BigDecimal.valueOf(seuilFaible)) <= 0) {
                 creerNotificationRh("SOLDE_CONGE_FAIBLE", "NORMALE", "Solde de Congé Faible",
@@ -297,7 +343,8 @@ public class DemandeConge extends ClassMere {
         // Trigger alerte POOL_EXCEPTIONNEL_EPUISE
         if (typeConge.getIdPoolCongeAnnuel() != null) {
             int annee = dateDebut.toLocalDate().getYear();
-            List<VPoolCongeAnnuelConsommation> pools = VPoolCongeAnnuelConsommation.listParEmployeEtAnnee(idEmploye, annee, c);
+            List<VPoolCongeAnnuelConsommation> pools = VPoolCongeAnnuelConsommation.listParEmployeEtAnnee(idEmploye,
+                    annee, c);
             BigDecimal consomme = BigDecimal.ZERO;
             for (VPoolCongeAnnuelConsommation p : pools) {
                 if (typeConge.getIdPoolCongeAnnuel().equals(p.getIdPool()) && p.getJoursConsommes() != null) {
@@ -306,7 +353,8 @@ public class DemandeConge extends ClassMere {
             }
             if (consomme.compareTo(BigDecimal.valueOf(10)) >= 0) {
                 creerNotificationRh("POOL_EXCEPTIONNEL_EPUISE", "HAUTE", "Quota Pool 10j/an Atteint",
-                        "Le quota annuel de 10 jours de permissions exceptionnelles (Art. 88) pour l'année " + annee + " est épuisé pour cet employé.",
+                        "Le quota annuel de 10 jours de permissions exceptionnelles (Art. 88) pour l'année " + annee
+                                + " est épuisé pour cet employé.",
                         "/conges/soldes", idEmploye, c);
             }
         }
@@ -347,7 +395,8 @@ public class DemandeConge extends ClassMere {
     }
 
     /**
-     * Annule une demande de congé. Si elle était validée et imputait le solde, génère le mouvement ANNULATION (crédit).
+     * Annule une demande de congé. Si elle était validée et imputait le solde,
+     * génère le mouvement ANNULATION (crédit).
      */
     public DemandeConge annuler(Integer idUtilisateur, Connection c) throws Exception {
         String statutCourant = getStatutCode(c);
@@ -357,7 +406,8 @@ public class DemandeConge extends ClassMere {
 
         RefTypeConge typeConge = RefTypeConge.rechercherParId(idTypeConge, c);
 
-        // Si la demande était VALIDÉE et imputait le solde acquis, générer un mouvement de restitution (ANNULATION)
+        // Si la demande était VALIDÉE et imputait le solde acquis, générer un mouvement
+        // de restitution (ANNULATION)
         if ("VALIDE".equals(statutCourant) && typeConge != null && typeConge.isDecompteSoldeAcquis()) {
             MouvementSoldeConge annulation = new MouvementSoldeConge();
             annulation.setIdEmploye(idEmploye);
@@ -378,8 +428,10 @@ public class DemandeConge extends ClassMere {
         return (DemandeConge) this.update(c);
     }
 
-    public static void creerNotificationRh(String typeAlerte, String priorite, String titre, String message, String lien, Integer idEmploye, Connection c) {
-        String sql = "INSERT INTO notification_rh (type_alerte, priorite, titre, message, lien, id_employe_concerne, est_lue, date_creation) " +
+    public static void creerNotificationRh(String typeAlerte, String priorite, String titre, String message,
+            String lien, Integer idEmploye, Connection c) {
+        String sql = "INSERT INTO notification_rh (type_alerte, priorite, titre, message, lien, id_employe_concerne, est_lue, date_creation) "
+                +
                 "VALUES (?, ?, ?, ?, ?, ?, FALSE, CURRENT_TIMESTAMP)";
         java.sql.Savepoint sp = null;
         try {
@@ -392,8 +444,10 @@ public class DemandeConge extends ClassMere {
                 ps.setString(3, titre);
                 ps.setString(4, message);
                 ps.setString(5, lien);
-                if (idEmploye != null) ps.setInt(6, idEmploye);
-                else ps.setNull(6, Types.INTEGER);
+                if (idEmploye != null)
+                    ps.setInt(6, idEmploye);
+                else
+                    ps.setNull(6, Types.INTEGER);
                 ps.executeUpdate();
             }
             if (sp != null) {
@@ -401,7 +455,10 @@ public class DemandeConge extends ClassMere {
             }
         } catch (Exception e) {
             if (sp != null && c != null) {
-                try { c.rollback(sp); } catch (Exception ignored) {}
+                try {
+                    c.rollback(sp);
+                } catch (Exception ignored) {
+                }
             }
             System.err.println("[DemandeConge] Impossible de créer la notification RH : " + e.getMessage());
         }
@@ -411,7 +468,8 @@ public class DemandeConge extends ClassMere {
         try {
             Map<String, String> map = ParametreGlobal.loadActiveMap(c);
             return ParametreGlobal.getInt(map, code, defaultValue);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return defaultValue;
     }
 
@@ -501,12 +559,14 @@ public class DemandeConge extends ClassMere {
 
     @Override
     public ClassMere rechercherParId(String id, Connection c) throws Exception {
-        if (id == null || id.isBlank()) return null;
+        if (id == null || id.isBlank())
+            return null;
         return rechercherParId(Integer.parseInt(id), c);
     }
 
     public static DemandeConge rechercherParId(Integer id, Connection c) throws Exception {
-        if (id == null) return null;
+        if (id == null)
+            return null;
         String sql = "SELECT * FROM demande_conge WHERE id_demande_conge = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
@@ -521,7 +581,8 @@ public class DemandeConge extends ClassMere {
 
     public static List<DemandeConge> listParEmploye(Integer idEmploye, Connection c) throws Exception {
         List<DemandeConge> list = new ArrayList<>();
-        if (idEmploye == null) return list;
+        if (idEmploye == null)
+            return list;
         String sql = "SELECT * FROM demande_conge WHERE id_employe = ? ORDER BY date_debut DESC, created_at DESC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
@@ -562,18 +623,24 @@ public class DemandeConge extends ClassMere {
     }
 
     private static void setNullableInt(PreparedStatement ps, int index, Integer value) throws Exception {
-        if (value != null) ps.setInt(index, value);
-        else ps.setNull(index, Types.INTEGER);
+        if (value != null)
+            ps.setInt(index, value);
+        else
+            ps.setNull(index, Types.INTEGER);
     }
 
     private static void setNullableString(PreparedStatement ps, int index, String value) throws Exception {
-        if (value != null && !value.isBlank()) ps.setString(index, value.trim());
-        else ps.setNull(index, Types.VARCHAR);
+        if (value != null && !value.isBlank())
+            ps.setString(index, value.trim());
+        else
+            ps.setNull(index, Types.VARCHAR);
     }
 
     private static void setNullableTimestamp(PreparedStatement ps, int index, Timestamp value) throws Exception {
-        if (value != null) ps.setTimestamp(index, value);
-        else ps.setNull(index, Types.TIMESTAMP);
+        if (value != null)
+            ps.setTimestamp(index, value);
+        else
+            ps.setNull(index, Types.TIMESTAMP);
     }
 
     private static Integer getNullableIntFromRs(ResultSet rs, String colName) throws Exception {
@@ -582,69 +649,179 @@ public class DemandeConge extends ClassMere {
     }
 
     // Getters / Setters
-    public Integer getIdDemandeConge() { return idDemandeConge; }
-    public void setIdDemandeConge(Integer idDemandeConge) { this.idDemandeConge = idDemandeConge; }
+    public Integer getIdDemandeConge() {
+        return idDemandeConge;
+    }
 
-    public Integer getIdEmploye() { return idEmploye; }
-    public void setIdEmploye(Integer idEmploye) { this.idEmploye = idEmploye; }
+    public void setIdDemandeConge(Integer idDemandeConge) {
+        this.idDemandeConge = idDemandeConge;
+    }
 
-    public Integer getIdTypeConge() { return idTypeConge; }
-    public void setIdTypeConge(Integer idTypeConge) { this.idTypeConge = idTypeConge; }
+    public Integer getIdEmploye() {
+        return idEmploye;
+    }
 
-    public Integer getIdStatutDemandeConge() { return idStatutDemandeConge; }
-    public void setIdStatutDemandeConge(Integer idStatutDemandeConge) { this.idStatutDemandeConge = idStatutDemandeConge; }
+    public void setIdEmploye(Integer idEmploye) {
+        this.idEmploye = idEmploye;
+    }
 
-    public Integer getIdMotifEvenementFamilial() { return idMotifEvenementFamilial; }
-    public void setIdMotifEvenementFamilial(Integer idMotifEvenementFamilial) { this.idMotifEvenementFamilial = idMotifEvenementFamilial; }
+    public Integer getIdTypeConge() {
+        return idTypeConge;
+    }
 
-    public Date getDateDebut() { return dateDebut; }
-    public void setDateDebut(Date dateDebut) { this.dateDebut = dateDebut; }
+    public void setIdTypeConge(Integer idTypeConge) {
+        this.idTypeConge = idTypeConge;
+    }
 
-    public Date getDateFin() { return dateFin; }
-    public void setDateFin(Date dateFin) { this.dateFin = dateFin; }
+    public Integer getIdStatutDemandeConge() {
+        return idStatutDemandeConge;
+    }
 
-    public Date getDateDemande() { return dateDemande; }
-    public void setDateDemande(Date dateDemande) { this.dateDemande = dateDemande; }
+    public void setIdStatutDemandeConge(Integer idStatutDemandeConge) {
+        this.idStatutDemandeConge = idStatutDemandeConge;
+    }
 
-    public BigDecimal getNbJoursDecomptes() { return nbJoursDecomptes; }
-    public void setNbJoursDecomptes(BigDecimal nbJoursDecomptes) { this.nbJoursDecomptes = nbJoursDecomptes; }
+    public Integer getIdMotifEvenementFamilial() {
+        return idMotifEvenementFamilial;
+    }
 
-    public boolean isDerogationSoldeNegatif() { return derogationSoldeNegatif; }
-    public void setDerogationSoldeNegatif(boolean derogationSoldeNegatif) { this.derogationSoldeNegatif = derogationSoldeNegatif; }
+    public void setIdMotifEvenementFamilial(Integer idMotifEvenementFamilial) {
+        this.idMotifEvenementFamilial = idMotifEvenementFamilial;
+    }
 
-    public boolean isDerogationDelaiPreavis() { return derogationDelaiPreavis; }
-    public void setDerogationDelaiPreavis(boolean derogationDelaiPreavis) { this.derogationDelaiPreavis = derogationDelaiPreavis; }
+    public Date getDateDebut() {
+        return dateDebut;
+    }
 
-    public boolean isExtensionPathologiqueMaternite() { return extensionPathologiqueMaternite; }
-    public void setExtensionPathologiqueMaternite(boolean extensionPathologiqueMaternite) { this.extensionPathologiqueMaternite = extensionPathologiqueMaternite; }
+    public void setDateDebut(Date dateDebut) {
+        this.dateDebut = dateDebut;
+    }
 
-    public boolean isEstDemiJournee() { return estDemiJournee; }
-    public void setEstDemiJournee(boolean estDemiJournee) { this.estDemiJournee = estDemiJournee; }
+    public Date getDateFin() {
+        return dateFin;
+    }
 
-    public String getMomentDemiJournee() { return momentDemiJournee; }
-    public void setMomentDemiJournee(String momentDemiJournee) { this.momentDemiJournee = momentDemiJournee; }
+    public void setDateFin(Date dateFin) {
+        this.dateFin = dateFin;
+    }
 
-    public boolean isJustificatifFourni() { return justificatifFourni; }
-    public void setJustificatifFourni(boolean justificatifFourni) { this.justificatifFourni = justificatifFourni; }
+    public Date getDateDemande() {
+        return dateDemande;
+    }
 
-    public String getCommentaire() { return commentaire; }
-    public void setCommentaire(String commentaire) { this.commentaire = commentaire; }
+    public void setDateDemande(Date dateDemande) {
+        this.dateDemande = dateDemande;
+    }
 
-    public Integer getSaisiPar() { return saisiPar; }
-    public void setSaisiPar(Integer saisiPar) { this.saisiPar = saisiPar; }
+    public BigDecimal getNbJoursDecomptes() {
+        return nbJoursDecomptes;
+    }
 
-    public Integer getValidePar() { return validePar; }
-    public void setValidePar(Integer validePar) { this.validePar = validePar; }
+    public void setNbJoursDecomptes(BigDecimal nbJoursDecomptes) {
+        this.nbJoursDecomptes = nbJoursDecomptes;
+    }
 
-    public Timestamp getDateValidation() { return dateValidation; }
-    public void setDateValidation(Timestamp dateValidation) { this.dateValidation = dateValidation; }
+    public boolean isDerogationSoldeNegatif() {
+        return derogationSoldeNegatif;
+    }
 
-    public String getMotifRefus() { return motifRefus; }
-    public void setMotifRefus(String motifRefus) { this.motifRefus = motifRefus; }
+    public void setDerogationSoldeNegatif(boolean derogationSoldeNegatif) {
+        this.derogationSoldeNegatif = derogationSoldeNegatif;
+    }
 
-    public Timestamp getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }
+    public boolean isDerogationDelaiPreavis() {
+        return derogationDelaiPreavis;
+    }
 
-    public Timestamp getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Timestamp updatedAt) { this.updatedAt = updatedAt; }
+    public void setDerogationDelaiPreavis(boolean derogationDelaiPreavis) {
+        this.derogationDelaiPreavis = derogationDelaiPreavis;
+    }
+
+    public boolean isExtensionPathologiqueMaternite() {
+        return extensionPathologiqueMaternite;
+    }
+
+    public void setExtensionPathologiqueMaternite(boolean extensionPathologiqueMaternite) {
+        this.extensionPathologiqueMaternite = extensionPathologiqueMaternite;
+    }
+
+    public boolean isEstDemiJournee() {
+        return estDemiJournee;
+    }
+
+    public void setEstDemiJournee(boolean estDemiJournee) {
+        this.estDemiJournee = estDemiJournee;
+    }
+
+    public String getMomentDemiJournee() {
+        return momentDemiJournee;
+    }
+
+    public void setMomentDemiJournee(String momentDemiJournee) {
+        this.momentDemiJournee = momentDemiJournee;
+    }
+
+    public boolean isJustificatifFourni() {
+        return justificatifFourni;
+    }
+
+    public void setJustificatifFourni(boolean justificatifFourni) {
+        this.justificatifFourni = justificatifFourni;
+    }
+
+    public String getCommentaire() {
+        return commentaire;
+    }
+
+    public void setCommentaire(String commentaire) {
+        this.commentaire = commentaire;
+    }
+
+    public Integer getSaisiPar() {
+        return saisiPar;
+    }
+
+    public void setSaisiPar(Integer saisiPar) {
+        this.saisiPar = saisiPar;
+    }
+
+    public Integer getValidePar() {
+        return validePar;
+    }
+
+    public void setValidePar(Integer validePar) {
+        this.validePar = validePar;
+    }
+
+    public Timestamp getDateValidation() {
+        return dateValidation;
+    }
+
+    public void setDateValidation(Timestamp dateValidation) {
+        this.dateValidation = dateValidation;
+    }
+
+    public String getMotifRefus() {
+        return motifRefus;
+    }
+
+    public void setMotifRefus(String motifRefus) {
+        this.motifRefus = motifRefus;
+    }
+
+    public Timestamp getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Timestamp createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Timestamp getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Timestamp updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 }

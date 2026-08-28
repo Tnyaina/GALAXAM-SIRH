@@ -19,9 +19,11 @@ const formatDate = (timestamp) => {
 const getStatusBadgeVariant = (statut) => {
   switch (statut) {
     case 'VALIDE': return 'success';
-    case 'REFUSE': return 'danger';
+    case 'REFUSE': 
+    case 'REJETE': return 'danger';
     case 'EN_ATTENTE': return 'warning';
-    case 'ANNULE': return 'info';
+    case 'ANNULE': return 'neutral';
+    case 'BROUILLON': return 'info';
     default: return 'brand';
   }
 };
