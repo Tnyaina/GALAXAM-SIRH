@@ -17,8 +17,9 @@ export default function PointagePeriodeBanner({
                     <span>Aucune période de paie n'est configurée pour cette date ({selectedDate}). La sauvegarde sera bloquée.</span>
                 </div>
                 {isAdmin && (
-                    <Link to="/pointages/periodes" className="font-bold underline hover:text-amber-900 shrink-0">
-                        Gérer les périodes ➔
+                    <Link to="/pointages/periodes" className="font-bold underline hover:text-amber-900 shrink-0 inline-flex items-center gap-1">
+                        <span>Gérer les périodes</span>
+                        <ArrowRight size={13} className="shrink-0" />
                     </Link>
                 )}
             </div>

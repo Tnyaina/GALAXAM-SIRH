@@ -267,6 +267,7 @@ INSERT INTO ref_type_evenement_rh (code, libelle) VALUES
     ('RUPTURE_CONVENTIONNELLE', 'Rupture conventionnelle'),
     ('DEPART_RETRAITE', 'Départ à la retraite'),
     ('REPRISE_CONSULTANT', 'Embauche d un retraité comme consultant'),
+    ('REPRISE_ANCIENNETE', 'Réintégration / Reprise d ancienneté'),
     ('FIN_CONTRAT', 'Fin de contrat / Sortie de l effectif')
 ON CONFLICT (code) DO NOTHING;
 

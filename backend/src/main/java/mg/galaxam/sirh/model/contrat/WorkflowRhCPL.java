@@ -304,10 +304,62 @@ public class WorkflowRhCPL {
     public Date getDateFinAffectation() { return dateFinAffectation; }
     public String getLibelleStatutAffectation() { return libelleStatutAffectation; }
 
-    // ─── Helpers Statuts (Flags sérialisés pour le frontend) ─────────────────
+    // ─── Helpers Statuts & Nature (Flags sérialisés pour le frontend) ───────
     public boolean isBrouillon() { return "BROUILLON".equals(codeStatutWorkflow); }
     public boolean isPlanifie()  { return "PLANIFIE".equals(codeStatutWorkflow); }
-    public boolean isActif()     { return "ACTIF".equals(codeStatutWorkflow); }
+    public boolean isActif()     { return "ACTIF".equals(codeStatutWorkflow) || "VALIDE".equals(codeStatutWorkflow); }
     public boolean isAnnule()    { return "ANNULE".equals(codeStatutWorkflow); }
     public boolean isEnAttente() { return isBrouillon() || isPlanifie(); }
+    public boolean isModifiable() { return isBrouillon(); }
+    public boolean isAnnulable() { return isBrouillon() || isPlanifie(); }
+
+    public boolean isEmbauche() {
+        return "EMBAUCHE_INITIALE".equals(codeTypeEvenement) || "REPRISE_ANCIENNETE".equals(codeTypeEvenement);
+    }
+
+    public boolean isEssai() {
+        return "CONFIRMATION_ESSAI".equals(codeTypeEvenement) || "RENOUVELLEMENT_ESSAI".equals(codeTypeEvenement);
+    }
+
+    public boolean isConfirmationEssai() {
+        return "CONFIRMATION_ESSAI".equals(codeTypeEvenement);
+    }
+
+    public boolean isRenouvellementEssai() {
+        return "RENOUVELLEMENT_ESSAI".equals(codeTypeEvenement);
+    }
+
+    public boolean isRenouvellementCdd() {
+        return "RENOUVELLEMENT_CDD".equals(codeTypeEvenement);
+    }
+
+    public boolean isRupture() {
+        if (codeTypeEvenement == null) return false;
+        return switch (codeTypeEvenement) {
+            case "FIN_CONTRAT", "DEMISSION", "LICENCIEMENT", "RUPTURE_CONVENTIONNELLE",
+                 "RUPTURE_ESSAI_EMPLOYEUR", "RUPTURE_ESSAI_SALARIE" -> true;
+            default -> false;
+        };
+    }
+
+    public boolean isAvenant() {
+        if (codeTypeEvenement == null) return false;
+        return switch (codeTypeEvenement) {
+            case "MUTATION", "PROMOTION", "AUGMENTATION", "REVALORISATION", "AJUSTEMENT_POSTE" -> true;
+            default -> false;
+        };
+    }
+
+    public boolean isExigeNouveauContrat() {
+        if (codeTypeEvenement == null) return false;
+        return switch (codeTypeEvenement) {
+            case "TRANSFORMATION_CDI", "RENOUVELLEMENT_CDD", "EMBAUCHE_APRES_STAGE", "REPRISE_CONSULTANT", "EMBAUCHE_INITIALE", "REPRISE_ANCIENNETE" -> true;
+            default -> false;
+        };
+    }
+
+    public boolean isAutorisePeriodeEssai() {
+        if (codeTypeEvenement == null) return false;
+        return isExigeNouveauContrat() && !"RENOUVELLEMENT_CDD".equals(codeTypeEvenement);
+    }
 }

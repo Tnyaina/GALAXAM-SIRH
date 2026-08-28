@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import { Textarea } from '@/components/ui/forms/Input';
 import contratService from '@/api/employe/contratService';
 import {
@@ -30,11 +31,12 @@ export default function RecapitulatifBrouillonModal({
     isOpen,
     onClose,
     workflowCpl,
+    initialCancelMode = false,
     onEdit,
     onActionSuccess,
 }) {
     const [activeWf, setActiveWf] = useState(workflowCpl);
-    const [isCancelling, setIsCancelling] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(Boolean(initialCancelMode));
     const [commentaireValidation, setCommentaireValidation] = useState('');
     const [motifAnnulation, setMotifAnnulation] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -42,11 +44,11 @@ export default function RecapitulatifBrouillonModal({
 
     useEffect(() => {
         setActiveWf(workflowCpl);
-        setIsCancelling(false);
+        setIsCancelling(Boolean(initialCancelMode));
         setErrorMsg('');
         setCommentaireValidation('');
         setMotifAnnulation('');
-    }, [workflowCpl]);
+    }, [workflowCpl, initialCancelMode]);
 
     const currentWf = activeWf || workflowCpl;
 
@@ -137,7 +139,6 @@ export default function RecapitulatifBrouillonModal({
     const isBrouillon = currentWf.isBrouillon ?? (currentWf.codeStatutWorkflow === 'BROUILLON');
     const isPlanifie = currentWf.isPlanifie ?? (currentWf.codeStatutWorkflow === 'PLANIFIE');
     const isActif = currentWf.isActif ?? (currentWf.codeStatutWorkflow === 'ACTIF' || currentWf.codeStatutWorkflow === 'VALIDE');
-    const isAnnule = currentWf.isAnnule ?? (currentWf.codeStatutWorkflow === 'ANNULE');
 
     const {
         isEmbauche, isConfirmation: isConfirmationEssai,
@@ -147,14 +148,6 @@ export default function RecapitulatifBrouillonModal({
 
     const getDateFinEssaiContextuelle = () => calculerDateFinEssaiContextuelle(currentWf);
     const isPlanifieFutur = isPlanifie;
-
-    const getStatutBadgeVariant = (code) => {
-        if (code === 'ACTIF' || code === 'VALIDE') return 'success';
-        if (code === 'PLANIFIE') return 'info';
-        if (code === 'ANNULE' || code === 'ROMPU') return 'danger';
-        if (code === 'BROUILLON') return 'warning';
-        return 'default';
-    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto">
@@ -171,9 +164,11 @@ export default function RecapitulatifBrouillonModal({
                                 <h2 className="font-bold text-base text-ink-900 dark:text-white">
                                     {isBrouillon ? eventTitle : 'Détail de l\'Événement RH'}
                                 </h2>
-                                <Badge variant={getStatutBadgeVariant(currentWf.codeStatutWorkflow)} size="sm">
-                                    {currentWf.libelleStatutWorkflow || currentWf.codeStatutWorkflow || 'BROUILLON'}
-                                </Badge>
+                                <StatusBadge
+                                    status={currentWf.codeStatutWorkflow}
+                                    label={currentWf.libelleStatutWorkflow}
+                                    size="sm"
+                                />
                             </div>
                             <p className="text-xs text-ink-400">
                                 Contrat N° <span className="font-mono font-bold text-brand-500">{currentWf.numeroContratCible || currentWf.numeroContratSource || 'Nouveau'}</span> — {currentWf.nomPrenomEmploye} ({currentWf.matriculeEmploye})
@@ -240,15 +235,26 @@ export default function RecapitulatifBrouillonModal({
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-danger-500/10 border border-danger-500/20 p-4 rounded-none flex items-start gap-3">
+                        <div className="bg-danger-500/10 border border-danger-500/30 p-4 rounded-none flex items-start gap-3">
                             <XCircle size={18} className="text-danger-600 flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
                                 <p className="font-bold text-danger-700 dark:text-danger-400">
-                                    Événement RH annulé
+                                    Mouvement RH Annulé / Rejeté
                                 </p>
-                                <p className="text-ink-500 dark:text-ink-300">
-                                    Ce mouvement RH a été annulé et n'a produit aucun effet contractuel.
+                                <p className="text-ink-600 dark:text-ink-300">
+                                    {currentWf.commentaire || currentWf.motif ? (
+                                        <>
+                                            <span className="font-semibold text-danger-600 dark:text-danger-400">Motif :</span> {currentWf.commentaire || currentWf.motif}
+                                        </>
+                                    ) : (
+                                        "Ce mouvement RH a été annulé et n'a produit aucun effet contractuel."
+                                    )}
                                 </p>
+                                {currentWf.updatedAt && (
+                                    <p className="text-[11px] text-ink-400 font-mono">
+                                        Annulé le {fmtDate(currentWf.updatedAt)}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )}
@@ -399,7 +405,7 @@ export default function RecapitulatifBrouillonModal({
                 {/* Footer Actions */}
                 {isBrouillon ? (
                     !isCancelling && (
-                        <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center gap-3">
+                        <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex flex-wrap justify-between items-center gap-3">
                             <Button
                                 type="button"
                                 onClick={() => setIsCancelling(true)}
@@ -411,6 +417,20 @@ export default function RecapitulatifBrouillonModal({
                             </Button>
 
                             <div className="flex items-center gap-3">
+                                {onEdit && (
+                                    <Button
+                                        type="button"
+                                        onClick={() => {
+                                            onClose();
+                                            onEdit(currentWf);
+                                        }}
+                                        variant="outline"
+                                        size="md"
+                                        iconLeft={<Edit2 size={16} />}
+                                    >
+                                        Corriger les données
+                                    </Button>
+                                )}
 
                                 <Button
                                     type="button"

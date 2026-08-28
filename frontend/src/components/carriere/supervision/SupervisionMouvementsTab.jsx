@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, memo } from 'react';
-import { Search, ArrowRight, TrendingUp, RefreshCw, Layers } from 'lucide-react';
+import { Search, RefreshCw, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import contratService from '@/api/employe/contratService';
 import organisationService from '@/api/admin/organisationService';
@@ -91,16 +91,6 @@ function SupervisionMouvementsTab() {
             case 'FIN_CONTRAT': return 'danger';
             default: return 'default';
         }
-    };
-
-    const getStatutBadgeVariant = (code, dateEffet) => {
-        if (code === 'VALIDE') {
-            if (dateEffet && new Date(dateEffet) > new Date()) return 'primary'; // Planifié
-            return 'success';
-        }
-        if (code === 'BROUILLON') return 'default';
-        if (code === 'ANNULE') return 'danger';
-        return 'default';
     };
 
     const hasActiveFilters = Boolean(searchQuery || selectedTypeEvenement !== 'ALL' || selectedStatut !== 'ALL' || selectedSite);
@@ -215,6 +205,7 @@ function SupervisionMouvementsTab() {
                                 <th className="py-3 px-4">Date d'Effet</th>
                                 <th className="py-3 px-4">Collaborateur</th>
                                 <th className="py-3 px-4">Type de Mouvement</th>
+                                <th className="py-3 px-4">Type &amp; N° Contrat</th>
                                 <th className="py-3 px-4">Poste &amp; Affectation</th>
                                 <th className="py-3 px-4">Rémunération</th>
                                 <th className="py-3 px-4">Statut</th>
@@ -224,7 +215,9 @@ function SupervisionMouvementsTab() {
                         <tbody className="divide-y divide-[var(--color-border-subtle)] text-[var(--color-fg)]">
                             {workflows.map((wf) => {
                                 const isFuture = wf.dateEffet && new Date(wf.dateEffet) > new Date();
-                                const isPlanifie = (wf.isPlanifie ?? (wf.codeStatutWorkflow === 'PLANIFIE')) || (isFuture && wf.codeStatutWorkflow !== 'ANNULE');
+                                const isAnnule = Boolean(wf.isAnnule);
+                                const isPlanifie = Boolean(wf.isPlanifie) || (isFuture && !isAnnule);
+                                const motifAnnulation = wf.motif || wf.commentaire;
 
                                 return (
                                     <tr key={wf.idWorkflow} className="hover:bg-[var(--color-bg-subtle)]/50 transition-colors">
@@ -243,7 +236,7 @@ function SupervisionMouvementsTab() {
                                         {/* Collaborateur */}
                                         <td className="py-3.5 px-4">
                                             <div className="flex items-center gap-2.5">
-                                                <div className="w-7 h-7 bg-[var(--color-fg)] text-[var(--color-surface)] font-bold flex items-center justify-center text-[11px] shrink-0">
+                                                <div className="w-7 h-7 bg-brand-500 text-white font-bold flex items-center justify-center text-[11px] shrink-0 rounded-none shadow-xs">
                                                     {wf.nomPrenomEmploye?.charAt(0) || 'E'}
                                                 </div>
                                                 <div className="min-w-0">
@@ -262,11 +255,25 @@ function SupervisionMouvementsTab() {
                                             <Badge variant={getEventBadgeVariant(wf.codeTypeEvenement)} size="xs">
                                                 {wf.libelleTypeEvenement || wf.codeTypeEvenement}
                                             </Badge>
-                                            {wf.motif && (
+                                            {wf.motif && !isAnnule && (
                                                 <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5 truncate max-w-[180px]">
                                                     {wf.motif}
                                                 </div>
                                             )}
+                                        </td>
+
+                                        {/* Type & N° Contrat */}
+                                        <td className="py-3.5 px-4">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                {wf.libelleTypeContrat && (
+                                                    <Badge variant={getEventBadgeVariant(wf.libelleTypeContrat)} size="xs">
+                                                        {wf.libelleTypeContrat}
+                                                    </Badge>
+                                                )}
+                                                <span className="font-mono font-bold text-[var(--color-brand-600)]">
+                                                    {wf.numeroContratCible || wf.numeroContratSource || '—'}
+                                                </span>
+                                            </div>
                                         </td>
 
                                         {/* Poste & Affectation */}
@@ -293,6 +300,11 @@ function SupervisionMouvementsTab() {
                                         {/* Statut */}
                                         <td className="py-3.5 px-4">
                                             <StatusBadge status={wf.codeStatutWorkflow} label={wf.libelleStatutWorkflow} size="xs" />
+                                            {isAnnule && motifAnnulation && (
+                                                <div className="text-[10px] text-danger-500 font-normal mt-0.5 max-w-[180px] truncate" title={`Motif : ${motifAnnulation}`}>
+                                                    Motif : {motifAnnulation}
+                                                </div>
+                                            )}
                                         </td>
 
                                         {/* Actions */}
@@ -300,7 +312,7 @@ function SupervisionMouvementsTab() {
                                             <Button
                                                 variant="outline"
                                                 size="xs"
-                                                onClick={() => navigate(`/employes/${wf.idEmploye}?tab=carriere`)}
+                                                onClick={() => navigate(`/employes/${wf.idEmploye}?tab=carriere${wf.idWorkflow ? `&wf=${wf.idWorkflow}` : ''}`)}
                                             >
                                                 Fiche Carrière
                                             </Button>
@@ -315,13 +327,10 @@ function SupervisionMouvementsTab() {
 
             {/* Pagination */}
             {totalElements > pageSize && (
-                <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] flex justify-between items-center">
-                    <span className="text-xs text-[var(--color-fg-muted)]">
-                        Page {currentPage} sur {Math.ceil(totalElements / pageSize)}
-                    </span>
+                <div className="border border-[var(--color-border-subtle)]">
                     <Pagination
                         currentPage={currentPage}
-                        totalElements={totalElements}
+                        totalItems={totalElements}
                         pageSize={pageSize}
                         onPageChange={setCurrentPage}
                     />

@@ -149,8 +149,11 @@ export function useCarriereModals({
         }
     };
 
-    const handleSelectWorkflowRecap = (wf) => {
+    const [isRecapCancelMode, setIsRecapCancelMode] = useState(false);
+
+    const handleSelectWorkflowRecap = (wf, { startInCancelMode = false } = {}) => {
         setSelectedWfModal(wf);
+        setIsRecapCancelMode(startInCancelMode);
         setIsRecapModalOpen(true);
     };
 
@@ -223,6 +226,7 @@ export function useCarriereModals({
         isEmbaucheModalOpen, setIsEmbaucheModalOpen,
         isTransitionModalOpen, setIsTransitionModalOpen,
         isRecapModalOpen, setIsRecapModalOpen,
+        isRecapCancelMode, setIsRecapCancelMode,
         isConfirmationModalOpen, setIsConfirmationModalOpen,
         isRenouvellementModalOpen, setIsRenouvellementModalOpen,
         isRuptureModalOpen, setIsRuptureModalOpen,

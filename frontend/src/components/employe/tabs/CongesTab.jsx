@@ -3,6 +3,7 @@ import { Calendar, Plus, RefreshCw } from 'lucide-react';
 import congeService from '@/api/congeService';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import Alert from '@/components/ui/feedback/Alert';
 import Loading from '@/components/ui/feedback/Loading';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
@@ -223,21 +224,12 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
                           )}
                         </Td>
                         <Td>
-                          <Badge
-                            variant={
-                              d.codeStatutDemande === 'VALIDE'
-                                ? 'success'
-                                : d.codeStatutDemande === 'REFUSE'
-                                ? 'danger'
-                                : d.codeStatutDemande === 'ANNULE'
-                                ? 'default'
-                                : 'warning'
-                            }
-                            size="sm"
-                          >
-                            {d.libelleStatutDemande}
-                          </Badge>
-                          {d.codeStatutDemande === 'REFUSE' && d.motifRefus && (
+                          <StatusBadge
+                            status={d.codeStatutDemande}
+                            label={d.libelleStatutDemande}
+                            size="xs"
+                          />
+                          {(d.isRefuse || d.codeStatutDemande === 'REFUSE') && d.motifRefus && (
                             <div className="text-[11px] text-danger-500 font-medium mt-1 max-w-xs leading-tight" title={d.motifRefus}>
                               Motif : {d.motifRefus}
                             </div>
@@ -266,7 +258,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
                           )}
                         </Td>
                         <Td className="text-right">
-                          {canWrite && (d.codeStatutDemande === 'EN_ATTENTE' || d.codeStatutDemande === 'BROUILLON') && (
+                          {canWrite && Boolean(d.isModifiable ?? (d.codeStatutDemande === 'EN_ATTENTE' || d.codeStatutDemande === 'BROUILLON')) && (
                             <Button
                               variant="ghost"
                               size="xs"
@@ -276,7 +268,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
                               Modifier
                             </Button>
                           )}
-                          {canWrite && (d.codeStatutDemande === 'EN_ATTENTE' || d.codeStatutDemande === 'BROUILLON') && (
+                          {canWrite && Boolean(d.isAnnulable ?? (d.codeStatutDemande === 'EN_ATTENTE' || d.codeStatutDemande === 'BROUILLON')) && (
                             <Button
                               variant="ghost"
                               size="xs"

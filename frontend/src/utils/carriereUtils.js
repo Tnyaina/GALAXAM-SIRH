@@ -81,27 +81,45 @@ export function calculerDateFinEssai(dateDebutStr, dureeMoisStr) {
 
 // ─── Identification des Événements RH ──────────────────────────────────────
 
-export function isEmbaucheEvent(codeTypeEvenement) {
-    if (!codeTypeEvenement) return false;
-    const upper = String(codeTypeEvenement).toUpperCase();
-    return upper === 'EMBAUCHE_INITIALE' || upper === 'EMBAUCHE';
+export function isEmbaucheEvent(wfOrCode) {
+    if (!wfOrCode) return false;
+    if (typeof wfOrCode === 'object') {
+        if (wfOrCode.isEmbauche !== undefined) return wfOrCode.isEmbauche;
+        return isEmbaucheEvent(wfOrCode.codeTypeEvenement);
+    }
+    const upper = String(wfOrCode).toUpperCase();
+    return upper === 'EMBAUCHE_INITIALE' || upper === 'EMBAUCHE' || upper === 'REPRISE_ANCIENNETE';
 }
 
-export function isConfirmationEssaiEvent(codeTypeEvenement) {
-    return codeTypeEvenement === 'CONFIRMATION_ESSAI';
+export function isConfirmationEssaiEvent(wfOrCode) {
+    if (!wfOrCode) return false;
+    if (typeof wfOrCode === 'object') {
+        if (wfOrCode.isConfirmationEssai !== undefined) return wfOrCode.isConfirmationEssai;
+        return isConfirmationEssaiEvent(wfOrCode.codeTypeEvenement);
+    }
+    return String(wfOrCode).toUpperCase() === 'CONFIRMATION_ESSAI';
 }
 
-export function isRenouvellementEssaiEvent(codeTypeEvenement) {
-    return codeTypeEvenement === 'RENOUVELLEMENT_ESSAI';
+export function isRenouvellementEssaiEvent(wfOrCode) {
+    if (!wfOrCode) return false;
+    if (typeof wfOrCode === 'object') {
+        if (wfOrCode.isRenouvellementEssai !== undefined) return wfOrCode.isRenouvellementEssai;
+        return isRenouvellementEssaiEvent(wfOrCode.codeTypeEvenement);
+    }
+    return String(wfOrCode).toUpperCase() === 'RENOUVELLEMENT_ESSAI';
 }
 
-export function isRuptureEvent(codeTypeEvenement) {
-    if (!codeTypeEvenement) return false;
-    const upper = String(codeTypeEvenement).toUpperCase();
+export function isRuptureEvent(wfOrCode) {
+    if (!wfOrCode) return false;
+    if (typeof wfOrCode === 'object') {
+        if (wfOrCode.isRupture !== undefined) return wfOrCode.isRupture;
+        return isRuptureEvent(wfOrCode.codeTypeEvenement);
+    }
+    const upper = String(wfOrCode).toUpperCase();
     return [
         'FIN_CONTRAT', 'RUPTURE_ESSAI', 'DEMISSION', 'LICENCIEMENT', 
         'RUPTURE_CONVENTIONNELLE', 'DEPART_RETRAITE', 'DECES', 
-        'CLOTURE', 'CLOTURE_CONTRAT', 'RUPTURE'
+        'CLOTURE', 'CLOTURE_CONTRAT', 'RUPTURE', 'RUPTURE_ESSAI_EMPLOYEUR', 'RUPTURE_ESSAI_SALARIE'
     ].includes(upper) || upper.includes('RUPTURE') || upper.includes('CLOTURE') || upper.includes('FIN_CONTRAT');
 }
 
@@ -111,13 +129,13 @@ export function isRuptureEvent(codeTypeEvenement) {
 export function getWorkflowLibellesUI(workflowCpl) {
     if (!workflowCpl) return {};
 
+    const isEmbauche = workflowCpl.isEmbauche ?? isEmbaucheEvent(workflowCpl);
+    const isConfirmation = workflowCpl.isConfirmationEssai ?? isConfirmationEssaiEvent(workflowCpl);
+    const isRenouvellement = workflowCpl.isRenouvellementEssai ?? isRenouvellementEssaiEvent(workflowCpl);
+    const isRupture = workflowCpl.isRupture ?? isRuptureEvent(workflowCpl);
     const code = workflowCpl.codeTypeEvenement;
-    const isEmbauche = isEmbaucheEvent(code);
-    const isConfirmation = isConfirmationEssaiEvent(code);
-    const isRenouvellement = isRenouvellementEssaiEvent(code);
-    const isRupture = isRuptureEvent(code);
 
-    let title = `Validation RH — Mouvement RH (${workflowCpl.libelleTypeEvenement || code})`;
+    let title = `Validation RH — Mouvement RH (${workflowCpl.libelleTypeEvenement || code || ''})`;
     let description = 'Veuillez relire les termes de cette transition RH avant officialisation.';
     let actionBtnLabel = 'Valider le Mouvement RH';
     let badgeEssai = 'ÉVÉNEMENT RH';
@@ -142,7 +160,7 @@ export function getWorkflowLibellesUI(workflowCpl) {
         badgeEssai = 'ESSAI RENOUVELÉ';
         badgeVariant = 'warning';
     } else if (isRupture) {
-        title = `Validation RH — Rupture / Fin de Contrat (${workflowCpl.libelleTypeEvenement || code})`;
+        title = `Validation RH — Rupture / Fin de Contrat (${workflowCpl.libelleTypeEvenement || code || ''})`;
         description = 'Veuillez relire les conditions de rupture de contrat. En cliquant sur "Valider", le contrat sera rompu/clôturé et le statut de l\'employé sera mis à jour.';
         actionBtnLabel = 'Valider la Rupture & Clôturer le Contrat';
         badgeEssai = 'FIN DE CONTRAT';
@@ -166,7 +184,7 @@ export function trouverWorkflowPlanifieFutur(workflowsList, contratActifId = nul
     if (!Array.isArray(workflowsList)) return null;
     return workflowsList.find(
         w => (w.isPlanifie ?? (w.codeStatutWorkflow === 'PLANIFIE')) &&
-             !w.isAnnule && w.codeStatutWorkflow !== 'ANNULE' &&
+             !(w.isAnnule ?? (w.codeStatutWorkflow === 'ANNULE')) &&
              w.dateEffet && fmtDateInput(w.dateEffet) > todayStr &&
              (!contratActifId || Number(w.idContratSource) === Number(contratActifId) || Number(w.idContratCible) === Number(contratActifId))
     ) || null;
@@ -174,8 +192,9 @@ export function trouverWorkflowPlanifieFutur(workflowsList, contratActifId = nul
 
 export function calculerDateFinEssaiContextuelle(workflowCpl) {
     if (!workflowCpl) return null;
-    if (isEmbaucheEvent(workflowCpl.codeTypeEvenement) && workflowCpl.dateDebutContrat && workflowCpl.dureeEssaiMois) {
+    if (isEmbaucheEvent(workflowCpl) && workflowCpl.dateDebutContrat && workflowCpl.dureeEssaiMois) {
         return calculerDateFinEssai(workflowCpl.dateDebutContrat, workflowCpl.dureeEssaiMois);
     }
     return workflowCpl.dateFinEssai || workflowCpl.dateEffet;
 }
+

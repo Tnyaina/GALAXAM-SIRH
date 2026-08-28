@@ -137,8 +137,11 @@ export default function NotificationBell() {
         marquerUne(notif.idNotification);
         let link = notif.lien;
         
-        // Si aucun lien précis n'est fourni ou s'il s'agit du lien générique /conges
-        if (!link || link === '/conges') {
+        // Redirection de secours si ancien lien /supervision
+        if (link === '/supervision' || link?.startsWith('/supervision')) {
+            link = notif.idEmployeConcerne ? `/employes/${notif.idEmployeConcerne}?tab=carriere` : '/carrieres';
+        } else if (!link || link === '/conges') {
+            // Si aucun lien précis n'est fourni ou s'il s'agit du lien générique /conges
             const titreMsg = ((notif.titre || '') + ' ' + (notif.message || '')).toLowerCase();
             if (titreMsg.includes('expiration') || titreMsg.includes('solde')) {
                 link = '/conges?tab=soldes';

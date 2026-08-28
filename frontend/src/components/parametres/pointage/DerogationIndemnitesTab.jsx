@@ -13,7 +13,6 @@ export default function DerogationIndemnitesTab() {
     const {
         derogations,
         indemnites,
-        employes,
         loading,
         error,
         searchTerm,

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Clock } from 'lucide-react';
+import { Clock, Moon } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import TimeInput from '@/components/ui/forms/TimeInput';
 import Badge from '@/components/ui/data-display/Badge';
@@ -253,10 +253,11 @@ export default function PointageGridTable({
                                                         const nightHours = (nightMins / 60).toFixed(1);
                                                         return (
                                                             <span 
-                                                                className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-1 py-0.2 mt-0.5" 
+                                                                className="inline-flex items-center gap-1 text-[9px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-1 py-0.2 mt-0.5" 
                                                                 title={`Heures de nuit majorées (+30%) : ${nightHours}h au-delà de 22h00`}
                                                             >
-                                                                🌙 {nightHours}h nuit
+                                                                <Moon size={10} className="shrink-0" />
+                                                                <span>{nightHours}h nuit</span>
                                                             </span>
                                                         );
                                                     }

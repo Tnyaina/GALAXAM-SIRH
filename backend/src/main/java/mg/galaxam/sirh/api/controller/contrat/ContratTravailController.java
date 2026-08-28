@@ -733,13 +733,26 @@ public class ContratTravailController {
                 ps.setInt(1, ct.getIdStatutRh());
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
-                        map.put("codeStatutContrat", rs.getString("code"));
+                        String codeStatut = rs.getString("code");
+                        map.put("codeStatutContrat", codeStatut);
                         map.put("libelleStatutContrat", rs.getString("libelle"));
+                        map.put("isActif", "ACTIF".equalsIgnoreCase(codeStatut));
+                        map.put("isBrouillon", "BROUILLON".equalsIgnoreCase(codeStatut));
+                        map.put("isPlanifie", "PLANIFIE".equalsIgnoreCase(codeStatut));
+                        map.put("isAnnule", "ANNULE".equalsIgnoreCase(codeStatut));
+                        map.put("isCloture", "CLOTURE".equalsIgnoreCase(codeStatut) || "HISTORISE".equalsIgnoreCase(codeStatut));
+                        map.put("isRompu", "ROMPU".equalsIgnoreCase(codeStatut));
                     }
                 }
             } catch (SQLException e) {
                 // Ignore failure to fetch optional statut libelle
             }
+        }
+
+        // Métriques d'ancienneté Backend-Driven
+        if (ct.getIdContrat() != null && ct.getIdContrat() > 0) {
+            Map<String, Object> ancMap = ContratTravail.calculerAncienneteDetaillee(ct.getIdContrat(), c);
+            map.putAll(ancMap);
         }
 
         return map;

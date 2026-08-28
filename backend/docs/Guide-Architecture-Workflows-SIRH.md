@@ -41,6 +41,17 @@ Ce document constitue la référence officielle du SIRH GALAXAM. Il formalise l'
   - `ConfirmDialog.jsx` : Fenêtres de confirmation modales ergonomiques (0 `window.confirm`).
   - `Afficher masqués` (`showInactive`) : Bascule avec icône œil standardisée sur toutes les tables de référentiels et paramètres.
 
+### 🛡️ Règle Fondamentale d'Architecture : Zéro Comparaison de Statut en Dur (Backend-Driven Booleans)
+Afin de garantir l'étanchéité de la logique métier et d'éviter les désynchronisations ou bugs de typage dans l'interface, **le frontend ne doit jamais effectuer de comparaisons de chaînes en dur** (ex: `=== 'ACTIF'`, `=== 'BROUILLON'`, `=== 'RENOUVELLEMENT_CDD'`).
+
+1. **Calcul & Exposition Côté Backend (POO / Jackson)** :
+   Toutes les entités, référentiels et DTOs sérialisés exposent des getters booléens explicites :
+   - **Carrière / Contrats** : `isBrouillon`, `isPlanifie`, `isActif`, `isAnnule`, `isModifiable`, `isAnnulable`, `exigeNouveauContrat`, `autorisePeriodeEssai`, `isEmbauche`, `isConfirmationEssai`, `isRenouvellementEssai`, `isRenouvellementCdd`, `isRupture`, `isAvenant`, `isCdi`, `isCdd`.
+   - **Congés & Absences** : `isEnAttente`, `isValide`, `isRefuse`, `isAnnule`, `isModifiable`, `isAnnulable`, `canValidate`, `canRefuse`.
+   - **Pointage & Présences** : `isPresent`, `isRetard`, `isAbsent`, `isConge`, `isRepos`, `isEnCours`, `isAnomalie`, `isIncomplet`, `isAbsence`, `isPeriodeOuverte`, `isPeriodeCloturee`, `hasAnomalies`.
+2. **Consommation Côté Frontend** :
+   Les composants React s'appuient uniquement sur ces propriétés booléennes pour le rendu conditionnel, l'activation des boutons d'actions et les transitions d'état.
+
 ---
 
 ## 🔄 2. Suite Logique des Workflows SIRH

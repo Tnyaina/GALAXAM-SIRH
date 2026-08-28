@@ -31,7 +31,7 @@ public class AcquisitionCongeScheduler {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                String sql = "SELECT ct.id_employe, ct.date_debut " +
+                String sql = "SELECT ct.id_employe, ct.id_contrat, ct.date_debut " +
                              "FROM contrat_travail ct " +
                              "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                              "WHERE rsc.code = 'ACTIF' " +
@@ -73,6 +73,7 @@ public class AcquisitionCongeScheduler {
                         
                         while (rs.next()) {
                             int idEmploye = rs.getInt("id_employe");
+                            int idContrat = rs.getInt("id_contrat");
                             java.sql.Date dateDebutSql = rs.getDate("date_debut");
                             
                             psCheckMois.setInt(1, idEmploye);
@@ -92,7 +93,8 @@ public class AcquisitionCongeScheduler {
                             if (dateDebutSql != null) {
                                 java.time.LocalDate dateDebut = dateDebutSql.toLocalDate();
                                 if (dateDebut.getMonthValue() == today.getMonthValue()) {
-                                    int anneesAnciennete = java.time.Period.between(dateDebut, today).getYears();
+                                    int anneesAnciennete = (int) Math.floor(
+                                            mg.galaxam.sirh.model.contrat.ContratTravail.calculerAncienneteEffectiveAnnees(idContrat, c));
                                     
                                     if (anneesAnciennete >= 3) {
                                         int bonus = anneesAnciennete / 5;

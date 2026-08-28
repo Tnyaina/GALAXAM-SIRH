@@ -6,6 +6,7 @@
 > - Architecture BDD : **1 table `pointage_jour`** unifiée + 2 tables gelées (`pointage_semaine_calcule`, `pointage_cumul_periode`) — les 3 tables séparées (`pointage_brut`, `pointage_journalier_calcule`, `pointage_cumul_periode`) sont **abandonnées**.
 > - Compensation : **hebdomadaire par tronçon proratisé** (`seuil = 8h × jours ouvrés du tronçon`) — la procédure `sp_calcul_compensation_mensuelle` est **remplacée** par la vue `v_pointage_semaine` + gel dans `pointage_semaine_calcule`.
 > - Semaine à cheval : **coupure ferme au 25 du mois**, pas de report de période.
+> - **Standardisation DTO (Backend-Driven Booleans)** : 0 comparaison de chaînes de statut en dur côté React. `PointageJourDTO` (`isPresent`, `isRetard`, `isAbsent`, `isConge`, `isRepos`, `isEnCours`, `isAnomalie`), `PointageAnomalieDTO` (`isIncomplet`, `isRetard`, `isAbsence`, `isPeriodeCloturee`), `PointageSyntheseMensuelleDTO` (`isPeriodeOuverte`, `isPeriodeCloturee`, `hasAnomalies`).
 > **Éléments à conserver de ce document** : ratios indemnités par site (§Ratios), algorithme calcul dérives horaires, fonctions SQL utilitaires, matrice des statuts quotidiens.
 
 ---

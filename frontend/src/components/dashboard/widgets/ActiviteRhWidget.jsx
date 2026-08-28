@@ -36,9 +36,7 @@ const ActiviteRow = memo(function ActiviteRow({ ev }) {
             to={`/employes/${ev.idEmploye}?tab=${targetTab}`}
             className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)] group"
         >
-            <div className={`w-7 h-7 rounded-none flex items-center justify-center shrink-0 text-white text-[10px] font-bold ${
-                isPlanifie ? 'bg-[var(--color-info-500)]' : isValide ? 'bg-[var(--color-success-500)]' : 'bg-[var(--color-fg-subtle)]'
-            }`}>
+            <div className="w-7 h-7 rounded-none bg-brand-500 text-white flex items-center justify-center shrink-0 text-[10px] font-bold shadow-xs">
                 {ev.nomPrenom?.charAt(0) || '?'}
             </div>
             <div className="flex-1 min-w-0">

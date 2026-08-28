@@ -296,7 +296,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
         setErrorMsg('');
     };
 
-    const handleSave = (e) => {
+    const handleSave = async (e) => {
         e.preventDefault();
         
         // Si on n'est pas sur le dernier onglet, "Entrée" avance simplement à la suite
@@ -316,14 +316,20 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
             return;
         }
 
-        onSave({
-            ...formData,
-            nationalite: finalNat,
-            numAffiliationCnaps: formData.numAffiliationCnaps?.trim() || null,
-            cinNumero: formData.cinNumero?.trim() || null,
-            permisConduireNumero: formData.permisConduireNumero?.trim() || null,
-            email: formData.email?.trim() || null
-        });
+        try {
+            await onSave({
+                ...formData,
+                nationalite: finalNat,
+                numAffiliationCnaps: formData.numAffiliationCnaps?.trim() || null,
+                cinNumero: formData.cinNumero?.trim() || null,
+                permisConduireNumero: formData.permisConduireNumero?.trim() || null,
+                email: formData.email?.trim() || null
+            });
+        } catch (err) {
+            console.error("Erreur soumission formulaire employé:", err);
+            const msg = err?.response?.data?.message || err?.response?.data?.error || (typeof err?.response?.data === 'string' ? err?.response?.data : null) || err?.message || "Erreur lors de l'enregistrement de la fiche.";
+            setErrorMsg(msg);
+        }
     };
 
     return (

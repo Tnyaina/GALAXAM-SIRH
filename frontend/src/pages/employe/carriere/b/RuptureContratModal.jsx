@@ -130,7 +130,7 @@ export default function RuptureContratModal({
     useEffect(() => {
         if (isOpen) {
             loadReferentiels();
-            const targetData = initialData || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif : null);
+            const targetData = initialData || (workflowActif?.isBrouillon ? workflowActif : null);
             if (targetData) {
                 setFormData({
                     codeTypeEvenement: targetData.codeTypeEvenement || 'DEMISSION',
@@ -165,7 +165,7 @@ export default function RuptureContratModal({
         if (submitting) return;
         setErrorMsg('');
 
-        const contratSourceId = contratActif?.idContrat || initialData?.idContratSource || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif.idContratSource : null);
+        const contratSourceId = contratActif?.idContrat || initialData?.idContratSource || (workflowActif?.isBrouillon ? workflowActif.idContratSource : null);
 
         if (!formData.dateEffet) return setErrorMsg('La date de prise d\'effet de la rupture est obligatoire.');
         if (!contratSourceId) return setErrorMsg('Impossible de rompre : aucun contrat source trouvé pour cet employé.');
@@ -175,14 +175,14 @@ export default function RuptureContratModal({
             const payload = {
                 codeTypeEvenement: formData.codeTypeEvenement,
                 idContratSource: contratSourceId,
-                idAffectationSource: affectationActive?.idAffectation || initialData?.idAffectationSource || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif.idAffectationSource : null),
+                idAffectationSource: affectationActive?.idAffectation || initialData?.idAffectationSource || (workflowActif?.isBrouillon ? workflowActif.idAffectationSource : null),
                 dateEffet: formData.dateEffet,
                 motif: `[${libTypeRupture}] ${formData.motif || ''}`.trim(),
                 commentaireAffectation: formData.commentaire || null,
                 descriptionContrat: `Préavis : ${formData.dureePreavis} (${formData.preavisEffectue ? 'Effectué' : 'Dispense payée'})`,
             };
 
-            const wfId = initialData?.idWorkflow || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif.idWorkflow : null);
+            const wfId = initialData?.idWorkflow || (workflowActif?.isBrouillon ? workflowActif.idWorkflow : null);
             let res;
             if (wfId) {
                 res = await contratService.modifierBrouillonWorkflow(wfId, payload);

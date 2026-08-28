@@ -50,4 +50,13 @@ public class PointageJourDTO {
 
     public String getStatut() { return statut; }
     public void setStatut(String statut) { this.statut = statut; }
+
+    // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
+    public boolean isPresent()  { return "PRESENT".equalsIgnoreCase(statut); }
+    public boolean isRetard()   { return "RETARD".equalsIgnoreCase(statut) || (isPresent() && !ecartPositif && ecart != null && !ecart.startsWith("00")); }
+    public boolean isAbsent()   { return "ABSENT".equalsIgnoreCase(statut) || "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(statut); }
+    public boolean isConge()    { return "CONGE".equalsIgnoreCase(statut); }
+    public boolean isRepos()    { return "REPOS".equalsIgnoreCase(statut); }
+    public boolean isEnCours()  { return "EN_COURS".equalsIgnoreCase(statut); }
+    public boolean isAnomalie() { return "ANOMALIE".equalsIgnoreCase(statut) || "ANOMALIE_SAISIE".equalsIgnoreCase(statut) || isRetard() || isAbsent(); }
 }

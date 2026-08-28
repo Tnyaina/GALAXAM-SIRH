@@ -341,4 +341,9 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
     public void setNbAnomaliesNonResolues(int nbAnomaliesNonResolues) {
         this.nbAnomaliesNonResolues = nbAnomaliesNonResolues;
     }
+
+    // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
+    public boolean isPeriodeOuverte()  { return "OUVERTE".equalsIgnoreCase(statutPeriode); }
+    public boolean isPeriodeCloturee() { return "CLOTUREE".equalsIgnoreCase(statutPeriode); }
+    public boolean hasAnomalies()      { return nbAnomaliesNonResolues > 0; }
 }

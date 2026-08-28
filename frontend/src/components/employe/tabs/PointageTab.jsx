@@ -154,7 +154,7 @@ export default function PointageTab({ idEmploye }) {
                                 </Thead>
                                 <Tbody>
                                     {pointagesData.map((row) => {
-                                        const isConge = row.statut === 'CONGE';
+                                        const isConge = Boolean(row.isConge ?? (row.statut === 'CONGE'));
                                         const rowClassName = isConge
                                             ? '!bg-orange-100 dark:!bg-orange-900/30 border-l-4 !border-l-orange-500 opacity-100'
                                             : isPointageRowGrayed(row.statut)

@@ -1,4 +1,4 @@
-import { Clock, Calendar, Eye } from 'lucide-react';
+import { Clock, Calendar, Eye, XCircle } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { fmtDate } from '@/utils/carriereUtils';
@@ -13,7 +13,7 @@ export default function TimelineBanners({
     return (
         <>
             {/* 🟡 BANNIÈRE : BROUILLON D'EMBAUCHE / TRANSITION EN COURS */}
-            {brouillonWf && (brouillonWf.isBrouillon ?? (brouillonWf.codeStatutWorkflow === 'BROUILLON')) && (
+            {brouillonWf && Boolean(brouillonWf.isBrouillon ?? true) && (
                 <div className="bg-warning-500/10 border border-warning-500/30 p-5 rounded-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div className="flex items-start gap-3">
                         <div className="w-10 h-10 bg-warning-500/20 text-warning-700 dark:text-warning-400 rounded-none flex items-center justify-center font-bold flex-shrink-0">
@@ -22,31 +22,41 @@ export default function TimelineBanners({
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
                                 <h4 className="text-sm font-bold text-ink-900 dark:text-white">
-                                    {brouillonWf.codeTypeEvenement === 'EMBAUCHE_INITIALE'
+                                    {brouillonWf.isEmbauche || brouillonWf.codeTypeEvenement === 'EMBAUCHE_INITIALE'
                                         ? 'Brouillon d\'Embauche en attente de Validation'
-                                        : brouillonWf.codeTypeEvenement === 'CONFIRMATION_ESSAI'
+                                        : brouillonWf.isConfirmationEssai || brouillonWf.codeTypeEvenement === 'CONFIRMATION_ESSAI'
                                             ? 'Confirmation d\'Essai en attente de Validation'
-                                            : brouillonWf.codeTypeEvenement === 'RENOUVELLEMENT_ESSAI'
+                                            : brouillonWf.isRenouvellementEssai || brouillonWf.codeTypeEvenement === 'RENOUVELLEMENT_ESSAI'
                                                 ? 'Renouvellement d\'Essai en attente de Validation'
                                                 : `${brouillonWf.libelleTypeEvenement || 'Mouvement RH'} en attente de Validation`}
                                 </h4>
                                 <Badge variant="warning" size="sm">BROUILLON</Badge>
                             </div>
                             <p className="text-xs text-ink-500 dark:text-ink-300">
-                                Contrat N° <span className="font-mono font-bold text-brand-500">{brouillonWf.numeroContratCible}</span> ({brouillonWf.libelleTypeContrat || 'Contrat'}) — Poste : <span className="font-semibold">{brouillonWf.libelleFonction || '-'}</span> à <span className="font-semibold">{brouillonWf.libelleSite || '-'}</span>
+                                Contrat N° <span className="font-mono font-bold text-brand-500">{brouillonWf.numeroContratCible || brouillonWf.numeroContratSource || 'En cours'}</span> ({brouillonWf.libelleTypeContrat || 'Contrat'}) — Poste : <span className="font-semibold">{brouillonWf.libelleFonction || '-'}</span> à <span className="font-semibold">{brouillonWf.libelleSite || '-'}</span>
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
                         {canWrite && (
-                            <Button
-                                onClick={() => onOpenEditModal(brouillonWf)}
-                                variant="outline"
-                                size="sm"
-                            >
-                                Corriger
-                            </Button>
+                            <>
+                                <Button
+                                    onClick={() => onSelectWorkflowRecap(brouillonWf, { startInCancelMode: true })}
+                                    variant="danger"
+                                    size="sm"
+                                    iconLeft={<XCircle size={15} />}
+                                >
+                                    Annuler
+                                </Button>
+                                <Button
+                                    onClick={() => onOpenEditModal(brouillonWf)}
+                                    variant="outline"
+                                    size="sm"
+                                >
+                                    Corriger
+                                </Button>
+                            </>
                         )}
                         <Button
                             onClick={() => onSelectWorkflowRecap(brouillonWf)}
@@ -89,14 +99,26 @@ export default function TimelineBanners({
                         </div>
                     </div>
 
-                    <Button
-                        onClick={() => onSelectWorkflowRecap(workflowPlanifieFutur)}
-                        variant="outline"
-                        size="sm"
-                        iconLeft={<Eye size={16} />}
-                    >
-                        Consulter l'Événement
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+                        {canWrite && (
+                            <Button
+                                onClick={() => onSelectWorkflowRecap(workflowPlanifieFutur, { startInCancelMode: true })}
+                                variant="danger"
+                                size="sm"
+                                iconLeft={<XCircle size={15} />}
+                            >
+                                Annuler la Planification
+                            </Button>
+                        )}
+                        <Button
+                            onClick={() => onSelectWorkflowRecap(workflowPlanifieFutur)}
+                            variant="outline"
+                            size="sm"
+                            iconLeft={<Eye size={16} />}
+                        >
+                            Consulter l'Événement
+                        </Button>
+                    </div>
                 </div>
             )}
         </>

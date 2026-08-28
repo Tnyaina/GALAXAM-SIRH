@@ -9,7 +9,6 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { useContractReferentiels } from '@/hooks/useContractReferentiels';
-import useDebounce from '@/hooks/useDebounce';
 
 import EmployeStatsCards from '@/components/employe/EmployeStatsCards';
 import EmployeFilterBar from '@/components/employe/EmployeFilterBar';
@@ -34,7 +33,6 @@ export default function EmployeList() {
 
     // Filtres
     const [searchQuery, setSearchQuery] = useState('');
-    const debouncedSearch = useDebounce(searchQuery, 350);
     const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'ACTIVE', 'INACTIVE'
     const [siteFilter, setSiteFilter] = useState('');
     const [departementFilter, setDepartementFilter] = useState('');
@@ -188,7 +186,13 @@ export default function EmployeList() {
             const getSite = (emp) => emp.nomSite || emp.site || '';
             const getNom = (emp) => emp.nomComplet || `${emp.nom || ''} ${emp.prenom || ''}`;
             const getMatricule = (emp) => emp.matricule || '';
-            const getDate = (emp) => emp.dateEmbauche || emp.dateDeclaration || emp.createdAt || '';
+            const getAnc = (emp) => {
+                if (emp.ancienneteEffectiveMois !== undefined && emp.ancienneteEffectiveMois !== null) {
+                    return Number(emp.ancienneteEffectiveMois);
+                }
+                const d = emp.dateEmbauche || emp.dateDeclaration || emp.createdAt;
+                return d ? (new Date().getTime() - new Date(d).getTime()) : 0;
+            };
 
             switch (sortPreset) {
                 case 'HIERARCHICAL':
@@ -214,9 +218,9 @@ export default function EmployeList() {
                 case 'MATRICULE_DESC':
                     return getMatricule(b).localeCompare(getMatricule(a), 'fr', { numeric: true });
                 case 'ANCIENNETE_DESC':
-                    return getDate(a).localeCompare(getDate(b));
+                    return getAnc(b) - getAnc(a);
                 case 'ANCIENNETE_ASC':
-                    return getDate(b).localeCompare(getDate(a));
+                    return getAnc(a) - getAnc(b);
                 default:
                     return getNom(a).localeCompare(getNom(b), 'fr');
             }
@@ -300,7 +304,7 @@ export default function EmployeList() {
             }
         } catch (err) {
             console.error('Erreur sauvegarde employé:', err);
-            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Erreur lors de l'enregistrement de l'employé.");
+            throw err;
         } finally {
             setSubmitting(false);
         }

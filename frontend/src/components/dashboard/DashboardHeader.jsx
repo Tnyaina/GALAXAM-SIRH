@@ -5,13 +5,13 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import Button from '@/components/ui/forms/Button';
 import { Skeleton } from '@/components/ui/feedback/Skeleton';
 
-export default function DashboardHeader({ 
-    loading, 
-    error, 
-    refresh, 
-    lastRefresh, 
-    demandesCongeAValiderCount = 0, 
-    totalAlertesContrats = 0 
+export default function DashboardHeader({
+    loading,
+    error,
+    refresh,
+    lastRefresh,
+    demandesCongeAValiderCount = 0,
+    totalAlertesContrats = 0
 }) {
     const { user } = useAuth();
     const toast = useToast();
@@ -75,7 +75,7 @@ export default function DashboardHeader({
                             {demandesCongeAValiderCount > 0
                                 ? ` ${demandesCongeAValiderCount} demande(s) de congé en attente de validation DAF/RH.`
                                 : totalAlertesContrats > 0
-                                    ? `⚠️ ${totalAlertesContrats} alerte(s) de contrat nécessitent votre attention.`
+                                    ? ` ${totalAlertesContrats} alerte(s) de contrat nécessitent votre attention.`
                                     : 'Tout est à jour dans l\'application SIRH.'}
                         </p>
                     )}

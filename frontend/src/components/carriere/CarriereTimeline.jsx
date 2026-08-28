@@ -42,6 +42,7 @@ export default function CarriereTimeline({
                 affectationActive={affectationActive}
                 workflowCplActif={workflowCplActif}
                 workflowsList={workflowsList}
+                contratsList={displayContrats}
                 brouillonWf={brouillonWf}
                 workflowPlanifieFutur={workflowPlanifieFutur}
                 etatEssai={etatEssai}

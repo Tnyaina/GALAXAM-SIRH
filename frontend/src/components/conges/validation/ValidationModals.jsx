@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Check, X, FileText, XSquare, Pencil } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
+import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
 import { Textarea, Checkbox } from '@/components/ui/forms/Input';
@@ -10,22 +11,6 @@ import Modal from '@/components/ui/overlays/Modal';
 const formatDate = (ts) => {
   if (!ts) return '-';
   return new Date(ts).toLocaleDateString('fr-FR');
-};
-
-const BADGE_VARIANT = {
-  VALIDE:     'success',
-  REFUSE:     'danger',
-  EN_ATTENTE: 'warning',
-  ANNULE:     'neutral',
-  BROUILLON:  'default',
-};
-
-const STATUT_LABEL = {
-  VALIDE:     'Validé',
-  REFUSE:     'Refusé',
-  EN_ATTENTE: 'En attente',
-  ANNULE:     'Annulé',
-  BROUILLON:  'Brouillon',
 };
 
 export default function ValidationModals({
@@ -68,7 +53,7 @@ export default function ValidationModals({
         icon={<FileText size={16} />}
         size="lg"
         footer={
-          selectedDemande?.codeStatutDemande === 'EN_ATTENTE' ? (
+          (selectedDemande?.isEnAttente ?? (selectedDemande?.codeStatutDemande === 'EN_ATTENTE')) ? (
             <div className="flex items-center justify-end gap-2 w-full">
               <Button
                 variant="outline"
@@ -118,9 +103,11 @@ export default function ValidationModals({
                 {selectedDemande.matricule && <p className="text-xs text-[var(--color-fg-subtle)] font-data">{selectedDemande.matricule}</p>}
                 <p className="text-xs text-[var(--color-fg-muted)] mt-0.5 font-medium">{selectedDemande.libelleTypeConge || selectedDemande.codeTypeConge}</p>
               </div>
-              <Badge variant={BADGE_VARIANT[selectedDemande.codeStatutDemande] || 'default'} dot>
-                {STATUT_LABEL[selectedDemande.codeStatutDemande] || selectedDemande.codeStatutDemande}
-              </Badge>
+              <StatusBadge
+                status={selectedDemande.codeStatutDemande}
+                label={selectedDemande.libelleStatutDemande}
+                size="md"
+              />
             </div>
 
             {/* Grille dates */}
@@ -164,7 +151,7 @@ export default function ValidationModals({
             </div>
 
             {/* Motif de refus si refusé */}
-            {selectedDemande.codeStatutDemande === 'REFUSE' && selectedDemande.motifRefus && (
+            {Boolean(selectedDemande.isRefuse ?? (selectedDemande.codeStatutDemande === 'REFUSE')) && selectedDemande.motifRefus && (
               <div className="p-3 border border-danger-500/30 bg-danger-500/5 space-y-1">
                 <span className="text-xs font-bold text-danger-500 uppercase tracking-wider">Motif de refus</span>
                 <p className="text-xs text-danger-600 dark:text-danger-400 font-medium">{selectedDemande.motifRefus}</p>

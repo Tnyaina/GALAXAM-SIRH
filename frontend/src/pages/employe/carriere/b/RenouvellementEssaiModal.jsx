@@ -75,11 +75,13 @@ export default function RenouvellementEssaiModal({
     nomEmploye,
     contratActif,
     affectationActive,
+    etatEssai = null,
     initialData = null,
     onSuccess,
 }) {
     const isEditMode = !!initialData;
     const wfId = initialData?.idWorkflow || initialData?.workflow?.idWorkflow;
+    const isActionAllowed = isEditMode || etatEssai?.canRenew !== false;
 
     const [dureeProlongationMois, setDureeProlongationMois] = useState('2');
     const [dateFinInitiale, setDateFinInitiale] = useState('');
@@ -339,6 +341,7 @@ export default function RenouvellementEssaiModal({
                             variant="success"
                             size="md"
                             loading={submitting}
+                            disabled={!isActionAllowed || submitting}
                             iconLeft={<RefreshCw size={16} />}
                         >
                             Valider le Renouvellement

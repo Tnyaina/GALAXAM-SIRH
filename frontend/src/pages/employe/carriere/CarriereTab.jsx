@@ -38,7 +38,7 @@ export default function CarriereTab({
 
     const workflowsValidesDuContrat = contratActif
         ? workflowsList
-            .filter((wf) => (wf.isActif ?? (wf.codeStatutWorkflow === 'ACTIF')) && (
+            .filter((wf) => Boolean(wf.isActif) && (
                 Number(wf.idContratCible) === Number(contratActif.idContrat) || 
                 (Number(wf.idContratSource) === Number(contratActif.idContrat) && !wf.idContratCible)
             ))
@@ -127,6 +127,7 @@ export default function CarriereTab({
                 workflowCplActif={workflowCplActif}
                 contratsList={contratsList}
                 brouillonWf={brouillonWf}
+                etatEssai={etatEssai}
                 modalsState={modalsState}
             />
         </div>

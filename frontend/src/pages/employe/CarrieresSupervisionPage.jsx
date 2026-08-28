@@ -321,13 +321,10 @@ export default function CarrieresSupervisionPage() {
 
                     {/* Pagination */}
                     {totalElements > pageSize && (
-                        <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] flex justify-between items-center">
-                            <span className="text-xs text-[var(--color-fg-muted)]">
-                                Page {currentPage} sur {Math.ceil(totalElements / pageSize)}
-                            </span>
+                        <div className="border border-[var(--color-border-subtle)]">
                             <Pagination
                                 currentPage={currentPage}
-                                totalElements={totalElements}
+                                totalItems={totalElements}
                                 pageSize={pageSize}
                                 onPageChange={setCurrentPage}
                             />

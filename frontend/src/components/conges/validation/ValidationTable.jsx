@@ -1,7 +1,8 @@
-import { Check, X, Eye, Clock, CheckCircle, XCircle, Ban } from 'lucide-react';
+import { Check, X, Eye, Clock } from 'lucide-react';
 import { Card, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Badge from '@/components/ui/data-display/Badge';
+import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import Button from '@/components/ui/forms/Button';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Pagination from '@/components/ui/navigation/Pagination';
@@ -9,29 +10,6 @@ import Pagination from '@/components/ui/navigation/Pagination';
 const formatDate = (ts) => {
   if (!ts) return '-';
   return new Date(ts).toLocaleDateString('fr-FR');
-};
-
-const BADGE_VARIANT = {
-  VALIDE:     'success',
-  REFUSE:     'danger',
-  EN_ATTENTE: 'warning',
-  ANNULE:     'neutral',
-  BROUILLON:  'default',
-};
-
-const STATUT_LABEL = {
-  VALIDE:     'Validé',
-  REFUSE:     'Refusé',
-  EN_ATTENTE: 'En attente',
-  ANNULE:     'Annulé',
-  BROUILLON:  'Brouillon',
-};
-
-const STATUT_ICON = {
-  EN_ATTENTE: Clock,
-  VALIDE:     CheckCircle,
-  REFUSE:     XCircle,
-  ANNULE:     Ban,
 };
 
 export default function ValidationTable({
@@ -92,8 +70,8 @@ export default function ValidationTable({
               <Tbody>
                 {demandes.map((d) => {
                   const employeName = `${d.prenom || ''} ${d.nom || ''}`.trim() || `Employé ${d.idEmploye}`;
-                  const isEnAttente = d.codeStatutDemande === 'EN_ATTENTE';
-                  const StatutIcon  = STATUT_ICON[d.codeStatutDemande];
+                  const isEnAttente = Boolean(d.isEnAttente ?? (d.codeStatutDemande === 'EN_ATTENTE'));
+                  const isRefuse = Boolean(d.isRefuse ?? (d.codeStatutDemande === 'REFUSE'));
                   return (
                     <Tr
                       key={d.idDemandeConge}
@@ -111,7 +89,7 @@ export default function ValidationTable({
                         )}
                       </Td>
                       <Td>
-                        <Badge variant="brand" size="sm">{d.codeTypeConge || 'ANNUEL'}</Badge>
+                        <Badge variant="brand" size="sm">{d.libelleTypeConge || d.codeTypeConge}</Badge>
                         {d.libelleMotifEvenement && (
                           <div className="text-[11px] text-warning-500 mt-0.5 font-medium">{d.libelleMotifEvenement}</div>
                         )}
@@ -140,19 +118,13 @@ export default function ValidationTable({
                         )}
                       </Td>
                       <Td>
-                        <div className="inline-flex items-center gap-1.5">
-                          {StatutIcon && <StatutIcon size={12} className={`shrink-0 ${
-                            d.codeStatutDemande === 'VALIDE'     ? 'text-success-500' :
-                            d.codeStatutDemande === 'REFUSE'     ? 'text-danger-500'  :
-                            d.codeStatutDemande === 'EN_ATTENTE' ? 'text-warning-500' :
-                            'text-[var(--color-fg-subtle)]'
-                          }`} />}
-                          <Badge variant={BADGE_VARIANT[d.codeStatutDemande] || 'default'} size="sm">
-                            {STATUT_LABEL[d.codeStatutDemande] || d.codeStatutDemande}
-                          </Badge>
-                        </div>
+                        <StatusBadge
+                          status={d.codeStatutDemande}
+                          label={d.libelleStatutDemande}
+                          size="sm"
+                        />
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {d.codeStatutDemande === 'REFUSE' && d.motifRefus && (
+                          {isRefuse && d.motifRefus && (
                             <div className="text-[11px] text-danger-500 font-medium leading-tight max-w-xs" title={d.motifRefus}>
                               Motif : {d.motifRefus}
                             </div>

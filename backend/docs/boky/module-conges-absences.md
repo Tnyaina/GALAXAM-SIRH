@@ -582,6 +582,16 @@ public class DemandeConge extends ClassMere {
 }
 ```
 
+### 9.4 Standardisation des Statuts : Booléens Sérialisés (Pattern Backend-Driven)
+Pour éliminer les comparaisons de chaînes en dur (`=== 'EN_ATTENTE'`, `=== 'VALIDE'`) dans les interfaces React, les modèles (`VDemandeCongeCpl`, `RefStatutDemandeConge`) exposent directement des propriétés booléennes sérialisées par Jackson :
+- `isEnAttente` : Vrai si statut `EN_ATTENTE`
+- `isValide` : Vrai si statut `VALIDE`
+- `isRefuse` : Vrai si statut `REFUSE`
+- `isAnnule` : Vrai si statut `ANNULE`
+- `isModifiable` : Vrai si la demande peut être éditée (`isEnAttente`)
+- `isAnnulable` : Vrai si la demande peut être annulée (`isEnAttente` ou `isValide`)
+- `canValidate` / `canRefuse` : Drapeaux de droit d'action pour les valideurs RH
+
 ---
 
 ## 10. API REST — Endpoints

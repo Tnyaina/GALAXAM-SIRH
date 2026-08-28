@@ -12,6 +12,7 @@ export default function CarriereModalsManager({
     // Données de base
     idEmploye, employe, nomEmploye, matriculeEmploye,
     contratActif, affectationActive, workflowCplActif, contratsList, brouillonWf,
+    etatEssai,
     
     // États et Hooks
     modalsState,
@@ -21,6 +22,7 @@ export default function CarriereModalsManager({
         isEmbaucheModalOpen, setIsEmbaucheModalOpen,
         isTransitionModalOpen, setIsTransitionModalOpen,
         isRecapModalOpen, setIsRecapModalOpen,
+        isRecapCancelMode, setIsRecapCancelMode,
         isConfirmationModalOpen, setIsConfirmationModalOpen,
         isRenouvellementModalOpen, setIsRenouvellementModalOpen,
         isRuptureModalOpen, setIsRuptureModalOpen,
@@ -39,6 +41,7 @@ export default function CarriereModalsManager({
                     onClose={() => setIsEmbaucheModalOpen(false)}
                     idEmploye={idEmploye}
                     nomEmploye={nomEmploye}
+                    contratsList={contratsList}
                     initialData={editInitialData}
                     onSuccess={(res) => handleSuccessAction('Brouillon d\'embauche enregistré avec succès !', res)}
                 />
@@ -50,8 +53,10 @@ export default function CarriereModalsManager({
                     onClose={() => {
                         setIsRecapModalOpen(false);
                         setSelectedWfModal(null);
+                        if (setIsRecapCancelMode) setIsRecapCancelMode(false);
                     }}
                     workflowCpl={selectedWfModal || brouillonWf}
+                    initialCancelMode={isRecapCancelMode}
                     onEdit={(wf) => handleOpenEditModal(wf)}
                     onActionSuccess={(msg) => handleSuccessAction(msg)}
                 />
@@ -79,6 +84,7 @@ export default function CarriereModalsManager({
                     nomEmploye={nomEmploye}
                     contratActif={contratActif}
                     affectationActive={affectationActive}
+                    etatEssai={etatEssai}
                     initialData={editInitialData}
                     onSuccess={(res) => handleSuccessAction('Brouillon de confirmation d\'essai enregistré avec succès !', res)}
                 />
@@ -92,6 +98,7 @@ export default function CarriereModalsManager({
                     nomEmploye={nomEmploye}
                     contratActif={contratActif}
                     affectationActive={affectationActive}
+                    etatEssai={etatEssai}
                     initialData={editInitialData}
                     onSuccess={(res) => handleSuccessAction('Brouillon de renouvellement d\'essai enregistré avec succès !', res)}
                 />
@@ -117,6 +124,7 @@ export default function CarriereModalsManager({
                     onClose={() => setIsCertificatModalOpen(false)}
                     employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
                     contrat={selectedCertificatContrat || contratActif || (contratsList?.length > 0 ? contratsList[0] : null)}
+                    contratsList={contratsList}
                     affectation={selectedCertificatAffectation}
                     loadingAffectation={loadingCertificatAffectation}
                     filiale={selectedCertificatContrat?.filiale || contratActif?.filiale}
@@ -134,6 +142,7 @@ export default function CarriereModalsManager({
                     onClose={() => setIsAttestationModalOpen(false)}
                     employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
                     contrat={selectedAttestationContrat || contratActif || (contratsList?.length > 0 ? contratsList[0] : null)}
+                    contratsList={contratsList}
                     affectation={selectedAttestationAffectation || affectationActive}
                     loadingAffectation={loadingAttestationAffectation}
                     filiale={selectedAttestationContrat?.filiale || contratActif?.filiale}

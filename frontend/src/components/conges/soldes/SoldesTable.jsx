@@ -3,6 +3,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown, ExternalLink } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Badge from '@/components/ui/data-display/Badge';
+import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { useAuth } from '@/context/AuthContext';
@@ -88,9 +89,7 @@ export default function SoldesTable({
                   <Td className="font-data">{formatDate(item.originalEnd)}</Td>
                   <Td className="font-data">{item.dureeJours}</Td>
                   <Td>
-                    <Badge variant={item.statut === 'VALIDE' ? 'success' : 'warning'} dot>
-                      {item.statut === 'VALIDE' ? 'Validé' : 'En attente'}
-                    </Badge>
+                    <StatusBadge status={item.statut} size="xs" />
                   </Td>
                 </Tr>
               ))}

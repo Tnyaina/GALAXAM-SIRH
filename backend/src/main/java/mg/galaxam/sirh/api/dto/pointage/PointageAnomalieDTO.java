@@ -116,4 +116,10 @@ public class PointageAnomalieDTO {
 
     public String getStatutPeriodeCode() { return statutPeriodeCode; }
     public void setStatutPeriodeCode(String statutPeriodeCode) { this.statutPeriodeCode = statutPeriodeCode; }
+
+    // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
+    public boolean isIncomplet()       { return "INCOMPLET".equalsIgnoreCase(typeAnomalie) || "ANOMALIE_SAISIE".equalsIgnoreCase(statutCode); }
+    public boolean isRetard()          { return "RETARD".equalsIgnoreCase(typeAnomalie) || (minutesRetard != null && minutesRetard > 0); }
+    public boolean isAbsence()         { return "ABSENCE".equalsIgnoreCase(typeAnomalie) || "ABSENT".equalsIgnoreCase(statutCode) || "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(statutCode); }
+    public boolean isPeriodeCloturee() { return "CLOTUREE".equalsIgnoreCase(statutPeriodeCode); }
 }

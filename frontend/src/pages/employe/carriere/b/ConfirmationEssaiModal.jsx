@@ -56,11 +56,13 @@ export default function ConfirmationEssaiModal({
     nomEmploye,
     contratActif,
     affectationActive,
+    etatEssai = null,
     initialData = null,
     onSuccess,
 }) {
     const isEditMode = !!initialData;
     const wfId = initialData?.idWorkflow || initialData?.workflow?.idWorkflow;
+    const isActionAllowed = isEditMode || etatEssai?.canConfirm !== false;
 
     const [dateEffet, setDateEffet] = useState('');
     const [commentaire, setCommentaire] = useState('Période d\'essai concluante. Confirmation définitive à l\'emploi.');
@@ -254,6 +256,7 @@ export default function ConfirmationEssaiModal({
                             variant="success"
                             size="sm"
                             loading={submitting}
+                            disabled={!isActionAllowed || submitting}
                             iconLeft={<UserCheck size={16} />}
                         >
                             Valider la Confirmation

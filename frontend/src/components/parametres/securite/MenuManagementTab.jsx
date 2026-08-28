@@ -418,7 +418,7 @@ export default function MenuManagementTab() {
                                 Êtes-vous sûr de vouloir supprimer définitivement le menu <strong className="text-[var(--color-fg)]">{selectedMenu?.libelle}</strong> ?
                             </p>
                             <p className="text-xs text-[var(--color-danger-500)] font-semibold bg-[var(--color-danger-500)]/10 p-3 rounded-none border border-[var(--color-danger-500)]/20">
-                                ⚠️ ATTENTION : Si ce menu possède des sous-menus associés ou s'il est configuré pour des rôles, la suppression s'effectuera EN CASCADE.
+                                ATTENTION : Si ce menu possède des sous-menus associés ou s'il est configuré pour des rôles, la suppression s'effectuera EN CASCADE.
                             </p>
                         </div>
                         <div className="px-6 py-4 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex justify-end gap-3">

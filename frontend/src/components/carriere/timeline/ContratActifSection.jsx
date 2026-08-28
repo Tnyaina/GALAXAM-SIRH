@@ -7,11 +7,12 @@ export default function ContratActifSection({
     contratActif,
     affectationActive,
     workflowCplActif,
-    workflowsList,
+    workflowsList = [],
+    contratsList = [],
     brouillonWf,
     workflowPlanifieFutur,
     etatEssai,
-    estEssaiRenouveleFlag,
+    _estEssaiRenouveleFlag,
     canWrite,
     onOpenCreateEmbauche,
     onOpenTransition,
@@ -23,16 +24,27 @@ export default function ContratActifSection({
     if (!contratActif) {
         if (brouillonWf) return null;
 
+        const hasHistory = Array.isArray(contratsList) && contratsList.length > 0;
+
         return (
             /* ⚪ EMPTY STATE : PAS DE CONTRAT ACTIF */
-            <div className="p-10 text-center bg-white dark:bg-ink-900 border border-dashed border-ink-200 dark:border-ink-700 rounded-none space-y-4">
-                <div className="w-14 h-14 bg-brand-500/10 text-brand-500 rounded-none flex items-center justify-center mx-auto">
+            <div className={`p-8 text-center bg-white dark:bg-ink-900 border rounded-none space-y-4 ${hasHistory ? 'border-amber-200 dark:border-amber-800/60 bg-amber-500/[0.02]' : 'border-dashed border-ink-200 dark:border-ink-700'}`}>
+                <div className={`w-14 h-14 rounded-none flex items-center justify-center mx-auto ${hasHistory ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-brand-500/10 text-brand-500'}`}>
                     <Briefcase size={28} />
                 </div>
                 <div className="max-w-md mx-auto space-y-1">
-                    <h3 className="text-base font-bold text-ink-900 dark:text-white">Aucun Contrat Actif</h3>
+                    <h3 className="text-base font-bold text-ink-900 dark:text-white flex items-center justify-center gap-2">
+                        <span>{hasHistory ? 'Collaborateur Inactif (Aucun Contrat en cours)' : 'Aucun Contrat Actif'}</span>
+                        {hasHistory && (
+                            <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                Inactif
+                            </span>
+                        )}
+                    </h3>
                     <p className="text-xs text-ink-400">
-                        Cet employé ne dispose pas encore de contrat de travail enregistré. Vous pouvez initier son embauche.
+                        {hasHistory
+                            ? "Cet employé dispose d'un historique de contrats passés. Vous pouvez initier une nouvelle réembauche, une réintégration avec reprise d'ancienneté ou un contrat de consultant."
+                            : "Cet employé ne dispose pas encore de contrat de travail enregistré. Vous pouvez initier son embauche initiale."}
                     </p>
                 </div>
                 {canWrite && (
@@ -42,7 +54,7 @@ export default function ContratActifSection({
                         size="sm"
                         iconLeft={<Plus size={16} />}
                     >
-                        Initier l'Embauche (Créer Contrat)
+                        {hasHistory ? "Contractualiser (Réembauche / Réintégration)" : "Initier l'Embauche (Créer Contrat)"}
                     </Button>
                 )}
             </div>
@@ -166,7 +178,13 @@ export default function ContratActifSection({
                                                 : `Événement (${workflowPlanifieFutur.libelleTypeEvenement || workflowPlanifieFutur.codeTypeEvenement}) planifié au ${fmtDate(workflowPlanifieFutur.dateEffet)}`}
                                     </Badge>
                                 </div>
-                            ) : canWrite && (!brouillonWf || !['CONFIRMATION_ESSAI', 'RENOUVELLEMENT_ESSAI'].includes(brouillonWf?.codeTypeEvenement)) && (
+                            ) : brouillonWf ? (
+                                <div className="pt-1.5 border-t border-current/20 flex flex-wrap items-center gap-2">
+                                    <Badge variant="warning" size="xs">
+                                        Brouillon en attente de validation ({brouillonWf.libelleTypeEvenement || 'Mouvement RH'})
+                                    </Badge>
+                                </div>
+                            ) : canWrite && (
                                 <div className="pt-1.5 border-t border-current/20 flex flex-wrap items-center gap-2">
                                     {/* Bouton Confirmer : conditionné strictement par canConfirm */}
                                     {etatEssai?.canConfirm === true && (

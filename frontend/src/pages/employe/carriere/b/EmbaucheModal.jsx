@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Briefcase, ShieldAlert, Save, X, FileSignature, Eye, EyeOff } from 'lucide-react';
+import { Briefcase, ShieldAlert, Save, X, FileSignature, Eye, EyeOff, UserPlus, RotateCcw, Handshake } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Textarea } from '@/components/ui/forms/Input';
 import Loading from '@/components/ui/feedback/Loading';
@@ -17,10 +17,15 @@ export default function EmbaucheModal({
     onClose,
     idEmploye,
     nomEmploye,
+    contratsList = [],
     initialData = null,
     onSuccess,
 }) {
     const isEditMode = !!initialData;
+    const hasHistory = Array.isArray(contratsList) && contratsList.length > 0;
+    const dernierContrat = hasHistory
+        ? (contratsList.find(ct => ct && ct.codeStatutContrat !== 'BROUILLON' && ct.codeStatutContrat !== 'ANNULE') || contratsList[0])
+        : null;
 
     const {
         filiales, sites, departements, services, fonctions,
@@ -29,6 +34,7 @@ export default function EmbaucheModal({
     } = useContractReferentiels(isOpen, idEmploye);
 
     const [formData, setFormData] = useState({
+        codeTypeEvenement: hasHistory ? 'REPRISE_ANCIENNETE' : 'EMBAUCHE_INITIALE',
         idFiliale: '', idTypeContrat: '', idTypeIntervenant: '', dateDebut: '', dateFin: '',
         dateSignature: '', comptabiliseEffectif: true, numeroContrat: '', description: '',
         commentaire: '', aPeriodeEssai: false, dureeEssaiMois: '3', dateFinEssai: '',
@@ -147,7 +153,13 @@ export default function EmbaucheModal({
             return;
         }
 
+        const idContratPrec = (formData.codeTypeEvenement === 'REPRISE_ANCIENNETE' || formData.codeTypeEvenement === 'REPRISE_CONSULTANT')
+            ? (dernierContrat?.idContrat || null)
+            : null;
+
         const payload = {
+            codeTypeEvenement: formData.codeTypeEvenement || 'EMBAUCHE_INITIALE',
+            idContratPrecedent: idContratPrec,
             idFiliale: formData.idFiliale ? parseInt(formData.idFiliale) : null,
             idTypeContrat: formData.idTypeContrat ? parseInt(formData.idTypeContrat) : null,
             idTypeIntervenant: formData.idTypeIntervenant ? parseInt(formData.idTypeIntervenant) : null,
@@ -208,6 +220,27 @@ export default function EmbaucheModal({
     const paieObj = modesPaie.find(m => String(m.idModeCalculPaie || m.idModeCalcul) === String(formData.idModeCalculPaie));
     const respObj = responsables.find(r => String(r.idEmploye) === String(formData.idResponsableHierarchique));
 
+    const optionsNature = [
+        {
+            code: 'EMBAUCHE_INITIALE',
+            title: 'Nouvelle Embauche',
+            icon: UserPlus,
+            desc: 'Nouveau cycle indépendant. L\'ancienneté et les compteurs de congés repartent de zéro.',
+        },
+        {
+            code: 'REPRISE_ANCIENNETE',
+            title: 'Réintégration / Reprise d\'ancienneté',
+            icon: RotateCcw,
+            desc: `Raccroche ce contrat au contrat précédent (N° ${dernierContrat?.numeroContrat || 'Historique'}) pour maintenir les droits acquis.`,
+        },
+        {
+            code: 'REPRISE_CONSULTANT',
+            title: 'Consultant / Prestation',
+            icon: Handshake,
+            desc: `Maintien de l'ancienneté (N° ${dernierContrat?.numeroContrat || 'Historique'}) avec application du régime fiscal consultant / prestataire.`,
+        },
+    ];
+
     return (
         <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto   ${mounted ? 'opacity-100' : 'opacity-0'}`}>
             <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl w-full max-w-[1440px] max-h-[95vh] flex flex-col overflow-hidden">
@@ -219,7 +252,11 @@ export default function EmbaucheModal({
                         </div>
                         <div>
                             <h2 className="font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
-                                {isEditMode ? 'Corriger le Brouillon d\'Embauche' : 'Nouvelle Embauche Initiale'}
+                                {isEditMode
+                                    ? 'Corriger le Brouillon de Contrat'
+                                    : hasHistory
+                                        ? 'Contractualisation (Réembauche / Réintégration)'
+                                        : 'Nouvelle Embauche Initiale'}
                                 <span className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono rounded-none">
                                     BROUILLON
                                 </span>
@@ -257,6 +294,61 @@ export default function EmbaucheModal({
                                         <ShieldAlert size={16} />
                                         {errorMsg}
                                     </div>
+                                )}
+
+                                {/* Nature de la contractualisation si collaborateur inactif avec historique */}
+                                {hasHistory && !isEditMode && (
+                                    <section className="space-y-3 pb-5 border-b border-ink-150 dark:border-ink-700">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                                                Nature de la Contractualisation
+                                            </span>
+                                            <span className="text-[11px] text-ink-400">
+                                                Dernier contrat : {dernierContrat?.numeroContrat || 'Clôturé'}
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-2.5">
+                                            {optionsNature.map((opt) => {
+                                                const isSel = formData.codeTypeEvenement === opt.code;
+                                                return (
+                                                    <div
+                                                        key={opt.code}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onClick={() => setField('codeTypeEvenement', opt.code)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                                e.preventDefault();
+                                                                setField('codeTypeEvenement', opt.code);
+                                                            }
+                                                        }}
+                                                        className={`p-3 border rounded-none cursor-pointer transition-all ${
+                                                            isSel
+                                                                ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500/30'
+                                                                : 'border-ink-200 dark:border-ink-800 hover:border-brand-300 bg-white dark:bg-ink-950/40'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-bold text-ink-900 dark:text-white flex items-center gap-2">
+                                                                {opt.icon && <opt.icon size={15} className={isSel ? 'text-brand-500' : 'text-ink-400'} />}
+                                                                {opt.title}
+                                                            </span>
+                                                            <input
+                                                                type="radio"
+                                                                name="codeTypeEvenement"
+                                                                checked={isSel}
+                                                                onChange={() => setField('codeTypeEvenement', opt.code)}
+                                                                className="text-brand-500 focus:ring-brand-500"
+                                                            />
+                                                        </div>
+                                                        <p className="text-[11px] text-ink-400 mt-1 leading-normal pl-6">
+                                                            {opt.desc}
+                                                        </p>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </section>
                                 )}
 
                                 {/* Section 1 : Contrat */}

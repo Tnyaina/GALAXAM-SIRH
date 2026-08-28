@@ -46,6 +46,7 @@ Ce module couvre :
 | **Atomicité transactionnelle** | Chaque validation est une transaction ACID unique (Commit / Rollback) |
 | **Cascadage automatique** | La rupture du dernier contrat bascule automatiquement l'employé en inactif |
 | **Chaînage contractuel** | Les contrats successifs sont liés par `id_contrat_precedent` pour tracer la continuité |
+| **Backend-Driven Booleans** | 0 comparaison de chaînes de statut en dur côté front. Le backend expose directement les booléens de décision (`isActif`, `isBrouillon`, `isPlanifie`, `isAnnule`, `exigeNouveauContrat`, `autorisePeriodeEssai`, etc.) |
 
 ---
 

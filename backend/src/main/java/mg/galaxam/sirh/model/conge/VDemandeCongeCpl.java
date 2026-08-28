@@ -376,4 +376,14 @@ public class VDemandeCongeCpl extends ClassMere {
 
     public Timestamp getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Timestamp updatedAt) { this.updatedAt = updatedAt; }
+
+    // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
+    public boolean isEnAttente() { return "EN_ATTENTE".equalsIgnoreCase(codeStatutDemande); }
+    public boolean isValide()    { return "VALIDE".equalsIgnoreCase(codeStatutDemande); }
+    public boolean isRefuse()    { return "REFUSE".equalsIgnoreCase(codeStatutDemande); }
+    public boolean isAnnule()    { return "ANNULE".equalsIgnoreCase(codeStatutDemande); }
+    public boolean isModifiable() { return isEnAttente(); }
+    public boolean isAnnulable() { return isEnAttente() || isValide(); }
+    public boolean canValidate() { return isEnAttente(); }
+    public boolean canRefuse()   { return isEnAttente(); }
 }

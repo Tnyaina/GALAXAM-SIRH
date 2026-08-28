@@ -12,7 +12,9 @@ import java.sql.Types;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Représente la relation juridique/contractuelle entre un employé et la société.
@@ -421,4 +423,110 @@ public class ContratTravail extends ClassMere {
 
     public Timestamp getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Timestamp updatedAt) { this.updatedAt = updatedAt; }
+
+    /**
+     * Calcule l'ancienneté effective totale en années en remontant toute la chaîne
+     * de contrats (via id_contrat_precedent) et en excluant les trous d'interruption.
+     */
+    public static double calculerAncienneteEffectiveAnnees(Integer idContratActuel, Connection c) {
+        if (idContratActuel == null) return 0.0;
+        Map<String, Object> details = calculerAncienneteDetaillee(idContratActuel, c);
+        Number annees = (Number) details.get("ancienneteEffectiveAnnees");
+        return annees != null ? annees.doubleValue() : 0.0;
+    }
+
+    /**
+     * Calcule l'ensemble des métriques d'ancienneté (spécifique au contrat et cumul de chaîne).
+     */
+    public static Map<String, Object> calculerAncienneteDetaillee(Integer idContrat, Connection c) {
+        Map<String, Object> res = new HashMap<>();
+        if (idContrat == null) {
+            res.put("ancienneteEffectiveTexte", "—");
+            res.put("ancienneteEffectiveAnnees", 0.0);
+            res.put("ancienneteEffectiveMois", 0);
+            res.put("ancienneteContratTexte", "—");
+            res.put("nombreContratsChaine", 0);
+            return res;
+        }
+
+        double totalJoursChaine = 0.0;
+        double joursContratActuel = 0.0;
+        int nbContrats = 0;
+        Date dateOrigine = null;
+
+        Integer currentId = idContrat;
+        java.util.Set<Integer> visited = new java.util.HashSet<>();
+
+        try {
+            while (currentId != null && !visited.contains(currentId)) {
+                visited.add(currentId);
+                String sql = "SELECT date_debut, date_fin, id_contrat_precedent FROM contrat_travail WHERE id_contrat = ?";
+                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                    ps.setInt(1, currentId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            Date debut = rs.getDate("date_debut");
+                            Date fin = rs.getDate("date_fin");
+                            Integer precedentId = rs.getObject("id_contrat_precedent") != null
+                                    ? rs.getInt("id_contrat_precedent")
+                                    : null;
+
+                            if (debut != null) {
+                                dateOrigine = debut;
+                                nbContrats++;
+                                java.time.LocalDate dFin = (fin != null)
+                                        ? fin.toLocalDate()
+                                        : java.time.LocalDate.now();
+                                long jours = Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(debut.toLocalDate(), dFin.plusDays(1)));
+                                totalJoursChaine += jours;
+
+                                if (currentId.equals(idContrat)) {
+                                    joursContratActuel = jours;
+                                }
+                            }
+                            currentId = precedentId;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Erreur calculerAncienneteDetaillee : " + e.getMessage());
+        }
+
+        double anneesEffectives = totalJoursChaine / 365.25;
+        int moisEffectifs = (int) Math.floor(anneesEffectives * 12.0);
+        int ansEff = moisEffectifs / 12;
+        int moisRestantsEff = moisEffectifs % 12;
+
+        StringBuilder sbEff = new StringBuilder();
+        if (ansEff > 0) sbEff.append(ansEff).append(ansEff > 1 ? " ans" : " an");
+        if (moisRestantsEff > 0 || ansEff == 0) {
+            if (sbEff.length() > 0) sbEff.append(" ");
+            sbEff.append(moisRestantsEff).append(" mois");
+        }
+
+        double anneesContrat = joursContratActuel / 365.25;
+        int moisContrat = (int) Math.floor(anneesContrat * 12.0);
+        int ansCt = moisContrat / 12;
+        int moisRestantsCt = moisContrat % 12;
+
+        StringBuilder sbCt = new StringBuilder();
+        if (ansCt > 0) sbCt.append(ansCt).append(ansCt > 1 ? " ans" : " an");
+        if (moisRestantsCt > 0 || ansCt == 0) {
+            if (sbCt.length() > 0) sbCt.append(" ");
+            sbCt.append(moisRestantsCt).append(" mois");
+        }
+
+        res.put("ancienneteEffectiveTexte", sbEff.toString());
+        res.put("ancienneteEffectiveAnnees", Math.round(anneesEffectives * 100.0) / 100.0);
+        res.put("ancienneteEffectiveMois", moisEffectifs);
+        res.put("ancienneteEffectiveJours", (long) totalJoursChaine);
+        res.put("ancienneteContratTexte", sbCt.toString());
+        res.put("nombreContratsChaine", nbContrats);
+        res.put("dateOrigineChaine", dateOrigine);
+
+        return res;
+    }
 }

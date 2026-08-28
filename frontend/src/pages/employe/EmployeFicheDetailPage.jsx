@@ -74,9 +74,10 @@ export default function EmployeFicheDetailPage() {
     // Modale Suppression Document RH
     const [docToDelete, setDocToDelete] = useState(null);
 
-    // Modale Édition Employé & Désactivation
+    // Modale Édition Employé, Désactivation & Réactivation
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDesactivationModalOpen, setIsDesactivationModalOpen] = useState(false);
+    const [isReactiverModalOpen, setIsReactiverModalOpen] = useState(false);
     const [motifDesactivation, setMotifDesactivation] = useState('Demission');
     const [submitting, setSubmitting] = useState(false);
 
@@ -135,7 +136,7 @@ export default function EmployeFicheDetailPage() {
             loadEmployeDetail();
         } catch (err) {
             console.error('Erreur modification employé:', err);
-            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Erreur lors de l'enregistrement de la fiche.");
+            throw err;
         } finally {
             setSubmitting(false);
         }
@@ -152,6 +153,19 @@ export default function EmployeFicheDetailPage() {
         } catch (err) {
             console.error('Erreur désactivation:', err);
             setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la désactivation.');
+        }
+    };
+
+    const handleReactiverConfirm = async () => {
+        setError('');
+        try {
+            await employeService.reactiverEmploye(id);
+            setIsReactiverModalOpen(false);
+            toast({ title: 'Succès', message: 'Employé réactivé avec succès.', type: 'success' });
+            loadEmployeDetail();
+        } catch (err) {
+            console.error('Erreur réactivation:', err);
+            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la réactivation.');
         }
     };
 
@@ -278,6 +292,7 @@ export default function EmployeFicheDetailPage() {
                 canWrite={canWrite}
                 onEdit={() => setIsFormOpen(true)}
                 onDesactiver={() => setIsDesactivationModalOpen(true)}
+                onReactiver={() => setIsReactiverModalOpen(true)}
             />
 
             {/* Bandeau d'orientation post-création si pas de contrat actif */}
@@ -466,6 +481,17 @@ export default function EmployeFicheDetailPage() {
                     </div>
                 </div>
             )}
+
+            {/* Modale de réactivation */}
+            <ConfirmDialog
+                isOpen={isReactiverModalOpen}
+                title="Réactiver l'employé"
+                message={`Êtes-vous sûr de vouloir réactiver le collaborateur "${emp.nom} ${emp.prenom}" ? Son profil repassera en statut Actif.`}
+                confirmLabel="Réactiver le profil"
+                variant="primary"
+                onConfirm={handleReactiverConfirm}
+                onCancel={() => setIsReactiverModalOpen(false)}
+            />
 
             {/* Modale de confirmation de suppression de document */}
             <ConfirmDialog

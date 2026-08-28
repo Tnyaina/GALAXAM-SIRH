@@ -9,6 +9,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class EmployeCPL extends ClassMere {
 
@@ -92,6 +93,13 @@ public class EmployeCPL extends ClassMere {
     private String nomFiliale;
     private Date dateEmbauche;
 
+    // ANCIENNETE CALCULEE (BACKEND-DRIVEN)
+    private Double ancienneteEffectiveAnnees;
+    private Integer ancienneteEffectiveMois;
+    private String ancienneteEffectiveTexte;
+    private String ancienneteContratTexte;
+    private Integer nombreContratsChaine;
+
     public EmployeCPL() {
         this.setNomTable("V_EMPLOYE_CPL");
     }
@@ -108,17 +116,17 @@ public class EmployeCPL extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        throw new UnsupportedOperationException("La vue v_employe_cpl est en lecture seule.");
+        throw new UnsupportedOperationException("L'insertion directe dans une vue n'est pas autorisée.");
     }
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        throw new UnsupportedOperationException("La vue v_employe_cpl est en lecture seule.");
+        throw new UnsupportedOperationException("La modification directe d'une vue n'est pas autorisée.");
     }
 
     @Override
     protected void supprimer(Connection c) throws Exception {
-        throw new UnsupportedOperationException("La vue v_employe_cpl est en lecture seule.");
+        throw new UnsupportedOperationException("La suppression directe d'une vue n'est pas autorisée.");
     }
 
     @Override
@@ -147,7 +155,22 @@ public class EmployeCPL extends ClassMere {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return mapResultSet(rs);
+                    EmployeCPL emp = mapResultSet(rs);
+                    if (emp.getIdContratActif() != null && emp.getIdContratActif() > 0) {
+                        Map<String, Object> anc = mg.galaxam.sirh.model.contrat.ContratTravail.calculerAncienneteDetaillee(emp.getIdContratActif(), c);
+                        emp.setAncienneteEffectiveTexte((String) anc.get("ancienneteEffectiveTexte"));
+                        emp.setAncienneteContratTexte((String) anc.get("ancienneteContratTexte"));
+                        if (anc.get("ancienneteEffectiveAnnees") instanceof Number) {
+                            emp.setAncienneteEffectiveAnnees(((Number) anc.get("ancienneteEffectiveAnnees")).doubleValue());
+                        }
+                        if (anc.get("ancienneteEffectiveMois") instanceof Number) {
+                            emp.setAncienneteEffectiveMois(((Number) anc.get("ancienneteEffectiveMois")).intValue());
+                        }
+                        if (anc.get("nombreContratsChaine") instanceof Number) {
+                            emp.setNombreContratsChaine(((Number) anc.get("nombreContratsChaine")).intValue());
+                        }
+                    }
+                    return emp;
                 }
             }
         }
@@ -558,4 +581,19 @@ public class EmployeCPL extends ClassMere {
 
     public Date getDateEmbauche() { return dateEmbauche; }
     public void setDateEmbauche(Date dateEmbauche) { this.dateEmbauche = dateEmbauche; }
+
+    public Double getAncienneteEffectiveAnnees() { return ancienneteEffectiveAnnees; }
+    public void setAncienneteEffectiveAnnees(Double ancienneteEffectiveAnnees) { this.ancienneteEffectiveAnnees = ancienneteEffectiveAnnees; }
+
+    public Integer getAncienneteEffectiveMois() { return ancienneteEffectiveMois; }
+    public void setAncienneteEffectiveMois(Integer ancienneteEffectiveMois) { this.ancienneteEffectiveMois = ancienneteEffectiveMois; }
+
+    public String getAncienneteEffectiveTexte() { return ancienneteEffectiveTexte; }
+    public void setAncienneteEffectiveTexte(String ancienneteEffectiveTexte) { this.ancienneteEffectiveTexte = ancienneteEffectiveTexte; }
+
+    public String getAncienneteContratTexte() { return ancienneteContratTexte; }
+    public void setAncienneteContratTexte(String ancienneteContratTexte) { this.ancienneteContratTexte = ancienneteContratTexte; }
+
+    public Integer getNombreContratsChaine() { return nombreContratsChaine; }
+    public void setNombreContratsChaine(Integer nombreContratsChaine) { this.nombreContratsChaine = nombreContratsChaine; }
 }

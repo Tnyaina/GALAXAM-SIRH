@@ -1,4 +1,4 @@
-import { User, Edit2, Power } from 'lucide-react';
+import { User, Edit2, Power, RotateCcw } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
@@ -8,6 +8,7 @@ export default function EmployeHeaderCard({
     canWrite,
     onEdit,
     onDesactiver,
+    onReactiver,
 }) {
     if (!emp) return null;
 
@@ -64,7 +65,7 @@ export default function EmployeHeaderCard({
                     >
                         Modifier le profil
                     </Button>
-                    {emp.estActif && (
+                    {emp.estActif ? (
                         <Button
                             onClick={onDesactiver}
                             variant="ghost"
@@ -73,6 +74,16 @@ export default function EmployeHeaderCard({
                             iconLeft={<Power size={16} />}
                         >
                             Désactiver
+                        </Button>
+                    ) : (
+                        <Button
+                            onClick={onReactiver}
+                            variant="primary"
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
+                            iconLeft={<RotateCcw size={16} />}
+                        >
+                            Réactiver l'employé
                         </Button>
                     )}
                 </div>

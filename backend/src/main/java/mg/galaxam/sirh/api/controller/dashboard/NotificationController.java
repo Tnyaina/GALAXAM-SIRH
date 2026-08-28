@@ -49,15 +49,7 @@ public class NotificationController {
                     "FROM notification_rh " +
                     "WHERE est_lue = FALSE " +
                     "AND (id_utilisateur IS NULL OR id_utilisateur = ?) " +
-                    "AND (date_expiration IS NULL OR date_expiration > CURRENT_TIMESTAMP) " +
-                    "ORDER BY " +
-                    "  CASE priorite " +
-                    "    WHEN 'CRITIQUE' THEN 1 " +
-                    "    WHEN 'HAUTE'    THEN 2 " +
-                    "    WHEN 'NORMALE'  THEN 3 " +
-                    "    ELSE 4 " +
-                    "  END, " +
-                    "  date_creation DESC " +
+                    "ORDER BY date_creation DESC " +
                     "LIMIT 50";
 
             List<Map<String, Object>> notifications = new ArrayList<>();

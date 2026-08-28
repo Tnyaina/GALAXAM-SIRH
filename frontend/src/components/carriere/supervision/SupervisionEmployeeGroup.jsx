@@ -32,7 +32,7 @@ function SupervisionEmployeeGroup({
                 }`}
             >
                 {/* Avatar Initiale */}
-                <div className="w-9 h-9 bg-[var(--color-fg)] text-[var(--color-surface)] font-extrabold flex items-center justify-center text-xs shrink-0">
+                <div className="w-9 h-9 bg-brand-500 text-white font-bold flex items-center justify-center text-xs shrink-0 rounded-none shadow-xs">
                     {group.nomPrenom?.charAt(0) || 'E'}
                 </div>
 
@@ -86,8 +86,7 @@ function SupervisionEmployeeGroup({
             {!isCollapsed && (
                 <div className="border-t border-[var(--color-border-subtle)] divide-y divide-[var(--color-border-subtle)]">
                     {group.contrats.map((c, idx) => {
-                        const isPending = c.codeStatutContrat === 'BROUILLON' || c.codeStatutContrat === 'A_SIGNER' || (c.codeStatutContrat === 'VALIDE' && new Date(c.dateDebut) > new Date());
-                        const isActif = c.codeStatutContrat === 'ACTIF';
+                        const isPending = Boolean(c.isBrouillon || c.isPlanifie || (c.isActif && new Date(c.dateDebut) > new Date()));
                         const isSoon = (c.joursRestantsFin !== null && c.joursRestantsFin <= 60 && c.joursRestantsFin >= 0) ||
                                        (c.joursRestantsEssai !== null && c.joursRestantsEssai <= 60 && c.joursRestantsEssai >= 0);
                         const isDuplicate = c.isDuplicate;

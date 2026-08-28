@@ -1,4 +1,4 @@
-import { Search, RotateCcw, ArrowUpDown, Building, MapPin, Briefcase, Filter } from 'lucide-react';
+import { Search, RotateCcw } from 'lucide-react';
 
 export default function EmployeFilterBar({
     searchQuery = '',

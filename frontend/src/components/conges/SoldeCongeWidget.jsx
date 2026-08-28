@@ -20,7 +20,34 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe 
   const dateDebut = employe?.dateEmbauche || employe?.dateDebutContratActif || employe?.dateDebut;
   let ancienneteInfo = null;
 
-  if (dateDebut) {
+  if (employe?.ancienneteEffectiveMois !== undefined && employe?.ancienneteEffectiveMois !== null) {
+    const months = Number(employe.ancienneteEffectiveMois);
+    const years = Math.floor(months / 12);
+    const remMonths = months % 12;
+    const isEligible = months >= 12;
+
+    let dateDebutStr = '—';
+    let dateOuvertureStr = '—';
+    if (dateDebut) {
+      const dDebut = new Date(dateDebut);
+      if (!isNaN(dDebut.getTime())) {
+        dateDebutStr = dDebut.toLocaleDateString('fr-FR');
+        const dateOuverture = new Date(dDebut);
+        dateOuverture.setFullYear(dateOuverture.getFullYear() + 1);
+        dateOuvertureStr = dateOuverture.toLocaleDateString('fr-FR');
+      }
+    }
+
+    ancienneteInfo = {
+      isEligible,
+      months,
+      years,
+      remMonths,
+      textAnciennete: employe.ancienneteEffectiveTexte || (years > 0 ? `${years} an${years > 1 ? 's' : ''}` : `${months} mois`),
+      dateDebutStr,
+      dateOuvertureStr
+    };
+  } else if (dateDebut) {
     const dDebut = new Date(dateDebut);
     if (!isNaN(dDebut.getTime())) {
       const now = new Date();

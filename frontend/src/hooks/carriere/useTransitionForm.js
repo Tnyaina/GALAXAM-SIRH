@@ -47,8 +47,9 @@ export function useTransitionForm({
         }
     }, [isOpen]);
 
-    const exigeNouveauContrat = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT']
-        .includes(formData.codeTypeEvenement);
+    const typeEvObj = typesEvenementList.find(te => te.code === formData.codeTypeEvenement) || typeEvenement;
+    const exigeNouveauContrat = typeEvObj?.exigeNouveauContrat ?? typeEvObj?.isExigeNouveauContrat ?? ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT'].includes(formData.codeTypeEvenement);
+    const autorisePeriodeEssai = typeEvObj?.autorisePeriodeEssai ?? typeEvObj?.isAutorisePeriodeEssai ?? (exigeNouveauContrat && formData.codeTypeEvenement !== 'RENOUVELLEMENT_CDD');
 
     useEffect(() => {
         if (!isOpen) return;
@@ -59,43 +60,43 @@ export function useTransitionForm({
         if (initialData) {
             const c = initialData.contratCible || initialData.contratSource || initialData || contratActif || {};
             const a = initialData.affectationCible || initialData.affectationSource || initialData || affectationActive || {};
-            const w = initialData.workflow || initialData || {};
+            const wf = initialData.workflow || initialData || {};
 
-            const dureeEssai = c.dureeEssaiMois ?? initialData.dureeEssaiMois;
+            const isCddRenew = (wf.codeTypeEvenement || defaultTypeEv) === 'RENOUVELLEMENT_CDD';
+            const dureeEssai = isCddRenew ? null : (c.dureeEssaiMois ?? initialData.dureeEssaiMois);
 
             setFormData({
-                codeTypeEvenement: w.codeTypeEvenement || w.typeEvenementCode || initialData.codeTypeEvenement || defaultTypeEv,
-                idFiliale: c.idFiliale || initialData.idFiliale || filiales[0]?.idFiliale || '',
-                idTypeContrat: c.idTypeContrat || initialData.idTypeContrat || '',
-                idTypeIntervenant: c.idTypeIntervenant || initialData.idTypeIntervenant || '',
-                dateEffet: fmtDateInput(w.dateEffet || initialData.dateEffet) || today,
-                dateDebut: fmtDateInput(c.dateDebutContrat || c.dateDebut || initialData.dateDebutContrat || initialData.dateDebut) || today,
-                dateFin: fmtDateInput(c.dateFinContrat || c.dateFin || initialData.dateFinContrat || initialData.dateFin) || '',
-                dateSignature: fmtDateInput(c.dateSignature || c.dateDebutContrat || c.dateDebut || initialData.dateDebutContrat) || today,
-                comptabiliseEffectif: c.comptabiliseEffectif !== undefined ? c.comptabiliseEffectif : (initialData.comptabiliseEffectif !== undefined ? initialData.comptabiliseEffectif : true),
-                numeroContrat: c.numeroContratCible || c.numeroContratSource || c.numeroContrat || initialData.numeroContratCible || initialData.numeroContratSource || '',
-                descriptionContrat: c.descriptionContrat || c.description || initialData.descriptionContrat || initialData.description || '',
-                commentaireContrat: c.commentaireContrat || c.commentaire || initialData.commentaireContrat || initialData.commentaire || '',
-                aPeriodeEssai: dureeEssai != null && Number(dureeEssai) > 0,
-                dureeEssaiMois: dureeEssai ? String(dureeEssai) : '3',
-                dateFinEssai: fmtDateInput(c.dateFinEssai || initialData.dateFinEssai) || '',
-                idSite: a.idSite || initialData.idSite || sites[0]?.idSite || '',
-                idDepartement: a.idDepartement || initialData.idDepartement || departements[0]?.idDepartement || '',
-                idService: a.idService || initialData.idService || services[0]?.idService || '',
-                idFonction: a.idFonction || initialData.idFonction || fonctions[0]?.idFonction || '',
-                idResponsableHierarchique: a.idResponsableHierarchique || initialData.idResponsableHierarchique || '',
-                idCategorieProfessionnelle: a.idCategorieProfessionnelle || initialData.idCategorieProfessionnelle || categoriesPro[0]?.idCategorie || '',
-                idModeCalculPaie: a.idModeCalculPaie || initialData.idModeCalculPaie || modesPaie[0]?.idModeCalcul || '',
-                salaireBase: a.salaireBase ? String(a.salaireBase) : (initialData.salaireBase ? String(initialData.salaireBase) : ''),
-                descriptionAffectation: a.descriptionAffectation || a.description || initialData.descriptionAffectation || '',
-                commentaireAffectation: a.commentaireAffectation || a.commentaire || initialData.commentaireAffectation || '',
-                motif: w.motif || initialData.motif || '',
+                codeTypeEvenement: wf.codeTypeEvenement || defaultTypeEv,
+                idFiliale: c.idFiliale || filiales[0]?.idFiliale || '',
+                idTypeContrat: c.idTypeContrat || '',
+                idTypeIntervenant: c.idTypeIntervenant || '',
+                dateEffet: fmtDateInput(wf.dateEffet || wf.dateDebutAffectation) || today,
+                dateDebut: fmtDateInput(c.dateDebut) || today,
+                dateFin: fmtDateInput(c.dateFin) || '',
+                dateSignature: fmtDateInput(c.dateSignature) || today,
+                comptabiliseEffectif: c.comptabiliseEffectif ?? true,
+                numeroContrat: c.numeroContrat || '',
+                descriptionContrat: c.description || '',
+                commentaireContrat: c.commentaire || '',
+                aPeriodeEssai: !isCddRenew && Boolean(dureeEssai && parseInt(dureeEssai) > 0),
+                dureeEssaiMois: isCddRenew ? '0' : (dureeEssai ? String(dureeEssai) : '3'),
+                dateFinEssai: isCddRenew ? '' : (fmtDateInput(c.dateFinEssai) || ''),
+                idSite: a.idSite || sites[0]?.idSite || '',
+                idDepartement: a.idDepartement || departements[0]?.idDepartement || '',
+                idService: a.idService || services[0]?.idService || '',
+                idFonction: a.idFonction || fonctions[0]?.idFonction || '',
+                idResponsableHierarchique: a.idResponsableHierarchique || '',
+                idCategorieProfessionnelle: a.idCategorieProfessionnelle || categoriesPro[0]?.idCategorie || '',
+                idModeCalculPaie: a.idModeCalculPaie || modesPaie[0]?.idModeCalcul || '',
+                salaireBase: a.salaireBase ? String(a.salaireBase) : '',
+                descriptionAffectation: a.description || '',
+                commentaireAffectation: a.commentaire || '',
+                motif: wf.motif || typeEvenement?.libelle || '',
             });
         } else {
             const baseContrat = contratActif || {};
             const baseAff = affectationActive || {};
-            const isExigeNouveau = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT']
-                .includes(defaultTypeEv);
+            const isExigeNouveau = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT'].includes(defaultTypeEv);
 
             let suggestedDateDebut = today;
             if (isExigeNouveau && baseContrat.dateFin) {
@@ -107,6 +108,8 @@ export function useTransitionForm({
                     suggestedDateDebut = today;
                 }
             }
+
+            const isCddRenew = defaultTypeEv === 'RENOUVELLEMENT_CDD';
 
             setFormData({
                 codeTypeEvenement: defaultTypeEv,
@@ -122,7 +125,7 @@ export function useTransitionForm({
                 descriptionContrat: '',
                 commentaireContrat: '',
                 aPeriodeEssai: false,
-                dureeEssaiMois: defaultTypeEv === 'RENOUVELLEMENT_CDD' ? '0' : '3',
+                dureeEssaiMois: isCddRenew ? '0' : '3',
                 dateFinEssai: '',
                 idSite: baseAff.idSite || sites[0]?.idSite || '',
                 idDepartement: baseAff.idDepartement || departements[0]?.idDepartement || '',
@@ -147,6 +150,11 @@ export function useTransitionForm({
             if (field === 'idDepartement') {
                 updated.idService = '';
             }
+            if (field === 'codeTypeEvenement' && val === 'RENOUVELLEMENT_CDD') {
+                updated.aPeriodeEssai = false;
+                updated.dureeEssaiMois = '0';
+                updated.dateFinEssai = '';
+            }
             if (field === 'dateEffet' && (!prev.dateDebut || prev.dateDebut === prev.dateEffet)) {
                 updated.dateDebut = val;
             }
@@ -155,7 +163,7 @@ export function useTransitionForm({
                 const aEssai = field === 'aPeriodeEssai' ? val : prev.aPeriodeEssai;
                 const dur = field === 'dureeEssaiMois' ? val : prev.dureeEssaiMois;
 
-                if (aEssai && dateDeb && dur) {
+                if (aEssai && dateDeb && dur && updated.codeTypeEvenement !== 'RENOUVELLEMENT_CDD') {
                     try {
                         const d = new Date(dateDeb);
                         d.setMonth(d.getMonth() + parseInt(dur));
@@ -163,7 +171,7 @@ export function useTransitionForm({
                     } catch (err) {
                         console.warn("Erreur calcul date fin essai:", err);
                     }
-                } else if (!aEssai) {
+                } else {
                     updated.dateFinEssai = '';
                 }
             }
@@ -282,8 +290,6 @@ export function useTransitionForm({
     });
     const relevantEvTypes = availableEvTypes.length > 0 ? availableEvTypes : DEFAULT_RELEVANT_EVENTS;
 
-    const typeEvObj = typesEvenementList.find(te => te.code === formData.codeTypeEvenement) || typeEvenement;
-
     const avantTypeContrat = contratActif ? typesContrat.find(tc => String(tc.idTypeContrat) === String(contratActif.idTypeContrat))?.libelle : null;
     const apresTypeContrat = typesContrat.find(tc => String(tc.idTypeContrat) === String(formData.idTypeContrat))?.libelle;
 
@@ -318,7 +324,7 @@ export function useTransitionForm({
         submitting, errorMsg, setErrorMsg,
         showPreviewMobile, setShowPreviewMobile,
         mounted,
-        exigeNouveauContrat, isEditMode,
+        exigeNouveauContrat, autorisePeriodeEssai, isEditMode,
         loadingRef, handleSubmit,
 
         // Données d'aperçu

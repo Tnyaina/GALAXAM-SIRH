@@ -29,7 +29,7 @@ export default function TransitionModal({
         formData, setField,
         submitting, errorMsg,
         showPreviewMobile, setShowPreviewMobile,
-        mounted, exigeNouveauContrat, isEditMode,
+        mounted, exigeNouveauContrat, autorisePeriodeEssai, isEditMode,
         loadingRef, handleSubmit,
         relevantEvTypes, typeEvObj,
         avantTypeContrat, apresTypeContrat, avantSite, apresSite,
@@ -111,6 +111,17 @@ export default function TransitionModal({
                                 {exigeNouveauContrat && (
                                     <section className="space-y-5 pb-6 border-b border-ink-150 dark:border-ink-700">
                                         <FormSectionHeader step={stepContrat} icon={FileSignature} title="Nouveau Contrat" />
+                                        
+                                        <div className="bg-brand-50 dark:bg-brand-950/40 p-3.5 border border-brand-200 dark:border-brand-800/60 rounded-none text-xs text-brand-800 dark:text-brand-300 flex items-start gap-2.5">
+                                            <RefreshCw size={16} className="shrink-0 mt-0.5 text-brand-600 dark:text-brand-400" />
+                                            <div>
+                                                <p className="font-bold">Clôture et Chaînage Automatique du Contrat Précédent</p>
+                                                <p className="text-[11px] text-brand-700/80 dark:text-brand-300/80 mt-0.5">
+                                                    La validation de ce mouvement clôturera automatiquement le contrat actuel et activera ce nouveau contrat tout en préservant l'ancienneté historique du collaborateur.
+                                                </p>
+                                            </div>
+                                        </div>
+
                                         <ContratFieldsSection
                                             formData={formData}
                                             setField={setField}
@@ -119,10 +130,17 @@ export default function TransitionModal({
                                             typesIntervenant={typesIntervenant}
                                         />
 
-                                        <PeriodeEssaiFieldsSection
-                                            formData={formData}
-                                            setField={setField}
-                                        />
+                                        {autorisePeriodeEssai ? (
+                                            <PeriodeEssaiFieldsSection
+                                                formData={formData}
+                                                setField={setField}
+                                            />
+                                        ) : (
+                                            <div className="bg-ink-50 dark:bg-ink-950/60 p-3.5 border border-ink-150 dark:border-ink-800 text-xs text-ink-500 dark:text-ink-400 flex items-center gap-2">
+                                                <span className="font-bold text-ink-700 dark:text-ink-200">Période d'essai :</span>
+                                                <span>Non applicable sur ce type de mouvement (ancienneté et compétences déjà validées).</span>
+                                            </div>
+                                        )}
                                     </section>
                                 )}
 

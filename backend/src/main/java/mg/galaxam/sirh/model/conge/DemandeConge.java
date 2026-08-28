@@ -142,8 +142,7 @@ public class DemandeConge extends ClassMere {
         // certificat médical, acte) doit être fourni pour valider ce congé.");
         // }
 
-        // 4. Contrôle d'ancienneté minimale (remontée de l'ancienneté historique
-        // complète)
+        // 4. Contrôle d'ancienneté minimale (ancienneté effective cumulée sans les interruptions)
         if (typeConge.getExigeAncienneteMinMois() != null && typeConge.getExigeAncienneteMinMois() > 0) {
             if (!derogationSoldeNegatif) {
                 ContratTravail contratActif = ContratTravail.rechercherActifParEmploye(idEmploye, c);
@@ -152,25 +151,19 @@ public class DemandeConge extends ClassMere {
                             "Aucun contrat de travail actif trouvé pour vérifier l'ancienneté requise. Dérogation RH requise.");
                 }
 
-                LocalDate dateDebutInitiale = contratActif.getDateDebut().toLocalDate();
-                Integer idCtPrec = contratActif.getIdContratPrecedent();
-                while (idCtPrec != null) {
-                    ContratTravail ctPrec = new ContratTravail().rechercherParId(idCtPrec, c);
-                    if (ctPrec != null && ctPrec.getDateDebut() != null) {
-                        dateDebutInitiale = ctPrec.getDateDebut().toLocalDate();
-                        idCtPrec = ctPrec.getIdContratPrecedent();
-                    } else {
-                        break;
-                    }
-                }
+                java.util.Map<String, Object> ancDetaillee = ContratTravail.calculerAncienneteDetaillee(contratActif.getIdContrat(), c);
+                int moisAnciennete = ancDetaillee.get("ancienneteEffectiveMois") != null
+                        ? ((Number) ancDetaillee.get("ancienneteEffectiveMois")).intValue()
+                        : 0;
+                String texteAnciennete = ancDetaillee.get("ancienneteEffectiveTexte") != null
+                        ? (String) ancDetaillee.get("ancienneteEffectiveTexte")
+                        : (moisAnciennete + " mois");
 
-                long moisAnciennete = java.time.temporal.ChronoUnit.MONTHS.between(dateDebutInitiale,
-                        dateDebut.toLocalDate());
                 if (moisAnciennete < typeConge.getExigeAncienneteMinMois()) {
                     throw new IllegalArgumentException(
                             "L'ancienneté requise pour le congé " + typeConge.getLibelle() + " est de " +
-                                    typeConge.getExigeAncienneteMinMois() + " mois (" + moisAnciennete
-                                    + " mois constatés). Dérogation RH requise.");
+                                    typeConge.getExigeAncienneteMinMois() + " mois (" + texteAnciennete
+                                    + " constatés). Dérogation RH requise.");
                 }
             }
         }

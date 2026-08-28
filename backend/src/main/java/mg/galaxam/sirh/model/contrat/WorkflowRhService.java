@@ -44,7 +44,10 @@ public class WorkflowRhService {
         // ── Résolution des statuts ────────────────────────────
         Integer idStatutBrouillon = resolveStatut("BROUILLON", c);
         Integer idStatutPlanifie = resolveStatut("PLANIFIE", c);
-        Integer idTypeEvenementEmbauche = resolveTypeEvenement("EMBAUCHE_INITIALE", c);
+        String codeTypeEv = (req.getCodeTypeEvenement() != null && !req.getCodeTypeEvenement().isBlank())
+                ? req.getCodeTypeEvenement()
+                : "EMBAUCHE_INITIALE";
+        Integer idTypeEvenementEmbauche = resolveTypeEvenement(codeTypeEv, c);
         Integer idMotifMouvement = resolveMotifMouvement("EMBAUCHE", c);
 
         validerExigenceDateFin(req.getIdTypeContrat(), req.getDateFin(), c);
@@ -66,6 +69,9 @@ public class WorkflowRhService {
         contrat.setComptabiliseEffectif(req.isComptabiliseEffectif());
         contrat.setDescription(req.getDescription());
         contrat.setCommentaire(req.getCommentaire());
+        if (req.getIdContratPrecedent() != null) {
+            contrat.setIdContratPrecedent(req.getIdContratPrecedent());
+        }
         contrat.save(c);
 
         if (contrat.getDureeEssaiMois() != null && contrat.getDureeEssaiMois() > 0) {
@@ -232,6 +238,13 @@ public class WorkflowRhService {
             }
 
             affectation.activer(c);
+        }
+
+        // Réactiver automatiquement l'employé s'il était inactif
+        try (PreparedStatement psEmp = c.prepareStatement(
+                "UPDATE employe SET est_actif = TRUE, date_desactivation = NULL, motif_desactivation = NULL, updated_at = CURRENT_TIMESTAMP WHERE id_employe = ?")) {
+            psEmp.setInt(1, workflow.getIdEmploye());
+            psEmp.executeUpdate();
         }
 
         String commentaire = (req != null && req.getCommentaireValidation() != null)
@@ -956,11 +969,20 @@ public class WorkflowRhService {
             psClear.executeUpdate();
         }
 
+        String empNomAnnule = "";
+        try (var psEmp = c.prepareStatement("SELECT nom || ' ' || prenom FROM employe WHERE id_employe = ?")) {
+            psEmp.setInt(1, workflow.getIdEmploye());
+            try (var rsEmp = psEmp.executeQuery()) {
+                if (rsEmp.next())
+                    empNomAnnule = rsEmp.getString(1);
+            }
+        }
+
         creerNotificationRh(c, null, "MOUVEMENT_APPLIQUE", "NORMALE",
-                "Brouillon de mouvement rejeté",
-                "Le brouillon de mouvement pour l'employé (ID: " + workflow.getIdEmploye()
-                        + ") a été rejeté ou annulé.",
-                "/supervision", null);
+                "Brouillon de mouvement rejeté - " + empNomAnnule,
+                "Le brouillon de mouvement pour " + empNomAnnule
+                        + " a été rejeté ou annulé.",
+                "/employes/" + workflow.getIdEmploye() + "?tab=carriere", workflow.getIdEmploye());
 
         return WorkflowRhCPL.rechercherParId(idWorkflow, c);
     }
@@ -993,10 +1015,19 @@ public class WorkflowRhService {
         AuditLog.audit(c, "ANNULATION_PLANIFICATION_WORKFLOW", "workflow_rh",
                 String.valueOf(idWorkflow), workflow, null);
 
+        String empNomPlanif = "";
+        try (var psEmp = c.prepareStatement("SELECT nom || ' ' || prenom FROM employe WHERE id_employe = ?")) {
+            psEmp.setInt(1, workflow.getIdEmploye());
+            try (var rsEmp = psEmp.executeQuery()) {
+                if (rsEmp.next())
+                    empNomPlanif = rsEmp.getString(1);
+            }
+        }
+
         creerNotificationRh(c, null, "MOUVEMENT_APPLIQUE", "HAUTE",
-                "Planification de mouvement annulée",
-                "Le mouvement RH planifié pour l'employé (ID: " + workflow.getIdEmploye() + ") a été annulé.",
-                "/supervision", null);
+                "Planification de mouvement annulée - " + empNomPlanif,
+                "Le mouvement RH planifié pour " + empNomPlanif + " a été annulé.",
+                "/employes/" + workflow.getIdEmploye() + "?tab=carriere", workflow.getIdEmploye());
 
         return WorkflowRhCPL.rechercherParId(idWorkflow, c);
     }
@@ -1067,6 +1098,13 @@ public class WorkflowRhService {
             if (affCbl != null) {
                 affCbl.activer(c);
             }
+        }
+
+        // Réactiver automatiquement l'employé s'il était inactif (ex: Reprise Consultant, Réintégration, etc.)
+        try (PreparedStatement psEmp = c.prepareStatement(
+                "UPDATE employe SET est_actif = TRUE, date_desactivation = NULL, motif_desactivation = NULL, updated_at = CURRENT_TIMESTAMP WHERE id_employe = ?")) {
+            psEmp.setInt(1, workflow.getIdEmploye());
+            psEmp.executeUpdate();
         }
     }
 

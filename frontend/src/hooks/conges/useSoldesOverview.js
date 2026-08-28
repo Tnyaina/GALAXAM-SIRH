@@ -191,10 +191,10 @@ export function useSoldesOverview(demandesGlobales = []) {
     ? demandesGlobales
     : (demandesGlobales?.items || demandesGlobales?.content || demandesGlobales?.data || []);
 
-  const kpiEnAttente = safeDemandesList.filter(d => d && (d.codeStatutDemande === 'EN_ATTENTE' || d.statutCode === 'EN_ATTENTE')).length;
+  const kpiEnAttente = safeDemandesList.filter(d => d && (d.isEnAttente ?? (d.codeStatutDemande === 'EN_ATTENTE' || d.statutCode === 'EN_ATTENTE'))).length;
 
   const kpiValideCeMois = safeDemandesList.filter(d => {
-    if (!d || (d.codeStatutDemande !== 'VALIDE' && d.statutCode !== 'VALIDE')) return false;
+    if (!d || !(d.isValide ?? (d.codeStatutDemande === 'VALIDE' || d.statutCode === 'VALIDE'))) return false;
     const end = new Date(d.dateFin);
     const monthStart = new Date(year, month - 1, 1);
     const monthEnd = new Date(year, month - 1, daysInMonth, 23, 59, 59);
@@ -204,7 +204,7 @@ export function useSoldesOverview(demandesGlobales = []) {
   const today = new Date();
   today.setHours(0,0,0,0);
   const kpiAbsentsAuj = safeDemandesList.filter(d => {
-    if (!d || (d.codeStatutDemande !== 'VALIDE' && d.statutCode !== 'VALIDE')) return false;
+    if (!d || !(d.isValide ?? (d.codeStatutDemande === 'VALIDE' || d.statutCode === 'VALIDE'))) return false;
     const start = new Date(d.dateDebut);
     start.setHours(0,0,0,0);
     const end = new Date(d.dateFin);

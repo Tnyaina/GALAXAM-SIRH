@@ -233,7 +233,7 @@ export default function AnomaliesPointagePage() {
     const clearSelection = () => setSelectedKeys(new Set());
 
     const handleBulkStandard = async () => {
-        const items = selectedAnomalies.filter((a) => a.typeAnomalie === 'INCOMPLET' || a.typeAnomalie === 'ABSENCE');
+        const items = selectedAnomalies.filter((a) => a.isIncomplet || a.isAbsence || a.typeAnomalie === 'INCOMPLET' || a.typeAnomalie === 'ABSENCE');
         if (items.length === 0) return;
         setBulkRunning(true);
         const payloadList = items.map((ano) => {
@@ -270,7 +270,7 @@ export default function AnomaliesPointagePage() {
     };
 
     const handleBulkJustify = async () => {
-        const items = selectedAnomalies.filter((a) => a.typeAnomalie === 'RETARD');
+        const items = selectedAnomalies.filter((a) => a.isRetard || a.typeAnomalie === 'RETARD');
         if (items.length === 0) return;
         setBulkRunning(true);
         const payloadList = items.map((ano) => ({
@@ -563,7 +563,7 @@ export default function AnomaliesPointagePage() {
                             variant="outline"
                             icon={<ClockCheck size={14} />}
                             onClick={handleBulkStandard}
-                            disabled={bulkRunning || selectedAnomalies.every((a) => a.typeAnomalie !== 'INCOMPLET' && a.typeAnomalie !== 'ABSENCE')}
+                            disabled={bulkRunning || selectedAnomalies.every((a) => !a.isIncomplet && !a.isAbsence && a.typeAnomalie !== 'INCOMPLET' && a.typeAnomalie !== 'ABSENCE')}
                         >
                             Appliquer horaires standard
                         </Button>
@@ -572,7 +572,7 @@ export default function AnomaliesPointagePage() {
                             variant="outline"
                             icon={<Check size={14} />}
                             onClick={handleBulkJustify}
-                            disabled={bulkRunning || selectedAnomalies.every((a) => a.typeAnomalie !== 'RETARD')}
+                            disabled={bulkRunning || selectedAnomalies.every((a) => !a.isRetard && a.typeAnomalie !== 'RETARD')}
                         >
                             Justifier les retards
                         </Button>
@@ -726,7 +726,7 @@ export default function AnomaliesPointagePage() {
                                         <Td className="text-right">
                                             <div className="flex items-center justify-end gap-1.5">
                                                 {/* Action 1-clic pour Incomplets & Absences */}
-                                                {(ano.typeAnomalie === 'INCOMPLET' || ano.typeAnomalie === 'ABSENCE') && (
+                                                {(ano.isIncomplet || ano.isAbsence || ano.typeAnomalie === 'INCOMPLET' || ano.typeAnomalie === 'ABSENCE') && (
                                                     <Button
                                                         size="xs"
                                                         variant="outline"
@@ -740,7 +740,7 @@ export default function AnomaliesPointagePage() {
                                                 )}
 
                                                 {/* Action 1-clic pour Retards */}
-                                                {ano.typeAnomalie === 'RETARD' && (
+                                                {(ano.isRetard || ano.typeAnomalie === 'RETARD') && (
                                                     <Button
                                                         size="xs"
                                                         variant="outline"

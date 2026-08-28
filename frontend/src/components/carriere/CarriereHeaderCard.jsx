@@ -1,5 +1,5 @@
 import {
-    Briefcase, Calendar, Clock, Award, DollarSign, MapPin, FileText, UserCircle, CreditCard
+    Briefcase, Calendar, Clock, Award, DollarSign, MapPin, FileText, UserCircle
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -31,7 +31,7 @@ export default function CarriereHeaderCard({
     brouillonWf,
     etatEssai,
     workflowPlanifieFutur,
-    estEssaiRenouveleFlag,
+    _estEssaiRenouveleFlag,
     canWrite,
     onOpenConfirmation,
     onOpenRenouvellement,
@@ -89,6 +89,16 @@ export default function CarriereHeaderCard({
                         value={contratActif?.dateDebut ? fmtDate(contratActif.dateDebut) : null}
                     />
                     <StatItem
+                        icon={<Clock size={16} />}
+                        label="Ancienneté"
+                        value={employe?.ancienneteEffectiveTexte || contratActif?.ancienneteEffectiveTexte || null}
+                        subtext={
+                            (employe?.nombreContratsChaine || contratActif?.nombreContratsChaine) > 1
+                                ? `Cumul (${employe?.nombreContratsChaine || contratActif?.nombreContratsChaine} contrats)`
+                                : "Temps effectif"
+                        }
+                    />
+                    <StatItem
                         icon={<MapPin size={16} />}
                         label="Site / Département"
                         value={
@@ -142,7 +152,7 @@ export default function CarriereHeaderCard({
                         </div>
                     </div>
 
-                    {canWrite && !workflowPlanifieFutur && (
+                    {canWrite && !workflowPlanifieFutur && !brouillonWf && (
                         <div className="flex items-center gap-2 self-end md:self-auto flex-shrink-0">
                             {/* Renouveller : visible uniquement si le backend autorise explicitement canRenew */}
                             {etatEssai?.canRenew === true && (
@@ -164,6 +174,13 @@ export default function CarriereHeaderCard({
                                     Confirmer l'essai
                                 </Button>
                             )}
+                        </div>
+                    )}
+                    {brouillonWf && (
+                        <div className="flex items-center self-end md:self-auto flex-shrink-0">
+                            <Badge variant="warning" size="xs">
+                                Brouillon RH en cours
+                            </Badge>
                         </div>
                     )}
                 </div>

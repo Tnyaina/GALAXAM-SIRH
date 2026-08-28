@@ -1,16 +1,16 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-    CalendarRange, 
-    Plus, 
-    RefreshCw, 
-    CheckCircle, 
-    Play, 
-    ArrowRight, 
+import {
+    CalendarRange,
+    Plus,
+    RefreshCw,
+    CheckCircle,
+    Play,
+    ArrowRight,
     ArrowLeft,
-    RotateCcw, 
-    Clock, 
-    CheckCheck, 
+    RotateCcw,
+    Clock,
+    CheckCheck,
     Archive,
     ShieldCheck
 } from 'lucide-react';
@@ -31,30 +31,30 @@ import SEO from '@/components/system/SEO';
 import PointageSubNav from '@/components/pointage/PointageSubNav';
 
 const STATUT_CONFIG = {
-    'BROUILLON': { 
-        variant: 'secondary', 
-        label: 'Brouillon', 
-        desc: 'Période configurée mais non active' 
+    'BROUILLON': {
+        variant: 'secondary',
+        label: 'Brouillon',
+        desc: 'Période configurée mais non active'
     },
-    'EN_COURS': { 
-        variant: 'info', 
-        label: 'En cours (Saisie active)', 
-        desc: 'Pointages ouverts aux agents' 
+    'EN_COURS': {
+        variant: 'info',
+        label: 'En cours (Saisie active)',
+        desc: 'Pointages ouverts aux agents'
     },
-    'A_VALIDER': { 
-        variant: 'warning', 
-        label: 'À valider (Fin de mois)', 
-        desc: 'Saisie terminée, attente validation DAF' 
+    'A_VALIDER': {
+        variant: 'warning',
+        label: 'À valider (Fin de mois)',
+        desc: 'Saisie terminée, attente validation DAF'
     },
-    'VALIDEE': { 
-        variant: 'success', 
-        label: 'Validée (Verrouillée)', 
-        desc: 'Pointages verrouillés et figés' 
+    'VALIDEE': {
+        variant: 'success',
+        label: 'Validée (Verrouillée)',
+        desc: 'Pointages verrouillés et figés'
     },
-    'CLOTUREE': { 
-        variant: 'danger', 
-        label: 'Clôturée (Paie générée)', 
-        desc: 'Période archivée définitivement' 
+    'CLOTUREE': {
+        variant: 'danger',
+        label: 'Clôturée (Paie générée)',
+        desc: 'Période archivée définitivement'
     }
 };
 
@@ -167,7 +167,7 @@ export default function PeriodePaiePage() {
             try {
                 const check = await pointageSyntheseService.getPreClotureCheck(periode.idPeriodePaie);
                 if (check && check.totalAnomalies > 0) {
-                    warningDetails = `\n\n⚠️ Information importante : Il subsiste ${check.totalAnomalies} anomalie(s) non régularisée(s) sur cette période (${check.totalIncomplets} pointages incomplets, ${check.totalAbsencesInjustifiees} absences non justifiées, ${check.totalRetardsNonJustifies} retards sans motif). Vous pouvez valider dès maintenant pour geler les données en l'état ou vérifier la page des anomalies au préalable.`;
+                    warningDetails = `\n\n Information importante : Il subsiste ${check.totalAnomalies} anomalie(s) non régularisée(s) sur cette période (${check.totalIncomplets} pointages incomplets, ${check.totalAbsencesInjustifiees} absences non justifiées, ${check.totalRetardsNonJustifies} retards sans motif). Vous pouvez valider dès maintenant pour geler les données en l'état ou vérifier la page des anomalies au préalable.`;
                 }
             } catch (err) {
                 console.error('Erreur vérification anomalies :', err);
@@ -224,8 +224,8 @@ export default function PeriodePaiePage() {
             <PointageSubNav />
 
             {/* Lien retour */}
-            <Link 
-                to="/dashboard" 
+            <Link
+                to="/dashboard"
                 className="inline-flex items-center gap-2 text-sm text-[var(--color-brand-500)] hover:underline font-semibold"
             >
                 <ArrowLeft size={16} />
@@ -235,7 +235,7 @@ export default function PeriodePaiePage() {
             {/* En-tête standard Galaxam */}
             <div className="relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-sm p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--color-brand-500)]/5 rounded-none blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-                
+
                 <div className="relative flex items-center gap-5">
                     <div className="w-14 h-14 bg-gradient-to-br from-[var(--color-brand-400)] to-[var(--color-brand-600)] text-white rounded-none flex items-center justify-center shadow-lg shadow-[var(--color-brand-500)]/20 shrink-0">
                         <CalendarRange size={26} strokeWidth={2.5} />
@@ -343,107 +343,107 @@ export default function PeriodePaiePage() {
                 ) : (
                     <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                         <Table>
-                        <Thead>
-                            <Tr>
-                                <Th>Code Période</Th>
-                                <Th>Libellé</Th>
-                                <Th>Date Début</Th>
-                                <Th>Date Fin</Th>
-                                <Th>Statut</Th>
-                                <Th className="text-right">Actions sur le Cycle</Th>
-                            </Tr>
-                        </Thead>
-                        <Tbody>
-                            {periodes.map(p => {
-                                const isLocked = p.statutCode === 'VALIDEE' || p.statutCode === 'CLOTUREE';
-                                return (
-                                    <Tr key={p.idPeriodePaie} className={isLocked ? 'bg-ink-50/30 dark:bg-ink-950/30' : ''}>
-                                        <Td className="font-mono font-bold text-brand-600 dark:text-brand-400">
-                                            {p.code}
-                                        </Td>
-                                        <Td className="font-semibold text-ink-900 dark:text-white">
-                                            {p.libelle}
-                                        </Td>
-                                        <Td className="text-xs font-mono">{p.dateDebut}</Td>
-                                        <Td className="text-xs font-mono">{p.dateFin}</Td>
-                                        <Td>
-                                            <Badge variant={STATUT_CONFIG[p.statutCode]?.variant || 'secondary'}>
-                                                {STATUT_CONFIG[p.statutCode]?.label || p.statutLibelle}
-                                            </Badge>
-                                        </Td>
-                                        <Td className="text-right space-x-2">
-                                            {p.statutCode === 'BROUILLON' && (
-                                                <Button 
-                                                    size="xs" 
-                                                    variant="outline" 
-                                                    icon={<Play size={13}/>} 
-                                                    onClick={() => triggerStatutChange(p, 'EN_COURS')}
-                                                >
-                                                    Ouvrir la saisie
-                                                </Button>
-                                            )}
-                                            {p.statutCode === 'EN_COURS' && (
-                                                <Button 
-                                                    size="xs" 
-                                                    variant="outline" 
-                                                    icon={<ArrowRight size={13}/>} 
-                                                    onClick={() => triggerStatutChange(p, 'A_VALIDER')}
-                                                >
-                                                    Terminer mois (À valider)
-                                                </Button>
-                                            )}
-                                            {p.statutCode === 'A_VALIDER' && (
-                                                <Button 
-                                                    size="xs" 
-                                                    variant="primary" 
-                                                    icon={<CheckCircle size={13}/>} 
-                                                    onClick={() => triggerStatutChange(p, 'VALIDEE')}
-                                                >
-                                                    Valider (DAF)
-                                                </Button>
-                                            )}
-                                            {p.statutCode === 'VALIDEE' && (
-                                                <Button 
-                                                    size="xs" 
-                                                    variant="danger" 
-                                                    icon={<Archive size={13}/>} 
-                                                    onClick={() => triggerStatutChange(p, 'CLOTUREE')}
-                                                >
-                                                    Clôturer
-                                                </Button>
-                                            )}
-                                            {isLocked && canManage && (
-                                                <Button 
-                                                    size="xs" 
-                                                    variant="ghost" 
-                                                    className="!text-warning-600 dark:!text-warning-400 hover:!bg-warning-500/10" 
-                                                    icon={<RotateCcw size={13}/>} 
-                                                    onClick={() => triggerStatutChange(p, 'EN_COURS')}
-                                                >
-                                                    Rouvrir
-                                                </Button>
-                                            )}
+                            <Thead>
+                                <Tr>
+                                    <Th>Code Période</Th>
+                                    <Th>Libellé</Th>
+                                    <Th>Date Début</Th>
+                                    <Th>Date Fin</Th>
+                                    <Th>Statut</Th>
+                                    <Th className="text-right">Actions sur le Cycle</Th>
+                                </Tr>
+                            </Thead>
+                            <Tbody>
+                                {periodes.map(p => {
+                                    const isLocked = p.statutCode === 'VALIDEE' || p.statutCode === 'CLOTUREE';
+                                    return (
+                                        <Tr key={p.idPeriodePaie} className={isLocked ? 'bg-ink-50/30 dark:bg-ink-950/30' : ''}>
+                                            <Td className="font-mono font-bold text-brand-600 dark:text-brand-400">
+                                                {p.code}
+                                            </Td>
+                                            <Td className="font-semibold text-ink-900 dark:text-white">
+                                                {p.libelle}
+                                            </Td>
+                                            <Td className="text-xs font-mono">{p.dateDebut}</Td>
+                                            <Td className="text-xs font-mono">{p.dateFin}</Td>
+                                            <Td>
+                                                <Badge variant={STATUT_CONFIG[p.statutCode]?.variant || 'secondary'}>
+                                                    {STATUT_CONFIG[p.statutCode]?.label || p.statutLibelle}
+                                                </Badge>
+                                            </Td>
+                                            <Td className="text-right space-x-2">
+                                                {p.statutCode === 'BROUILLON' && (
+                                                    <Button
+                                                        size="xs"
+                                                        variant="outline"
+                                                        icon={<Play size={13} />}
+                                                        onClick={() => triggerStatutChange(p, 'EN_COURS')}
+                                                    >
+                                                        Ouvrir la saisie
+                                                    </Button>
+                                                )}
+                                                {p.statutCode === 'EN_COURS' && (
+                                                    <Button
+                                                        size="xs"
+                                                        variant="outline"
+                                                        icon={<ArrowRight size={13} />}
+                                                        onClick={() => triggerStatutChange(p, 'A_VALIDER')}
+                                                    >
+                                                        Terminer mois (À valider)
+                                                    </Button>
+                                                )}
+                                                {p.statutCode === 'A_VALIDER' && (
+                                                    <Button
+                                                        size="xs"
+                                                        variant="primary"
+                                                        icon={<CheckCircle size={13} />}
+                                                        onClick={() => triggerStatutChange(p, 'VALIDEE')}
+                                                    >
+                                                        Valider (DAF)
+                                                    </Button>
+                                                )}
+                                                {p.statutCode === 'VALIDEE' && (
+                                                    <Button
+                                                        size="xs"
+                                                        variant="danger"
+                                                        icon={<Archive size={13} />}
+                                                        onClick={() => triggerStatutChange(p, 'CLOTUREE')}
+                                                    >
+                                                        Clôturer
+                                                    </Button>
+                                                )}
+                                                {isLocked && canManage && (
+                                                    <Button
+                                                        size="xs"
+                                                        variant="ghost"
+                                                        className="!text-warning-600 dark:!text-warning-400 hover:!bg-warning-500/10"
+                                                        icon={<RotateCcw size={13} />}
+                                                        onClick={() => triggerStatutChange(p, 'EN_COURS')}
+                                                    >
+                                                        Rouvrir
+                                                    </Button>
+                                                )}
+                                            </Td>
+                                        </Tr>
+                                    );
+                                })}
+                                {periodes.length === 0 && !loading && (
+                                    <Tr>
+                                        <Td colSpan={6} className="text-center py-12 text-ink-400 dark:text-ink-400">
+                                            <CalendarRange size={36} className="mx-auto mb-2 opacity-40" />
+                                            Aucune période de paie configurée pour le moment.
                                         </Td>
                                     </Tr>
-                                );
-                            })}
-                            {periodes.length === 0 && !loading && (
-                                <Tr>
-                                    <Td colSpan={6} className="text-center py-12 text-ink-400 dark:text-ink-400">
-                                        <CalendarRange size={36} className="mx-auto mb-2 opacity-40" />
-                                        Aucune période de paie configurée pour le moment.
-                                    </Td>
-                                </Tr>
-                            )}
-                        </Tbody>
-                    </Table>
+                                )}
+                            </Tbody>
+                        </Table>
                     </div>
                 )}
             </div>
 
             {/* Modale de Création de Période */}
-            <Modal 
-                isOpen={isCreateModalOpen} 
+            <Modal
+                isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
                 title="Créer une Nouvelle Période de Paie"
             >
@@ -451,37 +451,37 @@ export default function PeriodePaiePage() {
                     <div className="bg-brand-50/50 dark:bg-brand-900/20 p-3 border border-brand-200 dark:border-brand-800/40 text-xs text-brand-800 dark:text-brand-300">
                         La période sera initialement créée au statut <strong>Brouillon</strong>. Vous pourrez ensuite l'ouvrir à la saisie.
                     </div>
-                    <Input 
-                        label="Code Période (ex: 2026-09)" 
+                    <Input
+                        label="Code Période (ex: 2026-09)"
                         placeholder="AAAA-MM"
-                        value={newPeriode.code} 
-                        onChange={e => setNewPeriode({...newPeriode, code: e.target.value})} 
-                        required 
+                        value={newPeriode.code}
+                        onChange={e => setNewPeriode({ ...newPeriode, code: e.target.value })}
+                        required
                     />
-                    <Input 
-                        label="Libellé complet (ex: Septembre 2026)" 
+                    <Input
+                        label="Libellé complet (ex: Septembre 2026)"
                         placeholder="Nom de la période"
-                        value={newPeriode.libelle} 
-                        onChange={e => setNewPeriode({...newPeriode, libelle: e.target.value})} 
-                        required 
+                        value={newPeriode.libelle}
+                        onChange={e => setNewPeriode({ ...newPeriode, libelle: e.target.value })}
+                        required
                     />
                     <div className="grid grid-cols-2 gap-4">
-                        <Input 
-                            type="date" 
-                            label="Date de début" 
-                            value={newPeriode.dateDebut} 
-                            onChange={e => setNewPeriode({...newPeriode, dateDebut: e.target.value})} 
-                            required 
+                        <Input
+                            type="date"
+                            label="Date de début"
+                            value={newPeriode.dateDebut}
+                            onChange={e => setNewPeriode({ ...newPeriode, dateDebut: e.target.value })}
+                            required
                         />
-                        <Input 
-                            type="date" 
-                            label="Date de fin" 
-                            value={newPeriode.dateFin} 
-                            onChange={e => setNewPeriode({...newPeriode, dateFin: e.target.value})} 
-                            required 
+                        <Input
+                            type="date"
+                            label="Date de fin"
+                            value={newPeriode.dateFin}
+                            onChange={e => setNewPeriode({ ...newPeriode, dateFin: e.target.value })}
+                            required
                         />
                     </div>
-                    
+
                     <div className="pt-4 flex justify-end gap-3 border-t border-ink-150 dark:border-ink-700">
                         <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreateModalOpen(false)}>
                             Annuler

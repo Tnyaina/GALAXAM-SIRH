@@ -8,16 +8,18 @@ import Button from '@/components/ui/forms/Button';
  */
 export default function Pagination({
     currentPage = 1,
-    totalItems = 0,
+    totalItems,
+    totalElements,
     pageSize = 10,
     pageSizeOptions = [10, 25, 50, 100],
     onPageChange,
     onPageSizeChange,
     className = '',
 }) {
-    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-    const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-    const endItem = Math.min(currentPage * pageSize, totalItems);
+    const count = totalItems !== undefined ? totalItems : (totalElements !== undefined ? totalElements : 0);
+    const totalPages = Math.max(1, Math.ceil(count / pageSize));
+    const startItem = count === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+    const endItem = Math.min(currentPage * pageSize, count);
 
     // Sécurité ajustement : si currentPage dépasse totalPages (ex: filtre modifié ou suppression)
     useEffect(() => {
@@ -58,7 +60,7 @@ export default function Pagination({
                 <span>
                     Affichage de <span className="font-data font-bold text-[var(--color-fg)]">{startItem}</span> à{' '}
                     <span className="font-data font-bold text-[var(--color-fg)]">{endItem}</span> sur{' '}
-                    <span className="font-data font-bold text-[var(--color-fg)]">{totalItems}</span> éléments
+                    <span className="font-data font-bold text-[var(--color-fg)]">{count}</span> éléments
                 </span>
 
                 {onPageSizeChange && pageSizeOptions && (
