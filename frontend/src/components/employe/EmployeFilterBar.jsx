@@ -27,18 +27,18 @@ export default function EmployeFilterBar({
     const hasActiveFilters = Boolean(searchQuery || statusFilter !== 'ALL' || siteFilter || departementFilter || serviceFilter);
 
     return (
-        <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3 font-sans shadow-sm">
+        <div className="p-3 sm:p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-2.5 font-sans shadow-2xs">
             {/* Grille principale des filtres */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
                 {/* Recherche globale */}
                 <div className="relative lg:col-span-2">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
+                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
                         placeholder="Recherche (nom, prénom, matricule, CIN, tél)..."
-                        className="w-full pl-9 pr-3 py-2 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]"
+                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]"
                     />
                 </div>
 
@@ -47,7 +47,7 @@ export default function EmployeFilterBar({
                     <select
                         value={statusFilter}
                         onChange={(e) => onStatusFilterChange(e.target.value)}
-                        className="w-full py-2 px-3 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer"
+                        className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer"
                     >
                         <option value="ALL">Tous les statuts</option>
                         <option value="ACTIVE">Actifs uniquement</option>
@@ -60,7 +60,7 @@ export default function EmployeFilterBar({
                     <select
                         value={siteFilter}
                         onChange={(e) => onSiteFilterChange(e.target.value)}
-                        className="w-full py-2 px-3 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer"
+                        className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer"
                     >
                         <option value="">Tous les sites</option>
                         {sites.map(s => (
@@ -76,7 +76,7 @@ export default function EmployeFilterBar({
                     <select
                         value={sortPreset}
                         onChange={(e) => onSortPresetChange(e.target.value)}
-                        className="w-full py-2 px-3 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer"
+                        className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer"
                     >
                         <option value="HIERARCHICAL">Tri : Dépt → Service → Nom</option>
                         <option value="SITE_SERVICE">Tri : Site → Service → Nom</option>
@@ -91,7 +91,7 @@ export default function EmployeFilterBar({
             </div>
 
             {/* Ligne secondaire : Département & Service (si applicable) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[var(--color-border-subtle)]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-[var(--color-border-subtle)]">
                 <div>
                     <select
                         value={departementFilter}
@@ -99,7 +99,7 @@ export default function EmployeFilterBar({
                             onDepartementFilterChange(e.target.value);
                             onServiceFilterChange('');
                         }}
-                        className="w-full py-2 px-3 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer"
+                        className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer"
                     >
                         <option value="">Tous les départements</option>
                         {departements.map(d => (
@@ -114,7 +114,7 @@ export default function EmployeFilterBar({
                     <select
                         value={serviceFilter}
                         onChange={(e) => onServiceFilterChange(e.target.value)}
-                        className="w-full py-2 px-3 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer"
+                        className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer"
                     >
                         <option value="">Tous les services</option>
                         {filteredServices.map(srv => (
@@ -127,16 +127,16 @@ export default function EmployeFilterBar({
             </div>
 
             {/* Barre d'état & reset */}
-            <div className="flex items-center justify-between pt-1 text-xs text-[var(--color-fg-muted)]">
+            <div className="flex items-center justify-between pt-1 text-[11px] text-[var(--color-fg-muted)]">
                 <span className="font-semibold">
                     {totalFound} employé(s) trouvé(s)
                 </span>
                 {hasActiveFilters && (
                     <button
                         onClick={onResetFilters}
-                        className="text-xs text-[var(--color-brand-500)] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                        className="text-[11px] text-[var(--color-brand-500)] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
                     >
-                        <RotateCcw size={13} />
+                        <RotateCcw size={12} />
                         Réinitialiser tous les filtres
                     </button>
                 )}

@@ -42,7 +42,7 @@ const STATUS_MAP = {
 export default function StatusBadge({
     status,
     label,
-    size = 'md',
+    size = 'sm',
     className = ''
 }) {
     if (!status && !label) return null;

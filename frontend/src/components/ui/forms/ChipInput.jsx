@@ -26,11 +26,11 @@ export function ChipInput({ tags = [], onChange, placeholder = 'Ajouter une vale
     };
 
     return (
-        <div className="flex flex-wrap items-center gap-1.5 p-2 bg-[var(--color-surface)] border-2 border-[var(--color-border)] focus-within:border-[var(--color-brand-500)] rounded-none ">
+        <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] focus-within:border-[var(--color-brand-500)] rounded-none">
             {tags.map((tag, index) => (
                 <span
                     key={index}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/20 rounded-none font-data"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/20 rounded-none font-data"
                 >
                     {tag}
                     <button

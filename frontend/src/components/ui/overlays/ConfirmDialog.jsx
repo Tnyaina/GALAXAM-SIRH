@@ -28,13 +28,13 @@ export default function ConfirmDialog({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
             <div className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl max-w-md w-full overflow-hidden rounded-none">
-                <div className="p-6 space-y-4">
-                    <div className="flex items-start gap-4">
-                        <div className={`p-3 border shrink-0 rounded-none ${iconColors[variant] || iconColors.danger}`}>
-                            <AlertTriangle size={20} />
+                <div className="p-4 sm:p-5 space-y-3">
+                    <div className="flex items-start gap-3">
+                        <div className={`p-2.5 border shrink-0 rounded-none ${iconColors[variant] || iconColors.danger}`}>
+                            <AlertTriangle size={18} />
                         </div>
-                        <div className="space-y-1 min-w-0 flex-1">
-                            <h3 className="text-base font-bold text-[var(--color-fg)]">
+                        <div className="space-y-0.5 min-w-0 flex-1">
+                            <h3 className="text-sm sm:text-base font-bold text-[var(--color-fg)]">
                                 {title}
                             </h3>
                             {message && (
@@ -45,10 +45,10 @@ export default function ConfirmDialog({
                         </div>
                     </div>
 
-                    {children && <div className="pt-2">{children}</div>}
+                    {children && <div className="pt-1.5">{children}</div>}
                 </div>
 
-                <div className="px-6 py-4 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex justify-end gap-3">
+                <div className="px-4 py-3 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex justify-end gap-2">
                     <Button
                         type="button"
                         onClick={onClose}

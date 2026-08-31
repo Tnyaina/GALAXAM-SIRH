@@ -50,26 +50,26 @@ export default function Pagination({
     return (
         <div
             className={`
-        flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3
-        bg-[var(--color-surface)] border-t border-[var(--color-border-subtle)] text-xs text-[var(--color-fg-muted)]
+        flex flex-col sm:flex-row items-center justify-between gap-3 px-3 py-2
+        bg-[var(--color-surface)] border-t border-[var(--color-border-subtle)] text-[11px] sm:text-xs text-[var(--color-fg-muted)]
         ${className}
       `}
         >
             {/* Informations d'affichage */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
                 <span>
                     Affichage de <span className="font-data font-bold text-[var(--color-fg)]">{startItem}</span> à{' '}
                     <span className="font-data font-bold text-[var(--color-fg)]">{endItem}</span> sur{' '}
-                    <span className="font-data font-bold text-[var(--color-fg)]">{count}</span> éléments
+                    <span className="font-data font-bold text-[var(--color-fg)]">{count}</span>
                 </span>
 
                 {onPageSizeChange && pageSizeOptions && (
-                    <div className="flex items-center gap-1.5 ml-2">
-                        <span className="text-[var(--color-fg-subtle)]">Afficher :</span>
+                    <div className="flex items-center gap-1 ml-1.5">
+                        <span className="text-[var(--color-fg-subtle)] text-[11px]">Afficher :</span>
                         <select
                             value={pageSize}
                             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                            className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] font-data font-semibold px-2 py-1 outline-none rounded-none cursor-pointer focus:border-[var(--color-brand-500)]"
+                            className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] font-data font-semibold px-1.5 py-0.5 text-xs outline-none rounded-none cursor-pointer focus:border-[var(--color-brand-500)]"
                         >
                             {pageSizeOptions.map((opt) => (
                                 <option key={opt} value={opt}>
@@ -82,7 +82,7 @@ export default function Pagination({
             </div>
 
             {/* Contrôles de navigation */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
                 {/* Première page */}
                 <Button
                     type="button"
@@ -90,8 +90,8 @@ export default function Pagination({
                     size="xs"
                     disabled={currentPage === 1}
                     onClick={() => onPageChange(1)}
-                    icon={<ChevronsLeft size={16} />}
-                    className="min-w-[40px] min-h-[40px] !p-2 flex items-center justify-center"
+                    icon={<ChevronsLeft size={13} />}
+                    className="!w-7 !h-7 !min-h-[28px] !min-w-[28px] !p-0 flex items-center justify-center"
                     title="Première page"
                     aria-label="Première page"
                 />
@@ -103,18 +103,18 @@ export default function Pagination({
                     size="xs"
                     disabled={currentPage === 1}
                     onClick={() => onPageChange(currentPage - 1)}
-                    icon={<ChevronLeft size={16} />}
-                    className="min-w-[40px] min-h-[40px] !p-2 flex items-center justify-center"
+                    icon={<ChevronLeft size={13} />}
+                    className="!w-7 !h-7 !min-h-[28px] !min-w-[28px] !p-0 flex items-center justify-center"
                     title="Page précédente"
                     aria-label="Page précédente"
                 />
 
                 {/* Numéros de page */}
-                <div className="flex items-center gap-1.5 mx-1">
+                <div className="flex items-center gap-1 mx-0.5">
                     {getPageNumbers().map((p, idx) => {
                         if (p === '...') {
                             return (
-                                <span key={`dots-${idx}`} className="px-2 text-[var(--color-fg-subtle)]">
+                                <span key={`dots-${idx}`} className="px-1 text-[var(--color-fg-subtle)] text-xs">
                                     ...
                                 </span>
                             );
@@ -128,7 +128,7 @@ export default function Pagination({
                                 aria-label={`Page ${p}`}
                                 aria-current={isActive ? 'page' : undefined}
                                 className={`
-                  min-w-[40px] h-[40px] px-3 font-data text-xs font-semibold rounded-none border  cursor-pointer flex items-center justify-center
+                  min-w-[28px] h-[28px] px-2 font-data text-xs font-semibold rounded-none border cursor-pointer flex items-center justify-center
                   ${isActive
                                         ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)] text-white'
                                         : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)]'
@@ -148,8 +148,8 @@ export default function Pagination({
                     size="xs"
                     disabled={currentPage === totalPages}
                     onClick={() => onPageChange(currentPage + 1)}
-                    icon={<ChevronRight size={16} />}
-                    className="min-w-[40px] min-h-[40px] !p-2 flex items-center justify-center"
+                    icon={<ChevronRight size={13} />}
+                    className="!w-7 !h-7 !min-h-[28px] !min-w-[28px] !p-0 flex items-center justify-center"
                     title="Page suivante"
                     aria-label="Page suivante"
                 />
@@ -161,8 +161,8 @@ export default function Pagination({
                     size="xs"
                     disabled={currentPage === totalPages}
                     onClick={() => onPageChange(totalPages)}
-                    icon={<ChevronsRight size={16} />}
-                    className="min-w-[40px] min-h-[40px] !p-2 flex items-center justify-center"
+                    icon={<ChevronsRight size={13} />}
+                    className="!w-7 !h-7 !min-h-[28px] !min-w-[28px] !p-0 flex items-center justify-center"
                     title="Dernière page"
                     aria-label="Dernière page"
                 />

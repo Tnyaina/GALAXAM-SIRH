@@ -56,29 +56,29 @@ export default function Modal({
         `}
             >
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between shrink-0">
-                    <h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2.5 truncate">
+                <div className="px-4 py-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between shrink-0">
+                    <h3 className="font-bold text-[var(--color-fg)] text-sm sm:text-base flex items-center gap-2 truncate">
                         {icon && <span className="text-[var(--color-brand-500)] shrink-0">{icon}</span>}
                         <span className="truncate">{title}</span>
                     </h3>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface)]  rounded-none cursor-pointer"
+                        className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface)] rounded-none cursor-pointer"
                         aria-label="Fermer la modale"
                     >
-                        <X size={18} />
+                        <X size={16} />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div className="p-6 overflow-y-auto max-h-[70vh] space-y-4">
+                <div className="p-4 sm:p-5 overflow-y-auto max-h-[75vh] space-y-3.5">
                     {children}
                 </div>
 
                 {/* Footer */}
                 {footer && (
-                    <div className="px-6 py-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex justify-end items-center gap-3 shrink-0">
+                    <div className="px-4 py-3 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex justify-end items-center gap-2 shrink-0">
                         {footer}
                     </div>
                 )}

@@ -27,7 +27,7 @@ export default function Dashboard() {
     const totalAlertesContrats = alertesCritiques.length + alertes7j.length;
 
     return (
-        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+        <div className="space-y-4 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Tableau de bord" description="Vue d'ensemble et indicateurs clés RH." />
             
             <DashboardHeader 
@@ -47,7 +47,7 @@ export default function Dashboard() {
             />
 
             {/* Layout principal équilibré : Grille 2 colonnes parfaitement alignée */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
                 {/* Ligne 1 : Congés à valider & Salariés absents */}
                 <CongesAValiderWidget 
                     loading={loading} 

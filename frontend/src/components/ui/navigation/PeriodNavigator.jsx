@@ -77,9 +77,9 @@ export default function PeriodNavigator({
                     type="button"
                     onClick={handleToday}
                     title="Revenir à aujourd'hui"
-                    className="px-2.5 py-2 text-xs font-semibold text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] bg-[var(--color-surface)] border border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] transition-colors flex items-center gap-1.5"
+                    className="px-2 py-1.5 text-[11px] font-semibold text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] bg-[var(--color-surface)] border border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] transition-colors flex items-center gap-1 cursor-pointer"
                 >
-                    <RotateCcw size={13} />
+                    <RotateCcw size={12} />
                     Aujourd'hui
                 </button>
             )}
@@ -90,25 +90,25 @@ export default function PeriodNavigator({
                 <button
                     type="button"
                     onClick={() => handleNavigate(-1)}
-                    className="px-3 py-2 text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
+                    className="px-2.5 py-1.5 text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
                     title="Précédent"
                 >
-                    <ChevronLeft size={16} />
+                    <ChevronLeft size={14} />
                 </button>
 
                 {/* Séparateur vertical discret */}
-                <span className="h-5 w-[1px] bg-[var(--color-border-subtle)]" />
+                <span className="h-4 w-[1px] bg-[var(--color-border-subtle)]" />
 
                 {/* Libellé de la période + Icône Calendrier cliquable */}
                 <div
                     onClick={() => dateInputRef.current?.showPicker()}
-                    className="flex items-center justify-between gap-4 px-4 py-2 cursor-pointer hover:bg-[var(--color-bg-subtle)] transition-colors select-none"
+                    className="flex items-center justify-between gap-3 px-3 py-1.5 cursor-pointer hover:bg-[var(--color-bg-subtle)] transition-colors select-none"
                 >
-                    <span className="text-sm font-bold text-[var(--color-fg)] tracking-tight">
+                    <span className="text-xs sm:text-[13px] font-bold text-[var(--color-fg)] tracking-tight">
                         {getFormattedLabel()}
                     </span>
 
-                    <CalendarIcon size={16} className="text-[var(--color-fg)] hover:text-[var(--color-brand-500)] shrink-0 transition-colors" />
+                    <CalendarIcon size={14} className="text-[var(--color-fg)] hover:text-[var(--color-brand-500)] shrink-0 transition-colors" />
 
                     {/* Input invisible pour ouvrir le DatePicker natif */}
                     <input
@@ -122,21 +122,21 @@ export default function PeriodNavigator({
                 </div>
 
                 {/* Séparateur vertical discret */}
-                <span className="h-5 w-[1px] bg-[var(--color-border-subtle)]" />
+                <span className="h-4 w-[1px] bg-[var(--color-border-subtle)]" />
 
                 {/* Flèche Suivant */}
                 <button
                     type="button"
                     onClick={() => handleNavigate(1)}
                     disabled={!allowFutureDates && viewPeriod === 'jour' && currDate >= new Date(new Date().setHours(0,0,0,0))}
-                    className={`px-3 py-2 text-[var(--color-fg)] transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1.5 text-[var(--color-fg)] transition-colors cursor-pointer ${
                         (!allowFutureDates && viewPeriod === 'jour' && currDate >= new Date(new Date().setHours(0,0,0,0)))
                         ? 'opacity-40 cursor-not-allowed'
                         : 'hover:bg-[var(--color-bg-subtle)]'
                     }`}
                     title="Suivant"
                 >
-                    <ChevronRight size={16} />
+                    <ChevronRight size={14} />
                 </button>
             </div>
         </div>

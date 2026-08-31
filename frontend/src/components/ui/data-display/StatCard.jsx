@@ -85,26 +85,26 @@ export default function StatCard({
 
     // Calcul des classes de conteneur
     const baseClasses = `
-        bg-[var(--color-surface)] border text-left p-4 sm:p-5 transition-all
-        ${borderTop ? (active ? `${style.activeBorder} border-t-4` : `${style.border} border-t-4 border-[var(--color-border-subtle)]`) : 'border-[var(--color-border-subtle)]'}
+        bg-[var(--color-surface)] border text-left p-3 sm:p-3.5 transition-all
+        ${borderTop ? (active ? `${style.activeBorder} border-t-2` : `${style.border} border-t-2 border-[var(--color-border-subtle)]`) : 'border-[var(--color-border-subtle)]'}
         ${active ? style.activeBg : ''}
-        ${isClickable ? 'cursor-pointer hover:shadow-sm hover:border-[var(--color-brand-500)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)]' : ''}
+        ${isClickable ? 'cursor-pointer hover:shadow-xs hover:border-[var(--color-brand-500)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)]' : ''}
         ${className}
     `.trim();
 
     const Content = (
         <>
-            <div className="flex items-start justify-between gap-3 mb-1.5">
+            <div className="flex items-start justify-between gap-2.5 mb-1">
                 <div className="min-w-0">
-                    <p className={`text-[10.5px] font-bold uppercase tracking-wider ${style.label || 'text-[var(--color-fg-muted)]'} truncate`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-wider ${style.label || 'text-[var(--color-fg-muted)]'} truncate`}>
                         {title}
                     </p>
-                    <p className={`text-2xl sm:text-3xl font-extrabold font-data mt-0.5 ${style.text || 'text-[var(--color-fg)]'}`}>
+                    <p className={`text-lg sm:text-xl font-extrabold font-data mt-0.5 ${style.text || 'text-[var(--color-fg)]'}`}>
                         {value ?? 0}
                     </p>
                 </div>
                 {icon && (
-                    <div className={`w-10 h-10 border rounded-none ${style.iconBg} flex items-center justify-center shrink-0`}>
+                    <div className={`w-8 h-8 border rounded-none ${style.iconBg} flex items-center justify-center shrink-0`}>
                         {icon}
                     </div>
                 )}

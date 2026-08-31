@@ -8,11 +8,11 @@ import { useState } from 'react';
  */
 
 const SIZES = {
-    xs: 'w-6 h-6 text-[10px]',
-    sm: 'w-8 h-8 text-xs',
-    md: 'w-10 h-10 text-sm',
-    lg: 'w-12 h-12 text-base',
-    xl: 'w-16 h-16 text-lg',
+    xs: 'w-5 h-5 text-[9px]',
+    sm: 'w-7 h-7 text-[11px]',
+    md: 'w-8 h-8 text-xs',
+    lg: 'w-10 h-10 text-sm',
+    xl: 'w-12 h-12 text-base',
 };
 
 const SHAPES = {
@@ -35,11 +35,11 @@ const STATUS_LABELS = {
 };
 
 const STATUS_SIZES = {
-    xs: 'w-1.5 h-1.5',
-    sm: 'w-2 h-2',
-    md: 'w-2.5 h-2.5',
-    lg: 'w-3 h-3',
-    xl: 'w-3.5 h-3.5',
+    xs: 'w-1 h-1',
+    sm: 'w-1.5 h-1.5',
+    md: 'w-2 h-2',
+    lg: 'w-2.5 h-2.5',
+    xl: 'w-3 h-3',
 };
 
 // Calcul des initiales (ex: "Jean Dupont" -> "JD")
@@ -55,7 +55,7 @@ export function Avatar({
     src,
     alt = '',
     name = '',
-    size = 'md', // 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+    size = 'sm', // 'xs' | 'sm' | 'md' | 'lg' | 'xl'
     shape = 'round', // 'round' | 'square'
     status, // 'online' | 'offline' | 'busy' | 'away'
     className = '',

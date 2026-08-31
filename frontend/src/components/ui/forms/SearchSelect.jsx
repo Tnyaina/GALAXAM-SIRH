@@ -68,7 +68,7 @@ export default function SearchSelect({
           type="button"
           disabled={disabled}
           onClick={() => !disabled && setIsOpen((v) => !v)}
-          className={`w-full px-3 py-2.5 bg-[var(--color-bg-subtle)] border text-left text-sm flex items-center justify-between outline-none cursor-pointer ${
+          className={`w-full px-3 py-1.5 bg-[var(--color-bg-subtle)] border text-left text-xs sm:text-sm flex items-center justify-between outline-none cursor-pointer ${
             error
               ? 'border-danger-500'
               : 'border-[var(--color-border-subtle)] hover:border-[var(--color-fg-muted)] focus:border-[var(--color-brand-500)]'

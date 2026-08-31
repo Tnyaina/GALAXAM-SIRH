@@ -32,19 +32,19 @@ export default function Alert({ type = 'info', title, message, children, onClose
   const content = children || message;
 
   return (
-    <div className={`flex items-start gap-3 p-4 rounded-none border ${t.wrapper}`}>
+    <div className={`flex items-start gap-2.5 p-3 rounded-none border ${t.wrapper}`}>
       {t.icon}
       <div className="flex-1 min-w-0">
-        {title && <p className={`text-sm font-semibold ${t.title}`}>{title}</p>}
-        {content && <p className={`text-sm mt-0.5 ${t.text}`}>{content}</p>}
+        {title && <p className={`text-xs sm:text-[13px] font-bold ${t.title}`}>{title}</p>}
+        {content && <p className={`text-xs sm:text-[13px] mt-0.5 ${t.text}`}>{content}</p>}
       </div>
       {onClose && (
         <button
           onClick={onClose}
-          className={`p-0.5 rounded-none hover:bg-black/5 dark:hover:bg-white/10 ${t.text} flex-shrink-0 `}
+          className={`p-0.5 rounded-none hover:bg-black/5 dark:hover:bg-white/10 ${t.text} flex-shrink-0 cursor-pointer`}
           aria-label="Fermer l'alerte"
         >
-          <X size={15} />
+          <X size={14} />
         </button>
       )}
     </div>

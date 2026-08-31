@@ -61,30 +61,30 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
                     }}
                     title={collapsed ? item.libelle : undefined}
                     className="
-                        w-full flex items-center gap-3 pr-4 py-2.5
-                        text-sm font-semibold rounded-none
-                          cursor-pointer
+                        w-full flex items-center gap-2.5 pr-3 py-2
+                        text-xs font-semibold rounded-none
+                        cursor-pointer
                         hover:bg-[var(--color-sidebar-hover-bg)] hover:text-[var(--color-sidebar-fg-hover)]
                     "
                 >
                     {createElement(getMenuIcon(item.icone), {
-                        size: 17,
+                        size: 16,
                         className: 'shrink-0',
-                        strokeWidth: 1.9,
+                        strokeWidth: 1.85,
                     })}
                     <span className={`flex-1 text-left truncate ${collapsed ? 'lg:hidden' : ''}`}>
                         {item.libelle}
                     </span>
                     <ChevronDown
-                        size={14}
-                        className={`shrink-0   ${
+                        size={13}
+                        className={`shrink-0 ${
                             expanded ? 'rotate-180 opacity-100' : 'opacity-60'
                         } ${collapsed ? 'lg:hidden' : ''}`}
                     />
                 </button>
 
                 <div
-                    className={`grid   ${
+                    className={`grid ${
                         expanded && !collapsed ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
                     } ${collapsed ? 'lg:hidden' : ''}`}
                 >
@@ -121,15 +121,15 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
                     borderColor: isActive ? 'var(--color-sidebar-brand)' : 'transparent'
                 }}
                 className="
-                    group relative flex items-center gap-3 pr-4 py-2.5 text-sm font-medium
+                    group relative flex items-center gap-2.5 pr-3 py-2 text-xs font-medium
                     border-l-2 rounded-none  
                     hover:bg-[var(--color-sidebar-hover-bg)] hover:text-[var(--color-sidebar-fg-hover)]
                 "
             >
                 {createElement(getMenuIcon(item.icone), {
-                    size: 17,
+                    size: 16,
                     className: 'shrink-0 opacity-90 group-hover:opacity-100',
-                    strokeWidth: 1.9,
+                    strokeWidth: 1.85,
                 })}
                 <span className={`truncate ${collapsed ? 'lg:hidden' : ''}`}>{item.libelle}</span>
             </NavLink>
@@ -171,7 +171,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                     bg-[var(--color-sidebar-bg)] border-r border-[var(--color-sidebar-border)] shadow-lg
                       
                     lg:static lg:translate-x-0 lg:shadow-none
-                    w-[260px] ${collapsed ? 'lg:w-[76px]' : 'lg:w-[260px]'}
+                    w-[250px] ${collapsed ? 'lg:w-[70px]' : 'lg:w-[250px]'}
                     ${open ? 'translate-x-0' : '-translate-x-full'}
                 `}
             >
@@ -183,23 +183,23 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                         color: 'var(--color-sidebar-fg)'
                     }}
                     className="
-                        hidden lg:flex absolute top-5 -right-3 z-10
-                        w-6 h-6 items-center justify-center rounded-none
+                        hidden lg:flex absolute top-3 -right-3 z-10
+                        w-5 h-5 items-center justify-center rounded-none
                         border border-[var(--color-sidebar-border)]
                         hover:text-[var(--color-sidebar-fg-hover)] hover:border-[var(--color-sidebar-brand)]
-                        shadow-sm   cursor-pointer
+                        shadow-sm cursor-pointer
                     "
                 >
-                    {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                    {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
                 </button>
 
                 {/* Header Brand avec Avatar carré */}
-                <div className={`flex items-center h-16 border-b border-[var(--color-sidebar-border)] shrink-0 px-4 ${collapsed ? 'lg:justify-center lg:px-0' : 'justify-between'}`}>
-                    <div className="flex items-center gap-3 min-w-0">
-                        <Avatar name="Galaxam SIRH" size="sm" shape="square" />
+                <div className={`flex items-center h-12 border-b border-[var(--color-sidebar-border)] shrink-0 px-3.5 ${collapsed ? 'lg:justify-center lg:px-0' : 'justify-between'}`}>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <Avatar name="Galaxam SIRH" size="xs" shape="square" />
                         <span
                             style={{ color: 'var(--color-sidebar-fg-active)' }}
-                            className={`text-base font-bold tracking-tight truncate ${collapsed ? 'lg:hidden' : ''}`}
+                            className={`text-sm font-bold tracking-tight truncate ${collapsed ? 'lg:hidden' : ''}`}
                         >
                             Galaxam SIRH
                         </span>
@@ -210,12 +210,12 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                         onClick={onClose}
                         className="lg:hidden !p-1 !text-[var(--color-sidebar-fg)] hover:!text-white hover:!bg-white/10"
                         aria-label="Fermer le menu"
-                        iconLeft={<X size={18} />}
+                        iconLeft={<X size={16} />}
                     />
                 </div>
 
                 {/* Éléments de navigation */}
-                <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4">
+                <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2.5">
                     {loading && (
                         <div className="px-4 space-y-2">
                             {[...Array(5)].map((_, i) => (
@@ -245,17 +245,17 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
 
                 {/* Pied de Sidebar : Profil utilisateur avec Avatar square, Badge haute lisibilité & Bouton déconnexion */}
                 {user && (
-                    <div className={`border-t border-[var(--color-sidebar-border)] p-3 shrink-0 bg-[var(--color-sidebar-bg)] ${collapsed ? 'lg:flex lg:flex-col lg:items-center' : ''}`}>
+                    <div className={`border-t border-[var(--color-sidebar-border)] p-2.5 shrink-0 bg-[var(--color-sidebar-bg)] ${collapsed ? 'lg:flex lg:flex-col lg:items-center' : ''}`}>
                         <div className="flex items-center justify-between gap-2 w-full">
-                            <div className="flex items-center gap-3 min-w-0">
-                                <Avatar name={user?.identifiant || 'Utilisateur'} size="sm" shape="square" status="online" />
+                            <div className="flex items-center gap-2 min-w-0">
+                                <Avatar name={user?.identifiant || 'Utilisateur'} size="xs" shape="square" status="online" />
                                 {!collapsed && (
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-xs font-bold truncate text-[var(--color-sidebar-fg-active)]">
+                                        <p className="text-[11px] font-bold truncate text-[var(--color-sidebar-fg-active)]">
                                             {user?.identifiant}
                                         </p>
                                         {user?.role && (
-                                            <Badge size="sm" className="mt-0.5 !text-[9px] !px-1.5 !py-0 font-bold !text-sky-200 !bg-sky-500/20 !border-sky-400/30">
+                                            <Badge size="sm" className="mt-0.5 !text-[8.5px] !px-1.5 !py-0 font-bold !text-sky-200 !bg-sky-500/20 !border-sky-400/30">
                                                 {user.role}
                                             </Badge>
                                         )}
@@ -269,8 +269,8 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                                     size="xs"
                                     onClick={handleLogout}
                                     title="Déconnexion"
-                                    className="!p-1.5 !text-[var(--color-sidebar-fg)] hover:!text-red-400 hover:!bg-white/10 shrink-0"
-                                    iconLeft={<LogOut size={16} />}
+                                    className="!p-1 !text-[var(--color-sidebar-fg)] hover:!text-red-400 hover:!bg-white/10 shrink-0"
+                                    iconLeft={<LogOut size={14} />}
                                 />
                             ) : (
                                 <Button
@@ -278,8 +278,8 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                                     size="xs"
                                     onClick={handleLogout}
                                     title="Déconnexion"
-                                    className="hidden lg:flex mt-2 !p-1.5 !text-[var(--color-sidebar-fg)] hover:!text-red-400 hover:!bg-white/10 shrink-0"
-                                    iconLeft={<LogOut size={16} />}
+                                    className="hidden lg:flex mt-1.5 !p-1 !text-[var(--color-sidebar-fg)] hover:!text-red-400 hover:!bg-white/10 shrink-0"
+                                    iconLeft={<LogOut size={14} />}
                                 />
                             )}
                         </div>

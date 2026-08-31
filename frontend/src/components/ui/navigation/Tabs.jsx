@@ -27,7 +27,7 @@ export function Tabs({
 
     if (variant === 'underline') {
         return (
-            <div className={`flex border-b border-[var(--color-border-subtle)] ${bgClass} px-4 overflow-x-auto gap-1 ${className}`}>
+            <div className={`flex border-b border-[var(--color-border-subtle)] ${bgClass} px-3 overflow-x-auto gap-0.5 ${className}`}>
                 {tabs.map((tab) => {
                     const isActive = activeTab === tab.id;
                     const badgeVal = tab.count !== undefined ? tab.count : tab.badge;
@@ -37,7 +37,7 @@ export function Tabs({
                             type="button"
                             onClick={() => onChange(tab.id)}
                             className={`
-                                flex items-center gap-2 py-4 px-4 border-b-2 text-sm font-semibold  cursor-pointer whitespace-nowrap rounded-none
+                                flex items-center gap-1.5 py-2.5 px-3 border-b-2 text-xs sm:text-[13px] font-semibold cursor-pointer whitespace-nowrap rounded-none
                                 ${isActive
                                     ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-bold'
                                     : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
@@ -47,7 +47,7 @@ export function Tabs({
                             {renderIcon(tab.icon)}
                             <span>{tab.label}</span>
                             {badgeVal !== undefined && (
-                                <span className={`px-2 py-0.5 text-xs font-data font-bold rounded-none ${
+                                <span className={`px-1.5 py-0.5 text-[10.5px] font-data font-bold rounded-none ${
                                     isActive
                                         ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)]'
                                         : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'

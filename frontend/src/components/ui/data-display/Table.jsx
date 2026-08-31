@@ -45,7 +45,7 @@ export function Th({ children, sortable, sorted, onSort, className = '', ...prop
 
   return (
     <th
-      className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] 
+      className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] 
         ${!isCentered && !isRight ? 'text-left' : ''}
         ${sortable ? 'cursor-pointer hover:text-[var(--color-fg)] select-none' : ''}
         ${className}
@@ -58,11 +58,11 @@ export function Th({ children, sortable, sorted, onSort, className = '', ...prop
         {sortable && (
           <span className="flex flex-col">
             <ChevronUp
-              size={10}
+              size={9}
               className={sorted === 'asc' ? 'text-[var(--color-brand-500)]' : 'text-[var(--color-fg-subtle)]'}
             />
             <ChevronDown
-              size={10}
+              size={9}
               className={sorted === 'desc' ? 'text-[var(--color-brand-500)]' : 'text-[var(--color-fg-subtle)]'}
               style={{ marginTop: -2 }}
             />
@@ -108,7 +108,7 @@ export function Tr({ children, onClick, selected = false, className = '', ...pro
 export function Td({ children, muted = false, isData = false, className = '', ...props }) {
   return (
     <td
-      className={`px-4 py-3 ${
+      className={`px-3 py-2 text-xs sm:text-[13px] ${
         muted ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg)]'
       } ${isData ? 'font-data' : ''} ${className}`}
       {...props}

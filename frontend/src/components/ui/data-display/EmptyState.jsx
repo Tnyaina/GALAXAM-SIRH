@@ -47,16 +47,16 @@ export default function EmptyState({
     return (
         <div
             className={`
-        flex flex-col items-center justify-center p-8 text-center bg-[var(--color-surface)]
-        border border-[var(--color-border-subtle)] rounded-none space-y-3 ${className}
+        flex flex-col items-center justify-center p-5 sm:p-6 text-center bg-[var(--color-surface)]
+        border border-[var(--color-border-subtle)] rounded-none space-y-2.5 ${className}
       `}
         >
-            <div className="w-12 h-12 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center text-[var(--color-fg-muted)] rounded-none shrink-0 shadow-sm">
-                {isValidElement(Icon) ? Icon : (Icon ? <Icon size={22} /> : <Inbox size={22} />)}
+            <div className="w-10 h-10 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center text-[var(--color-fg-muted)] rounded-none shrink-0 shadow-xs">
+                {isValidElement(Icon) ? Icon : (Icon ? <Icon size={20} /> : <Inbox size={20} />)}
             </div>
 
-            <div className="max-w-md space-y-1">
-                <h4 className="text-sm font-bold text-[var(--color-fg)]">{title}</h4>
+            <div className="max-w-md space-y-0.5">
+                <h4 className="text-xs sm:text-sm font-bold text-[var(--color-fg)]">{title}</h4>
                 {description && (
                     <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">{description}</p>
                 )}

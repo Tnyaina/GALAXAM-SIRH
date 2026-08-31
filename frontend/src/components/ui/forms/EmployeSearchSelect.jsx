@@ -125,16 +125,16 @@ export default function EmployeSearchSelect({
 
       {selectedEmployeObj ? (
         /* Carte récapitulative de l'employé sélectionné */
-        <div className="flex items-center justify-between p-3 border-2 border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/5 text-sm font-sans">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[var(--color-brand-500)] text-white flex items-center justify-center font-bold text-xs shrink-0">
+        <div className="flex items-center justify-between p-2 sm:p-2.5 border border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/5 text-xs sm:text-sm font-sans">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-[var(--color-brand-500)] text-white flex items-center justify-center font-bold text-xs shrink-0">
               {(selectedEmployeObj.prenom?.[0] || selectedEmployeObj.nom?.[0] || 'E').toUpperCase()}
             </div>
             <div>
               <div className="font-bold text-[var(--color-fg)]">
                 {selectedEmployeObj.nom} {selectedEmployeObj.prenom}
               </div>
-              <div className="text-xs text-[var(--color-fg-muted)]">
+              <div className="text-[11px] text-[var(--color-fg-muted)]">
                 {selectedEmployeObj.matricule
                   ? `Matricule : ${selectedEmployeObj.matricule}`
                   : `ID : #${selectedEmployeObj.idEmploye}`}
@@ -145,7 +145,7 @@ export default function EmployeSearchSelect({
             <button
               type="button"
               onClick={handleClear}
-              className="inline-flex items-center gap-1 text-xs text-danger-500 hover:text-danger-700 font-semibold px-2 py-1 border border-danger-500/30 hover:bg-danger-500/10 cursor-pointer"
+              className="inline-flex items-center gap-1 text-[11px] text-danger-500 hover:text-danger-700 font-semibold px-2 py-1 border border-danger-500/30 hover:bg-danger-500/10 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" /> Changer
             </button>
@@ -155,7 +155,7 @@ export default function EmployeSearchSelect({
         /* Champ de recherche avec autocomplétion */
         <div className="relative">
           <div className="relative flex items-center">
-            <Search className="w-4 h-4 absolute left-3 text-[var(--color-fg-muted)] pointer-events-none" />
+            <Search className="w-4 h-4 absolute left-2.5 text-[var(--color-fg-muted)] pointer-events-none" />
             <input
               type="text"
               disabled={disabled}
@@ -167,7 +167,7 @@ export default function EmployeSearchSelect({
               onFocus={() => !disabled && setShowEmpDropdown(true)}
               placeholder={placeholder}
               aria-invalid={!!error}
-              className={`w-full pl-9 pr-4 py-2.5 bg-[var(--color-bg-subtle)] border rounded-none text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none text-sm ${error
+              className={`w-full pl-8 pr-3 py-1.5 bg-[var(--color-bg-subtle)] border rounded-none text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none text-xs sm:text-sm ${error
                   ? 'border-danger-500 focus:border-danger-500'
                   : 'border-[var(--color-border-subtle)] focus:border-[var(--color-brand-500)]'
                 }`}

@@ -11,7 +11,7 @@ export default function Select({
     return (
         <div className="flex flex-col gap-1 w-full">
             {label && (
-                <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)]">
                     {label}
                 </label>
             )}
@@ -20,8 +20,8 @@ export default function Select({
                 disabled={disabled}
                 onChange={(e) => onChange?.(e.target.value)}
                 className={`
-                    w-full bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-xs font-bold text-[var(--color-fg)]
-                    px-3 py-2 outline-none
+                    w-full bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-xs sm:text-[13px] font-bold text-[var(--color-fg)]
+                    px-3 py-1.5 outline-none
                     focus:border-[var(--color-brand-500)]
                     disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-muted)]
                     ${className}

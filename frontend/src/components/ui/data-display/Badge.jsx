@@ -9,17 +9,17 @@ const variants = {
 };
 
 const sizes = {
-  xs: 'text-[10px] px-2 py-0.5 min-h-[19px] leading-tight',
-  sm: 'text-[11px] px-2.5 py-0.5 min-h-[21px] leading-tight',
-  md: 'text-xs px-3 py-1 min-h-[24px] leading-normal',
-  lg: 'text-sm px-3.5 py-1.5 min-h-[28px] leading-normal',
+  xs: 'text-[9px] px-1.5 py-0.5 min-h-[17px] leading-tight',
+  sm: 'text-[10px] px-2 py-0.5 min-h-[19px] leading-tight',
+  md: 'text-[11px] px-2.5 py-0.5 min-h-[21px] leading-tight',
+  lg: 'text-xs px-3 py-1 min-h-[24px] leading-normal',
 };
 
 const dotSizes = {
-  xs: 'w-1.5 h-1.5',
+  xs: 'w-1 h-1',
   sm: 'w-1.5 h-1.5',
-  md: 'w-2 h-2',
-  lg: 'w-2.5 h-2.5',
+  md: 'w-1.5 h-1.5',
+  lg: 'w-2 h-2',
 };
 
 const dotColors = {
@@ -35,7 +35,7 @@ const dotColors = {
 export default function Badge({
   children,
   variant = 'default',
-  size = 'md',
+  size = 'sm',
   dot = false,
   rounded = false,
   className = '',

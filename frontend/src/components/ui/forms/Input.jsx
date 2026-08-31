@@ -30,39 +30,39 @@ export default function Input({
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
       {label && (
-        <label className={`text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
+        <label className={`text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
           {label}
           {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
       )}
       <div className="relative">
         {leftIcon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]">
+          <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]">
             {leftIcon}
           </div>
         )}
         <input
           onWheel={handleWheel}
           className={`
-            w-full bg-[var(--color-surface)] border-2 rounded-none text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]
-            px-4 py-2.5 outline-none  
+            w-full bg-[var(--color-surface)] border rounded-none text-xs sm:text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]
+            px-3 py-1.5 outline-none  
             focus:ring-0 focus:border-[var(--color-brand-500)]
             disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
             ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
-            ${leftIcon ? 'pl-10' : ''}
-            ${iconRight ? 'pr-10' : ''}
+            ${leftIcon ? 'pl-8' : ''}
+            ${iconRight ? 'pr-8' : ''}
             ${className}
           `}
           {...props}
         />
         {iconRight && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]">
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]">
             {iconRight}
           </div>
         )}
       </div>
-      {error && <p className="text-xs text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hintText && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
+      {error && <p className="text-[11px] text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
+      {hintText && !error && <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }
@@ -83,15 +83,15 @@ export function Textarea({
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
       {label && (
-        <label className={`text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
+        <label className={`text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
           {label}
           {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
       )}
       <textarea
         className={`
-          w-full bg-[var(--color-surface)] border-2 rounded-none text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]
-          px-4 py-2.5 outline-none   resize-none
+          w-full bg-[var(--color-surface)] border rounded-none text-xs sm:text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]
+          px-3 py-1.5 outline-none resize-none
           focus:ring-0 focus:border-[var(--color-brand-500)]
           disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
           ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
@@ -99,8 +99,8 @@ export function Textarea({
         `}
         {...props}
       />
-      {error && <p className="text-xs text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hintText && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
+      {error && <p className="text-[11px] text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
+      {hintText && !error && <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }
@@ -122,15 +122,15 @@ export function Select({
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
       {label && (
-        <label className={`text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
+        <label className={`text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
           {label}
           {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
       )}
       <select
         className={`
-          w-full bg-[var(--color-surface)] border-2 rounded-none text-sm text-[var(--color-fg)]
-          px-4 py-2.5 outline-none   cursor-pointer
+          w-full bg-[var(--color-surface)] border rounded-none text-xs sm:text-sm text-[var(--color-fg)]
+          px-3 py-1.5 outline-none cursor-pointer
           focus:ring-0 focus:border-[var(--color-brand-500)]
           disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
           ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
@@ -140,8 +140,8 @@ export function Select({
       >
         {children}
       </select>
-      {error && <p className="text-xs text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hintText && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
+      {error && <p className="text-[11px] text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
+      {hintText && !error && <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }

@@ -43,15 +43,15 @@ export function FileUpload({ onFileSelect, accept = '.pdf,.png,.jpg', maxMb = 10
                     onDragLeave={() => setDragOver(false)}
                     onDrop={handleDrop}
                     className={`
-            p-6 text-center border-2 border-dashed cursor-pointer  rounded-none
+            p-4 sm:p-4.5 text-center border-2 border-dashed cursor-pointer rounded-none
             ${dragOver
                             ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/5'
                             : 'border-[var(--color-border)] bg-[var(--color-bg-subtle)] hover:border-[var(--color-brand-500)]'}
           `}
                 >
-                    <Upload size={20} className="mx-auto text-[var(--color-brand-500)] mb-2" />
+                    <Upload size={18} className="mx-auto text-[var(--color-brand-500)] mb-1.5" />
                     <p className="text-xs font-bold text-[var(--color-fg)]">{label}</p>
-                    <p className="text-[11px] text-[var(--color-fg-muted)] mt-1 font-data">
+                    <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5 font-data">
                         Formats acceptés : {accept} (Max {maxMb} MB)
                     </p>
                 </div>
