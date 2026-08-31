@@ -61,6 +61,7 @@ public class IndemniteController {
                 ind.setCode(request.getCode());
                 ind.setLibelle(request.getLibelle());
                 ind.setImposableIrsa(request.isImposableIrsa());
+                ind.setFractionnable(request.isFractionnable());
 
                 ind.save(c);
                 AuditLog.audit(c, "CREATION", "ref_indemnite", String.valueOf(ind.getIdIndemnite()), null, ind);
@@ -92,6 +93,7 @@ public class IndemniteController {
                 existing.setCode(request.getCode());
                 existing.setLibelle(request.getLibelle());
                 existing.setImposableIrsa(request.isImposableIrsa());
+                existing.setFractionnable(request.isFractionnable());
 
                 existing.update(c);
                 AuditLog.audit(c, "MODIFICATION", "ref_indemnite", String.valueOf(id), null, existing);

@@ -1,65 +1,405 @@
-import { Clock, ShieldCheck, UserCheck } from 'lucide-react';
-import Card, { CardBody, CardHeader, CardTitle } from '@/components/ui/data-display/Card';
+import { useState, useEffect, useCallback } from 'react';
+import { 
+    Clock, 
+    Printer, 
+    FileDown, 
+    TrendingUp, 
+    Info, 
+    RotateCcw
+} from 'lucide-react';
+import pointageEmployeService from '@/api/pointage/pointageEmployeService';
+import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import PeriodNavigator from '@/components/ui/navigation/PeriodNavigator';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Alert from '@/components/ui/feedback/Alert';
 
-export default function PointageTab({ _idEmploye }) {
+export default function PointageTab({ idEmploye }) {
+    const [periodView, setPeriodView] = useState('mois');
+    const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [ficheData, setFicheData] = useState(null);
+
+    const loadFiche = useCallback(async () => {
+        if (!idEmploye) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await pointageEmployeService.getFicheEmploye(idEmploye, {
+                date: selectedDate,
+                period: periodView
+            });
+            setFicheData(res);
+        } catch (err) {
+            console.error('Erreur chargement fiche pointage employe:', err);
+            setError('Impossible de charger les données de pointage pour cet employé.');
+        } finally {
+            setLoading(false);
+        }
+    }, [idEmploye, selectedDate, periodView]);
+
+    useEffect(() => {
+        loadFiche();
+    }, [loadFiche]);
+
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleExportPdf = () => {
+        window.print();
+    };
+
+    const getStatutBadge = (statut) => {
+        switch (statut?.toUpperCase()) {
+            case 'PRESENT':
+                return <Badge variant="success" size="sm" className="font-bold">PRÉSENT</Badge>;
+            case 'DISPENSE_POINTAGE':
+                return <Badge variant="brand" size="sm" className="font-bold">AUTONOME</Badge>;
+            case 'RETARD':
+                return <Badge variant="warning" size="sm" className="font-bold">RETARD</Badge>;
+            case 'CONGE':
+                return <Badge variant="info" size="sm" className="font-bold">CONGÉ</Badge>;
+            case 'FERIE_CHOME':
+                return <Badge variant="neutral" size="sm" className="font-bold">FÉRIÉ CHÔMÉ</Badge>;
+            case 'FERIE_TRAVAILLE':
+                return <Badge variant="purple" size="sm" className="font-bold">FÉRIÉ +100%</Badge>;
+            case 'REPOS':
+                return <Badge variant="neutral" size="sm" className="font-bold">REPOS</Badge>;
+            case 'ABSENT':
+            case 'ABSENCE_NON_JUSTIFIEE':
+                return <Badge variant="danger" size="sm" className="font-bold">ABSENT</Badge>;
+            case 'NON_CONCERNE':
+                return <Badge variant="neutral" size="sm" className="text-[10px]">NON CONCERNÉ</Badge>;
+            case 'NON_ECHU':
+                return <span className="text-[11px] text-[var(--color-fg-subtle)]">—</span>;
+            default:
+                return <Badge variant="neutral" size="sm">{statut || '—'}</Badge>;
+        }
+    };
+
+    const kpis = ficheData?.kpis || {};
+    const recap = ficheData?.recap || {};
+    const regles = ficheData?.reglesAppliquees || {};
+    const pointages = ficheData?.pointagesData || [];
+
     return (
-        <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between w-full">
-                        <CardTitle className="flex items-center gap-2">
-                            <Clock size={18} className="text-[var(--color-brand-500)]" />
-                            Régime de Présence & Paramètres de Pointage
-                        </CardTitle>
-                        <Badge variant="brand" size="sm" className="font-bold">
-                            Base Contractuelle : 40h / semaine
-                        </Badge>
+        <div className="space-y-6 print:m-0 print:p-0">
+            {/* 1. Barre d'outils supérieure : Sélecteur de Période, Bascule Jour/Semaine/Mois et Actions */}
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+                <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                        className="text-xs font-bold flex items-center gap-1.5"
+                    >
+                        <RotateCcw size={14} />
+                        Aujourd'hui
+                    </Button>
+
+                    <PeriodNavigator
+                        viewPeriod={periodView}
+                        selectedDate={selectedDate}
+                        onDateChange={(newDate) => setSelectedDate(newDate)}
+                    />
+
+                    {/* Bascule Vue : JOUR | SEMAINE | MOIS */}
+                    <div className="flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 rounded-none">
+                        {['jour', 'semaine', 'mois'].map((v) => (
+                            <button
+                                key={v}
+                                type="button"
+                                onClick={() => setPeriodView(v)}
+                                className={`px-3 py-1 text-xs font-bold uppercase transition-colors cursor-pointer ${
+                                    periodView === v
+                                        ? 'bg-[var(--color-brand-500)] text-white shadow-xs'
+                                        : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                                }`}
+                            >
+                                {v}
+                            </button>
+                        ))}
                     </div>
-                </CardHeader>
-                <CardBody className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="p-4 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
-                            <p className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                <Clock size={14} className="text-[var(--color-brand-500)]" />
-                                Horaires de Référence
-                            </p>
-                            <p className="text-sm font-bold text-[var(--color-fg)]">
-                                08h00 - 12h00 | 13h00 - 17h00
-                            </p>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-1">
-                                Lundi au Vendredi (8.00h / jour)
-                            </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-end md:self-auto">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePrint}
+                        className="text-xs font-bold flex items-center gap-1.5"
+                    >
+                        <Printer size={14} />
+                        Imprimer
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={handleExportPdf}
+                        className="text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                    >
+                        <FileDown size={14} />
+                        Exporter PDF
+                    </Button>
+                </div>
+            </div>
+
+            {error && <Alert type="error" message={error} />}
+
+            {loading ? (
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {[1, 2, 3, 4].map((i) => (
+                            <div key={i} className="h-24 bg-[var(--color-bg-subtle)] animate-pulse" />
+                        ))}
+                    </div>
+                    <SkeletonTable rows={10} cols={8} />
+                </div>
+            ) : (
+                <>
+                    {/* 2. Cartes d'indicateurs KPI (Heures réalisées, Retard, Heures sup, Absences) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* KPI 1 : Heures Réalisées */}
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs relative overflow-hidden">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
+                                    Heures Réalisées
+                                </span>
+                                <Clock size={18} className="text-[var(--color-brand-500)]" />
+                            </div>
+                            <div className="mt-2">
+                                <span className="text-2xl font-bold font-mono text-[var(--color-fg)]">
+                                    {kpis.heuresRealisees || '00h00'}
+                                </span>
+                                <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                                    {kpis.heuresObjectif || 'objectif 168h00'}
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="p-4 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
-                            <p className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                <ShieldCheck size={14} className="text-amber-500" />
-                                Tolérance & Retards
-                            </p>
-                            <p className="text-sm font-bold text-[var(--color-fg)]">
-                                0 Tolérance (Calcul strict à la minute)
-                            </p>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-1">
-                                Compensation automatique par les heures sup de la semaine
-                            </p>
+                        {/* KPI 2 : Retard Cumulé */}
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs relative overflow-hidden">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
+                                    Retard Cumulé
+                                </span>
+                                <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                            </div>
+                            <div className="mt-2">
+                                <span className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                                    {kpis.retardCumule || '00h00'}
+                                </span>
+                                <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                                    {kpis.retardOccurrences || '0 occurrence'}
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="p-4 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
-                            <p className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                <UserCheck size={14} className="text-indigo-500" />
-                                Période de Paie Active
-                            </p>
-                            <p className="text-sm font-bold text-[var(--color-fg)]">
-                                Synchronisée au calendrier mensuel
-                            </p>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-1">
-                                Configurable dans le menu Périodes de Paie
-                            </p>
+                        {/* KPI 3 : Heures Supplémentaires */}
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs relative overflow-hidden">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
+                                    Heures Supplémentaires
+                                </span>
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                            </div>
+                            <div className="mt-2">
+                                <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                                    {kpis.heuresSupp || '00h00'}
+                                </span>
+                                <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                                    {kpis.heuresSuppStatut || 'à valider'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* KPI 4 : Absences & Congés */}
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs relative overflow-hidden">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
+                                    Absences & Congés
+                                </span>
+                                <div className="w-2.5 h-2.5 rounded-full bg-sky-500" />
+                            </div>
+                            <div className="mt-2">
+                                <span className="text-2xl font-bold font-mono text-[var(--color-fg)]">
+                                    {kpis.absences || '0 j'}
+                                </span>
+                                <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                                    {kpis.absencesStatut || 'justifiée'}
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </CardBody>
-            </Card>
+
+                    {/* 3. Grille Principale (Détail journalier à gauche + Panneaux récapitulatifs à droite) */}
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+                        {/* A. Tableau Détail Journalier (3 colonnes de large) */}
+                        <div className="lg:col-span-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
+                            <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-sm font-bold text-[var(--color-fg)]">Détail journalier</h3>
+                                    <p className="text-xs text-[var(--color-fg-muted)]">Pointages et calculs automatiques</p>
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <Thead>
+                                        <Th className="text-xs font-bold uppercase py-3 px-3">Date</Th>
+                                        <Th className="text-xs font-bold uppercase py-3 px-3">Jour</Th>
+                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Entrée</Th>
+                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Sortie Pause</Th>
+                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Retour</Th>
+                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Sortie</Th>
+                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Heures</Th>
+                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Écart</Th>
+                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Statut</Th>
+                                    </Thead>
+                                    <Tbody>
+                                        {pointages.length === 0 ? (
+                                            <Tr>
+                                                <Td colSpan={9} className="text-center py-8 text-xs text-[var(--color-fg-muted)]">
+                                                    Aucune donnée de pointage pour cette période.
+                                                </Td>
+                                            </Tr>
+                                        ) : (
+                                            pointages.map((ptg, idx) => {
+                                                const isWeekend = ptg.statut === 'REPOS';
+                                                return (
+                                                    <Tr 
+                                                        key={`${ptg.dateComplete || ptg.date}-${idx}`}
+                                                        className={isWeekend ? 'bg-[var(--color-bg-subtle)]/40' : ''}
+                                                    >
+                                                        <Td className="font-mono text-xs font-bold text-[var(--color-fg)] py-2.5 px-3">
+                                                            {ptg.date}
+                                                        </Td>
+                                                        <Td className="text-xs text-[var(--color-fg-muted)] py-2.5 px-3">
+                                                            {ptg.jour}
+                                                        </Td>
+                                                        <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                            {ptg.entree}
+                                                        </Td>
+                                                        <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                            {ptg.sortiePause}
+                                                        </Td>
+                                                        <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                            {ptg.retourPause}
+                                                        </Td>
+                                                        <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                            {ptg.sortie}
+                                                        </Td>
+                                                        <Td className="font-mono text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
+                                                            {ptg.heures}
+                                                        </Td>
+                                                        <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                            {ptg.ecart && ptg.ecart.startsWith('-') ? (
+                                                                <span className="text-rose-600 dark:text-rose-400 font-bold">
+                                                                    {ptg.ecart}
+                                                                </span>
+                                                            ) : ptg.ecart && ptg.ecart.startsWith('+') ? (
+                                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                                                    {ptg.ecart}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[var(--color-fg-muted)]">
+                                                                    {ptg.ecart}
+                                                                </span>
+                                                            )}
+                                                        </Td>
+                                                        <Td className="text-center py-2.5 px-3">
+                                                            {getStatutBadge(ptg.statut)}
+                                                        </Td>
+                                                    </Tr>
+                                                );
+                                            })
+                                        )}
+                                    </Tbody>
+                                </Table>
+                            </div>
+                        </div>
+
+                        {/* B. Volet Latéral Droit : Récapitulatif & Règles (1 colonne de large) */}
+                        <div className="space-y-4">
+                            {/* Carte Récapitulatif */}
+                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-2 flex items-center gap-1.5">
+                                    <TrendingUp size={14} className="text-[var(--color-brand-500)]" />
+                                    Récapitulatif
+                                </h4>
+                                <div className="space-y-2 text-xs">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[var(--color-fg-muted)]">Temps théorique</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{recap.tempsTheorique || '168h00'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[var(--color-fg-muted)]">Temps réalisé</span>
+                                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{recap.tempsRealise || '00h00'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[var(--color-fg-muted)]">Temps d'absence</span>
+                                        <span className="font-mono font-bold text-rose-600 dark:text-rose-400">{recap.tempsAbsence || '00h00'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[var(--color-fg-muted)]">Heures supplémentaires</span>
+                                        <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{recap.heuresSupp || '00h00'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[var(--color-fg-muted)]">Retards</span>
+                                        <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{recap.retards || '00h00'}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Carte Règles Appliquées */}
+                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-2 flex items-center gap-1.5">
+                                    <Info size={14} className="text-sky-500" />
+                                    Règles Appliquées
+                                </h4>
+                                <div className="space-y-2 text-xs">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[var(--color-fg-muted)]">Horaire journalier</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.horaireJournalier || '08h00'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[var(--color-fg-muted)]">Pause déjeuner</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.pause || '01h00'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[var(--color-fg-muted)]">Prise de poste théorique</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.debutNormal || '08:00'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[var(--color-fg-muted)]">Heure minimale d'arrivée</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.plafondArrivee || '07:30'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[var(--color-fg-muted)]">Tolérance de retard</span>
+                                        <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{regles.toleranceRetard || '0 min'}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Carte Observations */}
+                            <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-2">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                                    Observations
+                                </h4>
+                                <p className="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
+                                    Les heures sont calculées à partir des pointages enregistrés. Toute correction doit être justifiée et validée par le responsable habilité.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

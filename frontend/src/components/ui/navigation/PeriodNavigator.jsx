@@ -4,15 +4,17 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, RotateCcw } from '
 /**
  * PeriodNavigator — Composant professionnel de navigation temporelle.
  * Adapte automatiquement son affichage selon le mode sélectionné :
- * - Jour : "< 24/08/2026 📅 >"
- * - Semaine : "< 24 août — 30 août 2026 📅 >"
+ * - Jour : "< 30 août 2026 📅 >"
+ * - Semaine : "< Semaine du 24 au 30 août 2026 📅 >"
  * - Mois : "< Août 2026 📅 >"
  */
 export default function PeriodNavigator({
     viewPeriod = 'jour', // 'jour' | 'semaine' | 'mois'
     selectedDate,        // Format 'YYYY-MM-DD'
     onDateChange,        // Callback (newDateStr)
-    allowFutureDates = true, // Permet de bloquer la navigation vers le futur
+    allowFutureDates = true,
+    showTodayButton = false,
+    className = '',
 }) {
     const dateInputRef = useRef(null);
 
@@ -40,11 +42,12 @@ export default function PeriodNavigator({
         if (isNaN(currDate.getTime())) return selectedDate;
 
         if (viewPeriod === 'jour') {
-            return currDate.toLocaleDateString('fr-FR', {
+            const dayStr = currDate.toLocaleDateString('fr-FR', {
                 day: 'numeric',
-                month: 'short',
+                month: 'long',
                 year: 'numeric'
             }).replace(/\s+/g, ' ');
+            return dayStr;
         }
 
         if (viewPeriod === 'semaine') {
@@ -61,49 +64,53 @@ export default function PeriodNavigator({
 
         if (viewPeriod === 'mois') {
             const monthStr = currDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }).replace(/\s+/g, ' ');
-            return monthStr.charAt(0).toUpperCase() + monthStr.slice(1);
+            return monthStr;
         }
 
         return selectedDate;
     };
 
     return (
-        <div className="inline-flex items-center gap-2">
-            {/* Bouton Aujourd'hui */}
-            <button
-                type="button"
-                onClick={handleToday}
-                title="Revenir à aujourd'hui"
-                className="px-2.5 py-1.5 text-xs font-semibold text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] bg-[var(--color-surface)] border border-[var(--color-border)] hover:bg-[var(--color-bg-subtle)] transition-colors flex items-center gap-1.5"
-            >
-                <RotateCcw size={13} />
-                Aujourd'hui
-            </button>
+        <div className={`inline-flex items-center gap-2 ${className}`}>
+            {showTodayButton && (
+                <button
+                    type="button"
+                    onClick={handleToday}
+                    title="Revenir à aujourd'hui"
+                    className="px-2.5 py-2 text-xs font-semibold text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] bg-[var(--color-surface)] border border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] transition-colors flex items-center gap-1.5"
+                >
+                    <RotateCcw size={13} />
+                    Aujourd'hui
+                </button>
+            )}
 
-            {/* Boîtier principal de navigation style Pro */}
-            <div className="inline-flex items-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-sm font-sans">
-                {/* Fleche Précédent */}
+            {/* Boîtier de navigation exact : < | date 📅 | > */}
+            <div className="inline-flex items-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
+                {/* Flèche Précédent */}
                 <button
                     type="button"
                     onClick={() => handleNavigate(-1)}
-                    className="p-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] border-r border-[var(--color-border-subtle)] transition-colors"
-                    title="Période précédente"
+                    className="px-3 py-2 text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
+                    title="Précédent"
                 >
                     <ChevronLeft size={16} />
                 </button>
 
-                {/* Libellé de la période + Icône Calendrier Clicable */}
+                {/* Séparateur vertical discret */}
+                <span className="h-5 w-[1px] bg-[var(--color-border-subtle)]" />
+
+                {/* Libellé de la période + Icône Calendrier cliquable */}
                 <div
                     onClick={() => dateInputRef.current?.showPicker()}
-                    className="flex items-center gap-3 px-4 py-1.5 cursor-pointer hover:bg-[var(--color-bg-subtle)] transition-colors select-none"
+                    className="flex items-center justify-between gap-4 px-4 py-2 cursor-pointer hover:bg-[var(--color-bg-subtle)] transition-colors select-none"
                 >
-                    <span className="text-sm font-bold text-[var(--color-fg)] font-mono tracking-tight">
+                    <span className="text-sm font-bold text-[var(--color-fg)] tracking-tight">
                         {getFormattedLabel()}
                     </span>
 
-                    <CalendarIcon size={16} className="text-[var(--color-brand-500)] shrink-0" />
+                    <CalendarIcon size={16} className="text-[var(--color-fg)] hover:text-[var(--color-brand-500)] shrink-0 transition-colors" />
 
-                    {/* Input Date invisible pour le DatePicker natif */}
+                    {/* Input invisible pour ouvrir le DatePicker natif */}
                     <input
                         ref={dateInputRef}
                         type="date"
@@ -114,17 +121,20 @@ export default function PeriodNavigator({
                     />
                 </div>
 
-                {/* Fleche Suivant */}
+                {/* Séparateur vertical discret */}
+                <span className="h-5 w-[1px] bg-[var(--color-border-subtle)]" />
+
+                {/* Flèche Suivant */}
                 <button
                     type="button"
                     onClick={() => handleNavigate(1)}
                     disabled={!allowFutureDates && viewPeriod === 'jour' && currDate >= new Date(new Date().setHours(0,0,0,0))}
-                    className={`p-2 text-[var(--color-fg-muted)] border-l border-[var(--color-border-subtle)] transition-colors ${
+                    className={`px-3 py-2 text-[var(--color-fg)] transition-colors cursor-pointer ${
                         (!allowFutureDates && viewPeriod === 'jour' && currDate >= new Date(new Date().setHours(0,0,0,0)))
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
+                        ? 'opacity-40 cursor-not-allowed'
+                        : 'hover:bg-[var(--color-bg-subtle)]'
                     }`}
-                    title="Période suivante"
+                    title="Suivant"
                 >
                     <ChevronRight size={16} />
                 </button>

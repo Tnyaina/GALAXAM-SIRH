@@ -84,7 +84,7 @@ export function useDerogationIndemnites() {
             });
         } else {
             setFormData({
-                idEmploye: employes.length > 0 ? String(employes[0].idEmploye) : '',
+                idEmploye: '',
                 idIndemnite: indemnites.length > 0 ? String(indemnites[0].idIndemnite) : '',
                 beneficie: false,
                 motif: '',

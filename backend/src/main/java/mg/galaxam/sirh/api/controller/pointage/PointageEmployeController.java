@@ -98,6 +98,57 @@ public class PointageEmployeController {
         regles.put("plafondArrivee", hPlafondTolerance.toString().substring(0, 5));
         regles.put("toleranceRetard", "0 min");
 
+        // 1. Récupération des infos salarié (date embauche / fin de contrat)
+        LocalDate dateEmbauche = null;
+        LocalDate dateDepart = null;
+        String sqlEmpInfo = "SELECT MIN(ct.date_debut) AS date_embauche, MAX(ct.date_fin) AS date_depart " +
+                            "FROM contrat_travail ct WHERE ct.id_employe = ?";
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement psEmp = c.prepareStatement(sqlEmpInfo)) {
+            psEmp.setInt(1, idEmploye);
+            try (ResultSet rsEmp = psEmp.executeQuery()) {
+                if (rsEmp.next()) {
+                    if (rsEmp.getDate("date_embauche") != null) dateEmbauche = rsEmp.getDate("date_embauche").toLocalDate();
+                    if (rsEmp.getDate("date_depart") != null) dateDepart = rsEmp.getDate("date_depart").toLocalDate();
+                }
+            }
+        } catch (Exception e) {
+            // Ignorer si contrat_travail non disponible
+        }
+
+        if (dateEmbauche == null) {
+            String sqlAff = "SELECT MIN(eac.date_debut) AS date_embauche, MAX(eac.date_fin) AS date_depart " +
+                            "FROM employe_affectation_carriere eac WHERE eac.id_employe = ?";
+            try (Connection c = dataSource.getConnection();
+                 PreparedStatement psAff = c.prepareStatement(sqlAff)) {
+                psAff.setInt(1, idEmploye);
+                try (ResultSet rsAff = psAff.executeQuery()) {
+                    if (rsAff.next()) {
+                        if (rsAff.getDate("date_embauche") != null) dateEmbauche = rsAff.getDate("date_embauche").toLocalDate();
+                        if (rsAff.getDate("date_depart") != null) dateDepart = rsAff.getDate("date_depart").toLocalDate();
+                    }
+                }
+            } catch (Exception e) {
+                // Ignorer
+            }
+        }
+
+        // 1.5 Récupération des jours fériés sur la période
+        Map<LocalDate, String> ferieMap = new HashMap<>();
+        String sqlFeries = "SELECT date_ferie, libelle FROM ref_calendrier_ferie WHERE date_ferie BETWEEN ? AND ?";
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement psF = c.prepareStatement(sqlFeries)) {
+            psF.setDate(1, java.sql.Date.valueOf(startDate));
+            psF.setDate(2, java.sql.Date.valueOf(endDate));
+            try (ResultSet rsF = psF.executeQuery()) {
+                while (rsF.next()) {
+                    ferieMap.put(rsF.getDate("date_ferie").toLocalDate(), rsF.getString("libelle"));
+                }
+            }
+        } catch (Exception e) {
+            // Table non disponible
+        }
+
         // 2. Récupération des pointages enregistrés en base
         Map<LocalDate, PointageRecord> pointageMap = new HashMap<>();
 
@@ -134,8 +185,9 @@ public class PointageEmployeController {
 
         // 2.5 Récupération des congés validés sur la période
         Map<LocalDate, String> congeMap = new HashMap<>();
-        String sqlConges = "SELECT date_debut, date_fin, est_demi_journee, moment_demi_journee FROM demande_conge " +
-                "WHERE id_employe = ? AND id_statut_demande_conge = 3 AND date_debut <= ? AND date_fin >= ?";
+        String sqlConges = "SELECT dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.moment_demi_journee FROM demande_conge dc " +
+                "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
+                "WHERE dc.id_employe = ? AND sc.code IN ('VALIDE', 'APPROUVEE') AND dc.date_debut <= ? AND dc.date_fin >= ?";
         try (Connection c = dataSource.getConnection();
              PreparedStatement psC = c.prepareStatement(sqlConges)) {
             psC.setInt(1, idEmploye);
@@ -181,7 +233,11 @@ public class PointageEmployeController {
 
         for (LocalDate curr = startDate; !curr.isAfter(endDate); curr = curr.plusDays(1)) {
             boolean isWeekend = (curr.getDayOfWeek() == DayOfWeek.SATURDAY || curr.getDayOfWeek() == DayOfWeek.SUNDAY);
-            if (!isWeekend) {
+            boolean isAvantEmbauche = (dateEmbauche != null && curr.isBefore(dateEmbauche));
+            boolean isApresDepart = (dateDepart != null && curr.isAfter(dateDepart));
+            boolean isFerie = ferieMap.containsKey(curr);
+
+            if (!isWeekend && !isAvantEmbauche && !isApresDepart && !isFerie) {
                 totalJoursOuvrables++;
             }
 
@@ -237,7 +293,7 @@ public class PointageEmployeController {
                     dto.setEcartPositif(true);
                 }
 
-                if ("PRESENT".equalsIgnoreCase(rec.codeStatut) || "ANOMALIE_SAISIE".equalsIgnoreCase(rec.codeStatut) || "SAMEDI_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
+                if ("PRESENT".equalsIgnoreCase(rec.codeStatut) || "DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) || "SAMEDI_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
                     totalHeuresRealisees += totalH;
                 } else if ("ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(rec.codeStatut)) {
@@ -255,9 +311,15 @@ public class PointageEmployeController {
 
                 String typeConge = congeMap.get(curr);
 
-                if (typeConge != null && "FULL_DAY".equals(typeConge)) {
+                if (isAvantEmbauche || isApresDepart) {
+                    dto.setHeures("—");
+                    dto.setStatut("NON_CONCERNE");
+                } else if (typeConge != null && "FULL_DAY".equals(typeConge)) {
                     dto.setHeures("00h00");
                     dto.setStatut("CONGE");
+                } else if (isFerie) {
+                    dto.setHeures("00h00");
+                    dto.setStatut("FERIE_CHOME");
                 } else if (isWeekend) {
                     dto.setHeures("00h00");
                     dto.setStatut("REPOS");

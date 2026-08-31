@@ -19,6 +19,7 @@ import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
 import Input from '@/components/ui/forms/Input';
+import DatePicker from '@/components/ui/forms/DatePicker';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Breadcrumb from '@/components/ui/navigation/Breadcrumb';
@@ -491,18 +492,16 @@ export default function PeriodePaiePage() {
                         required
                     />
                     <div className="grid grid-cols-2 gap-4">
-                        <Input
-                            type="date"
+                        <DatePicker
                             label="Date de début"
                             value={newPeriode.dateDebut}
-                            onChange={e => setNewPeriode({ ...newPeriode, dateDebut: e.target.value })}
+                            onChange={val => setNewPeriode({ ...newPeriode, dateDebut: val })}
                             required
                         />
-                        <Input
-                            type="date"
+                        <DatePicker
                             label="Date de fin"
                             value={newPeriode.dateFin}
-                            onChange={e => setNewPeriode({ ...newPeriode, dateFin: e.target.value })}
+                            onChange={val => setNewPeriode({ ...newPeriode, dateFin: val })}
                             required
                         />
                     </div>

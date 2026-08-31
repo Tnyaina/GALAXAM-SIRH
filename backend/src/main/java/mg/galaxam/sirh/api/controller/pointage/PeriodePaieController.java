@@ -26,6 +26,9 @@ public class PeriodePaieController {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private mg.galaxam.sirh.model.pointage.service.PointageSyntheseService pointageSyntheseService;
+
     @GetMapping
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
     public ResponseEntity<List<PeriodePaieDTO>> getAllPeriodes() {
@@ -118,6 +121,70 @@ public class PeriodePaieController {
         return ResponseEntity.notFound().build();
     }
 
+    @GetMapping("/simuler")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    public ResponseEntity<Map<String, Object>> simulerPeriode(
+            @RequestParam String dateDebut,
+            @RequestParam String dateFin
+    ) {
+        if (dateDebut == null || dateFin == null || dateDebut.trim().isEmpty() || dateFin.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            java.time.LocalDate start = java.time.LocalDate.parse(dateDebut.trim());
+            java.time.LocalDate end = java.time.LocalDate.parse(dateFin.trim());
+
+            if (end.isBefore(start)) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            int calendaires = (int) java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1;
+            int nbWeekends = 0;
+            int nbJoursSemaine = 0;
+
+            for (java.time.LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+                java.time.DayOfWeek dow = d.getDayOfWeek();
+                if (dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY) {
+                    nbWeekends++;
+                } else {
+                    nbJoursSemaine++;
+                }
+            }
+
+            int nbFeriesChomesSemaine = 0;
+            try (Connection c = dataSource.getConnection()) {
+                String sql = "SELECT date_ferie FROM ref_calendrier_ferie WHERE date_ferie BETWEEN ? AND ? AND est_chome = TRUE";
+                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                    ps.setDate(1, java.sql.Date.valueOf(start));
+                    ps.setDate(2, java.sql.Date.valueOf(end));
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            java.time.LocalDate dFerie = rs.getDate("date_ferie").toLocalDate();
+                            // Décompter uniquement si le férié tombe du lundi au vendredi
+                            if (dFerie.getDayOfWeek() != java.time.DayOfWeek.SATURDAY && dFerie.getDayOfWeek() != java.time.DayOfWeek.SUNDAY) {
+                                nbFeriesChomesSemaine++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            int nbJoursOuvrables = Math.max(0, nbJoursSemaine - nbFeriesChomesSemaine);
+
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("nbJoursOuvrables", nbJoursOuvrables);
+            resp.put("nbJoursCalendaires", calendaires);
+            resp.put("nbJoursFeries", nbFeriesChomesSemaine);
+            resp.put("nbWeekends", nbWeekends);
+
+            return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @PostMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> createPeriode(@RequestBody Map<String, Object> payload) {
@@ -199,6 +266,11 @@ public class PeriodePaieController {
             int rows = ps.executeUpdate();
             
             if (rows > 0) {
+                if ("VALIDEE".equals(newStatutCode) || "CLOTUREE".equals(newStatutCode)) {
+                    pointageSyntheseService.gelerPeriode(id, currentUserId, c);
+                } else if ("EN_COURS".equals(newStatutCode) || "BROUILLON".equals(newStatutCode) || "A_VALIDER".equals(newStatutCode)) {
+                    pointageSyntheseService.degelerPeriode(id, c);
+                }
                 resp.put("success", true);
                 resp.put("message", "Statut de la période mis à jour avec succès.");
                 return ResponseEntity.ok(resp);

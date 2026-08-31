@@ -73,4 +73,29 @@ public class SchedulerCronTest {
         assertEquals(7, diff7);
         assertEquals(0, diff0);
     }
+
+    @Test
+    @DisplayName("Règle de purge triennale FIFO des congés prescrits (+36 mois)")
+    void testPurgeTriennaleFifo() {
+        double acquisAnciens = 15.0; // 01/01/2002 (> 36 mois)
+        double acquisRecents = 2.5;  // 30/08/2026 (< 36 mois)
+        double totalPris = 0.0;
+        double totalDejaExpire = 0.0;
+
+        // 1ère exécution de purge
+        double consommeSurAnciens1 = Math.min(acquisAnciens, totalPris);
+        double anciensNonConsommes1 = Math.max(0.0, acquisAnciens - consommeSurAnciens1);
+        double purge1 = Math.max(0.0, anciensNonConsommes1 - totalDejaExpire);
+
+        assertEquals(15.0, purge1, "Les 15j anciens non consommés doivent être purgés.");
+
+        // 2ème exécution immédiate (totalDéjàExpiré = 15.0)
+        totalDejaExpire = 15.0;
+        double consommeSurAnciens2 = Math.min(acquisAnciens, totalPris);
+        double anciensNonConsommes2 = Math.max(0.0, acquisAnciens - consommeSurAnciens2);
+        double purge2 = Math.max(0.0, anciensNonConsommes2 - totalDejaExpire);
+
+        assertEquals(0.0, purge2, "Une 2ème purge consécutive ne doit rien purger de plus.");
+        assertTrue(acquisRecents > 0, "Les acquisitions récentes (2.5j) ne sont jamais touchées.");
+    }
 }

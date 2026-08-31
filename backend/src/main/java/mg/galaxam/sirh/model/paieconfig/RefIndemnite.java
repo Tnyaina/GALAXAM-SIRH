@@ -13,6 +13,7 @@ public class RefIndemnite extends ClassMere {
     private String code;
     private String libelle;
     private boolean imposableIrsa = false;
+    private boolean fractionnable = false;
     private boolean estActif = true;
 
     public RefIndemnite() {
@@ -31,13 +32,14 @@ public class RefIndemnite extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        String sql = "INSERT INTO ref_indemnite (code, libelle, imposable_irsa, est_actif) " +
-                     "VALUES (?, ?, ?, ?) RETURNING id_indemnite";
+        String sql = "INSERT INTO ref_indemnite (code, libelle, imposable_irsa, fractionnable, est_actif) " +
+                     "VALUES (?, ?, ?, ?, ?) RETURNING id_indemnite";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
             ps.setBoolean(3, imposableIrsa);
-            ps.setBoolean(4, estActif);
+            ps.setBoolean(4, fractionnable);
+            ps.setBoolean(5, estActif);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -50,14 +52,15 @@ public class RefIndemnite extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        String sql = "UPDATE ref_indemnite SET code = ?, libelle = ?, imposable_irsa = ?, est_actif = ? " +
+        String sql = "UPDATE ref_indemnite SET code = ?, libelle = ?, imposable_irsa = ?, fractionnable = ?, est_actif = ? " +
                      "WHERE id_indemnite = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
             ps.setBoolean(3, imposableIrsa);
-            ps.setBoolean(4, estActif);
-            ps.setInt(5, idIndemnite);
+            ps.setBoolean(4, fractionnable);
+            ps.setBoolean(5, estActif);
+            ps.setInt(6, idIndemnite);
             ps.executeUpdate();
         }
         return this;
@@ -79,7 +82,7 @@ public class RefIndemnite extends ClassMere {
     }
 
     public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT id_indemnite, code, libelle, imposable_irsa, est_actif FROM ref_indemnite WHERE id_indemnite = ?";
+        String sql = "SELECT id_indemnite, code, libelle, imposable_irsa, fractionnable, est_actif FROM ref_indemnite WHERE id_indemnite = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -89,6 +92,7 @@ public class RefIndemnite extends ClassMere {
                     item.code = rs.getString("code");
                     item.libelle = rs.getString("libelle");
                     item.imposableIrsa = rs.getBoolean("imposable_irsa");
+                    item.fractionnable = rs.getBoolean("fractionnable");
                     item.estActif = rs.getBoolean("est_actif");
                     return item;
                 }
@@ -98,7 +102,7 @@ public class RefIndemnite extends ClassMere {
     }
 
     public static List<RefIndemnite> listAll(Connection c) throws Exception {
-        String sql = "SELECT id_indemnite, code, libelle, imposable_irsa, est_actif FROM ref_indemnite ORDER BY code";
+        String sql = "SELECT id_indemnite, code, libelle, imposable_irsa, fractionnable, est_actif FROM ref_indemnite ORDER BY code";
         List<RefIndemnite> list = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -108,6 +112,7 @@ public class RefIndemnite extends ClassMere {
                 item.code = rs.getString("code");
                 item.libelle = rs.getString("libelle");
                 item.imposableIrsa = rs.getBoolean("imposable_irsa");
+                item.fractionnable = rs.getBoolean("fractionnable");
                 item.estActif = rs.getBoolean("est_actif");
                 list.add(item);
             }
@@ -124,6 +129,8 @@ public class RefIndemnite extends ClassMere {
     public void setLibelle(String libelle) { this.libelle = libelle; }
     public boolean isImposableIrsa() { return imposableIrsa; }
     public void setImposableIrsa(boolean imposableIrsa) { this.imposableIrsa = imposableIrsa; }
+    public boolean isFractionnable() { return fractionnable; }
+    public void setFractionnable(boolean fractionnable) { this.fractionnable = fractionnable; }
     public boolean isEstActif() { return estActif; }
     public void setEstActif(boolean estActif) { this.estActif = estActif; }
 }

@@ -107,6 +107,7 @@ CREATE TABLE ref_indemnite (
     code VARCHAR(20) NOT NULL UNIQUE,
     libelle VARCHAR(100) NOT NULL,
     imposable_irsa BOOLEAN DEFAULT FALSE,
+    fractionnable BOOLEAN DEFAULT FALSE,
     est_actif BOOLEAN DEFAULT TRUE
 );
 

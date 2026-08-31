@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText, ShieldAlert } from 'lucide-react';
+import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
@@ -15,7 +15,6 @@ const MajorationsParametresTab = lazy(() => import('@/components/parametres/paie
 
 // Composants de paramétrage Pointage
 const ToleranceArriveeSiteTab = lazy(() => import('@/components/parametres/pointage/ToleranceArriveeSiteTab'));
-const DerogationIndemnitesTab = lazy(() => import('@/components/parametres/pointage/DerogationIndemnitesTab'));
 
 const MODULES = [
     { id: 'general', label: 'Général & Système', icon: <Sliders size={18} /> },
@@ -70,7 +69,6 @@ export default function ParametresModulesPanel() {
     const pointageTabs = [
         { id: 'parametres_globaux_pointage', label: 'Constantes (Pointage)', icon: <Sliders size={16} /> },
         { id: 'tolerance_pointage', label: 'Tolérances d\'Arrivée (Sites)', icon: <Clock size={16} /> },
-        { id: 'derogations_indemnites', label: 'Exclusions Indemnités', icon: <ShieldAlert size={16} /> },
     ];
 
     // Définition des sous-onglets pour le Système
@@ -161,7 +159,6 @@ export default function ParametresModulesPanel() {
                             <>
                                 {activeTab === 'parametres_globaux_pointage' && <ParametresGlobauxTab fixedCategory="POINTAGE" />}
                                 {activeTab === 'tolerance_pointage' && <ToleranceArriveeSiteTab />}
-                                {activeTab === 'derogations_indemnites' && <DerogationIndemnitesTab />}
                             </>
                         )}
                     </Suspense>

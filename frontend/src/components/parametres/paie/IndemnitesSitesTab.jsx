@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Edit2, Gift, MapPin, X } from 'lucide-react';
+import { Plus, Edit2, Gift, MapPin, X, ShieldAlert } from 'lucide-react';
+import DerogationIndemnitesTab from '@/components/parametres/pointage/DerogationIndemnitesTab';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
 import Button from '@/components/ui/forms/Button';
@@ -41,7 +42,7 @@ export default function IndemnitesSitesTab() {
     const [showIndemniteModal, setShowIndemniteModal] = useState(false);
     const [editingIndemnite, setEditingIndemnite] = useState(null);
     const [indemniteFormData, setIndemniteFormData] = useState({
-        code: '', libelle: '', imposableIrsa: false
+        code: '', libelle: '', imposableIrsa: false, fractionnable: false
     });
 
     // Modale Config Site
@@ -163,6 +164,17 @@ export default function IndemnitesSitesTab() {
                     <MapPin size={16} />
                     Montants par Site d'Exploitation ({siteIndemnites.length})
                 </button>
+                <button
+                    onClick={() => setSubSection('exclusions')}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-none  cursor-pointer ${
+                        subSection === 'exclusions'
+                            ? 'bg-[var(--color-brand-500)] text-white'
+                            : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)]'
+                    }`}
+                >
+                    <ShieldAlert size={16} />
+                    Exclusions par Employé
+                </button>
             </div>
 
             {/* SECTION 1: CATALOGUE INDEMNITES */}
@@ -173,7 +185,7 @@ export default function IndemnitesSitesTab() {
                         <Button
                             onClick={() => {
                                 setEditingIndemnite(null);
-                                setIndemniteFormData({ code: '', libelle: '', imposableIrsa: false });
+                                setIndemniteFormData({ code: '', libelle: '', imposableIrsa: false, fractionnable: false });
                                 setActionError(null);
                                 setShowIndemniteModal(true);
                             }}
@@ -189,13 +201,14 @@ export default function IndemnitesSitesTab() {
                         <Thead>
                             <Th>Code</Th>
                             <Th>Libellé</Th>
+                            <Th>Mode Pointage</Th>
                             <Th>Régime Fiscal IRSA</Th>
                             <Th className="text-right">Actions</Th>
                         </Thead>
                         <Tbody>
                             {indemnites.length === 0 ? (
                                 <Tr>
-                                    <Td colSpan={4} className="p-0">
+                                    <Td colSpan={5} className="p-0">
                                         <EmptyState title="Aucune indemnité" description="Aucune indemnité enregistrée." />
                                     </Td>
                                 </Tr>
@@ -205,6 +218,11 @@ export default function IndemnitesSitesTab() {
                                         <Td isData className="font-bold text-[var(--color-brand-500)]">{ind.code}</Td>
                                         <Td className="font-bold text-[var(--color-fg)]">{ind.libelle}</Td>
                                         <Td>
+                                            <Badge variant={ind.fractionnable ? 'brand' : 'neutral'} size="sm">
+                                                {ind.fractionnable ? "Demi-journée (M / S)" : "Journée entière"}
+                                            </Badge>
+                                        </Td>
+                                        <Td>
                                             <Badge variant={ind.imposableIrsa ? 'warning' : 'success'} size="sm">
                                                 {ind.imposableIrsa ? "Imposable (IRSA)" : "Exonéré"}
                                             </Badge>
@@ -213,7 +231,12 @@ export default function IndemnitesSitesTab() {
                                             <button
                                                 onClick={() => {
                                                     setEditingIndemnite(ind);
-                                                    setIndemniteFormData({ code: ind.code, libelle: ind.libelle, imposableIrsa: ind.imposableIrsa });
+                                                    setIndemniteFormData({
+                                                        code: ind.code,
+                                                        libelle: ind.libelle,
+                                                        imposableIrsa: ind.imposableIrsa,
+                                                        fractionnable: !!ind.fractionnable
+                                                    });
                                                     setActionError(null);
                                                     setShowIndemniteModal(true);
                                                 }}
@@ -321,6 +344,11 @@ export default function IndemnitesSitesTab() {
                 </div>
             )}
 
+            {/* SECTION 3: EXCLUSIONS INDIVIDUELLES PAR EMPLOYE */}
+            {subSection === 'exclusions' && (
+                <DerogationIndemnitesTab />
+            )}
+
             {/* Modale Indemnité */}
             {showIndemniteModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
@@ -355,6 +383,11 @@ export default function IndemnitesSitesTab() {
                                 label="Imposable à l'IRSA"
                                 checked={indemniteFormData.imposableIrsa}
                                 onChange={(e) => setIndemniteFormData({ ...indemniteFormData, imposableIrsa: e.target.checked })}
+                            />
+                            <Checkbox
+                                label="Fractionnable par demi-journée (ex: Déplacement/Transport - Trajet Matin & Trajet Soir à 50%)"
+                                checked={indemniteFormData.fractionnable}
+                                onChange={(e) => setIndemniteFormData({ ...indemniteFormData, fractionnable: e.target.checked })}
                             />
                             <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
                                 <Button type="button" onClick={() => setShowIndemniteModal(false)} variant="ghost" size="sm">

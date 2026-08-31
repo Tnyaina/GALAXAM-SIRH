@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Scheduler nocturne pour la purge triennale des droits aux congés selon la règle FIFO stricte.
- * S'exécute chaque nuit à 02:00:00.
+ * S'exécute chaque nuit à 02:00:00 (et déclenchable manuellement par la DAF).
  */
 @Component
 public class PurgeCongeScheduler {
@@ -31,14 +31,15 @@ public class PurgeCongeScheduler {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                // Algorithme FIFO : Isole les droits de +36 mois et déduit les consommations 
-                // qui n'ont pas pu être absorbées par les droits récents.
+                // Algorithme FIFO strict :
+                // 1. Isole les droits acquis il y a plus de 36 mois (total_acquis_anciens).
+                // 2. Isole les consommations effectives de congés (total_pris).
+                // 3. Isole les expirations déjà actées (total_deja_expire).
                 String sql = "SELECT id_employe, " +
                              "COALESCE(SUM(nb_jours) FILTER (WHERE type_mouvement IN ('ACQUISITION', 'BONIFICATION') " +
                              "                               AND date_mouvement < CURRENT_DATE - INTERVAL '36 months'), 0) AS total_acquis_anciens, " +
-                             "COALESCE(SUM(-nb_jours) FILTER (WHERE nb_jours < 0), 0) AS total_consomme, " +
-                             "COALESCE(SUM(nb_jours) FILTER (WHERE type_mouvement IN ('ACQUISITION', 'BONIFICATION') " +
-                             "                               AND date_mouvement >= CURRENT_DATE - INTERVAL '36 months'), 0) AS total_acquis_recents " +
+                             "COALESCE(SUM(-nb_jours) FILTER (WHERE type_mouvement = 'PRISE' OR (type_mouvement = 'AJUSTEMENT' AND nb_jours < 0)), 0) AS total_pris, " +
+                             "COALESCE(SUM(-nb_jours) FILTER (WHERE type_mouvement = 'EXPIRATION'), 0) AS total_deja_expire " +
                              "FROM mouvement_solde_conge " +
                              "GROUP BY id_employe";
 
@@ -59,19 +60,23 @@ public class PurgeCongeScheduler {
                         while (rs.next()) {
                             int idEmploye = rs.getInt("id_employe");
                             double acquisAnciens = rs.getDouble("total_acquis_anciens");
-                            double totalConsomme = rs.getDouble("total_consomme");
-                            double acquisRecents = rs.getDouble("total_acquis_recents");
+                            double totalPris = rs.getDouble("total_pris");
+                            double totalDejaExpire = rs.getDouble("total_deja_expire");
 
-                            double consommeRestantSurAnciens = Math.max(0, totalConsomme - acquisRecents);
-                            double joursAExpirer = Math.max(0, acquisAnciens - consommeRestantSurAnciens);
+                            // Règle FIFO : les congés pris consomment en priorité les droits les plus anciens
+                            double consommeSurAnciens = Math.min(acquisAnciens, totalPris);
+                            double anciensNonConsommes = Math.max(0.0, acquisAnciens - consommeSurAnciens);
+
+                            // Le reliquat à expirer est ce qui n'a pas encore été purgé
+                            double joursAExpirer = Math.max(0.0, anciensNonConsommes - totalDejaExpire);
                             
-                            if (joursAExpirer > 0) {
+                            if (joursAExpirer > 0.001) {
                                 psIn.setInt(1, idEmploye);
                                 psIn.setDouble(2, -joursAExpirer);
                                 psIn.executeUpdate();
                                 
                                 psNotif.setString(1, "Congés expirés purgés (FIFO)");
-                                psNotif.setString(2, "Attention, " + joursAExpirer + " jours de congés acquis il y a plus de 3 ans ont atteint leur limite d'utilisation et ont été expirés.");
+                                psNotif.setString(2, "Attention, " + String.format("%.2f", joursAExpirer) + " jours de congés acquis il y a plus de 3 ans ont atteint leur limite d'utilisation et ont été expirés.");
                                 psNotif.setString(3, "/employes/" + idEmploye + "?tab=conges");
                                 psNotif.setInt(4, idEmploye);
                                 psNotif.executeUpdate();
