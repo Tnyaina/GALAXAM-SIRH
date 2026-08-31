@@ -4,9 +4,17 @@ import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.*;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class DashboardService {
@@ -53,7 +61,7 @@ public class DashboardService {
                 "WHERE rsd.code = 'EN_ATTENTE' " +
                 "ORDER BY d.created_at DESC";
         try (PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+                ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("idDemandeConge", rs.getInt("id_demande_conge"));
@@ -80,12 +88,13 @@ public class DashboardService {
                 "JOIN employe e ON d.id_employe = e.id_employe " +
                 "JOIN ref_type_conge tc ON d.id_type_conge = tc.id_type_conge " +
                 "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
-                "LEFT JOIN employe_affectation_carriere aff ON e.id_employe = aff.id_employe AND aff.date_fin IS NULL " +
+                "LEFT JOIN employe_affectation_carriere aff ON e.id_employe = aff.id_employe AND aff.date_fin IS NULL "
+                +
                 "LEFT JOIN ref_site s ON aff.id_site = s.id_site " +
                 "WHERE rsd.code = 'VALIDE' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin " +
                 "ORDER BY d.date_fin ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+                ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("idDemandeConge", rs.getInt("id_demande_conge"));
@@ -113,26 +122,30 @@ public class DashboardService {
                 "JOIN employe e ON d.id_employe = e.id_employe " +
                 "JOIN ref_type_conge tc ON d.id_type_conge = tc.id_type_conge " +
                 "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
-                "LEFT JOIN employe_affectation_carriere aff ON e.id_employe = aff.id_employe AND aff.date_fin IS NULL " +
+                "LEFT JOIN employe_affectation_carriere aff ON e.id_employe = aff.id_employe AND aff.date_fin IS NULL "
+                +
                 "LEFT JOIN ref_site s ON aff.id_site = s.id_site " +
                 "WHERE rsd.code = 'VALIDE' " +
-                "AND d.date_fin >= CURRENT_DATE AND d.date_debut <= CURRENT_DATE + INTERVAL '15 days' " +
+                "AND d.date_fin >= ? AND d.date_debut <= ? " +
                 "ORDER BY d.date_debut ASC";
-        try (PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                Map<String, Object> row = new LinkedHashMap<>();
-                row.put("idDemandeConge", rs.getInt("id_demande_conge"));
-                row.put("idEmploye", rs.getInt("id_employe"));
-                row.put("nomPrenom", rs.getString("nom_prenom"));
-                row.put("matricule", rs.getString("matricule"));
-                row.put("typeConge", rs.getString("type_conge"));
-                row.put("dateDebut", rs.getDate("date_debut"));
-                row.put("dateFin", rs.getDate("date_fin"));
-                row.put("nbJoursDecomptes", rs.getBigDecimal("nb_jours_decomptes"));
-                row.put("nomSite", rs.getString("nom_site"));
-                row.put("idSite", rs.getObject("id_site"));
-                conges.add(row);
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(LocalDate.now()));
+            ps.setDate(2, Date.valueOf(LocalDate.now().plusDays(15)));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("idDemandeConge", rs.getInt("id_demande_conge"));
+                    row.put("idEmploye", rs.getInt("id_employe"));
+                    row.put("nomPrenom", rs.getString("nom_prenom"));
+                    row.put("matricule", rs.getString("matricule"));
+                    row.put("typeConge", rs.getString("type_conge"));
+                    row.put("dateDebut", rs.getDate("date_debut"));
+                    row.put("dateFin", rs.getDate("date_fin"));
+                    row.put("nbJoursDecomptes", rs.getBigDecimal("nb_jours_decomptes"));
+                    row.put("nomSite", rs.getString("nom_site"));
+                    row.put("idSite", rs.getObject("id_site"));
+                    conges.add(row);
+                }
             }
         }
         return conges;
@@ -148,55 +161,62 @@ public class DashboardService {
 
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(DISTINCT ct.id_employe) FROM contrat_travail ct " +
-                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                "WHERE rsc.code = 'ACTIF' AND ct.comptabilise_effectif = TRUE")) {
+                        "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                        "WHERE rsc.code = 'ACTIF' AND ct.comptabilise_effectif = TRUE")) {
             ResultSet rs = ps.executeQuery();
             kpis.put("effectifComptabilise", rs.next() ? rs.getInt(1) : 0);
         }
 
+        LocalDate debutMois = LocalDate.now().withDayOfMonth(1);
         try (PreparedStatement ps = c.prepareStatement(
-                "SELECT COUNT(*) FROM employe WHERE est_actif = TRUE AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)")) {
+                "SELECT COUNT(*) FROM employe WHERE est_actif = TRUE AND created_at >= ?")) {
+            ps.setTimestamp(1, Timestamp.valueOf(debutMois.atStartOfDay()));
             ResultSet rs = ps.executeQuery();
             kpis.put("nouvellesEmbauchesMois", rs.next() ? rs.getInt(1) : 0);
         }
 
+        LocalDate today = LocalDate.now();
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(*) FROM contrat_travail ct " +
-                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                "WHERE rsc.code = 'ACTIF' AND ct.date_fin IS NOT NULL AND ct.date_fin BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'")) {
+                        "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                        "WHERE rsc.code = 'ACTIF' AND ct.date_fin IS NOT NULL AND ct.date_fin BETWEEN ? AND ?")) {
+            ps.setDate(1, Date.valueOf(today));
+            ps.setDate(2, Date.valueOf(today.plusDays(30)));
             ResultSet rs = ps.executeQuery();
             kpis.put("contratsExpirant30j", rs.next() ? rs.getInt(1) : 0);
         }
 
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(*) FROM contrat_travail ct " +
-                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                "JOIN contrat_periode_essai cpe ON ct.id_contrat = cpe.id_contrat " +
-                "WHERE rsc.code = 'ACTIF' AND cpe.statut = 'EN_COURS'")) {
+                        "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                        "JOIN contrat_periode_essai cpe ON ct.id_contrat = cpe.id_contrat " +
+                        "WHERE rsc.code = 'ACTIF' AND cpe.statut = 'EN_COURS'")) {
             ResultSet rs = ps.executeQuery();
             kpis.put("essaisEnCours", rs.next() ? rs.getInt(1) : 0);
         }
 
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(*) FROM workflow_rh wf " +
-                "JOIN ref_statut_rh rsw ON wf.id_statut_rh = rsw.id_statut_rh " +
-                "WHERE rsw.code = 'BROUILLON'")) {
+                        "JOIN ref_statut_rh rsw ON wf.id_statut_rh = rsw.id_statut_rh " +
+                        "WHERE rsw.code = 'BROUILLON'")) {
             ResultSet rs = ps.executeQuery();
             kpis.put("brouillonsEnAttente", rs.next() ? rs.getInt(1) : 0);
         }
 
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(*) FROM demande_conge d " +
-                "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
-                "WHERE rsd.code = 'EN_ATTENTE'")) {
+                        "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge "
+                        +
+                        "WHERE rsd.code = 'EN_ATTENTE'")) {
             ResultSet rs = ps.executeQuery();
             kpis.put("demandesCongeEnAttente", rs.next() ? rs.getInt(1) : 0);
         }
 
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT COUNT(*) FROM demande_conge d " +
-                "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
-                "WHERE rsd.code = 'VALIDE' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin")) {
+                        "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge "
+                        +
+                        "WHERE rsd.code = 'VALIDE' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin")) {
             ResultSet rs = ps.executeQuery();
             kpis.put("employesEnCongeAujourdhui", rs.next() ? rs.getInt(1) : 0);
         }
@@ -216,7 +236,7 @@ public class DashboardService {
                 "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE AND ct.date_fin = CURRENT_DATE " +
                 "ORDER BY e.nom";
         try (PreparedStatement ps = c.prepareStatement(sqlContratsJ);
-             ResultSet rs = ps.executeQuery()) {
+                ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("typeAlerte", "CONTRAT_EXPIRE_J");
@@ -238,20 +258,22 @@ public class DashboardService {
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
                 "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "JOIN contrat_periode_essai cpe ON ct.id_contrat = cpe.id_contrat " +
-                "WHERE rsc.code = 'ACTIF' AND cpe.statut = 'EN_COURS' AND ct.date_fin_essai = CURRENT_DATE " +
+                "WHERE rsc.code = 'ACTIF' AND cpe.statut = 'EN_COURS' AND ct.date_fin_essai = ? " +
                 "ORDER BY e.nom";
-        try (PreparedStatement ps = c.prepareStatement(sqlEssaisJ);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                Map<String, Object> row = new LinkedHashMap<>();
-                row.put("typeAlerte", "ESSAI_EXPIRE_J");
-                row.put("priorite", "CRITIQUE");
-                row.put("idEmploye", rs.getInt("id_employe"));
-                row.put("nomPrenom", rs.getString("nom_prenom"));
-                row.put("matricule", rs.getString("matricule"));
-                row.put("dateEcheance", rs.getDate("date_fin_essai"));
-                row.put("joursRestants", 0);
-                alertes.add(row);
+        try (PreparedStatement ps = c.prepareStatement(sqlEssaisJ)) {
+            ps.setDate(1, Date.valueOf(LocalDate.now()));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("typeAlerte", "ESSAI_EXPIRE_J");
+                    row.put("priorite", "CRITIQUE");
+                    row.put("idEmploye", rs.getInt("id_employe"));
+                    row.put("nomPrenom", rs.getString("nom_prenom"));
+                    row.put("matricule", rs.getString("matricule"));
+                    row.put("dateEcheance", rs.getDate("date_fin_essai"));
+                    row.put("joursRestants", 0);
+                    alertes.add(row);
+                }
             }
         }
 
@@ -260,31 +282,36 @@ public class DashboardService {
 
     public List<Map<String, Object>> buildAlertes7j(Connection c) throws Exception {
         List<Map<String, Object>> alertes = new ArrayList<>();
+        LocalDate today = LocalDate.now();
 
         String sqlContrats7j = "SELECT ct.id_contrat, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
                 "e.matricule, ct.date_fin, rtc.libelle AS type_contrat, ct.numero_contrat, " +
-                "(ct.date_fin - CURRENT_DATE) AS jours_restants " +
+                "(ct.date_fin - ?) AS jours_restants " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
                 "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                 "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE " +
-                "AND ct.date_fin > CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '7 days' " +
+                "AND ct.date_fin > ? AND ct.date_fin <= ? " +
                 "ORDER BY ct.date_fin ASC";
-        try (PreparedStatement ps = c.prepareStatement(sqlContrats7j);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                Map<String, Object> row = new LinkedHashMap<>();
-                row.put("typeAlerte", "CONTRAT_ECHEANCE_7J");
-                row.put("priorite", "HAUTE");
-                row.put("idEmploye", rs.getInt("id_employe"));
-                row.put("nomPrenom", rs.getString("nom_prenom"));
-                row.put("matricule", rs.getString("matricule"));
-                row.put("typeContrat", rs.getString("type_contrat"));
-                row.put("numeroContrat", rs.getString("numero_contrat"));
-                row.put("dateEcheance", rs.getDate("date_fin"));
-                row.put("joursRestants", rs.getInt("jours_restants"));
-                alertes.add(row);
+        try (PreparedStatement ps = c.prepareStatement(sqlContrats7j)) {
+            ps.setDate(1, Date.valueOf(today));
+            ps.setDate(2, Date.valueOf(today));
+            ps.setDate(3, Date.valueOf(today.plusDays(7)));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("typeAlerte", "CONTRAT_ECHEANCE_7J");
+                    row.put("priorite", "HAUTE");
+                    row.put("idEmploye", rs.getInt("id_employe"));
+                    row.put("nomPrenom", rs.getString("nom_prenom"));
+                    row.put("matricule", rs.getString("matricule"));
+                    row.put("typeContrat", rs.getString("type_contrat"));
+                    row.put("numeroContrat", rs.getString("numero_contrat"));
+                    row.put("dateEcheance", rs.getDate("date_fin"));
+                    row.put("joursRestants", rs.getInt("jours_restants"));
+                    alertes.add(row);
+                }
             }
         }
 
@@ -293,31 +320,36 @@ public class DashboardService {
 
     public List<Map<String, Object>> buildAlertes30j(Connection c) throws Exception {
         List<Map<String, Object>> alertes = new ArrayList<>();
+        LocalDate today = LocalDate.now();
 
         String sqlContrats30j = "SELECT ct.id_contrat, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
                 "e.matricule, ct.date_fin, rtc.libelle AS type_contrat, ct.numero_contrat, " +
-                "(ct.date_fin - CURRENT_DATE) AS jours_restants " +
+                "(ct.date_fin - ?) AS jours_restants " +
                 "FROM contrat_travail ct " +
                 "JOIN employe e ON ct.id_employe = e.id_employe " +
                 "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                 "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE " +
-                "AND ct.date_fin > CURRENT_DATE + INTERVAL '7 days' AND ct.date_fin <= CURRENT_DATE + INTERVAL '30 days' " +
+                "AND ct.date_fin > ? AND ct.date_fin <= ? " +
                 "ORDER BY ct.date_fin ASC";
-        try (PreparedStatement ps = c.prepareStatement(sqlContrats30j);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                Map<String, Object> row = new LinkedHashMap<>();
-                row.put("typeAlerte", "CONTRAT_ECHEANCE_30J");
-                row.put("priorite", "NORMALE");
-                row.put("idEmploye", rs.getInt("id_employe"));
-                row.put("nomPrenom", rs.getString("nom_prenom"));
-                row.put("matricule", rs.getString("matricule"));
-                row.put("typeContrat", rs.getString("type_contrat"));
-                row.put("numeroContrat", rs.getString("numero_contrat"));
-                row.put("dateEcheance", rs.getDate("date_fin"));
-                row.put("joursRestants", rs.getInt("jours_restants"));
-                alertes.add(row);
+        try (PreparedStatement ps = c.prepareStatement(sqlContrats30j)) {
+            ps.setDate(1, Date.valueOf(today));
+            ps.setDate(2, Date.valueOf(today.plusDays(7)));
+            ps.setDate(3, Date.valueOf(today.plusDays(30)));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("typeAlerte", "CONTRAT_ECHEANCE_30J");
+                    row.put("priorite", "NORMALE");
+                    row.put("idEmploye", rs.getInt("id_employe"));
+                    row.put("nomPrenom", rs.getString("nom_prenom"));
+                    row.put("matricule", rs.getString("matricule"));
+                    row.put("typeContrat", rs.getString("type_contrat"));
+                    row.put("numeroContrat", rs.getString("numero_contrat"));
+                    row.put("dateEcheance", rs.getDate("date_fin"));
+                    row.put("joursRestants", rs.getInt("jours_restants"));
+                    alertes.add(row);
+                }
             }
         }
 
@@ -331,13 +363,13 @@ public class DashboardService {
                 "id_employe, nom_prenom_employe AS nom_prenom, matricule_employe AS matricule, " +
                 "numero_contrat_cible AS reference_dossier, " +
                 "date_effet, " +
-                "created_at AS date_creation, " +
-                "EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at)) / 86400 AS jours_attente " +
+                "created_at AS date_creation " +
                 "FROM v_workflow_rh_cpl " +
                 "WHERE code_statut_workflow = 'BROUILLON' " +
                 "ORDER BY created_at ASC";
+        Instant now = Instant.now();
         try (PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+                ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("idWorkflow", rs.getInt("id_workflow"));
@@ -347,8 +379,10 @@ public class DashboardService {
                 row.put("nomPrenom", rs.getString("nom_prenom"));
                 row.put("matricule", rs.getString("matricule"));
                 row.put("dateEffet", rs.getDate("date_effet"));
-                row.put("dateCreation", rs.getTimestamp("date_creation"));
-                row.put("joursAttente", Math.round(rs.getDouble("jours_attente")));
+                Timestamp dateCreation = rs.getTimestamp("date_creation");
+                row.put("dateCreation", dateCreation);
+                long joursAttente = dateCreation != null ? Duration.between(dateCreation.toInstant(), now).toDays() : 0;
+                row.put("joursAttente", joursAttente);
                 brouillons.add(row);
             }
         }
@@ -382,9 +416,9 @@ public class DashboardService {
                 ") AS combined " +
                 "ORDER BY date_action DESC " +
                 "LIMIT 8";
-                
+
         try (PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+                ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("id", rs.getInt("id"));

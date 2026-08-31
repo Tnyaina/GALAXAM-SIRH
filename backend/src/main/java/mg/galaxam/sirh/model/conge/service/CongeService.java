@@ -8,21 +8,23 @@ import java.sql.ResultSet;
 import mg.galaxam.sirh.model.conge.DemandeConge;
 import mg.galaxam.sirh.model.conge.RefStatutDemandeConge;
 import mg.galaxam.sirh.model.conge.RefTypeConge;
-import mg.galaxam.sirh.model.conge.VDemandeCongeCpl;
+import mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine;
 import org.springframework.stereotype.Service;
 
 @Service
 public class CongeService {
 
+    private final CongeCalculateurEngine calculateurEngine;
+
+    public CongeService(CongeCalculateurEngine calculateurEngine) {
+        this.calculateurEngine = calculateurEngine;
+    }
+
     public BigDecimal simulerNombreJours(Date dateDebut, Date dateFin, boolean estDemiJournee) {
         if (dateDebut == null || dateFin == null) {
             throw new IllegalArgumentException("Les dates de début et de fin sont obligatoires pour la simulation.");
         }
-        if (estDemiJournee && !dateDebut.equals(dateFin)) {
-            throw new IllegalArgumentException(
-                    "Une simulation en demi-journée doit avoir des dates de début et de fin identiques.");
-        }
-        return DemandeConge.calculerNombreJoursDecomptes(dateDebut, dateFin, estDemiJournee);
+        return calculateurEngine.calculerNombreJours(dateDebut.toLocalDate(), dateFin.toLocalDate(), estDemiJournee);
     }
 
     public DemandeConge creerDemande(DemandeConge d, Integer currentUserId, Connection c) throws Exception {
@@ -46,11 +48,11 @@ public class CongeService {
         // Bascule automatique Arrêt Maladie si > 30 jours (Art. 13)
         RefTypeConge typeConge = RefTypeConge.rechercherParId(d.getIdTypeConge(), c);
         Date originalDateFin = d.getDateFin();
-        BigDecimal totalJoursOrigine = DemandeConge.calculerNombreJoursDecomptes(d.getDateDebut(), originalDateFin,
+        BigDecimal totalJoursOrigine = calculateurEngine.calculerNombreJours(d.getDateDebut().toLocalDate(), originalDateFin.toLocalDate(),
                 d.isEstDemiJournee());
 
         if (typeConge != null && "MALADIE".equals(typeConge.getCode())
-                && totalJoursOrigine.compareTo(BigDecimal.valueOf(30)) > 0) {
+                && calculateurEngine.doitScinderArretMaladie(totalJoursOrigine)) {
             Date dateFinT1 = Date.valueOf(d.getDateDebut().toLocalDate().plusDays(29));
             d.setDateFin(dateFinT1);
             d.save(c);

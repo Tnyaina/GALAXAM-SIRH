@@ -151,7 +151,7 @@ export default function RecapitulatifBrouillonModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto">
-            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl max-w-3xl w-full my-8 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl max-w-4xl w-full my-8 overflow-hidden flex flex-col max-h-[90vh]">
 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 bg-ink-50/80 dark:bg-ink-950/60 flex items-center justify-between">
@@ -405,18 +405,19 @@ export default function RecapitulatifBrouillonModal({
                 {/* Footer Actions */}
                 {isBrouillon ? (
                     !isCancelling && (
-                        <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex flex-wrap justify-between items-center gap-3">
+                        <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex items-center justify-between gap-4">
                             <Button
                                 type="button"
                                 onClick={() => setIsCancelling(true)}
                                 variant="danger"
                                 size="md"
                                 iconLeft={<XCircle size={16} />}
+                                className="shrink-0"
                             >
                                 Annuler ce Brouillon
                             </Button>
 
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 shrink-0">
                                 {onEdit && (
                                     <Button
                                         type="button"

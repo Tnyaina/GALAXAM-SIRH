@@ -18,13 +18,21 @@ import mg.galaxam.sirh.model.employe.EmployeEnfant;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.stereotype.Service;
 
+import mg.galaxam.sirh.model.employe.engine.EmployeValidationEngine;
+import mg.galaxam.sirh.model.employe.engine.MatriculeGeneratorEngine;
+import org.springframework.stereotype.Service;
+
 @Service
 public class EmployeService {
 
     private final DataSource dataSource;
+    private final EmployeValidationEngine validationEngine;
+    private final MatriculeGeneratorEngine matriculeEngine;
 
-    public EmployeService(DataSource dataSource) {
+    public EmployeService(DataSource dataSource, EmployeValidationEngine validationEngine, MatriculeGeneratorEngine matriculeEngine) {
         this.dataSource = dataSource;
+        this.validationEngine = validationEngine;
+        this.matriculeEngine = matriculeEngine;
     }
 
     public Map<String, Long> getStats(String q) throws Exception {
@@ -79,10 +87,18 @@ public class EmployeService {
     }
 
     public EmployeCPL creerEmploye(EmployeRequest req) throws Exception {
+        // 1. Validation métier par le Domain Engine
+        validationEngine.validerEmploye(req);
+
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                // 1. Employé principal
+                // 2. Gestion et génération automatique du matricule si non renseigné
+                if (req.getMatricule() == null || req.getMatricule().trim().isEmpty() || "AUTO".equalsIgnoreCase(req.getMatricule().trim())) {
+                    req.setMatricule(generateNextMatricule(c));
+                }
+
+                // 3. Employé principal
                 Employe emp = new Employe();
                 emp.setMatricule(req.getMatricule());
                 emp.setNom(req.getNom());
@@ -117,7 +133,7 @@ public class EmployeService {
                 emp.save(c);
                 Integer empId = emp.getIdEmploye();
 
-                // 2. Conjoint
+                // 4. Conjoint
                 if (req.getConjoint() != null && req.getConjoint().getNom() != null && !req.getConjoint().getNom().isBlank()) {
                     EmployeConjoint cj = new EmployeConjoint();
                     cj.setIdEmploye(empId);
@@ -130,7 +146,7 @@ public class EmployeService {
                     cj.save(c);
                 }
 
-                // 3. Enfants
+                // 5. Enfants
                 if (req.getEnfants() != null) {
                     for (EmployeRequest.EnfantRequest enfReq : req.getEnfants()) {
                         if (enfReq.getNom() != null && !enfReq.getNom().isBlank()) {
@@ -147,7 +163,7 @@ public class EmployeService {
                     }
                 }
 
-                // 4. Contacts d'urgence
+                // 6. Contacts d'urgence
                 if (req.getContactsUrgence() != null) {
                     for (EmployeRequest.ContactUrgenceRequest ctReq : req.getContactsUrgence()) {
                         if (ctReq.getNom() != null && !ctReq.getNom().isBlank()) {
@@ -164,7 +180,7 @@ public class EmployeService {
                     }
                 }
 
-                // 5. Compte bancaire principal
+                // 7. Compte bancaire principal
                 if (req.getCompteBanquePrincipal() != null && req.getCompteBanquePrincipal().getIdBanque() != null) {
                     EmployeCompteBanque cb = new EmployeCompteBanque();
                     cb.setIdEmploye(empId);
@@ -198,7 +214,127 @@ public class EmployeService {
         }
     }
 
+    public void modifierEmploye(int id, EmployeRequest req) throws Exception {
+        // Validation métier
+        validationEngine.validerEmploye(req);
+
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                Employe emp = new Employe().rechercherParId(id, c);
+                if (emp == null) {
+                    throw new IllegalArgumentException("Employé introuvable.");
+                }
+
+                Employe ancienState = new Employe().rechercherParId(id, c);
+
+                emp.setMatricule(req.getMatricule());
+                emp.setNom(req.getNom());
+                emp.setPrenom(req.getPrenom());
+                emp.setSexe(req.getSexe());
+                emp.setDateNaissance(req.getDateNaissance());
+                emp.setLieuNaissance(req.getLieuNaissance());
+                emp.setNationalite(req.getNationalite());
+                emp.setPereNomPrenom(req.getPereNomPrenom());
+                emp.setMereNomPrenom(req.getMereNomPrenom());
+                emp.setSituationFamiliale(req.getSituationFamiliale());
+
+                emp.setCinNumero(req.getCinNumero());
+                emp.setCinDateDelivrance(req.getCinDateDelivrance());
+                emp.setCinLieuDelivrance(req.getCinLieuDelivrance());
+                emp.setCinDuplicataDate(req.getCinDuplicataDate());
+                emp.setCinDuplicataLieu(req.getCinDuplicataLieu());
+
+                emp.setPermisConduireNumero(req.getPermisConduireNumero());
+                emp.setPermisConduireDateDelivrance(req.getPermisConduireDateDelivrance());
+                emp.setPermisConduireLieuDelivrance(req.getPermisConduireLieuDelivrance());
+
+                emp.setAdresse(req.getAdresse());
+                emp.setVille(req.getVille());
+                emp.setTelephone(req.getTelephone());
+                emp.setEmail(req.getEmail());
+
+                emp.setNumAffiliationCnaps(req.getNumAffiliationCnaps());
+                emp.setPhotoUrl(req.getPhotoUrl());
+                emp.setDateDeclaration(req.getDateDeclaration());
+
+                emp.update(c);
+
+                // Conjoint
+                EmployeConjoint.deleteByEmployeId(id, c);
+                if (req.getConjoint() != null && req.getConjoint().getNom() != null && !req.getConjoint().getNom().isBlank()) {
+                    EmployeConjoint cj = new EmployeConjoint();
+                    cj.setIdEmploye(id);
+                    cj.setNom(req.getConjoint().getNom());
+                    cj.setPrenom(req.getConjoint().getPrenom());
+                    cj.setDateNaissance(req.getConjoint().getDateNaissance());
+                    cj.setLieuNaissance(req.getConjoint().getLieuNaissance());
+                    cj.setSociete(req.getConjoint().getSociete());
+                    cj.setFonction(req.getConjoint().getFonction());
+                    cj.save(c);
+                }
+
+                // Enfants
+                EmployeEnfant.deleteByEmployeId(id, c);
+                if (req.getEnfants() != null) {
+                    for (EmployeRequest.EnfantRequest enfReq : req.getEnfants()) {
+                        if (enfReq.getNom() != null && !enfReq.getNom().isBlank()) {
+                            EmployeEnfant enf = new EmployeEnfant();
+                            enf.setIdEmploye(id);
+                            enf.setNom(enfReq.getNom());
+                            enf.setPrenom(enfReq.getPrenom());
+                            enf.setSexe(enfReq.getSexe());
+                            enf.setDateNaissance(enfReq.getDateNaissance());
+                            enf.setLieuNaissance(enfReq.getLieuNaissance());
+                            enf.setACharge(enfReq.isACharge());
+                            enf.save(c);
+                        }
+                    }
+                }
+
+                // Contacts d'urgence
+                EmployeContactUrgence.deleteByEmployeId(id, c);
+                if (req.getContactsUrgence() != null) {
+                    for (EmployeRequest.ContactUrgenceRequest ctReq : req.getContactsUrgence()) {
+                        if (ctReq.getNom() != null && !ctReq.getNom().isBlank()) {
+                            EmployeContactUrgence ct = new EmployeContactUrgence();
+                            ct.setIdEmploye(id);
+                            ct.setNom(ctReq.getNom());
+                            ct.setPrenom(ctReq.getPrenom());
+                            ct.setLienParente(ctReq.getLienParente());
+                            ct.setAdresse(ctReq.getAdresse());
+                            ct.setTelephone(ctReq.getTelephone());
+                            ct.setSociete(ctReq.getSociete());
+                            ct.save(c);
+                        }
+                    }
+                }
+
+                // Compte bancaire principal
+                if (req.getCompteBanquePrincipal() != null && req.getCompteBanquePrincipal().getIdBanque() != null) {
+                    EmployeCompteBanque.deleteByEmployeId(id, c);
+                    EmployeCompteBanque cb = new EmployeCompteBanque();
+                    cb.setIdEmploye(id);
+                    cb.setIdBanque(req.getCompteBanquePrincipal().getIdBanque());
+                    cb.setAgence(req.getCompteBanquePrincipal().getAgence());
+                    cb.setNumCompteRib(req.getCompteBanquePrincipal().getNumCompteRib());
+                    cb.setTitulaireCompte(req.getCompteBanquePrincipal().getTitulaireCompte());
+                    cb.setEstPrincipal(true);
+                    cb.save(c);
+                }
+
+                AuditLog.audit(c, "MODIFICATION", "employe", String.valueOf(id), ancienState, emp);
+
+                c.commit();
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        }
+    }
+
     public void desactiverEmploye(int id, DesactivationRequest req) throws Exception {
+        validationEngine.validerDesactivation(req);
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -256,23 +392,35 @@ public class EmployeService {
 
     public String generateNextMatricule() throws Exception {
         try (Connection c = dataSource.getConnection()) {
-            String sql = "SELECT matricule FROM employe";
-            int maxSeq = 0;
-            try (PreparedStatement ps = c.prepareStatement(sql);
-                 java.sql.ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    String mat = rs.getString(1);
-                    if (mat != null && mat.matches("\\d+")) {
+            return generateNextMatricule(c);
+        }
+    }
+
+    public String generateNextMatricule(Connection c) throws Exception {
+        String sql = "SELECT matricule FROM employe";
+        long maxSeq = 0;
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             java.sql.ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String mat = rs.getString(1);
+                if (mat != null) {
+                    if (matriculeEngine.estFormatValide(mat)) {
+                        String[] parts = mat.split("-");
+                        if (parts.length == 3) {
+                            try {
+                                long val = Long.parseLong(parts[2]);
+                                if (val > maxSeq) maxSeq = val;
+                            } catch (NumberFormatException ignored) {}
+                        }
+                    } else if (mat.matches("\\d+")) {
                         try {
-                            int val = Integer.parseInt(mat);
-                            if (val > maxSeq) {
-                                maxSeq = val;
-                            }
+                            long val = Long.parseLong(mat);
+                            if (val > maxSeq) maxSeq = val;
                         } catch (NumberFormatException ignored) {}
                     }
                 }
             }
-            return String.format("%04d", maxSeq + 1);
         }
+        return matriculeEngine.genererMatriculeParDefaut(maxSeq + 1);
     }
 }

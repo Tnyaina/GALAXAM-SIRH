@@ -123,7 +123,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idTypeConge, idMotifEvenementFamilial, dateDebut, extensionPathologiqueMaternite, estDemiJournee]);
 
-  // Détection automatique de régularisation / saisie rétroactive (date de début dans le passé)
+  // Synchronisation dynamique réversible de régularisation rétroactive (congés oubliés)
   useEffect(() => {
     if (dateDebut) {
       const dDebut = new Date(dateDebut);
@@ -132,6 +132,8 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
       today.setHours(0, 0, 0, 0);
       if (dDebut < today) {
         setDerogationDelaiPreavis(true);
+      } else {
+        setDerogationDelaiPreavis(false);
       }
     }
   }, [dateDebut]);
@@ -213,9 +215,6 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
       setLoading(true);
       setError(null);
 
-      const isRetroactive = dateDebut && (new Date(dateDebut).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0));
-      const effectiveDerogationPreavis = derogationDelaiPreavis || isRetroactive;
-
       const payload = {
         idEmploye: parseInt(targetEmployeId, 10),
         idTypeConge: parseInt(idTypeConge, 10),
@@ -227,7 +226,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
         commentaire: commentaire ? commentaire.trim() : null,
         justificatifFourni: Boolean(justificatifFourni),
         derogationSoldeNegatif: Boolean(derogationSoldeNegatif),
-        derogationDelaiPreavis: Boolean(effectiveDerogationPreavis),
+        derogationDelaiPreavis: Boolean(derogationDelaiPreavis),
         extensionPathologiqueMaternite: Boolean(extensionPathologiqueMaternite),
       };
 

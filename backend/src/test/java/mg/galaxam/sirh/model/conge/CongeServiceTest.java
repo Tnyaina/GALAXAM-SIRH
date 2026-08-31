@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class CongeServiceTest {
 
-    private final CongeService congeService = new CongeService();
+    private final CongeService congeService = new CongeService(new mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine());
 
     @Test
     @DisplayName("Calcul standard de jours ouvrés / calendaires pour une demande de congé")
@@ -22,7 +22,7 @@ public class CongeServiceTest {
         BigDecimal jours = congeService.simulerNombreJours(debut, fin, false);
         System.out.println("[TEST CONGE] Simulation 01/08/2026 au 10/08/2026 -> " + jours + " jours décomptés.");
 
-        assertEquals(new BigDecimal("10"), jours, "10 jours calendaires attendus.");
+        assertEquals(0, new BigDecimal("10.0").compareTo(jours), "10 jours calendaires attendus.");
     }
 
     @Test

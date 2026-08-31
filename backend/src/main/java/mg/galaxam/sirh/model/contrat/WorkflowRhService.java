@@ -252,6 +252,14 @@ public class WorkflowRhService {
                 : null;
         workflow.valider(currentUserId, null, null, c);
 
+        // Historiser tout ancien workflow actif pour cet employé (seul le dernier mouvement reste ACTIF)
+        try (PreparedStatement psCloseOldWf = c.prepareStatement(
+                "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
+            psCloseOldWf.setInt(1, workflow.getIdEmploye());
+            psCloseOldWf.setInt(2, workflow.getIdWorkflow());
+            psCloseOldWf.executeUpdate();
+        }
+
         if (commentaire != null && !commentaire.isBlank()) {
             appendCommentaireWorkflow(workflow.getIdWorkflow(), commentaire, c);
         }
@@ -830,6 +838,14 @@ public class WorkflowRhService {
                 : null;
         workflow.valider(currentUserId, null, null, c);
 
+        // Historiser tout ancien workflow actif pour cet employé (uniquement si l'événement a pris effet immédiatement)
+        try (PreparedStatement psCloseOldWf = c.prepareStatement(
+                "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
+            psCloseOldWf.setInt(1, workflow.getIdEmploye());
+            psCloseOldWf.setInt(2, workflow.getIdWorkflow());
+            psCloseOldWf.executeUpdate();
+        }
+
         if (commentaire != null && !commentaire.isBlank()) {
             appendCommentaireWorkflow(workflow.getIdWorkflow(), commentaire, c);
         }
@@ -868,12 +884,21 @@ public class WorkflowRhService {
             if (commentaire != null && !commentaire.isBlank()) {
                 appendCommentaireWorkflow(workflow.getIdWorkflow(), commentaire, c);
             }
-            return; // sortie anticipée — pas d'application immédiate
+            return; // sortie anticipée — pas d'application immédiate ni d'historisation
         }
 
         // Date passée ou aujourd'hui : application immédiate
         appliquerWorkflowEvenement(workflow, c);
         workflow.valider(currentUserId, null, null, c);
+
+        // Historiser tout ancien workflow actif pour cet employé
+        try (PreparedStatement psCloseOldWf = c.prepareStatement(
+                "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
+            psCloseOldWf.setInt(1, workflow.getIdEmploye());
+            psCloseOldWf.setInt(2, workflow.getIdWorkflow());
+            psCloseOldWf.executeUpdate();
+        }
+
         if (commentaire != null && !commentaire.isBlank()) {
             appendCommentaireWorkflow(workflow.getIdWorkflow(), commentaire, c);
         }
@@ -1179,6 +1204,14 @@ public class WorkflowRhService {
                             psUpWf.executeUpdate();
                         }
 
+                        // 3. Historiser tout ancien workflow actif pour cet employé
+                        try (PreparedStatement psCloseOldWf = c.prepareStatement(
+                                "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
+                            psCloseOldWf.setInt(1, wf.getIdEmploye());
+                            psCloseOldWf.setInt(2, wf.getIdWorkflow());
+                            psCloseOldWf.executeUpdate();
+                        }
+
                         String nomPrenom = "";
                         String typeEv = "Mouvement RH";
                         try (var ps2 = c.prepareStatement(
@@ -1213,6 +1246,20 @@ public class WorkflowRhService {
                         c.setAutoCommit(initialAutoCommit);
                     }
                 }
+            }
+
+            // 4. Rattrapage / Consolidation globale : pour tout employé ayant plusieurs workflows ACTIF, historiser les anciens
+            try (PreparedStatement psConsolider = c.prepareStatement(
+                    "UPDATE workflow_rh w " +
+                    "SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP " +
+                    "WHERE id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') " +
+                    "  AND EXISTS ( " +
+                    "      SELECT 1 FROM workflow_rh w2 " +
+                    "      WHERE w2.id_employe = w.id_employe " +
+                    "        AND w2.id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') " +
+                    "        AND (w2.date_effet > w.date_effet OR (w2.date_effet = w.date_effet AND w2.id_workflow > w.id_workflow)) " +
+                    "  )")) {
+                psConsolider.executeUpdate();
             }
         } catch (Exception e) {
             System.err.println("Erreur autoAppliquerMouvementsEchus : " + e.getMessage());

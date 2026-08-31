@@ -7,7 +7,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
 import jakarta.servlet.http.HttpServletResponse;
 import mg.galaxam.sirh.api.dto.common.PageDTO;
@@ -16,7 +19,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/contrats")
@@ -43,6 +49,7 @@ public class ContratGlobalController {
         try (Connection c = dataSource.getConnection()) {
             StringBuilder whereSql = new StringBuilder(" WHERE 1=1 ");
             List<Object> params = new ArrayList<>();
+            LocalDate today = LocalDate.now();
 
             if (q != null && !q.isBlank()) {
                 String searchLike = "%" + q.trim().toUpperCase() + "%";
@@ -78,20 +85,32 @@ public class ContratGlobalController {
 
             if ("60J".equalsIgnoreCase(echeance)) {
                 whereSql.append(
-                        " AND ((ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '60 days') OR (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '60 days')) ");
+                        " AND ((ct.date_fin IS NOT NULL AND ct.date_fin >= ? AND ct.date_fin <= ?) OR (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= ? AND ct.date_fin_essai <= ?)) ");
+                params.add(Date.valueOf(today));
+                params.add(Date.valueOf(today.plusDays(60)));
+                params.add(Date.valueOf(today));
+                params.add(Date.valueOf(today.plusDays(60)));
             } else if ("30J".equalsIgnoreCase(echeance)) {
                 whereSql.append(
-                        " AND ((ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '30 days') OR (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '30 days')) ");
+                        " AND ((ct.date_fin IS NOT NULL AND ct.date_fin >= ? AND ct.date_fin <= ?) OR (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= ? AND ct.date_fin_essai <= ?)) ");
+                params.add(Date.valueOf(today));
+                params.add(Date.valueOf(today.plusDays(30)));
+                params.add(Date.valueOf(today));
+                params.add(Date.valueOf(today.plusDays(30)));
             } else if ("7J".equalsIgnoreCase(echeance)) {
                 whereSql.append(
-                        " AND ((ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '7 days') OR (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '7 days')) ");
+                        " AND ((ct.date_fin IS NOT NULL AND ct.date_fin >= ? AND ct.date_fin <= ?) OR (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= ? AND ct.date_fin_essai <= ?)) ");
+                params.add(Date.valueOf(today));
+                params.add(Date.valueOf(today.plusDays(7)));
+                params.add(Date.valueOf(today));
+                params.add(Date.valueOf(today.plusDays(7)));
             } else if ("ESSAI".equalsIgnoreCase(echeance)) {
                 whereSql.append(
-                        " AND ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '60 days' ");
+                        " AND ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= ? AND ct.date_fin_essai <= ? ");
+                params.add(Date.valueOf(today));
+                params.add(Date.valueOf(today.plusDays(60)));
             }
 
-            // Filtre doublons réels (employés ayant plus d'un contrat actif simultané ou
-            // contrats avec même date/type)
             if (doublonsOnly) {
                 whereSql.append(" AND ct.id_employe IN (" +
                         "  SELECT sub.id_employe FROM contrat_travail sub " +
@@ -115,8 +134,9 @@ public class ContratGlobalController {
                     psCount.setObject(i + 1, params.get(i));
                 }
                 try (ResultSet rs = psCount.executeQuery()) {
-                    if (rs.next())
+                    if (rs.next()) {
                         totalElements = rs.getLong(1);
+                    }
                 }
             }
 
@@ -137,8 +157,7 @@ public class ContratGlobalController {
                     "  SELECT eac_sub.id_site, eac_sub.id_departement, eac_sub.id_fonction " +
                     "  FROM employe_affectation_carriere eac_sub " +
                     "  WHERE eac_sub.id_contrat = ct.id_contrat " +
-                    "  ORDER BY CASE WHEN eac_sub.id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') THEN 1 ELSE 2 END, eac_sub.id_affectation DESC LIMIT 1"
-                    +
+                    "  ORDER BY eac_sub.date_debut DESC, eac_sub.id_affectation DESC LIMIT 1" +
                     ") eac ON TRUE " +
                     "LEFT JOIN ref_site rs ON eac.id_site = rs.id_site " +
                     "LEFT JOIN ref_departement rd ON eac.id_departement = rd.id_departement " +
@@ -147,7 +166,6 @@ public class ContratGlobalController {
                     " ORDER BY ct.date_debut DESC, ct.id_contrat DESC LIMIT ? OFFSET ?";
 
             List<ContratTravailGlobalDTO> list = new ArrayList<>();
-            LocalDate today = LocalDate.now();
 
             try (PreparedStatement ps = c.prepareStatement(querySql)) {
                 int paramIdx = 1;
@@ -241,17 +259,22 @@ public class ContratGlobalController {
             String sqlEcheances = "SELECT COUNT(*) FROM contrat_travail ct " +
                     "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "WHERE rsc.code = 'ACTIF' AND (" +
-                    "  (ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '60 days') OR "
-                    +
-                    "  (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '60 days')"
-                    +
+                    "  (ct.date_fin IS NOT NULL AND ct.date_fin >= ? AND ct.date_fin <= ?) OR " +
+                    "  (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= ? AND ct.date_fin_essai <= ?)" +
                     ")";
-            try (PreparedStatement ps = c.prepareStatement(sqlEcheances); ResultSet rs = ps.executeQuery()) {
-                stats.put("echeances60Jours", rs.next() ? rs.getInt(1) : 0);
+            LocalDate todayStats = LocalDate.now();
+            LocalDate d60 = todayStats.plusDays(60);
+            try (PreparedStatement ps = c.prepareStatement(sqlEcheances)) {
+                ps.setDate(1, Date.valueOf(todayStats));
+                ps.setDate(2, Date.valueOf(d60));
+                ps.setDate(3, Date.valueOf(todayStats));
+                ps.setDate(4, Date.valueOf(d60));
+                try (ResultSet rs = ps.executeQuery()) {
+                    stats.put("echeances60Jours", rs.next() ? rs.getInt(1) : 0);
+                }
             }
 
-            // 5. Doublons potentiels (Employés avec plusieurs contrats actifs ou dates
-            // identiques)
+            // 5. Doublons potentiels
             String sqlDoublons = "SELECT COUNT(DISTINCT id_employe) FROM (" +
                     "  SELECT id_employe FROM contrat_travail ct " +
                     "  JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
@@ -304,31 +327,36 @@ public class ContratGlobalController {
             String sqlEssai = "SELECT ct.id_contrat, e.id_employe, e.matricule, e.nom || ' ' || e.prenom AS nom_prenom, "
                     +
                     "rtc.libelle as type_ct, ct.date_fin_essai, " +
-                    "(ct.date_fin_essai - CURRENT_DATE) as jours_restants " +
+                    "(ct.date_fin_essai - ?) as jours_restants " +
                     "FROM contrat_travail ct " +
                     "JOIN employe e ON ct.id_employe = e.id_employe " +
                     "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                     "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "WHERE rsc.code = 'ACTIF' AND ct.date_fin_essai IS NOT NULL " +
-                    "AND ct.date_fin_essai >= CURRENT_DATE AND ct.date_fin_essai <= CURRENT_DATE + INTERVAL '45 days' "
+                    "AND ct.date_fin_essai >= ? AND ct.date_fin_essai <= ? "
                     +
                     "ORDER BY ct.date_fin_essai ASC LIMIT 3";
-            try (PreparedStatement ps = c.prepareStatement(sqlEssai); ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    int jours = rs.getInt("jours_restants");
-                    Map<String, Object> a = new LinkedHashMap<>();
-                    a.put("type", "ESSAI_IMMINENT");
-                    a.put("variant", "warning");
-                    a.put("idEmploye", rs.getInt("id_employe"));
-                    a.put("idContrat", rs.getInt("id_contrat"));
-                    a.put("titre", "Fin de période d'essai imminente");
-                    a.put("description",
-                            "<b>" + rs.getString("nom_prenom") + " (#" + rs.getString("matricule")
-                                    + ")</b> — période d'essai du " + rs.getString("type_ct") + " expire le "
-                                    + rs.getDate("date_fin_essai") + " (dans " + jours + " jours).");
-                    a.put("actionLabel", "Confirmer la titularisation");
-                    a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "?tab=carriere");
-                    alertes.add(a);
+            try (PreparedStatement ps = c.prepareStatement(sqlEssai)) {
+                ps.setDate(1, Date.valueOf(today));
+                ps.setDate(2, Date.valueOf(today));
+                ps.setDate(3, Date.valueOf(today.plusDays(45)));
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        int jours = rs.getInt("jours_restants");
+                        Map<String, Object> a = new LinkedHashMap<>();
+                        a.put("type", "ESSAI_IMMINENT");
+                        a.put("variant", "warning");
+                        a.put("idEmploye", rs.getInt("id_employe"));
+                        a.put("idContrat", rs.getInt("id_contrat"));
+                        a.put("titre", "Fin de période d'essai imminente");
+                        a.put("description",
+                                "<b>" + rs.getString("nom_prenom") + " (#" + rs.getString("matricule")
+                                        + ")</b> — période d'essai du " + rs.getString("type_ct") + " expire le "
+                                        + rs.getDate("date_fin_essai") + " (dans " + jours + " jours).");
+                        a.put("actionLabel", "Confirmer la titularisation");
+                        a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "?tab=carriere");
+                        alertes.add(a);
+                    }
                 }
             }
 
@@ -336,31 +364,36 @@ public class ContratGlobalController {
             String sqlFin = "SELECT ct.id_contrat, e.id_employe, e.matricule, e.nom || ' ' || e.prenom AS nom_prenom, "
                     +
                     "rtc.libelle as type_ct, ct.date_fin, " +
-                    "(ct.date_fin - CURRENT_DATE) as jours_restants " +
+                    "(ct.date_fin - ?) as jours_restants " +
                     "FROM contrat_travail ct " +
                     "JOIN employe e ON ct.id_employe = e.id_employe " +
                     "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                     "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                     "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE " +
-                    "AND ct.date_fin IS NOT NULL AND ct.date_fin >= CURRENT_DATE AND ct.date_fin <= CURRENT_DATE + INTERVAL '60 days' "
+                    "AND ct.date_fin IS NOT NULL AND ct.date_fin >= ? AND ct.date_fin <= ? "
                     +
                     "ORDER BY ct.date_fin ASC LIMIT 3";
-            try (PreparedStatement ps = c.prepareStatement(sqlFin); ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    int jours = rs.getInt("jours_restants");
-                    Map<String, Object> a = new LinkedHashMap<>();
-                    a.put("type", "FIN_CONTRAT");
-                    a.put("variant", "brand");
-                    a.put("idEmploye", rs.getInt("id_employe"));
-                    a.put("idContrat", rs.getInt("id_contrat"));
-                    a.put("titre", "Contrat " + rs.getString("type_ct") + " arrivant à échéance");
-                    a.put("description",
-                            "<b>" + rs.getString("nom_prenom") + " (#" + rs.getString("matricule") + ")</b> — "
-                                    + rs.getString("type_ct") + " expire le " + rs.getDate("date_fin") + " (dans "
-                                    + jours + " jours).");
-                    a.put("actionLabel", "Préparer le renouvellement");
-                    a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "?tab=carriere");
-                    alertes.add(a);
+            try (PreparedStatement ps = c.prepareStatement(sqlFin)) {
+                ps.setDate(1, Date.valueOf(today));
+                ps.setDate(2, Date.valueOf(today));
+                ps.setDate(3, Date.valueOf(today.plusDays(60)));
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        int jours = rs.getInt("jours_restants");
+                        Map<String, Object> a = new LinkedHashMap<>();
+                        a.put("type", "FIN_CONTRAT");
+                        a.put("variant", "brand");
+                        a.put("idEmploye", rs.getInt("id_employe"));
+                        a.put("idContrat", rs.getInt("id_contrat"));
+                        a.put("titre", "Contrat " + rs.getString("type_ct") + " arrivant à échéance");
+                        a.put("description",
+                                "<b>" + rs.getString("nom_prenom") + " (#" + rs.getString("matricule") + ")</b> — "
+                                        + rs.getString("type_ct") + " expire le " + rs.getDate("date_fin") + " (dans "
+                                        + jours + " jours).");
+                        a.put("actionLabel", "Préparer le renouvellement");
+                        a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "?tab=carriere");
+                        alertes.add(a);
+                    }
                 }
             }
 

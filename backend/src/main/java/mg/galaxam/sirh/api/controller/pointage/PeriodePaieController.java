@@ -11,9 +11,11 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -250,19 +252,22 @@ public class PeriodePaieController {
             currentUserId = ud.getIdUtilisateur();
         }
 
+        boolean isValidee = "VALIDEE".equals(newStatutCode) || "CLOTUREE".equals(newStatutCode);
+        Timestamp dateValidation = isValidee ? new Timestamp(System.currentTimeMillis()) : null;
+        Integer valideurId = isValidee ? currentUserId : null;
+
         String sql = "UPDATE periode_paie " +
                      "SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?), " +
-                     "date_validation = CASE WHEN ? IN ('VALIDEE', 'CLOTUREE') THEN CURRENT_TIMESTAMP ELSE NULL END, " +
-                     "valide_par = CASE WHEN ? IN ('VALIDEE', 'CLOTUREE') THEN ? ELSE NULL END " +
+                     "date_validation = ?, " +
+                     "valide_par = ? " +
                      "WHERE id_periode_paie = ?";
 
         try (Connection c = dataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, newStatutCode);
-            ps.setString(2, newStatutCode);
-            ps.setString(3, newStatutCode);
-            if (currentUserId != null) ps.setInt(4, currentUserId); else ps.setNull(4, java.sql.Types.INTEGER);
-            ps.setInt(5, id);
+            if (dateValidation != null) ps.setTimestamp(2, dateValidation); else ps.setNull(2, java.sql.Types.TIMESTAMP);
+            if (valideurId != null) ps.setInt(3, valideurId); else ps.setNull(3, java.sql.Types.INTEGER);
+            ps.setInt(4, id);
             int rows = ps.executeUpdate();
             
             if (rows > 0) {

@@ -2,6 +2,8 @@ package mg.galaxam.sirh.cron;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,13 +25,15 @@ public class AuditLogPurgeScheduler {
 
     /**
      * Exécuté le 1er de chaque mois à 04:00:00.
-     * Supprime les entrées d'audit_log de plus de 365 jours.
+     * Supprime les entrées d'audit_log de plus de 365 jours (calculé en Java).
      */
     @Scheduled(cron = "0 0 4 1 * ?")
     public void purgerAnciensLogsAudit() {
-        String sql = "DELETE FROM audit_log WHERE date_action < CURRENT_TIMESTAMP - INTERVAL '365 days'";
+        Timestamp seuil1An = Timestamp.valueOf(LocalDateTime.now().minusDays(365));
+        String sql = "DELETE FROM audit_log WHERE date_action < ?";
         try (Connection c = dataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setTimestamp(1, seuil1An);
             int nbSupprimes = ps.executeUpdate();
             if (nbSupprimes > 0) {
                 log.info("[AuditLogPurgeScheduler] Purge des logs d'audit effectuée : {} entrées supprimées (> 1 an).", nbSupprimes);
