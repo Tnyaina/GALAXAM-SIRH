@@ -31,6 +31,9 @@ public class PeriodePaieController {
     @Autowired
     private mg.galaxam.sirh.model.pointage.service.PointageSyntheseService pointageSyntheseService;
 
+    @Autowired
+    private mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine;
+
     @GetMapping
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
     public ResponseEntity<List<PeriodePaieDTO>> getAllPeriodes() {
@@ -59,12 +62,9 @@ public class PeriodePaieController {
                 dto.setStatutLibelle(rs.getString("statut_libelle"));
 
                 if (dDeb != null && dFin != null) {
-                    int ouvrables = calculerJoursOuvrables(dDeb, dFin, c);
-                    long calendaires = java.time.temporal.ChronoUnit.DAYS.between(dDeb.toLocalDate(), dFin.toLocalDate()) + 1;
-                    int feries = compterJoursFeriesChomes(dDeb, dFin, c);
-                    dto.setNbJoursOuvrables(ouvrables);
-                    dto.setNbJoursCalendaires((int) calendaires);
-                    dto.setNbJoursFeries(feries);
+                    dto.setNbJoursOuvrables(calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
+                    dto.setNbJoursCalendaires(calendrierEngine.compterJoursCalendaires(dDeb.toLocalDate(), dFin.toLocalDate()));
+                    dto.setNbJoursFeries(calendrierEngine.compterJoursFeriesChomes(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
                 }
 
                 list.add(dto);
@@ -106,18 +106,16 @@ public class PeriodePaieController {
                     dto.setStatutLibelle(rs.getString("statut_libelle"));
 
                     if (dDeb != null && dFin != null) {
-                        int ouvrables = calculerJoursOuvrables(dDeb, dFin, c);
-                        long calendaires = java.time.temporal.ChronoUnit.DAYS.between(dDeb.toLocalDate(), dFin.toLocalDate()) + 1;
-                        int feries = compterJoursFeriesChomes(dDeb, dFin, c);
-                        dto.setNbJoursOuvrables(ouvrables);
-                        dto.setNbJoursCalendaires((int) calendaires);
-                        dto.setNbJoursFeries(feries);
+                        dto.setNbJoursOuvrables(calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
+                        dto.setNbJoursCalendaires(calendrierEngine.compterJoursCalendaires(dDeb.toLocalDate(), dFin.toLocalDate()));
+                        dto.setNbJoursFeries(calendrierEngine.compterJoursFeriesChomes(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
                     }
                     return ResponseEntity.ok(dto);
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
+            return ResponseEntity.badRequest().build();
         }
 
         return ResponseEntity.notFound().build();
@@ -290,30 +288,5 @@ public class PeriodePaieController {
             resp.put("message", "Erreur lors de la mise à jour : " + e.getMessage());
             return ResponseEntity.badRequest().body(resp);
         }
-    }
-
-    private int calculerJoursOuvrables(java.sql.Date dDeb, java.sql.Date dFin, Connection c) {
-        int count = 0;
-        java.time.LocalDate curr = dDeb.toLocalDate();
-        java.time.LocalDate end = dFin.toLocalDate();
-        while (!curr.isAfter(end)) {
-            if (curr.getDayOfWeek() != java.time.DayOfWeek.SATURDAY && curr.getDayOfWeek() != java.time.DayOfWeek.SUNDAY) {
-                count++;
-            }
-            curr = curr.plusDays(1);
-        }
-        return count;
-    }
-
-    private int compterJoursFeriesChomes(java.sql.Date dDeb, java.sql.Date dFin, Connection c) {
-        String sql = "SELECT COUNT(*) FROM ref_calendrier_ferie WHERE date_ferie BETWEEN ? AND ? AND est_chome = TRUE";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setDate(1, dDeb);
-            ps.setDate(2, dFin);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
-            }
-        } catch (Exception ignored) {}
-        return 0;
     }
 }

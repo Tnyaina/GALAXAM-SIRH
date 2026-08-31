@@ -2,6 +2,7 @@ package mg.galaxam.sirh.model.pointage;
 
 import mg.galaxam.sirh.api.dto.pointage.PointageSyntheseMensuelleDTO;
 import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
+import mg.galaxam.sirh.model.pointage.service.PointageSaisieService;
 import mg.galaxam.sirh.model.pointage.service.PointageSyntheseService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,42 @@ public class PointageWorkflowDbIntegrationTest {
 
     @Autowired
     private PointageSyntheseService pointageSyntheseService;
+
+    @Autowired
+    private PointageSaisieService pointageSaisieService;
+
+    @Test
+    @DisplayName("Test BD Intégration Réelle : Saisie Quotidienne Grille & Enregistrement")
+    public void testSaisieQuotidienneGrilleEtEnregistrement() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                Integer idSite = null;
+                try (PreparedStatement ps = c.prepareStatement("SELECT id_site FROM ref_site LIMIT 1")) {
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) idSite = rs.getInt(1);
+                    }
+                }
+                assertNotNull(idSite, "Au moins un site doit exister pour le test");
+
+                // 1. Tester la génération de la grille de saisie quotidienne
+                Map<String, Object> grilleResult = pointageSaisieService.getGrilleSaisie(idSite, "2026-08-31");
+                assertNotNull(grilleResult, "Le résultat de la grille de saisie ne doit pas être null");
+                assertTrue(grilleResult.containsKey("grilleData"), "grilleData doit être présent");
+                assertTrue(grilleResult.containsKey("siteParams"), "siteParams doit être présent");
+                assertTrue(grilleResult.containsKey("siteIndemnites"), "siteIndemnites doit être présent");
+                assertTrue(grilleResult.containsKey("periodeInfo"), "periodeInfo doit être présent");
+                assertTrue(grilleResult.containsKey("statsJour"), "statsJour doit être présent");
+
+                @SuppressWarnings("unchecked")
+                Map<String, Object> siteParams = (Map<String, Object>) grilleResult.get("siteParams");
+                assertNotNull(siteParams.get("codeSite"), "codeSite doit être présent");
+                assertNotNull(siteParams.get("heureDebutMatin"), "heureDebutMatin doit être présent");
+            } finally {
+                c.rollback();
+            }
+        }
+    }
 
     @Test
     @DisplayName("Test BD Intégration Réelle : Saisie, Synthèse, Gel et Rollback")

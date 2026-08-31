@@ -1,33 +1,40 @@
 import { NavLink } from 'react-router-dom';
 import { CalendarDays, AlertTriangle, FileSpreadsheet, CalendarRange, ArrowRight } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function PointageWorkflowNav() {
+    const { user } = useAuth();
+    const isAgent = user?.roles?.includes('ROLE_AGENT_POINTAGE') && !user?.roles?.includes('ROLE_ADMIN');
+
     const steps = [
         {
             to: '/pointages/saisie',
-            label: '1. Saisie Quotidienne',
+            label: 'Saisie Quotidienne',
             desc: 'Pointage, heures & indemnités',
             icon: CalendarDays
         },
         {
             to: '/pointages/anomalies',
-            label: '2. Contrôle des Anomalies',
-            desc: 'Badgeages incomplets & retards',
+            label: 'Contrôle des Anomalies',
+            desc: 'Saisies incomplets & retards',
             icon: AlertTriangle
         },
         {
             to: '/pointages/synthese',
-            label: '3. Synthèse & Compensations',
+            label: 'Synthèse & Compensations',
             desc: 'Compensations retards & heures sup',
             icon: FileSpreadsheet
-        },
-        {
-            to: '/pointages/periodes',
-            label: '4. Périodes de Paie',
-            desc: 'Transmission DAF & Clôture',
-            icon: CalendarRange
         }
     ];
+
+    if (!isAgent) {
+        steps.push({
+            to: '/pointages/periodes',
+            label: 'Périodes de Paie',
+            desc: 'Transmission DAF & Clôture',
+            icon: CalendarRange
+        });
+    }
 
     return (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2 shadow-xs mb-4">

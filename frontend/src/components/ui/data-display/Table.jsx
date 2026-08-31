@@ -39,16 +39,21 @@ export function Thead({ children, className = '', ...props }) {
 
 /* TH */
 export function Th({ children, sortable, sorted, onSort, className = '', ...props }) {
+  const isCentered = className.includes('text-center');
+  const isRight = className.includes('text-right');
+  const justifyClass = isCentered ? 'justify-center text-center' : isRight ? 'justify-end text-right' : 'justify-start text-left';
+
   return (
     <th
-      className={`px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] 
+      className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] 
+        ${!isCentered && !isRight ? 'text-left' : ''}
         ${sortable ? 'cursor-pointer hover:text-[var(--color-fg)] select-none' : ''}
         ${className}
       `}
       onClick={sortable ? onSort : undefined}
       {...props}
     >
-      <div className="flex items-center gap-1.5">
+      <div className={`flex items-center gap-1.5 ${justifyClass}`}>
         {children}
         {sortable && (
           <span className="flex flex-col">

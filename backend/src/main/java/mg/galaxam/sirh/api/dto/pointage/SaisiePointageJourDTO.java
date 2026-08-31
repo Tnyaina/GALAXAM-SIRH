@@ -178,11 +178,14 @@ public class SaisiePointageJourDTO {
     public boolean isPresent() { return "PRESENT".equalsIgnoreCase(codeStatut); }
     public boolean isRetard() { return "RETARD".equalsIgnoreCase(codeStatut) || (minutesRetard != null && minutesRetard > 0); }
     public boolean isConge() { return "CONGE".equalsIgnoreCase(codeStatut) || typeCongeJour != null; }
-    public boolean isFerieTravaille() { return "FERIE_TRAVAILLE".equalsIgnoreCase(codeStatut); }
-    public boolean isFerieChome() { return "FERIE_CHOME".equalsIgnoreCase(codeStatut) || ferieJour; }
+    public boolean isFerieTravaille() { return "FERIE_TRAVAILLE".equalsIgnoreCase(codeStatut) || (ferieJour && totalHeures != null && totalHeures > 0); }
+    public boolean isFerieChome() { return ("FERIE_CHOME".equalsIgnoreCase(codeStatut) || ferieJour) && !isFerieTravaille(); }
     public boolean isDimancheTravaille() { return "DIMANCHE_TRAVAILLE".equalsIgnoreCase(codeStatut); }
     public boolean isSamediTravaille() { return "SAMEDI_TRAVAILLE".equalsIgnoreCase(codeStatut); }
-    public boolean isDispensePointage() { return estAutonome || "DISPENSE_POINTAGE".equalsIgnoreCase(codeStatut); }
+    public boolean isDispensePointage() {
+        if (isFerieChome() || isConge()) return false;
+        return estAutonome || "DISPENSE_POINTAGE".equalsIgnoreCase(codeStatut);
+    }
     public boolean isAnomalie() { return "ANOMALIE_SAISIE".equalsIgnoreCase(codeStatut); }
     public boolean isAbsenceNonJustifiee() { return "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(codeStatut); }
 }

@@ -120,7 +120,7 @@ export default function AnomaliesPointagePage() {
             <div className="space-y-4 max-w-[1600px] mx-auto pb-12">
                 <PageHeader
                     title="Anomalies & Régularisations de Pointage"
-                    subtitle="Détection des badgeages incomplets, retards non justifiés et absences"
+                    subtitle="Détection des Saisies incomplets, retards non justifiés et absences"
                     breadcrumbs={[
                         { label: 'Accueil', href: '/' },
                         { label: 'Pointages', href: '/pointages/saisie' },
@@ -355,7 +355,7 @@ export default function AnomaliesPointagePage() {
                                         onChange={(e) => setFormData({ ...formData, deplacementMatin: e.target.checked })}
                                         className="w-4 h-4 accent-[var(--color-brand-500)]"
                                     />
-                                    <span>Trajet Matin (0.5j)</span>
+                                    <span>Trajet Matin</span>
                                 </label>
                                 <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
                                     <input
@@ -364,7 +364,7 @@ export default function AnomaliesPointagePage() {
                                         onChange={(e) => setFormData({ ...formData, deplacementAm: e.target.checked })}
                                         className="w-4 h-4 accent-[var(--color-brand-500)]"
                                     />
-                                    <span>Trajet Soir (0.5j)</span>
+                                    <span>Trajet Soir</span>
                                 </label>
                                 <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
                                     <input
@@ -373,7 +373,7 @@ export default function AnomaliesPointagePage() {
                                         onChange={(e) => setFormData({ ...formData, indemniteRepasRecue: e.target.checked })}
                                         className="w-4 h-4 accent-[var(--color-brand-500)]"
                                     />
-                                    <span>Repas (2 000 Ar)</span>
+                                    <span>Repas pris sur site</span>
                                 </label>
                             </div>
                         </div>

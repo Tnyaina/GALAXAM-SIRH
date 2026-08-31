@@ -40,4 +40,26 @@ public class PointageSyntheseController {
             return ResponseEntity.badRequest().body(resp);
         }
     }
+
+    @GetMapping("/semaines")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    public ResponseEntity<Map<String, Object>> getSemaines(
+            @RequestParam(defaultValue = "0") int idPeriodePaie,
+            @RequestParam(required = false) Integer idSite
+    ) {
+        Map<String, Object> resp = new HashMap<>();
+        if (idPeriodePaie <= 0) {
+            resp.put("semaines", java.util.Collections.emptyList());
+            return ResponseEntity.ok(resp);
+        }
+        try {
+            List<Map<String, Object>> data = pointageSyntheseService.getSemainesPeriode(idPeriodePaie, idSite);
+            resp.put("semaines", data);
+            return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            e.printStackTrace();
+            resp.put("error", "Erreur lors du découpage des semaines : " + e.getMessage());
+            return ResponseEntity.badRequest().body(resp);
+        }
+    }
 }

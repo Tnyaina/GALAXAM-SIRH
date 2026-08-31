@@ -2,6 +2,7 @@ package mg.galaxam.sirh.model.pointage.service;
 
 import mg.galaxam.sirh.api.dto.pointage.PointageSyntheseMensuelleDTO;
 import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
+import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -29,10 +30,21 @@ public class PointageSyntheseService {
     @Autowired
     private DataSource dataSource;
 
-    public PointageSyntheseService() {}
+    @Autowired
+    private mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine;
+
+    public PointageSyntheseService() {
+        this.calendrierEngine = new CalendrierOuvrableEngine();
+    }
 
     public PointageSyntheseService(DataSource dataSource) {
         this.dataSource = dataSource;
+        this.calendrierEngine = new CalendrierOuvrableEngine();
+    }
+
+    public PointageSyntheseService(DataSource dataSource, mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine) {
+        this.dataSource = dataSource;
+        this.calendrierEngine = calendrierEngine != null ? calendrierEngine : new CalendrierOuvrableEngine();
     }
 
     /**
@@ -182,13 +194,21 @@ public class PointageSyntheseService {
             return list;
         }
 
-        // Calcul des jours ouvrables de la période
-        int nbJoursOuvrablesPeriode = 0;
-        for (LocalDate d = dateDebut; !d.isAfter(dateFin); d = d.plusDays(1)) {
-            if (d.getDayOfWeek() != DayOfWeek.SATURDAY && d.getDayOfWeek() != DayOfWeek.SUNDAY) {
-                nbJoursOuvrablesPeriode++;
+        // Calcul des jours ouvrables réels de la période via le moteur centralisé
+        int nbJoursOuvrablesPeriode = calendrierEngine.compterJoursOuvrables(dateDebut, dateFin, idSite, c);
+        if (nbJoursOuvrablesPeriode == 0) nbJoursOuvrablesPeriode = 22;
+
+        // Charger les indemnités de déplacement/transport configurées par site (site_indemnite_config)
+        Map<Integer, Double> siteDeplacementRefMap = new HashMap<>();
+        String sqlSiteIndConfig = "SELECT c.id_site, c.montant_reference FROM site_indemnite_config c " +
+                                  "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
+                                  "WHERE i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE";
+        try (PreparedStatement psSIC = c.prepareStatement(sqlSiteIndConfig);
+             ResultSet rsSIC = psSIC.executeQuery()) {
+            while (rsSIC.next()) {
+                siteDeplacementRefMap.put(rsSIC.getInt("id_site"), rsSIC.getDouble("montant_reference"));
             }
-        }
+        } catch (Exception ignored) {}
 
         // 2. Charger les employés éligibles
         StringBuilder sqlEmp = new StringBuilder(
@@ -355,12 +375,17 @@ public class PointageSyntheseService {
                     dto.setMontantRepas(montantRepasTotal);
                     dto.setNbJoursDeplacement((int) Math.round(totalTrajets));
 
+                    int empSiteId = rsE.getInt("id_site");
                     String siteCode = rsE.getString("site_code");
                     String siteNom = rsE.getString("site_nom");
                     boolean isSiteTmm = (siteCode != null && "TMM".equalsIgnoreCase(siteCode.trim())) ||
                                         (siteNom != null && siteNom.toLowerCase().contains("tamatave"));
-                    double mntDeplacement = Math.max(0.0, (totalTrajets * 1500.0) - (isSiteTmm ? repasCount * reductionDeplactTmm : 0.0));
-                    dto.setMontantDeplacement(mntDeplacement);
+
+                    double refDeplacementSite = siteDeplacementRefMap.getOrDefault(empSiteId, isSiteTmm ? 53200.0 : 31200.0);
+                    double tarifJourDeplacement = calendrierEngine.calculerProrataJournalier(refDeplacementSite, nbJoursOuvrablesPeriode);
+                    double brutDeplacement = totalTrajets * tarifJourDeplacement;
+                    double mntDeplacement = Math.max(0.0, brutDeplacement - (isSiteTmm ? repasCount * reductionDeplactTmm : 0.0));
+                    dto.setMontantDeplacement(Math.round(mntDeplacement * 100.0) / 100.0);
 
                     list.add(dto);
                 }
@@ -440,5 +465,160 @@ public class PointageSyntheseService {
             psSem.setInt(1, idPeriode);
             psSem.executeUpdate();
         }
+    }
+
+    /**
+     * Découpe autoritaire de la période de paie en ses semaines réelles avec statut de validation
+     */
+    public List<Map<String, Object>> getSemainesPeriode(int idPeriode, Integer idSite) throws SQLException {
+        try (Connection c = dataSource.getConnection()) {
+            return getSemainesPeriode(idPeriode, idSite, c);
+        }
+    }
+
+    public List<Map<String, Object>> getSemainesPeriode(int idPeriode, Integer idSite, Connection c) throws SQLException {
+        List<Map<String, Object>> result = new ArrayList<>();
+        if (idPeriode <= 0) return result;
+
+        LocalDate dateDebut = null;
+        LocalDate dateFin = null;
+        String sqlPeriode = "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
+        try (PreparedStatement psP = c.prepareStatement(sqlPeriode)) {
+            psP.setInt(1, idPeriode);
+            try (ResultSet rsP = psP.executeQuery()) {
+                if (rsP.next()) {
+                    dateDebut = rsP.getDate("date_debut").toLocalDate();
+                    dateFin = rsP.getDate("date_fin").toLocalDate();
+                }
+            }
+        }
+
+        if (dateDebut == null || dateFin == null) return result;
+
+        // Découpage en tronçons du Lundi au Dimanche
+        LocalDate cur = dateDebut;
+        int semNum = 1;
+        while (!cur.isAfter(dateFin)) {
+            LocalDate debutSemaine = cur.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            LocalDate finSemaine = cur.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+
+            LocalDate dateDebutTroncon = cur.isBefore(debutSemaine) ? debutSemaine : cur;
+            if (dateDebutTroncon.isBefore(dateDebut)) dateDebutTroncon = dateDebut;
+
+            LocalDate dateFinTroncon = finSemaine.isAfter(dateFin) ? dateFin : finSemaine;
+
+            // Calcul des jours ouvrés du tronçon
+            int nbOuvrables = 0;
+            for (LocalDate d = dateDebutTroncon; !d.isAfter(dateFinTroncon); d = d.plusDays(1)) {
+                if (d.getDayOfWeek() != DayOfWeek.SATURDAY && d.getDayOfWeek() != DayOfWeek.SUNDAY) {
+                    nbOuvrables++;
+                }
+            }
+            if (nbOuvrables == 0) nbOuvrables = 1;
+
+            double seuilHeures = nbOuvrables * 8.0;
+
+            // Statistiques des pointages réels saisis pour ce tronçon
+            String sqlStats = "SELECT COUNT(*) AS total_points, " +
+                              "COALESCE(SUM(p.total_heures), 0) AS somme_heures, " +
+                              "COUNT(CASE WHEN st.code IN ('ANOMALIE_SAISIE', 'ABSENCE_NON_JUSTIFIEE') THEN 1 END) AS nb_anomalies " +
+                              "FROM pointage_jour p " +
+                              "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
+                              "WHERE p.id_periode_paie = ? AND p.date_pointage BETWEEN ? AND ? " +
+                              (idSite != null && idSite > 0 ? "AND p.id_site = ? " : "");
+
+            double heuresSaisies = 0.0;
+            int totalPointages = 0;
+            int nbAnomalies = 0;
+
+            try (PreparedStatement psStats = c.prepareStatement(sqlStats)) {
+                psStats.setInt(1, idPeriode);
+                psStats.setDate(2, Date.valueOf(dateDebutTroncon));
+                psStats.setDate(3, Date.valueOf(dateFinTroncon));
+                if (idSite != null && idSite > 0) {
+                    psStats.setInt(4, idSite);
+                }
+                try (ResultSet rsS = psStats.executeQuery()) {
+                    if (rsS.next()) {
+                        totalPointages = rsS.getInt("total_points");
+                        heuresSaisies = rsS.getDouble("somme_heures");
+                        nbAnomalies = rsS.getInt("nb_anomalies");
+                    }
+                }
+            }
+
+            // Vérifier si cette semaine est déjà validée / calculée dans pointage_semaine_calcule
+            boolean estValidee = false;
+            String sqlCheckValidee = "SELECT COUNT(*) FROM pointage_semaine_calcule WHERE id_periode_paie = ? AND date_debut_semaine = ?";
+            try (PreparedStatement psVal = c.prepareStatement(sqlCheckValidee)) {
+                psVal.setInt(1, idPeriode);
+                psVal.setDate(2, Date.valueOf(dateDebutTroncon));
+                try (ResultSet rsVal = psVal.executeQuery()) {
+                    if (rsVal.next() && rsVal.getInt(1) > 0) {
+                        estValidee = true;
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            Map<String, Object> semMap = new HashMap<>();
+            semMap.put("id", semNum);
+            semMap.put("numeroSemaine", semNum);
+            semMap.put("title", "Semaine " + semNum);
+            semMap.put("dateDebut", dateDebutTroncon.toString());
+            semMap.put("dateFin", dateFinTroncon.toString());
+
+            // Libellé court des dates
+            String libelleDates = dateDebutTroncon.getDayOfMonth() + " " +
+                    dateDebutTroncon.getMonth().toString().substring(0, 3).toLowerCase() + " – " +
+                    dateFinTroncon.getDayOfMonth() + " " +
+                    dateFinTroncon.getMonth().toString().substring(0, 3).toLowerCase();
+            semMap.put("dates", libelleDates);
+            semMap.put("nbJoursOuvrables", nbOuvrables);
+            semMap.put("seuilHeures", seuilHeures);
+            semMap.put("totalHeures", Math.round(heuresSaisies * 100.0) / 100.0);
+            semMap.put("totalPointages", totalPointages);
+            semMap.put("nbAnomalies", nbAnomalies);
+            semMap.put("estValidee", estValidee);
+
+            // Détermination du statut de la semaine avec règle séquentielle stricte
+            boolean isReady = false;
+            String statut;
+            String desc;
+
+            if (estValidee) {
+                statut = "Validée";
+                desc = "Heures supplémentaires et compensations consolidées.";
+                isReady = false;
+            } else if (nbAnomalies > 0) {
+                statut = "Anomalies à corriger";
+                desc = nbAnomalies + " anomalie(s) détectée(s) sur ce tronçon.";
+                isReady = false;
+            } else if (semNum == 1 || (result.size() > 0 && ((boolean) result.get(result.size() - 1).get("estValidee") || (boolean) result.get(result.size() - 1).get("ready") || (int) result.get(result.size() - 1).get("totalPointages") > 0))) {
+                if (totalPointages > 0) {
+                    statut = "Prête à valider";
+                    desc = "Saisie complète, aucune anomalie.";
+                    isReady = true;
+                } else {
+                    statut = "Saisie en cours";
+                    desc = "Pointages quotidiens en cours de saisie.";
+                    isReady = false;
+                }
+            } else {
+                statut = "En attente";
+                desc = "Se débloque après la semaine " + (semNum - 1) + ".";
+                isReady = false;
+            }
+
+            semMap.put("statut", statut);
+            semMap.put("desc", desc);
+            semMap.put("ready", isReady);
+
+            result.add(semMap);
+
+            semNum++;
+            cur = dateFinTroncon.plusDays(1);
+        }
+
+        return result;
     }
 }

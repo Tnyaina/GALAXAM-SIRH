@@ -5,12 +5,44 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
     const [selectedSite, setSelectedSite] = useState(initialSiteId);
     const [selectedDate, setSelectedDate] = useState(initialDate);
     const [grilleData, setGrilleData] = useState([]);
+    const [initialGrilleData, setInitialGrilleData] = useState([]);
     const [siteParams, setSiteParams] = useState(null);
     const [siteIndemnites, setSiteIndemnites] = useState([]);
     const [periodeInfo, setPeriodeInfo] = useState(null);
+    const [statsJour, setStatsJour] = useState(null);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
+
+    // Comparateur précis pour détecter les vraies modifications par rapport à l'état initial serveur
+    const isRowModified = useCallback((row, initialList) => {
+        if (!row || !initialList) return false;
+        const initial = initialList.find(r => r.idEmploye === row.idEmploye);
+        if (!initial) return false;
+
+        const normalizeTime = (t) => (t === null || t === undefined || t === '—' || t === '--:--' || t === '') ? '' : String(t).trim();
+
+        if (normalizeTime(row.heureEntreeMatin) !== normalizeTime(initial.heureEntreeMatin)) return true;
+        if (normalizeTime(row.heureSortieMatin) !== normalizeTime(initial.heureSortieMatin)) return true;
+        if (normalizeTime(row.heureEntreeAm) !== normalizeTime(initial.heureEntreeAm)) return true;
+        if (normalizeTime(row.heureSortieAm) !== normalizeTime(initial.heureSortieAm)) return true;
+
+        if (Boolean(row.deplacementMatin) !== Boolean(initial.deplacementMatin)) return true;
+        if (Boolean(row.deplacementAm) !== Boolean(initial.deplacementAm)) return true;
+        if (Boolean(row.indemniteRepasRecue) !== Boolean(initial.indemniteRepasRecue)) return true;
+
+        const curDyn = JSON.stringify(row.dynamicIndemnites || {});
+        const initDyn = JSON.stringify(initial.dynamicIndemnites || {});
+        if (curDyn !== initDyn) return true;
+
+        return false;
+    }, []);
+
+    const resetAllChanges = useCallback(() => {
+        if (initialGrilleData && initialGrilleData.length > 0) {
+            setGrilleData(JSON.parse(JSON.stringify(initialGrilleData)));
+        }
+    }, [initialGrilleData]);
 
     // Fonction pure de calcul pour une ligne
     const calculateRowValues = useCallback((row, sParams) => {
@@ -103,6 +135,13 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
         else if (codeStatut === 'ANOMALIE_SAISIE') libelleStatut = 'Incomplet / Anomalie';
         else if (codeStatut === 'ABSENCE_NON_JUSTIFIEE') libelleStatut = 'Absent';
 
+        const isPres = codeStatut === 'PRESENT';
+        const isRet = codeStatut === 'RETARD' || totalMinutesRetard > 0;
+        const isCong = codeStatut === 'CONGE' || isCongeFull || isCongeMatin || isCongeAm;
+        const isFerieTrav = codeStatut === 'FERIE_TRAVAILLE';
+        const isFerieCh = codeStatut === 'FERIE_CHOME' || (isFerie && !isFerieTrav);
+        const isDispensePtg = !isFerieCh && !isCong && (row.estAutonome || codeStatut === 'DISPENSE_POINTAGE');
+
         return {
             ...row,
             heuresMatin: Math.round((hMatin / 60.0) * 100) / 100,
@@ -111,7 +150,15 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
             minutesRetard: totalMinutesRetard,
             codeStatut,
             libelleStatut,
-            hasValidationError
+            hasValidationError,
+            present: isPres,
+            retard: isRet,
+            conge: isCong,
+            ferieTravaille: isFerieTrav,
+            ferieChome: isFerieCh,
+            dispensePointage: isDispensePtg,
+            anomalie: codeStatut === 'ANOMALIE_SAISIE',
+            absenceNonJustifiee: codeStatut === 'ABSENCE_NON_JUSTIFIEE'
         };
     }, []);
 
@@ -138,8 +185,12 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
                 if (data.grilleData) {
                     const computedData = data.grilleData.map((row) => calculateRowValues(row, sParams));
                     setGrilleData(computedData);
+                    setInitialGrilleData(JSON.parse(JSON.stringify(computedData)));
                 }
                 setPeriodeInfo(data.periodeInfo || null);
+                if (data.statsJour) {
+                    setStatsJour(data.statsJour);
+                }
             }
         } catch (err) {
             console.error('Erreur chargement saisie pointages:', err);
@@ -267,13 +318,17 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
         selectedDate,
         setSelectedDate,
         grilleData,
+        initialGrilleData,
         siteParams,
         siteIndemnites,
         periodeInfo,
+        statsJour,
         loading,
         saving,
         error,
         loadData,
+        isRowModified,
+        resetAllChanges,
         updateRowHours,
         updateRowIndemnite,
         updateRowDynamicIndemnite,

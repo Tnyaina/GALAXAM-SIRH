@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Moon } from 'lucide-react';
+import { Moon, Info } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
@@ -40,9 +40,9 @@ export default function PointageGridTable({
             case 'CONGE':
                 return <Badge variant="warning" size="sm" className="font-bold">{libelle || 'Congé'}</Badge>;
             case 'CONGE_DEMI_JOURNEE':
-                return <Badge variant="warning" size="sm" className="font-bold">Demi-journée</Badge>;
+                return <Badge variant="warning" size="sm" className="font-bold">{libelle || 'Demi-journée'}</Badge>;
             case 'FERIE_CHOME':
-                return <Badge variant="neutral" size="sm" className="font-bold">{libelle || 'Férié chômé'}</Badge>;
+                return <span className="bg-[#EEF0F2] dark:bg-ink-800 text-[var(--color-fg-muted)] text-[11px] font-semibold px-2 py-1">{libelle || 'Férié chômé'}</span>;
             case 'FERIE_TRAVAILLE':
                 return <Badge variant="error" size="sm" className="font-bold">Férié (+100%)</Badge>;
             case 'RETARD':
@@ -52,43 +52,70 @@ export default function PointageGridTable({
             case 'ABSENCE_NON_JUSTIFIEE':
                 return <Badge variant="error" size="sm" className="font-bold">Absent</Badge>;
             default:
-                return <Badge variant="neutral" size="sm">Non saisi</Badge>;
+                return <span className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)] text-[11px] px-2 py-0.5">Non saisi</span>;
         }
     };
 
     return (
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
-            {/* Légende Métier */}
-            <div className="px-4 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex flex-wrap items-center gap-4 text-xs font-semibold text-[var(--color-fg-muted)]">
-                <span className="text-[var(--color-fg)] font-bold">Légende :</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-amber-500 inline-block"></span> Congé</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-stone-400 inline-block"></span> Férié chômé</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-indigo-500 inline-block"></span> Cadre autonome (8h pré-rempli)</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-neutral-200 dark:bg-neutral-700 inline-block"></span> Non saisi</span>
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
+            {/* Légende Métier et Info-Bulle */}
+            <div className="flex flex-wrap items-center justify-between px-5 py-2.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-xs text-[var(--color-fg-muted)]">
+                <div className="flex flex-wrap items-center gap-4">
+                    <span className="font-bold text-[var(--color-fg)]">Légende :</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-amber-500 inline-block"></span> Congé</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-stone-400 inline-block"></span> Férié chômé</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-indigo-500 inline-block"></span> Cadre autonome</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] inline-block"></span> Non saisi</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-[11.5px] text-[var(--color-fg-muted)]" title="Matin = arrivée + pause déjeuner · Après-midi = retour + sortie du soir">
+                    <Info size={13} className="text-brand-500" />
+                    <span className="hidden sm:inline">Matin (arrivée/pause) · Après-midi (retour/départ)</span>
+                </div>
             </div>
 
             <div className="overflow-x-auto">
-                <Table className="w-full text-left border-collapse">
+                <Table className="w-full text-left border-collapse text-[13px]">
                     <Thead>
+                        {/* Ligne 1 d'en-tête (Titres de Blocs) */}
                         <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                            <Th className="py-3 px-4 min-w-[220px]">Employé</Th>
-                            <Th className="py-3 px-2 text-center min-w-[80px]">Entrée M.</Th>
-                            <Th className="py-3 px-2 text-center min-w-[80px]">Sortie M.</Th>
-                            <Th className="py-3 px-2 text-center min-w-[80px]">Retour P.</Th>
-                            <Th className="py-3 px-2 text-center min-w-[80px]">Sortie S.</Th>
-                            <Th className="py-3 px-3 text-center min-w-[85px]">Total</Th>
-                            <Th className="py-3 px-3 text-center min-w-[85px]">Retard</Th>
-                            <Th className="py-3 px-3 text-center min-w-[110px]">Statut</Th>
-                            {/* Colonnes Dynamiques d'Indemnités du Site (100% Backend-Driven) */}
+                            <Th className="px-5 py-2.5 w-[220px]">Employé</Th>
+                            <Th className="px-2 py-2.5 text-center border-l border-[var(--color-border-subtle)]" colSpan={2}>
+                                Matin
+                            </Th>
+                            <Th className="px-2 py-2.5 text-center border-l border-[var(--color-border-subtle)]" colSpan={2}>
+                                Après-midi
+                            </Th>
+                            <Th className="px-3 py-2.5 text-center border-l border-[var(--color-border-subtle)] min-w-[85px]">
+                                Total
+                            </Th>
+                            <Th className="px-3 py-2.5 text-center min-w-[85px]">
+                                Retard
+                            </Th>
+                            <Th className="px-3 py-2.5 text-center min-w-[110px]">
+                                Statut
+                            </Th>
                             {siteIndemnites.map((ind) => (
-                                <Th key={ind.idIndemnite} className="py-3 px-3 text-center min-w-[110px]" title={ind.libelle}>
+                                <Th key={ind.idIndemnite} className="px-3 py-2.5 border-l border-[var(--color-border-subtle)] text-center min-w-[130px]" title={ind.libelle}>
                                     <div className="flex flex-col items-center">
                                         <span>{ind.libelle || ind.code}</span>
-                                        <span className="text-[9px] font-normal text-[var(--color-fg-muted)] lowercase">
-                                            {ind.sousTitre || (ind.estProratise ? `prorata (${fmtMoney(ind.montantJour)}/j)` : `${fmtMoney(ind.montantJour)}/j`)}
+                                        <span className="text-[10px] font-normal text-[var(--color-fg-muted)] normal-case">
+                                            {ind.sousTitre || (ind.estProratise ? `Prorata ${fmtMoney(ind.montantJour)}/j` : `${fmtMoney(ind.montantJour)}/j`)}
                                         </span>
                                     </div>
                                 </Th>
+                            ))}
+                        </Tr>
+                        {/* Ligne 2 d'en-tête (Sous-colonnes Entrée / Sortie) */}
+                        <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider">
+                            <Th className="px-5 py-1.5"></Th>
+                            <Th className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">Entrée</Th>
+                            <Th className="px-2 py-1.5 text-center">Sortie</Th>
+                            <Th className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">Retour</Th>
+                            <Th className="px-2 py-1.5 text-center">Sortie</Th>
+                            <Th className="border-l border-[var(--color-border-subtle)]" colSpan={3}></Th>
+                            {siteIndemnites.map((ind) => (
+                                <Th key={ind.idIndemnite} className="border-l border-[var(--color-border-subtle)]"></Th>
                             ))}
                         </Tr>
                     </Thead>
@@ -100,16 +127,17 @@ export default function PointageGridTable({
                             const isFerieChome = row.codeStatut === 'FERIE_CHOME' || (row.ferieJour && !row.totalHeures);
                             const isReadOnlyForUser = isReadOnly;
 
-                            let rowBgClass = '';
-                            if (isCongeFull) rowBgClass = 'bg-amber-500/5 hover:bg-amber-500/10';
-                            else if (isFerieChome) rowBgClass = 'bg-stone-500/5 hover:bg-stone-500/10';
-                            else if (row.estAutonome) rowBgClass = 'bg-indigo-500/5 hover:bg-indigo-500/10';
+                            const isNonSaisi = !row.totalHeures && !isCongeFull && !row.estAutonome && !isFerieChome;
+
+                            let rowBorderCue = 'border-l-2 border-l-transparent';
+                            if (isNonSaisi) rowBorderCue = 'border-l-2 border-l-amber-500';
+                            else if (row.totalHeures > 0) rowBorderCue = 'border-l-2 border-l-emerald-500';
 
                             return (
-                                <Tr key={row.idEmploye} className={`border-b border-[var(--color-border-subtle)] transition-colors ${rowBgClass}`}>
+                                <Tr key={row.idEmploye} className={`border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors ${rowBorderCue}`}>
                                     {/* 1. Identification Salarié */}
-                                    <Td className="py-2.5 px-4">
-                                        <div className="flex items-center gap-3">
+                                    <Td className="px-5 py-3">
+                                        <div className="flex items-center gap-2.5">
                                             <Avatar
                                                 src={row.photoUrl ? getFullPhotoUrl(row.photoUrl) : null}
                                                 name={`${row.prenom || ''} ${row.nom || ''}`}
@@ -117,28 +145,28 @@ export default function PointageGridTable({
                                                 shape="square"
                                             />
                                             <div>
-                                                <div className="flex items-center gap-2">
+                                                <p className="font-semibold text-[var(--color-fg)] leading-tight flex items-center gap-1.5">
                                                     <Link
                                                         to={`/employes/${row.idEmploye}`}
-                                                        className="text-xs font-bold text-[var(--color-fg)] hover:text-[var(--color-brand-600)] hover:underline"
+                                                        className="hover:text-brand-600 hover:underline"
                                                     >
                                                         {row.nom} {row.prenom}
                                                     </Link>
                                                     {row.estAutonome && (
-                                                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-indigo-500/15 text-indigo-700 dark:text-indigo-300">
+                                                        <span className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold px-1.5 py-0.5">
                                                             AUTONOME
                                                         </span>
                                                     )}
-                                                </div>
-                                                <p className="text-[11px] font-mono text-[var(--color-fg-muted)]">
-                                                    {row.matricule}
+                                                </p>
+                                                <p className="text-[11.5px] font-mono text-[var(--color-fg-muted)]">
+                                                    Matricule {row.matricule}
                                                 </p>
                                             </div>
                                         </div>
                                     </Td>
 
                                     {/* 2. Entrée Matin */}
-                                    <Td className="text-center py-2.5 px-2">
+                                    <Td className="px-2 py-3 text-center border-l border-[var(--color-border-subtle)]">
                                         <TimeInput
                                             inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 0, el)}
                                             value={row.heureEntreeMatin}
@@ -146,12 +174,12 @@ export default function PointageGridTable({
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureEntreeMatin', val)}
                                             onKeyDown={(e) => onKeyDown(e, row.idEmploye, 0)}
                                             onComplete={() => onFocusNext(row.idEmploye, 0)}
-                                            className={row.hasValidationError ? '!border-red-500 !bg-red-50' : ''}
+                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-red-500 !bg-red-50' : ''}`}
                                         />
                                     </Td>
 
                                     {/* 3. Sortie Matin */}
-                                    <Td className="text-center py-2.5 px-2">
+                                    <Td className="px-2 py-3 text-center">
                                         <TimeInput
                                             inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 1, el)}
                                             value={row.heureSortieMatin}
@@ -159,12 +187,12 @@ export default function PointageGridTable({
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieMatin', val)}
                                             onKeyDown={(e) => onKeyDown(e, row.idEmploye, 1)}
                                             onComplete={() => onFocusNext(row.idEmploye, 1)}
-                                            className={row.hasValidationError ? '!border-red-500 !bg-red-50' : ''}
+                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-red-500 !bg-red-50' : ''}`}
                                         />
                                     </Td>
 
-                                    {/* 4. Retour Pause */}
-                                    <Td className="text-center py-2.5 px-2">
+                                    {/* 4. Retour Pause Midi */}
+                                    <Td className="px-2 py-3 text-center border-l border-[var(--color-border-subtle)]">
                                         <TimeInput
                                             inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 2, el)}
                                             value={row.heureEntreeAm}
@@ -172,32 +200,32 @@ export default function PointageGridTable({
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureEntreeAm', val)}
                                             onKeyDown={(e) => onKeyDown(e, row.idEmploye, 2)}
                                             onComplete={() => onFocusNext(row.idEmploye, 2)}
-                                            className={row.hasValidationError ? '!border-red-500 !bg-red-50' : ''}
+                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-red-500 !bg-red-50' : ''}`}
                                         />
                                     </Td>
 
                                     {/* 5. Sortie Soir */}
-                                    <Td className="text-center py-2.5 px-2">
+                                    <Td className="px-2 py-3 text-center">
                                         <TimeInput
                                             inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 3, el)}
                                             value={row.heureSortieAm}
                                             disabled={isReadOnlyForUser || isCongeFull || isCongeAm}
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieAm', val)}
                                             onKeyDown={(e) => onKeyDown(e, row.idEmploye, 3)}
-                                            onComplete={() => onFocusNext(row.idEmploye, 3)}
-                                            className={row.hasValidationError ? '!border-red-500 !bg-red-50' : ''}
+                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-red-500 !bg-red-50' : ''}`}
                                         />
                                     </Td>
 
                                     {/* 6. Total Heures */}
-                                    <Td className="text-center font-mono font-bold text-xs py-2.5 px-3">
+                                    <Td className="px-3 py-3 text-center font-mono font-semibold border-l border-[var(--color-border-subtle)]">
                                         <div className="flex flex-col items-center justify-center">
-                                            <span className={row.totalHeures > 0 ? 'text-[var(--color-fg)]' : 'text-[var(--color-fg-muted)]'}>
-                                                {row.totalHeures ? `${Math.floor(row.totalHeures)}h${Math.round((row.totalHeures % 1) * 60).toString().padStart(2, '0')}` : '00h00'}
+                                            <span>
+                                                {row.totalHeures && row.totalHeures > 0
+                                                    ? `${String(Math.floor(row.totalHeures)).padStart(2, '0')}h${String(Math.round((row.totalHeures % 1) * 60)).padStart(2, '0')}`
+                                                    : '00h00'}
                                             </span>
-                                            {/* Détection heures de nuit : uniquement si sortie > 22:00 et pas en congé/férié */}
-                                            {row.heureSortieAm && row.heureSortieAm !== '—' && !isCongeFull && !isFerieChome && row.heureSortieAm > '22:00' && (
-                                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-500/10 px-1">
+                                            {row.heuresNuit > 0 && (
+                                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-600 bg-indigo-500/10 px-1 mt-0.5">
                                                     <Moon size={9} /> nuit
                                                 </span>
                                             )}
@@ -205,117 +233,94 @@ export default function PointageGridTable({
                                     </Td>
 
                                     {/* 7. Retard */}
-                                    <Td className="text-center font-mono font-bold text-xs py-2.5 px-3">
+                                    <Td className="px-3 py-3 text-center font-mono font-semibold">
                                         {row.minutesRetard > 0 ? (
-                                            <span className="text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5">
+                                            <span className="text-danger-600 dark:text-danger-400">
                                                 +{row.minutesRetard} min
                                             </span>
                                         ) : (
-                                            <span className="text-emerald-700 dark:text-emerald-400">
+                                            <span className="text-emerald-600 dark:text-emerald-400">
                                                 00 min
                                             </span>
                                         )}
                                     </Td>
 
-                                    {/* 8. Statut Badge */}
-                                    <Td className="text-center py-2.5 px-3">
+                                    {/* 8. Statut */}
+                                    <Td className="px-3 py-3 text-center">
                                         {getStatutPointageBadge(row.codeStatut, row.libelleStatut)}
                                     </Td>
 
-                                    {/* Colonnes Dynamiques d'Indemnités (Fractionnées M/S ou Journalières selon configuration) */}
+                                    {/* 9. Colonnes Dynamiques d'Indemnités avec Cases à cocher */}
                                     {siteIndemnites.map((ind) => {
-                                        const isFerieNonTravaille = row.ferieJour && !row.totalHeures;
                                         const dynObj = row.dynamicIndemnites?.[String(ind.idIndemnite)] || {};
-                                        const isAccordee = dynObj.accordee !== false && !isCongeFull && !isFerieNonTravaille;
+                                        const isAccordee = dynObj.accordee !== false && !isCongeFull;
                                         const montantJour = ind.montantJour || ind.montantReference || 0;
-
                                         const isFractionnable = ind.estFractionnable !== undefined ? ind.estFractionnable : ind.fractionnable;
 
                                         if (isFractionnable) {
-                                            // Indemnité fractionnable par demi-journée (ex: Déplacement/Transport - Trajet matin & Trajet soir)
                                             const montantTrajet = ind.montantTrajet || Math.round(montantJour / 2.0);
                                             const matVal = dynObj.matin !== undefined ? dynObj.matin : (row.deplacementMatin !== false && isAccordee);
                                             const amVal = dynObj.am !== undefined ? dynObj.am : (row.deplacementAm !== false && isAccordee);
 
                                             return (
-                                                <Td key={ind.idIndemnite} className="text-center py-2.5 px-3">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <label className={`inline-flex items-center gap-0.5 text-[10px] font-bold ${isCongeFull || isFerieNonTravaille || isReadOnlyForUser ? 'cursor-not-allowed' : 'cursor-pointer'} select-none`} title={`Trajet matin aller — ${fmtMoney(montantTrajet)}`}>
+                                                <Td key={ind.idIndemnite} className="px-3 py-3 text-center border-l border-[var(--color-border-subtle)]">
+                                                    <div className="flex items-center justify-center gap-3">
+                                                        <label className={`inline-flex items-center gap-1 text-[11px] font-semibold ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet aller (matin) — ${fmtMoney(montantTrajet)}`}>
                                                             <input
                                                                 type="checkbox"
                                                                 checked={matVal}
-                                                                disabled={isReadOnlyForUser || isCongeFull || isFerieNonTravaille}
+                                                                disabled={isReadOnlyForUser || isCongeFull}
                                                                 onChange={(e) => {
                                                                     onUpdateIndemnite(row.idEmploye, 'deplacementMatin', e.target.checked);
                                                                     onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'MATIN');
                                                                 }}
-                                                                className="w-3.5 h-3.5 cursor-pointer accent-[var(--color-brand-500)]"
+                                                                className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
                                                             />
-                                                            <span className={matVal ? 'text-[var(--color-fg)]' : 'text-[var(--color-fg-muted)]'}>M</span>
+                                                            <span className={matVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>Aller</span>
                                                         </label>
 
-                                                        <label className={`inline-flex items-center gap-0.5 text-[10px] font-bold ${isCongeFull || isFerieNonTravaille || isReadOnlyForUser ? 'cursor-not-allowed' : 'cursor-pointer'} select-none`} title={`Trajet soir retour — ${fmtMoney(montantTrajet)}`}>
+                                                        <label className={`inline-flex items-center gap-1 text-[11px] font-semibold ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet retour (soir) — ${fmtMoney(montantTrajet)}`}>
                                                             <input
                                                                 type="checkbox"
                                                                 checked={amVal}
-                                                                disabled={isReadOnlyForUser || isCongeFull || isFerieNonTravaille}
+                                                                disabled={isReadOnlyForUser || isCongeFull}
                                                                 onChange={(e) => {
                                                                     onUpdateIndemnite(row.idEmploye, 'deplacementAm', e.target.checked);
                                                                     onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'APRES_MIDI');
                                                                 }}
-                                                                className="w-3.5 h-3.5 cursor-pointer accent-[var(--color-brand-500)]"
+                                                                className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
                                                             />
-                                                            <span className={amVal ? 'text-[var(--color-fg)]' : 'text-[var(--color-fg-muted)]'}>S</span>
+                                                            <span className={amVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>Retour</span>
                                                         </label>
                                                     </div>
                                                 </Td>
                                             );
                                         }
 
-                                        // Indemnité journalière standard (1 case à cocher pour la journée entière)
+                                        // Indemnité journalière standard (Repas, etc.)
                                         const isRepas = ind.code === 'REPAS';
                                         const checked = isRepas ? !!row.indemniteRepasRecue : isAccordee;
 
                                         return (
-                                            <Td key={ind.idIndemnite} className="text-center py-2.5 px-3">
+                                            <Td key={ind.idIndemnite} className="px-3 py-3 text-center border-l border-[var(--color-border-subtle)]">
                                                 <div className="flex flex-col items-center justify-center gap-1">
-                                                    <label className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${isCongeFull || isFerieNonTravaille || isReadOnlyForUser ? 'cursor-not-allowed' : 'cursor-pointer'} select-none`} title={`Accordée — ${fmtMoney(montantJour)}`}>
+                                                    <label className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Accordée — ${fmtMoney(montantJour)}`}>
                                                         <input
                                                             type="checkbox"
                                                             checked={checked}
-                                                            disabled={isReadOnlyForUser || isCongeFull || isFerieNonTravaille}
+                                                            disabled={isReadOnlyForUser || isCongeFull}
                                                             onChange={(e) => {
                                                                 if (isRepas) {
                                                                     onUpdateIndemnite(row.idEmploye, 'indemniteRepasRecue', e.target.checked);
                                                                 }
                                                                 onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked);
                                                             }}
-                                                            className="w-3.5 h-3.5 cursor-pointer accent-[var(--color-brand-500)]"
+                                                            className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
                                                         />
                                                         <span className={checked ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-[var(--color-fg-muted)]'}>
                                                             {checked && montantJour > 0 ? fmtMoney(montantJour) : '0 Ar'}
                                                         </span>
                                                     </label>
-
-                                                    {/* Si repas : afficher badge éventuel de soirée */}
-                                                    {isRepas && (() => {
-                                                        if (isCongeFull || isFerieChome || !row.heureSortieAm || row.heureSortieAm === '—') return null;
-                                                        if (row.heureSortieAm >= '21:00') {
-                                                            return (
-                                                                <span className="inline-flex items-center text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1 py-0.5" title="Sortie après 21h00 : 2ème repas majoré (+4 000 Ar)">
-                                                                    +4 000 Ar (Soirée)
-                                                                </span>
-                                                            );
-                                                        }
-                                                        if (row.heureSortieAm >= '19:30') {
-                                                            return (
-                                                                <span className="inline-flex items-center text-[9px] font-bold text-amber-600 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1 py-0.5" title="Sortie entre 19h30 et 21h00 : 2ème repas (+2 000 Ar)">
-                                                                    +2 000 Ar (Soirée)
-                                                                </span>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    })()}
                                                 </div>
                                             </Td>
                                         );
@@ -325,16 +330,16 @@ export default function PointageGridTable({
                         })}
                     </Tbody>
                 </Table>
-
-                {/* Pagination */}
-                <Pagination
-                    currentPage={currentPage}
-                    totalItems={grilleData.length}
-                    pageSize={pageSize}
-                    onPageChange={onPageChange}
-                    onPageSizeChange={onPageSizeChange}
-                />
             </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalItems={grilleData.length}
+                pageSize={pageSize}
+                onPageChange={onPageChange}
+                onPageSizeChange={onPageSizeChange}
+            />
         </div>
     );
 }

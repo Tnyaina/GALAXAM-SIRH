@@ -2,6 +2,7 @@ package mg.galaxam.sirh.model.pointage.service;
 
 import mg.galaxam.sirh.api.dto.pointage.SaisiePointageJourDTO;
 import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
+import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -33,10 +34,21 @@ public class PointageSaisieService {
     @Autowired
     private DataSource dataSource;
 
-    public PointageSaisieService() {}
+    @Autowired
+    private mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine;
+
+    public PointageSaisieService() {
+        this.calendrierEngine = new CalendrierOuvrableEngine();
+    }
 
     public PointageSaisieService(DataSource dataSource) {
         this.dataSource = dataSource;
+        this.calendrierEngine = new CalendrierOuvrableEngine();
+    }
+
+    public PointageSaisieService(DataSource dataSource, mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine) {
+        this.dataSource = dataSource;
+        this.calendrierEngine = calendrierEngine != null ? calendrierEngine : new CalendrierOuvrableEngine();
     }
 
     /**
@@ -205,14 +217,9 @@ public class PointageSaisieService {
                         periodeInfo.put("date_fin", dFin != null ? dFin.toString() : null);
                         periodeInfo.put("statut_code", rsP.getString("statut_code"));
                         periodeInfo.put("statut_libelle", rsP.getString("statut_libelle"));
-
                         int ouvrables = 0;
                         if (dDeb != null && dFin != null) {
-                            for (LocalDate cur = dDeb.toLocalDate(); !cur.isAfter(dFin.toLocalDate()); cur = cur.plusDays(1)) {
-                                if (cur.getDayOfWeek() != DayOfWeek.SATURDAY && cur.getDayOfWeek() != DayOfWeek.SUNDAY) {
-                                    ouvrables++;
-                                }
-                            }
+                            ouvrables = calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), idSite, c);
                         }
                         if (ouvrables == 0) ouvrables = 22;
                         periodeInfo.put("nbJoursOuvrables", ouvrables);
@@ -245,36 +252,44 @@ public class PointageSaisieService {
             // 2.bis Vérification des Périodes Exceptionnelles chômées (ref_periode_chomee, ex: intempéries, cyclone, fermeture)
             if (!isFerie) {
                 String sqlPeriodeChomee = "SELECT libelle FROM ref_periode_chomee " +
-                                          "WHERE ? BETWEEN date_debut AND COALESCE(date_fin, date_debut) " +
-                                          "  AND (id_site IS NULL OR id_site = ?) LIMIT 1";
+                                          "WHERE (id_site IS NULL OR id_site = ?) " +
+                                          "  AND ? BETWEEN date_debut AND COALESCE(date_fin, date_debut) " +
+                                          "LIMIT 1";
                 try (PreparedStatement psPC = c.prepareStatement(sqlPeriodeChomee)) {
-                    psPC.setDate(1, date);
-                    psPC.setInt(2, idSite);
+                    psPC.setInt(1, idSite);
+                    psPC.setDate(2, date);
                     try (ResultSet rsPC = psPC.executeQuery()) {
                         if (rsPC.next()) {
                             isFerie = true;
                             libelleFerie = rsPC.getString("libelle");
                         }
                     }
-                }
+                } catch (Exception ignored) {}
             }
             result.put("isFerie", isFerie);
             result.put("libelleFerie", libelleFerie);
 
-            // 3. Paramètres Horaires et Indemnités du Site
+            // 3. Paramètres Horaires du Site (directement depuis ref_site)
             Map<String, Object> siteParams = new HashMap<>();
-            String sqlSite = "SELECT horaire_continu, heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi " +
-                             "FROM ref_site WHERE id_site = ?";
-            try (PreparedStatement psS = c.prepareStatement(sqlSite)) {
-                psS.setInt(1, idSite);
-                try (ResultSet rsS = psS.executeQuery()) {
-                    if (rsS.next()) {
-                        boolean continu = rsS.getBoolean("horaire_continu");
+            String sqlSite = "SELECT s.id_site, s.code_site, s.libelle, " +
+                             "s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
+                             "COALESCE(s.horaire_continu, TRUE) AS horaire_continu " +
+                             "FROM ref_site s " +
+                             "WHERE s.id_site = ?";
+            try (PreparedStatement ps = c.prepareStatement(sqlSite)) {
+                ps.setInt(1, idSite);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        siteParams.put("idSite", rs.getInt("id_site"));
+                        siteParams.put("codeSite", rs.getString("code_site"));
+                        siteParams.put("libelle", rs.getString("libelle"));
+                        Time hdm = rs.getTime("heure_debut_matin");
+                        Time hfm = rs.getTime("heure_fin_matin");
+                        Time hda = rs.getTime("heure_debut_apres_midi");
+                        Time hfa = rs.getTime("heure_fin_apres_midi");
+                        boolean continu = rs.getBoolean("horaire_continu");
+
                         siteParams.put("horaireContinu", continu);
-                        Time hdm = rsS.getTime("heure_debut_matin");
-                        Time hfm = rsS.getTime("heure_fin_matin");
-                        Time hda = rsS.getTime("heure_debut_apres_midi");
-                        Time hfa = rsS.getTime("heure_fin_apres_midi");
                         siteParams.put("heureDebutMatin", hdm != null ? hdm.toString().substring(0, 5) : "08:00");
                         siteParams.put("heureFinMatin", hfm != null ? hfm.toString().substring(0, 5) : "12:00");
                         siteParams.put("heureDebutAm", hda != null ? hda.toString().substring(0, 5) : (continu ? "13:00" : "14:00"));
@@ -296,7 +311,7 @@ public class PointageSaisieService {
             } catch (Exception ignored) {}
 
             double montantDeplacementMois = 31200.0;
-            double montantDeplacementJour = Math.round((montantDeplacementMois / nbOuvrablesPeriode) * 100.0) / 100.0;
+            double montantDeplacementJour = calendrierEngine.calculerProrataJournalier(montantDeplacementMois, nbOuvrablesPeriode);
             double montantRepasJour = 2000.0;
 
             List<Map<String, Object>> siteIndemnites = new ArrayList<>();
@@ -319,9 +334,9 @@ public class PointageSaisieService {
 
                         boolean isProratise = "MENSUEL".equalsIgnoreCase(period) || "MENSUEL_PRORATISE".equalsIgnoreCase(period);
                         double montantJour = isProratise
-                                ? Math.round((montantRef / nbOuvrablesPeriode) * 100.0) / 100.0
+                                ? calendrierEngine.calculerProrataJournalier(montantRef, nbOuvrablesPeriode)
                                 : montantRef;
-                        double montantTrajet = fractionnable ? Math.round((montantJour / 2.0) * 100.0) / 100.0 : montantJour;
+                        double montantTrajet = fractionnable ? calendrierEngine.calculerMontantTrajet(montantJour) : montantJour;
 
                         String sousTitre = isProratise
                                 ? "prorata (" + String.format(Locale.FRENCH, "%,d", Math.round(montantJour)) + " Ar/j)"
@@ -629,6 +644,46 @@ public class PointageSaisieService {
                 }
             }
             result.put("grilleData", grille);
+
+            // Calcul autoritaire côté serveur des statistiques globales de la journée
+            int totalInscrits = grille.size();
+            int totalPresents = 0;
+            int totalConges = 0;
+            int totalRetards = 0;
+            int cumulMinsRetard = 0;
+            double totalHeures = 0.0;
+            int totalAnomalies = 0;
+
+            for (SaisiePointageJourDTO row : grille) {
+                if (row.isPresent() || row.isDispensePointage() || row.isFerieTravaille() || (row.getTotalHeures() != null && row.getTotalHeures() > 0)) {
+                    totalPresents++;
+                }
+                if (row.isConge()) {
+                    totalConges++;
+                }
+                if (row.isRetard()) {
+                    totalRetards++;
+                }
+                if (row.getMinutesRetard() != null) {
+                    cumulMinsRetard += row.getMinutesRetard();
+                }
+                if (row.getTotalHeures() != null) {
+                    totalHeures += row.getTotalHeures();
+                }
+                if (row.isAnomalie() || row.isAbsenceNonJustifiee()) {
+                    totalAnomalies++;
+                }
+            }
+
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("totalInscrits", totalInscrits);
+            stats.put("totalPresents", totalPresents);
+            stats.put("totalConges", totalConges);
+            stats.put("totalRetards", totalRetards);
+            stats.put("cumulMinutesRetard", cumulMinsRetard);
+            stats.put("totalHeuresTravaillees", Math.round(totalHeures * 100.0) / 100.0);
+            stats.put("totalAnomalies", totalAnomalies);
+            result.put("statsJour", stats);
         }
 
         return result;

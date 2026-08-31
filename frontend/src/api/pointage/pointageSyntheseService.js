@@ -6,6 +6,13 @@ export const pointageSyntheseService = {
             params: { idPeriodePaie, idSite }
         });
         return response.data;
+    },
+
+    getSemaines: async ({ idPeriodePaie, idSite }) => {
+        const response = await apiClient.get('/pointages/synthese/semaines', {
+            params: { idPeriodePaie, idSite }
+        });
+        return response.data;
     }
 };
 
