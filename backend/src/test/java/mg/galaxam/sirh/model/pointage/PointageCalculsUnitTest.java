@@ -27,6 +27,36 @@ public class PointageCalculsUnitTest {
     }
 
     @Test
+    @DisplayName("Calcul de durée avec demi-heures : 07h30-12h00 (4.5h) et 13h00-17h00 (4.0h) = 8.5h")
+    public void testCalcHoursJourneeAvecDemiHeure() {
+        Time em = PointageSaisieService.parseTime("07:30");
+        Time sm = PointageSaisieService.parseTime("12:00");
+        Time ea = PointageSaisieService.parseTime("13:00");
+        Time sa = PointageSaisieService.parseTime("17:00");
+
+        double hMatin = PointageSaisieService.calcHours(em, sm);
+        double hAm = PointageSaisieService.calcHours(ea, sa);
+        assertEquals(4.5, hMatin);
+        assertEquals(4.0, hAm);
+        assertEquals(8.5, hMatin + hAm);
+    }
+
+    @Test
+    @DisplayName("Calcul de durée décalée : 08h00-12h30 (4.5h) et 13h30-17h00 (3.5h) = 8.0h")
+    public void testCalcHoursJourneeDecalee() {
+        Time em = PointageSaisieService.parseTime("08:00");
+        Time sm = PointageSaisieService.parseTime("12:30");
+        Time ea = PointageSaisieService.parseTime("13:30");
+        Time sa = PointageSaisieService.parseTime("17:00");
+
+        double hMatin = PointageSaisieService.calcHours(em, sm);
+        double hAm = PointageSaisieService.calcHours(ea, sa);
+        assertEquals(4.5, hMatin);
+        assertEquals(3.5, hAm);
+        assertEquals(8.0, hMatin + hAm);
+    }
+
+    @Test
     @DisplayName("Calcul des heures pour shift de nuit traversant minuit (20h00 -> 04h00)")
     public void testCalcHoursOvernightShift() {
         Time debut = PointageSaisieService.parseTime("20:00");
@@ -49,10 +79,12 @@ public class PointageCalculsUnitTest {
     @Test
     @DisplayName("Calcul des retards avec 0 tolérance")
     public void testCalcMinutesRetard() {
+        Time arrivee07h30 = PointageSaisieService.parseTime("07:30");
         Time arrivee08h00 = PointageSaisieService.parseTime("08:00");
         Time arrivee08h05 = PointageSaisieService.parseTime("08:05");
         Time arrivee08h20 = PointageSaisieService.parseTime("08:20");
 
+        assertEquals(0, PointageSaisieService.calcMinutesRetard(arrivee07h30, LocalTime.of(8, 0)), "Arrivée à 07h30 avant 08h00 doit donner 0 retard");
         assertEquals(0, PointageSaisieService.calcMinutesRetard(arrivee08h00, LocalTime.of(8, 0)));
         assertEquals(5, PointageSaisieService.calcMinutesRetard(arrivee08h05, LocalTime.of(8, 0)));
         assertEquals(20, PointageSaisieService.calcMinutesRetard(arrivee08h20, LocalTime.of(8, 0)));
@@ -95,13 +127,13 @@ public class PointageCalculsUnitTest {
     }
 
     @Test
-    @DisplayName("Statut Salarié Standard (NON_SAISI) vs Cadre Autonome (DISPENSE_POINTAGE) sur jour normal")
+    @DisplayName("Statut Salarié Standard (ABSENCE_NON_JUSTIFIEE) vs Cadre Autonome (DISPENSE_POINTAGE) sur jour normal")
     public void testStatutStandardVsAutonome() {
         // Standard vierge
         String stStandard = PointageSaisieService.determinerStatutJour(
                 false, null, false, null, null, null, null, 0, false
         );
-        assertEquals("NON_SAISI", stStandard);
+        assertEquals("ABSENCE_NON_JUSTIFIEE", stStandard);
 
         // Autonome vierge
         String stAutonome = PointageSaisieService.determinerStatutJour(

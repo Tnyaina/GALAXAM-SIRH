@@ -43,7 +43,8 @@ public class PointageEmployeController {
     public ResponseEntity<FichePointageEmployeDTO> getFichePointageEmploye(
             @PathVariable Integer idEmploye,
             @RequestParam(required = false) String date,
-            @RequestParam(required = false, defaultValue = "mois") String period
+            @RequestParam(required = false, defaultValue = "periode") String period,
+            @RequestParam(required = false) Integer idPeriode
     ) {
         FichePointageEmployeDTO result = new FichePointageEmployeDTO();
 
@@ -54,20 +55,66 @@ public class PointageEmployeController {
             targetDate = LocalDate.now();
         }
 
-        LocalDate startDate;
-        LocalDate endDate;
+        LocalDate startDate = targetDate.withDayOfMonth(1);
+        LocalDate endDate = targetDate.withDayOfMonth(targetDate.lengthOfMonth());
+        Integer resolvedIdPeriode = null;
+        String resolvedLibellePeriode = null;
+        String resolvedStatutPeriode = null;
 
-        if ("jour".equalsIgnoreCase(period)) {
+        if (idPeriode != null && idPeriode > 0) {
+            String sqlP = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, s.code AS statut_code " +
+                          "FROM periode_paie p " +
+                          "LEFT JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
+                          "WHERE p.id_periode_paie = ?";
+            try (Connection c = dataSource.getConnection();
+                 PreparedStatement psP = c.prepareStatement(sqlP)) {
+                psP.setInt(1, idPeriode);
+                try (ResultSet rsP = psP.executeQuery()) {
+                    if (rsP.next()) {
+                        resolvedIdPeriode = rsP.getInt("id_periode_paie");
+                        resolvedLibellePeriode = rsP.getString("libelle");
+                        resolvedStatutPeriode = rsP.getString("statut_code");
+                        startDate = rsP.getDate("date_debut").toLocalDate();
+                        endDate = rsP.getDate("date_fin").toLocalDate();
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } else if ("periode".equalsIgnoreCase(period)) {
+            String sqlP = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, s.code AS statut_code " +
+                          "FROM periode_paie p " +
+                          "LEFT JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
+                          "WHERE ? BETWEEN p.date_debut AND p.date_fin " +
+                          "ORDER BY p.date_debut DESC LIMIT 1";
+            try (Connection c = dataSource.getConnection();
+                 PreparedStatement psP = c.prepareStatement(sqlP)) {
+                psP.setDate(1, java.sql.Date.valueOf(targetDate));
+                try (ResultSet rsP = psP.executeQuery()) {
+                    if (rsP.next()) {
+                        resolvedIdPeriode = rsP.getInt("id_periode_paie");
+                        resolvedLibellePeriode = rsP.getString("libelle");
+                        resolvedStatutPeriode = rsP.getString("statut_code");
+                        startDate = rsP.getDate("date_debut").toLocalDate();
+                        endDate = rsP.getDate("date_fin").toLocalDate();
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } else if ("jour".equalsIgnoreCase(period)) {
             startDate = targetDate;
             endDate = targetDate;
         } else if ("semaine".equalsIgnoreCase(period)) {
             startDate = targetDate.with(DayOfWeek.MONDAY);
             endDate = targetDate.with(DayOfWeek.SUNDAY);
-        } else {
-            // mois par défaut
-            startDate = targetDate.withDayOfMonth(1);
-            endDate = targetDate.withDayOfMonth(targetDate.lengthOfMonth());
         }
+
+        result.setIdPeriode(resolvedIdPeriode);
+        result.setLibellePeriode(resolvedLibellePeriode != null ? resolvedLibellePeriode : ("Période du " + startDate + " au " + endDate));
+        result.setDateDebut(startDate.toString());
+        result.setDateFin(endDate.toString());
+        result.setStatutPeriode(resolvedStatutPeriode);
 
         // 1. Récupération dynamique des règles du site de l'employé
         String sqlSite = "SELECT s.code_site, s.libelle, s.heure_debut_matin, s.heure_fin_matin, " +
@@ -110,14 +157,18 @@ public class PointageEmployeController {
         regles.put("plafondArrivee", hPlafondTolerance.toString().substring(0, 5));
         regles.put("toleranceRetard", "0 min");
 
-        // 1. Récupération des infos salarié (date embauche / fin de contrat)
+        // 1. Récupération des infos salarié (date embauche / fin de contrat robuste)
         LocalDate dateEmbauche = null;
         LocalDate dateDepart = null;
-        String sqlEmpInfo = "SELECT MIN(ct.date_debut) AS date_embauche, MAX(ct.date_fin) AS date_depart " +
-                            "FROM contrat_travail ct WHERE ct.id_employe = ?";
+        String sqlEmpInfo = "SELECT " +
+                            "  (SELECT MIN(date_debut) FROM contrat_travail WHERE id_employe = ?) AS date_embauche, " +
+                            "  (CASE WHEN EXISTS (SELECT 1 FROM contrat_travail WHERE id_employe = ? AND (date_fin IS NULL OR statut = 'ACTIF')) THEN NULL " +
+                            "        ELSE (SELECT MAX(date_fin) FROM contrat_travail WHERE id_employe = ?) END) AS date_depart";
         try (Connection c = dataSource.getConnection();
              PreparedStatement psEmp = c.prepareStatement(sqlEmpInfo)) {
             psEmp.setInt(1, idEmploye);
+            psEmp.setInt(2, idEmploye);
+            psEmp.setInt(3, idEmploye);
             try (ResultSet rsEmp = psEmp.executeQuery()) {
                 if (rsEmp.next()) {
                     if (rsEmp.getDate("date_embauche") != null) dateEmbauche = rsEmp.getDate("date_embauche").toLocalDate();
@@ -129,11 +180,15 @@ public class PointageEmployeController {
         }
 
         if (dateEmbauche == null) {
-            String sqlAff = "SELECT MIN(eac.date_debut) AS date_embauche, MAX(eac.date_fin) AS date_depart " +
-                            "FROM employe_affectation_carriere eac WHERE eac.id_employe = ?";
+            String sqlAff = "SELECT " +
+                            "  (SELECT MIN(date_debut) FROM employe_affectation_carriere WHERE id_employe = ?) AS date_embauche, " +
+                            "  (CASE WHEN EXISTS (SELECT 1 FROM employe_affectation_carriere WHERE id_employe = ? AND date_fin IS NULL) THEN NULL " +
+                            "        ELSE (SELECT MAX(date_fin) FROM employe_affectation_carriere WHERE id_employe = ?) END) AS date_depart";
             try (Connection c = dataSource.getConnection();
                  PreparedStatement psAff = c.prepareStatement(sqlAff)) {
                 psAff.setInt(1, idEmploye);
+                psAff.setInt(2, idEmploye);
+                psAff.setInt(3, idEmploye);
                 try (ResultSet rsAff = psAff.executeQuery()) {
                     if (rsAff.next()) {
                         if (rsAff.getDate("date_embauche") != null) dateEmbauche = rsAff.getDate("date_embauche").toLocalDate();

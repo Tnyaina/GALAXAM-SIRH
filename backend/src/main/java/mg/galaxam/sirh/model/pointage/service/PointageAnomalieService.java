@@ -11,6 +11,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,7 +26,7 @@ public class PointageAnomalieService {
     private DataSource dataSource;
 
     /**
-     * Recherche les anomalies pour un filtre donné
+     * Recherche les anomalies pour un filtre donné (anomalies de saisie, retards non justifiés et jours ouvrés non saisis)
      */
     public Map<String, Object> getAnomalies(
             Integer idSite,
@@ -39,6 +41,32 @@ public class PointageAnomalieService {
         int countAbsences = 0;
 
         try (Connection c = dataSource.getConnection()) {
+            Integer effectivePeriodeId = idPeriode;
+            if (effectivePeriodeId == null || effectivePeriodeId <= 0) {
+                String sqlFindPer = (datePointage != null && !datePointage.trim().isEmpty()) ?
+                    "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin ORDER BY date_fin DESC LIMIT 1" :
+                    "SELECT id_periode_paie FROM periode_paie WHERE statut = 'OUVERTE' ORDER BY date_fin DESC LIMIT 1";
+                try (PreparedStatement psF = c.prepareStatement(sqlFindPer)) {
+                    if (datePointage != null && !datePointage.trim().isEmpty()) {
+                        psF.setDate(1, Date.valueOf(datePointage));
+                    }
+                    try (ResultSet rsF = psF.executeQuery()) {
+                        if (rsF.next()) {
+                            effectivePeriodeId = rsF.getInt(1);
+                        }
+                    }
+                }
+                if (effectivePeriodeId == null || effectivePeriodeId <= 0) {
+                    try (PreparedStatement psF2 = c.prepareStatement("SELECT id_periode_paie FROM periode_paie ORDER BY date_fin DESC LIMIT 1")) {
+                        try (ResultSet rsF2 = psF2.executeQuery()) {
+                            if (rsF2.next()) {
+                                effectivePeriodeId = rsF2.getInt(1);
+                            }
+                        }
+                    }
+                }
+            }
+
             StringBuilder sql = new StringBuilder(
                 "SELECT p.id_pointage, p.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
                 "p.id_site, s.libelle AS site_nom, p.date_pointage, " +
@@ -58,9 +86,9 @@ public class PointageAnomalieService {
                 sql.append("AND p.id_site = ? ");
                 params.add(idSite);
             }
-            if (idPeriode != null && idPeriode > 0) {
+            if (effectivePeriodeId != null && effectivePeriodeId > 0) {
                 sql.append("AND p.id_periode_paie = ? ");
-                params.add(idPeriode);
+                params.add(effectivePeriodeId);
             }
             if (datePointage != null && !datePointage.trim().isEmpty()) {
                 sql.append("AND p.date_pointage = ? ");
@@ -147,41 +175,147 @@ public class PointageAnomalieService {
         boolean depA = Boolean.TRUE.equals(payload.get("deplacementAm"));
         boolean repas = Boolean.TRUE.equals(payload.get("indemniteRepasRecue"));
 
-        double hMatin = PointageSaisieService.calcHours(em, sm);
-        double hAm = PointageSaisieService.calcHours(ea, sa);
-        double totalH = hMatin + hAm;
-        double hNuit = PointageSaisieService.calcHeuresNuit(sa);
-        int retMins = PointageSaisieService.calcMinutesRetard(em, LocalTime.of(8, 0)) +
-                      PointageSaisieService.calcMinutesRetard(ea, LocalTime.of(13, 0));
+        try (Connection c = dataSource.getConnection()) {
+            LocalTime siteDebM = LocalTime.of(8, 0);
+            LocalTime siteFinM = LocalTime.of(12, 0);
+            LocalTime siteDebA = LocalTime.of(13, 0);
+            LocalTime siteFinA = LocalTime.of(17, 0);
 
-        String codeStatut = totalH > 0 ? "PRESENT" : "ABSENCE_NON_JUSTIFIEE";
+            Integer idSite = null;
+            if (idPointage > 0) {
+                String sqlSite = "SELECT s.id_site, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, COALESCE(s.horaire_continu, TRUE) AS horaire_continu " +
+                                 "FROM pointage_jour p " +
+                                 "JOIN ref_site s ON p.id_site = s.id_site " +
+                                 "WHERE p.id_pointage = ?";
+                try (PreparedStatement psS = c.prepareStatement(sqlSite)) {
+                    psS.setInt(1, idPointage);
+                    try (ResultSet rsS = psS.executeQuery()) {
+                        if (rsS.next()) {
+                            idSite = rsS.getInt("id_site");
+                            Time hdm = rsS.getTime("heure_debut_matin");
+                            Time hfm = rsS.getTime("heure_fin_matin");
+                            Time hda = rsS.getTime("heure_debut_apres_midi");
+                            Time hfa = rsS.getTime("heure_fin_apres_midi");
+                            boolean cont = rsS.getBoolean("horaire_continu");
 
-        String sql = "UPDATE pointage_jour SET " +
-                     "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, " +
-                     "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
-                     "motif_ajustement = ?, id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                     "deplacement_matin = ?, deplacement_am = ?, indemnite_deplacement_recue = ?, indemnite_repas_recue = ?, " +
-                     "updated_at = CURRENT_TIMESTAMP WHERE id_pointage = ?";
+                            if (hdm != null) siteDebM = hdm.toLocalTime();
+                            if (hfm != null) siteFinM = hfm.toLocalTime();
+                            if (hda != null) siteDebA = hda.toLocalTime();
+                            else if (!cont) siteDebA = LocalTime.of(14, 0);
+                            if (hfa != null) siteFinA = hfa.toLocalTime();
+                            else if (!cont) siteFinA = LocalTime.of(18, 0);
+                        }
+                    }
+                }
+            } else if (payload.get("idSite") != null) {
+                idSite = ((Number) payload.get("idSite")).intValue();
+            }
 
-        try (Connection c = dataSource.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setTime(1, em);
-            ps.setTime(2, sm);
-            ps.setTime(3, ea);
-            ps.setTime(4, sa);
-            ps.setDouble(5, hMatin);
-            ps.setDouble(6, hAm);
-            ps.setDouble(7, totalH);
-            ps.setInt(8, retMins);
-            ps.setDouble(9, hNuit);
-            ps.setString(10, motif);
-            ps.setString(11, codeStatut);
-            ps.setBoolean(12, depM);
-            ps.setBoolean(13, depA);
-            ps.setBoolean(14, depM || depA);
-            ps.setBoolean(15, repas);
-            ps.setInt(16, idPointage);
-            return ps.executeUpdate() > 0;
+            boolean isPauseAuto = (em != null && sa != null && sm == null && ea == null);
+            double hMatin;
+            double hAm;
+
+            if (isPauseAuto) {
+                hMatin = PointageSaisieService.calcHours(em, Time.valueOf(siteFinM));
+                hAm = PointageSaisieService.calcHours(Time.valueOf(siteDebA), sa);
+            } else {
+                hMatin = PointageSaisieService.calcHours(em, sm);
+                hAm = PointageSaisieService.calcHours(ea, sa);
+            }
+
+            double totalH = hMatin + hAm;
+            double hNuit = PointageSaisieService.calcHeuresNuit(sa);
+
+            int retMatin = PointageSaisieService.calcMinutesRetard(em, siteDebM);
+            int retAm = 0;
+            if (!isPauseAuto && ea != null) {
+                if (sm != null && siteDebA.isAfter(siteFinM)) {
+                    long pauseTheorique = java.time.Duration.between(siteFinM, siteDebA).toMinutes();
+                    LocalTime ltSm = sm.toLocalTime();
+                    LocalTime ltEa = ea.toLocalTime();
+                    if (ltSm.isAfter(siteFinM) && ltEa.isAfter(ltSm)) {
+                        long pauseReelle = java.time.Duration.between(ltSm, ltEa).toMinutes();
+                        retAm = (int) Math.max(0, pauseReelle - pauseTheorique);
+                    } else {
+                        retAm = PointageSaisieService.calcMinutesRetard(ea, siteDebA);
+                    }
+                } else {
+                    retAm = PointageSaisieService.calcMinutesRetard(ea, siteDebA);
+                }
+            }
+            int retMins = retMatin + retAm;
+
+            String codeStatut = (String) payload.get("statutCode");
+            if (codeStatut == null || codeStatut.trim().isEmpty() || "NON_SAISI".equals(codeStatut)) {
+                codeStatut = totalH > 0 ? "PRESENT" : "ABSENCE_NON_JUSTIFIEE";
+            }
+
+            if (idPointage <= 0) {
+                int idEmp = ((Number) payload.get("idEmploye")).intValue();
+                int idPer = ((Number) payload.get("idPeriodePaie")).intValue();
+                String dtStr = (String) payload.get("datePointage");
+                Date dt = Date.valueOf(dtStr);
+                if (idSite == null || idSite <= 0) idSite = 1;
+
+                String sqlInsert = "INSERT INTO pointage_jour (" +
+                    "id_employe, id_periode_paie, id_site, date_pointage, " +
+                    "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
+                    "heures_matin, heures_am, total_heures, minutes_retard, heures_nuit, " +
+                    "motif_ajustement, id_statut_jour, deplacement_matin, deplacement_am, " +
+                    "indemnite_deplacement_recue, indemnite_repas_recue, created_at, updated_at " +
+                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
+                    "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
+                    "?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+                try (PreparedStatement psIns = c.prepareStatement(sqlInsert)) {
+                    psIns.setInt(1, idEmp);
+                    psIns.setInt(2, idPer);
+                    psIns.setInt(3, idSite);
+                    psIns.setDate(4, dt);
+                    psIns.setTime(5, em);
+                    psIns.setTime(6, sm);
+                    psIns.setTime(7, ea);
+                    psIns.setTime(8, sa);
+                    psIns.setDouble(9, hMatin);
+                    psIns.setDouble(10, hAm);
+                    psIns.setDouble(11, totalH);
+                    psIns.setInt(12, retMins);
+                    psIns.setDouble(13, hNuit);
+                    psIns.setString(14, motif);
+                    psIns.setString(15, codeStatut);
+                    psIns.setBoolean(16, depM);
+                    psIns.setBoolean(17, depA);
+                    psIns.setBoolean(18, depM || depA);
+                    psIns.setBoolean(19, repas);
+                    return psIns.executeUpdate() > 0;
+                }
+            } else {
+                String sql = "UPDATE pointage_jour SET " +
+                             "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, " +
+                             "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
+                             "motif_ajustement = ?, id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
+                             "deplacement_matin = ?, deplacement_am = ?, indemnite_deplacement_recue = ?, indemnite_repas_recue = ?, " +
+                             "updated_at = CURRENT_TIMESTAMP WHERE id_pointage = ?";
+
+                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                    ps.setTime(1, em);
+                    ps.setTime(2, sm);
+                    ps.setTime(3, ea);
+                    ps.setTime(4, sa);
+                    ps.setDouble(5, hMatin);
+                    ps.setDouble(6, hAm);
+                    ps.setDouble(7, totalH);
+                    ps.setInt(8, retMins);
+                    ps.setDouble(9, hNuit);
+                    ps.setString(10, motif);
+                    ps.setString(11, codeStatut);
+                    ps.setBoolean(12, depM);
+                    ps.setBoolean(13, depA);
+                    ps.setBoolean(14, depM || depA);
+                    ps.setBoolean(15, repas);
+                    ps.setInt(16, idPointage);
+                    return ps.executeUpdate() > 0;
+                }
+            }
         }
     }
 }

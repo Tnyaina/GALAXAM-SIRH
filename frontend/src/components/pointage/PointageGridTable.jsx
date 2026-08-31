@@ -6,6 +6,7 @@ import { getFullPhotoUrl } from '@/utils/fileUtils';
 import TimeInput from '@/components/ui/forms/TimeInput';
 import Badge from '@/components/ui/data-display/Badge';
 import Pagination from '@/components/ui/navigation/Pagination';
+import { formatHeuresMinutes, formatMonnaie } from '@/utils/pointageUtils';
 
 export default function PointageGridTable({
     grilleData = [],
@@ -26,10 +27,7 @@ export default function PointageGridTable({
     const startIndex = (currentPage - 1) * pageSize;
     const paginatedData = grilleData.slice(startIndex, startIndex + pageSize);
 
-    const fmtMoney = (val) => {
-        if (!val || isNaN(val)) return '0 Ar';
-        return new Intl.NumberFormat('fr-FR').format(Math.round(val)) + ' Ar';
-    };
+    const fmtMoney = (val) => formatMonnaie(val);
 
     const getStatutPointageBadge = (statutCode, libelle) => {
         switch (statutCode) {
@@ -45,6 +43,10 @@ export default function PointageGridTable({
                 return <span className="bg-[#EEF0F2] dark:bg-ink-800 text-[var(--color-fg-muted)] text-[11px] font-semibold px-2 py-1">{libelle || 'Férié chômé'}</span>;
             case 'FERIE_TRAVAILLE':
                 return <Badge variant="error" size="sm" className="font-bold">Férié (+100%)</Badge>;
+            case 'SAMEDI_TRAVAILLE':
+                return <Badge variant="brand" size="sm" className="font-bold">Samedi ({libelle || 'Travaillé'})</Badge>;
+            case 'DIMANCHE_TRAVAILLE':
+                return <Badge variant="purple" size="sm" className="font-bold">Dimanche (+40%)</Badge>;
             case 'RETARD':
                 return <Badge variant="error" size="sm" className="font-bold">Retard</Badge>;
             case 'ANOMALIE_SAISIE':
@@ -220,9 +222,7 @@ export default function PointageGridTable({
                                     <Td className="px-3 py-3 text-center font-mono font-semibold border-l border-[var(--color-border-subtle)]">
                                         <div className="flex flex-col items-center justify-center">
                                             <span>
-                                                {row.totalHeures && row.totalHeures > 0
-                                                    ? `${String(Math.floor(row.totalHeures)).padStart(2, '0')}h${String(Math.round((row.totalHeures % 1) * 60)).padStart(2, '0')}`
-                                                    : '00h00'}
+                                                {formatHeuresMinutes(row.totalHeures, true)}
                                             </span>
                                             {row.heuresNuit > 0 && (
                                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-600 bg-indigo-500/10 px-1 mt-0.5">

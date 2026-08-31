@@ -5,9 +5,13 @@ import {
     FileDown, 
     TrendingUp, 
     Info, 
-    RotateCcw
+    RotateCcw,
+    ChevronLeft,
+    ChevronRight,
+    Calendar
 } from 'lucide-react';
 import pointageEmployeService from '@/api/pointage/pointageEmployeService';
+import periodePaieService from '@/services/periodePaieService';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -16,33 +20,76 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 
 export default function PointageTab({ idEmploye }) {
-    const [periodView, setPeriodView] = useState('mois');
+    const [periodView, setPeriodView] = useState('periode');
     const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [selectedPeriodeId, setSelectedPeriodeId] = useState(null);
+    const [periodesList, setPeriodesList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [ficheData, setFicheData] = useState(null);
+
+    // 1. Charger la liste des périodes de paie officielles
+    useEffect(() => {
+        const fetchPeriodes = async () => {
+            try {
+                const data = await periodePaieService.getAllPeriodes();
+                if (data && Array.isArray(data) && data.length > 0) {
+                    setPeriodesList(data);
+                    // Déterminer la période courante ou la plus récente
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const activeP = data.find(p => p.dateDebut <= todayStr && p.dateFin >= todayStr) || data[0];
+                    if (activeP) {
+                        setSelectedPeriodeId(activeP.idPeriodePaie);
+                    }
+                }
+            } catch (err) {
+                console.error('Erreur chargement liste des périodes de paie:', err);
+            }
+        };
+        fetchPeriodes();
+    }, []);
 
     const loadFiche = useCallback(async () => {
         if (!idEmploye) return;
         setLoading(true);
         setError(null);
         try {
-            const res = await pointageEmployeService.getFicheEmploye(idEmploye, {
+            const params = {
                 date: selectedDate,
                 period: periodView
-            });
+            };
+            if (periodView === 'periode' && selectedPeriodeId) {
+                params.idPeriode = selectedPeriodeId;
+            }
+            const res = await pointageEmployeService.getFicheEmploye(idEmploye, params);
             setFicheData(res);
+            if (res?.idPeriode && periodView === 'periode') {
+                setSelectedPeriodeId(res.idPeriode);
+            }
         } catch (err) {
             console.error('Erreur chargement fiche pointage employe:', err);
             setError('Impossible de charger les données de pointage pour cet employé.');
         } finally {
             setLoading(false);
         }
-    }, [idEmploye, selectedDate, periodView]);
+    }, [idEmploye, selectedDate, periodView, selectedPeriodeId]);
 
     useEffect(() => {
         loadFiche();
     }, [loadFiche]);
+
+    // Navigation entre périodes de paie
+    const handleNavigatePeriode = (delta) => {
+        if (!periodesList || periodesList.length === 0) return;
+        const currIndex = periodesList.findIndex(p => p.idPeriodePaie === selectedPeriodeId);
+        if (currIndex === -1) return;
+        const newIndex = currIndex - delta; // Liste triée DESC (0 = plus récent)
+        if (newIndex >= 0 && newIndex < periodesList.length) {
+            const nextP = periodesList[newIndex];
+            setSelectedPeriodeId(nextP.idPeriodePaie);
+            if (nextP.dateDebut) setSelectedDate(nextP.dateDebut);
+        }
+    };
 
     const handlePrint = () => {
         window.print();
@@ -66,6 +113,10 @@ export default function PointageTab({ idEmploye }) {
                 return <Badge variant="neutral" size="sm" className="font-bold">FÉRIÉ CHÔMÉ</Badge>;
             case 'FERIE_TRAVAILLE':
                 return <Badge variant="purple" size="sm" className="font-bold">FÉRIÉ +100%</Badge>;
+            case 'SAMEDI_TRAVAILLE':
+                return <Badge variant="brand" size="sm" className="font-bold">SAMEDI TRAVAILLÉ</Badge>;
+            case 'DIMANCHE_TRAVAILLE':
+                return <Badge variant="purple" size="sm" className="font-bold">DIMANCHE +40%</Badge>;
             case 'REPOS':
                 return <Badge variant="neutral" size="sm" className="font-bold">REPOS</Badge>;
             case 'ABSENT':
@@ -85,42 +136,103 @@ export default function PointageTab({ idEmploye }) {
     const regles = ficheData?.reglesAppliquees || {};
     const pointages = ficheData?.pointagesData || [];
 
+    const currIndexInList = periodesList.findIndex(p => p.idPeriodePaie === selectedPeriodeId);
+
     return (
         <div className="space-y-6 print:m-0 print:p-0">
-            {/* 1. Barre d'outils supérieure : Sélecteur de Période, Bascule Jour/Semaine/Mois et Actions */}
+            {/* 1. Barre d'outils supérieure : Sélecteur de Période, Bascule Période/Mois/Semaine/Jour et Actions */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
                 <div className="flex flex-wrap items-center gap-3">
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                        onClick={() => {
+                            setSelectedDate(new Date().toISOString().split('T')[0]);
+                            const todayStr = new Date().toISOString().split('T')[0];
+                            const activeP = periodesList.find(p => p.dateDebut <= todayStr && p.dateFin >= todayStr);
+                            if (activeP) setSelectedPeriodeId(activeP.idPeriodePaie);
+                        }}
                         className="text-xs font-bold flex items-center gap-1.5"
                     >
                         <RotateCcw size={14} />
                         Aujourd'hui
                     </Button>
 
-                    <PeriodNavigator
-                        viewPeriod={periodView}
-                        selectedDate={selectedDate}
-                        onDateChange={(newDate) => setSelectedDate(newDate)}
-                    />
-
-                    {/* Bascule Vue : JOUR | SEMAINE | MOIS */}
-                    <div className="flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 rounded-none">
-                        {['jour', 'semaine', 'mois'].map((v) => (
+                    {/* Navigation temporelle selon le mode */}
+                    {periodView === 'periode' ? (
+                        <div className="inline-flex items-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
                             <button
-                                key={v}
                                 type="button"
-                                onClick={() => setPeriodView(v)}
+                                onClick={() => handleNavigatePeriode(-1)}
+                                disabled={currIndexInList >= periodesList.length - 1}
+                                className={`px-3 py-2 text-[var(--color-fg)] transition-colors cursor-pointer ${
+                                    currIndexInList >= periodesList.length - 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--color-bg-subtle)]'
+                                }`}
+                                title="Période précédente"
+                            >
+                                <ChevronLeft size={16} />
+                            </button>
+                            <span className="h-5 w-[1px] bg-[var(--color-border-subtle)]" />
+                            <div className="flex items-center gap-2 px-3 py-1.5">
+                                <Calendar size={15} className="text-[var(--color-brand-500)] shrink-0" />
+                                <select
+                                    value={selectedPeriodeId || ''}
+                                    onChange={(e) => {
+                                        const pId = parseInt(e.target.value, 10);
+                                        setSelectedPeriodeId(pId);
+                                        const found = periodesList.find(p => p.idPeriodePaie === pId);
+                                        if (found?.dateDebut) setSelectedDate(found.dateDebut);
+                                    }}
+                                    className="bg-transparent text-sm font-bold text-[var(--color-fg)] border-none outline-none cursor-pointer pr-2"
+                                >
+                                    {periodesList.map((p) => (
+                                        <option key={p.idPeriodePaie} value={p.idPeriodePaie} className="bg-[var(--color-surface)] text-[var(--color-fg)] font-medium">
+                                            {p.libelle || p.code} ({p.dateDebut} au {p.dateFin})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <span className="h-5 w-[1px] bg-[var(--color-border-subtle)]" />
+                            <button
+                                type="button"
+                                onClick={() => handleNavigatePeriode(1)}
+                                disabled={currIndexInList <= 0}
+                                className={`px-3 py-2 text-[var(--color-fg)] transition-colors cursor-pointer ${
+                                    currIndexInList <= 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--color-bg-subtle)]'
+                                }`}
+                                title="Période suivante"
+                            >
+                                <ChevronRight size={16} />
+                            </button>
+                        </div>
+                    ) : (
+                        <PeriodNavigator
+                            viewPeriod={periodView}
+                            selectedDate={selectedDate}
+                            onDateChange={(newDate) => setSelectedDate(newDate)}
+                        />
+                    )}
+
+                    {/* Bascule Vue : PÉRIODE DE PAIE | MOIS | SEMAINE | JOUR */}
+                    <div className="flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 rounded-none">
+                        {[
+                            { key: 'periode', label: 'Période de Paie' },
+                            { key: 'mois', label: 'Mois Civil' },
+                            { key: 'semaine', label: 'Semaine' },
+                            { key: 'jour', label: 'Jour' }
+                        ].map(({ key, label }) => (
+                            <button
+                                key={key}
+                                type="button"
+                                onClick={() => setPeriodView(key)}
                                 className={`px-3 py-1 text-xs font-bold uppercase transition-colors cursor-pointer ${
-                                    periodView === v
+                                    periodView === key
                                         ? 'bg-[var(--color-brand-500)] text-white shadow-xs'
                                         : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                 }`}
                             >
-                                {v}
+                                {label}
                             </button>
                         ))}
                     </div>
@@ -149,6 +261,32 @@ export default function PointageTab({ idEmploye }) {
                     </Button>
                 </div>
             </div>
+
+            {/* Bandeau d'en-tête de la Période affichée */}
+            {ficheData && (
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-center gap-2.5">
+                        <TrendingUp size={16} className="text-[var(--color-brand-500)]" />
+                        <span className="text-xs font-bold text-[var(--color-fg)] uppercase tracking-wider">
+                            {ficheData.libellePeriode || 'Période de présence'}
+                        </span>
+                        {ficheData.dateDebut && ficheData.dateFin && (
+                            <span className="text-xs text-[var(--color-fg-muted)] font-mono">
+                                (du {ficheData.dateDebut} au {ficheData.dateFin})
+                            </span>
+                        )}
+                    </div>
+                    {ficheData.statutPeriode && (
+                        <Badge
+                            variant={ficheData.statutPeriode === 'CLOTUREE' || ficheData.statutPeriode === 'VALIDEE' ? 'success' : 'warning'}
+                            size="sm"
+                            className="font-bold"
+                        >
+                            {ficheData.statutPeriode}
+                        </Badge>
+                    )}
+                </div>
+            )}
 
             {error && <Alert type="error" message={error} />}
 

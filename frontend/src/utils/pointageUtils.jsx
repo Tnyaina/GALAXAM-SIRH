@@ -1,10 +1,53 @@
 import Badge from '@/components/ui/data-display/Badge';
 
 /**
+ * Formate un nombre d'heures décimales (ex: 8.5) en chaîne lisible "08h30" ou "8h30".
+ * Robuste contre les erreurs d'arrondi flottant (ex: évite 08h60).
+ * 
+ * @param {number|string} hoursDecimal Valeur décimale d'heures (ex: 8.5, 4.25)
+ * @param {boolean} padZero Si true, préfixe les heures à 2 chiffres ("08h30"), sinon "8h30"
+ * @returns {string} Heure formatée (ex: "08h30")
+ */
+export const formatHeuresMinutes = (hoursDecimal, padZero = true) => {
+    if (hoursDecimal === null || hoursDecimal === undefined || hoursDecimal === '' || isNaN(hoursDecimal)) {
+        return padZero ? '00h00' : '0h00';
+    }
+    const val = Number(hoursDecimal);
+    if (val <= 0) return padZero ? '00h00' : '0h00';
+
+    const totalMinutes = Math.round(val * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+
+    const hStr = padZero ? String(h).padStart(2, '0') : String(h);
+    const mStr = String(m).padStart(2, '0');
+
+    return `${hStr}h${mStr}`;
+};
+
+/**
+ * Formate un montant monétaire en Ariary (ex: 1 418 Ar).
+ */
+export const formatMonnaie = (val) => {
+    if (!val || isNaN(val) || Number(val) === 0) return '0 Ar';
+    return new Intl.NumberFormat('fr-FR').format(Math.round(Number(val))) + ' Ar';
+};
+
+/**
+ * Formate les minutes de retard.
+ */
+export const formatMinutesRetard = (mins) => {
+    const m = Number(mins) || 0;
+    if (m <= 0) return '0m';
+    return `+${m}m`;
+};
+
+/**
  * Mappe un code de statut de pointage (issu de ref_statut_pointage_jour)
  * vers son badge visuel correspondant du Design System.
  * 
  * @param {string} codeStatut Code du statut issu de la BDD
+ * @param {number} minutesRetard
  * @returns {JSX.Element} Badge UI prêt à afficher
  */
 export const getStatutPointageBadge = (codeStatut, minutesRetard = 0) => {
@@ -77,3 +120,4 @@ export const formatDate = (dateStr) => {
         return String(dateStr);
     }
 };
+

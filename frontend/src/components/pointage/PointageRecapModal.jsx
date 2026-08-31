@@ -3,6 +3,7 @@ import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import { formatHeuresMinutes, formatMonnaie } from '@/utils/pointageUtils';
 
 export default function PointageRecapModal({
     isOpen = false,
@@ -16,10 +17,7 @@ export default function PointageRecapModal({
 }) {
     const safeData = Array.isArray(grilleData) ? grilleData : [];
 
-    const fmtMoney = (val) => {
-        if (!val || isNaN(val) || val === 0) return '0 Ar';
-        return new Intl.NumberFormat('fr-FR').format(Math.round(val)) + ' Ar';
-    };
+    const fmtMoney = (val) => formatMonnaie(val);
 
     const totalInscrits = safeData.length;
     const presents = safeData.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0));
@@ -27,12 +25,13 @@ export default function PointageRecapModal({
     const cumulRetard = safeData.reduce((acc, r) => acc + (Number(r.minutesRetard) || 0), 0);
     const anomalies = safeData.filter(r => r.anomalie || r.absenceNonJustifiee);
     const repasCount = safeData.filter(r => r.indemniteRepasRecue).length;
-    const deplacementCount = safeData.reduce((acc, r) => {
+    const totalTrajets = safeData.reduce((acc, r) => {
         let cnt = 0;
-        if (r.deplacementMatin) cnt += 0.5;
-        if (r.deplacementAm) cnt += 0.5;
+        if (r.deplacementMatin) cnt += 1;
+        if (r.deplacementAm) cnt += 1;
         return acc + cnt;
     }, 0);
+    const totalJoursDeplacement = totalTrajets / 2.0;
 
     // Configuration dynamique des montants du site (fournis par le backend)
     const deplacementConfig = siteIndemnites.find(i => i.code === 'DEPLACEMENT' || i.code === 'TRANSPORT');
@@ -122,7 +121,7 @@ export default function PointageRecapModal({
                             <Car size={14} className="text-indigo-500" /> Déplacements
                         </p>
                         <p className="text-xl font-bold font-mono text-indigo-600 mt-1.5">
-                            {deplacementCount} <span className="text-xs font-normal text-[var(--color-fg-muted)] font-sans">trajet(s)</span>
+                            {totalTrajets} <span className="text-xs font-normal text-[var(--color-fg-muted)] font-sans">trajet{totalTrajets > 1 ? 's' : ''} ({totalJoursDeplacement}j)</span>
                         </p>
                     </div>
                 </div>
@@ -176,7 +175,7 @@ export default function PointageRecapModal({
                                         <Td className="py-2.5 px-3 text-center font-mono text-[12px]">{matinStr}</Td>
                                         <Td className="py-2.5 px-3 text-center font-mono text-[12px]">{amStr}</Td>
                                         <Td className="py-2.5 px-3 text-center font-mono font-bold text-[12.5px]">
-                                            {row.totalHeures ? `${Number(row.totalHeures).toFixed(0)}h00` : '00h00'}
+                                            {formatHeuresMinutes(row.totalHeures, true)}
                                         </Td>
                                         <Td className="py-2.5 px-3 text-center font-mono">
                                             {row.minutesRetard > 0 ? (

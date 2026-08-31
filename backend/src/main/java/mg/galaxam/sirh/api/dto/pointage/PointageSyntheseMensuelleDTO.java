@@ -43,9 +43,16 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
     private double heuresNuitTotal;
     private double heuresAbsenceRetenues; // Retards nets non compensés
     private int totalMinutesRetard;
+    private double retardCompense; // Retard compensé 1:1 en heures
+    private double surplusBrut; // Total travaillé - Heures normales
+
+    public double getSurplusBrut() { return surplusBrut; }
+    public void setSurplusBrut(double surplusBrut) { this.surplusBrut = surplusBrut; }
 
     public int getTotalMinutesRetard() { return totalMinutesRetard; }
     public void setTotalMinutesRetard(int totalMinutesRetard) { this.totalMinutesRetard = totalMinutesRetard; }
+    public double getRetardCompense() { return retardCompense; }
+    public void setRetardCompense(double retardCompense) { this.retardCompense = retardCompense; }
 
     // Indemnités
     private int nbJoursDeplacement;

@@ -132,7 +132,7 @@ export default function ParcoursChronologique({
                 const correspondCible = Number(wf.idContratCible) === Number(contrat.idContrat);
                 const correspondSource = Number(wf.idContratSource) === Number(contrat.idContrat);
                 const correspondNumero = (wf.numeroContratCible && wf.numeroContratCible === contrat.numeroContrat) ||
-                                         (wf.numeroContratSource && wf.numeroContratSource === contrat.numeroContrat);
+                    (wf.numeroContratSource && wf.numeroContratSource === contrat.numeroContrat);
                 return correspondCible || correspondSource || correspondNumero;
             });
 
@@ -374,7 +374,7 @@ export default function ParcoursChronologique({
                             {/* Corps du Chapitre : Événements & Affectations du Contrat */}
                             <div className="p-5">
                                 {chapitre.workflows.length === 0 ? (
-                                    <p className="text-xs text-ink-400 italic">
+                                    <p className="text-xs text-ink-400 ">
                                         Aucun événement particulier n'a été enregistré pour cette période contractuelle.
                                     </p>
                                 ) : (
@@ -506,7 +506,7 @@ export default function ParcoursChronologique({
 
                                                         {/* Commentaire / Motif */}
                                                         {wf.motif && !isWfAnnule && (
-                                                            <p className="text-[11px] text-ink-500 italic mt-2 pt-1 border-t border-ink-100 dark:border-ink-800">
+                                                            <p className="text-[11px] text-ink-500  mt-2 pt-1 border-t border-ink-100 dark:border-ink-800">
                                                                 "{wf.motif}"
                                                             </p>
                                                         )}

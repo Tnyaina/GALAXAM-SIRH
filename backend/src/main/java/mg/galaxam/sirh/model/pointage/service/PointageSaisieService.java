@@ -131,6 +131,18 @@ public class PointageSaisieService {
             int retardMinutes,
             boolean hasValidationErr
     ) {
+        return determinerStatutJour(null, isFerie, typeConge, isAutonome, em, sm, ea, sa, retardMinutes, hasValidationErr);
+    }
+
+    public static String determinerStatutJour(
+            LocalDate date,
+            boolean isFerie,
+            String typeConge,
+            boolean isAutonome,
+            Time em, Time sm, Time ea, Time sa,
+            int retardMinutes,
+            boolean hasValidationErr
+    ) {
         boolean isFullConge = "FULL_DAY".equalsIgnoreCase(typeConge);
         boolean isCongeMatin = "MATIN".equalsIgnoreCase(typeConge);
         boolean isCongeAm = "APRES_MIDI".equalsIgnoreCase(typeConge);
@@ -158,11 +170,15 @@ public class PointageSaisieService {
         // 4. Aucun horaire saisi
         if (!aSaisiDesHeures) {
             if (isAutonome) return "DISPENSE_POINTAGE";
-            return "NON_SAISI";
+            return "ABSENCE_NON_JUSTIFIEE";
         }
 
         // 5. Cas pause automatique (Entrée Matin et Sortie Soir uniquement)
         if (em != null && sa != null && sm == null && ea == null) {
+            if (date != null) {
+                if (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY) return "SAMEDI_TRAVAILLE";
+                if (date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) return "DIMANCHE_TRAVAILLE";
+            }
             return "PRESENT";
         }
 
@@ -179,10 +195,14 @@ public class PointageSaisieService {
             return isCongeMatin ? "PRESENT" : "ANOMALIE_SAISIE";
         }
 
-        // 8. Jour normal complet
+        // 8. Jour normal complet ou Week-end travaillé
         double totalH = calcHours(em, sm) + calcHours(ea, sa);
         if (totalH == 0.0) {
             return "ABSENCE_NON_JUSTIFIEE";
+        }
+        if (date != null) {
+            if (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY) return "SAMEDI_TRAVAILLE";
+            if (date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) return "DIMANCHE_TRAVAILLE";
         }
         return "PRESENT";
     }
@@ -748,22 +768,92 @@ public class PointageSaisieService {
                 "accorde = EXCLUDED.accorde, " +
                 "updated_at = CURRENT_TIMESTAMP";
 
+        // Chargement des horaires configurés par site
+        Map<Integer, LocalTime[]> siteHoraires = new HashMap<>();
+        String sqlSites = "SELECT id_site, heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi, COALESCE(horaire_continu, TRUE) AS horaire_continu FROM ref_site";
+        try (PreparedStatement psSites = c.prepareStatement(sqlSites);
+             ResultSet rsSites = psSites.executeQuery()) {
+            while (rsSites.next()) {
+                int sId = rsSites.getInt("id_site");
+                Time hdm = rsSites.getTime("heure_debut_matin");
+                Time hfm = rsSites.getTime("heure_fin_matin");
+                Time hda = rsSites.getTime("heure_debut_apres_midi");
+                Time hfa = rsSites.getTime("heure_fin_apres_midi");
+                boolean cont = rsSites.getBoolean("horaire_continu");
+
+                LocalTime ltDebM = hdm != null ? hdm.toLocalTime() : LocalTime.of(8, 0);
+                LocalTime ltFinM = hfm != null ? hfm.toLocalTime() : LocalTime.of(12, 0);
+                LocalTime ltDebA = hda != null ? hda.toLocalTime() : (cont ? LocalTime.of(13, 0) : LocalTime.of(14, 0));
+                LocalTime ltFinA = hfa != null ? hfa.toLocalTime() : (cont ? LocalTime.of(17, 0) : LocalTime.of(18, 0));
+
+                siteHoraires.put(sId, new LocalTime[]{ltDebM, ltFinM, ltDebA, ltFinA});
+            }
+        } catch (Exception ignored) {}
+
         try (PreparedStatement ps = c.prepareStatement(sqlUpsert);
              PreparedStatement psDyn = c.prepareStatement(sqlDynInd)) {
 
             for (SaisiePointageJourDTO dto : pointages) {
+                int idSiteRow = dto.getIdSite() != null ? dto.getIdSite() : 1;
+                LocalTime[] sH = siteHoraires.getOrDefault(idSiteRow, new LocalTime[]{
+                        LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0)
+                });
+                LocalTime siteDebM = sH[0];
+                LocalTime siteFinM = sH[1];
+                LocalTime siteDebA = sH[2];
+                LocalTime siteFinA = sH[3];
+
                 Time em = parseTime(dto.getHeureEntreeMatin());
                 Time sm = parseTime(dto.getHeureSortieMatin());
                 Time ea = parseTime(dto.getHeureEntreeAm());
                 Time sa = parseTime(dto.getHeureSortieAm());
 
-                double hMatin = calcHours(em, sm);
-                double hAm = calcHours(ea, sa);
+                boolean isPauseAuto = (em != null && sa != null && sm == null && ea == null);
+                double hMatin;
+                double hAm;
+
+                if (isPauseAuto) {
+                    Time smEff = Time.valueOf(siteFinM);
+                    Time eaEff = Time.valueOf(siteDebA);
+                    hMatin = calcHours(em, smEff);
+                    hAm = calcHours(eaEff, sa);
+                } else {
+                    hMatin = calcHours(em, sm);
+                    hAm = calcHours(ea, sa);
+                }
+
                 double totalH = hMatin + hAm;
                 double hNuit = calcHeuresNuit(sa, debutNuit, finNuit);
-                int retMins = calcMinutesRetard(em, LocalTime.of(8, 0)) + calcMinutesRetard(ea, LocalTime.of(13, 0));
 
-                if ("FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) totalH = 0.0;
+                // Calcul du retard précis et juste selon le site
+                int retMatin = calcMinutesRetard(em, siteDebM);
+                int retAm = 0;
+                if (!isPauseAuto && ea != null) {
+                    if (sm != null && siteDebA.isAfter(siteFinM)) {
+                        long pauseTheorique = Duration.between(siteFinM, siteDebA).toMinutes();
+                        LocalTime ltSm = sm.toLocalTime();
+                        LocalTime ltEa = ea.toLocalTime();
+                        if (ltSm.isAfter(siteFinM) && ltEa.isAfter(ltSm)) {
+                            long pauseReelle = Duration.between(ltSm, ltEa).toMinutes();
+                            retAm = (int) Math.max(0, pauseReelle - pauseTheorique);
+                        } else {
+                            retAm = calcMinutesRetard(ea, siteDebA);
+                        }
+                    } else {
+                        retAm = calcMinutesRetard(ea, siteDebA);
+                    }
+                }
+
+                boolean isExemptRetard = dto.isFerieJour() || "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour()) || dto.isEstAutonome();
+                int retMins = isExemptRetard ? 0 : (retMatin + retAm);
+
+                if ("FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) {
+                    totalH = 0.0;
+                } else if (dto.isFerieJour() && em == null && sm == null && ea == null && sa == null) {
+                    totalH = 0.0;
+                } else if (dto.isEstAutonome() && em == null && sm == null && ea == null && sa == null) {
+                    totalH = 8.0;
+                }
 
                 // Calcul dynamique du montant repas (déjeuner + extra soirée)
                 double mntRepasJour = 0.0;
@@ -783,12 +873,21 @@ public class PointageSaisieService {
                 boolean depA = dto.isDeplacementAm();
                 boolean depRecue = depM || depA;
 
+                LocalDate datePtg = null;
+                try {
+                    if (dto.getDatePointage() != null) datePtg = LocalDate.parse(dto.getDatePointage());
+                } catch (Exception ignored) {}
+
                 String codeStatut = dto.getCodeStatut();
                 if (codeStatut == null || codeStatut.isEmpty() || "NON_SAISI".equals(codeStatut)) {
                     codeStatut = determinerStatutJour(
+                            datePtg,
                             dto.isFerieJour(), dto.getTypeCongeJour(), dto.isEstAutonome(),
                             em, sm, ea, sa, retMins, false
                     );
+                } else if ("PRESENT".equals(codeStatut) && datePtg != null && totalH > 0) {
+                    if (datePtg.getDayOfWeek() == java.time.DayOfWeek.SATURDAY) codeStatut = "SAMEDI_TRAVAILLE";
+                    else if (datePtg.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) codeStatut = "DIMANCHE_TRAVAILLE";
                 }
                 // Si le statut calculé est "RETARD", en base le statut est "PRESENT" (minutes_retard contient les minutes)
                 if ("RETARD".equals(codeStatut)) {

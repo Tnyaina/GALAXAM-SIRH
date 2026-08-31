@@ -22,12 +22,14 @@ public class PointageAnomalieController {
     public ResponseEntity<Map<String, Object>> getAnomalies(
             @RequestParam(required = false) Integer idSite,
             @RequestParam(required = false) Integer idPeriode,
+            @RequestParam(required = false) Integer idPeriodePaie,
             @RequestParam(required = false) String datePointage,
             @RequestParam(required = false) String search
     ) {
         try {
+            Integer per = (idPeriode != null && idPeriode > 0) ? idPeriode : idPeriodePaie;
             Map<String, Object> data = pointageAnomalieService.getAnomalies(
-                    idSite, idPeriode, datePointage, search
+                    idSite, per, datePointage, search
             );
             return ResponseEntity.ok(data);
         } catch (SQLException e) {

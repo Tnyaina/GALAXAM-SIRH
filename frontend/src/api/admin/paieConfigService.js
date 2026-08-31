@@ -128,6 +128,10 @@ const paieConfigService = {
         const response = await apiClient.put(`/referentiel/calendrier-ferie/${id}`, data);
         return response.data;
     },
+    deleteCalendrierFerie: async (id) => {
+        const response = await apiClient.delete(`/referentiel/calendrier-ferie/${id}`);
+        return response.data;
+    },
     getSiteFeries: async () => {
         const response = await apiClient.get('/referentiel/calendrier-ferie/site-config');
         return response.data;

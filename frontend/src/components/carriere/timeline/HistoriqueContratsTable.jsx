@@ -114,9 +114,9 @@ export default function HistoriqueContratsTable({
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             {isPlanifie ? (
-                                                <span className="text-[11px] text-ink-400 italic">Non démarré</span>
+                                                <span className="text-[11px] text-ink-400 ">Non démarré</span>
                                             ) : isAnnule ? (
-                                                <span className="text-[11px] text-danger-500 italic">Annulé</span>
+                                                <span className="text-[11px] text-danger-500 ">Annulé</span>
                                             ) : canGenerateCertificat ? (
                                                 <Button
                                                     onClick={() => onOpenCertificat(ct)}

@@ -88,11 +88,41 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
         if (em !== null && sa !== null && em >= sa) hasValidationError = true;
 
         const startMatinNormal = parseMins(sParams?.heureDebutMatin || '08:00');
+        const endMatinNormal = parseMins(sParams?.heureFinMatin || '12:00');
         const startAmNormal = parseMins(sParams?.heureDebutAm || (sParams?.horaireContinu ? '13:00' : '14:00'));
 
         let retMatin = (em !== null && startMatinNormal !== null && em > startMatinNormal) ? (em - startMatinNormal) : 0;
-        let retAm = (!isPauseAuto && ea !== null && startAmNormal !== null && ea > startAmNormal) ? (ea - startAmNormal) : 0;
-        let totalMinutesRetard = retMatin + retAm;
+        let retAm = 0;
+        if (!isPauseAuto && ea !== null && startAmNormal !== null) {
+            if (sm !== null && endMatinNormal !== null && startAmNormal > endMatinNormal) {
+                const pauseTheorique = startAmNormal - endMatinNormal;
+                if (sm > endMatinNormal) {
+                    const pauseReelle = ea - sm;
+                    if (pauseReelle > pauseTheorique) {
+                        retAm = pauseReelle - pauseTheorique;
+                    } else {
+                        retAm = 0;
+                    }
+                } else {
+                    retAm = Math.max(0, ea - startAmNormal);
+                }
+            } else {
+                retAm = Math.max(0, ea - startAmNormal);
+            }
+        }
+
+        const isExemptRetard = isFerie || isCongeFull || !!row.estAutonome;
+        let totalMinutesRetard = isExemptRetard ? 0 : (retMatin + retAm);
+
+        const dStr = row.datePointage || selectedDate;
+        let dayOfWeek = null;
+        if (dStr) {
+            const parts = dStr.split('-');
+            if (parts.length === 3) {
+                const dObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                dayOfWeek = dObj.getDay();
+            }
+        }
 
         // Détermination du statut selon la hiérarchie stricte
         let codeStatut;
@@ -108,9 +138,12 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
             codeStatut = 'ANOMALIE_SAISIE';
         } else if (em === null && sm === null && ea === null && sa === null) {
             if (row.estAutonome) codeStatut = 'DISPENSE_POINTAGE';
+            else if (row.idPointage) codeStatut = 'ABSENCE_NON_JUSTIFIEE';
             else codeStatut = 'NON_SAISI';
         } else if (isPauseAuto) {
-            codeStatut = totalMinutesRetard > 0 ? 'RETARD' : 'PRESENT';
+            if (dayOfWeek === 6) codeStatut = 'SAMEDI_TRAVAILLE';
+            else if (dayOfWeek === 0) codeStatut = 'DIMANCHE_TRAVAILLE';
+            else codeStatut = totalMinutesRetard > 0 ? 'RETARD' : 'PRESENT';
         } else if ((em !== null && sm === null) || (ea !== null && sa === null) || (em === null && sm !== null) || (ea === null && sa !== null)) {
             codeStatut = 'ANOMALIE_SAISIE';
         } else if (em !== null && sm !== null && ea === null && sa === null) {
@@ -119,6 +152,10 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
             codeStatut = isCongeMatin ? (totalMinutesRetard > 0 ? 'RETARD' : 'PRESENT') : 'ANOMALIE_SAISIE';
         } else if (totalH === 0.0) {
             codeStatut = 'ABSENCE_NON_JUSTIFIEE';
+        } else if (dayOfWeek === 6 && totalH > 0) {
+            codeStatut = 'SAMEDI_TRAVAILLE';
+        } else if (dayOfWeek === 0 && totalH > 0) {
+            codeStatut = 'DIMANCHE_TRAVAILLE';
         } else if (totalMinutesRetard > 0) {
             codeStatut = 'RETARD';
         } else {
@@ -128,6 +165,8 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
         let libelleStatut = row.libelleStatut;
         if (codeStatut === 'FERIE_CHOME') libelleStatut = row.libelleFerie || 'Férié chômé';
         else if (codeStatut === 'FERIE_TRAVAILLE') libelleStatut = (row.libelleFerie ? `${row.libelleFerie} (Travaillé)` : 'Férié travaillé (+100%)');
+        else if (codeStatut === 'SAMEDI_TRAVAILLE') libelleStatut = 'Samedi travaillé';
+        else if (codeStatut === 'DIMANCHE_TRAVAILLE') libelleStatut = 'Dimanche travaillé (+40%)';
         else if (codeStatut === 'DISPENSE_POINTAGE') libelleStatut = 'Cadre autonome (8h)';
         else if (codeStatut === 'CONGE') libelleStatut = row.libelleConge || 'Congé';
         else if (codeStatut === 'PRESENT') libelleStatut = 'Présent';
@@ -160,7 +199,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
             anomalie: codeStatut === 'ANOMALIE_SAISIE',
             absenceNonJustifiee: codeStatut === 'ABSENCE_NON_JUSTIFIEE'
         };
-    }, []);
+    }, [selectedDate]);
 
     const loadData = useCallback(async () => {
         setLoading(true);
