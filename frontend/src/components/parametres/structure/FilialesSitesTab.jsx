@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, Building2, MapPin, Eye } from 'lucide-react';
+import { Search, Plus, Building2, MapPin, Eye, Filter } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import Button from '@/components/ui/forms/Button';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
 import Alert from '@/components/ui/feedback/Alert';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 import FilialesList from './filiales/FilialesList';
 import FilialeFormModal from './filiales/FilialeFormModal';
@@ -14,7 +16,8 @@ import SiteFormModal from './sites/SiteFormModal';
 
 export default function FilialesSitesTab() {
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeSubTab = searchParams.get('subtab') || 'filiales'; // 'filiales' | 'sites'
+    const activeSubTab = searchParams.get('subtab') || 'filiales';
+    const toast = useToast();
 
     const setActiveSubTab = (newSubTab) => {
         setSearchParams(prev => {
@@ -30,9 +33,21 @@ export default function FilialesSitesTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
     const [search, setSearch] = useState('');
     const [showInactive, setShowInactive] = useState(false);
+    const [filterFilialeId, setFilterFilialeId] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+
+    // Confirmation dialog state
+    const [confirmState, setConfirmState] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmLabel: '',
+        variant: 'danger',
+        onConfirm: null,
+        loading: false
+    });
 
     // Modales Filiale
     const [showFilialeModal, setShowFilialeModal] = useState(false);
@@ -45,8 +60,10 @@ export default function FilialesSitesTab() {
     const [showSiteModal, setShowSiteModal] = useState(false);
     const [selectedSite, setSelectedSite] = useState(null);
     const [siteFormData, setSiteFormData] = useState({
-        codeSite: '', libelle: '', idFilialeRattachement: '', horaireContinu: true,
-        heureDebutMatin: '08:00', heureFinMatin: '12:00', heureDebutApresMidi: '13:00', heureFinApresMidi: '17:00'
+        codeSite: '', libelle: '', idFilialeRattachement: '',
+        horaireContinu: true,
+        heureDebutMatin: '08:00', heureFinMatin: '12:30',
+        heureDebutApresMidi: '13:00', heureFinApresMidi: '16:30'
     });
 
     const loadData = async () => {
@@ -57,10 +74,10 @@ export default function FilialesSitesTab() {
                 organisationService.getFiliales(),
                 organisationService.getSites()
             ]);
-            setFiliales(filialesData || []);
-            setSites(sitesData || []);
+            setFiliales(filialesData);
+            setSites(sitesData);
         } catch (err) {
-            setError("Erreur lors du chargement des données des filiales et sites.");
+            setError("Erreur lors du chargement des structures. Veuillez réessayer.");
             console.error(err);
         } finally {
             setLoading(false);
@@ -94,8 +111,8 @@ export default function FilialesSitesTab() {
 
     const handleSaveFiliale = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setActionError(null);
-        setActionSuccess(null);
 
         if (!filialeFormData.codeFiliale.trim()) {
             setActionError("Le code filiale est obligatoire.");
@@ -106,36 +123,53 @@ export default function FilialesSitesTab() {
             return;
         }
 
+        setSubmitting(true);
         try {
             if (selectedFiliale) {
                 await organisationService.updateFiliale(selectedFiliale.idFiliale, filialeFormData);
-                setActionSuccess(`La filiale "${filialeFormData.raisonSociale}" a été modifiée.`);
+                toast({ title: 'Succès', message: `La filiale "${filialeFormData.raisonSociale}" a été modifiée.`, type: 'success' });
             } else {
                 await organisationService.createFiliale(filialeFormData);
-                setActionSuccess(`La filiale "${filialeFormData.raisonSociale}" a été créée.`);
+                toast({ title: 'Succès', message: `La filiale "${filialeFormData.raisonSociale}" a été créée.`, type: 'success' });
             }
             setShowFilialeModal(false);
             loadData();
         } catch (err) {
             setActionError(err.response?.data || "Erreur de sauvegarde.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
-    const handleToggleFilialeStatus = async (filiale) => {
-        setActionError(null);
-        setActionSuccess(null);
-        try {
-            if (filiale.estActif) {
-                await organisationService.deactivateFiliale(filiale.idFiliale);
-                setActionSuccess(`Filiale "${filiale.raisonSociale}" désactivée.`);
-            } else {
-                await organisationService.activateFiliale(filiale.idFiliale);
-                setActionSuccess(`Filiale "${filiale.raisonSociale}" réactivée.`);
+    const requestToggleFilialeStatus = (filiale) => {
+        const isDeactivating = filiale.estActif;
+        setConfirmState({
+            isOpen: true,
+            title: isDeactivating ? `Désactiver la filiale "${filiale.raisonSociale}" ?` : `Réactiver la filiale "${filiale.raisonSociale}" ?`,
+            message: isDeactivating
+                ? `Attention : La désactivation de cette filiale empêchera l'affectation de nouveaux contrats et la gestion des sites qui lui sont rattachés. Les données existantes resteront historisées.`
+                : `Cette filiale redeviendra immédiatement disponible pour les contrats, sites et déclarations.`,
+            confirmLabel: isDeactivating ? "Désactiver la filiale" : "Réactiver",
+            variant: isDeactivating ? "danger" : "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    if (isDeactivating) {
+                        await organisationService.deactivateFiliale(filiale.idFiliale);
+                        toast({ title: 'Succès', message: `La filiale "${filiale.raisonSociale}" a été désactivée.`, type: 'success' });
+                    } else {
+                        await organisationService.activateFiliale(filiale.idFiliale);
+                        toast({ title: 'Succès', message: `La filiale "${filiale.raisonSociale}" a été réactivée.`, type: 'success' });
+                    }
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    loadData();
+                } catch (err) {
+                    setError(err.response?.data || "Erreur lors du changement de statut.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                }
             }
-            loadData();
-        } catch (err) {
-            setError(err.response?.data || "Erreur lors du changement de statut.");
-        }
+        });
     };
 
     // Site Handlers
@@ -143,10 +177,10 @@ export default function FilialesSitesTab() {
         setSelectedSite(null);
         setSiteFormData({
             codeSite: '', libelle: '',
-            idFilialeRattachement: '',
+            idFilialeRattachement: filterFilialeId || '',
             horaireContinu: true,
-            heureDebutMatin: '08:00', heureFinMatin: '12:00',
-            heureDebutApresMidi: '13:00', heureFinApresMidi: '17:00'
+            heureDebutMatin: '08:00', heureFinMatin: '12:30',
+            heureDebutApresMidi: '13:00', heureFinApresMidi: '16:30'
         });
         setActionError(null);
         setShowSiteModal(true);
@@ -154,15 +188,16 @@ export default function FilialesSitesTab() {
 
     const handleOpenEditSite = (site) => {
         setSelectedSite(site);
+        const isContinu = site.horaireContinu !== false;
         setSiteFormData({
             codeSite: site.codeSite,
             libelle: site.libelle,
             idFilialeRattachement: site.idFilialeRattachement || '',
-            horaireContinu: site.horaireContinu !== false,
+            horaireContinu: isContinu,
             heureDebutMatin: site.heureDebutMatin ? site.heureDebutMatin.substring(0, 5) : '08:00',
-            heureFinMatin: site.heureFinMatin ? site.heureFinMatin.substring(0, 5) : '12:00',
-            heureDebutApresMidi: site.heureDebutApresMidi ? site.heureDebutApresMidi.substring(0, 5) : '13:00',
-            heureFinApresMidi: site.heureFinApresMidi ? site.heureFinApresMidi.substring(0, 5) : '17:00'
+            heureFinMatin: site.heureFinMatin ? site.heureFinMatin.substring(0, 5) : (isContinu ? '12:30' : '12:00'),
+            heureDebutApresMidi: site.heureDebutApresMidi ? site.heureDebutApresMidi.substring(0, 5) : (isContinu ? '13:00' : '14:00'),
+            heureFinApresMidi: site.heureFinApresMidi ? site.heureFinApresMidi.substring(0, 5) : (isContinu ? '16:30' : '18:00')
         });
         setActionError(null);
         setShowSiteModal(true);
@@ -170,8 +205,8 @@ export default function FilialesSitesTab() {
 
     const handleSaveSite = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setActionError(null);
-        setActionSuccess(null);
 
         if (!siteFormData.codeSite.trim()) {
             setActionError("Le code du site est obligatoire.");
@@ -182,106 +217,110 @@ export default function FilialesSitesTab() {
             return;
         }
 
+        const formatTime = (t, fallback) => {
+            const val = t || fallback;
+            return val.length === 5 ? val + ':00' : val;
+        };
+
         const payload = {
             ...siteFormData,
             idFilialeRattachement: siteFormData.idFilialeRattachement ? parseInt(siteFormData.idFilialeRattachement) : null,
-            heureDebutMatin: siteFormData.heureDebutMatin ? siteFormData.heureDebutMatin + (siteFormData.heureDebutMatin.length === 5 ? ':00' : '') : null,
-            heureFinMatin: siteFormData.heureFinMatin ? siteFormData.heureFinMatin + (siteFormData.heureFinMatin.length === 5 ? ':00' : '') : null,
-            heureDebutApresMidi: siteFormData.heureDebutApresMidi ? siteFormData.heureDebutApresMidi + (siteFormData.heureDebutApresMidi.length === 5 ? ':00' : '') : null,
-            heureFinApresMidi: siteFormData.heureFinApresMidi ? siteFormData.heureFinApresMidi + (siteFormData.heureFinApresMidi.length === 5 ? ':00' : '') : null
+            heureDebutMatin: formatTime(siteFormData.heureDebutMatin, '08:00'),
+            heureFinMatin: formatTime(siteFormData.heureFinMatin, '12:00'),
+            heureDebutApresMidi: formatTime(siteFormData.heureDebutApresMidi, '13:00'),
+            heureFinApresMidi: formatTime(siteFormData.heureFinApresMidi, '17:00')
         };
 
+        setSubmitting(true);
         try {
             if (selectedSite) {
                 await organisationService.updateSite(selectedSite.idSite, payload);
-                setActionSuccess(`Le site "${siteFormData.libelle}" a été modifié.`);
+                toast({ title: 'Succès', message: `Le site "${siteFormData.libelle}" a été modifié.`, type: 'success' });
             } else {
                 await organisationService.createSite(payload);
-                setActionSuccess(`Le site "${siteFormData.libelle}" a été créé.`);
+                toast({ title: 'Succès', message: `Le site "${siteFormData.libelle}" a été créé.`, type: 'success' });
             }
             setShowSiteModal(false);
             loadData();
         } catch (err) {
             setActionError(err.response?.data || "Erreur de sauvegarde du site.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
-    const handleToggleSiteStatus = async (site) => {
-        setActionError(null);
-        setActionSuccess(null);
-        try {
-            if (site.estActif) {
-                await organisationService.deactivateSite(site.idSite);
-                setActionSuccess(`Site "${site.libelle}" désactivé.`);
-            } else {
-                await organisationService.activateSite(site.idSite);
-                setActionSuccess(`Site "${site.libelle}" réactivé.`);
+    const requestToggleSiteStatus = (site) => {
+        const isDeactivating = site.estActif;
+        setConfirmState({
+            isOpen: true,
+            title: isDeactivating ? `Désactiver le site "${site.libelle}" ?` : `Réactiver le site "${site.libelle}" ?`,
+            message: isDeactivating
+                ? `La désactivation du site entraînera la suspension des règles de pointage associées. Vérifiez qu'aucun employé n'y effectue actuellement ses heures.`
+                : `Le site et ses horaires seront de nouveau actifs pour les affectations et le pointage.`,
+            confirmLabel: isDeactivating ? "Désactiver le site" : "Réactiver",
+            variant: isDeactivating ? "danger" : "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    if (isDeactivating) {
+                        await organisationService.deactivateSite(site.idSite);
+                        toast({ title: 'Succès', message: `Le site "${site.libelle}" a été désactivé.`, type: 'success' });
+                    } else {
+                        await organisationService.activateSite(site.idSite);
+                        toast({ title: 'Succès', message: `Le site "${site.libelle}" a été réactivé.`, type: 'success' });
+                    }
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    loadData();
+                } catch (err) {
+                    setError(err.response?.data || "Erreur lors du changement de statut.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                }
             }
-            loadData();
-        } catch (err) {
-            setError(err.response?.data || "Erreur lors du changement de statut.");
-        }
+        });
     };
 
-    const filteredFiliales = filiales.filter(f =>
+    const safeFiliales = Array.isArray(filiales) ? filiales : [];
+    const safeSites = Array.isArray(sites) ? sites : [];
+
+    const filteredFiliales = safeFiliales.filter(f =>
         (showInactive || f.estActif !== false) &&
         (f.codeFiliale?.toLowerCase().includes(search.toLowerCase()) ||
          f.raisonSociale?.toLowerCase().includes(search.toLowerCase()))
     );
 
-    const filteredSites = sites.filter(s =>
+    const filteredSites = safeSites.filter(s =>
         (showInactive || s.estActif !== false) &&
+        (!filterFilialeId || String(s.idFilialeRattachement) === String(filterFilialeId)) &&
         (s.codeSite?.toLowerCase().includes(search.toLowerCase()) ||
-         s.libelle?.toLowerCase().includes(search.toLowerCase()))
+         s.libelle?.toLowerCase().includes(search.toLowerCase()) ||
+         s.filialeRaisonSociale?.toLowerCase().includes(search.toLowerCase()))
     );
 
-    if (loading && filiales.length === 0) {
+    const subTabs = [
+        { id: 'filiales', label: `Filiales (${safeFiliales.length})`, icon: Building2 },
+        { id: 'sites', label: `Sites d'Exploitation (${safeSites.length})`, icon: MapPin }
+    ];
+
+    if (loading && filiales.length === 0 && sites.length === 0) {
         return (
             <div className="p-4">
-                <SkeletonTable rows={8} columns={5} />
+                <SkeletonTable rows={6} columns={4} />
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            {/* Notifications */}
-            {actionSuccess && <Alert type="success" message={actionSuccess} />}
-            {error && <Alert type="error" message={error} />}
-
-            {/* Barre d'outils et sous-onglets */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-4 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--color-border-subtle)] pb-4">
                 <Tabs
-                    tabs={[
-                        { id: 'filiales', label: 'Filiales', icon: <Building2 size={16} />, count: filiales.length },
-                        { id: 'sites', label: 'Sites & Horaires', icon: <MapPin size={16} />, count: sites.length }
-                    ]}
+                    tabs={subTabs}
                     activeTab={activeSubTab}
                     onChange={setActiveSubTab}
-                    variant="pills"
+                    variant="underline"
                 />
 
-                <div className="flex gap-3 items-center flex-wrap">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap">
-                        <input
-                            type="checkbox"
-                            checked={showInactive}
-                            onChange={(e) => setShowInactive(e.target.checked)}
-                            className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
-                        />
-                        <Eye size={14} />
-                        <span>Afficher désactivés</span>
-                    </label>
-                    <div className="relative flex-1 sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" size={16} />
-                        <input
-                            type="text"
-                            placeholder="Rechercher..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-9 pr-3 py-1.5 border border-[var(--color-border)] rounded-none bg-[var(--color-surface)] text-sm text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
-                        />
-                    </div>
+                <div>
                     {activeSubTab === 'filiales' ? (
                         <Button
                             onClick={handleOpenCreateFiliale}
@@ -304,25 +343,72 @@ export default function FilialesSitesTab() {
                 </div>
             </div>
 
-            {/* SubTab 1: Filiales */}
+            {error && <Alert type="error" message={error} />}
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-3.5 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
+                <div className="flex items-center gap-3 flex-1 flex-wrap">
+                    <div className="relative flex-1 min-w-[200px] max-w-sm">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" size={15} />
+                        <input
+                            type="text"
+                            placeholder={activeSubTab === 'filiales' ? "Rechercher par code, raison sociale..." : "Rechercher un site par code, nom..."}
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full pl-9 pr-3 py-1.5 border border-[var(--color-border)] rounded-none bg-[var(--color-surface)] text-xs text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
+                        />
+                    </div>
+
+                    {activeSubTab === 'sites' && (
+                        <div className="flex items-center gap-2">
+                            <Filter size={14} className="text-[var(--color-fg-muted)]" />
+                            <select
+                                value={filterFilialeId}
+                                onChange={(e) => setFilterFilialeId(e.target.value)}
+                                className="text-xs border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2.5 py-1.5 rounded-none focus:outline-none focus:border-[var(--color-brand-500)]"
+                            >
+                                <option value="">Toutes les filiales</option>
+                                {safeFiliales.map(f => (
+                                    <option key={f.idFiliale} value={f.idFiliale}>
+                                        {f.codeFiliale} - {f.raisonSociale}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap">
+                        <input
+                            type="checkbox"
+                            checked={showInactive}
+                            onChange={(e) => setShowInactive(e.target.checked)}
+                            className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
+                        />
+                        <Eye size={14} />
+                        <span>Afficher inactifs</span>
+                    </label>
+                </div>
+            </div>
+
             {activeSubTab === 'filiales' && (
                 <FilialesList
                     filiales={filteredFiliales}
                     onOpenEdit={handleOpenEditFiliale}
-                    onToggleStatus={handleToggleFilialeStatus}
+                    onToggleStatus={requestToggleFilialeStatus}
+                    onOpenCreate={handleOpenCreateFiliale}
                 />
             )}
 
-            {/* SubTab 2: Sites */}
             {activeSubTab === 'sites' && (
                 <SitesList
                     sites={filteredSites}
                     onOpenEdit={handleOpenEditSite}
-                    onToggleStatus={handleToggleSiteStatus}
+                    onToggleStatus={requestToggleSiteStatus}
+                    onOpenCreate={handleOpenCreateSite}
                 />
             )}
 
-            {/* Modale Filiale */}
             <FilialeFormModal
                 isOpen={showFilialeModal}
                 onClose={() => setShowFilialeModal(false)}
@@ -331,9 +417,9 @@ export default function FilialesSitesTab() {
                 formData={filialeFormData}
                 setFormData={setFilialeFormData}
                 actionError={actionError}
+                submitting={submitting}
             />
 
-            {/* Modale Site */}
             <SiteFormModal
                 isOpen={showSiteModal}
                 onClose={() => setShowSiteModal(false)}
@@ -343,6 +429,18 @@ export default function FilialesSitesTab() {
                 setFormData={setSiteFormData}
                 filiales={filiales}
                 actionError={actionError}
+                submitting={submitting}
+            />
+
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmLabel={confirmState.confirmLabel}
+                variant={confirmState.variant}
+                loading={confirmState.loading}
             />
         </div>
     );

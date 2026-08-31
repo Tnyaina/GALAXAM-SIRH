@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Percent, X, ShieldAlert, Layers } from 'lucide-react';
+import { Percent, ShieldAlert, Layers } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import Modal from '@/components/ui/overlays/Modal';
+import Alert from '@/components/ui/feedback/Alert';
 import { fmtDateInput } from '@/utils/paieUtils';
 
 export default function IrsaTrancheModal({
@@ -13,10 +15,9 @@ export default function IrsaTrancheModal({
     setFormData,
     existingTranches = [],
     actionError,
+    submitting = false,
 }) {
     const [localError, setLocalError] = useState(null);
-
-    if (!isOpen) return null;
 
     const minVal = parseFloat(formData.trancheMin);
     const maxVal = formData.trancheMax !== '' && formData.trancheMax !== null && formData.trancheMax !== undefined ? parseFloat(formData.trancheMax) : null;
@@ -103,126 +104,118 @@ export default function IrsaTrancheModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-lg w-full overflow-hidden">
-                <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                    <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                        <Percent size={18} className="text-[var(--color-brand-500)]" />
-                        {editingIrsa ? `Modifier la Tranche IRSA #${formData.numeroTranche}` : "Nouvelle Tranche IRSA"}
-                    </h3>
-                    <button onClick={onClose} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                        <X size={18} />
-                    </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {/* Visual guide of existing tranches */}
-                    {otherTranches.length > 0 && (
-                        <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] space-y-1.5">
-                            <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                <Layers size={13} className="text-[var(--color-brand-500)]" />
-                                Continuité du barème actuel ({otherTranches.length} tranche{otherTranches.length > 1 ? 's' : ''})
-                            </div>
-                            <div className="flex flex-wrap gap-1.5 text-xs font-mono">
-                                {otherTranches
-                                    .sort((a, b) => (a.numeroTranche || 0) - (b.numeroTranche || 0))
-                                    .map(t => (
-                                        <span key={t.idTranche} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-2 py-0.5 text-[11px]">
-                                            T{t.numeroTranche}: {parseFloat(t.trancheMin).toLocaleString('fr-FR')} → {t.trancheMax ? `${parseFloat(t.trancheMax).toLocaleString('fr-FR')}` : '∞'} ({t.taux}%)
-                                        </span>
-                                    ))
-                                }
-                            </div>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={editingIrsa ? `Modifier la Tranche IRSA #${formData.numeroTranche}` : "Nouvelle Tranche IRSA"}
+            icon={<Percent size={18} />}
+            size="md"
+            footer={
+                <>
+                    <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>
+                        Annuler
+                    </Button>
+                    <Button type="submit" form="irsa-tranche-form" variant="primary" size="sm" loading={submitting} disabled={isIntervalInvalid || isNumDuplicate}>
+                        {editingIrsa ? "Enregistrer" : "Créer la tranche"}
+                    </Button>
+                </>
+            }
+        >
+            <form id="irsa-tranche-form" onSubmit={handleSubmit} className="space-y-4">
+                {/* Visual guide of existing tranches */}
+                {otherTranches.length > 0 && (
+                    <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] space-y-1.5 rounded-none">
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
+                            <Layers size={13} className="text-[var(--color-brand-500)]" />
+                            Continuité du barème ({otherTranches.length} tranche{otherTranches.length > 1 ? 's' : ''})
                         </div>
-                    )}
-
-                    {(actionError || localError) && (
-                        <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-2">
-                            <ShieldAlert size={16} className="shrink-0" />
-                            <span>{localError || actionError}</span>
+                        <div className="flex flex-wrap gap-1.5 text-xs font-mono">
+                            {otherTranches
+                                .sort((a, b) => (a.numeroTranche || 0) - (b.numeroTranche || 0))
+                                .map(t => (
+                                    <span key={t.idTranche} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-2 py-0.5 text-[11px]">
+                                        T{t.numeroTranche}: {parseFloat(t.trancheMin).toLocaleString('fr-FR')} → {t.trancheMax ? `${parseFloat(t.trancheMax).toLocaleString('fr-FR')}` : '∞'} ({t.taux}%)
+                                    </span>
+                                ))
+                            }
                         </div>
-                    )}
-
-                    {overlapConflict && !localError && (
-                        <div className="bg-warning-500/10 text-warning-700 dark:text-warning-300 border border-warning-500/20 rounded-none p-2.5 text-xs flex items-center gap-2">
-                            <ShieldAlert size={15} className="shrink-0 text-warning-500" />
-                            <span>Attention : chevauchement potentiel avec la tranche #{overlapConflict.numeroTranche}.</span>
-                        </div>
-                    )}
-
-                    <Input
-                        label="Numéro de Tranche"
-                        type="number"
-                        min="1"
-                        required
-                        value={formData.numeroTranche}
-                        onChange={(e) => setFormData({ ...formData, numeroTranche: parseInt(e.target.value) || 1 })}
-                        error={isNumDuplicate ? "Numéro déjà existant" : undefined}
-                        helpText="Ordre croissant d'imposition (ex: 1, 2, 3...)"
-                    />
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <Input
-                            label="Montant Min (Ar)"
-                            type="number"
-                            min="0"
-                            step="1"
-                            required
-                            value={formData.trancheMin}
-                            onChange={(e) => setFormData({ ...formData, trancheMin: parseFloat(e.target.value) || 0 })}
-                        />
-                        <Input
-                            label="Montant Max (Ar)"
-                            type="number"
-                            min={!isNaN(minVal) ? minVal + 1 : 0}
-                            step="1"
-                            value={formData.trancheMax}
-                            onChange={(e) => setFormData({ ...formData, trancheMax: e.target.value })}
-                            placeholder="Vide si illimité"
-                            error={isIntervalInvalid ? "Doit être > Min" : undefined}
-                            helpText={maxVal === null ? "Dernière tranche sans plafond (∞)" : undefined}
-                        />
                     </div>
+                )}
 
+                {(actionError || localError) && (
+                    <Alert type="error" message={localError || actionError} />
+                )}
+
+                {overlapConflict && !localError && (
+                    <div className="bg-warning-500/10 text-warning-700 dark:text-warning-300 border border-warning-500/20 rounded-none p-2.5 text-xs flex items-center gap-2">
+                        <ShieldAlert size={15} className="shrink-0 text-warning-500" />
+                        <span>Attention : chevauchement potentiel avec la tranche #{overlapConflict.numeroTranche}.</span>
+                    </div>
+                )}
+
+                <Input
+                    label="Numéro d'Ordre de la Tranche"
+                    type="number"
+                    min="1"
+                    required
+                    value={formData.numeroTranche}
+                    onChange={(e) => setFormData({ ...formData, numeroTranche: parseInt(e.target.value) || 1 })}
+                    error={isNumDuplicate ? "Numéro déjà existant" : undefined}
+                    hint="Ordre croissant d'imposition (ex: 1, 2, 3...)"
+                />
+
+                <div className="grid grid-cols-2 gap-4">
                     <Input
-                        label="Taux IRSA (%)"
+                        label="Montant Min (Ar)"
                         type="number"
                         min="0"
-                        max="100"
-                        step="0.01"
+                        step="1"
                         required
-                        value={formData.taux}
-                        onChange={(e) => setFormData({ ...formData, taux: parseFloat(e.target.value) || 0 })}
-                        helpText="Pourcentage applicable sur la tranche (ex: 0, 5, 10, 15, 20, 25)"
+                        value={formData.trancheMin}
+                        onChange={(e) => setFormData({ ...formData, trancheMin: parseFloat(e.target.value) || 0 })}
                     />
+                    <Input
+                        label="Montant Max (Ar)"
+                        type="number"
+                        min={!isNaN(minVal) ? minVal + 1 : 0}
+                        step="1"
+                        value={formData.trancheMax}
+                        onChange={(e) => setFormData({ ...formData, trancheMax: e.target.value })}
+                        placeholder="Vide si illimité"
+                        error={isIntervalInvalid ? "Doit être > Min" : undefined}
+                        hint={maxVal === null ? "Dernière tranche sans plafond (∞)" : undefined}
+                    />
+                </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <Input
-                            label="Date Début"
-                            type="date"
-                            required
-                            value={fmtDateInput(formData.dateDebut)}
-                            onChange={(e) => setFormData({ ...formData, dateDebut: e.target.value })}
-                        />
-                        <Input
-                            label="Date Fin (Optionnel)"
-                            type="date"
-                            min={fmtDateInput(formData.dateDebut)}
-                            value={fmtDateInput(formData.dateFin)}
-                            onChange={(e) => setFormData({ ...formData, dateFin: e.target.value })}
-                        />
-                    </div>
+                <Input
+                    label="Taux IRSA Applicable (%)"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    required
+                    value={formData.taux}
+                    onChange={(e) => setFormData({ ...formData, taux: parseFloat(e.target.value) || 0 })}
+                    hint="Ex: 0, 5, 10, 15, 20%"
+                />
 
-                    <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
-                        <Button type="button" onClick={onClose} variant="ghost" size="sm">
-                            Annuler
-                        </Button>
-                        <Button type="submit" variant="primary" size="sm" disabled={isIntervalInvalid || isNumDuplicate}>
-                            {editingIrsa ? "Enregistrer" : "Créer"}
-                        </Button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <Input
+                        label="Date Début"
+                        type="date"
+                        required
+                        value={fmtDateInput(formData.dateDebut)}
+                        onChange={(e) => setFormData({ ...formData, dateDebut: e.target.value })}
+                    />
+                    <Input
+                        label="Date Fin (Optionnel)"
+                        type="date"
+                        min={fmtDateInput(formData.dateDebut)}
+                        value={fmtDateInput(formData.dateFin)}
+                        onChange={(e) => setFormData({ ...formData, dateFin: e.target.value })}
+                    />
+                </div>
+            </form>
+        </Modal>
     );
 }

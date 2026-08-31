@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {   FileText, UserCheck, Landmark } from 'lucide-react';
+import { FileText, UserCheck, Landmark } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
 import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 import TypesContratList from './referentiels/TypesContratList';
 import TypeContratFormModal from './referentiels/TypeContratFormModal';
@@ -16,6 +17,7 @@ import BanqueFormModal from './referentiels/BanqueFormModal';
 export default function ReferentielsRhTab() {
     const [searchParams, setSearchParams] = useSearchParams();
     const activeSection = searchParams.get('subtab') || 'contrats'; // 'contrats' | 'intervenants' | 'banques'
+    const toast = useToast();
 
     const setActiveSection = (newSubTab) => {
         setSearchParams(prev => {
@@ -33,7 +35,7 @@ export default function ReferentielsRhTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
 
     // Modale Contrat
     const [showContratModal, setShowContratModal] = useState(false);
@@ -65,7 +67,7 @@ export default function ReferentielsRhTab() {
             setTypesIntervenant(tiData || []);
             setBanques(bData || []);
         } catch (err) {
-            setError("Erreur lors du chargement des référentiels RH.");
+            setError("Erreur lors du chargement des référentiels RH. Veuillez réessayer.");
             console.error(err);
         } finally {
             setLoading(false);
@@ -93,24 +95,27 @@ export default function ReferentielsRhTab() {
 
     const handleSaveContrat = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setActionError(null);
-        setActionSuccess(null);
         if (!contratFormData.code.trim() || !contratFormData.libelle.trim()) {
             setActionError("Le code et le libellé sont obligatoires.");
             return;
         }
+        setSubmitting(true);
         try {
             if (editingContrat) {
                 await organisationService.updateTypeContrat(editingContrat.idTypeContrat, contratFormData);
-                setActionSuccess(`Type de contrat "${contratFormData.libelle}" modifié.`);
+                toast({ title: 'Succès', message: `Type de contrat "${contratFormData.libelle}" modifié.`, type: 'success' });
             } else {
                 await organisationService.createTypeContrat(contratFormData);
-                setActionSuccess(`Type de contrat "${contratFormData.libelle}" créé.`);
+                toast({ title: 'Succès', message: `Type de contrat "${contratFormData.libelle}" créé.`, type: 'success' });
             }
             setShowContratModal(false);
             loadData();
         } catch (err) {
             setActionError(err.response?.data || "Erreur de sauvegarde.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -138,24 +143,27 @@ export default function ReferentielsRhTab() {
 
     const handleSaveIntervenant = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setActionError(null);
-        setActionSuccess(null);
         if (!intervenantFormData.code.trim() || !intervenantFormData.libelle.trim()) {
             setActionError("Le code et le libellé sont obligatoires.");
             return;
         }
+        setSubmitting(true);
         try {
             if (editingIntervenant) {
                 await organisationService.updateTypeIntervenant(editingIntervenant.idTypeIntervenant, intervenantFormData);
-                setActionSuccess(`Type d'intervenant "${intervenantFormData.libelle}" modifié.`);
+                toast({ title: 'Succès', message: `Type d'intervenant "${intervenantFormData.libelle}" modifié.`, type: 'success' });
             } else {
                 await organisationService.createTypeIntervenant(intervenantFormData);
-                setActionSuccess(`Type d'intervenant "${intervenantFormData.libelle}" créé.`);
+                toast({ title: 'Succès', message: `Type d'intervenant "${intervenantFormData.libelle}" créé.`, type: 'success' });
             }
             setShowIntervenantModal(false);
             loadData();
         } catch (err) {
             setActionError(err.response?.data || "Erreur de sauvegarde.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -176,54 +184,55 @@ export default function ReferentielsRhTab() {
 
     const handleSaveBanque = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setActionError(null);
-        setActionSuccess(null);
         if (!banqueFormData.codeBanque.trim() || !banqueFormData.nomBanque.trim()) {
             setActionError("Le code banque et le nom de la banque sont obligatoires.");
             return;
         }
+        setSubmitting(true);
         try {
             if (editingBanque) {
                 await organisationService.updateBanque(editingBanque.idBanque, banqueFormData);
-                setActionSuccess(`Banque "${banqueFormData.nomBanque}" modifiée.`);
+                toast({ title: 'Succès', message: `Banque "${banqueFormData.nomBanque}" modifiée.`, type: 'success' });
             } else {
                 await organisationService.createBanque(banqueFormData);
-                setActionSuccess(`Banque "${banqueFormData.nomBanque}" créée.`);
+                toast({ title: 'Succès', message: `Banque "${banqueFormData.nomBanque}" créée.`, type: 'success' });
             }
             setShowBanqueModal(false);
             loadData();
         } catch (err) {
             setActionError(err.response?.data || "Erreur de sauvegarde.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
     if (loading && typesContrat.length === 0) {
         return (
             <div className="p-4">
-                <SkeletonTable rows={8} columns={4} />
+                <SkeletonTable rows={6} columns={4} />
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            {/* Notifications */}
-            {actionSuccess && <Alert type="success" message={actionSuccess} />}
+            <div className="border-b border-[var(--color-border-subtle)] pb-4">
+                <Tabs
+                    tabs={[
+                        { id: 'contrats', label: `Types de Contrat (${typesContrat.length})`, icon: <FileText size={16} /> },
+                        { id: 'intervenants', label: `Régimes Intervenants (${typesIntervenant.length})`, icon: <UserCheck size={16} /> },
+                        { id: 'banques', label: `Banques & Agences (${banques.length})`, icon: <Landmark size={16} /> }
+                    ]}
+                    activeTab={activeSection}
+                    onChange={setActiveSection}
+                    variant="underline"
+                />
+            </div>
+
             {error && <Alert type="error" message={error} />}
 
-            {/* Onglets internes */}
-            <Tabs
-                tabs={[
-                    { id: 'contrats', label: 'Types de Contrat', icon: <FileText size={16} />, count: typesContrat.length },
-                    { id: 'intervenants', label: 'Types d\'Intervenant', icon: <UserCheck size={16} />, count: typesIntervenant.length },
-                    { id: 'banques', label: 'Banques', icon: <Landmark size={16} />, count: banques.length }
-                ]}
-                activeTab={activeSection}
-                onChange={setActiveSection}
-                variant="pills"
-            />
-
-            {/* Section Contrats */}
             {activeSection === 'contrats' && (
                 <TypesContratList
                     typesContrat={typesContrat}
@@ -232,7 +241,6 @@ export default function ReferentielsRhTab() {
                 />
             )}
 
-            {/* Section Intervenants */}
             {activeSection === 'intervenants' && (
                 <TypesIntervenantList
                     typesIntervenant={typesIntervenant}
@@ -241,7 +249,6 @@ export default function ReferentielsRhTab() {
                 />
             )}
 
-            {/* Section Banques */}
             {activeSection === 'banques' && (
                 <BanquesList
                     banques={banques}
@@ -250,7 +257,6 @@ export default function ReferentielsRhTab() {
                 />
             )}
 
-            {/* Modale Type Contrat */}
             <TypeContratFormModal
                 isOpen={showContratModal}
                 onClose={() => setShowContratModal(false)}
@@ -259,9 +265,9 @@ export default function ReferentielsRhTab() {
                 formData={contratFormData}
                 setFormData={setContratFormData}
                 actionError={actionError}
+                submitting={submitting}
             />
 
-            {/* Modale Type Intervenant */}
             <TypeIntervenantFormModal
                 isOpen={showIntervenantModal}
                 onClose={() => setShowIntervenantModal(false)}
@@ -270,9 +276,9 @@ export default function ReferentielsRhTab() {
                 formData={intervenantFormData}
                 setFormData={setIntervenantFormData}
                 actionError={actionError}
+                submitting={submitting}
             />
 
-            {/* Modale Banque */}
             <BanqueFormModal
                 isOpen={showBanqueModal}
                 onClose={() => setShowBanqueModal(false)}
@@ -281,6 +287,7 @@ export default function ReferentielsRhTab() {
                 formData={banqueFormData}
                 setFormData={setBanqueFormData}
                 actionError={actionError}
+                submitting={submitting}
             />
         </div>
     );

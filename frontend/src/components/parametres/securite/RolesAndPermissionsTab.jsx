@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, ShieldCheck, ListTodo } from 'lucide-react';
+import { ShieldCheck, ListTodo } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Alert from '@/components/ui/feedback/Alert';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 import RolesList from './roles/RolesList';
 import RoleFormModal from './roles/RoleFormModal';
@@ -32,7 +35,8 @@ export default function RolesAndPermissionsTab() {
     const [loading, setLoading] = useState(true);
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [error, setError] = useState(null);
-    const [successMessage, setSuccessMessage] = useState(null);
+    const [submittingRole, setSubmittingRole] = useState(false);
+    const toast = useToast();
 
     const [rolePermissions, setRolePermissions] = useState([]);
     const [selectedMenuIds, setSelectedMenuIds] = useState([]);
@@ -41,6 +45,17 @@ export default function RolesAndPermissionsTab() {
     const [roleFormData, setRoleFormData] = useState({ codeRole: '', libelle: '' });
     const [editingRole, setEditingRole] = useState(null);
     const [roleModalError, setRoleModalError] = useState(null);
+
+    // Confirmation dialog state
+    const [confirmState, setConfirmState] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmLabel: '',
+        variant: 'danger',
+        onConfirm: null,
+        loading: false
+    });
 
     const loadMasterData = async () => {
         setLoading(true);
@@ -68,7 +83,6 @@ export default function RolesAndPermissionsTab() {
 
     const loadRoleConfiguration = async (idRole) => {
         setLoadingDetails(true);
-        setSuccessMessage(null);
         try {
             const [perms, assignedMenus] = await Promise.all([
                 referentielService.getRolePermissions(idRole),
@@ -113,34 +127,56 @@ export default function RolesAndPermissionsTab() {
     const handleSaveRole = async (e) => {
         e.preventDefault();
         setRoleModalError(null);
+        setSubmittingRole(true);
         try {
             if (editingRole) {
                 await referentielService.updateRole(editingRole.idRole, { libelle: roleFormData.libelle });
-                setSuccessMessage(`Rôle "${roleFormData.libelle}" mis à jour.`);
+                toast({ title: 'Succès', message: `Rôle "${roleFormData.libelle}" mis à jour.`, type: 'success' });
             } else {
                 await referentielService.createRole(roleFormData);
-                setSuccessMessage(`Rôle "${roleFormData.libelle}" créé.`);
+                toast({ title: 'Succès', message: `Rôle "${roleFormData.libelle}" créé.`, type: 'success' });
             }
             setShowRoleModal(false);
             loadMasterData();
         } catch (err) {
             setRoleModalError(err.response?.data || "Erreur lors de l'enregistrement.");
+        } finally {
+            setSubmittingRole(false);
         }
     };
 
-    const handleToggleRoleStatus = async (role, e) => {
+    const requestToggleRoleStatus = (role, e) => {
         if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-        try {
-            if (role.estActif) {
-                await referentielService.deactivateRole(role.idRole);
-            } else {
-                await referentielService.activateRole(role.idRole);
+        const isDeactivating = role.estActif;
+
+        setConfirmState({
+            isOpen: true,
+            title: isDeactivating ? `Désactiver le rôle "${role.libelle}" ?` : `Réactiver le rôle "${role.libelle}" ?`,
+            message: isDeactivating
+                ? `Les utilisateurs disposant de ce rôle ne pourront plus effectuer d'actions nécessitant ses privilèges.`
+                : `Les utilisateurs associés retrouveront immédiatement leurs accès.`,
+            confirmLabel: isDeactivating ? "Désactiver le rôle" : "Réactiver",
+            variant: isDeactivating ? "danger" : "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    if (isDeactivating) {
+                        await referentielService.deactivateRole(role.idRole);
+                        toast({ title: 'Succès', message: `Rôle "${role.libelle}" désactivé.`, type: 'success' });
+                    } else {
+                        await referentielService.activateRole(role.idRole);
+                        toast({ title: 'Succès', message: `Rôle "${role.libelle}" réactivé.`, type: 'success' });
+                    }
+                    setRoles(prev => prev.map(r => r.idRole === role.idRole ? { ...r, estActif: !r.estActif } : r));
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                } catch (err) {
+                    setError("Erreur lors du changement de statut du rôle.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    console.error(err);
+                }
             }
-            setRoles(prev => prev.map(r => r.idRole === role.idRole ? { ...r, estActif: !r.estActif } : r));
-        } catch (err) {
-            setError("Erreur lors du changement de statut.");
-            console.error(err);
-        }
+        });
     };
 
     // Handlers Permissions
@@ -198,7 +234,6 @@ export default function RolesAndPermissionsTab() {
 
     const handleSavePermissions = async () => {
         if (!selectedRole) return;
-        setSuccessMessage(null);
         setError(null);
         try {
             const cleanPermissions = modules.map(m => {
@@ -206,7 +241,7 @@ export default function RolesAndPermissionsTab() {
                 return { idModule: m.idModule, droitLecture: perm.droitLecture, droitEcriture: perm.droitEcriture, droitValidation: perm.droitValidation };
             });
             await referentielService.updateRolePermissions(selectedRole.idRole, cleanPermissions);
-            setSuccessMessage("Permissions mises à jour avec succès.");
+            toast({ title: 'Succès', message: "Matrice des permissions enregistrée.", type: 'success' });
             loadRoleConfiguration(selectedRole.idRole);
         } catch {
             setError("Erreur lors de l'enregistrement des permissions.");
@@ -266,11 +301,10 @@ export default function RolesAndPermissionsTab() {
 
     const handleSaveMenus = async () => {
         if (!selectedRole) return;
-        setSuccessMessage(null);
         setError(null);
         try {
             await referentielService.updateRoleMenus(selectedRole.idRole, selectedMenuIds);
-            setSuccessMessage("Accès aux menus enregistré avec succès.");
+            toast({ title: 'Succès', message: "Accès aux menus enregistré.", type: 'success' });
             loadRoleConfiguration(selectedRole.idRole);
         } catch {
             setError("Erreur lors de la mise à jour de l'accès aux menus.");
@@ -291,18 +325,7 @@ export default function RolesAndPermissionsTab() {
     return (
         <div className="space-y-6">
             {/* Notifications */}
-            {successMessage && (
-                <div className="bg-[var(--color-success-500)]/10 text-[var(--color-success-500)] border border-[var(--color-success-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <CheckCircle size={16} />
-                    {successMessage}
-                </div>
-            )}
-            {error && (
-                <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-4 text-sm flex items-center gap-2">
-                    <XCircle size={16} />
-                    {error}
-                </div>
-            )}
+            {error && <Alert type="error" message={error} />}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 {/* Colonne Gauche : Liste des Rôles */}
@@ -314,7 +337,7 @@ export default function RolesAndPermissionsTab() {
                     onSelectRole={setSelectedRole}
                     onOpenCreateRole={handleOpenCreateRole}
                     onOpenEditRole={handleOpenEditRole}
-                    onToggleRoleStatus={handleToggleRoleStatus}
+                    onToggleRoleStatus={requestToggleRoleStatus}
                 />
 
                 {/* Colonne Droite : Configuration Habilitations */}
@@ -375,6 +398,19 @@ export default function RolesAndPermissionsTab() {
                 formData={roleFormData}
                 setFormData={setRoleFormData}
                 roleModalError={roleModalError}
+                submitting={submittingRole}
+            />
+
+            {/* Dialogue de confirmation de changement de statut */}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmLabel={confirmState.confirmLabel}
+                variant={confirmState.variant}
+                loading={confirmState.loading}
             />
         </div>
     );

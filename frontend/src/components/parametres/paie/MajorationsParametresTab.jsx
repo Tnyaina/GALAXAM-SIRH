@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import {Edit2, Clock, X, Info } from 'lucide-react';
+import { Edit2, Clock, Info } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
@@ -8,6 +8,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { fmtDateInput } from '@/utils/paieUtils';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
+import Modal from '@/components/ui/overlays/Modal';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function MajorationsParametresTab() {
@@ -16,7 +17,8 @@ export default function MajorationsParametresTab() {
     const [majorations, setMajorations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [actionError, setActionError] = useState(null);
+    const [modalError, setModalError] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
     const toast = useToast();
 
     // Modale Majoration
@@ -47,7 +49,9 @@ export default function MajorationsParametresTab() {
     // Handlers Majoration
     const handleSaveMajoration = async (e) => {
         e.preventDefault();
-        setActionError(null);
+        if (submitting) return;
+        setModalError(null);
+        setSubmitting(true);
         try {
             if (editingMajoration) {
                 await paieConfigService.updateTauxMajoration(editingMajoration.idTauxMajoration, majorationFormData);
@@ -59,7 +63,9 @@ export default function MajorationsParametresTab() {
             setShowMajorationModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
+            setModalError(err.response?.data || "Erreur de sauvegarde.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -95,19 +101,6 @@ export default function MajorationsParametresTab() {
                         </h4>
                         <p className="text-xs text-[var(--color-fg-muted)]">Configuration et description exacte des taux de majoration appliqués au calcul des heures spéciales.</p>
                     </div>
-                    {/* <Button
-                        onClick={() => {
-                            setEditingMajoration(null);
-                            setMajorationFormData({ typeMajoration: '', taux: 0, description: '', dateDebut: todayStr, dateFin: '' });
-                            setActionError(null);
-                            setShowMajorationModal(true);
-                        }}
-                        variant="primary"
-                        size="sm"
-                        iconLeft={<Plus size={16} />}
-                    >
-                        Nouveau Taux de Majoration
-                    </Button> */}
                 </div>
 
                 <Table>
@@ -122,7 +115,11 @@ export default function MajorationsParametresTab() {
                         {majorations.length === 0 ? (
                             <Tr>
                                 <Td colSpan={5} className="p-0">
-                                    <EmptyState title="Aucun taux de majoration" description="Aucun taux de majoration configuré." />
+                                    <EmptyState
+                                        icon={Clock}
+                                        title="Aucun taux de majoration"
+                                        description="Aucun taux de majoration configuré."
+                                    />
                                 </Td>
                             </Tr>
                         ) : (
@@ -146,10 +143,12 @@ export default function MajorationsParametresTab() {
                                                         dateDebut: fmtDateInput(m.dateDebut) || todayStr,
                                                         dateFin: fmtDateInput(m.dateFin) || ''
                                                     });
-                                                    setActionError(null);
+                                                    setModalError(null);
                                                     setShowMajorationModal(true);
                                                 }}
-                                                className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer"
+                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                                title="Modifier la majoration"
+                                                aria-label={`Modifier ${m.typeMajoration}`}
                                             >
                                                 <Edit2 size={15} />
                                             </button>
@@ -163,73 +162,68 @@ export default function MajorationsParametresTab() {
             </div>
 
             {/* Modale Majoration */}
-            {showMajorationModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                            <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                <Clock size={18} className="text-[var(--color-brand-500)]" />
-                                {editingMajoration ? "Modifier le Taux de Majoration" : "Nouveau Taux de Majoration"}
-                            </h3>
-                            <button onClick={() => setShowMajorationModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSaveMajoration} className="p-6 space-y-4">
-                            {actionError && <Alert type="error" message={actionError} />}
-                            <Input
-                                label="Type Majoration"
-                                required
-                                disabled={!!editingMajoration}
-                                value={majorationFormData.typeMajoration}
-                                onChange={(e) => setMajorationFormData({ ...majorationFormData, typeMajoration: e.target.value })}
-                                placeholder="Ex: HS_30, NUIT, FERIE"
-                            />
-                            <Input
-                                label="Description / Raison"
-                                value={majorationFormData.description}
-                                onChange={(e) => setMajorationFormData({ ...majorationFormData, description: e.target.value })}
-                                placeholder="Ex: 41ᵉ à 48ᵉ heure de la semaine"
-                            />
-                            <Input
-                                label="Taux (Ex: 0.30 pour +30%)"
-                                type="number"
-                                min="0"
-                                max="5"
-                                step="0.01"
-                                required
-                                value={majorationFormData.taux}
-                                onChange={(e) => setMajorationFormData({ ...majorationFormData, taux: parseFloat(e.target.value) || 0 })}
-                                helpText="Ex: 0.30 pour +30%, 0.50 pour +50%, 1.00 pour +100%"
-                            />
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input
-                                    label="Date Début"
-                                    type="date"
-                                    required
-                                    value={fmtDateInput(majorationFormData.dateDebut)}
-                                    onChange={(e) => setMajorationFormData({ ...majorationFormData, dateDebut: e.target.value })}
-                                />
-                                <Input
-                                    label="Date Fin (Optionnel)"
-                                    type="date"
-                                    min={fmtDateInput(majorationFormData.dateDebut)}
-                                    value={fmtDateInput(majorationFormData.dateFin)}
-                                    onChange={(e) => setMajorationFormData({ ...majorationFormData, dateFin: e.target.value })}
-                                />
-                            </div>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
-                                <Button type="button" onClick={() => setShowMajorationModal(false)} variant="ghost" size="sm">
-                                    Annuler
-                                </Button>
-                                <Button type="submit" variant="primary" size="sm">
-                                    Enregistrer
-                                </Button>
-                            </div>
-                        </form>
+            <Modal
+                isOpen={showMajorationModal}
+                onClose={() => setShowMajorationModal(false)}
+                title={editingMajoration ? "Modifier le Taux de Majoration" : "Nouveau Taux de Majoration"}
+                icon={<Clock size={18} />}
+                size="md"
+                footer={
+                    <>
+                        <Button type="button" onClick={() => setShowMajorationModal(false)} variant="ghost" size="sm" disabled={submitting}>
+                            Annuler
+                        </Button>
+                        <Button type="submit" form="majoration-form" variant="primary" size="sm" loading={submitting}>
+                            Enregistrer
+                        </Button>
+                    </>
+                }
+            >
+                <form id="majoration-form" onSubmit={handleSaveMajoration} className="space-y-4">
+                    {modalError && <Alert type="error" message={modalError} />}
+                    <Input
+                        label="Type Majoration"
+                        required
+                        disabled={!!editingMajoration}
+                        value={majorationFormData.typeMajoration}
+                        onChange={(e) => setMajorationFormData({ ...majorationFormData, typeMajoration: e.target.value })}
+                        placeholder="Ex: HS_30, NUIT, FERIE"
+                    />
+                    <Input
+                        label="Description / Raison"
+                        value={majorationFormData.description}
+                        onChange={(e) => setMajorationFormData({ ...majorationFormData, description: e.target.value })}
+                        placeholder="Ex: 41ᵉ à 48ᵉ heure de la semaine"
+                    />
+                    <Input
+                        label="Taux de Majoration (Ex: 0.30 pour +30%)"
+                        type="number"
+                        min="0"
+                        max="5"
+                        step="0.01"
+                        required
+                        value={majorationFormData.taux}
+                        onChange={(e) => setMajorationFormData({ ...majorationFormData, taux: parseFloat(e.target.value) || 0 })}
+                        hint="Ex: 0.30 pour +30%, 0.50 pour +50%, 1.00 pour +100%"
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input
+                            label="Date Début"
+                            type="date"
+                            required
+                            value={fmtDateInput(majorationFormData.dateDebut)}
+                            onChange={(e) => setMajorationFormData({ ...majorationFormData, dateDebut: e.target.value })}
+                        />
+                        <Input
+                            label="Date Fin (Optionnel)"
+                            type="date"
+                            min={fmtDateInput(majorationFormData.dateDebut)}
+                            value={fmtDateInput(majorationFormData.dateFin)}
+                            onChange={(e) => setMajorationFormData({ ...majorationFormData, dateFin: e.target.value })}
+                        />
                     </div>
-                </div>
-            )}
+                </form>
+            </Modal>
         </div>
     );
 }

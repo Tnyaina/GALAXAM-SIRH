@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, FileText, X } from 'lucide-react';
+import { Plus, Edit2, FileText, Power } from 'lucide-react';
 import documentRhService from '@/api/employe/documentRhService';
 import Input, { Textarea, Select, Checkbox } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
@@ -8,6 +8,8 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import EmptyState from '@/components/ui/data-display/EmptyState';
+import Modal from '@/components/ui/overlays/Modal';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 const CATEGORIES = ['Administratif', 'Identité', 'Recrutement', 'Contrat', 'Formation', 'Paie', 'Autre'];
@@ -16,11 +18,23 @@ export default function DocumentTypeManagementTab() {
     const [types, setTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [modalError, setModalError] = useState('');
     const toast = useToast();
 
     const [showModal, setShowModal] = useState(false);
     const [selectedType, setSelectedType] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+
+    // Confirmation dialog state
+    const [confirmState, setConfirmState] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmLabel: '',
+        variant: 'danger',
+        onConfirm: null,
+        loading: false
+    });
 
     const emptyForm = {
         libelle: '', categorie: 'Administratif', description: '',
@@ -49,7 +63,7 @@ export default function DocumentTypeManagementTab() {
     const handleOpenCreate = () => {
         setSelectedType(null);
         setFormData({ ...emptyForm });
-        setError('');
+        setModalError('');
         setShowModal(true);
     };
 
@@ -64,15 +78,16 @@ export default function DocumentTypeManagementTab() {
             tailleMaxMo: t.tailleMaxMo || 10,
             actif: t.actif !== undefined ? t.actif : true
         });
-        setError('');
+        setModalError('');
         setShowModal(true);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
+        if (submitting) return;
+        setModalError('');
         if (!formData.libelle.trim()) {
-            setError('Le libellé est obligatoire.');
+            setModalError('Le libellé est obligatoire.');
             return;
         }
 
@@ -89,32 +104,48 @@ export default function DocumentTypeManagementTab() {
             loadData();
         } catch (err) {
             console.error('Erreur enregistrement type document:', err);
-            setError(err.response?.data || "Erreur lors de l'enregistrement.");
+            setModalError(err.response?.data || "Erreur lors de l'enregistrement.");
         } finally {
             setSubmitting(false);
         }
     };
 
-    const handleToggleActif = async (t) => {
-        try {
-            if (t.actif) {
-                await documentRhService.deleteTypeDocument(t.idTypeDocument);
-                toast({ title: 'Succès', message: `Type "${t.libelle}" désactivé.`, type: 'success' });
-            } else {
-                await documentRhService.updateTypeDocument(t.idTypeDocument, { ...t, actif: true });
-                toast({ title: 'Succès', message: `Type "${t.libelle}" réactivé.`, type: 'success' });
+    const requestToggleActif = (t) => {
+        const isDeactivating = t.actif;
+        setConfirmState({
+            isOpen: true,
+            title: isDeactivating ? `Désactiver le type de document "${t.libelle}" ?` : `Réactiver le type de document "${t.libelle}" ?`,
+            message: isDeactivating
+                ? `Ce type de document ne sera plus proposé lors du dépôt de nouveaux justificatifs RH. Les documents existants restent conservés.`
+                : `Ce type de document redeviendra disponible pour les nouveaux téléversements.`,
+            confirmLabel: isDeactivating ? "Désactiver le type" : "Réactiver",
+            variant: isDeactivating ? "danger" : "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    if (isDeactivating) {
+                        await documentRhService.deleteTypeDocument(t.idTypeDocument);
+                        toast({ title: 'Succès', message: `Type "${t.libelle}" désactivé.`, type: 'success' });
+                    } else {
+                        await documentRhService.updateTypeDocument(t.idTypeDocument, { ...t, actif: true });
+                        toast({ title: 'Succès', message: `Type "${t.libelle}" réactivé.`, type: 'success' });
+                    }
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    loadData();
+                } catch (err) {
+                    console.error('Erreur changement statut:', err);
+                    setError('Erreur lors du changement de statut.');
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                }
             }
-            loadData();
-        } catch (err) {
-            console.error('Erreur changement statut:', err);
-            setError('Erreur lors du changement de statut.');
-        }
+        });
     };
 
     return (
         <div className="space-y-6">
             {/* Notifications */}
-            {error && !showModal && <Alert type="error" message={error} />}
+            {error && <Alert type="error" message={error} />}
 
             {/* Barre d'outils */}
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-4 rounded-none border border-[var(--color-border-subtle)] shadow-sm gap-4">
@@ -185,22 +216,26 @@ export default function DocumentTypeManagementTab() {
                                     </Badge>
                                 </Td>
                                 <Td className="text-right">
-                                    <div className="flex justify-end items-center gap-2">
+                                    <div className="flex justify-end items-center gap-1.5">
                                         <button
-                                            onClick={() => handleOpenEdit}
-                                            onClickCapture={() => handleOpenEdit(t)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
-                                            title="Modifier"
+                                            onClick={() => handleOpenEdit(t)}
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            title="Modifier le type"
+                                            aria-label={`Modifier ${t.libelle}`}
                                         >
-                                            <Edit2 size={16} />
+                                            <Edit2 size={15} />
                                         </button>
                                         <button
-                                            onClick={() => handleToggleActif(t)}
-                                            className={`px-2 py-1 text-xs font-bold rounded-none  cursor-pointer uppercase ${
-                                                t.actif ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
+                                            onClick={() => requestToggleActif(t)}
+                                            className={`p-1.5 rounded-none cursor-pointer transition-colors ${
+                                                t.actif
+                                                    ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
+                                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
                                             }`}
+                                            title={t.actif ? 'Désactiver le type' : 'Réactiver le type'}
+                                            aria-label={t.actif ? `Désactiver ${t.libelle}` : `Activer ${t.libelle}`}
                                         >
-                                            {t.actif ? 'Désactiver' : 'Activer'}
+                                            <Power size={15} />
                                         </button>
                                     </div>
                                 </Td>
@@ -211,76 +246,86 @@ export default function DocumentTypeManagementTab() {
             )}
 
             {/* Modale d'ajout/modification */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                            <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                <FileText size={18} className="text-[var(--color-brand-500)]" />
-                                {selectedType ? 'Modifier le Type de Document' : 'Nouveau Type de Document'}
-                            </h3>
-                            <button onClick={() => setShowModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            {error && (
-                                <Alert type="error" message={error} />
-                            )}
-                            <Input
-                                label="Libellé"
-                                required
-                                value={formData.libelle}
-                                onChange={e => setFormData({ ...formData, libelle: e.target.value })}
-                                placeholder="Ex: Extrait de Casier Judiciaire"
-                            />
-                            <Select
-                                label="Catégorie"
-                                required
-                                value={formData.categorie}
-                                onChange={e => setFormData({ ...formData, categorie: e.target.value })}
-                            >
-                                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                            </Select>
-                            <Textarea
-                                label="Description"
-                                rows={2}
-                                value={formData.description}
-                                onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                placeholder="Précisions sur l'utilité du document..."
-                            />
-                            <Input
-                                label="Extensions autorisées"
-                                value={formData.extensionAutorisee}
-                                onChange={e => setFormData({ ...formData, extensionAutorisee: e.target.value })}
-                                placeholder="pdf,jpg,jpeg,png"
-                                hint="Séparées par des virgules"
-                            />
-                            <Input
-                                label="Taille maximale (Mo)"
-                                type="number"
-                                value={formData.tailleMaxMo}
-                                onChange={e => setFormData({ ...formData, tailleMaxMo: parseInt(e.target.value) || 10 })}
-                            />
-                            <div className="pt-2">
-                                <Checkbox
-                                    label="Document obligatoire à l'embauche"
-                                    checked={formData.obligatoire}
-                                    onChange={e => setFormData({ ...formData, obligatoire: e.target.checked })}
-                                />
-                            </div>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
-                                <Button type="button" onClick={() => setShowModal(false)} variant="ghost" size="sm">
-                                    Annuler
-                                </Button>
-                                <Button type="submit" variant="primary" size="sm" loading={submitting}>
-                                    Enregistrer
-                                </Button>
-                            </div>
-                        </form>
+            <Modal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                title={selectedType ? 'Modifier le Type de Document' : 'Nouveau Type de Document'}
+                icon={<FileText size={18} />}
+                size="md"
+                footer={
+                    <>
+                        <Button type="button" onClick={() => setShowModal(false)} variant="ghost" size="sm" disabled={submitting}>
+                            Annuler
+                        </Button>
+                        <Button type="submit" form="doc-type-form" variant="primary" size="sm" loading={submitting}>
+                            {selectedType ? "Enregistrer" : "Créer le type"}
+                        </Button>
+                    </>
+                }
+            >
+                <form id="doc-type-form" onSubmit={handleSubmit} className="space-y-4">
+                    {modalError && <Alert type="error" message={modalError} />}
+                    <Input
+                        label="Libellé du document"
+                        required
+                        value={formData.libelle}
+                        onChange={e => setFormData({ ...formData, libelle: e.target.value })}
+                        placeholder="Ex: Extrait de Casier Judiciaire (Bulletin n°3)"
+                    />
+                    <Select
+                        label="Catégorie de rattachement"
+                        required
+                        value={formData.categorie}
+                        onChange={e => setFormData({ ...formData, categorie: e.target.value })}
+                    >
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </Select>
+                    <Textarea
+                        label="Description / Consignes (Optionnel)"
+                        rows={2}
+                        value={formData.description}
+                        onChange={e => setFormData({ ...formData, description: e.target.value })}
+                        placeholder="Précisions pour les collaborateurs ou RH..."
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                        <Input
+                            label="Extensions autorisées"
+                            value={formData.extensionAutorisee}
+                            onChange={e => setFormData({ ...formData, extensionAutorisee: e.target.value })}
+                            placeholder="pdf,jpg,jpeg,png"
+                            hint="Séparées par des virgules"
+                        />
+                        <Input
+                            label="Taille max (Mo)"
+                            type="number"
+                            value={formData.tailleMaxMo}
+                            onChange={e => setFormData({ ...formData, tailleMaxMo: parseInt(e.target.value) || 10 })}
+                        />
                     </div>
-                </div>
-            )}
+                    <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-1">
+                        <Checkbox
+                            label="Document obligatoire lors de l'onboarding / embauche"
+                            checked={formData.obligatoire}
+                            onChange={e => setFormData({ ...formData, obligatoire: e.target.checked })}
+                        />
+                        <p className="text-[11px] text-[var(--color-fg-muted)] ml-6">
+                            Une alerte de conformité documentaire sera levée tant que ce document n'est pas fourni.
+                        </p>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Boîte de confirmation sécurisée */}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmLabel={confirmState.confirmLabel}
+                variant={confirmState.variant}
+                loading={confirmState.loading}
+            />
         </div>
     );
 }

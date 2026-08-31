@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Edit2, Sliders, X, Search, Filter, ArrowUpDown } from 'lucide-react';
+import { Edit2, Sliders, Search, Filter, ArrowUpDown } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDateInput } from '@/utils/paieUtils';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
+import Modal from '@/components/ui/overlays/Modal';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 // Catégories correspondant directement aux modules du SIRH et aux graines SQL de la BDD
@@ -24,7 +26,8 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
     const [parametres, setParametres] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [actionError, setActionError] = useState(null);
+    const [modalError, setModalError] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
     const toast = useToast();
 
     // Filtres & Tri
@@ -125,7 +128,9 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
     // Sauvegarde (Modification uniquement)
     const handleSave = async (e) => {
         e.preventDefault();
-        setActionError(null);
+        if (submitting) return;
+        setModalError(null);
+        setSubmitting(true);
         try {
             if (editingParametre) {
                 await paieConfigService.updateParametreGlobal(editingParametre.idParametre, formData);
@@ -134,7 +139,9 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
             setShowModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur lors de la sauvegarde du paramètre.");
+            setModalError(err.response?.data || "Erreur lors de la sauvegarde du paramètre.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -163,8 +170,6 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
                             Constantes réglementaires, taux légaux, plafonds CNaPS, diviseurs horaires et variables du moteur.
                         </p>
                     </div>
-                    {/* Le bouton "Nouveau" a été retiré, car la création de paramètres globaux 
-                        nécessite une intervention dans le code source pour être utilisée. */}
                 </div>
 
                 {/* Barre de Recherche, Filtre par Catégorie et Tri */}
@@ -223,7 +228,11 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
                         {filteredAndSortedParametres.length === 0 ? (
                             <Tr>
                                 <Td colSpan={6} className="p-0">
-                                    <EmptyState title="Aucun paramètre" description="Aucun paramètre global ne correspond à vos critères de recherche." />
+                                    <EmptyState
+                                        icon={Sliders}
+                                        title="Aucun paramètre trouvé"
+                                        description="Aucun paramètre global ne correspond à vos critères de recherche."
+                                    />
                                 </Td>
                             </Tr>
                         ) : (
@@ -235,9 +244,9 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
                                             {p.codeParametre}
                                         </Td>
                                         <Td isData>
-                                            <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-none bg-[var(--color-bg-subtle)] text-[var(--color-brand-500)] border border-[var(--color-border-subtle)]">
+                                            <Badge variant="primary" size="sm">
                                                 {catLabel}
-                                            </span>
+                                            </Badge>
                                         </Td>
                                         <Td isData className="font-bold text-[var(--color-success-500)]">
                                             {p.valeur}
@@ -245,7 +254,7 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
                                         <Td muted className="text-xs">
                                             {p.description || '-'}
                                         </Td>
-                                        <Td muted className="text-xs">
+                                        <Td isData muted className="text-xs">
                                             {fmtDateInput(p.dateDebut) || '-'}
                                         </Td>
                                         <Td className="text-right">
@@ -260,11 +269,12 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
                                                         dateDebut: fmtDateInput(p.dateDebut) || todayStr,
                                                         dateFin: fmtDateInput(p.dateFin) || ''
                                                     });
-                                                    setActionError(null);
+                                                    setModalError(null);
                                                     setShowModal(true);
                                                 }}
-                                                className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer"
-                                                title="Modifier le paramètre"
+                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                                title="Modifier la valeur"
+                                                aria-label={`Modifier ${p.codeParametre}`}
                                             >
                                                 <Edit2 size={15} />
                                             </button>
@@ -278,78 +288,71 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
             </div>
 
             {/* Modale d'Édition */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-lg w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                            <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                <Sliders size={18} className="text-[var(--color-brand-500)]" />
-                                Modifier la Valeur du Paramètre
-                            </h3>
-                            <button type="button" onClick={() => setShowModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                                <X size={18} />
-                            </button>
+            <Modal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                title="Modifier la Valeur du Paramètre Global"
+                icon={<Sliders size={18} />}
+                size="md"
+                footer={
+                    <>
+                        <Button type="button" onClick={() => setShowModal(false)} variant="ghost" size="sm" disabled={submitting}>
+                            Annuler
+                        </Button>
+                        <Button type="submit" form="param-global-form" variant="primary" size="sm" loading={submitting}>
+                            Enregistrer
+                        </Button>
+                    </>
+                }
+            >
+                <form id="param-global-form" onSubmit={handleSave} className="space-y-4">
+                    {modalError && <Alert type="error" message={modalError} />}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                            label="Code Paramètre"
+                            value={formData.codeParametre}
+                            readOnly
+                            disabled
+                        />
+
+                        <Input
+                            label="Valeur *"
+                            required
+                            value={formData.valeur}
+                            onChange={(e) => setFormData({ ...formData, valeur: e.target.value })}
+                            placeholder="Ex: 262000.00"
+                        />
+
+                        <div className="col-span-1 md:col-span-2">
+                            <Textarea
+                                label="Description du rôle du paramètre"
+                                value={formData.description}
+                                readOnly
+                                disabled
+                                rows={2}
+                            />
                         </div>
-                        <form onSubmit={handleSave} className="p-6 space-y-5">
-                            {actionError && <Alert type="error" message={actionError} />}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Input
-                                    label="Code Paramètre"
-                                    value={formData.codeParametre}
-                                    readOnly
-                                    disabled
-                                    className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]"
-                                />
-
-                                <Input
-                                    label="Valeur *"
-                                    required
-                                    value={formData.valeur}
-                                    onChange={(e) => setFormData({ ...formData, valeur: e.target.value })}
-                                    placeholder="Ex: 262000.00"
-                                />
-
-                                <div className="col-span-1 md:col-span-2">
-                                    <Textarea
-                                        label="Description"
-                                        value={formData.description}
-                                        readOnly
-                                        disabled
-                                        rows={2}
-                                        className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input
-                                    label="Date Début (Prise d'effet)"
-                                    type="date"
-                                    required
-                                    value={fmtDateInput(formData.dateDebut)}
-                                    onChange={(e) => setFormData({ ...formData, dateDebut: e.target.value })}
-                                />
-                                <Input
-                                    label="Date Fin (Optionnel)"
-                                    type="date"
-                                    value={fmtDateInput(formData.dateFin)}
-                                    onChange={(e) => setFormData({ ...formData, dateFin: e.target.value })}
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
-                                <Button type="button" onClick={() => setShowModal(false)} variant="ghost" size="sm">
-                                    Annuler
-                                </Button>
-                                <Button type="submit" variant="primary" size="sm">
-                                    Enregistrer
-                                </Button>
-                            </div>
-                        </form>
                     </div>
-                </div>
-            )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input
+                            label="Date Début (Prise d'effet)"
+                            type="date"
+                            required
+                            value={fmtDateInput(formData.dateDebut)}
+                            onChange={(e) => setFormData({ ...formData, dateDebut: e.target.value })}
+                        />
+                        <Input
+                            label="Date Fin (Optionnel)"
+                            type="date"
+                            value={fmtDateInput(formData.dateFin)}
+                            onChange={(e) => setFormData({ ...formData, dateFin: e.target.value })}
+                        />
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 }
+

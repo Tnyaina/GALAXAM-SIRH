@@ -1,6 +1,8 @@
-import { MapPin, X, ShieldAlert } from 'lucide-react';
+import { MapPin, Clock, Sun, Sunset } from 'lucide-react';
+import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Input, { Select, Checkbox } from '@/components/ui/forms/Input';
+import Alert from '@/components/ui/feedback/Alert';
 
 export default function SiteFormModal({
     isOpen,
@@ -13,48 +15,58 @@ export default function SiteFormModal({
     actionError,
     submitting = false,
 }) {
-    if (!isOpen) return null;
+    const isContinu = formData.horaireContinu !== false;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
-                <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                    <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                        <MapPin size={18} className="text-[var(--color-brand-500)]" />
-                        {selectedSite ? "Modifier le Site" : "Nouveau Site"}
-                    </h3>
-                    <button onClick={onClose} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                        <X size={18} />
-                    </button>
-                </div>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={selectedSite ? "Modifier le Site d'Exploitation" : "Nouveau Site d'Exploitation"}
+            icon={<MapPin size={18} />}
+            size="lg"
+            footer={
+                <>
+                    <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>
+                        Annuler
+                    </Button>
+                    <Button type="submit" form="site-form" variant="primary" size="sm" loading={submitting}>
+                        {selectedSite ? "Enregistrer les modifications" : "Créer le site"}
+                    </Button>
+                </>
+            }
+        >
+            <form id="site-form" onSubmit={onSubmit} className="space-y-4">
+                {actionError && <Alert type="error" message={actionError} />}
 
-                <form onSubmit={onSubmit} className="p-6 space-y-4 max-h-[500px] overflow-y-auto">
-                    {actionError && (
-                        <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-1.5">
-                            <ShieldAlert size={14} />
-                            {actionError}
+                {/* Section 1 : Informations Générales */}
+                <div className="space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+                        Rattachement & Identification
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-1">
+                            <Input
+                                label="Code Site"
+                                required
+                                disabled={!!selectedSite}
+                                value={formData.codeSite}
+                                onChange={(e) => setFormData({ ...formData, codeSite: e.target.value.toUpperCase() })}
+                                placeholder="Ex: TNR, TMM"
+                            />
                         </div>
-                    )}
-
-                    <Input
-                        label="Code Site"
-                        required
-                        disabled={!!selectedSite}
-                        value={formData.codeSite}
-                        onChange={(e) => setFormData({ ...formData, codeSite: e.target.value.toUpperCase() })}
-                        placeholder="Ex: TNR, TMM"
-                    />
-
-                    <Input
-                        label="Nom / Libellé"
-                        required
-                        value={formData.libelle}
-                        onChange={(e) => setFormData({ ...formData, libelle: e.target.value })}
-                        placeholder="Ex: Antananarivo - Siège"
-                    />
+                        <div className="sm:col-span-2">
+                            <Input
+                                label="Nom / Libellé du Site"
+                                required
+                                value={formData.libelle}
+                                onChange={(e) => setFormData({ ...formData, libelle: e.target.value })}
+                                placeholder="Ex: Antananarivo - Siège & Dépôt"
+                            />
+                        </div>
+                    </div>
 
                     <Select
-                        label="Filiale de Rattachement"
+                        label="Filiale de Rattachement Juridique"
                         value={formData.idFilialeRattachement}
                         onChange={(e) => setFormData({ ...formData, idFilialeRattachement: e.target.value })}
                     >
@@ -65,55 +77,85 @@ export default function SiteFormModal({
                             </option>
                         ))}
                     </Select>
+                </div>
 
-                    <div className="pt-1">
+                {/* Section 2 : Régime & Plages Horaires */}
+                <div className="space-y-3 pt-3 border-t border-[var(--color-border-subtle)]">
+                    <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
+                            <Clock size={14} className="text-[var(--color-brand-500)]" />
+                            Régime de Travail & Horaires de Référence
+                        </h4>
+                    </div>
+
+                    <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none">
                         <Checkbox
-                            label="Régime Horaire Continu"
-                            checked={formData.horaireContinu}
-                            onChange={(e) => setFormData({ ...formData, horaireContinu: e.target.checked })}
+                            label="Régime en Horaire Continu (pause repas prise sur site)"
+                            checked={isContinu}
+                            onChange={(e) => {
+                                setFormData({
+                                    ...formData,
+                                    horaireContinu: e.target.checked
+                                });
+                            }}
                         />
+                        <p className="text-[11px] text-[var(--color-fg-muted)] mt-1.5 ml-6">
+                            {isContinu 
+                                ? "En horaire continu, les collaborateurs effectuent leur journée avec une pause repas courte sur site (ex: 08h00 - 12h30 & 13h00 - 16h30)." 
+                                : "En horaire discontinu, la journée est scindée avec une coupure méridienne étendue (ex: 08h00 - 12h00 & 14h00 - 18h00)."}
+                        </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-[var(--color-border-subtle)]">
-                        <Input
-                            label="Début Matin"
-                            type="time"
-                            value={formData.heureDebutMatin}
-                            onChange={(e) => setFormData({ ...formData, heureDebutMatin: e.target.value })}
-                        />
-                        <Input
-                            label="Fin Matin"
-                            type="time"
-                            value={formData.heureFinMatin}
-                            onChange={(e) => setFormData({ ...formData, heureFinMatin: e.target.value })}
-                        />
-                    </div>
+                    {/* Affichage systématique des 4 bornes de référence */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-1.5">
+                                <Sun size={14} className="text-amber-500 shrink-0" />
+                                <span>Plage 1 : Matinée</span>
+                            </div>
+                            <div className="space-y-2">
+                                <Input
+                                    label="Début Matin (Prise de poste)"
+                                    type="time"
+                                    required
+                                    value={formData.heureDebutMatin || '08:00'}
+                                    onChange={(e) => setFormData({ ...formData, heureDebutMatin: e.target.value })}
+                                />
+                                <Input
+                                    label="Fin Matin (Départ pause)"
+                                    type="time"
+                                    required
+                                    value={formData.heureFinMatin || '12:00'}
+                                    onChange={(e) => setFormData({ ...formData, heureFinMatin: e.target.value })}
+                                />
+                            </div>
+                        </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <Input
-                            label="Début Après-midi"
-                            type="time"
-                            value={formData.heureDebutApresMidi}
-                            onChange={(e) => setFormData({ ...formData, heureDebutApresMidi: e.target.value })}
-                        />
-                        <Input
-                            label="Fin Après-midi"
-                            type="time"
-                            value={formData.heureFinApresMidi}
-                            onChange={(e) => setFormData({ ...formData, heureFinApresMidi: e.target.value })}
-                        />
+                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-1.5">
+                                <Sunset size={14} className="text-orange-500 shrink-0" />
+                                <span>Plage 2 : Après-midi</span>
+                            </div>
+                            <div className="space-y-2">
+                                <Input
+                                    label="Reprise Après-midi (Fin pause)"
+                                    type="time"
+                                    required
+                                    value={formData.heureDebutApresMidi || '13:00'}
+                                    onChange={(e) => setFormData({ ...formData, heureDebutApresMidi: e.target.value })}
+                                />
+                                <Input
+                                    label="Fin Après-midi (Fin de journée)"
+                                    type="time"
+                                    required
+                                    value={formData.heureFinApresMidi || '17:00'}
+                                    onChange={(e) => setFormData({ ...formData, heureFinApresMidi: e.target.value })}
+                                />
+                            </div>
+                        </div>
                     </div>
-
-                    <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
-                        <Button type="button" onClick={onClose} variant="ghost" size="sm">
-                            Annuler
-                        </Button>
-                        <Button type="submit" variant="primary" size="sm" loading={submitting}>
-                            Enregistrer
-                        </Button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                </div>
+            </form>
+        </Modal>
     );
 }

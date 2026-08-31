@@ -1,6 +1,8 @@
-import { UserCheck, X, ShieldAlert } from 'lucide-react';
+import { UserCheck } from 'lucide-react';
+import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Input, { Checkbox } from '@/components/ui/forms/Input';
+import Alert from '@/components/ui/feedback/Alert';
 
 export default function TypeIntervenantFormModal({
     isOpen,
@@ -12,80 +14,72 @@ export default function TypeIntervenantFormModal({
     actionError,
     submitting = false,
 }) {
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl w-full max-w-md overflow-hidden">
-                <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                    <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                        <UserCheck size={18} className="text-[var(--color-brand-500)]" />
-                        {editingIntervenant ? "Modifier Type d'Intervenant" : "Nouveau Type d'Intervenant"}
-                    </h3>
-                    <button onClick={onClose} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                        <X size={18} />
-                    </button>
-                </div>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={editingIntervenant ? "Modifier le Type d'Intervenant" : "Nouveau Type d'Intervenant"}
+            icon={<UserCheck size={18} />}
+            size="md"
+            footer={
+                <>
+                    <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>
+                        Annuler
+                    </Button>
+                    <Button type="submit" form="intervenant-form" variant="primary" size="sm" loading={submitting}>
+                        {editingIntervenant ? "Enregistrer" : "Créer le type"}
+                    </Button>
+                </>
+            }
+        >
+            <form id="intervenant-form" onSubmit={onSubmit} className="space-y-4">
+                {actionError && <Alert type="error" message={actionError} />}
 
-                <form onSubmit={onSubmit} className="p-6 space-y-4">
-                    {actionError && (
-                        <div className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] border border-[var(--color-danger-500)]/20 rounded-none p-3 text-xs flex items-center gap-2">
-                            <ShieldAlert size={16} />
-                            {actionError}
-                        </div>
-                    )}
+                <Input
+                    label="Code du Type d'Intervenant"
+                    required
+                    disabled={!!editingIntervenant}
+                    value={formData.code}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                    placeholder="Ex: SALARIE, CONSULTANT, STAGIAIRE"
+                />
 
-                    <Input
-                        label="Code (ex: SALARIE)"
-                        required
-                        disabled={!!editingIntervenant}
-                        value={formData.code}
-                        onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                        placeholder="SALARIE"
-                    />
+                <Input
+                    label="Libellé Complet"
+                    required
+                    value={formData.libelle}
+                    onChange={(e) => setFormData({ ...formData, libelle: e.target.value })}
+                    placeholder="Ex: Salarié National de Droit Commun"
+                />
 
-                    <Input
-                        label="Libellé complet"
-                        required
-                        value={formData.libelle}
-                        onChange={(e) => setFormData({ ...formData, libelle: e.target.value })}
-                        placeholder="Salarié National de Droit Commun"
-                    />
-
-                    <div className="space-y-2 pt-2 border-t border-[var(--color-border-subtle)]">
-                        <p className="text-xs font-bold text-[var(--color-fg)] uppercase">Assujettissements Fiscaux & Sociaux</p>
+                <div className="space-y-2 pt-2 border-t border-[var(--color-border-subtle)]">
+                    <p className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
+                        Régime Fiscal & Cotisations Sociales
+                    </p>
+                    <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">
                         <Checkbox
-                            label="Soumis à l'Impôt IRSA"
+                            label="Soumis à l'Impôt IRSA (Salariés / Traitements)"
                             checked={formData.soumisIrsa}
                             onChange={(e) => setFormData({ ...formData, soumisIrsa: e.target.checked })}
                         />
                         <Checkbox
-                            label="Soumis au prélèvement ISI 5% (Consultants/Prestataires)"
+                            label="Soumis au prélèvement libératoire ISI 5% (Prestataires / Honoraires)"
                             checked={formData.soumisIsi5}
                             onChange={(e) => setFormData({ ...formData, soumisIsi5: e.target.checked })}
                         />
                         <Checkbox
-                            label="Cotise à la CNaPS"
+                            label="Cotise à la CNaPS (Caisse Nationale de Prévoyance Sociale)"
                             checked={formData.soumisCnaps}
                             onChange={(e) => setFormData({ ...formData, soumisCnaps: e.target.checked })}
                         />
                         <Checkbox
-                            label="Cotise aux organismes de santé (OSTIE, FUNRECO, etc.)"
+                            label="Cotise aux organismes de santé interentreprises (OSTIE, FUNRECO, etc.)"
                             checked={formData.soumisSante}
                             onChange={(e) => setFormData({ ...formData, soumisSante: e.target.checked })}
                         />
                     </div>
-
-                    <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
-                        <Button type="button" onClick={onClose} variant="ghost" size="sm">
-                            Annuler
-                        </Button>
-                        <Button type="submit" variant="primary" size="sm" loading={submitting}>
-                            {editingIntervenant ? "Enregistrer" : "Créer"}
-                        </Button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                </div>
+            </form>
+        </Modal>
     );
 }

@@ -27,20 +27,20 @@ export default function ToleranceArriveeSiteTab() {
         <div className="space-y-6">
             <div className="bg-[var(--color-surface)] p-5 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
                 <div className="flex items-start gap-3">
-                    <div className="p-2.5 bg-[var(--color-brand-50)] text-[var(--color-brand-500)] shrink-0">
+                    <div className="p-2.5 bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] shrink-0">
                         <Clock size={22} />
                     </div>
                     <div>
                         <h3 className="text-lg font-bold text-[var(--color-fg)]">Heure d'arrivée minimale comptabilisée par site</h3>
                         <p className="text-xs text-[var(--color-fg-muted)] mt-1 leading-relaxed">
                             Si un employé pointe en avance le matin, son temps de travail commence à partir de l'heure définie ci-dessous. 
-                            Les arrivées trop matinales avant cette heure ne génèrent pas d'heures d'avance.
+                            Les arrivées trop matinales avant cette heure ne génèrent pas d'heures d'avance indues.
                         </p>
                     </div>
                 </div>
             </div>
 
-            {error && <Alert type="danger" message={error} />}
+            {error && <Alert type="error" message={error} />}
 
             <Table>
                 <Thead>
@@ -59,14 +59,14 @@ export default function ToleranceArriveeSiteTab() {
 
                         return (
                             <Tr key={site.idSite}>
-                                <Td className="font-mono font-bold text-xs">{site.codeSite}</Td>
+                                <Td isData className="font-mono font-bold text-xs text-[var(--color-brand-500)]">{site.codeSite}</Td>
                                 <Td className="font-semibold text-[var(--color-fg)]">
                                     <div className="flex items-center gap-2">
                                         <Building size={16} className="text-[var(--color-fg-muted)]" />
                                         {site.libelle}
                                     </div>
                                 </Td>
-                                <Td className="text-xs text-[var(--color-fg-muted)] font-mono">
+                                <Td isData muted className="text-xs font-mono">
                                     {site.heureDebutMatin ? site.heureDebutMatin.substring(0, 5) : '08:00'} - {site.heureFinMatin ? site.heureFinMatin.substring(0, 5) : '12:00'}
                                 </Td>
                                 <Td>
@@ -80,8 +80,8 @@ export default function ToleranceArriveeSiteTab() {
                                             />
                                         </div>
                                     ) : (
-                                        <span className="inline-flex items-center gap-1.5 font-mono text-sm font-bold text-[var(--color-brand-500)] bg-[var(--color-brand-50)] px-2.5 py-1">
-                                            <Clock size={14} />
+                                        <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10 px-2.5 py-1">
+                                            <Clock size={13} />
                                             {tol?.heurePlafond ? tol.heurePlafond.substring(0, 5) : 'Non défini (théorique)'}
                                         </span>
                                     )}
@@ -108,14 +108,14 @@ export default function ToleranceArriveeSiteTab() {
                                             </Button>
                                         </div>
                                     ) : (
-                                        <Button
-                                            size="sm"
-                                            variant="secondary"
-                                            className="shrink-0 whitespace-nowrap"
+                                        <button
                                             onClick={() => startEdit(site, tol)}
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors inline-flex items-center gap-1 text-xs font-semibold"
+                                            title="Modifier la tolérance"
+                                            aria-label={`Modifier tolérance pour ${site.libelle}`}
                                         >
                                             <Edit2 size={14} /> Modifier
-                                        </Button>
+                                        </button>
                                     )}
                                 </Td>
                             </Tr>
@@ -126,3 +126,4 @@ export default function ToleranceArriveeSiteTab() {
         </div>
     );
 }
+

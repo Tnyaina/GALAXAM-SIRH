@@ -13,7 +13,8 @@ export default function PeriodeChomeeFormModal({
     formData,
     setFormData,
     sites,
-    actionError
+    actionError,
+    submitting = false
 }) {
     // Reset form when modal opens
     useEffect(() => {
@@ -36,8 +37,8 @@ export default function PeriodeChomeeFormModal({
             size="md"
             footer={
                 <>
-                    <Button variant="ghost" onClick={onClose}>Annuler</Button>
-                    <Button variant="primary" onClick={onSubmit}>Enregistrer la période</Button>
+                    <Button variant="ghost" onClick={onClose} disabled={submitting}>Annuler</Button>
+                    <Button variant="primary" onClick={onSubmit} loading={submitting}>Enregistrer la période</Button>
                 </>
             }
         >

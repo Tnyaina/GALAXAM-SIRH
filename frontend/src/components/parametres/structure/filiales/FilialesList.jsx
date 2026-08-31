@@ -1,11 +1,13 @@
-import { Edit2 } from 'lucide-react';
+import { Edit2, Building2, Power } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
+
 export default function FilialesList({
     filiales = [],
     onOpenEdit,
     onToggleStatus,
+    onOpenCreate,
 }) {
     return (
         <Table>
@@ -23,11 +25,16 @@ export default function FilialesList({
                     filiales.map((f) => (
                         <Tr key={f.idFiliale}>
                             <Td isData className="font-bold text-[var(--color-brand-500)]">{f.codeFiliale}</Td>
-                            <Td className="font-bold text-[var(--color-fg)]">{f.raisonSociale}</Td>
+                            <Td className="font-bold text-[var(--color-fg)]">
+                                <div className="flex items-center gap-2">
+                                    <Building2 size={16} className="text-[var(--color-fg-muted)] shrink-0" />
+                                    <span>{f.raisonSociale}</span>
+                                </div>
+                            </Td>
                             <Td isData muted className="text-xs">{f.nif || '-'}</Td>
                             <Td isData muted className="text-xs">{f.stat || '-'}</Td>
                             <Td>
-                                <span className="px-2 py-0.5 bg-[var(--color-bg-subtle)] text-[var(--color-fg)] font-data text-xs font-semibold rounded-none">
+                                <span className="px-2 py-0.5 bg-[var(--color-bg-subtle)] text-[var(--color-fg)] font-data text-xs font-semibold rounded-none border border-[var(--color-border-subtle)]">
                                     {f.seuilEffectifAlerte ?? 19} pers.
                                 </span>
                             </Td>
@@ -37,34 +44,43 @@ export default function FilialesList({
                                 </Badge>
                             </Td>
                             <Td className="text-right">
-                                <div className="flex justify-end items-center gap-2">
+                                <div className="flex justify-end items-center gap-1.5">
                                     <button
                                         onClick={() => onOpenEdit(f)}
-                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
-                                        title="Modifier"
+                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                        title="Modifier la filiale"
+                                        aria-label={`Modifier la filiale ${f.raisonSociale}`}
                                     >
-                                        <Edit2 size={16} />
+                                        <Edit2 size={15} />
                                     </button>
                                     <button
                                         onClick={() => onToggleStatus(f)}
-                                        className={`px-2 py-1 text-xs font-bold rounded-none  cursor-pointer uppercase ${
+                                        className={`p-1.5 rounded-none cursor-pointer transition-colors ${
                                             f.estActif
-                                                ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
-                                                : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
+                                                ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
+                                                : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
                                         }`}
+                                        title={f.estActif ? "Désactiver la filiale" : "Réactiver la filiale"}
+                                        aria-label={f.estActif ? `Désactiver ${f.raisonSociale}` : `Activer ${f.raisonSociale}`}
                                     >
-                                        {f.estActif ? "Désactiver" : "Activer"}
+                                        <Power size={15} />
                                     </button>
                                 </div>
                             </Td>
                         </Tr>
                     ))
                 ) : (
-                        <Tr>
-                            <Td colSpan={7} className="p-0">
-                                <EmptyState title="Aucune filiale" description="Aucune filiale enregistrée." />
-                            </Td>
-                        </Tr>
+                    <Tr>
+                        <Td colSpan={7} className="p-0">
+                            <EmptyState
+                                icon={Building2}
+                                title="Aucune filiale enregistrée"
+                                description="Créez la première entité juridique de votre organisation pour commencer."
+                                actionLabel="Créer une filiale"
+                                onAction={onOpenCreate}
+                            />
+                        </Td>
+                    </Tr>
                 )}
             </Tbody>
         </Table>

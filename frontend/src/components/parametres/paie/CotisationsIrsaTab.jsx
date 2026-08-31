@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {   ShieldCheck, Percent, MapPin, Eye } from 'lucide-react';
+import { ShieldCheck, Percent, MapPin, Eye } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
 import { fmtDateInput } from '@/utils/paieUtils';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 import CotisationsList from './cotisations/CotisationsList';
@@ -39,8 +40,20 @@ export default function CotisationsIrsaTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
     const toast = useToast();
     const [showInactive, setShowInactive] = useState(false);
+
+    // Confirmation Dialog state
+    const [confirmState, setConfirmState] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmLabel: '',
+        variant: 'danger',
+        onConfirm: null,
+        loading: false
+    });
 
     // Modale Cotisation
     const [showCotisationModal, setShowCotisationModal] = useState(false);
@@ -112,7 +125,9 @@ export default function CotisationsIrsaTab() {
 
     const handleSaveCotisation = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setActionError(null);
+        setSubmitting(true);
         try {
             if (editingCotisation) {
                 await paieConfigService.updateCotisation(editingCotisation.idTypeCotisation, cotisationFormData);
@@ -125,6 +140,8 @@ export default function CotisationsIrsaTab() {
             loadData();
         } catch (err) {
             setActionError(err.response?.data || "Erreur de sauvegarde.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -137,6 +154,7 @@ export default function CotisationsIrsaTab() {
 
     const handleSaveSiteCotisation = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setActionError(null);
         if (!siteCotisationFormData.idSite || !siteCotisationFormData.idTypeCotisation) {
             setActionError("Veuillez sélectionner un site et une cotisation.");
@@ -146,6 +164,7 @@ export default function CotisationsIrsaTab() {
             idSite: parseInt(siteCotisationFormData.idSite),
             idTypeCotisation: parseInt(siteCotisationFormData.idTypeCotisation)
         };
+        setSubmitting(true);
         try {
             await paieConfigService.createSiteCotisation(payload);
             toast({ title: 'Succès', message: "Cotisation associée au site.", type: 'success' });
@@ -153,30 +172,47 @@ export default function CotisationsIrsaTab() {
             loadData();
         } catch (err) {
             setActionError(err.response?.data || "Erreur d'affectation.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
-    const handleToggleSiteCotisationStatus = async (item) => {
-        setActionError(null);
-        try {
-            if (item.estActif) {
-                await paieConfigService.deactivateSiteCotisation(item.idSiteCotisation);
-                toast({ title: 'Succès', message: `Association "${item.siteLibelle} - ${item.cotisationLibelle}" désactivée.`, type: 'success' });
-            } else {
-                await paieConfigService.activateSiteCotisation(item.idSiteCotisation);
-                toast({ title: 'Succès', message: `Association "${item.siteLibelle} - ${item.cotisationLibelle}" réactivée.`, type: 'success' });
+    const requestToggleSiteCotisationStatus = (item) => {
+        const isDeactivating = item.estActif;
+        setConfirmState({
+            isOpen: true,
+            title: isDeactivating ? `Désactiver l'association de cotisation ?` : `Réactiver l'association ?`,
+            message: isDeactivating
+                ? `La cotisation "${item.cotisationLibelle}" ne sera plus prélevée pour les salariés rattachés au site "${item.siteLibelle}".`
+                : `La cotisation redeviendra active pour ce site.`,
+            confirmLabel: isDeactivating ? "Désactiver" : "Réactiver",
+            variant: isDeactivating ? "danger" : "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    if (isDeactivating) {
+                        await paieConfigService.deactivateSiteCotisation(item.idSiteCotisation);
+                        toast({ title: 'Succès', message: `Association "${item.siteLibelle} - ${item.cotisationLibelle}" désactivée.`, type: 'success' });
+                    } else {
+                        await paieConfigService.activateSiteCotisation(item.idSiteCotisation);
+                        toast({ title: 'Succès', message: `Association "${item.siteLibelle} - ${item.cotisationLibelle}" réactivée.`, type: 'success' });
+                    }
+                    setSiteCotisations(prev =>
+                        prev.map(sc =>
+                            sc.idSiteCotisation === item.idSiteCotisation
+                                ? { ...sc, estActif: !item.estActif }
+                                : sc
+                        )
+                    );
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                } catch (err) {
+                    setError("Erreur lors de la modification du statut.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    console.error(err);
+                }
             }
-            setSiteCotisations(prev =>
-                prev.map(sc =>
-                    sc.idSiteCotisation === item.idSiteCotisation
-                        ? { ...sc, estActif: !item.estActif }
-                        : sc
-                )
-            );
-        } catch (err) {
-            setActionError("Erreur lors de la modification du statut.");
-            console.error(err);
-        }
+        });
     };
 
     // Handlers IRSA
@@ -217,11 +253,13 @@ export default function CotisationsIrsaTab() {
 
     const handleSaveIrsa = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setActionError(null);
         const payload = {
             ...irsaFormData,
             trancheMax: irsaFormData.trancheMax !== '' ? parseFloat(irsaFormData.trancheMax) : null
         };
+        setSubmitting(true);
         try {
             if (editingIrsa) {
                 await paieConfigService.updateBaremeIrsa(editingIrsa.idTranche, payload);
@@ -234,6 +272,8 @@ export default function CotisationsIrsaTab() {
             loadData();
         } catch (err) {
             setActionError(err.response?.data || "Erreur de sauvegarde.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -292,7 +332,7 @@ export default function CotisationsIrsaTab() {
                 <SiteCotisationsList
                     siteCotisations={filteredSiteCotisations}
                     onOpenCreate={handleOpenCreateSiteCotisation}
-                    onToggleStatus={handleToggleSiteCotisationStatus}
+                    onToggleStatus={requestToggleSiteCotisationStatus}
                 />
             )}
 
@@ -312,6 +352,7 @@ export default function CotisationsIrsaTab() {
                 formData={cotisationFormData}
                 setFormData={setCotisationFormData}
                 actionError={actionError}
+                submitting={submitting}
             />
 
             <SiteCotisationFormModal
@@ -323,6 +364,7 @@ export default function CotisationsIrsaTab() {
                 sites={sites}
                 cotisations={cotisations}
                 actionError={actionError}
+                submitting={submitting}
             />
 
             <IrsaTrancheModal
@@ -334,6 +376,19 @@ export default function CotisationsIrsaTab() {
                 setFormData={setIrsaFormData}
                 existingTranches={tranchesIrsa}
                 actionError={actionError}
+                submitting={submitting}
+            />
+
+            {/* Boîte de confirmation */}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmLabel={confirmState.confirmLabel}
+                variant={confirmState.variant}
+                loading={confirmState.loading}
             />
         </div>
     );
