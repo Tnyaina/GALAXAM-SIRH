@@ -44,8 +44,8 @@ public class PointageAnomalieService {
             Integer effectivePeriodeId = idPeriode;
             if (effectivePeriodeId == null || effectivePeriodeId <= 0) {
                 String sqlFindPer = (datePointage != null && !datePointage.trim().isEmpty()) ?
-                    "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin ORDER BY date_fin DESC LIMIT 1" :
-                    "SELECT id_periode_paie FROM periode_paie WHERE statut = 'OUVERTE' ORDER BY date_fin DESC LIMIT 1";
+                    "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin ORDER BY date_debut DESC LIMIT 1" :
+                    "SELECT p.id_periode_paie FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE s.code = 'OUVERTE' ORDER BY p.date_debut DESC LIMIT 1";
                 try (PreparedStatement psF = c.prepareStatement(sqlFindPer)) {
                     if (datePointage != null && !datePointage.trim().isEmpty()) {
                         psF.setDate(1, Date.valueOf(datePointage));
@@ -55,15 +55,16 @@ public class PointageAnomalieService {
                             effectivePeriodeId = rsF.getInt(1);
                         }
                     }
-                }
+                } catch (Exception ignored) {}
+
                 if (effectivePeriodeId == null || effectivePeriodeId <= 0) {
-                    try (PreparedStatement psF2 = c.prepareStatement("SELECT id_periode_paie FROM periode_paie ORDER BY date_fin DESC LIMIT 1")) {
+                    try (PreparedStatement psF2 = c.prepareStatement("SELECT id_periode_paie FROM periode_paie ORDER BY date_debut DESC LIMIT 1")) {
                         try (ResultSet rsF2 = psF2.executeQuery()) {
                             if (rsF2.next()) {
                                 effectivePeriodeId = rsF2.getInt(1);
                             }
                         }
-                    }
+                    } catch (Exception ignored) {}
                 }
             }
 
