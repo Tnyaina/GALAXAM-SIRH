@@ -15,10 +15,13 @@ import SEO from '@/components/system/SEO';
 import PointageWorkflowNav from '@/components/pointage/PointageWorkflowNav';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
+import { useAuth } from '@/context/AuthContext';
 import usePointageAnomalies from '@/hooks/pointage/usePointageAnomalies';
 
 export default function AnomaliesPointagePage() {
     const { toast } = useToast();
+    const { hasPermission } = useAuth();
+    const canWrite = hasPermission('POINTAGE_WRITE');
     const [sites, setSites] = useState([]);
     const [periodes, setPeriodes] = useState([]);
 
@@ -48,6 +51,7 @@ export default function AnomaliesPointagePage() {
             }
         };
         fetchInitialData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const [selectedAnomalie, setSelectedAnomalie] = useState(null);
@@ -139,7 +143,7 @@ export default function AnomaliesPointagePage() {
                     title="Anomalies & Régularisations de Pointage"
                     subtitle="Détection des Saisies incomplets, retards non justifiés et absences"
                     breadcrumbs={[
-                        { label: 'Accueil', href: '/' },
+                        { label: 'Tableau de bord', href: '/dashboard' },
                         { label: 'Pointages', href: '/pointages/saisie' },
                         { label: 'Anomalies' }
                     ]}
@@ -317,16 +321,20 @@ export default function AnomaliesPointagePage() {
                                             </Badge>
                                         </Td>
                                         <Td className="py-3 px-4 text-center">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => openRegularisation(anom)}
-                                                className="text-xs font-bold flex items-center gap-1.5 mx-auto"
-                                            >
-                                                <Wrench size={13} />
-                                                Régulariser
-                                            </Button>
+                                            {canWrite ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => openRegularisation(anom)}
+                                                    className="text-xs font-bold flex items-center gap-1.5 mx-auto"
+                                                >
+                                                    <Wrench size={13} />
+                                                    Régulariser
+                                                </Button>
+                                            ) : (
+                                                <span className="text-xs text-[var(--color-fg-subtle)]">—</span>
+                                            )}
                                         </Td>
                                     </Tr>
                                 ))

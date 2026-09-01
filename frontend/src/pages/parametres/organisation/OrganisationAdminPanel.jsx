@@ -33,7 +33,7 @@ export default function OrganisationAdminPanel() {
                 subtitle="Gestion centralisée des filiales, sites d'affectation, départements, services et fonctions."
                 icon={Building2}
                 breadcrumbs={[
-                    { label: 'Tableau de bord', href: '/' },
+                    { label: 'Tableau de bord', href: '/dashboard' },
                     { label: 'Paramètres', href: '/parametres/organisation' },
                     { label: 'Organisation & Structure' }
                 ]}

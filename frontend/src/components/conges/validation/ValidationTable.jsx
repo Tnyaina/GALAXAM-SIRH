@@ -21,6 +21,7 @@ export default function ValidationTable({
   pageSize,
   setCurrentPage,
   setPageSize,
+  canValidate = true,
   onOpenDetail,
   onOpenRefus,
   onOpenValider
@@ -165,7 +166,7 @@ export default function ValidationTable({
                     {/* Actions décisionnelles */}
                     <Td align="right" className="whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
-                        {isEnAttente ? (
+                        {isEnAttente && canValidate ? (
                           <>
                             <Button
                               variant="outline"

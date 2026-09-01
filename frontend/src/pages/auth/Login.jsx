@@ -12,7 +12,7 @@ import SEO from '@/components/system/SEO';
 
 export default function Login() {
     const navigate = useNavigate();
-    const { login, isAuthenticated, user } = useAuth();
+    const { login, isAuthenticated, user, hasPermission } = useAuth();
 
     const [identifiant, setIdentifiant] = useState('');
     const [password, setPassword] = useState('');
@@ -23,10 +23,14 @@ export default function Login() {
 
     useEffect(() => {
         if (isAuthenticated && user) {
-            const redirectPath = user.role === 'ROLE_AGENT_POINTAGE' ? '/pointages/saisie' : '/dashboard';
+            const redirectPath = hasPermission('EMPLOYE_READ')
+                ? '/dashboard'
+                : (hasPermission('POINTAGE_READ')
+                    ? '/pointages/saisie'
+                    : (hasPermission('CONGE_READ') ? '/conges' : '/dashboard'));
             navigate(redirectPath, { replace: true });
         }
-    }, [isAuthenticated, user, navigate]);
+    }, [isAuthenticated, user, hasPermission, navigate]);
 
     const handleIdentifiantChange = (e) => {
         if (error) setError('');

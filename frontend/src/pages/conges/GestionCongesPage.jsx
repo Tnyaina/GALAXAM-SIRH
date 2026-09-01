@@ -82,7 +82,7 @@ export default function GestionCongesPage() {
         subtitle="Supervision globale des absences, planning prévisionnel d'équipe et approbation des demandes."
         icon={CalendarDays}
         breadcrumbs={[
-          { label: 'Tableau de bord', href: '/' },
+          { label: 'Tableau de bord', href: '/dashboard' },
           { label: 'Congés & Absences' }
         ]}
       />

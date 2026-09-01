@@ -1,7 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, ArrowRight, Info, Lock, Unlock } from 'lucide-react';
-import PageHeader from '@/components/ui/navigation/PageHeader';
-import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
@@ -344,7 +342,7 @@ export default function SynthesePointagePage() {
                                                 <span className="w-[90px]">Semaine</span>
                                                 <span>Période</span>
                                                 <span className="w-[130px] text-center">Statut</span>
-                                                <span className="w-[90px] text-center">Réalisé / Objectif</span>
+                                                <span className="w-[90px] text-center">Réalisé / Objectif</span>
                                                 <span className="w-[60px]"></span>
                                             </div>
                                             {semaines.map((sem) => {
@@ -389,7 +387,7 @@ export default function SynthesePointagePage() {
                                                         {/* Réalisé / Objectif */}
                                                         <span className="w-[90px] text-center font-mono text-[11px] text-[var(--color-fg-muted)]">
                                                             <strong className="text-[var(--color-fg)]">{sem.totalHeures}h</strong>
-                                                            <span className="opacity-50"> / {sem.seuilHeures}h</span>
+                                                            <span className="opacity-50"> / {sem.seuilHeures}h</span>
                                                         </span>
 
                                                         {/* Indicateur sélection */}
@@ -480,7 +478,7 @@ export default function SynthesePointagePage() {
                                                 ? `${blocking.map(s => s.title).join(', ')} doit${blocking.length > 1 ? ' doivent' : ''} être validée${blocking.length > 1 ? 's' : ''} en premier`
                                                 : 'Saisie incomplète — pointages quotidiens manquants';
                                             return (
-                                                <span className="text-[11px] text-[var(--color-fg-muted)] italic">
+                                                <span className="text-[11px] text-[var(--color-fg-muted)] ">
                                                     {blockingMsg}
                                                 </span>
                                             );

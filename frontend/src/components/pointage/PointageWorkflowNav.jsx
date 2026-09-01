@@ -3,8 +3,8 @@ import { CalendarDays, AlertTriangle, FileSpreadsheet, CalendarRange } from 'luc
 import { useAuth } from '@/context/AuthContext';
 
 export default function PointageWorkflowNav() {
-    const { user } = useAuth();
-    const isAgent = user?.roles?.includes('ROLE_AGENT_POINTAGE') && !user?.roles?.includes('ROLE_ADMIN');
+    const { hasPermission } = useAuth();
+    const canViewPeriodes = hasPermission('POINTAGE_VALIDATE');
 
     const steps = [
         {
@@ -27,7 +27,7 @@ export default function PointageWorkflowNav() {
         }
     ];
 
-    if (!isAgent) {
+    if (canViewPeriodes) {
         steps.push({
             to: '/pointages/periodes',
             label: 'Périodes de Paie',
@@ -38,7 +38,7 @@ export default function PointageWorkflowNav() {
 
     return (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs flex items-stretch overflow-x-auto">
-            {steps.map((step, index) => {
+            {steps.map((step) => {
                 const Icon = step.icon;
                 return (
                     <NavLink

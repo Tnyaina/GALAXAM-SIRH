@@ -63,14 +63,14 @@ export default function Router() {
                     {/* ---------------------------------------------------- */}
                     {/* Routes Protégées Standard (Authentifié + Layout)    */}
                     {/* ---------------------------------------------------- */}
-                    <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
+                    <Route element={<ProtectedRoute requiredPermission="EMPLOYE_READ" />}>
                         <Route path="/dashboard" element={<Dashboard />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}
                     {/* Module Congés & Absences                             */}
                     {/* ---------------------------------------------------- */}
-                    <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
+                    <Route element={<ProtectedRoute requiredPermission="CONGE_READ" />}>
                         <Route path="/conges" element={<GestionCongesPage />} />
                         <Route path="/conges/*" element={<GestionCongesPage />} />
                     </Route>
@@ -78,7 +78,7 @@ export default function Router() {
                     {/* ---------------------------------------------------- */}
                     {/* Module Pointage & Présence (Admin & Agent Pointage)  */}
                     {/* ---------------------------------------------------- */}
-                    <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN", "ROLE_AGENT_POINTAGE"]} />}>
+                    <Route element={<ProtectedRoute requiredPermission="POINTAGE_READ" allowedRoles={["ROLE_ADMIN", "ROLE_AGENT_POINTAGE"]} />}>
                         <Route path="/pointages" element={<Navigate to="/pointages/saisie" replace />} />
                         <Route path="/pointages/saisie" element={<SaisieQuotidiennePage />} />
                         <Route path="/pointages/anomalies" element={<AnomaliesPointagePage />} />

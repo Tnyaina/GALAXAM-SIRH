@@ -93,7 +93,7 @@ export default function ParametresModulesPanel() {
                 subtitle="Configuration technique des barèmes de paie, règles de congés, tolérances de pointage et constantes système."
                 icon={Wrench}
                 breadcrumbs={[
-                    { label: 'Tableau de bord', href: '/' },
+                    { label: 'Tableau de bord', href: '/dashboard' },
                     { label: 'Paramètres', href: '/parametres/modules' },
                     { label: 'Paramétrage des Modules' }
                 ]}

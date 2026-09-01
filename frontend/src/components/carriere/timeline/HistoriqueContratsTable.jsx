@@ -68,7 +68,7 @@ export default function HistoriqueContratsTable({
                                                 </p>
                                             )}
                                             {ct.description && (
-                                                <p className="text-[10px] text-ink-400 italic">
+                                                <p className="text-[10px] text-ink-400 ">
                                                     {ct.description}
                                                 </p>
                                             )}

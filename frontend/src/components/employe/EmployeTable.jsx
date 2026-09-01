@@ -1,4 +1,4 @@
-import { Edit2, Power, Users, Mail, Phone, MapPin, Building, Briefcase } from 'lucide-react';
+import { Edit2, Power, Users, Mail, Phone, MapPin, Building } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';

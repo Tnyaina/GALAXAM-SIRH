@@ -33,7 +33,7 @@ export default function SecuriteAdminPanel() {
                 subtitle="Gestion des comptes utilisateurs, assignation des rôles RBAC, permissions et visibilité des menus."
                 icon={Shield}
                 breadcrumbs={[
-                    { label: 'Tableau de bord', href: '/' },
+                    { label: 'Tableau de bord', href: '/dashboard' },
                     { label: 'Paramètres', href: '/parametres/securite' },
                     { label: 'Sécurité & Contrôle d\'Accès' }
                 ]}

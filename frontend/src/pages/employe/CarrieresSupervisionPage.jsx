@@ -214,7 +214,7 @@ export default function CarrieresSupervisionPage() {
                 subtitle="Pilotage centralisé des contrats de travail, des périodes d'essai, des évolutions et mouvements de carrière."
                 icon={Briefcase}
                 breadcrumbs={[
-                    { label: 'Tableau de bord', href: '/' },
+                    { label: 'Tableau de bord', href: '/dashboard' },
                     { label: 'Collaborateurs', href: '/employes' },
                     { label: 'Supervision des Carrières' }
                 ]}

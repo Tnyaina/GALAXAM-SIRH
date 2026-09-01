@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 
 const widths = {
@@ -21,6 +22,17 @@ export default function SlideOver({
     children,
     footer,
 }) {
+    // Fermeture sur la touche Échap
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && isOpen) {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     return (
@@ -28,6 +40,10 @@ export default function SlideOver({
             <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={onClose} />
 
             <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="slideover-title"
+                tabIndex={-1}
                 className={`
                     relative w-full ${widths[width]} h-full flex flex-col rounded-none
                     bg-[var(--color-surface)] border-l border-[var(--color-border)] shadow-xl
@@ -43,7 +59,7 @@ export default function SlideOver({
                         )}
                         <div className="min-w-0">
                             {title && (
-                                <h2 className="text-sm sm:text-base font-bold text-[var(--color-fg)] truncate">
+                                <h2 id="slideover-title" className="text-sm sm:text-base font-bold text-[var(--color-fg)] truncate">
                                     {title}
                                 </h2>
                             )}

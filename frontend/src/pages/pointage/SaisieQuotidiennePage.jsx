@@ -21,10 +21,11 @@ import usePointageSaisie from '@/hooks/pointage/usePointageSaisie';
 
 export default function SaisieQuotidiennePage() {
     const { toast } = useToast();
-    const { user } = useAuth();
+    const { hasPermission } = useAuth();
     const navigate = useNavigate();
     const [sites, setSites] = useState([]);
-    const isAgent = user?.roles?.includes('ROLE_AGENT_POINTAGE') && !user?.roles?.includes('ROLE_ADMIN');
+    const canWrite = hasPermission('POINTAGE_WRITE');
+    const canValidate = hasPermission('POINTAGE_VALIDATE');
 
     useEffect(() => {
         const fetchSites = async () => {
@@ -54,7 +55,6 @@ export default function SaisieQuotidiennePage() {
         error,
         loadData,
         isRowModified,
-        resetAllChanges,
         updateRowHours,
         updateRowIndemnite,
         updateRowDynamicIndemnite,
@@ -213,12 +213,13 @@ export default function SaisieQuotidiennePage() {
     }, [grilleData, statutFilter, searchTerm]);
 
     const isReadOnly = useMemo(() => {
+        if (!canWrite) return true;
         if (!periodeInfo) return true;
         const statut = periodeInfo.statut_code;
         if (statut === 'VALIDEE' || statut === 'CLOTUREE') return true;
-        if (statut === 'A_VALIDER' && isAgent) return true;
+        if (statut === 'A_VALIDER' && !canValidate) return true;
         return false;
-    }, [periodeInfo, isAgent]);
+    }, [periodeInfo, canValidate, canWrite]);
 
     const currentSiteObj = sites.find(s => s.idSite === selectedSite);
     const siteLabel = currentSiteObj

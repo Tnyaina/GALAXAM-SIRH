@@ -49,6 +49,10 @@ export default function Modal({
 
             {/* Boîte Modale */}
             <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="modal-title"
+                tabIndex={-1}
                 className={`
           relative w-full ${sizes[size] || sizes.md} bg-[var(--color-surface)] border border-[var(--color-border)]
           shadow-2xl rounded-none flex flex-col overflow-hidden animate-in fade-in zoom-in-95 
@@ -57,7 +61,7 @@ export default function Modal({
             >
                 {/* Header */}
                 <div className="px-4 py-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between shrink-0">
-                    <h3 className="font-bold text-[var(--color-fg)] text-sm sm:text-base flex items-center gap-2 truncate">
+                    <h3 id="modal-title" className="font-bold text-[var(--color-fg)] text-sm sm:text-base flex items-center gap-2 truncate">
                         {icon && <span className="text-[var(--color-brand-500)] shrink-0">{icon}</span>}
                         <span className="truncate">{title}</span>
                     </h3>

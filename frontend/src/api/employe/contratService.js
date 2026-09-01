@@ -90,11 +90,7 @@ const contratService = {
 
     initierTransition: async (idEmploye, data) => {
         const response = await apiClient.post(`/employes/${idEmploye}/workflows/transition`, data);
-        return response.data;
-    },
-
-    initierRupture: async (idEmploye, data) => {
-        const response = await apiClient.post(`/employes/${idEmploye}/workflows/transition`, data);
+        window.dispatchEvent(new Event('refresh-notifications'));
         return response.data;
     },
 

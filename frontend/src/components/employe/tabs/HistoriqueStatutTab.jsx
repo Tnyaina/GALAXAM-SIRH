@@ -1,4 +1,4 @@
-import { FileText, ShieldCheck, ShieldAlert, Calendar } from 'lucide-react';
+import { FileText, ShieldCheck, ShieldAlert } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 
 const InfoBlock = ({ label, value, children }) => (

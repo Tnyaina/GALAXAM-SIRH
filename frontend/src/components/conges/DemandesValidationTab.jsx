@@ -3,6 +3,7 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 // Hooks
+import { useAuth } from '@/context/AuthContext';
 import { useDemandesValidation } from '@/hooks/conges/useDemandesValidation';
 
 // Sous-composants
@@ -15,6 +16,9 @@ const DemandeCongeModal = lazy(() => import('@/components/conges/DemandeCongeMod
 
 export default function DemandesValidationTab({ referentiels, onReload: parentReload }) {
   const toast = useToast();
+  const { hasPermission } = useAuth();
+  const canValidate = hasPermission('CONGE_VALIDATE');
+  const canWrite = hasPermission('CONGE_WRITE');
 
   // 1. Initialisation du Hook Logique
   const {
@@ -114,7 +118,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
         searchTerm={searchTerm}
         loading={loading}
         onRefresh={handleRefresh}
-        onNewDemande={() => { setSelectedDemande(null); setShowDemandeModal(true); }}
+        onNewDemande={canWrite ? () => { setSelectedDemande(null); setShowDemandeModal(true); } : null}
       />
 
       {/* Tableau des données */}
@@ -127,6 +131,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
         pageSize={pageSize}
         setCurrentPage={setCurrentPage}
         setPageSize={setPageSize}
+        canValidate={canValidate}
         onOpenDetail={openDetail}
         onOpenRefus={openRefus}
         onOpenValider={openValider}

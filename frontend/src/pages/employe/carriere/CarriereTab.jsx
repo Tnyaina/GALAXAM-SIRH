@@ -1,7 +1,6 @@
-import { ShieldAlert, RefreshCw } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import { useToast } from '@/components/ui/feedback/Toast';
 import Loading from '@/components/ui/feedback/Loading';
-import Button from '@/components/ui/forms/Button';
 
 // Hooks
 import { useCarriere } from '@/hooks/useCarriere';

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Plus, RefreshCw, CalendarDays, History } from 'lucide-react';
+import { Calendar, Plus, RefreshCw, CalendarDays } from 'lucide-react';
 import congeService from '@/api/congeService';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';

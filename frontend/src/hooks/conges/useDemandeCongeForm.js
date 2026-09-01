@@ -123,23 +123,9 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idTypeConge, idMotifEvenementFamilial, dateDebut, extensionPathologiqueMaternite, estDemiJournee]);
 
-  // Synchronisation dynamique réversible de régularisation rétroactive (congés oubliés)
+  // Simulation serveur des jours décomptés (backend-driven avec prise en compte des fériés et ouvrables réels)
   useEffect(() => {
-    if (dateDebut) {
-      const dDebut = new Date(dateDebut);
-      const today = new Date();
-      dDebut.setHours(0, 0, 0, 0);
-      today.setHours(0, 0, 0, 0);
-      if (dDebut < today) {
-        setDerogationDelaiPreavis(true);
-      } else {
-        setDerogationDelaiPreavis(false);
-      }
-    }
-  }, [dateDebut]);
-
-  // Simulation automatique des jours calendaires stricts + validation inline des dates
-  useEffect(() => {
+    let isMounted = true;
     if (estDemiJournee) {
       if (dateDebut) {
         setNbJoursDecomptes(0.5);
@@ -158,23 +144,37 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
       const dDebut = new Date(dateDebut);
       const dFin = new Date(dateFin);
       if (dFin >= dDebut) {
-        const diffTime = dFin.getTime() - dDebut.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24)) + 1;
-
-        let countWeekends = 0;
-        let currentDate = new Date(dDebut);
-        while (currentDate <= dFin) {
-          const day = currentDate.getDay(); // 0 is Sunday, 6 is Saturday
-          if (day === 0 || day === 6) {
-            countWeekends++;
-          }
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-
-        setNbJoursDecomptes(diffDays);
-        setNbJoursWeekEnd(countWeekends);
-        setNbJoursOuvres(diffDays - countWeekends);
         setFieldErrors((prev) => ({ ...prev, dateFin: null }));
+
+        const timer = setTimeout(async () => {
+          try {
+            const sim = await congeService.simulerDemande(dateDebut, dateFin, false);
+            if (isMounted && sim) {
+              const nb = Number(sim.nbJoursDecomptes || 0);
+              setNbJoursDecomptes(nb);
+              let countWeekends = 0;
+              let currentDate = new Date(dDebut);
+              while (currentDate <= dFin) {
+                const day = currentDate.getDay();
+                if (day === 0 || day === 6) countWeekends++;
+                currentDate.setDate(currentDate.getDate() + 1);
+              }
+              setNbJoursWeekEnd(countWeekends);
+              setNbJoursOuvres(Math.max(0, nb - countWeekends));
+            }
+          } catch {
+            if (isMounted) {
+              const diffTime = dFin.getTime() - dDebut.getTime();
+              const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24)) + 1;
+              setNbJoursDecomptes(diffDays);
+            }
+          }
+        }, 150);
+
+        return () => {
+          isMounted = false;
+          clearTimeout(timer);
+        };
       } else {
         setNbJoursDecomptes(0);
         setNbJoursWeekEnd(0);

@@ -68,8 +68,8 @@ export default function PeriodePaiePage() {
         updateStatut
     } = usePeriodePaie();
 
-    const { hasRole, hasAuthority } = useAuth();
-    const canManage = hasRole?.('ADMIN') || hasAuthority?.('ROLE_ADMIN') || true;
+    const { hasPermission } = useAuth();
+    const canManage = hasPermission('POINTAGE_VALIDATE') || hasPermission('ADMIN');
     const toast = useToast();
 
     // Modale de Création
@@ -240,7 +240,7 @@ export default function PeriodePaiePage() {
 
             {/* Fil d'Ariane */}
             <Breadcrumb items={[
-                { label: 'Tableau de bord', href: '/' },
+                { label: 'Tableau de bord', href: '/dashboard' },
                 { label: 'Pointage & Présence', href: '/pointages/saisie' },
                 { label: 'Périodes de Paie & Clôture' }
             ]} />

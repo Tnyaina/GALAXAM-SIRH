@@ -33,7 +33,7 @@ export default function ReferentielsRhAdminPanel() {
                 subtitle="Gestion des grilles catégorielles, pièces justificatives obligatoires et listes de référence RH."
                 icon={BookType}
                 breadcrumbs={[
-                    { label: 'Tableau de bord', href: '/' },
+                    { label: 'Tableau de bord', href: '/dashboard' },
                     { label: 'Paramètres', href: '/parametres/referentiels' },
                     { label: 'Référentiels Métier & Documents' }
                 ]}

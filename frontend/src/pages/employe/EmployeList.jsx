@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { UserPlus, Users, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import employeService from '@/api/employe/employeService';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
@@ -20,6 +20,7 @@ const EmployeFormModal = lazy(() => import('./dossier/EmployeFormModal'));
 
 export default function EmployeList() {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { hasPermission } = useAuth();
     const canWrite = hasPermission('EMPLOYE_WRITE');
     const canValidate = hasPermission('EMPLOYE_VALIDATE');
@@ -31,19 +32,19 @@ export default function EmployeList() {
     const [statsCounts, setStatsCounts] = useState({ total: 0, actifs: 0, inactifs: 0 });
     const [loading, setLoading] = useState(true);
 
-    // Filtres
-    const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'ACTIVE', 'INACTIVE'
-    const [siteFilter, setSiteFilter] = useState('');
-    const [departementFilter, setDepartementFilter] = useState('');
-    const [serviceFilter, setServiceFilter] = useState('');
+    // Filtres synchronisés avec l'URL
+    const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+    const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL'); // 'ALL', 'ACTIVE', 'INACTIVE'
+    const [siteFilter, setSiteFilter] = useState(searchParams.get('site') || '');
+    const [departementFilter, setDepartementFilter] = useState(searchParams.get('dept') || '');
+    const [serviceFilter, setServiceFilter] = useState(searchParams.get('service') || '');
 
     // Tri (Preset par défaut : Hiérarchique par Département -> Service -> Nom)
     const [sortPreset, setSortPreset] = useState('HIERARCHICAL');
     const [columnSortConfig, setColumnSortConfig] = useState({ key: '', direction: 'asc' });
 
     // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
+    const [currentPage, setCurrentPage] = useState(Number(searchParams.get('page')) || 1);
     const [pageSize, setPageSize] = useState(10);
 
     // Modales
@@ -89,8 +90,26 @@ export default function EmployeList() {
         loadEmployes();
     }, [loadEmployes]);
 
-    // Réinitialiser la pagination si les filtres changent
+    // Synchronisation de l'état avec l'URL
     useEffect(() => {
+        const params = {};
+        if (searchQuery.trim()) params.q = searchQuery.trim();
+        if (statusFilter && statusFilter !== 'ALL') params.status = statusFilter;
+        if (siteFilter) params.site = siteFilter;
+        if (departementFilter) params.dept = departementFilter;
+        if (serviceFilter) params.service = serviceFilter;
+        if (currentPage > 1) params.page = String(currentPage);
+        setSearchParams(params, { replace: true });
+    }, [searchQuery, statusFilter, siteFilter, departementFilter, serviceFilter, currentPage, setSearchParams]);
+
+    const isFirstMount = useRef(true);
+
+    // Réinitialiser la pagination si les filtres changent (sauf au premier montage pour préserver ?page=X)
+    useEffect(() => {
+        if (isFirstMount.current) {
+            isFirstMount.current = false;
+            return;
+        }
         setCurrentPage(1);
     }, [searchQuery, statusFilter, siteFilter, departementFilter, serviceFilter]);
 
@@ -369,7 +388,7 @@ export default function EmployeList() {
                 subtitle="Répertoire du personnel — gestion des fiches individuelles, carrières et documents"
                 icon={Users}
                 breadcrumbs={[
-                    { label: 'Tableau de bord', href: '/' },
+                    { label: 'Tableau de bord', href: '/dashboard' },
                     { label: 'Collaborateurs' }
                 ]}
                 actions={

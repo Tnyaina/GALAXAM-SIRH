@@ -1,4 +1,3 @@
-import { Briefcase, Building, FileText, Calendar, ChevronRight } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 
 const fmtDate = (d) => {
@@ -29,7 +28,7 @@ export default function EmployeSideSummaryPanel({
     documentsCount = 0,
     activeTab,
     onNavigateTab,
-    canWrite = false
+    canWrite: _canWrite = false
 }) {
     if (!emp) return null;
 

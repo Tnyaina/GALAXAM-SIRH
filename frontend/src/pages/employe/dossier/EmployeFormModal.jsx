@@ -439,7 +439,6 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                 {/* Stepper Horizontal Moderne & Explicite */}
                 <div className="flex border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] overflow-x-auto">
                     {STEPS.map((step, idx) => {
-                        const Icon = step.icon;
                         const isCompleted = idx < activeStep;
                         const isActive = idx === activeStep;
                         const canClick = employeData || isCompleted;

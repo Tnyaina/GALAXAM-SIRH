@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     ArrowLeft, User, Users, Briefcase, XCircle, Folder,
-    Power, AlertTriangle, Calendar, Clock, ArrowRight, Compass
+    AlertTriangle, Calendar, Clock, ArrowRight, Compass
 } from 'lucide-react';
 import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
@@ -296,7 +296,7 @@ export default function EmployeFicheDetailPage() {
             />
             {/* Fil d'Ariane */}
             <Breadcrumb items={[
-                { label: 'Tableau de bord', href: '/' },
+                { label: 'Tableau de bord', href: '/dashboard' },
                 { label: 'Collaborateurs', href: '/employes' },
                 { label: `${emp?.nomComplet || `${emp?.nom || ''} ${emp?.prenom || ''}`.trim() || 'Fiche Collaborateur'}${emp?.matricule ? ` (${emp.matricule})` : ''}` }
             ]} />

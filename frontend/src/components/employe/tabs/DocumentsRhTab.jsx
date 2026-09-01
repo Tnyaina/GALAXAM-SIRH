@@ -1,4 +1,4 @@
-import { Folder, Upload, Download, Trash2, Plus, AlertTriangle } from 'lucide-react';
+import { Folder, Upload, Download, Trash2, AlertTriangle } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
