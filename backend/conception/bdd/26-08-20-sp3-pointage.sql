@@ -42,6 +42,7 @@ INSERT INTO ref_statut_periode_paie (code, libelle) VALUES
     ('BROUILLON', 'Période créée, non ouverte'),
     ('EN_COURS', 'Saisie en cours'),
     ('A_VALIDER', 'Terminée, en attente de validation DAF'),
+    ('TRANSMIS_DAF', 'Transmise à la DAF'),
     ('VALIDEE', 'Validée — verrouillée pour saisie'),
     ('CLOTUREE', 'Clôturée — consommée par la Paie, immuable');
 
@@ -150,6 +151,7 @@ CREATE TABLE pointage_jour (
     id_demande_conge INTEGER REFERENCES demande_conge(id_demande_conge),
     genere_automatiquement BOOLEAN NOT NULL DEFAULT FALSE,
 
+    version INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 

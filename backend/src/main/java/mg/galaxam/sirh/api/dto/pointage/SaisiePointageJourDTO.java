@@ -51,9 +51,13 @@ public class SaisiePointageJourDTO {
     private String motifAjustement;
     private Integer idPeriodePaie;
     private String libelleConge;
+    private Integer version; // Optimistic locking version
     private Map<String, Object> dynamicIndemnites = new HashMap<>();
 
     // Getters et Setters
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+
     public Integer getIdPeriodePaie() { return idPeriodePaie; }
     public void setIdPeriodePaie(Integer idPeriodePaie) { this.idPeriodePaie = idPeriodePaie; }
 

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -141,15 +142,29 @@ public class DemandeCongeController {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                DemandeConge d = DemandeConge.rechercherParId(id, c);
-                if (d == null)
-                    return ResponseEntity.notFound().build();
+                // Verrouillage pessimiste strict de la demande pour éviter toute course avec une validation/annulation concurrente
+                String sqlLock = "SELECT s.code, dc.id_statut_demande_conge FROM demande_conge dc " +
+                                 "JOIN ref_statut_demande_conge s ON dc.id_statut_demande_conge = s.id_statut_demande_conge " +
+                                 "WHERE dc.id_demande_conge = ? FOR UPDATE";
+                String statutCode;
+                try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
+                    psLock.setInt(1, id);
+                    try (ResultSet rsLock = psLock.executeQuery()) {
+                        if (!rsLock.next()) {
+                            return ResponseEntity.notFound().build();
+                        }
+                        statutCode = rsLock.getString("code");
+                    }
+                }
 
-                String statutCode = d.getStatutCode(c);
                 if (!"EN_ATTENTE".equals(statutCode) && !"BROUILLON".equals(statutCode)) {
                     return ResponseEntity.badRequest()
                             .body("Seules les demandes en attente ou en brouillon peuvent être modifiées.");
                 }
+
+                DemandeConge d = DemandeConge.rechercherParId(id, c);
+                if (d == null)
+                    return ResponseEntity.notFound().build();
 
                 d.setIdDemandeConge(id); // 🔒 Garantie d'exclusion de son propre ID pour l'anti-overlap
 

@@ -25,6 +25,9 @@ public class PointageAnomalieService {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private PointageSaisieService pointageSaisieService;
+
     /**
      * Recherche les anomalies pour un filtre donné (anomalies de saisie, retards non justifiés et jours ouvrés non saisis)
      */
@@ -251,27 +254,93 @@ public class PointageAnomalieService {
                 codeStatut = totalH > 0 ? "PRESENT" : "ABSENCE_NON_JUSTIFIEE";
             }
 
-            if (idPointage <= 0) {
-                int idEmp = ((Number) payload.get("idEmploye")).intValue();
-                int idPer = ((Number) payload.get("idPeriodePaie")).intValue();
-                String dtStr = (String) payload.get("datePointage");
-                Date dt = Date.valueOf(dtStr);
-                if (idSite == null || idSite <= 0) idSite = 1;
+            // 1. Identification et chargement des informations clés (employé, site, période, version)
+            Integer idEmp = null;
+            Integer idPer = null;
+            Date datePtg = null;
+            Integer currentVersion = null;
 
+            if (idPointage > 0) {
+                String sqlFindPtg = "SELECT id_employe, id_site, id_periode_paie, date_pointage, COALESCE(version, 1) AS version FROM pointage_jour WHERE id_pointage = ?";
+                try (PreparedStatement psF = c.prepareStatement(sqlFindPtg)) {
+                    psF.setInt(1, idPointage);
+                    try (ResultSet rsF = psF.executeQuery()) {
+                        if (rsF.next()) {
+                            idEmp = rsF.getInt("id_employe");
+                            if (idSite == null || idSite <= 0) {
+                                idSite = rsF.getInt("id_site");
+                            }
+                            idPer = rsF.getInt("id_periode_paie");
+                            datePtg = rsF.getDate("date_pointage");
+                            currentVersion = rsF.getInt("version");
+                        } else {
+                            throw new IllegalArgumentException("Pointage introuvable (ID: " + idPointage + ").");
+                        }
+                    }
+                }
+            } else {
+                if (payload.get("idEmploye") != null) {
+                    idEmp = ((Number) payload.get("idEmploye")).intValue();
+                }
+                if (payload.get("idPeriodePaie") != null) {
+                    idPer = ((Number) payload.get("idPeriodePaie")).intValue();
+                }
+                if (payload.get("datePointage") != null) {
+                    datePtg = Date.valueOf((String) payload.get("datePointage"));
+                }
+            }
+
+            if (idEmp == null || datePtg == null) {
+                throw new IllegalArgumentException("L'employé et la date de pointage sont requis.");
+            }
+            if (idSite == null || idSite <= 0) {
+                idSite = 1;
+            }
+
+            // 2. Contrôle P0-1 : Éligibilité stricte au pointage à l'écriture
+            pointageSaisieService.verifierEligibilitePointage(c, idEmp, idSite, datePtg);
+
+            // 3. Contrôle P0-3 : Verrouillage de la Période de Paie (avec verrou partagé FOR SHARE)
+            if ((idPer == null || idPer <= 0) && datePtg != null) {
+                String sqlFindPer2 = "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
+                try (PreparedStatement psF2 = c.prepareStatement(sqlFindPer2)) {
+                    psF2.setDate(1, datePtg);
+                    try (ResultSet rsF2 = psF2.executeQuery()) {
+                        if (rsF2.next()) idPer = rsF2.getInt(1);
+                    }
+                }
+            }
+
+            if (idPer != null && idPer > 0) {
+                String sqlCheckPer = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ? FOR SHARE";
+                try (PreparedStatement psCP = c.prepareStatement(sqlCheckPer)) {
+                    psCP.setInt(1, idPer);
+                    try (ResultSet rsCP = psCP.executeQuery()) {
+                        if (rsCP.next()) {
+                            String stCode = rsCP.getString("code");
+                            if ("VALIDEE".equalsIgnoreCase(stCode) || "CLOTUREE".equalsIgnoreCase(stCode) || "TRANSMIS_DAF".equalsIgnoreCase(stCode)) {
+                                throw new IllegalStateException("Impossible de modifier les pointages : la période de paie est fermée.");
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (idPointage <= 0) {
                 String sqlInsert = "INSERT INTO pointage_jour (" +
                     "id_employe, id_periode_paie, id_site, date_pointage, " +
                     "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
                     "heures_matin, heures_am, total_heures, minutes_retard, heures_nuit, " +
                     "motif_ajustement, id_statut_jour, deplacement_matin, deplacement_am, " +
-                    "indemnite_deplacement_recue, indemnite_repas_recue, created_at, updated_at " +
+                    "indemnite_deplacement_recue, indemnite_repas_recue, version, created_at, updated_at " +
                     ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
                     "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                    "?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+                    "?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
                 try (PreparedStatement psIns = c.prepareStatement(sqlInsert)) {
                     psIns.setInt(1, idEmp);
-                    psIns.setInt(2, idPer);
+                    psIns.setObject(2, idPer);
                     psIns.setInt(3, idSite);
-                    psIns.setDate(4, dt);
+                    psIns.setDate(4, datePtg);
                     psIns.setTime(5, em);
                     psIns.setTime(6, sm);
                     psIns.setTime(7, ea);
@@ -288,14 +357,29 @@ public class PointageAnomalieService {
                     psIns.setBoolean(18, depM || depA);
                     psIns.setBoolean(19, repas);
                     return psIns.executeUpdate() > 0;
+                } catch (SQLException eIns) {
+                    if (eIns.getMessage() != null && (eIns.getMessage().toLowerCase().contains("duplicate") || eIns.getMessage().toLowerCase().contains("unique"))) {
+                        throw new IllegalStateException("Conflit de modification concurrente : le pointage existe déjà.");
+                    }
+                    throw eIns;
                 }
             } else {
+                // 4. Contrôle P0-5 : Concurrence & Optimistic Locking obligatoire
+                if (payload.get("version") == null) {
+                    throw new IllegalStateException("Le champ 'version' est obligatoire pour régulariser le pointage existant ID " + idPointage + ".");
+                }
+                int providedVer = ((Number) payload.get("version")).intValue();
+                if (currentVersion != null && providedVer != currentVersion) {
+                    throw new IllegalStateException("Conflit de modification concurrente sur le pointage ID " + idPointage
+                            + " (version attendue: " + currentVersion + ", version fournie: " + providedVer + "). Veuillez recharger.");
+                }
+
                 String sql = "UPDATE pointage_jour SET " +
                              "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, " +
                              "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
                              "motif_ajustement = ?, id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
                              "deplacement_matin = ?, deplacement_am = ?, indemnite_deplacement_recue = ?, indemnite_repas_recue = ?, " +
-                             "updated_at = CURRENT_TIMESTAMP WHERE id_pointage = ?";
+                             "version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id_pointage = ? AND version = ?";
 
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
                     ps.setTime(1, em);
@@ -314,7 +398,12 @@ public class PointageAnomalieService {
                     ps.setBoolean(14, depM || depA);
                     ps.setBoolean(15, repas);
                     ps.setInt(16, idPointage);
-                    return ps.executeUpdate() > 0;
+                    ps.setInt(17, providedVer);
+                    int rows = ps.executeUpdate();
+                    if (rows == 0) {
+                        throw new IllegalStateException("Conflit de modification concurrente sur le pointage ID " + idPointage + ". La ligne a été modifiée par un tiers.");
+                    }
+                    return rows > 0;
                 }
             }
         }

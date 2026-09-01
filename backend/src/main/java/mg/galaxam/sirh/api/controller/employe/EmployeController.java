@@ -392,7 +392,7 @@ public class EmployeController {
 
     @PutMapping("/{id}/desactiver")
     @PreAuthorize("hasAuthority('EMPLOYE_VALIDATE') or hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> desactiverEmploye(@PathVariable int id, @RequestBody(required = false) DesactivationRequest req) {
+    public ResponseEntity<?> desactiverEmploye(@PathVariable int id, @RequestBody(required = false) DesactivationRequest req) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -413,18 +413,14 @@ public class EmployeController {
                 return ResponseEntity.ok(updatedView);
             } catch (Exception ex) {
                 c.rollback();
-                ex.printStackTrace();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw ex;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur lors de la désactivation d'employé.");
         }
     }
 
     @PutMapping("/{id}/activer")
     @PreAuthorize("hasAuthority('EMPLOYE_VALIDATE') or hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> reactiverEmploye(@PathVariable int id) {
+    public ResponseEntity<?> reactiverEmploye(@PathVariable int id) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -441,11 +437,8 @@ public class EmployeController {
                 return ResponseEntity.ok(updatedView);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw ex;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur lors de la réactivation d'employé.");
         }
     }
 }

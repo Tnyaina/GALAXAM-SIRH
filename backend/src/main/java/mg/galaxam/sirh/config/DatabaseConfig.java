@@ -87,7 +87,20 @@ public class DatabaseConfig {
         if (StringUtils.hasText(finalPassword)) {
             dataSource.setPassword(finalPassword);
         }
+
+        initSchema(dataSource);
         return dataSource;
+    }
+
+    private void initSchema(DataSource ds) {
+        try (java.sql.Connection c = ds.getConnection();
+             java.sql.Statement st = c.createStatement()) {
+            st.execute("ALTER TABLE pointage_jour ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1");
+            st.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_uniq_mouvement_prise_demande ON mouvement_solde_conge (id_demande_conge, type_mouvement) WHERE type_mouvement = 'PRISE' AND id_demande_conge IS NOT NULL");
+            st.execute("INSERT INTO ref_statut_periode_paie (code, libelle) VALUES ('TRANSMIS_DAF', 'Transmise à la DAF') ON CONFLICT (code) DO NOTHING");
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(DatabaseConfig.class).warn("Notice initSchema: {}", e.getMessage());
+        }
     }
 
     private String normalizeJdbcUrl(String url) {

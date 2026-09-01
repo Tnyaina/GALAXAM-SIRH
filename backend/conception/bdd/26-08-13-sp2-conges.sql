@@ -178,6 +178,8 @@ CREATE TABLE mouvement_solde_conge (
 CREATE INDEX idx_mouvement_solde_employe ON mouvement_solde_conge(id_employe);
 CREATE INDEX idx_mouvement_solde_demande ON mouvement_solde_conge(id_demande_conge);
 CREATE INDEX idx_mouvement_solde_date ON mouvement_solde_conge(date_mouvement);
+CREATE UNIQUE INDEX idx_uniq_mouvement_prise_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'PRISE' AND id_demande_conge IS NOT NULL;
+CREATE UNIQUE INDEX idx_uniq_mouvement_annulation_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'ANNULATION' AND id_demande_conge IS NOT NULL;
 
 -- ------------------------------------------
 -- 5. VUES DE SYNTHÈSE

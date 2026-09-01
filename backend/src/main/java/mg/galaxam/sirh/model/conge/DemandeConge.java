@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -131,6 +132,24 @@ public class DemandeConge extends ClassMere {
         RefTypeConge typeConge = RefTypeConge.rechercherParId(idTypeConge, c);
         if (typeConge == null) {
             throw new IllegalArgumentException("Le type de congé spécifié n'existe pas.");
+        }
+
+        // 2.bis Contrôle de l'existence d'un contrat de travail actif couvrant toute la période de congé
+        String sqlContrat = "SELECT ct.id_contrat FROM contrat_travail ct " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                "WHERE ct.id_employe = ? AND rsc.code = 'ACTIF' " +
+                "AND ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?)";
+        try (PreparedStatement psCt = c.prepareStatement(sqlContrat)) {
+            psCt.setInt(1, idEmploye);
+            psCt.setDate(2, dateDebut);
+            psCt.setDate(3, dateFin);
+            try (ResultSet rsCt = psCt.executeQuery()) {
+                if (!rsCt.next()) {
+                    throw new IllegalArgumentException(
+                            "L'employé ne dispose d'aucun contrat actif couvrant l'intégralité de la période de congé demandée (du "
+                                    + dateDebut + " au " + dateFin + ").");
+                }
+            }
         }
 
         // 3. Contrôle justificatif obligatoire
@@ -278,10 +297,42 @@ public class DemandeConge extends ClassMere {
      * si applicable.
      */
     public DemandeConge valider(Integer idValideur, Connection c) throws Exception {
-        String statutCourant = getStatutCode(c);
-        if (!"EN_ATTENTE".equals(statutCourant) && !"BROUILLON".equals(statutCourant)) {
-            throw new IllegalStateException("Seule une demande au statut EN_ATTENTE ou BROUILLON peut être validée.");
+        if (this.idDemandeConge == null) {
+            throw new IllegalArgumentException("ID de demande de congé obligatoire pour la validation.");
         }
+
+        // 1. Verrouillage pessimiste strict de la demande pour sérialiser les validations concurrentes
+        String sqlLock = "SELECT s.code, dc.id_statut_demande_conge FROM demande_conge dc " +
+                         "JOIN ref_statut_demande_conge s ON dc.id_statut_demande_conge = s.id_statut_demande_conge " +
+                         "WHERE dc.id_demande_conge = ? FOR UPDATE";
+        try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
+            psLock.setInt(1, this.idDemandeConge);
+            try (ResultSet rsLock = psLock.executeQuery()) {
+                if (!rsLock.next()) {
+                    throw new IllegalArgumentException("Demande de congé introuvable (ID: " + this.idDemandeConge + ").");
+                }
+                String statutCourant = rsLock.getString("code");
+                this.idStatutDemandeConge = rsLock.getInt("id_statut_demande_conge");
+                if (!"EN_ATTENTE".equalsIgnoreCase(statutCourant) && !"BROUILLON".equalsIgnoreCase(statutCourant)) {
+                    throw new IllegalStateException("Seule une demande au statut EN_ATTENTE ou BROUILLON peut être validée (Statut actuel : " + statutCourant + ").");
+                }
+            }
+        }
+
+        // 1.bis Verrouillage pessimiste du salarié pour sérialiser le décompte de solde face à d'autres demandes concurrentes du même salarié
+        if (this.idEmploye != null) {
+            try (PreparedStatement psLockEmp = c.prepareStatement("SELECT id_employe FROM employe WHERE id_employe = ? FOR UPDATE")) {
+                psLockEmp.setInt(1, this.idEmploye);
+                try (ResultSet rsEmp = psLockEmp.executeQuery()) {
+                    if (!rsEmp.next()) {
+                        throw new IllegalArgumentException("Employé introuvable pour la validation du congé (ID: " + this.idEmploye + ").");
+                    }
+                }
+            }
+        }
+
+        // Re-contrôle strict de toutes les règles métier et de la couverture contractuelle avant validation
+        this.controler(c);
 
         RefTypeConge typeConge = RefTypeConge.rechercherParId(idTypeConge, c);
         if (typeConge == null) {
@@ -317,7 +368,14 @@ public class DemandeConge extends ClassMere {
             prise.setIdDemandeConge(idDemandeConge);
             prise.setCommentaire("Prise de congé " + typeConge.getLibelle() + " (Demande #" + idDemandeConge + ")");
             prise.setCreatedBy(idValideur);
-            prise.save(c);
+            try {
+                prise.save(c);
+            } catch (SQLException ePrise) {
+                if (ePrise.getMessage() != null && (ePrise.getMessage().toLowerCase().contains("duplicate") || ePrise.getMessage().toLowerCase().contains("unique") || ePrise.getMessage().contains("idx_uniq_mouvement_prise_demande"))) {
+                    throw new IllegalStateException("Conflit de validation concurrente : cette demande a déjà généré un mouvement de solde.");
+                }
+                throw ePrise;
+            }
 
             // Trigger alerte SOLDE_CONGE_NEGATIF ou SOLDE_CONGE_FAIBLE
             int seuilFaible = getParamGlobalInt("SEUIL_ALERTE_SOLDE_CONGE_FAIBLE", 3, c);
@@ -392,9 +450,26 @@ public class DemandeConge extends ClassMere {
      * génère le mouvement ANNULATION (crédit).
      */
     public DemandeConge annuler(Integer idUtilisateur, Connection c) throws Exception {
-        String statutCourant = getStatutCode(c);
-        if ("ANNULE".equals(statutCourant) || "REFUSE".equals(statutCourant)) {
-            throw new IllegalStateException("Une demande de congé déjà refusée ou annulée ne peut plus être annulée.");
+        if (this.idDemandeConge == null) {
+            throw new IllegalArgumentException("ID de demande de congé obligatoire pour l'annulation.");
+        }
+
+        String sqlLock = "SELECT s.code, dc.id_statut_demande_conge FROM demande_conge dc " +
+                         "JOIN ref_statut_demande_conge s ON dc.id_statut_demande_conge = s.id_statut_demande_conge " +
+                         "WHERE dc.id_demande_conge = ? FOR UPDATE";
+        String statutCourant;
+        try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
+            psLock.setInt(1, this.idDemandeConge);
+            try (ResultSet rsLock = psLock.executeQuery()) {
+                if (!rsLock.next()) {
+                    throw new IllegalArgumentException("Demande de congé introuvable (ID: " + this.idDemandeConge + ").");
+                }
+                statutCourant = rsLock.getString("code");
+                this.idStatutDemandeConge = rsLock.getInt("id_statut_demande_conge");
+                if ("ANNULE".equalsIgnoreCase(statutCourant) || "REFUSE".equalsIgnoreCase(statutCourant)) {
+                    throw new IllegalStateException("Une demande de congé déjà refusée ou annulée ne peut plus être annulée.");
+                }
+            }
         }
 
         RefTypeConge typeConge = RefTypeConge.rechercherParId(idTypeConge, c);

@@ -260,27 +260,37 @@ public class PeriodePaieController {
                      "valide_par = ? " +
                      "WHERE id_periode_paie = ?";
 
-        try (Connection c = dataSource.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, newStatutCode);
-            if (dateValidation != null) ps.setTimestamp(2, dateValidation); else ps.setNull(2, java.sql.Types.TIMESTAMP);
-            if (valideurId != null) ps.setInt(3, valideurId); else ps.setNull(3, java.sql.Types.INTEGER);
-            ps.setInt(4, id);
-            int rows = ps.executeUpdate();
-            
-            if (rows > 0) {
-                if ("VALIDEE".equals(newStatutCode) || "CLOTUREE".equals(newStatutCode)) {
-                    pointageSyntheseService.gelerPeriode(id, currentUserId, c);
-                } else if ("EN_COURS".equals(newStatutCode) || "BROUILLON".equals(newStatutCode) || "A_VALIDER".equals(newStatutCode)) {
-                    pointageSyntheseService.degelerPeriode(id, c);
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                int rows;
+                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                    ps.setString(1, newStatutCode);
+                    if (dateValidation != null) ps.setTimestamp(2, dateValidation); else ps.setNull(2, java.sql.Types.TIMESTAMP);
+                    if (valideurId != null) ps.setInt(3, valideurId); else ps.setNull(3, java.sql.Types.INTEGER);
+                    ps.setInt(4, id);
+                    rows = ps.executeUpdate();
                 }
-                resp.put("success", true);
-                resp.put("message", "Statut de la période mis à jour avec succès.");
-                return ResponseEntity.ok(resp);
-            } else {
-                resp.put("success", false);
-                resp.put("message", "Période introuvable.");
-                return ResponseEntity.badRequest().body(resp);
+
+                if (rows > 0) {
+                    if ("VALIDEE".equals(newStatutCode) || "CLOTUREE".equals(newStatutCode)) {
+                        pointageSyntheseService.gelerPeriode(id, currentUserId, c);
+                    } else if ("EN_COURS".equals(newStatutCode) || "BROUILLON".equals(newStatutCode) || "A_VALIDER".equals(newStatutCode)) {
+                        pointageSyntheseService.degelerPeriode(id, c);
+                    }
+                    c.commit();
+                    resp.put("success", true);
+                    resp.put("message", "Statut de la période mis à jour avec succès.");
+                    return ResponseEntity.ok(resp);
+                } else {
+                    c.rollback();
+                    resp.put("success", false);
+                    resp.put("message", "Période introuvable.");
+                    return ResponseEntity.badRequest().body(resp);
+                }
+            } catch (Exception ex) {
+                c.rollback();
+                throw ex;
             }
         } catch (Exception e) {
             e.printStackTrace();

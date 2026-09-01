@@ -55,6 +55,7 @@ public class CongeService {
                 && calculateurEngine.doitScinderArretMaladie(totalJoursOrigine)) {
             Date dateFinT1 = Date.valueOf(d.getDateDebut().toLocalDate().plusDays(29));
             d.setDateFin(dateFinT1);
+            d.controler(c);
             d.save(c);
 
             if (typeConge.getIdTypeCongeBascule() != null) {
@@ -68,6 +69,7 @@ public class CongeService {
                 d2.setCommentaire(
                         "(Bascule automatique Art. 13) " + (d.getCommentaire() != null ? d.getCommentaire() : ""));
                 d2.setSaisiPar(d.getSaisiPar());
+                d2.controler(c);
                 d2.save(c);
             }
 
@@ -81,6 +83,7 @@ public class CongeService {
                     d.getIdEmploye(),
                     c);
         } else {
+            d.controler(c);
             d.save(c);
 
             DemandeConge.creerNotificationRh(
