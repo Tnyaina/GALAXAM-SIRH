@@ -48,7 +48,7 @@ VALUES ('EMP-00008', 'ANDRIAMIFIDY', 'Lova', 'M', '1994-08-03', 'Tamatave', 'Mal
 -- COMPTES BANCAIRES & CONTACTS D'URGENCE
 -- =====================================================================
 INSERT INTO employe_compte_banque (id_employe, id_banque, titulaire_compte, num_compte_rib, est_principal)
-SELECT id_employe, 1, nom || ' ' || prenom, '00004 00123 ' || lpad(id_employe::text, 11, '0') || ' 45', true
+SELECT id_employe, 2, nom || ' ' || prenom, '00004 00123 ' || lpad(id_employe::text, 11, '0') || ' 45', true
 FROM employe WHERE matricule IN ('EMP-00001', 'EMP-00002', 'EMP-00004', 'EMP-00005', 'EMP-00006', 'EMP-00007', 'EMP-00008');
 
 INSERT INTO employe_contact_urgence (id_employe, nom, prenom, lien_parente, telephone, adresse)
@@ -155,7 +155,7 @@ SELECT id_employe, 'ACQUISITION', 50.0, '2026-06-30', 'Acquisition mensuelle cum
 FROM employe WHERE matricule = 'EMP-00006';
 
 INSERT INTO demande_conge (id_employe, id_type_conge, id_statut_demande_conge, date_debut, date_fin, nb_jours_decomptes, commentaire, date_validation, valide_par, saisi_par)
-SELECT id_employe, 1, 2, '2026-07-06', '2026-07-17', 10.0, 'Congé annuel été', '2026-07-01 10:00:00', 1, 1
+SELECT id_employe, 5, 3, '2026-07-06', '2026-07-17', 10.0, 'Congé annuel été', '2026-07-01 10:00:00', 1, 1
 FROM employe WHERE matricule = 'EMP-00006';
 
 INSERT INTO mouvement_solde_conge (id_employe, id_demande_conge, type_mouvement, nb_jours, date_mouvement, commentaire)
