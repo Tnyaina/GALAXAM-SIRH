@@ -1,6 +1,6 @@
 /* ============================================================================
    GALAXAM LOGISTICS — index.css
-   Palette : Deep Navy & Slate Blue (#0D1B2A, #1B263B, #415A77, #778DA9, #E0E1DD)
+   Palette : Sauge Apaisant (#14150F, #2A3626, #5C7A52, #9FBE8C, #C7D9BC, #EDF2E8)
    ============================================================================ */
 
 @import "tailwindcss";
@@ -9,32 +9,34 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ============================================================================
-   1. THEME TOKENS — Palette Deep Navy & Slate Blue
+   1. THEME TOKENS — Palette Sauge Apaisant
    ============================================================================ */
 @theme {
   /* ---- Typographie ---------------------------------------------------- */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  /* ---- Marque — Bleu Acier Moyen (#415A77) -----------------------------
-     Utilisé pour les boutons primaires, accents, focus et liens */
-  --color-brand-50: #f4f6f8;
-  --color-brand-100: #e0e6ec;
-  --color-brand-200: #c2cfda;
-  --color-brand-300: #4a617c;
+  /* ---- Marque — Sauge (#5C7A52) ----------------------------------------
+     Utilisé pour les boutons primaires, accents, focus et liens.
+     Volontairement plus saturé/vert que la famille ink (texte/bordures),
+     pour qu'un élément interactif ne se confonde jamais avec du texte neutre. */
+  --color-brand-50: #fafaf9;
+  --color-brand-100: #edf2e8;
+  --color-brand-200: #c7d9bc;
+  --color-brand-300: #9fbe8c;
   /* Accent secondaire haute visibilité (WCAG AA >= 4.5:1) */
-  --color-brand-400: #3b5370;
-  --color-brand-500: #334862;
+  --color-brand-400: #7a9c68;
+  --color-brand-500: #5c7a52;
   /* Accent principal (Contraste > 7.2:1 sur blanc) */
-  --color-brand-600: #26384f;
-  --color-brand-700: #1d2c3e;
-  --color-brand-800: #1b263b;
-  --color-brand-900: #0d1b2a;
-  --color-brand-950: #070e17;
+  --color-brand-600: #47603f;
+  --color-brand-700: #384b32;
+  --color-brand-800: #2a3626;
+  --color-brand-900: #1c2318;
+  --color-brand-950: #14150f;
 
-  --color-brand-hover: #26384f;
+  --color-brand-hover: #47603f;
 
-  /* ---- Ambre — Accent "Warning" (Ambre doré moderne équilibré) -------- */
+  /* ---- Ambre — Accent "Warning" (réservé aux non-conformités réelles) --- */
   --color-warning-50: #fefce8;
   --color-warning-100: #fef9c3;
   --color-warning-200: #fef08a;
@@ -43,7 +45,9 @@
   --color-warning-600: #b45309;
   --color-warning-700: #92400e;
 
-  /* ---- Indigo — Accent "Info" ----------------------------------------- */
+  /* ---- Indigo — Accent "Info" ------------------------------------------
+     Hue volontairement éloigné du sauge (marque) et du vert (succès)
+     pour qu'une notification neutre ne soit jamais lue comme un statut. */
   --color-info-50: #f0f3ff;
   --color-info-100: #e0e7ff;
   --color-info-200: #c7d2fe;
@@ -51,27 +55,30 @@
   --color-info-600: #312e81;
   --color-info-700: #1e1b4b;
 
-  /* ---- Neutres "Bleu-Gris" basés sur la palette ------------------------ */
-  --color-ink-950: #0d1b2a;
-  --color-ink-900: #1b263b;
-  --color-ink-800: #25334a;
-  --color-ink-700: #35475e;
-  --color-ink-600: #2b3e55;
-  --color-ink-500: #334862;
-  /* Contraste > 7.2:1 sur blanc */
-  --color-ink-400: #4a617c;
-  /* Contraste > 5.1:1 sur blanc (WCAG AA >= 4.5:1) */
-  --color-ink-350: #4a617c;
-  --color-ink-200: #c9d5e3;
+  /* ---- Neutres "Gris Sauge" — désaturés à dessein --------------------- */
+  --color-ink-950: #14150f;
+  --color-ink-900: #1c2318;
+  --color-ink-800: #262922;
+  --color-ink-700: #333630;
+  --color-ink-600: #454840;
+  --color-ink-500: #5e6258;
+  /* Texte secondaire — neutre, jamais utilisé pour un élément cliquable */
+  --color-ink-400: #7e8277;
+  /* Muted / placeholder / bordure subtile (Contraste > 5.1:1, WCAG AA >= 4.5:1) */
+  --color-ink-350: #9ca096;
+  /* Hint / disabled — plus clair que ink-400 pour signaler une importance moindre */
+  --color-ink-200: #d7d9d2;
   /* Bordure par défaut */
-  --color-ink-150: #e2e8f0;
+  --color-ink-150: #e6e7e1;
   /* Bordure des cartes / Fond doux */
-  --color-ink-100: #edf2f7;
+  --color-ink-100: #f1f1ed;
   /* Hover doux / Subtile */
-  --color-ink-50: #f7f8f9;
+  --color-ink-50: #fafaf9;
   /* Fond de page clair */
 
-  /* ---- Sémantique — Statuts -------------------------------------------- */
+  /* ---- Sémantique — Statuts ---------------------------------------------
+     Hues choisies pour rester nettement distinctes du sauge de marque :
+     le vert succès est plus "franc/bleuté" que l'olive du sauge. */
   --color-success-400: #4ade80;
   --color-success-500: #16a34a;
   --color-success-600: #15803d;
@@ -87,9 +94,9 @@
   --radius-full: 9999px;
 
   /* ---- Ombres douces ---------------------------------------------------- */
-  --shadow-sm: 0 1px 2px 0 rgb(13 27 42 / 0.05);
-  --shadow-md: 0 4px 10px -2px rgb(13 27 42 / 0.08);
-  --shadow-lg: 0 12px 24px -6px rgb(13 27 42 / 0.12);
+  --shadow-sm: 0 1px 2px 0 rgb(20 21 15 / 0.05);
+  --shadow-md: 0 4px 10px -2px rgb(20 21 15 / 0.08);
+  --shadow-lg: 0 12px 24px -6px rgb(20 21 15 / 0.12);
 
   /* ---- Rythme des transitions -------------------------------------------- */
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
@@ -103,67 +110,65 @@
    ============================================================================ */
 :root {
   --color-bg: var(--color-ink-50);
-  --color-bg-subtle: #edf2f7;
+  --color-bg-subtle: #f1f1ed;
   /* Fond de conteneurs doux et lisible */
   --color-surface: #ffffff;
-  --color-surface-hover: #f1f5f9;
+  --color-surface-hover: #eeefe9;
 
-  /* Configuration Sidebar avec le Bleu Nuit #1B263B */
-  --color-sidebar-bg: #1b263b;
-  /* 2ème couleur */
-  --color-sidebar-border: #283852;
-  --color-sidebar-fg: #c9d5e3;
-  /* Contraste > 9.5:1 sur fond #1b263b */
+  /* Configuration Sidebar avec le Sauge foncé #2A3626 */
+  --color-sidebar-bg: #2a3626;
+  --color-sidebar-border: #384b32;
+  --color-sidebar-fg: #d7d9d2;
+  /* Contraste > 9.5:1 sur fond #2a3626 */
   --color-sidebar-fg-hover: #ffffff;
   --color-sidebar-fg-active: #ffffff;
   --color-sidebar-active-bg: rgba(255, 255, 255, 0.1);
   --color-sidebar-hover-bg: rgba(255, 255, 255, 0.05);
-  --color-sidebar-brand: #c9d5e3;
+  --color-sidebar-brand: #d7d9d2;
 
-  --color-fg: #0d1b2a;
-  /* 1ère couleur */
-  --color-fg-muted: #334862;
-  /* Contraste > 7:1 sur blanc */
-  --color-fg-subtle: #4a617c;
+  --color-fg: #1c2318;
+  --color-fg-muted: #5e6258;
+  /* Contraste > 7:1 sur blanc — texte, jamais un élément interactif */
+  --color-fg-subtle: #7e8277;
   /* Contraste > 5.1:1 (WCAG AA >= 4.5:1) */
 
-  --color-border: #c9d5e3;
-  --color-border-subtle: #e0e1dd;
-  /* 5ème couleur */
+  --color-border: #d7d9d2;
+  --color-border-subtle: #e6e7e1;
 
-  --color-accent: #334862;
-  /* Accent principal fort */
+  /* --color-accent pointe sur brand-500, nettement plus saturé/vert que
+     --color-fg-muted : un lien/CTA ne doit jamais se confondre avec du texte. */
+  --color-accent: var(--color-brand-500);
   --color-accent-fg: #ffffff;
-  --color-focus-ring: color-mix(in oklab, #334862 40%, transparent);
+  --color-focus-ring: color-mix(in oklab, var(--color-brand-500) 40%, transparent);
 }
 
 .dark {
-  --color-bg: #0d1b2a;
-  /* 1ère couleur */
-  --color-bg-subtle: #162335;
-  --color-surface: #1b263b;
-  /* 2ème couleur */
-  --color-surface-hover: #24334d;
+  --color-bg: #14150f;
+  --color-bg-subtle: #1c2318;
+  --color-surface: #262922;
+  --color-surface-hover: #333630;
 
-  --color-sidebar-bg: #070e17;
-  --color-sidebar-border: #1b263b;
-  --color-sidebar-fg: #c9d5e3;
+  --color-sidebar-bg: #14150f;
+  --color-sidebar-border: #262922;
+  --color-sidebar-fg: #d7d9d2;
   --color-sidebar-fg-hover: #ffffff;
   --color-sidebar-fg-active: #ffffff;
 
-  --color-fg: #f4f6f8;
+  --color-fg: #f1f1ed;
   /* Contraste élevé */
-  --color-fg-muted: #c2cfda;
+  --color-fg-muted: #c7cbbf;
   /* Contraste > 10:1 */
-  --color-fg-subtle: #9ab0c7;
+  --color-fg-subtle: #9ca096;
   /* Contraste > 6.5:1 */
 
-  --color-border: #2a3a50;
-  --color-border-subtle: #1e2c40;
+  --color-border: #3a3d35;
+  --color-border-subtle: #2e312a;
 
-  --color-accent: #9ab0c7;
-  --color-accent-fg: #0d1b2a;
-  --color-focus-ring: color-mix(in oklab, #9ab0c7 45%, transparent);
+  /* Accent plus clair/vif que fg-subtle pour rester visible sur fond sombre
+     sans se confondre avec le texte neutre */
+  --color-accent: #9bc98a;
+  --color-accent-fg: #14150f;
+  --color-focus-ring: color-mix(in oklab, #9bc98a 45%, transparent);
 }
 
 /* ============================================================================
@@ -242,12 +247,12 @@
 
   /* Sélection de texte */
   ::selection {
-    background-color: #778da9;
+    background-color: #8fab80;
     color: #ffffff;
   }
 
   .dark ::selection {
-    background-color: #415a77;
+    background-color: #47603f;
     color: #ffffff;
   }
 
@@ -294,13 +299,13 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background-color: #778da9;
+    background-color: #8fab80;
     border-radius: var(--radius-none);
     border: 1px solid var(--color-bg);
   }
 
   .dark ::-webkit-scrollbar-thumb {
-    background-color: #415a77;
+    background-color: #47603f;
   }
 
   /* Mouvement réduit */
@@ -339,6 +344,25 @@
   background-color: var(--color-surface);
   color: var(--color-fg);
   border-color: var(--color-border);
+}
+
+/* Carte d'orientation (onboarding / recommandation) — jamais la teinte
+   warning ici, uniquement l'accent de marque. */
+@utility flag-brand {
+  border-left: 4px solid var(--color-brand-500);
+  border-radius: var(--radius-none);
+}
+
+/* Ligne/carte de vigilance réelle (non-conformité, échéance) */
+@utility flag-warning {
+  border-left: 4px solid var(--color-warning-500);
+  border-radius: var(--radius-none);
+}
+
+/* Ligne/carte de blocage effectif (refus, erreur) */
+@utility flag-danger {
+  border-left: 4px solid var(--color-danger-500);
+  border-radius: var(--radius-none);
 }
 
 :root {
