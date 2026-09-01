@@ -66,11 +66,11 @@ export default function PlanningQuinzaineWidget({ loading, absences = [], sites 
                                         {ab.nomPrenom} <span className="font-data text-[10px] text-[var(--color-fg-subtle)]">({ab.nomSite || 'TNR'})</span>
                                     </p>
                                     <p className="text-[11px] text-[var(--color-fg-muted)] truncate">
-                                        {ab.typeConge || 'Congé'} · Du <span className="font-data">{fmtDate(ab.dateDebut)}</span> au <span className="font-data text-brand-500 font-semibold">{fmtDate(ab.dateFin)}</span>
+                                        {ab.typeConge || 'Congé'} · Du <span className="font-data">{fmtDate(ab.dateDebut)}</span> au <span className="font-data text-[var(--color-brand-500)] font-semibold">{fmtDate(ab.dateFin)}</span>
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
-                                    <span className="font-data font-bold text-xs bg-brand-500/10 text-brand-600 dark:text-brand-400 px-2 py-0.5 border border-brand-500/20">
+                                    <span className="font-data font-bold text-xs bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] px-2 py-0.5 border border-[var(--color-brand-500)]/20">
                                         {ab.nbJoursDecomptes || ab.nbJours || 1}j
                                     </span>
                                 </div>

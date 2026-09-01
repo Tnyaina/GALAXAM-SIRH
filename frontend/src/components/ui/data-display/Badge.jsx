@@ -1,11 +1,14 @@
 const variants = {
   default: 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]',
-  secondary: 'bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-200 border border-slate-300 dark:border-slate-700',
+  secondary: 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border)]',
   primary: 'bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border border-[var(--color-brand-500)]/30',
-  success: 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30',
-  warning: 'bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-500/30',
-  danger:  'bg-red-500/15 text-red-800 dark:text-red-300 border border-red-500/30',
-  info:    'bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border border-indigo-500/30',
+  brand: 'bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border border-[var(--color-brand-500)]/30',
+  success: 'bg-[var(--color-success-500)]/15 text-emerald-800 dark:text-emerald-300 border border-[var(--color-success-500)]/30',
+  warning: 'bg-[var(--color-warning-500)]/15 text-amber-900 dark:text-amber-300 border border-[var(--color-warning-500)]/30',
+  danger:  'bg-[var(--color-danger-500)]/15 text-red-800 dark:text-red-300 border border-[var(--color-danger-500)]/30',
+  error:   'bg-[var(--color-danger-500)]/15 text-red-800 dark:text-red-300 border border-[var(--color-danger-500)]/30',
+  info:    'bg-[var(--color-info-500)]/15 text-blue-800 dark:text-blue-300 border border-[var(--color-info-500)]/30',
+  neutral: 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]',
 };
 
 const sizes = {
@@ -23,13 +26,16 @@ const dotSizes = {
 };
 
 const dotColors = {
-  success: 'bg-emerald-500',
-  warning: 'bg-amber-500',
-  danger:  'bg-red-500',
+  success: 'bg-[var(--color-success-500)]',
+  warning: 'bg-[var(--color-warning-500)]',
+  danger:  'bg-[var(--color-danger-500)]',
+  error:   'bg-[var(--color-danger-500)]',
   primary: 'bg-[var(--color-brand-500)]',
-  secondary: 'bg-slate-500',
+  brand:   'bg-[var(--color-brand-500)]',
+  secondary: 'bg-[var(--color-fg-muted)]',
   default: 'bg-[var(--color-fg-subtle)]',
-  info:    'bg-indigo-500',
+  neutral: 'bg-[var(--color-fg-subtle)]',
+  info:    'bg-[var(--color-info-500)]',
 };
 
 export default function Badge({

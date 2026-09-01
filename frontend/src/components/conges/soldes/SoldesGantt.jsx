@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Search, X, CalendarDays, ChevronLeft, ChevronRight, RefreshCw, ExternalLink, Calendar } from 'lucide-react';
+import { Search, X, CalendarDays, ChevronLeft, ChevronRight, RefreshCw, Calendar } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -141,21 +141,21 @@ export default function SoldesGantt({
 
         {/* Légende douce et compacte */}
         {ganttData.length > 0 && (
-          <div className="flex items-center flex-wrap gap-x-6 gap-y-1.5 text-[11px] text-slate-500 dark:text-ink-400 pt-1">
+          <div className="flex items-center flex-wrap gap-x-6 gap-y-1.5 text-[11px] text-[var(--color-fg-muted)] pt-1">
             <span className="flex items-center gap-1.5 font-medium">
-              <span className="inline-block w-3 h-3 bg-brand-500 border border-brand-600 shadow-2xs" />
+              <span className="inline-block w-3 h-3 bg-[var(--color-brand-500)] border border-[var(--color-brand-500)] shadow-2xs" />
               Congé validé
             </span>
             <span className="flex items-center gap-1.5 font-medium">
-              <span className="inline-block w-3 h-3 bg-amber-400 border border-amber-500 shadow-2xs" />
+              <span className="inline-block w-3 h-3 bg-[var(--color-warning-500)] border border-[var(--color-warning-500)] shadow-2xs" />
               En attente de validation
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-3 bg-slate-100 dark:bg-ink-800 border border-slate-200 dark:border-ink-700" />
+              <span className="inline-block w-3 h-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]" />
               Week-end
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-3 bg-brand-50 dark:bg-brand-950/40 border border-brand-300" />
+              <span className="inline-block w-3 h-3 bg-[var(--color-brand-500)]/15 border border-[var(--color-brand-500)]/40" />
               Aujourd'hui
             </span>
           </div>
@@ -163,7 +163,7 @@ export default function SoldesGantt({
       </div>
 
       {/* Grille Gantt */}
-      <div className="overflow-x-auto border border-slate-200/80 dark:border-ink-800">
+      <div className="overflow-x-auto border border-[var(--color-border)]">
         {ganttData.length === 0 ? (
           <div className="p-8">
             <EmptyState
@@ -183,8 +183,8 @@ export default function SoldesGantt({
         ) : (
           <div className="min-w-[850px]">
             {/* Header de la grille : Jours du mois */}
-            <div className="flex bg-slate-100/75 dark:bg-ink-800/60 border-b border-slate-200/80 dark:border-ink-800">
-              <div className="w-60 shrink-0 p-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-r border-slate-200/80 dark:border-ink-800">
+            <div className="flex bg-[var(--color-bg-subtle)] border-b border-[var(--color-border)]">
+              <div className="w-60 shrink-0 p-2.5 text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] border-r border-[var(--color-border)]">
                 Collaborateur
               </div>
               <div className="flex-1 flex">
@@ -198,12 +198,12 @@ export default function SoldesGantt({
                     <div
                       key={day}
                       title={dateObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-                      className={`flex-1 min-w-[26px] text-center py-1.5 text-xs font-data border-r border-slate-200/60 dark:border-ink-800/60 last:border-0 ${
+                      className={`flex-1 min-w-[26px] text-center py-1.5 text-xs font-data border-r border-[var(--color-border-subtle)] last:border-0 ${
                         isToday
-                          ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 font-bold border-b-2 border-b-brand-500'
+                          ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] font-bold border-b-2 border-b-[var(--color-brand-500)]'
                           : isWeekend
-                            ? 'bg-slate-50/70 dark:bg-ink-950/40 text-slate-400'
-                            : 'text-slate-600 dark:text-ink-300'
+                            ? 'bg-[var(--color-bg)] text-[var(--color-fg-subtle)] opacity-70'
+                            : 'text-[var(--color-fg)]'
                       }`}
                     >
                       <div className={`text-[10px] ${isToday ? 'font-bold' : 'opacity-60'}`}>{dayOfWeek}</div>
@@ -214,84 +214,92 @@ export default function SoldesGantt({
               </div>
             </div>
 
-            {/* Lignes du Gantt par collaborateur */}
-            {paginatedGanttRows.map((row, idx) => {
-              const rowHeight = Math.max(row.laneCount, 1) * LANE_HEIGHT;
-              return (
-                <div
-                  key={idx}
-                  className="flex border-b border-slate-100 dark:border-ink-800/60 last:border-0 hover:bg-slate-50/60 dark:hover:bg-ink-800/30 transition-colors"
-                >
+            {/* Corps du Gantt */}
+            <div className="divide-y divide-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+              {paginatedGanttRows.map((row) => {
+                const totalLanes = row.lanes?.length || 1;
+                const rowHeight = Math.max(LANE_HEIGHT, totalLanes * LANE_HEIGHT + 8);
+
+                return (
                   <div
-                    className="w-60 shrink-0 p-2.5 text-xs font-bold text-slate-900 dark:text-white border-r border-slate-200/80 dark:border-ink-800 truncate flex items-center justify-between group"
-                    title={`Voir la fiche de ${row.employe}`}
-                    style={{ minHeight: `${rowHeight + 8}px` }}
+                    key={row.idEmploye}
+                    className="flex hover:bg-[var(--color-surface-hover)] transition-colors group"
+                    style={{ minHeight: `${rowHeight}px` }}
                   >
-                    {row.idEmploye && canViewEmploye ? (
-                      <Link
-                        to={`/employes/${row.idEmploye}?tab=conges`}
-                        className="hover:text-brand-600 hover:underline truncate flex items-center gap-1.5 font-bold text-slate-900 dark:text-white"
-                      >
-                        <span className="truncate">{row.employe}</span>
-                        <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-brand-600" />
-                      </Link>
-                    ) : (
-                      <span className="truncate">{row.employe}</span>
-                    )}
-                    {row.items.length > 1 && (
-                      <span className="ml-1 text-[10px] font-normal text-slate-400 shrink-0">
-                        ({row.items.length})
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex-1 flex relative" style={{ minHeight: `${rowHeight + 8}px` }}>
-                    {daysArray.map((day) => {
-                      const dateObj = new Date(year, month - 1, day);
-                      const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
-                      const isToday = dateObj.toDateString() === new Date().toDateString();
-
-                      return (
-                        <div
-                          key={day}
-                          className={`flex-1 min-w-[26px] border-r border-slate-100 dark:border-ink-800/40 last:border-0 ${
-                            isWeekend ? 'bg-slate-50/50 dark:bg-ink-950/20' : ''
-                          } ${isToday ? 'bg-brand-50/30 dark:bg-brand-950/20' : ''}`}
-                        />
-                      );
-                    })}
-
-                    {row.items.map((item) => (
-                      <div
-                        key={item.id}
-                        role="img"
-                        aria-label={`${row.employe} — ${item.type}, ${item.statut === 'EN_ATTENTE' ? 'en attente' : 'validé'}, ${item.dureeJours} jour(s)`}
-                        className={`absolute flex items-center overflow-hidden border shadow-xs cursor-help ${
-                          (item.endDay - item.startDay + 1) >= 3 ? 'px-2' : 'px-0.5 justify-center'
-                        } ${
-                          item.statut === 'EN_ATTENTE'
-                            ? 'bg-amber-400 border-amber-500 text-slate-900 font-semibold'
-                            : 'bg-brand-500 border-brand-600 text-white font-semibold'
-                        }`}
-                        style={{
-                          left: `${((item.startDay - 1) / daysInMonth) * 100}%`,
-                          width: `${((item.endDay - item.startDay + 1) / daysInMonth) * 100}%`,
-                          top: `${4 + item.laneIndex * LANE_HEIGHT}px`,
-                          height: `${LANE_HEIGHT - 6}px`,
-                        }}
-                        title={`${item.type} — ${item.statut === 'EN_ATTENTE' ? 'En attente de validation' : 'Validé'} (${item.dureeJours} jour${item.dureeJours > 1 ? 's' : ''}) du ${formatDate(item.originalStart)} au ${formatDate(item.originalEnd)}`}
-                      >
-                        <span className="text-[11px] truncate">
-                          {(item.endDay - item.startDay + 1) >= 3
-                            ? `${item.type}${item.statut === 'EN_ATTENTE' ? ' (en attente)' : ''}`
-                            : item.type.slice(0, 3)}
+                    {/* Colonne Employé */}
+                    <div className="w-60 shrink-0 p-2.5 border-r border-[var(--color-border)] flex items-center justify-between gap-2">
+                      <div className="truncate">
+                        {canViewEmploye ? (
+                          <Link
+                            to={`/employes/${row.idEmploye}?tab=conges`}
+                            className="font-bold text-xs text-[var(--color-fg)] hover:text-[var(--color-brand-500)] truncate block transition-colors"
+                            title={`Consulter le dossier congé de ${row.employe}`}
+                          >
+                            {row.employe}
+                          </Link>
+                        ) : (
+                          <span className="font-bold text-xs text-[var(--color-fg)] truncate block">
+                            {row.employe}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-[var(--color-fg-subtle)] font-mono block">
+                          {row.departement}
                         </span>
                       </div>
-                    ))}
+                      <span className="text-[10px] font-mono font-bold bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] px-1.5 py-0.5 shrink-0 border border-[var(--color-border-subtle)]">
+                        {row.totalPrisMois} j
+                      </span>
+                    </div>
+
+                    {/* Grille Jours + Barres */}
+                    <div className="flex-1 relative flex">
+                      {daysArray.map((day) => {
+                        const dateObj = new Date(year, month - 1, day);
+                        const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+                        const isToday = dateObj.toDateString() === new Date().toDateString();
+
+                        return (
+                          <div
+                            key={day}
+                            className={`flex-1 min-w-[26px] border-r border-[var(--color-border-subtle)]/50 last:border-0 ${
+                              isWeekend ? 'bg-[var(--color-bg)]/60' : ''
+                            } ${isToday ? 'bg-[var(--color-brand-500)]/5' : ''}`}
+                          />
+                        );
+                      })}
+
+                      {row.items.map((item) => (
+                        <div
+                          key={item.id}
+                          role="img"
+                          aria-label={`${row.employe} — ${item.type}, ${item.statut === 'EN_ATTENTE' ? 'en attente' : 'validé'}, ${item.dureeJours} jour(s)`}
+                          className={`absolute flex items-center overflow-hidden border shadow-xs cursor-help ${
+                            (item.endDay - item.startDay + 1) >= 3 ? 'px-2' : 'px-0.5 justify-center'
+                          } ${
+                            item.statut === 'EN_ATTENTE'
+                              ? 'bg-[var(--color-warning-500)] border-[var(--color-warning-500)] text-white font-semibold'
+                              : 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)] text-white font-semibold'
+                          }`}
+                          style={{
+                            left: `${((item.startDay - 1) / daysInMonth) * 100}%`,
+                            width: `${((item.endDay - item.startDay + 1) / daysInMonth) * 100}%`,
+                            top: `${4 + item.laneIndex * LANE_HEIGHT}px`,
+                            height: `${LANE_HEIGHT - 6}px`,
+                          }}
+                          title={`${item.type} — ${item.statut === 'EN_ATTENTE' ? 'En attente de validation' : 'Validé'} (${item.dureeJours} jour${item.dureeJours > 1 ? 's' : ''}) du ${formatDate(item.originalStart)} au ${formatDate(item.originalEnd)}`}
+                        >
+                          <span className="text-[11px] truncate">
+                            {(item.endDay - item.startDay + 1) >= 3
+                              ? `${item.type}${item.statut === 'EN_ATTENTE' ? ' (en attente)' : ''}`
+                              : item.type.slice(0, 3)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

@@ -27,17 +27,17 @@ export default function ValidationTable({
   onOpenValider
 }) {
   return (
-    <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
+    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xs p-5 sm:p-6 space-y-4">
       {/* En-tête contextuel pour les demandes en attente */}
       {activeStatut === 'EN_ATTENTE' && displayTotal > 0 && (
-        <div className="p-3 bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2">
+        <div className="p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Clock size={15} className="text-amber-600 shrink-0" />
-            <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+            <Clock size={15} className="text-[var(--color-warning-500)] shrink-0" />
+            <span className="text-xs font-bold text-[var(--color-fg)]">
               {displayTotal} demande{displayTotal > 1 ? 's' : ''} en attente de décision hiérarchique ou RH
             </span>
           </div>
-          <span className="text-[11px] text-amber-700 dark:text-amber-300">
+          <span className="text-[11px] text-[var(--color-fg-muted)]">
             Action requise pour libérer le solde ou autoriser l'absence
           </span>
         </div>
@@ -169,11 +169,11 @@ export default function ValidationTable({
                         {isEnAttente && canValidate ? (
                           <>
                             <Button
-                              variant="outline"
+                              variant="danger"
                               size="xs"
-                              iconLeft={<X size={12} className="text-rose-500" />}
+                              iconLeft={<X size={12} />}
                               onClick={() => onOpenRefus(d)}
-                              className="text-xs font-semibold text-rose-600 hover:bg-rose-50 border-rose-200 dark:border-rose-900/40"
+                              className="text-xs font-semibold"
                             >
                               Refuser
                             </Button>
@@ -195,7 +195,7 @@ export default function ValidationTable({
                           iconLeft={<Eye size={13} />}
                           onClick={() => onOpenDetail(d)}
                           title="Consulter la fiche détaillée"
-                          className="text-slate-600 hover:text-brand-600"
+                          className="text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)]"
                         >
                           Détails
                         </Button>

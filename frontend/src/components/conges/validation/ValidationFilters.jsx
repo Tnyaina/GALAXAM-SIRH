@@ -27,7 +27,7 @@ export default function ValidationFilters({
   const typesConges = referentiels?.typesConges || referentiels?.types || [];
 
   return (
-    <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-4 sm:p-5 space-y-3.5">
+    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xs p-4 sm:p-5 space-y-3.5">
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         
         {/* Pilules de filtrage rapide par statut */}
@@ -43,10 +43,10 @@ export default function ValidationFilters({
                 key={s.key}
                 type="button"
                 onClick={() => setActiveStatut(s.key)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer rounded-none ${
                   isActive
-                    ? 'bg-slate-900 dark:bg-brand-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-ink-800 text-slate-700 dark:text-ink-200 hover:bg-slate-200/80 dark:hover:bg-ink-700 border border-slate-200/80 dark:border-ink-700'
+                    ? 'bg-[var(--color-brand-500)] text-white shadow-xs'
+                    : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-fg)] border border-[var(--color-border-subtle)]'
                 }`}
               >
                 <Icon size={13} className={isUrgent ? 'text-amber-400' : ''} />
@@ -56,8 +56,8 @@ export default function ValidationFilters({
                     isActive
                       ? 'bg-white/20 text-white'
                       : isUrgent
-                        ? 'bg-amber-500 text-white'
-                        : 'bg-slate-200 dark:bg-ink-700 text-slate-700 dark:text-ink-200'
+                        ? 'bg-[var(--color-warning-500)] text-white'
+                        : 'bg-[var(--color-bg)] text-[var(--color-fg-muted)]'
                   }`}>
                     {count}
                   </span>
@@ -75,7 +75,7 @@ export default function ValidationFilters({
               <select
                 value={selectedTypeConge || ''}
                 onChange={(e) => setSelectedTypeConge(e.target.value)}
-                className="w-full h-8 text-xs bg-slate-50 dark:bg-ink-950 border border-slate-200 dark:border-ink-700 text-slate-800 dark:text-white px-2.5 py-1 outline-none focus:border-brand-500 cursor-pointer font-medium"
+                className="w-full h-8 text-xs bg-[var(--color-bg-subtle)] border border-[var(--color-border)] text-[var(--color-fg)] px-2.5 py-1 outline-none focus:border-[var(--color-brand-500)] cursor-pointer font-medium rounded-none"
               >
                 <option value="">Tous les types d'absence</option>
                 {typesConges.map((t) => (
@@ -88,15 +88,15 @@ export default function ValidationFilters({
           )}
 
           <div className="relative w-full sm:w-52">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-subtle)] pointer-events-none" />
             <Input
               placeholder="Rechercher collaborateur…"
               value={searchRaw}
               onChange={(e) => setSearchRaw(e.target.value)}
-              className="pl-8 h-8 text-xs bg-slate-50 dark:bg-ink-950 border-slate-200 dark:border-ink-700"
+              className="pl-8 h-8 text-xs bg-[var(--color-bg-subtle)] border-[var(--color-border)] rounded-none"
             />
             {searchRaw !== searchTerm && (
-              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-brand-500" title="Recherche en cours..." />
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-[var(--color-brand-500)]" title="Recherche en cours..." />
             )}
           </div>
 

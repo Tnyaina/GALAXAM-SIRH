@@ -67,48 +67,60 @@ export default function EmployeSideSummaryPanel({
             </div>
 
             {/* 3. Raccourcis RH */}
-            <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
-                    Raccourcis RH
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xs p-5 space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                    Raccourcis Dossier
                 </h3>
                 <div className="flex flex-col gap-2 pt-0.5">
                     <button
                         type="button"
                         onClick={() => onNavigateTab('carriere')}
-                        className={`w-full py-2 px-3 text-xs text-center font-semibold border transition-colors ${
+                        className={`w-full py-2 px-3 text-xs text-center font-semibold border transition-colors rounded-none cursor-pointer ${
                             activeTab === 'carriere'
-                                ? 'bg-slate-900 text-white border-slate-900'
-                                : 'bg-white dark:bg-ink-900 text-slate-700 dark:text-ink-200 border-slate-200 dark:border-ink-700 hover:bg-slate-50'
+                                ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
+                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)]'
                         }`}
                     >
-                        Dossier carrière & avenants
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => onNavigateTab('documents')}
-                        className={`w-full py-2 px-3 text-xs flex items-center justify-center relative font-semibold border transition-colors ${
-                            activeTab === 'documents'
-                                ? 'bg-slate-900 text-white border-slate-900'
-                                : 'bg-white dark:bg-ink-900 text-slate-700 dark:text-ink-200 border-slate-200 dark:border-ink-700 hover:bg-slate-50'
-                        }`}
-                    >
-                        <span>Documents RH</span>
-                        <span className="absolute right-3 text-[10px] font-bold px-1.5 py-0.5 bg-slate-100 dark:bg-ink-800 text-slate-600 dark:text-ink-300">
-                            {documentsCount}
-                        </span>
+                        Dossier carrière &amp; contrats
                     </button>
 
                     <button
                         type="button"
                         onClick={() => onNavigateTab('conges')}
-                        className={`w-full py-2 px-3 text-xs text-center font-semibold border transition-colors ${
+                        className={`w-full py-2 px-3 text-xs text-center font-semibold border transition-colors rounded-none cursor-pointer ${
                             activeTab === 'conges'
-                                ? 'bg-slate-900 text-white border-slate-900'
-                                : 'bg-white dark:bg-ink-900 text-slate-700 dark:text-ink-200 border-slate-200 dark:border-ink-700 hover:bg-slate-50'
+                                ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
+                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)]'
                         }`}
                     >
-                        Congés & absences
+                        Congés &amp; solde
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => onNavigateTab('pointage')}
+                        className={`w-full py-2 px-3 text-xs text-center font-semibold border transition-colors rounded-none cursor-pointer ${
+                            activeTab === 'pointage'
+                                ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
+                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)]'
+                        }`}
+                    >
+                        Pointages &amp; présence
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => onNavigateTab('documents')}
+                        className={`w-full py-2 px-3 text-xs flex items-center justify-center relative font-semibold border transition-colors rounded-none cursor-pointer ${
+                            activeTab === 'documents'
+                                ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
+                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)]'
+                        }`}
+                    >
+                        <span>Documents RH</span>
+                        <span className="absolute right-3 text-[10px] font-bold px-1.5 py-0.5 bg-[var(--color-bg)] text-[var(--color-fg-muted)]">
+                            {documentsCount}
+                        </span>
                     </button>
                 </div>
             </div>

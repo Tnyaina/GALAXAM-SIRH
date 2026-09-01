@@ -47,7 +47,7 @@ export default function PointageWorkflowNav() {
                         className={({ isActive }) => `
                             flex items-center gap-2 px-4 py-2 text-[11.5px] font-semibold border-r border-[var(--color-border-subtle)] whitespace-nowrap transition-colors shrink-0 last:border-r-0
                             ${isActive
-                                ? 'bg-brand-600/8 text-brand-700 dark:text-brand-300 border-b-2 border-b-brand-600'
+                                ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] font-bold border-b-2 border-b-[var(--color-brand-500)]'
                                 : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
                             }
                         `}

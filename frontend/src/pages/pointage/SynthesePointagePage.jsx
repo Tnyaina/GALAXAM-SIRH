@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, ArrowRight, Info, Lock, Unlock } from 'lucide-react';
 import Select from '@/components/ui/forms/Select';
 import Button from '@/components/ui/forms/Button';
@@ -13,10 +14,19 @@ import PointageWorkflowNav from '@/components/pointage/PointageWorkflowNav';
 import usePointageSynthese from '@/hooks/pointage/usePointageSynthese';
 
 export default function SynthesePointagePage() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [sites, setSites] = useState([]);
     const [periodes, setPeriodes] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState('hebdo'); // 'hebdo' ou 'mensuel'
+    
+    const activeTab = searchParams.get('tab') || 'hebdo';
+    const setActiveTab = (tab) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', tab);
+            return next;
+        });
+    };
 
     const [semaines, setSemaines] = useState([]);
     const [selectedSemaine, setSelectedSemaine] = useState(null);
@@ -31,18 +41,6 @@ export default function SynthesePointagePage() {
     const [devalidatingSemaine, setDevalidatingSemaine] = useState(false);
     const [actionFeedback, setActionFeedback] = useState(null);
 
-    useEffect(() => {
-        const fetchSites = async () => {
-            try {
-                const res = await organisationService.getSites();
-                if (res) setSites(res);
-            } catch (err) {
-                console.error('Erreur chargement sites:', err);
-            }
-        };
-        fetchSites();
-    }, []);
-
     const {
         selectedPeriode,
         setSelectedPeriode,
@@ -54,19 +52,43 @@ export default function SynthesePointagePage() {
     } = usePointageSynthese(1, 0);
 
     useEffect(() => {
+        const fetchSites = async () => {
+            try {
+                const res = await organisationService.getSites();
+                if (res) {
+                    setSites(res);
+                    const paramSite = searchParams.get('site');
+                    if (paramSite) {
+                        setSelectedSite(Number(paramSite));
+                    }
+                }
+            } catch (err) {
+                console.error('Erreur chargement sites:', err);
+            }
+        };
+        fetchSites();
+    }, [searchParams, setSelectedSite]);
+
+    useEffect(() => {
         const fetchPeriodes = async () => {
             try {
                 const list = await periodePaieService.getAllPeriodes();
                 if (list && list.length > 0) {
                     setPeriodes(list);
-                    setSelectedPeriode(list[0].idPeriodePaie);
+                    const paramPeriode = searchParams.get('periode');
+                    const found = list.find(p => String(p.idPeriodePaie) === paramPeriode);
+                    if (found) {
+                        setSelectedPeriode(found.idPeriodePaie);
+                    } else if (list[0]?.idPeriodePaie) {
+                        setSelectedPeriode(list[0].idPeriodePaie);
+                    }
                 }
             } catch (err) {
                 console.error('Erreur chargement périodes:', err);
             }
         };
         fetchPeriodes();
-    }, [setSelectedPeriode]);
+    }, [setSelectedPeriode, searchParams]);
 
     // Charger les semaines backend pour la période sélectionnée
     const fetchSemaines = useCallback(async () => {
@@ -250,13 +272,29 @@ export default function SynthesePointagePage() {
                     <Select
                         options={periodeOptions}
                         value={selectedPeriode}
-                        onChange={(val) => setSelectedPeriode(val)}
+                        onChange={(val) => {
+                            setSelectedPeriode(val);
+                            setSearchParams(prev => {
+                                const next = new URLSearchParams(prev);
+                                if (val) next.set('periode', val);
+                                else next.delete('periode');
+                                return next;
+                            });
+                        }}
                         className="h-[32px] text-xs min-w-[200px] flex-1"
                     />
                     <Select
                         options={siteOptions}
                         value={selectedSite}
-                        onChange={(val) => setSelectedSite(val)}
+                        onChange={(val) => {
+                            setSelectedSite(val);
+                            setSearchParams(prev => {
+                                const next = new URLSearchParams(prev);
+                                if (val) next.set('site', val);
+                                else next.delete('site');
+                                return next;
+                            });
+                        }}
                         className="h-[32px] text-xs min-w-[180px] flex-1"
                     />
                     <div className="relative flex-1 min-w-[160px]">
@@ -277,13 +315,13 @@ export default function SynthesePointagePage() {
                         type="button"
                         onClick={() => setActiveTab('hebdo')}
                         className={`flex items-center gap-1.5 px-4 py-2 text-[11.5px] font-semibold border-r border-[var(--color-border-subtle)] transition-all cursor-pointer ${activeTab === 'hebdo'
-                                ? 'bg-brand-600/8 text-brand-700 dark:text-brand-300 border-b-2 border-b-brand-600'
+                                ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] font-bold border-b-2 border-b-[var(--color-brand-500)]'
                                 : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
                             }`}
                     >
                         <Layers size={12} />
                         <span>Synthèse Hebdomadaire</span>
-                        <span className="bg-brand-500/10 text-brand-700 px-1.5 py-0.5 text-[10px] font-mono">
+                        <span className="bg-[var(--color-brand-500)]/15 text-[var(--color-brand-500)] px-1.5 py-0.5 text-[10px] font-mono font-bold">
                             {semaines.length} sem.
                         </span>
                     </button>
@@ -292,7 +330,7 @@ export default function SynthesePointagePage() {
                         type="button"
                         onClick={() => setActiveTab('mensuel')}
                         className={`flex items-center gap-1.5 px-4 py-2 text-[11.5px] font-semibold transition-all cursor-pointer ${activeTab === 'mensuel'
-                                ? 'bg-brand-600/8 text-brand-700 dark:text-brand-300 border-b-2 border-b-brand-600'
+                                ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] font-bold border-b-2 border-b-[var(--color-brand-500)]'
                                 : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
                             }`}
                     >
@@ -361,7 +399,7 @@ export default function SynthesePointagePage() {
                                                         onClick={() => setSelectedSemaine(sem)}
                                                         className={`w-full grid grid-cols-[auto_1fr_auto_auto_auto] gap-0 items-center px-3 py-1.5 border-b border-[var(--color-border-subtle)] text-left cursor-pointer transition-colors ${
                                                             isSelected
-                                                                ? 'bg-brand-600/8 border-l-2 border-l-brand-600'
+                                                                ? 'bg-[var(--color-brand-500)]/10 border-l-2 border-l-[var(--color-brand-500)]'
                                                                 : 'hover:bg-[var(--color-bg-subtle)] border-l-2 border-l-transparent'
                                                         }`}
                                                     >
@@ -486,8 +524,8 @@ export default function SynthesePointagePage() {
                                     </div>
                                 </div>
 
-                                <div className="px-5 py-2.5 bg-brand-50/50 dark:bg-brand-950/20 border-b border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-muted)] flex items-center gap-2">
-                                    <Info size={14} className="text-brand-600 shrink-0" />
+                                <div className="px-5 py-2.5 bg-[var(--color-brand-500)]/5 border-b border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-muted)] flex items-center gap-2">
+                                    <Info size={14} className="text-[var(--color-brand-500)] shrink-0" />
                                     <span>
                                         <strong>Principe de Compensation Hebdomadaire 1:1 :</strong> Le <em>Surplus Brut</em> (Réalisées − Base) éponge d'abord les <em>Retards</em> de la semaine. Le surplus net restant est ensuite distribué en <strong>HS 30 %</strong> (jusqu'à 8h) puis en <strong>HS 50 %</strong>.
                                     </span>
