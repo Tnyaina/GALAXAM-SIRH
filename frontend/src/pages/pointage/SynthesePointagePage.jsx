@@ -288,11 +288,10 @@ export default function SynthesePointagePage() {
                     <button
                         type="button"
                         onClick={() => setActiveTab('hebdo')}
-                        className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold transition-all cursor-pointer ${
-                            activeTab === 'hebdo'
+                        className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeTab === 'hebdo'
                                 ? 'bg-[var(--color-surface)] text-brand-700 dark:text-brand-300 shadow-xs border border-[var(--color-border-subtle)]'
                                 : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                        }`}
+                            }`}
                     >
                         <Layers size={15} />
                         <span>1. Synthèse Hebdomadaire (Par Semaine)</span>
@@ -304,11 +303,10 @@ export default function SynthesePointagePage() {
                     <button
                         type="button"
                         onClick={() => setActiveTab('mensuel')}
-                        className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold transition-all cursor-pointer ${
-                            activeTab === 'mensuel'
+                        className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeTab === 'mensuel'
                                 ? 'bg-[var(--color-surface)] text-brand-700 dark:text-brand-300 shadow-xs border border-[var(--color-border-subtle)]'
                                 : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                        }`}
+                            }`}
                     >
                         <CalendarRange size={15} />
                         <span>2. Synthèse Mensuelle Globale (Clôture DAF)</span>
@@ -350,17 +348,16 @@ export default function SynthesePointagePage() {
                                             <div
                                                 key={sem.id}
                                                 onClick={() => setSelectedSemaine(sem)}
-                                                className={`border p-4 transition-all cursor-pointer ${
-                                                    isSelected
+                                                className={`border p-4 transition-all cursor-pointer ${isSelected
                                                         ? 'ring-2 ring-brand-500 border-brand-500 bg-brand-50/40 dark:bg-brand-950/20 shadow-sm'
                                                         : sem.estValidee
-                                                        ? 'border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-500'
-                                                        : sem.ready
-                                                        ? 'border-brand-500/40 bg-brand-500/5 hover:border-brand-500'
-                                                        : sem.nbAnomalies > 0
-                                                        ? 'border-amber-500/40 bg-amber-500/5 hover:border-amber-500'
-                                                        : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] opacity-75 hover:opacity-100'
-                                                }`}
+                                                            ? 'border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-500'
+                                                            : sem.ready
+                                                                ? 'border-brand-500/40 bg-brand-500/5 hover:border-brand-500'
+                                                                : sem.nbAnomalies > 0
+                                                                    ? 'border-amber-500/40 bg-amber-500/5 hover:border-amber-500'
+                                                                    : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] opacity-75 hover:opacity-100'
+                                                    }`}
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
@@ -377,15 +374,14 @@ export default function SynthesePointagePage() {
                                                     {sem.dates} ({sem.nbJoursOuvrables}j ouvrés)
                                                 </p>
 
-                                                <p className={`text-[13px] font-bold mt-2 ${
-                                                    sem.estValidee
+                                                <p className={`text-[13px] font-bold mt-2 ${sem.estValidee
                                                         ? 'text-emerald-700 dark:text-emerald-300'
                                                         : sem.ready
-                                                        ? 'text-brand-700 dark:text-brand-300'
-                                                        : sem.nbAnomalies > 0
-                                                        ? 'text-amber-700'
-                                                        : 'text-[var(--color-fg)]'
-                                                }`}>
+                                                            ? 'text-brand-700 dark:text-brand-300'
+                                                            : sem.nbAnomalies > 0
+                                                                ? 'text-amber-700'
+                                                                : 'text-[var(--color-fg)]'
+                                                    }`}>
                                                     {sem.statut}
                                                 </p>
 
@@ -475,7 +471,7 @@ export default function SynthesePointagePage() {
                                                 {selectedSemaine.nbAnomalies} anomalie(s) à résoudre
                                             </span>
                                         ) : (
-                                            <span className="text-xs text-[var(--color-fg-muted)] italic">
+                                            <span className="text-xs text-[var(--color-fg-muted)] ">
                                                 Validation bloquée (validez la semaine précédente)
                                             </span>
                                         )}

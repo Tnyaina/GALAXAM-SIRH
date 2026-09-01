@@ -44,7 +44,7 @@ export default function SitesList({
                                             {s.filialeRaisonSociale}
                                         </Badge>
                                     ) : (
-                                        <span className="text-xs text-[var(--color-fg-subtle)] italic">Non assignée</span>
+                                        <span className="text-xs text-[var(--color-fg-subtle)] ">Non assignée</span>
                                     )}
                                 </Td>
                                 <Td>
@@ -89,11 +89,10 @@ export default function SitesList({
                                         </button>
                                         <button
                                             onClick={() => onToggleStatus(s)}
-                                            className={`p-1.5 rounded-none cursor-pointer transition-colors ${
-                                                s.estActif
+                                            className={`p-1.5 rounded-none cursor-pointer transition-colors ${s.estActif
                                                     ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
                                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
-                                            }`}
+                                                }`}
                                             title={s.estActif ? "Désactiver le site" : "Réactiver le site"}
                                             aria-label={s.estActif ? `Désactiver ${s.libelle}` : `Activer ${s.libelle}`}
                                         >

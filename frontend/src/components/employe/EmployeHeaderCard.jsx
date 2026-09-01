@@ -13,9 +13,9 @@ export default function EmployeHeaderCard({
     if (!emp) return null;
 
     return (
-        <div className="bg-white dark:bg-ink-900 rounded-none shadow-sm border border-ink-150 dark:border-ink-700 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="bg-[var(--color-surface)] rounded-none shadow-sm border border-[var(--color-border-subtle)] p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
-                <div className="w-20 h-20 bg-ink-50 dark:bg-ink-800 border-2 border-ink-200 dark:border-ink-700 rounded-none overflow-hidden flex items-center justify-center text-ink-300 flex-shrink-0">
+                <div className="w-20 h-20 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none overflow-hidden flex items-center justify-center text-[var(--color-fg-subtle)] shrink-0">
                     {emp.photoUrl ? (
                         <img 
                             src={getFullPhotoUrl(emp.photoUrl)} 
@@ -34,19 +34,19 @@ export default function EmployeHeaderCard({
                     ) : null}
                     <User size={36} className={emp.photoUrl ? 'hidden' : ''} />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                     <div className="flex items-center gap-3 flex-wrap">
-                        <h1 className="text-2xl font-bold tracking-tight text-ink-900 dark:text-white">
+                        <h1 className="text-2xl font-bold tracking-tight text-[var(--color-fg)]">
                             {emp.nom} {emp.prenom}
                         </h1>
                         {emp.estActif ? (
                             <Badge variant="success" size="md" dot>Actif</Badge>
                         ) : (
-                            <Badge variant="danger" size="md" dot>Inactif</Badge>
+                            <Badge variant="default" size="md" dot>Inactif</Badge>
                         )}
                         {emp.alerteContratTexte && (
                             <Badge 
-                                variant={emp.alerteContratNiveau === 'DANGER' ? 'danger' : emp.alerteContratNiveau === 'WARNING' ? 'warning' : 'primary'} 
+                                variant={emp.alerteContratNiveau === 'DANGER' ? 'danger' : emp.alerteContratNiveau === 'WARNING' ? 'warning' : 'brand'} 
                                 size="sm" 
                                 dot
                             >
@@ -54,12 +54,12 @@ export default function EmployeHeaderCard({
                             </Badge>
                         )}
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-ink-400">
-                        <span>Matricule : <strong className="font-mono text-brand-500">{emp.matricule}</strong></span>
+                    <div className="flex items-center gap-3 text-xs text-[var(--color-fg-muted)] flex-wrap">
+                        <span>Matricule : <strong className="font-mono text-[var(--color-brand-500)]">{emp.matricule}</strong></span>
                         <span>•</span>
-                        <span>CIN : <strong className="font-mono text-ink-700 dark:text-ink-200">{emp.cinNumero || '-'}</strong></span>
+                        <span>CIN : <strong className="font-mono text-[var(--color-fg)]">{emp.cinNumero || '-'}</strong></span>
                         <span>•</span>
-                        <span>Nationalité : <strong>{emp.nationalite}</strong></span>
+                        <span>Nationalité : <strong className="text-[var(--color-fg)]">{emp.nationalite || '-'}</strong></span>
                     </div>
                 </div>
             </div>
@@ -70,7 +70,7 @@ export default function EmployeHeaderCard({
                         onClick={onEdit}
                         variant="outline"
                         size="sm"
-                        iconLeft={<Edit2 size={16} />}
+                        iconLeft={<Edit2 size={15} />}
                     >
                         Modifier le profil
                     </Button>
@@ -79,8 +79,8 @@ export default function EmployeHeaderCard({
                             onClick={onDesactiver}
                             variant="ghost"
                             size="sm"
-                            className="text-danger-600 hover:bg-danger-500/10"
-                            iconLeft={<Power size={16} />}
+                            className="text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10"
+                            iconLeft={<Power size={15} />}
                         >
                             Désactiver
                         </Button>
@@ -89,8 +89,7 @@ export default function EmployeHeaderCard({
                             onClick={onReactiver}
                             variant="primary"
                             size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
-                            iconLeft={<RotateCcw size={16} />}
+                            iconLeft={<RotateCcw size={15} />}
                         >
                             Réactiver l'employé
                         </Button>

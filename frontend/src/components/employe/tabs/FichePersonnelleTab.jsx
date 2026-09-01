@@ -1,12 +1,13 @@
 import { User, Calendar, MapPin, Heart, Phone, Landmark } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 
 const InfoBlock = ({ label, value, mono = false, icon }) => (
     <div className="py-2">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400 mb-0.5">{label}</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-fg-muted)] mb-0.5">{label}</p>
         <div className="flex items-center gap-1.5">
-            {icon && <span className="text-ink-300">{icon}</span>}
-            <p className={`text-sm font-semibold text-ink-800 dark:text-ink-100 ${mono ? 'font-mono' : ''}`}>{value || '-'}</p>
+            {icon && <span className="text-[var(--color-fg-subtle)]">{icon}</span>}
+            <p className={`text-sm font-semibold text-[var(--color-fg)] ${mono ? 'font-mono' : ''}`}>{value || '-'}</p>
         </div>
     </div>
 );
@@ -23,7 +24,7 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
         <div className="space-y-8">
             {/* Section État Civil & Identité */}
             <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] pb-2 border-b border-[var(--color-border-subtle)] mb-4 flex items-center gap-2">
                     <User size={14} /> État Civil & Identité
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
@@ -44,7 +45,7 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
 
             {/* Section Coordonnées */}
             <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] pb-2 border-b border-[var(--color-border-subtle)] mb-4 flex items-center gap-2">
                     <Phone size={14} /> Domicile & Coordonnées
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
@@ -61,7 +62,7 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
 
             {/* Section CNaPS & Banque */}
             <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-2 border-b border-ink-150 dark:border-ink-700 mb-4 flex items-center gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] pb-2 border-b border-[var(--color-border-subtle)] mb-4 flex items-center gap-2">
                     <Landmark size={14} /> Sécurité Sociale & Compte Bancaire
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-4">
@@ -70,38 +71,36 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
                 </div>
 
                 {comptes.length > 0 ? (
-                    <div className="overflow-x-auto border border-ink-150 dark:border-ink-700">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
-                                    <th className="px-4 py-3 text-left">Banque</th>
-                                    <th className="px-4 py-3 text-left">Agence</th>
-                                    <th className="px-4 py-3 text-left">N° Compte / RIB</th>
-                                    <th className="px-4 py-3 text-left">Titulaire</th>
-                                    <th className="px-4 py-3 text-left">Statut</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                                {comptes.map((cb, i) => (
-                                    <tr key={i} className="text-ink-900 dark:text-ink-100">
-                                        <td className="px-4 py-3 font-semibold">{cb.nomBanque || cb.libelleBanque || cb.codeBanque || (cb.idBanque ? `Banque N°${cb.idBanque}` : '-')}</td>
-                                        <td className="px-4 py-3">{cb.agence || '-'}</td>
-                                        <td className="px-4 py-3 font-mono text-xs text-brand-500 font-bold">{cb.numCompteRib}</td>
-                                        <td className="px-4 py-3">{cb.titulaireCompte || '-'}</td>
-                                        <td className="px-4 py-3">
-                                            {cb.estPrincipal ? (
-                                                <Badge variant="primary" size="sm">Principal</Badge>
-                                            ) : (
-                                                <Badge variant="default" size="sm">Secondaire</Badge>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <Table>
+                        <Thead>
+                            <Tr>
+                                <Th>Banque</Th>
+                                <Th>Agence</Th>
+                                <Th>N° Compte / RIB</Th>
+                                <Th>Titulaire</Th>
+                                <Th>Statut</Th>
+                            </Tr>
+                        </Thead>
+                        <Tbody>
+                            {comptes.map((cb, i) => (
+                                <Tr key={i}>
+                                    <Td className="font-semibold">{cb.nomBanque || cb.libelleBanque || cb.codeBanque || (cb.idBanque ? `Banque N°${cb.idBanque}` : '-')}</Td>
+                                    <Td>{cb.agence || '-'}</Td>
+                                    <Td isData className="font-mono text-xs text-[var(--color-brand-500)] font-bold">{cb.numCompteRib}</Td>
+                                    <Td>{cb.titulaireCompte || '-'}</Td>
+                                    <Td>
+                                        {cb.estPrincipal ? (
+                                            <Badge variant="brand" size="sm">Principal</Badge>
+                                        ) : (
+                                            <Badge variant="default" size="sm">Secondaire</Badge>
+                                        )}
+                                    </Td>
+                                </Tr>
+                            ))}
+                        </Tbody>
+                    </Table>
                 ) : (
-                    <p className="text-xs text-ink-400">Aucun compte bancaire enregistré.</p>
+                    <p className="text-xs text-[var(--color-fg-muted)]">Aucun compte bancaire enregistré.</p>
                 )}
             </div>
         </div>

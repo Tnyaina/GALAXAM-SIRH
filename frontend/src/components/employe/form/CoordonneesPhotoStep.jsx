@@ -13,14 +13,14 @@ export default function CoordonneesPhotoStep({
     return (
         <div className="space-y-6">
             {/* Zone Téléversement Photo */}
-            <div className="bg-ink-50 dark:bg-ink-950 border border-ink-150 dark:border-ink-700 p-4">
-                <label className="text-xs font-bold uppercase tracking-wider text-ink-800 dark:text-ink-50 block mb-2">Photo de l'employé</label>
+            <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-4">
+                <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] block mb-2">Photo de l'employé</label>
                 <div className="flex items-center gap-6">
-                    <div className="w-20 h-20 bg-white dark:bg-ink-900 border-2 border-dashed border-ink-200 dark:border-ink-700 flex flex-col items-center justify-center relative overflow-hidden flex-shrink-0">
+                    <div className="w-20 h-20 bg-[var(--color-surface)] border-2 border-dashed border-[var(--color-border)] flex flex-col items-center justify-center relative overflow-hidden flex-shrink-0">
                         {formData.photoUrl ? (
                             <img src={getFullPhotoUrl(formData.photoUrl)} alt="Aperçu" className="w-full h-full object-cover" />
                         ) : (
-                            <div className="text-center text-ink-300">
+                            <div className="text-center text-[var(--color-fg-subtle)]">
                                 <Camera size={24} className="mx-auto mb-1" />
                                 <span className="text-[9px] uppercase font-semibold">Aucune</span>
                             </div>
@@ -33,7 +33,7 @@ export default function CoordonneesPhotoStep({
                     </div>
                     <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-3">
-                            <label className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider bg-brand-500 hover:bg-brand-600 text-white rounded-none cursor-pointer ">
+                            <label className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] text-white rounded-none cursor-pointer">
                                 <Upload size={14} />
                                 {uploadingPhoto ? 'Téléversement...' : 'Parcourir un fichier'}
                                 <input 
@@ -48,13 +48,13 @@ export default function CoordonneesPhotoStep({
                                 <button 
                                     type="button" 
                                     onClick={() => set('photoUrl', '')} 
-                                    className="text-xs font-semibold text-danger-500 hover:underline cursor-pointer"
+                                    className="text-xs font-semibold text-[var(--color-danger-500)] hover:underline cursor-pointer"
                                 >
                                     Supprimer
                                 </button>
                             )}
                         </div>
-                        <p className="text-[11px] text-ink-400">Formats acceptés : PNG, JPG, WEBP. Taille max : 5 Mo.</p>
+                        <p className="text-[11px] text-[var(--color-fg-muted)]">Formats acceptés : PNG, JPG, WEBP. Taille max : 5 Mo.</p>
                     </div>
                 </div>
             </div>

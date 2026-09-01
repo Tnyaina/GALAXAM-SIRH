@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, UserPlus, Edit2, ShieldAlert, Eye, UserCheck } from 'lucide-react';
+import { Search, UserPlus, Edit2, ShieldAlert, Eye, UserCheck, Power } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -299,21 +299,18 @@ export default function UserManagementTab() {
                                         >
                                             <Edit2 size={15} />
                                         </button>
-                                        {user.estActif ? (
-                                            <button
-                                                onClick={() => handleOpenDeactivateModal(user)}
-                                                className="px-2 py-1 text-xs font-bold text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer uppercase transition-colors"
-                                            >
-                                                Désactiver
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={() => requestActivate(user)}
-                                                className="px-2 py-1 text-xs font-bold text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10 rounded-none cursor-pointer uppercase transition-colors"
-                                            >
-                                                Activer
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => user.estActif ? handleOpenDeactivateModal(user) : requestActivate(user)}
+                                            className={`p-1.5 rounded-none cursor-pointer transition-colors ${
+                                                user.estActif
+                                                    ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
+                                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
+                                            }`}
+                                            title={user.estActif ? "Désactiver l'utilisateur" : "Réactiver l'utilisateur"}
+                                            aria-label={user.estActif ? `Désactiver ${user.identifiant}` : `Activer ${user.identifiant}`}
+                                        >
+                                            <Power size={15} />
+                                        </button>
                                     </div>
                                 </Td>
                             </Tr>

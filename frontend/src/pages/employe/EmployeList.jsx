@@ -54,6 +54,9 @@ export default function EmployeList() {
     const [employeToDesactiver, setEmployeToDesactiver] = useState(null);
     const [motifDesactivation, setMotifDesactivation] = useState('Demission');
 
+    const [isReactiverModalOpen, setIsReactiverModalOpen] = useState(false);
+    const [employeToReactiver, setEmployeToReactiver] = useState(null);
+
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const toast = useToast();
@@ -316,7 +319,8 @@ export default function EmployeList() {
             setEmployeToDesactiver(empView);
             setIsDesactivationModalOpen(true);
         } else {
-            handleReactiver(empView.idEmploye);
+            setEmployeToReactiver(empView);
+            setIsReactiverModalOpen(true);
         }
     };
 
@@ -337,13 +341,14 @@ export default function EmployeList() {
         }
     };
 
-    const handleReactiver = async (id) => {
-        if (submitting) return;
+    const handleReactiverConfirm = async () => {
+        if (!employeToReactiver || submitting) return;
         setError('');
         setSubmitting(true);
         try {
-            await employeService.reactiverEmploye(id);
-            toast({ title: 'Succès', message: 'Employé réactivé avec succès.', type: 'success' });
+            await employeService.reactiverEmploye(employeToReactiver.idEmploye);
+            setIsReactiverModalOpen(false);
+            toast({ title: 'Succès', message: `L'employé "${employeToReactiver.nomComplet || employeToReactiver.matricule}" a été réactivé.`, type: 'success' });
             loadEmployes();
         } catch (err) {
             console.error('Erreur réactivation:', err);
@@ -431,7 +436,7 @@ export default function EmployeList() {
             />
 
             {/* Tableau des employés */}
-            <div className="flex flex-col border border-ink-150 dark:border-ink-700 bg-white dark:bg-ink-900 shadow-sm">
+            <div className="flex flex-col border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
                 <EmployeTable
                     employes={paginatedEmployes}
                     loading={loading}
@@ -442,6 +447,7 @@ export default function EmployeList() {
                     onToggleStatus={handleToggleStatus}
                     sortConfig={columnSortConfig}
                     onSortChange={handleSortChange}
+                    onResetFilters={handleResetFilters}
                 />
                 
                 {/* Pagination */}
@@ -452,7 +458,7 @@ export default function EmployeList() {
                         pageSize={pageSize}
                         onPageChange={setCurrentPage}
                         onPageSizeChange={setPageSize}
-                        className="border-none shadow-none bg-ink-50 dark:bg-ink-950"
+                        className="border-t border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-none"
                     />
                 )}
             </div>
@@ -495,6 +501,19 @@ export default function EmployeList() {
                     <option value="Autre">Autre</option>
                 </Select>
             </ConfirmDialog>
+
+            {/* Modale de réactivation */}
+            <ConfirmDialog
+                isOpen={isReactiverModalOpen}
+                onClose={() => setIsReactiverModalOpen(false)}
+                onConfirm={handleReactiverConfirm}
+                title="Réactiver le collaborateur"
+                message={`Êtes-vous sûr de vouloir réactiver la fiche de "${employeToReactiver?.nomComplet || employeToReactiver?.matricule || ''}" ? Son profil repassera en statut Actif.`}
+                confirmLabel="Réactiver le profil"
+                cancelLabel="Annuler"
+                variant="primary"
+                loading={submitting}
+            />
         </div>
     );
 }

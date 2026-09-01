@@ -403,20 +403,10 @@ public class EmployeService {
              java.sql.ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 String mat = rs.getString(1);
-                if (mat != null) {
-                    if (matriculeEngine.estFormatValide(mat)) {
-                        String[] parts = mat.split("-");
-                        if (parts.length == 3) {
-                            try {
-                                long val = Long.parseLong(parts[2]);
-                                if (val > maxSeq) maxSeq = val;
-                            } catch (NumberFormatException ignored) {}
-                        }
-                    } else if (mat.matches("\\d+")) {
-                        try {
-                            long val = Long.parseLong(mat);
-                            if (val > maxSeq) maxSeq = val;
-                        } catch (NumberFormatException ignored) {}
+                if (mat != null && !mat.trim().isEmpty()) {
+                    Long seq = matriculeEngine.extraireSequence(mat.trim());
+                    if (seq != null && seq > maxSeq) {
+                        maxSeq = seq;
                     }
                 }
             }

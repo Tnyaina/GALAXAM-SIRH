@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     ArrowLeft, User, Users, Briefcase, XCircle, Folder,
-    Power, AlertTriangle, Calendar, Clock
+    Power, AlertTriangle, Calendar, Clock, ArrowRight, Compass
 } from 'lucide-react';
 import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
 import EmployeHeaderCard from '@/components/employe/EmployeHeaderCard';
 import Button from '@/components/ui/forms/Button';
+import { Select } from '@/components/ui/forms/Input';
 import Loading from '@/components/ui/feedback/Loading';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
@@ -129,6 +130,7 @@ export default function EmployeFicheDetailPage() {
     }, [id, loadEmployeDetail, loadDocuments, loadTypesDoc]);
 
     const handleSaveForm = async (formData) => {
+        if (submitting) return;
         setSubmitting(true);
         try {
             await employeService.updateEmploye(id, formData);
@@ -143,9 +145,10 @@ export default function EmployeFicheDetailPage() {
         }
     };
 
-    const handleDesactiverConfirm = async (e) => {
-        e.preventDefault();
+    const handleDesactiverConfirm = async () => {
+        if (submitting) return;
         setError('');
+        setSubmitting(true);
         try {
             await employeService.desactiverEmploye(id, motifDesactivation);
             setIsDesactivationModalOpen(false);
@@ -154,11 +157,15 @@ export default function EmployeFicheDetailPage() {
         } catch (err) {
             console.error('Erreur désactivation:', err);
             setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la désactivation.');
+        } finally {
+            setSubmitting(false);
         }
     };
 
     const handleReactiverConfirm = async () => {
+        if (submitting) return;
         setError('');
+        setSubmitting(true);
         try {
             await employeService.reactiverEmploye(id);
             setIsReactiverModalOpen(false);
@@ -167,6 +174,8 @@ export default function EmployeFicheDetailPage() {
         } catch (err) {
             console.error('Erreur réactivation:', err);
             setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la réactivation.');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -182,6 +191,7 @@ export default function EmployeFicheDetailPage() {
 
     const handleUploadDocSubmit = async (e) => {
         e.preventDefault();
+        if (uploadingDoc) return;
         setDocErrorMsg('');
 
         if (!selectedTypeId) {
@@ -212,7 +222,8 @@ export default function EmployeFicheDetailPage() {
     };
 
     const handleConfirmDeleteDoc = async () => {
-        if (!docToDelete) return;
+        if (!docToDelete || submitting) return;
+        setSubmitting(true);
         try {
             await documentRhService.deleteDocument(docToDelete.idDoc);
             toast({ title: 'Succès', message: `Document "${docToDelete.nomDoc}" supprimé.`, type: 'success' });
@@ -221,6 +232,7 @@ export default function EmployeFicheDetailPage() {
             console.error('Erreur suppression document:', err);
             setError('Erreur lors de la suppression du document.');
         } finally {
+            setSubmitting(false);
             setDocToDelete(null);
         }
     };
@@ -299,12 +311,21 @@ export default function EmployeFicheDetailPage() {
 
             {/* Bandeau d'orientation post-création si pas de contrat actif */}
             {hasNoActiveContract && canWrite && (
-                <div className="bg-amber-500/10 border-l-4 border-amber-500 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] border-l-4 border-l-[var(--color-brand-500)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs rounded-none">
                     <div className="flex items-center gap-3">
-                        <AlertTriangle className="text-amber-600 shrink-0" size={22} />
+                        <div className="w-10 h-10 flex items-center justify-center bg-[var(--color-bg-subtle)] text-[var(--color-brand-500)] shrink-0 border border-[var(--color-border-subtle)]">
+                            <Compass size={20} />
+                        </div>
                         <div>
-                            <p className="text-sm font-bold">Étape suivante recommandée : Contrat & Affectation</p>
-                            <p className="text-xs text-amber-800 dark:text-amber-300">Cet employé n'a pas encore de contrat actif. Veuillez créer son contrat initial pour l'inclure dans les feuilles de pointage et la gestion des congés.</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-xs sm:text-sm font-bold text-[var(--color-fg)]">Étape suivante recommandée : Contrat & Affectation</p>
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/20">
+                                    Nouveau collaborateur
+                                </span>
+                            </div>
+                            <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                                Cet employé n'a pas encore de contrat actif. Configurez son contrat initial pour l'intégrer aux plannings, feuilles de pointage et gestion des congés.
+                            </p>
                         </div>
                     </div>
                     <Button 
@@ -312,6 +333,7 @@ export default function EmployeFicheDetailPage() {
                         variant="primary" 
                         onClick={() => handleTabChange('carriere')}
                         className="shrink-0"
+                        iconRight={<ArrowRight size={14} />}
                     >
                         Configurer le contrat
                     </Button>
@@ -319,7 +341,7 @@ export default function EmployeFicheDetailPage() {
             )}
 
             {/* Navigation par Onglets Structurés */}
-            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
+            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xs overflow-hidden">
                 <Tabs 
                     tabs={mainTabs} 
                     activeTab={activeTab} 
@@ -429,81 +451,63 @@ export default function EmployeFicheDetailPage() {
             )}
 
             {/* Modale de désactivation */}
-            {isDesactivationModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
-                    <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
-                            <Power size={18} className="text-danger-500" />
-                            Désactiver l'employé
-                        </div>
-                        <form onSubmit={handleDesactiverConfirm}>
-                            <div className="p-6 space-y-4">
-                                <p className="text-sm text-ink-500 dark:text-ink-400">
-                                    Spécifiez le motif de désactivation de l'employé{' '}
-                                    <strong className="text-ink-800 dark:text-white">{emp.nom} {emp.prenom}</strong>.
-                                </p>
-                                <div className="bg-warning-500/10 border border-warning-500/30 p-3 rounded-none text-xs text-warning-700 dark:text-warning-400 flex items-start gap-2">
-                                    <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
-                                    <span>
-                                        <strong>Note RH :</strong> La désactivation passe le profil de l'employé en inactif. Veillez également à clôturer son contrat ou créer le mouvement RH de fin de contrat correspondant dans l'onglet <em>Carrière & Affectation</em>.
-                                    </span>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-wider text-ink-800 dark:text-ink-50">Motif de Désactivation</label>
-                                    <select
-                                        value={motifDesactivation}
-                                        onChange={(e) => setMotifDesactivation(e.target.value)}
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-none bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                    >
-                                        <option value="Demission">Démission</option>
-                                        <option value="Licenciement">Licenciement</option>
-                                        <option value="Fin_contrat">Fin de contrat</option>
-                                        <option value="Retraite">Retraite</option>
-                                        <option value="Deces">Décès</option>
-                                        <option value="Autre">Autre</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsDesactivationModalOpen(false)}
-                                    className="px-4 py-2 text-sm font-semibold hover:bg-ink-200 dark:hover:bg-ink-850 rounded-none cursor-pointer"
-                                >
-                                    Annuler
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 text-sm font-semibold bg-danger-500 hover:bg-danger-600 text-white rounded-none cursor-pointer"
-                                >
-                                    Confirmer la Désactivation
-                                </button>
-                            </div>
-                        </form>
+            <ConfirmDialog
+                isOpen={isDesactivationModalOpen}
+                onClose={() => setIsDesactivationModalOpen(false)}
+                onConfirm={handleDesactiverConfirm}
+                title="Désactiver l'employé"
+                message={`Spécifiez le motif de désactivation de l'employé ${emp.nom} ${emp.prenom}.`}
+                confirmLabel="Confirmer la Désactivation"
+                cancelLabel="Annuler"
+                variant="danger"
+                loading={submitting}
+            >
+                <div className="space-y-3 pt-2">
+                    <div className="bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-2.5 rounded-none text-xs text-[var(--color-warning-700)] flex items-start gap-2">
+                        <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                        <span>
+                            <strong>Note RH :</strong> La désactivation passe le profil de l'employé en inactif. Veillez également à clôturer son contrat dans l'onglet <em>Carrière & Affectation</em>.
+                        </span>
                     </div>
+                    <Select
+                        label="Motif de Désactivation"
+                        value={motifDesactivation}
+                        onChange={(e) => setMotifDesactivation(e.target.value)}
+                    >
+                        <option value="Demission">Démission</option>
+                        <option value="Licenciement">Licenciement</option>
+                        <option value="Fin_contrat">Fin de contrat</option>
+                        <option value="Retraite">Retraite</option>
+                        <option value="Deces">Décès</option>
+                        <option value="Autre">Autre</option>
+                    </Select>
                 </div>
-            )}
+            </ConfirmDialog>
 
             {/* Modale de réactivation */}
             <ConfirmDialog
                 isOpen={isReactiverModalOpen}
+                onClose={() => setIsReactiverModalOpen(false)}
+                onConfirm={handleReactiverConfirm}
                 title="Réactiver l'employé"
                 message={`Êtes-vous sûr de vouloir réactiver le collaborateur "${emp.nom} ${emp.prenom}" ? Son profil repassera en statut Actif.`}
                 confirmLabel="Réactiver le profil"
+                cancelLabel="Annuler"
                 variant="primary"
-                onConfirm={handleReactiverConfirm}
-                onCancel={() => setIsReactiverModalOpen(false)}
+                loading={submitting}
             />
 
             {/* Modale de confirmation de suppression de document */}
             <ConfirmDialog
                 isOpen={!!docToDelete}
+                onClose={() => setDocToDelete(null)}
+                onConfirm={handleConfirmDeleteDoc}
                 title="Supprimer le document RH"
                 message={`Êtes-vous sûr de vouloir supprimer définitivement le document "${docToDelete?.nomDoc}" ? Cette action est irréversible.`}
-                confirmLabel="Supprimer"
+                confirmLabel="Supprimer définitivement"
+                cancelLabel="Annuler"
                 variant="danger"
-                onConfirm={handleConfirmDeleteDoc}
-                onCancel={() => setDocToDelete(null)}
+                loading={submitting}
             />
         </div>
     );

@@ -68,8 +68,8 @@ Famille de neutres "Bleu-Gris" calibrée pour le contraste clair/sombre.
 | `ink-400` | `#4a617c` | Muted / placeholders / bordures subtiles |
 | `ink-350` | `#4a617c` | Hint / Disabled |
 | `ink-200` | `#c9d5e3` | **Bordure par défaut** |
-| `ink-150` | `#e0e1dd` | **Bordure des cartes / Fond doux (`--color-bg-subtle`)** |
-| `ink-100` | `#f0f2f5` | Hover doux / surfaces secondaires |
+| `ink-150` | `#e2e8f0` | **Bordure des cartes / Fond doux (`--color-bg-subtle`)** |
+| `ink-100` | `#edf2f7` | Hover doux / surfaces secondaires |
 | `ink-50` | `#f7f8f9` | **Fond de page clair par défaut (`--color-bg`)** |
 
 ### 3. Statuts sémantiques & Alertes
@@ -78,7 +78,7 @@ Famille de neutres "Bleu-Gris" calibrée pour le contraste clair/sombre.
 | :--- | :--- | :--- |
 | **Succès** | `success-500` (`#16a34a`), `success-400` (`#4ade80`), `success-600` (`#15803d`) | `Alert type="success"`, badges validés, validations |
 | **Danger / Erreur** | `danger-500` (`#dc2626`), `danger-400` (`#f87171`), `danger-200` (`#fecaca`), `danger-600` (`#b91c1c`) | `Button variant="danger"`, erreurs de formulaire, alertes critiques |
-| **Warning (Ambre)** | `warning-500` (`#b45309`), `warning-400` (`#d97706`), `warning-200` (`#fde68a`), `warning-100` (`#fef3c7`), `warning-50` (`#fffbe8`) | Badges warning, alertes d'attention |
+| **Warning (Ambre)** | `warning-500` (`#d97706`), `warning-400` (`#f59e0b`), `warning-200` (`#fef08a`), `warning-100` (`#fef9c3`), `warning-50` (`#fefce8`), `warning-700` (`#92400e`) | Badges warning, alertes de conformité et vigilance (doré équilibré) |
 | **Info (Indigo)** | `info-500` (`#3730a3`), `info-600` (`#312e81`), `info-700` (`#1e1b4b`), `info-100` (`#e0e7ff`), `info-50` (`#f0f3ff`) | Badges informatifs, notifications d'information |
 
 ---
@@ -90,14 +90,14 @@ Toujours privilégier les variables sémantiques du thème :
 | Variable | Mode Clair (Light) | Mode Sombre (`.dark`) | Description / Rôle |
 | :--- | :--- | :--- | :--- |
 | `--color-bg` | `#f7f8f9` (`ink-50`) | `#0d1b2a` | Fond d'écran global |
-| `--color-bg-subtle` | `#e0e1dd` | `#162335` | Fond de conteneurs discrets |
+| `--color-bg-subtle` | `#edf2f7` | `#162335` | Fond de conteneurs discrets / en-têtes |
 | `--color-surface` | `#ffffff` | `#1b263b` | Fond des cartes, tables, modales |
-| `--color-surface-hover`| `#f0f2f5` | `#24334d` | Hover sur lignes et cartes |
+| `--color-surface-hover`| `#f1f5f9` | `#24334d` | Hover sur lignes et cartes |
 | `--color-fg` | `#0d1b2a` | `#f4f6f8` | Texte principal (Contraste high) |
 | `--color-fg-muted` | `#334862` | `#c2cfda` | Texte secondaire / sous-titres (WCAG AA > 7:1) |
 | `--color-fg-subtle`| `#4a617c` | `#9ab0c7` | Placeholders, légendes, hints (WCAG AA >= 4.5:1) |
 | `--color-border` | `#c9d5e3` | `#2a3a50` | Bordures principales |
-| `--color-border-subtle`| `#e0e1dd` | `#1e2c40` | Séparateurs, bordures douces |
+| `--color-border-subtle`| `#e2e8f0` | `#1e2c40` | Séparateurs, bordures douces |
 | `--color-accent` | `#334862` | `#9ab0c7` | Liens, accents, focus actif |
 | `--color-sidebar-bg` | `#1b263b` | `#070e17` | Fond de navigation latérale |
 | `--color-sidebar-fg` | `#9ab0c7` | `#9ab0c7` | Texte / icônes sidebar |
@@ -197,3 +197,29 @@ Tout nouveau composant ou modification UI **doit strictement respecter** les dir
 - [ ] Réutilisation systématique des composants de `@/components/ui/`.
 - [ ] Typographie mono (`.font-data`) appliquée pour les codes logistiques, montants et dates.
 - [ ] Focus accessible et gestion du mode sombre via classes Tailwind (`dark:`) ou variables CSS.
+
+---
+
+## 10. Règles d'Ergonomie Visuelle & Sémantique (Best Practices B2B)
+
+Pour maintenir une interface logique, lisible et exempte de fatigue visuelle :
+
+### 1. Distinction stricte : Onboarding / Recommandation vs Alerte de Danger
+* **Interdiction absolue** : Ne jamais utiliser le statut `Warning` (fond jaune/ambre ou triangle de danger `AlertTriangle`) pour une recommandation, un guidage d'onboarding ou une "prochaine étape recommandée" (ex. *« Configurer le contrat »*). Cela génère du stress et induit l'utilisateur en erreur sur une prétendue panne.
+* **Standard d'Onboarding** : Utiliser la **Carte d'Orientation** :
+  * Fond neutre de surface `bg-[var(--color-surface)]` ou doux `bg-[var(--color-bg-subtle)]`.
+  * Bordure gauche bleue marque `border-l-4 border-l-[var(--color-brand-500)]`.
+  * Icône d'orientation positive (`Compass`, `Sparkles` ou `ArrowRight`).
+  * Bouton d'action primaire avec flèche incitative (`iconRight={<ArrowRight />}`).
+
+### 2. Conformité RH & Vigilance feutrée
+* Réserver `warning` strictement aux cas de non-conformité réelle (documents obligatoires manquants, anomalies de pointage, contrats expirant sous peu).
+* Préférer des encarts de conformité élégants : badge discret avec pastille (`Badge variant="warning" dot`), titre net en majuscules, et puces d'actions interactives (`Upload`, `Plus`) stylisées avec fond doux plutôt que de grosses alertes agressives.
+
+### 3. Densité et Navigation des Tableaux de Données
+* **Élimination du défilement horizontal** : Les tableaux doivent tenir sur un écran desktop standard sans forcer un scroll horizontal. Consolider les informations associées au lieu de multiplier les colonnes (ex : fusionner Poste et Structure en une seule colonne `Fonction & Affectation` avec Poste en gras et Structure en sous-titre).
+* **Lignes interactives cliquables** : Rendre la ligne entière cliquable (`Tr onClick`) pour ouvrir la fiche détaillée d'un collaborateur, en isolant les boutons d'actions interactifs via `e.stopPropagation()`.
+* **Standardisation des boutons d'actions** : Pas de gros boutons texte colorés dans les cellules de table. Utiliser le groupe d'icônes standardisé `[Edit2]` (Modifier) et `[Power]` (Activer / Désactiver) avec infobulles contextuelles explicites.
+
+### 4. Non-redondance dans les Empty States
+* Lorsqu'une table ou liste est vide, **masquer le bouton d'action secondaire dans l'en-tête** de section. L'action principale doit être centrée au sein de l'`EmptyState` pour créer un point d'action focal unique et éviter tout sentiment de duplication.

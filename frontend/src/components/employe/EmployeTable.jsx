@@ -1,6 +1,7 @@
-import { Eye, Edit2, Users, Mail, Phone, MapPin, ArrowUp, ArrowDown, Building, Briefcase } from 'lucide-react';
+import { Edit2, Power, Users, Mail, Phone, MapPin, Building, Briefcase } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
-import Button from '@/components/ui/forms/Button';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
 
@@ -21,35 +22,29 @@ export default function EmployeTable({
     onToggleStatus,
     sortConfig = { key: '', direction: 'asc' },
     onSortChange,
+    onResetFilters,
 }) {
     if (loading) {
         return (
             <div className="p-4">
-                <SkeletonTable rows={10} columns={8} />
+                <SkeletonTable rows={10} columns={7} />
             </div>
         );
     }
 
     if (employes.length === 0) {
         return (
-            <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 shadow-sm p-12 text-center">
-                <Users size={40} className="mx-auto text-ink-300 mb-3" />
-                <p className="text-sm font-semibold text-ink-800 dark:text-white">Aucun employé trouvé</p>
-                <p className="text-xs text-ink-400 mt-1">Aucun enregistrement ne correspond à vos critères de recherche ou filtres.</p>
-            </div>
+            <EmptyState
+                icon={Users}
+                title="Aucun employé trouvé"
+                description="Aucun collaborateur ne correspond à vos critères de recherche ou de filtrage."
+                actionLabel={onResetFilters ? "Réinitialiser les filtres" : undefined}
+                onAction={onResetFilters}
+            />
         );
     }
 
-    const renderSortIcon = (key) => {
-        if (sortConfig.key !== key) return null;
-        return sortConfig.direction === 'asc' ? (
-            <ArrowUp size={13} className="inline ml-1 text-brand-500" />
-        ) : (
-            <ArrowDown size={13} className="inline ml-1 text-brand-500" />
-        );
-    };
-
-    const handleColumnHeaderClick = (key) => {
+    const handleSort = (key) => {
         if (onSortChange) {
             const isAsc = sortConfig.key === key && sortConfig.direction === 'asc';
             onSortChange(key, isAsc ? 'desc' : 'asc');
@@ -57,261 +52,251 @@ export default function EmployeTable({
     };
 
     return (
-        <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden font-sans">
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left text-sm">
-                    <thead>
-                        <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-500 font-bold uppercase text-[10px] tracking-widest select-none">
-                            <th 
-                                className="px-5 py-3.5 cursor-pointer hover:bg-ink-100/50 dark:hover:bg-ink-900 transition-colors"
-                                onClick={() => handleColumnHeaderClick('matricule')}
-                            >
-                                Employé & Matricule {renderSortIcon('matricule')}
-                            </th>
-                            <th 
-                                className="px-5 py-3.5 cursor-pointer hover:bg-ink-100/50 dark:hover:bg-ink-900 transition-colors"
-                                onClick={() => handleColumnHeaderClick('departement')}
-                            >
-                                Structure (Dépt. / Service) {renderSortIcon('departement')}
-                            </th>
-                            <th 
-                                className="px-5 py-3.5 cursor-pointer hover:bg-ink-100/50 dark:hover:bg-ink-900 transition-colors"
-                                onClick={() => handleColumnHeaderClick('fonction')}
-                            >
-                                Poste & Fonction {renderSortIcon('fonction')}
-                            </th>
-                            <th 
-                                className="px-5 py-3.5 cursor-pointer hover:bg-ink-100/50 dark:hover:bg-ink-900 transition-colors"
-                                onClick={() => handleColumnHeaderClick('site')}
-                            >
-                                Site {renderSortIcon('site')}
-                            </th>
-                            <th className="px-5 py-3.5">Coordonnées</th>
-                            <th 
-                                className="px-5 py-3.5 cursor-pointer hover:bg-ink-100/50 dark:hover:bg-ink-900 transition-colors"
-                                onClick={() => handleColumnHeaderClick('dateEmbauche')}
-                            >
-                                Date d'embauche {renderSortIcon('dateEmbauche')}
-                            </th>
-                            <th 
-                                className="px-5 py-3.5 cursor-pointer hover:bg-ink-100/50 dark:hover:bg-ink-900 transition-colors"
-                                onClick={() => handleColumnHeaderClick('statut')}
-                            >
-                                Statut {renderSortIcon('statut')}
-                            </th>
-                            <th className="px-5 py-3.5 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                        {employes.map((emp) => {
-                            const fullName = emp.nomComplet || `${emp.prenom || ''} ${emp.nom || ''}`.trim() || `Employé #${emp.idEmploye}`;
-                            const initial = (emp.prenom?.[0] || emp.nom?.[0] || 'E').toUpperCase();
-                            const deptName = emp.nomDepartement || emp.libelleDepartement || emp.departement || null;
-                            const serviceName = emp.nomService || emp.libelleService || emp.service || null;
-                            const fonctionName = emp.nomFonction || emp.libelleFonction || emp.fonction || null;
-                            const siteName = emp.nomSite || emp.libelleSite || emp.site || null;
-                            const dateRef = emp.dateEmbauche || emp.dateDeclaration || emp.createdAt;
-                            const dateEmbaucheText = formatDateEmbauche(dateRef);
+        <Table divided className="border-none shadow-none">
+            <Thead>
+                <Tr>
+                    <Th
+                        sortable
+                        sorted={sortConfig.key === 'matricule' ? sortConfig.direction : false}
+                        onSort={() => handleSort('matricule')}
+                        className="min-w-[220px]"
+                    >
+                        Collaborateur & Matricule
+                    </Th>
+                    <Th
+                        sortable
+                        sorted={sortConfig.key === 'fonction' ? sortConfig.direction : false}
+                        onSort={() => handleSort('fonction')}
+                        className="min-w-[200px]"
+                    >
+                        Fonction & Affectation
+                    </Th>
+                    <Th
+                        sortable
+                        sorted={sortConfig.key === 'site' ? sortConfig.direction : false}
+                        onSort={() => handleSort('site')}
+                        className="min-w-[130px]"
+                    >
+                        Site
+                    </Th>
+                    <Th className="min-w-[170px]">
+                        Coordonnées
+                    </Th>
+                    <Th
+                        sortable
+                        sorted={sortConfig.key === 'dateEmbauche' ? sortConfig.direction : false}
+                        onSort={() => handleSort('dateEmbauche')}
+                        className="min-w-[110px]"
+                    >
+                        Embauche
+                    </Th>
+                    <Th
+                        sortable
+                        sorted={sortConfig.key === 'statut' ? sortConfig.direction : false}
+                        onSort={() => handleSort('statut')}
+                        className="min-w-[90px]"
+                    >
+                        Statut
+                    </Th>
+                    <Th className="text-right w-[85px]">
+                        Actions
+                    </Th>
+                </Tr>
+            </Thead>
+            <Tbody>
+                {employes.map((emp) => {
+                    const fullName = emp.nomComplet || `${emp.prenom || ''} ${emp.nom || ''}`.trim() || `Employé #${emp.idEmploye}`;
+                    const initial = (emp.prenom?.[0] || emp.nom?.[0] || 'E').toUpperCase();
+                    const deptName = emp.nomDepartement || emp.libelleDepartement || emp.departement || null;
+                    const serviceName = emp.nomService || emp.libelleService || emp.service || null;
+                    const fonctionName = emp.nomFonction || emp.libelleFonction || emp.fonction || 'Poste non renseigné';
+                    const siteName = emp.nomSite || emp.libelleSite || emp.site || null;
+                    const dateRef = emp.dateEmbauche || emp.dateDeclaration || emp.createdAt;
+                    const dateEmbaucheText = formatDateEmbauche(dateRef);
 
-                            return (
-                                <tr key={emp.idEmploye} className="hover:bg-ink-50/60 dark:hover:bg-ink-950/40 text-ink-900 dark:text-ink-100 transition-colors group">
-                                    {/* 1. Employé & Matricule */}
-                                    <td className="px-5 py-3.5">
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative shrink-0">
-                                                {emp.photoUrl ? (
-                                                    <img 
-                                                        src={getFullPhotoUrl(emp.photoUrl)} 
-                                                        alt={fullName} 
-                                                        className="w-9 h-9 rounded-none object-cover border border-ink-200 dark:border-ink-700" 
-                                                        onError={(e) => {
-                                                            e.currentTarget.onerror = null;
-                                                            e.currentTarget.style.display = 'none';
-                                                            if (e.currentTarget.nextElementSibling) {
-                                                                e.currentTarget.nextElementSibling.classList.remove('hidden');
-                                                            }
-                                                        }}
-                                                    />
-                                                ) : null}
-                                                <div className={`w-9 h-9 bg-brand-500 text-white flex items-center justify-center font-bold text-xs shrink-0 rounded-none shadow-xs ${emp.photoUrl ? 'hidden' : ''}`}>
-                                                    {initial}
-                                                </div>
-                                                <span 
-                                                    className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-ink-900 ${
-                                                        emp.estActif ? 'bg-success-500' : 'bg-ink-400'
-                                                    }`} 
-                                                />
-                                            </div>
-                                            <div>
-                                                <div 
-                                                    onClick={() => onOpenDetail(emp)} 
-                                                    className="font-bold text-ink-900 dark:text-white hover:text-brand-500 cursor-pointer text-sm leading-snug truncate max-w-[200px]" 
-                                                    title={fullName}
-                                                >
-                                                    {fullName}
-                                                </div>
-                                                <div className="flex items-center gap-2 text-xs text-ink-400 mt-0.5">
-                                                    <span className="font-mono font-semibold text-brand-500">{emp.matricule}</span>
-                                                    {emp.cinNumero && (
-                                                        <span className="text-[10px] text-ink-400 font-mono">CIN: {emp.cinNumero}</span>
-                                                    )}
-                                                </div>
-                                            </div>
+                    return (
+                        <Tr
+                            key={emp.idEmploye}
+                            onClick={() => onOpenDetail(emp)}
+                            className="group cursor-pointer hover:bg-[var(--color-bg-subtle)]/70 transition-colors"
+                        >
+                            {/* 1. Collaborateur & Identité */}
+                            <Td>
+                                <div className="flex items-center gap-3">
+                                    <div className="relative shrink-0">
+                                        {emp.photoUrl ? (
+                                            <img
+                                                src={getFullPhotoUrl(emp.photoUrl)}
+                                                alt={fullName}
+                                                className="w-9 h-9 rounded-none object-cover border border-[var(--color-border-subtle)]"
+                                                onError={(e) => {
+                                                    e.currentTarget.onerror = null;
+                                                    e.currentTarget.style.display = 'none';
+                                                    if (e.currentTarget.nextElementSibling) {
+                                                        e.currentTarget.nextElementSibling.classList.remove('hidden');
+                                                    }
+                                                }}
+                                            />
+                                        ) : null}
+                                        <div className={`w-9 h-9 bg-[var(--color-brand-500)] text-white flex items-center justify-center font-bold text-xs shrink-0 rounded-none shadow-xs ${emp.photoUrl ? 'hidden' : ''}`}>
+                                            {initial}
                                         </div>
-                                    </td>
-
-                                    {/* 2. Structure & Organisation */}
-                                    <td className="px-5 py-3.5">
-                                        {deptName ? (
-                                            <div className="space-y-1">
-                                                <div className="inline-flex items-center gap-1 font-semibold text-xs text-ink-800 dark:text-ink-200">
-                                                    <Building size={12} className="text-brand-500 shrink-0" />
-                                                    <span className="truncate max-w-[160px]" title={deptName}>{deptName}</span>
-                                                </div>
-                                                {serviceName && (
-                                                    <div className="text-[11px] text-ink-500 dark:text-ink-400 flex items-center gap-1">
-                                                        <Briefcase size={11} className="text-ink-400 shrink-0" />
-                                                        <span className="truncate max-w-[150px]" title={serviceName}>{serviceName}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <span className="text-xs text-ink-400">-</span>
-                                        )}
-                                    </td>
-
-                                    {/* 3. Poste & Fonction */}
-                                    <td className="px-5 py-3.5">
-                                        {fonctionName ? (
-                                            <div className="font-semibold text-xs text-ink-800 dark:text-ink-100 truncate max-w-[180px]" title={fonctionName}>
-                                                {fonctionName}
-                                            </div>
-                                        ) : (
-                                            <span className="text-xs text-ink-400">-</span>
-                                        )}
-                                    </td>
-
-                                    {/* 4. Site */}
-                                    <td className="px-5 py-3.5">
-                                        {siteName ? (
-                                            <Badge variant="brand" size="sm" className="inline-flex items-center gap-1">
-                                                <MapPin size={10} className="shrink-0" />
-                                                <span className="truncate max-w-[130px]">{siteName}</span>
-                                            </Badge>
-                                        ) : (
-                                            <span className="text-xs text-ink-400">-</span>
-                                        )}
-                                    </td>
-
-                                    {/* 5. Coordonnées */}
-                                    <td className="px-5 py-3.5">
-                                        <div className="space-y-0.5 text-xs">
-                                            {emp.email && (
-                                                <a 
-                                                    href={`mailto:${emp.email}`} 
-                                                    className="flex items-center gap-1 text-ink-600 dark:text-ink-300 hover:text-brand-500 truncate max-w-[170px]"
-                                                    title={emp.email}
-                                                >
-                                                    <Mail size={12} className="shrink-0 text-ink-400" />
-                                                    <span className="truncate">{emp.email}</span>
-                                                </a>
-                                            )}
-                                            {emp.telephone && (
-                                                <a 
-                                                    href={`tel:${emp.telephone}`} 
-                                                    className="flex items-center gap-1 text-ink-600 dark:text-ink-300 hover:text-brand-500 font-mono text-[11px]"
-                                                >
-                                                    <Phone size={11} className="shrink-0 text-ink-400" />
-                                                    <span>{emp.telephone}</span>
-                                                </a>
-                                            )}
-                                            {!emp.email && !emp.telephone && (
-                                                <span className="text-xs text-ink-400">-</span>
+                                        <span
+                                            className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[var(--color-surface)] ${emp.estActif ? 'bg-emerald-500' : 'bg-slate-400'
+                                                }`}
+                                        />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div
+                                            className="font-bold text-[var(--color-fg)] group-hover:text-[var(--color-brand-500)] text-xs sm:text-sm leading-snug truncate transition-colors"
+                                            title={fullName}
+                                        >
+                                            {fullName}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-[var(--color-fg-muted)] mt-0.5 flex-wrap">
+                                            <span className="font-mono font-semibold text-[var(--color-brand-500)]">{emp.matricule}</span>
+                                            {emp.cinNumero && (
+                                                <span className="text-[10px] text-[var(--color-fg-subtle)] font-mono">CIN: {emp.cinNumero}</span>
                                             )}
                                         </div>
-                                    </td>
+                                    </div>
+                                </div>
+                            </Td>
 
-                                    {/* 6. Date d'embauche */}
-                                    <td className="px-5 py-3.5 text-xs font-mono font-medium text-ink-700 dark:text-ink-300 whitespace-nowrap">
+                            {/* 2. Fonction & Structure (Fusion ergonomique sans troncature) */}
+                            <Td>
+                                <div className="space-y-1">
+                                    <div className="font-semibold text-xs text-[var(--color-fg)] leading-snug" title={fonctionName}>
+                                        {fonctionName}
+                                    </div>
+                                    {(deptName || serviceName) ? (
+                                        <div className="text-[11px] text-[var(--color-fg-muted)] flex items-center gap-1.5 flex-wrap">
+                                            <Building size={11} className="text-[var(--color-brand-500)] shrink-0" />
+                                            {deptName && <span className="font-medium">{deptName}</span>}
+                                            {deptName && serviceName && <span className="text-[var(--color-fg-subtle)]">•</span>}
+                                            {serviceName && <span>{serviceName}</span>}
+                                        </div>
+                                    ) : (
+                                        <span className="text-[11px] text-[var(--color-fg-subtle)] ">Structure non affectée</span>
+                                    )}
+                                </div>
+                            </Td>
+
+                            {/* 3. Site */}
+                            <Td>
+                                {siteName ? (
+                                    <Badge variant="brand" size="sm" className="inline-flex items-center gap-1 font-medium">
+                                        <MapPin size={11} className="shrink-0" />
+                                        <span>{siteName}</span>
+                                    </Badge>
+                                ) : (
+                                    <span className="text-xs text-[var(--color-fg-subtle)]">-</span>
+                                )}
+                            </Td>
+
+                            {/* 4. Coordonnées */}
+                            <Td>
+                                <div className="space-y-1 text-xs">
+                                    {emp.telephone ? (
+                                        <a
+                                            href={`tel:${emp.telephone}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="flex items-center gap-1.5 text-[var(--color-fg)] hover:text-[var(--color-brand-500)] font-mono text-xs transition-colors"
+                                        >
+                                            <Phone size={11} className="shrink-0 text-[var(--color-fg-subtle)]" />
+                                            <span>{emp.telephone}</span>
+                                        </a>
+                                    ) : null}
+                                    {emp.email ? (
+                                        <a
+                                            href={`mailto:${emp.email}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="flex items-center gap-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] text-[11px] truncate transition-colors"
+                                            title={emp.email}
+                                        >
+                                            <Mail size={11} className="shrink-0 text-[var(--color-fg-subtle)]" />
+                                            <span className="truncate">{emp.email}</span>
+                                        </a>
+                                    ) : null}
+                                    {!emp.email && !emp.telephone && (
+                                        <span className="text-xs text-[var(--color-fg-subtle)]">-</span>
+                                    )}
+                                </div>
+                            </Td>
+
+                            {/* 5. Date d'embauche & Alerte Contrat */}
+                            <Td isData className="text-xs">
+                                <div className="space-y-1">
+                                    <div className="font-mono font-medium text-[var(--color-fg)]">
                                         {dateEmbaucheText}
-                                    </td>
-
-                                    {/* 7. Statut */}
-                                    <td className="px-5 py-3.5 whitespace-nowrap">
-                                        <div className="space-y-1">
-                                            {emp.estActif ? (
-                                                <Badge variant="success" size="sm" dot>Actif</Badge>
-                                            ) : (
-                                                <div>
-                                                    <Badge variant="default" size="sm" dot>Inactif</Badge>
-                                                    {emp.motifDesactivation && (
-                                                        <div className="text-[10px] text-danger-500 font-medium mt-0.5" title={emp.motifDesactivation}>
-                                                            {emp.motifDesactivation}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                            {emp.estActif && emp.alerteContratTexte && (
-                                                <div>
-                                                    <Badge 
-                                                        variant={emp.alerteContratNiveau === 'DANGER' ? 'danger' : emp.alerteContratNiveau === 'WARNING' ? 'warning' : 'brand'} 
-                                                        size="xs"
-                                                    >
-                                                        {emp.alerteContratTexte}
-                                                    </Badge>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-
-                                    {/* 8. Actions */}
-                                    <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                                        <div className="flex justify-end items-center gap-1">
-                                            <button
-                                                onClick={() => onOpenDetail(emp)}
-                                                className="p-1.5 text-ink-400 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 cursor-pointer"
-                                                title="Voir la fiche complète"
+                                    </div>
+                                    {emp.estActif && emp.alerteContratTexte && (
+                                        <div>
+                                            <Badge
+                                                variant={emp.alerteContratNiveau === 'DANGER' ? 'danger' : emp.alerteContratNiveau === 'WARNING' ? 'warning' : 'brand'}
+                                                size="xs"
+                                                dot
                                             >
-                                                <Eye size={16} />
-                                            </button>
-                                            {canWrite && (
-                                                <button
-                                                    onClick={() => onOpenEdit(emp)}
-                                                    className="p-1.5 text-ink-400 hover:text-brand-500 hover:bg-ink-100 dark:hover:bg-ink-800 cursor-pointer"
-                                                    title="Modifier"
-                                                >
-                                                    <Edit2 size={16} />
-                                                </button>
-                                            )}
-                                            {canValidate && (
-                                                emp.estActif ? (
-                                                    <Button
-                                                        size="xs"
-                                                        variant="danger"
-                                                        onClick={() => onToggleStatus(emp)}
-                                                        className="ml-1"
-                                                    >
-                                                        Désactiver
-                                                    </Button>
-                                                ) : (
-                                                    <Button
-                                                        size="xs"
-                                                        variant="success"
-                                                        onClick={() => onToggleStatus(emp)}
-                                                        className="ml-1"
-                                                    >
-                                                        Réactiver
-                                                    </Button>
-                                                )
-                                            )}
+                                                {emp.alerteContratTexte}
+                                            </Badge>
                                         </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                                    )}
+                                </div>
+                            </Td>
+
+                            {/* 6. Statut */}
+                            <Td className="whitespace-nowrap">
+                                <div className="space-y-0.5">
+                                    {emp.estActif ? (
+                                        <Badge variant="success" size="sm" dot>Actif</Badge>
+                                    ) : (
+                                        <Badge variant="default" size="sm" dot>Inactif</Badge>
+                                    )}
+                                    {!emp.estActif && emp.motifDesactivation && (
+                                        <div className="text-[10px] text-[var(--color-danger-500)] font-medium" title={emp.motifDesactivation}>
+                                            {emp.motifDesactivation}
+                                        </div>
+                                    )}
+                                </div>
+                            </Td>
+
+                            {/* 7. Actions Uniformisées (Modifier & Toggle Statut) */}
+                            <Td className="text-right whitespace-nowrap">
+                                <div
+                                    className="flex justify-end items-center gap-1.5"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {canWrite && (
+                                        <button
+                                            type="button"
+                                            onClick={() => onOpenEdit(emp)}
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] cursor-pointer rounded-none transition-colors"
+                                            title="Modifier la fiche employé"
+                                            aria-label="Modifier l'employé"
+                                        >
+                                            <Edit2 size={15} />
+                                        </button>
+                                    )}
+                                    {canValidate && (
+                                        <button
+                                            type="button"
+                                            onClick={() => onToggleStatus(emp)}
+                                            className={`p-1.5 rounded-none cursor-pointer transition-colors ${emp.estActif
+                                                    ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
+                                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
+                                                }`}
+                                            title={emp.estActif ? "Désactiver l'employé" : "Réactiver l'employé"}
+                                            aria-label={emp.estActif ? "Désactiver l'employé" : "Réactiver l'employé"}
+                                        >
+                                            <Power size={15} />
+                                        </button>
+                                    )}
+                                </div>
+                            </Td>
+                        </Tr>
+                    );
+                })}
+            </Tbody>
+        </Table>
     );
 }

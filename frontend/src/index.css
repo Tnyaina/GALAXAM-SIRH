@@ -34,14 +34,14 @@
 
   --color-brand-hover: #26384f;
 
-  /* ---- Ambre — Accent "Warning" --------------------------------------- */
-  --color-warning-50: #fffbe8;
-  --color-warning-100: #fef3c7;
-  --color-warning-200: #fde68a;
-  --color-warning-400: #d97706;
-  --color-warning-500: #b45309;
-  --color-warning-600: #92400e;
-  --color-warning-700: #78350f;
+  /* ---- Ambre — Accent "Warning" (Ambre doré moderne équilibré) -------- */
+  --color-warning-50: #fefce8;
+  --color-warning-100: #fef9c3;
+  --color-warning-200: #fef08a;
+  --color-warning-400: #f59e0b;
+  --color-warning-500: #d97706;
+  --color-warning-600: #b45309;
+  --color-warning-700: #92400e;
 
   /* ---- Indigo — Accent "Info" ----------------------------------------- */
   --color-info-50: #f0f3ff;
@@ -64,9 +64,9 @@
   --color-ink-350: #4a617c;
   --color-ink-200: #c9d5e3;
   /* Bordure par défaut */
-  --color-ink-150: #e0e1dd;
-  /* 5ème couleur : Bordure des cartes / Fond doux */
-  --color-ink-100: #f0f2f5;
+  --color-ink-150: #e2e8f0;
+  /* Bordure des cartes / Fond doux */
+  --color-ink-100: #edf2f7;
   /* Hover doux / Subtile */
   --color-ink-50: #f7f8f9;
   /* Fond de page clair */
@@ -103,10 +103,10 @@
    ============================================================================ */
 :root {
   --color-bg: var(--color-ink-50);
-  --color-bg-subtle: #e0e1dd;
-  /* 5ème couleur de la palette */
+  --color-bg-subtle: #edf2f7;
+  /* Fond de conteneurs doux et lisible */
   --color-surface: #ffffff;
-  --color-surface-hover: #f0f2f5;
+  --color-surface-hover: #f1f5f9;
 
   /* Configuration Sidebar avec le Bleu Nuit #1B263B */
   --color-sidebar-bg: #1b263b;

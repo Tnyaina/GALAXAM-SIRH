@@ -71,7 +71,14 @@ public class MatriculeGeneratorEngine {
                 return Long.parseLong(mat);
             } catch (NumberFormatException ignored) {}
         }
-        return null;
+        Matcher mDigits = Pattern.compile("(\\d+)").matcher(mat);
+        Long lastVal = null;
+        while (mDigits.find()) {
+            try {
+                lastVal = Long.parseLong(mDigits.group(1));
+            } catch (NumberFormatException ignored) {}
+        }
+        return lastVal;
     }
 
     /**
