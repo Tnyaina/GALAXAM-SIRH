@@ -149,6 +149,15 @@ export default function RuptureContratModal({
         setShowPreviewMobile(false);
     }, [isOpen, loadReferentiels, initialData, workflowActif]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({
@@ -251,7 +260,7 @@ export default function RuptureContratModal({
                 <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-ink-150 dark:divide-ink-700">
 
                     {/* COLONNE GAUCHE (6/12) : Formulaire */}
-                    <form onSubmit={handleSubmit} className={`p-7 space-y-6 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
+                    <form onSubmit={handleSubmit} className={`p-4 sm:p-5 space-y-4 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
                         {errorMsg && (
                             <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-4 rounded-none text-xs font-semibold flex items-center gap-2">
                                 <ShieldAlert size={16} className="flex-shrink-0" />

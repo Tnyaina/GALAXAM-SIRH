@@ -85,7 +85,7 @@ export default function ParametresModulesPanel() {
         : generalTabs;
 
     return (
-        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Paramétrage des Modules" description="Configuration des barèmes, cotisations, majorations et règles métier." />
 
             <PageHeader
@@ -99,18 +99,18 @@ export default function ParametresModulesPanel() {
                 ]}
             />
 
-            {/* Niveau 1 : Sélection du Module (Pills / Boutons horizontaux) */}
-            <div className="flex flex-wrap gap-2">
+            {/* Niveau 1 : Sélection du Module (Pills / Boutons horizontaux compacts) */}
+            <div className="flex flex-wrap gap-1.5">
                 {MODULES.map(mod => {
                     const isActive = activeModule === mod.id;
                     return (
                         <button
                             key={mod.id}
                             onClick={() => handleModuleChange(mod.id)}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border ${
+                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors border ${
                                 isActive 
-                                ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)] shadow-sm' 
-                                : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-fg)]'
+                                ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)] shadow-xs' 
+                                : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-fg)]'
                             }`}
                         >
                             {mod.icon}
@@ -130,7 +130,7 @@ export default function ParametresModulesPanel() {
                 />
 
                 {/* Contenu de l'onglet actif avec le SkeletonTable standardisé */}
-                <div className="p-6">
+                <div className="p-4 sm:p-4.5">
                     <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
                         {activeModule === 'general' && (
                             <>

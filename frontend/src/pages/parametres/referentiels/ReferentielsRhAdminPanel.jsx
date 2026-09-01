@@ -25,7 +25,7 @@ export default function ReferentielsRhAdminPanel() {
     ];
 
     return (
-        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Référentiels RH" description="Gestion des catégories socio-professionnelles, types de pièces et listes de référence." />
 
             <PageHeader
@@ -47,7 +47,7 @@ export default function ReferentielsRhAdminPanel() {
                     variant="underline" 
                 />
 
-                <div className="p-6">
+                <div className="p-4 sm:p-4.5">
                     <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
                         {activeTab === 'carriere' && <RefCarriereManagementTab />}
                         {activeTab === 'docTypes' && <DocumentTypeManagementTab />}

@@ -1,5 +1,4 @@
-import { Check, X, Eye, Clock } from 'lucide-react';
-import { Card, CardBody } from '@/components/ui/data-display/Card';
+import { Check, X, Eye, Clock, Calendar } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
@@ -8,8 +7,9 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import Pagination from '@/components/ui/navigation/Pagination';
 
 const formatDate = (ts) => {
-  if (!ts) return '-';
-  return new Date(ts).toLocaleDateString('fr-FR');
+  if (!ts) return '—';
+  const date = new Date(ts);
+  return date.toLocaleDateString('fr-FR');
 };
 
 export default function ValidationTable({
@@ -26,20 +26,26 @@ export default function ValidationTable({
   onOpenValider
 }) {
   return (
-    <Card>
-      <CardBody className="p-0">
-        {/* En-tête contextuel */}
-        {activeStatut === 'EN_ATTENTE' && displayTotal > 0 && (
-          <div className="px-4 py-2.5 border-b border-[var(--color-border-subtle)] bg-warning-500/5 flex items-center gap-2">
-            <Clock size={13} className="text-warning-500 shrink-0" />
-            <span className="text-xs font-semibold text-warning-500">
-              {displayTotal} demande{displayTotal > 1 ? 's' : ''} en attente de traitement
+    <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
+      {/* En-tête contextuel pour les demandes en attente */}
+      {activeStatut === 'EN_ATTENTE' && displayTotal > 0 && (
+        <div className="p-3 bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Clock size={15} className="text-amber-600 shrink-0" />
+            <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+              {displayTotal} demande{displayTotal > 1 ? 's' : ''} en attente de décision hiérarchique ou RH
             </span>
           </div>
-        )}
+          <span className="text-[11px] text-amber-700 dark:text-amber-300">
+            Action requise pour libérer le solde ou autoriser l'absence
+          </span>
+        </div>
+      )}
 
-        {demandes.length === 0 ? (
+      {demandes.length === 0 ? (
+        <div className="p-8">
           <EmptyState
+            icon={Calendar}
             title={searchTerm
               ? `Aucun résultat pour "${searchTerm}"`
               : activeStatut === 'EN_ATTENTE'
@@ -47,130 +53,173 @@ export default function ValidationTable({
                 : 'Aucune demande trouvée'}
             description={
               searchTerm
-                ? 'Essayez un autre terme de recherche.'
+                ? 'Essayez un autre terme de recherche ou réinitialisez les filtres.'
                 : activeStatut === 'EN_ATTENTE'
-                  ? 'Toutes les demandes ont été traitées.'
+                  ? 'Toutes les demandes de congés ont été traitées.'
                   : 'Aucune demande ne correspond à cette sélection.'
             }
           />
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>Réf.</Th>
-                  <Th>Employé</Th>
-                  <Th>Type</Th>
-                  <Th>Période</Th>
-                  <Th className="text-center">Durée</Th>
-                  <Th>Statut</Th>
-                  <Th className="text-right">Actions</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {demandes.map((d) => {
-                  const employeName = `${d.prenom || ''} ${d.nom || ''}`.trim() || `Employé ${d.idEmploye}`;
-                  const isEnAttente = Boolean(d.isEnAttente ?? (d.codeStatutDemande === 'EN_ATTENTE'));
-                  const isRefuse = Boolean(d.isRefuse ?? (d.codeStatutDemande === 'REFUSE'));
-                  return (
-                    <Tr
-                      key={d.idDemandeConge}
-                      className={`hover:bg-[var(--color-surface-hover)] group ${
-                        isEnAttente ? 'border-l-2 border-l-warning-500' : 'border-l-2 border-l-transparent'
-                      }`}
-                    >
-                      <Td className="font-data text-xs text-[var(--color-fg-subtle)] whitespace-nowrap">
-                        #{d.idDemandeConge}
-                      </Td>
-                      <Td>
-                        <div className="font-semibold text-[var(--color-fg)] text-sm leading-tight">{employeName}</div>
-                        {d.matricule && (
-                          <div className="text-[11px] text-[var(--color-fg-subtle)] font-data">{d.matricule}</div>
-                        )}
-                      </Td>
-                      <Td>
-                        <Badge variant="brand" size="sm">{d.libelleTypeConge || d.codeTypeConge}</Badge>
-                        {d.libelleMotifEvenement && (
-                          <div className="text-[11px] text-warning-500 mt-0.5 font-medium">{d.libelleMotifEvenement}</div>
-                        )}
-                      </Td>
-                      <Td className="font-data text-xs text-[var(--color-fg-muted)] whitespace-nowrap">
-                        <div className="leading-relaxed">
-                          <span className="text-[var(--color-fg-subtle)]">Du</span> {formatDate(d.dateDebut)}
-                        </div>
-                        <div>
-                          <span className="text-[var(--color-fg-subtle)]">Au</span> {formatDate(d.dateFin)}
-                        </div>
-                      </Td>
-                      <Td className="text-center font-data whitespace-nowrap">
-                        {d.estDemiJournee ? (
-                          <div>
-                            <span className="font-bold text-info-600 dark:text-info-400 text-sm">0,5 j</span>
-                            <div className="text-[10px] text-[var(--color-fg-muted)] font-sans">
-                              {d.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <span className="font-bold text-[var(--color-fg)] text-sm">{d.nbJoursDecomptes}</span>
-                            <span className="text-xs text-[var(--color-fg-muted)]"> j</span>
-                          </>
-                        )}
-                      </Td>
-                      <Td>
-                        <StatusBadge
-                          status={d.codeStatutDemande}
-                          label={d.libelleStatutDemande}
-                          size="sm"
-                        />
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {isRefuse && d.motifRefus && (
-                            <div className="text-[11px] text-danger-500 font-medium leading-tight max-w-xs" title={d.motifRefus}>
-                              Motif : {d.motifRefus}
-                            </div>
-                          )}
-                          {d.derogationSoldeNegatif   && <Badge variant="danger"  size="sm">Solde négatif</Badge>}
-                          {!d.justificatifFourni && d.codeTypeConge === 'MALADIE' && <Badge variant="warning" size="sm">Justificatif manquant</Badge>}
-                        </div>
-                      </Td>
-                      <Td>
-                        <div className="flex items-center justify-end gap-1">
-                          {isEnAttente && (
-                            <>
-                              <Button variant="danger"  size="xs" iconLeft={<X size={12}/>}     onClick={() => onOpenRefus(d)}>Refuser</Button>
-                              <Button variant="success" size="xs" iconLeft={<Check size={12}/>} onClick={() => onOpenValider(d)}>Valider</Button>
-                            </>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            iconLeft={<Eye size={13}/>}
-                            onClick={() => onOpenDetail(d)}
-                            title="Voir le détail"
-                            className="opacity-0 group-hover:opacity-100"
-                          />
-                        </div>
-                      </Td>
-                    </Tr>
-                  );
-                })}
-              </Tbody>
-            </Table>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Réf.</Th>
+                <Th>Collaborateur & Affectation</Th>
+                <Th>Type d'Absence</Th>
+                <Th>Période d'Absence</Th>
+                <Th className="text-center">Durée Décomptée</Th>
+                <Th>Statut</Th>
+                <Th align="right">Actions Décisionnelles</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {demandes.map((d) => {
+                const employeName = `${d.prenom || ''} ${d.nom || ''}`.trim() || `Employé ${d.idEmploye}`;
+                const isEnAttente = Boolean(d.isEnAttente ?? (d.codeStatutDemande === 'EN_ATTENTE'));
+                const isRefuse = Boolean(d.isRefuse ?? (d.codeStatutDemande === 'REFUSE'));
 
-            {/* Pagination et compteurs de résultats */}
-            {displayTotal > 0 && (
-              <Pagination
-                currentPage={currentPage}
-                totalItems={displayTotal}
-                pageSize={pageSize}
-                onPageChange={setCurrentPage}
-                onPageSizeChange={setPageSize}
-                className="bg-[var(--color-bg-subtle)]"
-              />
-            )}
-          </div>
-        )}
-      </CardBody>
-    </Card>
+                return (
+                  <Tr
+                    key={d.idDemandeConge}
+                    className="hover:bg-slate-50/60 dark:hover:bg-ink-800/30 transition-colors group"
+                  >
+                    {/* Référence */}
+                    <Td className="font-mono text-xs text-slate-500 whitespace-nowrap">
+                      #{d.idDemandeConge}
+                    </Td>
+
+                    {/* Collaborateur */}
+                    <Td>
+                      <div className="font-bold text-slate-900 dark:text-white text-xs leading-tight">
+                        {employeName}
+                      </div>
+                      {d.matricule && (
+                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                          Matr. {d.matricule}
+                        </div>
+                      )}
+                    </Td>
+
+                    {/* Type de congé (Badge neutre uniforme, pas d'arc-en-ciel) */}
+                    <Td>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="default" size="xs" className="font-semibold">
+                          {d.libelleTypeConge || d.codeTypeConge}
+                        </Badge>
+                        {d.libelleMotifEvenement && (
+                          <span className="text-[11px] text-amber-700 dark:text-amber-300 font-medium block">
+                            {d.libelleMotifEvenement}
+                          </span>
+                        )}
+                      </div>
+                    </Td>
+
+                    {/* Période */}
+                    <Td className="text-xs whitespace-nowrap">
+                      <div className="font-medium text-slate-800 dark:text-ink-200">
+                        {formatDate(d.dateDebut)} <span className="text-slate-400">→</span> {formatDate(d.dateFin)}
+                      </div>
+                    </Td>
+
+                    {/* Durée */}
+                    <Td className="text-center whitespace-nowrap">
+                      {d.estDemiJournee ? (
+                        <div>
+                          <span className="font-mono font-bold text-brand-600 text-xs">0,5 j</span>
+                          <div className="text-[10px] text-slate-400">
+                            {d.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="font-mono font-bold text-slate-900 dark:text-white text-xs">
+                            {d.nbJoursDecomptes}
+                          </span>
+                          <span className="text-xs text-slate-500"> j ouvrés</span>
+                        </div>
+                      )}
+                    </Td>
+
+                    {/* Statut & Alertes */}
+                    <Td>
+                      <div className="space-y-1">
+                        <StatusBadge status={d.codeStatutDemande || d.statutCode} size="xs" />
+                        <div className="flex flex-wrap gap-1">
+                          {isRefuse && d.motifRefus && (
+                            <p className="text-[10px] text-rose-500 font-medium truncate max-w-xs" title={d.motifRefus}>
+                              Motif : {d.motifRefus}
+                            </p>
+                          )}
+                          {d.derogationSoldeNegatif && (
+                            <Badge variant="danger" size="xs">Solde négatif</Badge>
+                          )}
+                          {!d.justificatifFourni && d.codeTypeConge === 'MALADIE' && (
+                            <Badge variant="warning" size="xs">Justificatif attendu</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </Td>
+
+                    {/* Actions décisionnelles */}
+                    <Td align="right" className="whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {isEnAttente ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              iconLeft={<X size={12} className="text-rose-500" />}
+                              onClick={() => onOpenRefus(d)}
+                              className="text-xs font-semibold text-rose-600 hover:bg-rose-50 border-rose-200 dark:border-rose-900/40"
+                            >
+                              Refuser
+                            </Button>
+                            <Button
+                              variant="success"
+                              size="xs"
+                              iconLeft={<Check size={12} />}
+                              onClick={() => onOpenValider(d)}
+                              className="text-xs font-semibold"
+                            >
+                              Valider
+                            </Button>
+                          </>
+                        ) : null}
+
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          iconLeft={<Eye size={13} />}
+                          onClick={() => onOpenDetail(d)}
+                          title="Consulter la fiche détaillée"
+                          className="text-slate-600 hover:text-brand-600"
+                        >
+                          Détails
+                        </Button>
+                      </div>
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </Tbody>
+          </Table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {displayTotal > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalItems={displayTotal}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 20, 50]}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          className="bg-transparent border-t-0 pt-1"
+        />
+      )}
+    </div>
   );
 }

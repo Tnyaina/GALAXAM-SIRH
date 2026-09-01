@@ -235,7 +235,7 @@ export default function PeriodePaiePage() {
     };
 
     return (
-        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Périodes de Paie & Clôture" description="Gestion des périodes mensuelles de pointage et cycle de paie." />
 
             {/* Fil d'Ariane */}
@@ -245,25 +245,25 @@ export default function PeriodePaiePage() {
                 { label: 'Périodes de Paie & Clôture' }
             ]} />
 
-            {/* En-tête standard Galaxam */}
-            <div className="relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-sm p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--color-brand-500)]/5 rounded-none blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+            {/* En-tête standard Galaxam Compact */}
+            <div className="relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-xs p-3.5 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-[var(--color-brand-500)]/5 rounded-none blur-2xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
 
-                <div className="relative flex items-center gap-5">
-                    <div className="w-14 h-14 bg-gradient-to-br from-[var(--color-brand-400)] to-[var(--color-brand-600)] text-white rounded-none flex items-center justify-center shadow-lg shadow-[var(--color-brand-500)]/20 shrink-0">
-                        <CalendarRange size={26} strokeWidth={2.5} />
+                <div className="relative flex items-center gap-3.5 min-w-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-[var(--color-brand-400)] to-[var(--color-brand-600)] text-white rounded-none flex items-center justify-center shadow-xs shrink-0">
+                        <CalendarRange size={19} strokeWidth={2.2} />
                     </div>
-                    <div>
-                        <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--color-fg)] tracking-tight">
+                    <div className="min-w-0">
+                        <h1 className="text-base sm:text-lg font-bold text-[var(--color-fg)] tracking-tight truncate">
                             Périodes de Paie & Clôture
                         </h1>
-                        <p className="text-sm text-[var(--color-fg-muted)] mt-1 font-medium">
+                        <p className="text-xs text-[var(--color-fg-muted)] mt-0.5 font-normal truncate">
                             Cycle de paie mensuel — ouverture, validation DAF, clôture et verrouillage de la saisie des présences.
                         </p>
                     </div>
                 </div>
 
-                <div className="relative flex items-center gap-3 shrink-0">
+                <div className="relative flex items-center gap-2 shrink-0">
                     <Button
                         onClick={loadPeriodes}
                         variant="outline"
@@ -277,7 +277,7 @@ export default function PeriodePaiePage() {
                             onClick={() => setIsCreateModalOpen(true)}
                             variant="primary"
                             size="sm"
-                            icon={<Plus size={16} />}
+                            icon={<Plus size={15} />}
                         >
                             Nouvelle période
                         </Button>
@@ -286,51 +286,51 @@ export default function PeriodePaiePage() {
             </div>
 
             {/* Cartes KPI / Statistiques */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                 <Card bordered shadow="sm">
-                    <CardBody className="p-5 flex items-center gap-4">
-                        <div className="w-11 h-11 bg-brand-50 dark:bg-brand-900/30 text-brand-500 flex items-center justify-center">
-                            <CalendarRange size={20} />
+                    <CardBody className="p-3.5 sm:p-4 flex items-center gap-3.5">
+                        <div className="w-9 h-9 bg-brand-50 dark:bg-brand-900/30 text-brand-500 flex items-center justify-center shrink-0">
+                            <CalendarRange size={18} />
                         </div>
                         <div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-ink-400">Total Périodes</p>
-                            <p className="text-2xl font-bold text-ink-800 dark:text-white">{stats.total}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400">Total Périodes</p>
+                            <p className="text-xl font-bold font-data text-ink-800 dark:text-white">{stats.total}</p>
                         </div>
                     </CardBody>
                 </Card>
 
                 <Card bordered shadow="sm">
-                    <CardBody className="p-5 flex items-center gap-4">
-                        <div className="w-11 h-11 bg-sky-500/10 text-sky-500 flex items-center justify-center">
-                            <Clock size={20} />
+                    <CardBody className="p-3.5 sm:p-4 flex items-center gap-3.5">
+                        <div className="w-9 h-9 bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0">
+                            <Clock size={18} />
                         </div>
                         <div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-ink-400">En cours (Active)</p>
-                            <p className="text-2xl font-bold text-sky-500">{stats.enCours}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400">En cours (Active)</p>
+                            <p className="text-xl font-bold font-data text-sky-500">{stats.enCours}</p>
                         </div>
                     </CardBody>
                 </Card>
 
                 <Card bordered shadow="sm">
-                    <CardBody className="p-5 flex items-center gap-4">
-                        <div className="w-11 h-11 bg-warning-500/10 text-warning-500 flex items-center justify-center">
-                            <CheckCheck size={20} />
+                    <CardBody className="p-3.5 sm:p-4 flex items-center gap-3.5">
+                        <div className="w-9 h-9 bg-warning-500/10 text-warning-500 flex items-center justify-center shrink-0">
+                            <CheckCheck size={18} />
                         </div>
                         <div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-ink-400">À Valider (Fin de mois)</p>
-                            <p className="text-2xl font-bold text-warning-500">{stats.aValider}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400">À Valider (Fin de mois)</p>
+                            <p className="text-xl font-bold font-data text-warning-500">{stats.aValider}</p>
                         </div>
                     </CardBody>
                 </Card>
 
                 <Card bordered shadow="sm">
-                    <CardBody className="p-5 flex items-center gap-4">
-                        <div className="w-11 h-11 bg-success-500/10 text-success-500 flex items-center justify-center">
-                            <ShieldCheck size={20} />
+                    <CardBody className="p-3.5 sm:p-4 flex items-center gap-3.5">
+                        <div className="w-9 h-9 bg-success-500/10 text-success-500 flex items-center justify-center shrink-0">
+                            <ShieldCheck size={18} />
                         </div>
                         <div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-ink-400">Verrouillées / Clôturées</p>
-                            <p className="text-2xl font-bold text-success-500">{stats.verrouillees}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400">Verrouillées / Clôturées</p>
+                            <p className="text-xl font-bold font-data text-success-500">{stats.verrouillees}</p>
                         </div>
                     </CardBody>
                 </Card>

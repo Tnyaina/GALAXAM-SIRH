@@ -33,13 +33,17 @@ export function Clause({ label, value, placeholder = '……………………',
 export function ClauseDiff({ label, before, after, unit = '' }) {
     const changed = String(before ?? '') !== String(after ?? '') && after !== undefined && after !== '';
     return (
-        <div className="flex items-baseline gap-2 py-2 text-[13.5px] leading-relaxed">
-            <span className="text-ink-500 dark:text-ink-400 whitespace-nowrap">{label}</span>
+        <div className={`flex items-baseline gap-2 py-2 text-[13.5px] leading-relaxed transition-all duration-200 ${
+            changed ? 'bg-[var(--color-brand-500)]/10 px-2.5 -mx-2.5 border-l-2 border-l-[var(--color-brand-500)]' : ''
+        }`}>
+            <span className={`whitespace-nowrap ${changed ? 'font-semibold text-brand-700 dark:text-brand-300' : 'text-ink-500 dark:text-ink-400'}`}>
+                {label}
+            </span>
             <span className="flex-1 border-b border-dotted border-ink-300 dark:border-ink-700 translate-y-[-3px]" />
             {changed ? (
                 <span className="whitespace-nowrap text-right tabular-nums">
-                    <span className="line-through text-ink-400 dark:text-ink-600 mr-1.5">{before || '—'}{unit}</span>
-                    <span className="font-bold text-brand-600 dark:text-brand-400">{after}{unit}</span>
+                    <span className="line-through text-ink-400 dark:text-ink-500 mr-2 text-xs">{before || '—'}{unit}</span>
+                    <span className="font-bold text-brand-600 dark:text-brand-400 bg-brand-500/15 px-1.5 py-0.5 rounded-none">{after}{unit}</span>
                 </span>
             ) : (
                 <span className={`whitespace-nowrap text-right tabular-nums ${after ? 'font-semibold text-ink-900 dark:text-ink-50' : 'text-ink-300 dark:text-ink-600'}`}>
@@ -117,7 +121,7 @@ export function ArticleBlock({ n, title, children }) {
     );
 }
 
-export function DocumentFooter({ status = 'Brouillon (non actif)' }) {
+export function DocumentFooter({ lieu = 'Antananarivo', dateSignature, status = 'Brouillon (non actif)' }) {
     return (
         <div className="pt-5 mt-5 border-t border-ink-150 dark:border-ink-800 space-y-4">
             {/* Bloc signatures, comme au bas d'un contrat papier */}
@@ -133,9 +137,9 @@ export function DocumentFooter({ status = 'Brouillon (non actif)' }) {
             </div>
 
             <div className="flex items-center justify-between text-[11px] font-sans text-ink-400 pt-1">
-                <span>Fait en double exemplaire</span>
+                <span>Fait à {lieu}{dateSignature ? `, le ${dateSignature}` : ''} en double exemplaire</span>
                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-ink-300 dark:border-ink-600 uppercase tracking-wide text-[10px] font-bold text-ink-500 dark:text-ink-300">
-                    <span className="w-1.5 h-1.5 rounded-none bg-warning-500" />
+                    <span className="w-1.5 h-1.5 rounded-none bg-amber-500" />
                     {status}
                 </span>
             </div>

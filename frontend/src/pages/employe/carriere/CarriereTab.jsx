@@ -59,16 +59,7 @@ export default function CarriereTab({
     }
 
     return (
-        <div className="space-y-8">
-            <div className="flex justify-end">
-                <Button variant="outline" size="sm" iconLeft={<RefreshCw size={14} />} onClick={() => {
-                    refreshData();
-                    if (toast) toast({ title: 'Actualisé', message: 'Les données de la carrière ont été mises à jour.', type: 'info', duration: 2000 });
-                }}>
-                    Actualiser
-                </Button>
-            </div>
-            
+        <div className="space-y-3.5">
             {/* Header carte contrat + alerte période d'essai */}
             <CarriereHeaderCard
                 employe={employe}
@@ -79,6 +70,10 @@ export default function CarriereTab({
                 workflowPlanifieFutur={workflowPlanifieFutur}
                 estEssaiRenouveleFlag={estEssaiRenouveleFlag}
                 canWrite={canWrite}
+                onRefresh={() => {
+                    refreshData();
+                    if (toast) toast({ title: 'Actualisé', message: 'Les données de la carrière ont été mises à jour.', type: 'info', duration: 2000 });
+                }}
                 onOpenConfirmation={modalsState.handleOpenConfirmationModal}
                 onOpenRenouvellement={modalsState.handleOpenRenouvellementModal}
                 onOpenTransition={() => modalsState.handleOpenTransitionModal()}

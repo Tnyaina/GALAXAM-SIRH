@@ -92,6 +92,15 @@ export default function ConfirmationEssaiModal({
         setShowPreviewMobile(false);
     }, [isOpen, initialData, contratActif]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     const handleSubmit = async (e) => {
@@ -192,9 +201,9 @@ export default function ConfirmationEssaiModal({
                 <div className="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
 
                     {/* COLONNE GAUCHE (50%) : Formulaire */}
-                    <form onSubmit={handleSubmit} className="w-full lg:w-1/2 min-w-0 overflow-y-auto p-6 space-y-6 border-b lg:border-b-0 lg:border-r border-ink-150 dark:border-ink-700">
+                    <form onSubmit={handleSubmit} className="w-full lg:w-1/2 min-w-0 overflow-y-auto p-4 sm:p-5 space-y-4 border-b lg:border-b-0 lg:border-r border-ink-150 dark:border-ink-700">
                         {errorMsg && (
-                            <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-4 rounded-none text-xs font-semibold flex items-center gap-2">
+                            <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-3 rounded-none text-xs font-semibold flex items-center gap-2">
                                 <ShieldAlert size={16} className="flex-shrink-0" />
                                 <span>{errorMsg}</span>
                             </div>
@@ -231,7 +240,7 @@ export default function ConfirmationEssaiModal({
                     </form>
 
                     {/* COLONNE DROITE (50%) : Aperçu Avenant */}
-                    <div className="hidden lg:block w-1/2 flex-shrink-0 bg-ink-50/60 dark:bg-ink-950/40 overflow-y-auto p-6 flex flex-col items-center">
+                    <div className="hidden lg:block w-1/2 flex-shrink-0 bg-ink-50/60 dark:bg-ink-950/40 overflow-y-auto p-4 sm:p-5 flex flex-col items-center">
                         <div className="w-full max-w-[560px]">
                             <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-wider text-ink-400">
                                 <FileSignature size={14} /> Aperçu de l'avenant en temps réel

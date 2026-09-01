@@ -7,6 +7,7 @@ import {
 import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
 import EmployeHeaderCard from '@/components/employe/EmployeHeaderCard';
+import EmployeSideSummaryPanel from '@/components/employe/EmployeSideSummaryPanel';
 import Button from '@/components/ui/forms/Button';
 import { Select } from '@/components/ui/forms/Input';
 import Loading from '@/components/ui/feedback/Loading';
@@ -288,7 +289,7 @@ export default function EmployeFicheDetailPage() {
     ];
 
     return (
-        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO 
                 title={`Fiche de ${emp?.nom} ${emp?.prenom}`} 
                 description={`Fiche individuelle de ${emp?.nom} ${emp?.prenom} (${emp?.matricule})`} 
@@ -311,10 +312,10 @@ export default function EmployeFicheDetailPage() {
 
             {/* Bandeau d'orientation post-création si pas de contrat actif */}
             {hasNoActiveContract && canWrite && (
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] border-l-4 border-l-[var(--color-brand-500)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs rounded-none">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 flex items-center justify-center bg-[var(--color-bg-subtle)] text-[var(--color-brand-500)] shrink-0 border border-[var(--color-border-subtle)]">
-                            <Compass size={20} />
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] border-l-4 border-l-[var(--color-brand-500)] p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs rounded-none">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 flex items-center justify-center bg-[var(--color-bg-subtle)] text-[var(--color-brand-500)] shrink-0 border border-[var(--color-border-subtle)]">
+                            <Compass size={16} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2 flex-wrap">
@@ -323,97 +324,113 @@ export default function EmployeFicheDetailPage() {
                                     Nouveau collaborateur
                                 </span>
                             </div>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                            <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
                                 Cet employé n'a pas encore de contrat actif. Configurez son contrat initial pour l'intégrer aux plannings, feuilles de pointage et gestion des congés.
                             </p>
                         </div>
                     </div>
                     <Button 
-                        size="sm" 
+                        size="xs" 
                         variant="primary" 
                         onClick={() => handleTabChange('carriere')}
                         className="shrink-0"
-                        iconRight={<ArrowRight size={14} />}
+                        iconRight={<ArrowRight size={13} />}
                     >
                         Configurer le contrat
                     </Button>
                 </div>
             )}
 
-            {/* Navigation par Onglets Structurés */}
-            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xs overflow-hidden">
-                <Tabs 
-                    tabs={mainTabs} 
-                    activeTab={activeTab} 
-                    onChange={handleTabChange} 
-                    variant="underline" 
-                />
+            {/* Grille Master-Detail (Wireframe 1) : Contenu Principal (9/12) + Volet Contextuel (3/12) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+                {/* Colonne Principale : Onglets & Contenu Métier */}
+                <div className="lg:col-span-8 xl:col-span-9 bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xs overflow-hidden">
+                    <Tabs 
+                        tabs={mainTabs} 
+                        activeTab={activeTab} 
+                        onChange={handleTabChange} 
+                        variant="underline" 
+                    />
 
-                {/* Contenu de l'onglet actif (Chargement lazy) */}
-                <div className="p-6">
+                    {/* Contenu de l'onglet actif (Chargement lazy) */}
+                    <div className="p-4 sm:p-4.5">
 
-                    {/* Onglet 1: Fiche Personnelle */}
-                    {activeTab === 'personnel' && (
-                        <Suspense fallback={<TabLoader label="Chargement de la fiche personnelle..." />}>
-                            <FichePersonnelleTab emp={emp} comptes={comptes} />
-                        </Suspense>
-                    )}
+                        {/* Onglet 1: Fiche Personnelle */}
+                        {activeTab === 'personnel' && (
+                            <Suspense fallback={<TabLoader label="Chargement de la fiche personnelle..." />}>
+                                <FichePersonnelleTab emp={emp} comptes={comptes} />
+                            </Suspense>
+                        )}
 
-                    {/* Onglet 2: Documents RH */}
-                    {activeTab === 'documents' && (
-                        <Suspense fallback={<TabLoader label="Chargement des documents RH..." />}>
-                            <DocumentsRhTab
-                                documentsData={documentsData}
-                                loadingDocs={loadingDocs}
-                                canWrite={canWrite}
-                                onOpenUploadModal={handleOpenUploadModal}
-                                onDownloadDoc={handleDownloadDoc}
-                                onDeleteDoc={handleDeleteDoc}
-                            />
-                        </Suspense>
-                    )}
+                        {/* Onglet 2: Documents RH */}
+                        {activeTab === 'documents' && (
+                            <Suspense fallback={<TabLoader label="Chargement des documents RH..." />}>
+                                <DocumentsRhTab
+                                    documentsData={documentsData}
+                                    loadingDocs={loadingDocs}
+                                    canWrite={canWrite}
+                                    onOpenUploadModal={handleOpenUploadModal}
+                                    onDownloadDoc={handleDownloadDoc}
+                                    onDeleteDoc={handleDeleteDoc}
+                                />
+                            </Suspense>
+                        )}
 
-                    {/* Onglet 3: Famille & Contacts */}
-                    {activeTab === 'famille' && (
-                        <Suspense fallback={<TabLoader label="Chargement des contacts familiaux..." />}>
-                            <FamilleContactsTab
-                                conjoint={conjoint}
-                                enfants={enfants}
-                                contactsUrgence={contactsUrgence}
-                            />
-                        </Suspense>
-                    )}
+                        {/* Onglet 3: Famille & Contacts */}
+                        {activeTab === 'famille' && (
+                            <Suspense fallback={<TabLoader label="Chargement des contacts familiaux..." />}>
+                                <FamilleContactsTab
+                                    conjoint={conjoint}
+                                    enfants={enfants}
+                                    contactsUrgence={contactsUrgence}
+                                />
+                            </Suspense>
+                        )}
 
-                    {/* Onglet 4: Carrière & Affectation */}
-                    {activeTab === 'carriere' && (
-                        <Suspense fallback={<TabLoader label="Chargement du dossier carrière..." />}>
-                            <CarriereTab
-                                idEmploye={id}
-                                employe={emp}
-                                nomEmploye={`${emp.nom || ''} ${emp.prenom || ''}`}
-                                matriculeEmploye={emp.matricule}
-                                canWrite={canWrite}
-                                autoOpenWorkflowId={searchParams.get('wf')}
-                                onEmployeUpdated={loadEmployeDetail}
-                            />
-                        </Suspense>
-                    )}
+                        {/* Onglet 4: Carrière & Affectation */}
+                        {activeTab === 'carriere' && (
+                            <Suspense fallback={<TabLoader label="Chargement du dossier carrière..." />}>
+                                <CarriereTab
+                                    idEmploye={id}
+                                    employe={emp}
+                                    nomEmploye={`${emp.nom || ''} ${emp.prenom || ''}`}
+                                    matriculeEmploye={emp.matricule}
+                                    canWrite={canWrite}
+                                    autoOpenWorkflowId={searchParams.get('wf')}
+                                    onEmployeUpdated={loadEmployeDetail}
+                                />
+                            </Suspense>
+                        )}
 
-                    {/* Onglet 5: Congés & Absences */}
-                    {activeTab === 'conges' && (
-                        <Suspense fallback={<TabLoader label="Chargement des congés de l'employé..." />}>
-                            <CongesTab idEmploye={id} employe={emp} canWrite={canWrite} />
-                        </Suspense>
-                    )}
+                        {/* Onglet 5: Congés & Absences */}
+                        {activeTab === 'conges' && (
+                            <Suspense fallback={<TabLoader label="Chargement des congés de l'employé..." />}>
+                                <CongesTab idEmploye={id} employe={emp} canWrite={canWrite} />
+                            </Suspense>
+                        )}
 
-                    {/* Onglet 6: Pointages & Présence */}
-                    {activeTab === 'pointage' && (
-                        <Suspense fallback={<TabLoader label="Chargement des pointages de l'employé..." />}>
-                            <PointageTab idEmploye={id} />
-                        </Suspense>
-                    )}
+                        {/* Onglet 6: Pointages & Présence */}
+                        {activeTab === 'pointage' && (
+                            <Suspense fallback={<TabLoader label="Chargement des pointages de l'employé..." />}>
+                                <PointageTab idEmploye={id} />
+                            </Suspense>
+                        )}
 
+                    </div>
                 </div>
+
+                {/* Volet Contextuel Permanent (Wireframe 1) : Sticky */}
+                <aside className="lg:col-span-4 xl:col-span-3">
+                    <div className="lg:sticky lg:top-3.5">
+                        <EmployeSideSummaryPanel
+                            emp={emp}
+                            documentsCount={documentsData.documents.length}
+                            activeTab={activeTab}
+                            onNavigateTab={handleTabChange}
+                            canWrite={canWrite}
+                        />
+                    </div>
+                </aside>
             </div>
 
             {/* Modale Téléversement Document RH (Lazy) */}

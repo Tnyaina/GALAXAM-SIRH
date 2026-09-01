@@ -134,7 +134,7 @@ export default function AnomaliesPointagePage() {
                 description="Suivi et régularisation des anomalies, retards et absences de pointage."
             />
 
-            <div className="space-y-4 max-w-[1600px] mx-auto pb-12">
+            <div className="space-y-3.5 max-w-[1600px] mx-auto pb-12">
                 <PageHeader
                     title="Anomalies & Régularisations de Pointage"
                     subtitle="Détection des Saisies incomplets, retards non justifiés et absences"
@@ -149,50 +149,50 @@ export default function AnomaliesPointagePage() {
                 <PointageWorkflowNav />
 
                 {/* 1. Cartes de Statistiques */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex items-center justify-between">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs flex items-center justify-between">
                         <div>
-                            <p className="text-xs font-bold text-[var(--color-fg-muted)] uppercase">Total Anomalies</p>
-                            <p className="text-2xl font-bold text-[var(--color-fg)] mt-1">{stats.total}</p>
+                            <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Total Anomalies</p>
+                            <p className="text-xl font-bold font-data text-[var(--color-fg)] mt-0.5">{stats.total}</p>
                         </div>
-                        <div className="p-3 bg-amber-500/10 text-amber-600 rounded">
-                            <AlertTriangle size={20} />
+                        <div className="w-9 h-9 bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                            <AlertTriangle size={18} />
                         </div>
                     </div>
 
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex items-center justify-between">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs flex items-center justify-between">
                         <div>
-                            <p className="text-xs font-bold text-[var(--color-fg-muted)] uppercase">Pointages Incomplets</p>
-                            <p className="text-2xl font-bold text-rose-600 mt-1">{stats.incomplets}</p>
+                            <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Pointages Incomplets</p>
+                            <p className="text-xl font-bold font-data text-rose-600 mt-0.5">{stats.incomplets}</p>
                         </div>
-                        <div className="p-3 bg-rose-500/10 text-rose-600 rounded">
-                            <ShieldAlert size={20} />
+                        <div className="w-9 h-9 bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0">
+                            <ShieldAlert size={18} />
                         </div>
                     </div>
 
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex items-center justify-between">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs flex items-center justify-between">
                         <div>
-                            <p className="text-xs font-bold text-[var(--color-fg-muted)] uppercase">Retards Non Justifiés</p>
-                            <p className="text-2xl font-bold text-amber-600 mt-1">{stats.retards}</p>
+                            <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Retards Non Justifiés</p>
+                            <p className="text-xl font-bold font-data text-amber-600 mt-0.5">{stats.retards}</p>
                         </div>
-                        <div className="p-3 bg-amber-500/10 text-amber-600 rounded">
-                            <Clock size={20} />
+                        <div className="w-9 h-9 bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                            <Clock size={18} />
                         </div>
                     </div>
 
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex items-center justify-between">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs flex items-center justify-between">
                         <div>
-                            <p className="text-xs font-bold text-[var(--color-fg-muted)] uppercase">Absences & Non Saisis</p>
-                            <p className="text-2xl font-bold text-red-700 mt-1">{stats.absences}</p>
+                            <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Absences & Non Saisis</p>
+                            <p className="text-xl font-bold font-data text-red-700 mt-0.5">{stats.absences}</p>
                         </div>
-                        <div className="p-3 bg-red-500/10 text-red-700 rounded">
-                            <AlertTriangle size={20} />
+                        <div className="w-9 h-9 bg-red-500/10 text-red-700 flex items-center justify-center shrink-0">
+                            <AlertTriangle size={18} />
                         </div>
                     </div>
                 </div>
 
                 {/* 2. Barre de Filtres */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs">
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                         <div>
                             <Select

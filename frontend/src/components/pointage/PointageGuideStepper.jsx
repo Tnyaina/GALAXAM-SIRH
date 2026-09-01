@@ -1,116 +1,99 @@
-import { Lock, Calendar } from 'lucide-react';
-import Badge from '@/components/ui/data-display/Badge';
+import { Calendar, AlertTriangle } from 'lucide-react';
 
 export default function PointageGuideStepper({
     periodeInfo = null,
     totalWeeks = 4,
-    currentStep = 1
+    currentStep = 1,
 }) {
     const isCloturee = periodeInfo?.statut_code === 'CLOTUREE' || periodeInfo?.statut_code === 'VALIDEE';
     const isEnValidation = periodeInfo?.statut_code === 'A_VALIDER';
+    const noPeriode = !periodeInfo;
 
-    const periodeLibelle = (periodeInfo?.libelle || periodeInfo?.code || 'Période active').toUpperCase();
+    const periodeLibelle = periodeInfo
+        ? (periodeInfo.libelle || periodeInfo.code || 'Période active').toUpperCase()
+        : 'AUCUNE PÉRIODE DE PAIE ACTIVE';
+
+    const statusDot = noPeriode
+        ? 'bg-amber-500'
+        : isCloturee
+            ? 'bg-[var(--color-fg-muted)]'
+            : isEnValidation
+                ? 'bg-amber-500'
+                : 'bg-emerald-500';
+
+    const statusLabel = noPeriode
+        ? 'Saisie verrouillée'
+        : isCloturee
+            ? 'Clôturée'
+            : isEnValidation
+                ? 'À valider DAF'
+                : 'Saisie en cours';
 
     const formatDateFr = (dStr) => {
         if (!dStr) return '';
         try {
-            const date = new Date(dStr);
-            return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
-        } catch {
-            return dStr;
-        }
+            return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' }).format(new Date(dStr));
+        } catch { return dStr; }
     };
 
+    const stepLabels = ['Saisie', 'Anomalies', 'Synthèse', 'Transmission'];
+
     return (
-        <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
-            {/* 1. Header du Cycle de Pointage - Fortement Distinguable */}
-            <div className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] px-3.5 py-2 flex flex-wrap items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold shrink-0">
-                        <Calendar size={14} />
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-extrabold tracking-wider text-brand-700 dark:text-brand-300 uppercase font-mono">
-                                CYCLE DE POINTAGE · {periodeLibelle}
-                            </span>
-                            <Badge
-                                variant={isCloturee ? 'secondary' : isEnValidation ? 'warning' : 'success'}
-                                size="xs"
-                                dot
+        <div className={`border px-3.5 py-1.5 flex items-center justify-between gap-4 ${noPeriode ? 'bg-amber-500/[0.08] border-amber-500/30' : 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)]'}`}>
+            {/* Gauche : info période */}
+            <div className="flex items-center gap-2 min-w-0">
+                {noPeriode
+                    ? <AlertTriangle size={12} className="text-amber-600 shrink-0" />
+                    : <Calendar size={12} className="text-[var(--color-fg-muted)] shrink-0" />
+                }
+                <span className={`text-[11px] font-mono font-bold tracking-wide truncate ${noPeriode ? 'text-amber-700 dark:text-amber-400' : 'text-[var(--color-fg)]'}`}>
+                    {periodeLibelle}
+                </span>
+                {periodeInfo?.date_debut && periodeInfo?.date_fin && (
+                    <span className="text-[10.5px] font-mono text-[var(--color-fg-muted)] hidden sm:inline">
+                        · {formatDateFr(periodeInfo.date_debut)} – {formatDateFr(periodeInfo.date_fin)} ({totalWeeks} sem.)
+                    </span>
+                )}
+                <span className="flex items-center gap-1.5 shrink-0">
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusDot} ${!isCloturee ? 'animate-pulse' : ''}`} />
+                    <span className={`text-[10.5px] font-semibold ${noPeriode ? 'text-amber-600' : 'text-[var(--color-fg-muted)]'}`}>
+                        {statusLabel}
+                    </span>
+                </span>
+            </div>
+
+            {/* Droite : progression 4 étapes */}
+            <div className="flex items-center gap-1 shrink-0">
+                {stepLabels.map((label, i) => {
+                    const stepNum = i + 1;
+                    const isDone = stepNum < currentStep;
+                    const isActive = stepNum === currentStep;
+                    return (
+                        <div key={stepNum} className="flex items-center gap-1">
+                            <div
+                                title={label}
+                                className={`
+                                    w-5 h-5 flex items-center justify-center text-[9px] font-bold transition-colors
+                                    ${isActive
+                                        ? 'bg-brand-600 text-white'
+                                        : isDone
+                                            ? 'bg-emerald-500 text-white'
+                                            : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-fg-muted)] opacity-50'
+                                    }
+                                `}
                             >
-                                {periodeInfo?.statut_libelle || (isEnValidation ? 'À valider DAF' : isCloturee ? 'Clôturée' : 'Saisie en cours')}
-                            </Badge>
-                        </div>
-                        <p className="text-[11px] font-mono text-[var(--color-fg-muted)] mt-0.5">
-                            {periodeInfo?.date_debut && periodeInfo?.date_fin ? (
-                                <>Du {formatDateFr(periodeInfo.date_debut)} au {formatDateFr(periodeInfo.date_fin)} · {totalWeeks} semaines</>
-                            ) : (
-                                <>Période opérationnelle active</>
+                                {isDone ? '✓' : stepNum}
+                            </div>
+                            <span className={`text-[9.5px] font-semibold hidden lg:inline ${isActive ? 'text-brand-600' : 'text-[var(--color-fg-muted)] opacity-60'}`}>
+                                {label}
+                            </span>
+                            {i < stepLabels.length - 1 && (
+                                <div className="hidden lg:block w-4 h-px bg-[var(--color-border-subtle)] mx-0.5" />
                             )}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="text-[10.5px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider bg-[var(--color-surface)] px-2 py-0.5 border border-[var(--color-border-subtle)]">
-                    Étape {currentStep} / 4 : Saisie
-                </div>
+                        </div>
+                    );
+                })}
             </div>
-
-            {/* 2. Stepper Visuel en 4 Étapes */}
-            <div className="p-3 sm:p-3.5">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                    {/* Étape 1 : Saisie Quotidienne (Active) */}
-                    <div className="flex items-center gap-2.5 shrink-0">
-                        <div className="w-7 h-7 flex items-center justify-center font-bold text-xs bg-brand-600 text-white shadow-2xs">
-                            1
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-[var(--color-fg)]">Saisie quotidienne</p>
-                            <p className="text-[11px] text-[var(--color-fg-muted)]">Horaires &amp; indemnités du jour</p>
-                        </div>
-                    </div>
-
-                    <div className="hidden lg:block h-[1px] flex-1 bg-[var(--color-border-subtle)] mx-2" />
-
-                    {/* Étape 2 : Contrôle des anomalies */}
-                    <div className="flex items-center gap-2.5 shrink-0 opacity-70">
-                        <div className="w-7 h-7 flex items-center justify-center font-bold text-[11px] bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-fg-muted)]">
-                            2
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-[var(--color-fg)]">Contrôle des anomalies</p>
-                            <p className="text-[11px] text-[var(--color-fg-muted)]">Saisies incomplets</p>
-                        </div>
-                    </div>
-
-                    <div className="hidden lg:block h-[1px] flex-1 bg-[var(--color-border-subtle)] mx-2" />
-
-                    {/* Étape 3 : Synthèse hebdomadaire */}
-                    <div className="flex items-center gap-2.5 shrink-0 opacity-70">
-                        <div className="w-7 h-7 flex items-center justify-center font-bold text-[11px] bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-fg-muted)]">
-                            3
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-[var(--color-fg)]">Synthèse hebdomadaire</p>
-                            <p className="text-[11px] text-[var(--color-fg-muted)]">HS 30/50 % &amp; retards</p>
-                        </div>
-                    </div>
-
-                    <div className="hidden lg:block h-[1px] flex-1 bg-[var(--color-border-subtle)] mx-2" />
-
-                    {/* Étape 4 : Transmission DAF */}
-                    <div className="flex items-center gap-2.5 shrink-0 opacity-50">
-                        <div className="w-7 h-7 flex items-center justify-center font-bold text-[11px] bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-fg-muted)]">
-                            <Lock size={12} />
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-[var(--color-fg)]">Transmission DAF</p>
-                            <p className="text-[11px] text-[var(--color-fg-muted)]">Clôture de la période</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+        </div>
     );
 }

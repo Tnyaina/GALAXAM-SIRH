@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, CreditCard, Phone, Users, ShieldAlert, Building } from 'lucide-react';
+import { User, CreditCard, Phone, Users, ShieldAlert, Building, Check, ArrowRight, ArrowLeft } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
 import employeService from '@/api/employe/employeService';
 import Button from '@/components/ui/forms/Button';
@@ -15,12 +15,12 @@ import UrgenceFormStep from '@/components/employe/form/UrgenceFormStep';
 import CnapsBanqueStep from '@/components/employe/form/CnapsBanqueStep';
 
 const STEPS = [
-    { id: 'civilite', label: 'Identité', icon: User },
-    { id: 'cin', label: 'CIN & Permis', icon: CreditCard },
-    { id: 'coordonnees', label: 'Coordonnées & Photo', icon: Phone },
-    { id: 'famille', label: 'Famille', icon: Users },
-    { id: 'urgence', label: 'Urgence', icon: ShieldAlert },
-    { id: 'banque', label: 'CNaPS & Banque', icon: Building }
+    { id: 'civilite', label: 'Identité', icon: User, required: true },
+    { id: 'cin', label: 'CIN & Permis', icon: CreditCard, required: true },
+    { id: 'coordonnees', label: 'Coordonnées & Photo', icon: Phone, required: true },
+    { id: 'famille', label: 'Famille', icon: Users, required: false },
+    { id: 'urgence', label: 'Urgence', icon: ShieldAlert, required: false },
+    { id: 'banque', label: 'CNaPS & Banque', icon: Building, required: false }
 ];
 
 const EMPTY_FORM = {
@@ -393,9 +393,10 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                                 onClick={handlePrev} 
                                 variant="outline" 
                                 size="sm" 
+                                iconLeft={<ArrowLeft size={14} />}
                                 disabled={isSubmitting}
                             >
-                                Précédent
+                                {STEPS[activeStep - 1]?.label}
                             </Button>
                         )}
                         {activeStep < STEPS.length - 1 ? (
@@ -409,8 +410,9 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                                 }} 
                                 variant="primary" 
                                 size="sm"
+                                iconRight={<ArrowRight size={14} />}
                             >
-                                Étape Suivante
+                                {STEPS[activeStep + 1]?.label}
                             </Button>
                         ) : (
                             <Button 
@@ -420,10 +422,11 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                                     e.preventDefault();
                                     e.stopPropagation();
                                     handleSave(e);
-                                }}
+                                }} 
                                 variant="primary" 
                                 size="sm" 
                                 loading={isSubmitting}
+                                iconRight={<Check size={14} />}
                             >
                                 {employeData ? 'Enregistrer les modifications' : 'Créer la fiche collaborateur'}
                             </Button>
@@ -433,7 +436,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
             }
         >
             <div className="space-y-4">
-                {/* Stepper Horizontal */}
+                {/* Stepper Horizontal Moderne & Explicite */}
                 <div className="flex border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] overflow-x-auto">
                     {STEPS.map((step, idx) => {
                         const Icon = step.icon;
@@ -451,16 +454,29 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                                         setErrorMsg('');
                                     }
                                 }}
-                                className={`flex items-center gap-1.5 py-2.5 px-3 border-b-2 text-xs font-semibold whitespace-nowrap transition-colors rounded-none ${
+                                className={`flex items-center gap-2 py-2.5 px-3 border-b-2 text-xs font-semibold whitespace-nowrap transition-all rounded-none ${
                                     isActive
-                                        ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] bg-[var(--color-surface)] shadow-2xs'
+                                        ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] bg-[var(--color-surface)] shadow-2xs font-bold'
                                         : canClick 
                                             ? 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] cursor-pointer' 
                                             : 'border-transparent text-[var(--color-fg-subtle)]/50 cursor-not-allowed opacity-60'
                                 }`}
                             >
-                                <Icon size={14} className={isActive ? 'text-[var(--color-brand-500)]' : ''} />
+                                <span className={`w-5 h-5 rounded-none flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                    isCompleted 
+                                        ? 'bg-success-500/15 text-success-600 dark:text-success-400' 
+                                        : isActive 
+                                            ? 'bg-[var(--color-brand-500)] text-white' 
+                                            : 'bg-ink-200 dark:bg-ink-800 text-[var(--color-fg-muted)]'
+                                }`}>
+                                    {isCompleted ? <Check size={12} strokeWidth={3} /> : idx + 1}
+                                </span>
                                 <span>{step.label}</span>
+                                {!step.required && (
+                                    <span className="text-[9px] font-normal text-[var(--color-fg-subtle)] px-1 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                                        Opt.
+                                    </span>
+                                )}
                             </button>
                         );
                     })}

@@ -1,107 +1,173 @@
-import { User, Calendar, MapPin, Heart, Phone, Landmark } from 'lucide-react';
+import { User, Calendar, MapPin, Heart, Phone, Mail, Landmark, Shield, CreditCard } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 
-const InfoBlock = ({ label, value, mono = false, icon }) => (
-    <div className="py-2">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-fg-muted)] mb-0.5">{label}</p>
+const InfoBlock = ({ label, value, mono = false, icon, href }) => (
+    <div className="space-y-1">
+        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400">{label}</p>
         <div className="flex items-center gap-1.5">
-            {icon && <span className="text-[var(--color-fg-subtle)]">{icon}</span>}
-            <p className={`text-sm font-semibold text-[var(--color-fg)] ${mono ? 'font-mono' : ''}`}>{value || '-'}</p>
+            {icon && <span className="text-slate-400 dark:text-ink-500 shrink-0">{icon}</span>}
+            {href ? (
+                <a
+                    href={href}
+                    className={`text-xs sm:text-[13px] font-bold text-brand-600 hover:text-brand-700 hover:underline truncate ${mono ? 'font-mono' : ''}`}
+                >
+                    {value || '—'}
+                </a>
+            ) : (
+                <p className={`text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white truncate ${mono ? 'font-mono' : ''}`}>
+                    {value || '—'}
+                </p>
+            )}
         </div>
     </div>
 );
 
 const fmtDate = (d) => {
-    if (!d) return '-';
-    try { return new Date(d).toLocaleDateString('fr-FR'); } catch { return '-'; }
+    if (!d) return '—';
+    try {
+        const date = new Date(d);
+        if (isNaN(date.getTime())) return '—';
+        return date.toLocaleDateString('fr-FR');
+    } catch {
+        return '—';
+    }
 };
 
 export default function FichePersonnelleTab({ emp, comptes = [] }) {
     if (!emp) return null;
 
     return (
-        <div className="space-y-8">
-            {/* Section État Civil & Identité */}
-            <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] pb-2 border-b border-[var(--color-border-subtle)] mb-4 flex items-center gap-2">
-                    <User size={14} /> État Civil & Identité
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-                    <InfoBlock label="Sexe" value={emp.sexe === 'M' ? 'Masculin' : 'Féminin'} />
-                    <InfoBlock label="Date de Naissance" value={fmtDate(emp.dateNaissance)} icon={<Calendar size={14} />} />
-                    <InfoBlock label="Lieu de Naissance" value={emp.lieuNaissance} icon={<MapPin size={14} />} />
-                    <InfoBlock label="Situation Familiale" value={emp.situationFamiliale} icon={<Heart size={14} />} />
-                    <InfoBlock label="Nom du Père" value={emp.pereNomPrenom} />
-                    <InfoBlock label="Nom de la Mère" value={emp.mereNomPrenom} />
-                    <InfoBlock label="N° CIN" value={emp.cinNumero} mono />
-                    <InfoBlock label="Date Délivrance CIN" value={fmtDate(emp.cinDateDelivrance)} />
-                    <InfoBlock label="Lieu Délivrance CIN" value={emp.cinLieuDelivrance} />
-                    <InfoBlock label="N° Permis de Conduire" value={emp.permisConduireNumero} mono />
-                    {emp.cinDuplicataDate && <InfoBlock label="Duplicata CIN Date" value={fmtDate(emp.cinDuplicataDate)} />}
-                    {emp.cinDuplicataLieu && <InfoBlock label="Duplicata CIN Lieu" value={emp.cinDuplicataLieu} />}
+        <div className="space-y-4">
+            {/* Carte 1 : État Civil & Identité */}
+            <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-ink-800">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-2">
+                        <User size={14} className="text-brand-500" />
+                        État Civil & Identité Juridique
+                    </h3>
+                    <div className="flex items-center gap-2">
+                        {emp.situationFamiliale && (
+                            <Badge variant="default" size="xs">
+                                {emp.situationFamiliale}
+                            </Badge>
+                        )}
+                        <Badge variant="default" size="xs">
+                            {emp.sexe === 'M' ? 'Masculin' : 'Féminin'}
+                        </Badge>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 pt-1">
+                    <InfoBlock label="Date de naissance" value={fmtDate(emp.dateNaissance)} icon={<Calendar size={13} />} />
+                    <InfoBlock label="Lieu de naissance" value={emp.lieuNaissance} icon={<MapPin size={13} />} />
+                    <InfoBlock label="Nationalité" value={emp.nationalite || 'Malgache'} />
+                    <InfoBlock label="Situation familiale" value={emp.situationFamiliale} icon={<Heart size={13} />} />
+
+                    <InfoBlock label="Filiation (Père)" value={emp.pereNomPrenom} />
+                    <InfoBlock label="Filiation (Mère)" value={emp.mereNomPrenom} />
+                    <InfoBlock label="N° CIN" value={emp.cinNumero} mono icon={<CreditCard size={13} />} />
+                    <InfoBlock label="Délivrance CIN" value={emp.cinDateDelivrance ? `${fmtDate(emp.cinDateDelivrance)} à ${emp.cinLieuDelivrance || '—'}` : '—'} />
+
+                    {emp.cinDuplicataDate && (
+                        <InfoBlock label="Duplicata CIN" value={`${fmtDate(emp.cinDuplicataDate)} à ${emp.cinDuplicataLieu || '—'}`} />
+                    )}
+                    <InfoBlock label="N° Permis de conduire" value={emp.permisConduireNumero} mono />
                 </div>
             </div>
 
-            {/* Section Coordonnées */}
-            <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] pb-2 border-b border-[var(--color-border-subtle)] mb-4 flex items-center gap-2">
-                    <Phone size={14} /> Domicile & Coordonnées
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            {/* Carte 2 : Domicile & Coordonnées */}
+            <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-ink-800">
+                    <Phone size={14} className="text-brand-500" />
+                    Domicile & Coordonnées de Contact
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 pt-1">
                     <div className="sm:col-span-2">
-                        <InfoBlock label="Adresse Domicile" value={emp.adresse} icon={<MapPin size={14} />} />
+                        <InfoBlock label="Adresse du domicile" value={emp.adresse} icon={<MapPin size={13} />} />
                     </div>
-                    <InfoBlock label="Ville" value={emp.ville} />
-                    <InfoBlock label="Téléphone" value={emp.telephone} mono icon={<Phone size={14} />} />
+                    <InfoBlock label="Ville de résidence" value={emp.ville} />
+                    <InfoBlock
+                        label="Téléphone principal"
+                        value={emp.telephone}
+                        mono
+                        icon={<Phone size={13} />}
+                        href={emp.telephone ? `tel:${emp.telephone}` : null}
+                    />
                     <div className="sm:col-span-2">
-                        <InfoBlock label="Adresse Email" value={emp.email} />
+                        <InfoBlock
+                            label="Adresse e-mail"
+                            value={emp.email}
+                            icon={<Mail size={13} />}
+                            href={emp.email ? `mailto:${emp.email}` : null}
+                        />
                     </div>
                 </div>
             </div>
 
-            {/* Section CNaPS & Banque */}
-            <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] pb-2 border-b border-[var(--color-border-subtle)] mb-4 flex items-center gap-2">
-                    <Landmark size={14} /> Sécurité Sociale & Compte Bancaire
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-4">
-                    <InfoBlock label="N° Affiliation CNaPS" value={emp.numAffiliationCnaps} mono />
-                    <InfoBlock label="Date Déclaration CNaPS" value={fmtDate(emp.dateDeclaration)} />
+            {/* Carte 3 : Sécurité Sociale & Coordonnées Bancaires */}
+            <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-ink-800">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-2">
+                        <Landmark size={14} className="text-brand-500" />
+                        Sécurité Sociale & Coordonnées Bancaires
+                    </h3>
+                    {emp.numAffiliationCnaps && (
+                        <Badge variant="default" size="xs" className="font-mono">
+                            CNaPS : {emp.numAffiliationCnaps}
+                        </Badge>
+                    )}
                 </div>
 
-                {comptes.length > 0 ? (
-                    <Table>
-                        <Thead>
-                            <Tr>
-                                <Th>Banque</Th>
-                                <Th>Agence</Th>
-                                <Th>N° Compte / RIB</Th>
-                                <Th>Titulaire</Th>
-                                <Th>Statut</Th>
-                            </Tr>
-                        </Thead>
-                        <Tbody>
-                            {comptes.map((cb, i) => (
-                                <Tr key={i}>
-                                    <Td className="font-semibold">{cb.nomBanque || cb.libelleBanque || cb.codeBanque || (cb.idBanque ? `Banque N°${cb.idBanque}` : '-')}</Td>
-                                    <Td>{cb.agence || '-'}</Td>
-                                    <Td isData className="font-mono text-xs text-[var(--color-brand-500)] font-bold">{cb.numCompteRib}</Td>
-                                    <Td>{cb.titulaireCompte || '-'}</Td>
-                                    <Td>
-                                        {cb.estPrincipal ? (
-                                            <Badge variant="brand" size="sm">Principal</Badge>
-                                        ) : (
-                                            <Badge variant="default" size="sm">Secondaire</Badge>
-                                        )}
-                                    </Td>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 pt-1">
+                    <InfoBlock label="N° Affiliation CNaPS" value={emp.numAffiliationCnaps} mono icon={<Shield size={13} />} />
+                    <InfoBlock label="Date déclaration CNaPS" value={fmtDate(emp.dateDeclaration)} />
+                </div>
+
+                <div className="pt-2">
+                    <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2.5">
+                        Comptes Bancaires ({comptes.length})
+                    </h4>
+                    {comptes.length > 0 ? (
+                        <Table>
+                            <Thead>
+                                <Tr>
+                                    <Th>Banque</Th>
+                                    <Th>Agence</Th>
+                                    <Th>N° Compte / RIB</Th>
+                                    <Th>Titulaire</Th>
+                                    <Th align="center">Usage</Th>
                                 </Tr>
-                            ))}
-                        </Tbody>
-                    </Table>
-                ) : (
-                    <p className="text-xs text-[var(--color-fg-muted)]">Aucun compte bancaire enregistré.</p>
-                )}
+                            </Thead>
+                            <Tbody>
+                                {comptes.map((cb, i) => (
+                                    <Tr key={i}>
+                                        <Td className="font-bold text-slate-900 dark:text-white">
+                                            {cb.nomBanque || cb.libelleBanque || cb.codeBanque || (cb.idBanque ? `Banque N°${cb.idBanque}` : '—')}
+                                        </Td>
+                                        <Td className="text-slate-600 dark:text-ink-300">{cb.agence || '—'}</Td>
+                                        <Td isData className="font-mono text-xs font-bold text-slate-900 dark:text-white">
+                                            {cb.numCompteRib || '—'}
+                                        </Td>
+                                        <Td className="text-slate-600 dark:text-ink-300">{cb.titulaireCompte || '—'}</Td>
+                                        <Td align="center">
+                                            {cb.estPrincipal ? (
+                                                <Badge variant="success" size="xs" className="font-bold">Principal</Badge>
+                                            ) : (
+                                                <Badge variant="default" size="xs">Secondaire</Badge>
+                                            )}
+                                        </Td>
+                                    </Tr>
+                                ))}
+                            </Tbody>
+                        </Table>
+                    ) : (
+                        <p className="text-xs text-slate-400 p-3 bg-slate-50/50 dark:bg-ink-950/30 border border-slate-200/60 dark:border-ink-800 text-center">
+                            Aucun compte bancaire enregistré pour ce collaborateur.
+                        </p>
+                    )}
+                </div>
             </div>
         </div>
     );

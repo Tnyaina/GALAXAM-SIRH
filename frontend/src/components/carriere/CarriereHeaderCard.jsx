@@ -1,28 +1,7 @@
-import {
-    Briefcase, Calendar, Clock, Award, DollarSign, MapPin, FileText, UserCircle
-} from 'lucide-react';
+import { Clock } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { fmtDate, fmtMoney } from '@/utils/carriereUtils';
-
-function StatItem({ icon, label, value, subtext, highlight = false }) {
-    return (
-        <div className="flex items-center gap-2.5 min-w-0">
-            <div className="text-ink-350 dark:text-ink-500 flex-shrink-0">{icon}</div>
-            <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400 truncate">{label}</p>
-                <p className={`text-sm font-semibold truncate ${highlight ? 'text-brand-500 font-mono' : 'text-ink-900 dark:text-ink-50'}`}>
-                    {value || '-'}
-                </p>
-                {subtext && (
-                    <p className="text-[11px] font-medium text-ink-400 dark:text-ink-400 truncate">
-                        {subtext}
-                    </p>
-                )}
-            </div>
-        </div>
-    );
-}
 
 export default function CarriereHeaderCard({
     employe,
@@ -31,8 +10,8 @@ export default function CarriereHeaderCard({
     brouillonWf,
     etatEssai,
     workflowPlanifieFutur,
-    _estEssaiRenouveleFlag,
     canWrite,
+    onRefresh,
     onOpenConfirmation,
     onOpenRenouvellement,
     onOpenTransition,
@@ -42,80 +21,80 @@ export default function CarriereHeaderCard({
     const isHoraire = rawMode.toLowerCase().includes('horaire');
     const isJournalier = rawMode.toLowerCase().includes('journal');
     const periodiciteLabel = isHoraire ? 'Horaire' : isJournalier ? 'Journalier' : 'Mensuel';
-    const uniteLabel = isHoraire ? '/ heure' : isJournalier ? '/ jour' : '/ mois';
-
-    const salaireValeur = affectationActive?.salaireBase !== undefined
+    const uniteLabel = isHoraire ? 'Ar / h' : isJournalier ? 'Ar / j' : 'Ar / mois';
+    const salaireValeur = affectationActive?.salaireBase !== null && affectationActive?.salaireBase !== undefined
         ? `${fmtMoney(affectationActive.salaireBase)} ${uniteLabel}`
         : null;
 
     return (
         <div className="space-y-4">
-            {/* 📊 STATISTIQUES : Statut Contractuel Actuel */}
-            <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-none shadow-sm p-5">
-                <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
-                    <div className="flex items-center gap-3 pr-8 border-r border-ink-150 dark:border-ink-700 last:border-0">
-                        <div className={`w-10 h-10 rounded-none flex items-center justify-center flex-shrink-0 ${contratActif ? 'bg-success-500/10 text-success-600' : brouillonWf ? 'bg-warning-500/10 text-warning-600' : 'bg-ink-100 dark:bg-ink-800 text-ink-400'
-                            }`}>
-                            <Briefcase size={18} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">Statut Actuel</p>
-                            {contratActif ? (
-                                <Badge variant="success" size="sm" dot>ACTIF</Badge>
-                            ) : brouillonWf ? (
-                                <Badge variant="warning" size="sm" dot>BROUILLON EN ATTENTE</Badge>
-                            ) : (
-                                <Badge variant="default" size="sm" dot>AUCUN CONTRAT</Badge>
-                            )}
-                        </div>
-                    </div>
+            {/* 1. Situation Contractuelle & Rémunération (Format Horizontal Aéré selon le Mockup) */}
+            <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
+                <div className="flex justify-between items-center">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
+                        Situation Contractuelle & Rémunération
+                    </h3>
+                    {onRefresh && (
+                        <button
+                            type="button"
+                            onClick={onRefresh}
+                            className="px-3 py-1 text-xs font-semibold border border-slate-200 dark:border-ink-700 hover:bg-slate-50 dark:hover:bg-ink-800 text-slate-700 dark:text-ink-200 transition-colors"
+                        >
+                            Actualiser
+                        </button>
+                    )}
+                </div>
 
-                    <StatItem
-                        icon={<FileText size={16} />}
-                        label="Type de Contrat"
-                        value={contratActif?.libelleTypeContrat}
-                    />
-                    <StatItem
-                        icon={<UserCircle size={16} />}
-                        label="Intervenant"
-                        value={contratActif?.libelleTypeIntervenant}
-                    />
-                    <StatItem
-                        icon={<Award size={16} />}
-                        label="Fonction Actuelle"
-                        value={affectationActive?.libelleFonction}
-                    />
-                    <StatItem
-                        icon={<Calendar size={16} />}
-                        label="Date d'Entrée"
-                        value={contratActif?.dateDebut ? fmtDate(contratActif.dateDebut) : null}
-                    />
-                    <StatItem
-                        icon={<Clock size={16} />}
-                        label="Ancienneté"
-                        value={employe?.ancienneteEffectiveTexte || contratActif?.ancienneteEffectiveTexte || null}
-                        subtext={
-                            (employe?.nombreContratsChaine || contratActif?.nombreContratsChaine) > 1
-                                ? `Cumul (${employe?.nombreContratsChaine || contratActif?.nombreContratsChaine} contrats)`
-                                : "Temps effectif"
-                        }
-                    />
-                    <StatItem
-                        icon={<MapPin size={16} />}
-                        label="Site / Département"
-                        value={
-                            affectationActive
-                                ? `${affectationActive.libelleSite || '-'} / ${affectationActive.libelleDepartement || '-'}`
-                                : null
-                        }
-                    />
-                    <StatItem
-                        icon={<DollarSign size={16} />}
-                        label={`Salaire Actuel (${periodiciteLabel})`}
-                        value={salaireValeur}
-                        subtext={rawMode}
-                        highlight
-                    />
+                {/* Métadonnées horizontales réparties */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 pt-1">
+                    <div>
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400 mb-1.5">Statut actuel</p>
+                        {contratActif ? (
+                            <Badge variant="success" size="sm" className="font-bold">Actif</Badge>
+                        ) : brouillonWf ? (
+                            <Badge variant="warning" size="sm" className="font-bold">Brouillon</Badge>
+                        ) : (
+                            <Badge variant="default" size="sm" className="font-bold">Aucun contrat</Badge>
+                        )}
+                    </div>
+                    <div>
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400 mb-1">Type de contrat</p>
+                        <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                            {contratActif?.libelleTypeContrat || '—'}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400 mb-1">Intervenant</p>
+                        <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                            {contratActif?.libelleTypeIntervenant || '—'}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400 mb-1">Date d'entrée</p>
+                        <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                            {contratActif?.dateDebut ? fmtDate(contratActif.dateDebut) : '—'}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400 mb-1">Ancienneté</p>
+                        <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                            {employe?.ancienneteEffectiveTexte || contratActif?.ancienneteEffectiveTexte || '—'}
+                        </p>
+                        {(employe?.nombreContratsChaine || contratActif?.nombreContratsChaine) > 1 && (
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                                Cumul ({employe?.nombreContratsChaine || contratActif?.nombreContratsChaine} contrats)
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Séparateur doux & Ligne Salaire */}
+                <div className="pt-3 border-t border-slate-100 dark:border-ink-800 flex items-baseline gap-2 text-xs">
+                    <span className="text-slate-500 dark:text-ink-400">Salaire actuel ({periodiciteLabel})</span>
+                    <span className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white font-data">
+                        {salaireValeur || '—'}
+                    </span>
+                    <span className="text-slate-400 text-[11px]">{rawMode}</span>
                 </div>
             </div>
 
@@ -156,7 +135,6 @@ export default function CarriereHeaderCard({
 
                     {canWrite && !workflowPlanifieFutur && !brouillonWf && (
                         <div className="flex items-center gap-2 self-end md:self-auto flex-shrink-0">
-                            {/* Renouveller : visible uniquement si le backend autorise explicitement canRenew */}
                             {etatEssai?.canRenew === true && (
                                 <Button
                                     variant="secondary"
@@ -166,7 +144,6 @@ export default function CarriereHeaderCard({
                                     Renouveller l'essai
                                 </Button>
                             )}
-                            {/* Confirmer : visible uniquement si le backend autorise explicitement canConfirm */}
                             {etatEssai?.canConfirm === true && (
                                 <Button
                                     variant="primary"
@@ -178,17 +155,10 @@ export default function CarriereHeaderCard({
                             )}
                         </div>
                     )}
-                    {brouillonWf && (
-                        <div className="flex items-center self-end md:self-auto flex-shrink-0">
-                            <Badge variant="warning" size="xs">
-                                Brouillon RH en cours
-                            </Badge>
-                        </div>
-                    )}
                 </div>
             )}
 
-            {/* 🔔 BANNIÈRE ÉCHÉANCE CONTRAT EN COURS (CDD, Prestation, Mission...) */}
+            {/* 🔔 BANNIÈRE ÉCHÉANCE CONTRAT EN COURS */}
             {contratActif?.dateFin && (contratActif?.isFinProche || contratActif?.isFinEchue || (contratActif?.joursRestantsFin !== null && contratActif?.joursRestantsFin <= 60)) && (
                 <div className={`p-4 rounded-none border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                     contratActif.isFinEchue || (contratActif.joursRestantsFin !== null && contratActif.joursRestantsFin <= 7)

@@ -1,4 +1,4 @@
-import { User, Edit2, Power, RotateCcw } from 'lucide-react';
+import { User, Edit2, Power, RotateCcw, Briefcase, MapPin } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
@@ -13,9 +13,9 @@ export default function EmployeHeaderCard({
     if (!emp) return null;
 
     return (
-        <div className="bg-[var(--color-surface)] rounded-none shadow-sm border border-[var(--color-border-subtle)] p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="flex items-center gap-5">
-                <div className="w-20 h-20 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none overflow-hidden flex items-center justify-center text-[var(--color-fg-subtle)] shrink-0">
+        <div className="bg-[var(--color-surface)] rounded-none shadow-sm border border-[var(--color-border-subtle)] p-4 sm:p-4.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+                <div className="w-14 h-14 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none overflow-hidden flex items-center justify-center text-[var(--color-fg-subtle)] shrink-0">
                     {emp.photoUrl ? (
                         <img 
                             src={getFullPhotoUrl(emp.photoUrl)} 
@@ -32,17 +32,17 @@ export default function EmployeHeaderCard({
                             }}
                         />
                     ) : null}
-                    <User size={36} className={emp.photoUrl ? 'hidden' : ''} />
+                    <User size={26} className={emp.photoUrl ? 'hidden' : ''} />
                 </div>
-                <div className="space-y-1.5">
-                    <div className="flex items-center gap-3 flex-wrap">
-                        <h1 className="text-2xl font-bold tracking-tight text-[var(--color-fg)]">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-[var(--color-fg)]">
                             {emp.nom} {emp.prenom}
                         </h1>
                         {emp.estActif ? (
-                            <Badge variant="success" size="md" dot>Actif</Badge>
+                            <Badge variant="success" size="sm" dot>Actif</Badge>
                         ) : (
-                            <Badge variant="default" size="md" dot>Inactif</Badge>
+                            <Badge variant="default" size="sm" dot>Inactif</Badge>
                         )}
                         {emp.alerteContratTexte && (
                             <Badge 
@@ -61,6 +61,27 @@ export default function EmployeHeaderCard({
                         <span>•</span>
                         <span>Nationalité : <strong className="text-[var(--color-fg)]">{emp.nationalite || '-'}</strong></span>
                     </div>
+                    {(emp.nomFonction || emp.nomSite || emp.statutContrat) && (
+                        <div className="flex items-center gap-3 text-xs text-[var(--color-fg-muted)] flex-wrap pt-0.5">
+                            {emp.nomFonction && (
+                                <span className="font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
+                                    <Briefcase size={13} className="text-[var(--color-brand-500)]" />
+                                    {emp.nomFonction}
+                                </span>
+                            )}
+                            {emp.nomSite && (
+                                <span className="flex items-center gap-1">
+                                    <MapPin size={13} className="text-[var(--color-fg-subtle)]" />
+                                    {emp.nomSite}{emp.nomDepartement ? ` · ${emp.nomDepartement}` : ''}
+                                </span>
+                            )}
+                            {emp.statutContrat && emp.statutContrat !== 'Aucun contrat' && (
+                                <span className="px-2 py-0.5 bg-[var(--color-bg-subtle)] text-[var(--color-fg)] font-medium text-[11px] border border-[var(--color-border-subtle)]">
+                                    {emp.statutContrat}
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 

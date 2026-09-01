@@ -1,4 +1,5 @@
-import { Send, CheckSquare, Square } from 'lucide-react';
+import { useState } from 'react';
+import { Send, CheckSquare, Square, ChevronDown, ChevronRight } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 
 export default function PointageTransmissionDafSection({
@@ -8,6 +9,8 @@ export default function PointageTransmissionDafSection({
     submittingDaf = false,
     onRequestSubmitDaf
 }) {
+    const [open, setOpen] = useState(false);
+
     const isEnCours = periodeInfo?.statut_code === 'EN_COURS' || !periodeInfo?.statut_code;
     const periodeLibelle = periodeInfo?.libelle || periodeInfo?.code || 'la période active';
 
@@ -17,60 +20,85 @@ export default function PointageTransmissionDafSection({
         { id: 3, label: 'Semaines synthétisées', done: true }
     ];
 
-    const canSubmit = isEnCours && totalAnomalies === 0 && !isReadOnly;
+    const allDone = conditions.every(c => c.done);
+    const canSubmit = isEnCours && allDone && !isReadOnly;
 
     return (
-        <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 border-l-4 border-l-brand-600 shadow-xs">
-            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
-                <div>
-                    <h2 className="text-[15px] font-bold text-[var(--color-fg)] flex items-center gap-2">
-                        <Send size={16} className="text-brand-500" />
-                        <span>Transmission à la DAF</span>
-                    </h2>
-                    <p className="text-[12.5px] text-[var(--color-fg-muted)] mt-1 max-w-xl leading-relaxed">
-                        Une fois transmis, le mois de <strong className="text-[var(--color-fg)]">{periodeLibelle}</strong> passe en lecture seule pour la saisie agent : la DAF pourra vérifier chaque fiche de présence et procéder à la clôture paie.
-                    </p>
-
-                    <p className="text-[12px] text-[var(--color-fg-muted)] mt-3 font-semibold uppercase tracking-wider">
-                        Conditions préalables à la transmission :
-                    </p>
-
-                    <ul className="mt-1.5 space-y-1.5 text-[13px] text-[var(--color-fg)]">
-                        {conditions.map((c) => (
-                            <li key={c.id} className="flex items-center gap-2">
-                                {c.done ? (
-                                    <CheckSquare size={15} className="text-emerald-600 shrink-0" />
-                                ) : (
-                                    <Square size={15} className="text-[var(--color-border-strong)] shrink-0" />
-                                )}
-                                <span className={c.done ? 'text-[var(--color-fg)] font-medium' : 'text-[var(--color-fg-muted)]'}>
-                                    {c.label}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] border-l-2 border-l-brand-600 shadow-xs overflow-hidden">
+            {/* Header cliquable */}
+            <button
+                type="button"
+                onClick={() => setOpen(p => !p)}
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--color-bg-subtle)]/60 transition-colors cursor-pointer"
+            >
+                <div className="flex items-center gap-2.5">
+                    <Send size={14} className="text-brand-600 shrink-0" />
+                    <span className="text-[12.5px] font-bold text-[var(--color-fg)]">
+                        Transmission à la DAF
+                    </span>
+                    {allDone ? (
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 bg-emerald-500/10 text-emerald-700 font-mono">
+                            Prêt à transmettre
+                        </span>
+                    ) : (
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] font-mono">
+                            {conditions.filter(c => !c.done).length} condition(s) manquante(s)
+                        </span>
+                    )}
                 </div>
+                {open
+                    ? <ChevronDown size={14} className="text-[var(--color-fg-muted)]" />
+                    : <ChevronRight size={14} className="text-[var(--color-fg-muted)]" />
+                }
+            </button>
 
-                <div className="text-left lg:text-right shrink-0">
-                    <Button
-                        type="button"
-                        variant="primary"
-                        size="md"
-                        disabled={!canSubmit || submittingDaf}
-                        loading={submittingDaf}
-                        onClick={onRequestSubmitDaf}
-                        className="font-bold flex items-center gap-2 px-5 py-2.5 shadow-xs"
-                    >
-                        <Send size={15} />
-                        <span>Transmettre le mois à la DAF</span>
-                    </Button>
-                    <p className="text-[11.5px] text-[var(--color-fg-muted)] mt-2 max-w-[240px] lg:ml-auto">
-                        {canSubmit
-                            ? 'Toutes les conditions sont remplies pour la transmission.'
-                            : 'Régularisez les anomalies et vérifiez les saisies pour débloquer l\'envoi.'}
-                    </p>
+            {/* Corps */}
+            {open && (
+                <div className="px-4 pb-4 border-t border-[var(--color-border-subtle)]">
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5 mt-3">
+                        <div className="flex-1">
+                            <p className="text-[12.5px] text-[var(--color-fg-muted)] leading-relaxed max-w-xl">
+                                Une fois transmis, le mois de <strong className="text-[var(--color-fg)]">{periodeLibelle}</strong> passe en lecture seule. La DAF pourra vérifier chaque fiche et procéder à la clôture paie.
+                            </p>
+
+                            <ul className="mt-3 space-y-1.5">
+                                {conditions.map((c) => (
+                                    <li key={c.id} className="flex items-center gap-2 text-[12.5px]">
+                                        {c.done ? (
+                                            <CheckSquare size={13} className="text-emerald-600 shrink-0" />
+                                        ) : (
+                                            <Square size={13} className="text-[var(--color-border-strong)] shrink-0" />
+                                        )}
+                                        <span className={c.done ? 'text-[var(--color-fg)] font-medium' : 'text-[var(--color-fg-muted)]'}>
+                                            {c.label}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+
+                        <div className="shrink-0">
+                            <Button
+                                type="button"
+                                variant="primary"
+                                size="sm"
+                                disabled={!canSubmit || submittingDaf}
+                                loading={submittingDaf}
+                                onClick={onRequestSubmitDaf}
+                                className="font-bold flex items-center gap-2 shadow-xs"
+                            >
+                                <Send size={13} />
+                                <span>Transmettre à la DAF</span>
+                            </Button>
+                            <p className="text-[11px] text-[var(--color-fg-muted)] mt-1.5 max-w-[220px]">
+                                {canSubmit
+                                    ? 'Toutes les conditions sont remplies.'
+                                    : 'Régularisez les anomalies pour débloquer.'}
+                            </p>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </section>
+            )}
+        </div>
     );
 }

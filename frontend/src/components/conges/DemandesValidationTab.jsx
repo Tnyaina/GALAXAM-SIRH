@@ -100,7 +100,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
 
   // 4. Rendu Principal (Assemblage)
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Filtres */}
       <ValidationFilters
         activeStatut={activeStatut}

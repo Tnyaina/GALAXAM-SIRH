@@ -233,175 +233,177 @@ export default function SynthesePointagePage() {
                 description="Consolidation hebdomadaire et mensuelle des heures travaillées, retards et indemnités pour la paie."
             />
 
-            <div className="space-y-5 max-w-[1600px] mx-auto pb-16">
-                <PageHeader
-                    title="Synthèse & Compensations des Pointages"
-                    subtitle="Consolidez les semaines de travail, compensez les retards et préparez la clôture paie."
-                    breadcrumbs={[
-                        { label: 'Accueil', href: '/' },
-                        { label: 'Pointages', href: '/pointages/saisie' },
-                        { label: 'Synthèse' }
-                    ]}
-                />
-
-                {/* Workflow Nav */}
-                <PointageWorkflowNav />
-
-                {/* Filtres de Période et Site */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 shadow-xs">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                        <div>
-                            <Select
-                                label="Période de paie"
-                                options={periodeOptions}
-                                value={selectedPeriode}
-                                onChange={(val) => setSelectedPeriode(val)}
-                                className="w-full h-[38px]"
-                            />
-                        </div>
-
-                        <div>
-                            <Select
-                                label="Site d'affectation"
-                                options={siteOptions}
-                                value={selectedSite}
-                                onChange={(val) => setSelectedSite(val)}
-                                className="w-full h-[38px]"
-                            />
-                        </div>
-
-                        <div>
-                            <Input
-                                label="Filtrer employé"
-                                iconLeft={<Search size={15} />}
-                                placeholder="Rechercher par nom, matricule…"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full h-[38px]"
-                            />
-                        </div>
+            <div className="space-y-2 max-w-[1600px] mx-auto pb-8">
+                {/* Mini titre + breadcrumb */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-[17px] font-bold text-[var(--color-fg)]">Synthèse &amp; Compensations</h1>
+                        <p className="text-[11.5px] text-[var(--color-fg-muted)] mt-0.5">
+                            Consolidez les semaines de travail, compensez les retards et préparez la clôture paie.
+                        </p>
                     </div>
                 </div>
 
-                {/* Sélecteur d'Onglets Guidés : Hebdomadaire vs Mensuel */}
-                <div className="flex border-b border-[var(--color-border-subtle)] gap-2 bg-[var(--color-bg-subtle)] p-1.5 border border-[var(--color-border-subtle)]">
+                {/* Workflow Nav slim */}
+                <PointageWorkflowNav />
+
+                {/* Filtres compact (1 ligne) */}
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-3 py-2 shadow-xs flex items-center gap-3 flex-wrap lg:flex-nowrap">
+                    <Select
+                        options={periodeOptions}
+                        value={selectedPeriode}
+                        onChange={(val) => setSelectedPeriode(val)}
+                        className="h-[32px] text-xs min-w-[200px] flex-1"
+                    />
+                    <Select
+                        options={siteOptions}
+                        value={selectedSite}
+                        onChange={(val) => setSelectedSite(val)}
+                        className="h-[32px] text-xs min-w-[180px] flex-1"
+                    />
+                    <div className="relative flex-1 min-w-[160px]">
+                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
+                        <input
+                            type="text"
+                            placeholder="Nom, matricule…"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-7 pr-3 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:border-brand-500 h-[32px]"
+                        />
+                    </div>
+                </div>
+
+                {/* Onglets Hebdo / Mensuel */}
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] flex shadow-xs">
                     <button
                         type="button"
                         onClick={() => setActiveTab('hebdo')}
-                        className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeTab === 'hebdo'
-                                ? 'bg-[var(--color-surface)] text-brand-700 dark:text-brand-300 shadow-xs border border-[var(--color-border-subtle)]'
-                                : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                        className={`flex items-center gap-1.5 px-4 py-2 text-[11.5px] font-semibold border-r border-[var(--color-border-subtle)] transition-all cursor-pointer ${activeTab === 'hebdo'
+                                ? 'bg-brand-600/8 text-brand-700 dark:text-brand-300 border-b-2 border-b-brand-600'
+                                : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
                             }`}
                     >
-                        <Layers size={15} />
-                        <span>1. Synthèse Hebdomadaire (Par Semaine)</span>
+                        <Layers size={12} />
+                        <span>Synthèse Hebdomadaire</span>
                         <span className="bg-brand-500/10 text-brand-700 px-1.5 py-0.5 text-[10px] font-mono">
-                            {semaines.length} semaines
+                            {semaines.length} sem.
                         </span>
                     </button>
 
                     <button
                         type="button"
                         onClick={() => setActiveTab('mensuel')}
-                        className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeTab === 'mensuel'
-                                ? 'bg-[var(--color-surface)] text-brand-700 dark:text-brand-300 shadow-xs border border-[var(--color-border-subtle)]'
-                                : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                        className={`flex items-center gap-1.5 px-4 py-2 text-[11.5px] font-semibold transition-all cursor-pointer ${activeTab === 'mensuel'
+                                ? 'bg-brand-600/8 text-brand-700 dark:text-brand-300 border-b-2 border-b-brand-600'
+                                : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
                             }`}
                     >
-                        <CalendarRange size={15} />
-                        <span>2. Synthèse Mensuelle Globale (Clôture DAF)</span>
+                        <CalendarRange size={12} />
+                        <span>Synthèse Mensuelle (Clôture DAF)</span>
                     </button>
                 </div>
 
                 {/* VUE 1 : Synthèse Hebdomadaire Séquentielle */}
                 {activeTab === 'hebdo' && (
-                    <div className="space-y-6">
+                    <div className="space-y-3.5">
                         {/* Cartes de Découpage Hebdomadaire */}
-                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 shadow-xs">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                        <Layers size={16} className="text-brand-500" />
-                                        <span>Découpage Hebdomadaire &amp; Validation Séquentielle</span>
-                                    </h3>
-                                    <p className="text-xs text-[var(--color-fg-muted)] mt-1">
-                                        Cliquez sur une semaine pour afficher son tableau récapitulatif détaillé et procéder à sa validation.
-                                    </p>
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
+                            {/* En-tête du bloc */}
+                            <div className="px-4 py-2.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Layers size={13} className="text-brand-500" />
+                                    <span className="text-[12px] font-bold text-[var(--color-fg)]">Découpage & Validation Séquentielle</span>
                                 </div>
                                 {selectedSemaine && (
-                                    <span className="text-xs font-bold text-brand-600 bg-brand-50 dark:bg-brand-950/40 px-3 py-1 border border-brand-200 dark:border-brand-800">
-                                        Semaine sélectionnée : {selectedSemaine.title}
+                                    <span className="text-[11px] font-mono font-bold text-brand-700 dark:text-brand-300">
+                                        {selectedSemaine.title} sélectionnée
                                     </span>
                                 )}
                             </div>
 
-                            {loadingSemaines ? (
-                                <div className="p-8 text-center text-xs text-[var(--color-fg-muted)] flex items-center justify-center gap-2">
-                                    <Clock size={15} className="animate-spin text-brand-500" />
-                                    Chargement du découpage hebdomadaire...
+                            {loadingSemaines && (
+                                <div className="p-6 text-center text-xs text-[var(--color-fg-muted)] flex items-center justify-center gap-2">
+                                    <Clock size={14} className="animate-spin text-brand-500" />
+                                    Chargement…
                                 </div>
-                            ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-                                    {semaines.map((sem) => {
-                                        const isSelected = selectedSemaine?.id === sem.id;
-                                        return (
-                                            <div
-                                                key={sem.id}
-                                                onClick={() => setSelectedSemaine(sem)}
-                                                className={`border p-4 transition-all cursor-pointer ${isSelected
-                                                        ? 'ring-2 ring-brand-500 border-brand-500 bg-brand-50/40 dark:bg-brand-950/20 shadow-sm'
-                                                        : sem.estValidee
-                                                            ? 'border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-500'
-                                                            : sem.ready
-                                                                ? 'border-brand-500/40 bg-brand-500/5 hover:border-brand-500'
-                                                                : sem.nbAnomalies > 0
-                                                                    ? 'border-amber-500/40 bg-amber-500/5 hover:border-amber-500'
-                                                                    : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] opacity-75 hover:opacity-100'
-                                                    }`}
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
-                                                        {sem.title}
-                                                    </span>
-                                                    {sem.estValidee ? (
-                                                        <CheckCircle2 size={14} className="text-emerald-600" />
-                                                    ) : sem.nbAnomalies > 0 ? (
-                                                        <AlertTriangle size={14} className="text-amber-600" />
-                                                    ) : null}
-                                                </div>
+                            )}
 
-                                                <p className="text-xs font-mono text-[var(--color-fg-muted)] mt-0.5">
-                                                    {sem.dates} ({sem.nbJoursOuvrables}j ouvrés)
-                                                </p>
 
-                                                <p className={`text-[13px] font-bold mt-2 ${sem.estValidee
-                                                        ? 'text-emerald-700 dark:text-emerald-300'
-                                                        : sem.ready
-                                                            ? 'text-brand-700 dark:text-brand-300'
-                                                            : sem.nbAnomalies > 0
-                                                                ? 'text-amber-700'
-                                                                : 'text-[var(--color-fg)]'
-                                                    }`}>
-                                                    {sem.statut}
-                                                </p>
 
-                                                <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5 leading-snug">
-                                                    {sem.desc}
-                                                </p>
-
-                                                <div className="mt-3 pt-2.5 border-t border-[var(--color-border-subtle)] flex items-center justify-between text-xs">
-                                                    <span className="text-[11px] text-[var(--color-fg-muted)]">
-                                                        <strong className="text-[var(--color-fg)] font-mono">{sem.totalHeures}h</strong> saisies <span className="text-[10px] text-[var(--color-fg-subtle)]">(base {sem.seuilHeures}h)</span>
-                                                    </span>
-                                                    {sem.ready && (
-                                                        <span className="text-brand-600 font-bold flex items-center gap-1 text-[11px]">
-                                                            Prête <ArrowRight size={12} />
-                                                        </span>
-                                                    )}
-                                                </div>
+                            {/* Lignes compactes des semaines — liste tabulaire */}
+                            {!loadingSemaines && (
+                                <div className="border-t border-[var(--color-border-subtle)]">
+                                    {semaines.length === 0 ? (
+                                        <div className="p-6 text-center text-xs text-[var(--color-fg-muted)]">
+                                            Aucune semaine disponible pour cette période.
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            {/* En-tête de la liste */}
+                                            <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-0 text-[9.5px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] px-3 py-1.5 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)]">
+                                                <span className="w-[90px]">Semaine</span>
+                                                <span>Période</span>
+                                                <span className="w-[130px] text-center">Statut</span>
+                                                <span className="w-[90px] text-center">Réalisé / Objectif</span>
+                                                <span className="w-[60px]"></span>
                                             </div>
-                                        );
-                                    })}
+                                            {semaines.map((sem) => {
+                                                const isSelected = selectedSemaine?.id === sem.id;
+                                                const statusColor = sem.estValidee
+                                                    ? 'text-emerald-700'
+                                                    : sem.ready
+                                                        ? 'text-brand-700'
+                                                        : sem.nbAnomalies > 0
+                                                            ? 'text-amber-700'
+                                                            : 'text-[var(--color-fg-muted)]';
+                                                return (
+                                                    <button
+                                                        key={sem.id}
+                                                        type="button"
+                                                        onClick={() => setSelectedSemaine(sem)}
+                                                        className={`w-full grid grid-cols-[auto_1fr_auto_auto_auto] gap-0 items-center px-3 py-1.5 border-b border-[var(--color-border-subtle)] text-left cursor-pointer transition-colors ${
+                                                            isSelected
+                                                                ? 'bg-brand-600/8 border-l-2 border-l-brand-600'
+                                                                : 'hover:bg-[var(--color-bg-subtle)] border-l-2 border-l-transparent'
+                                                        }`}
+                                                    >
+                                                        {/* Titre semaine */}
+                                                        <span className="w-[90px] text-[11px] font-bold text-[var(--color-fg)]">{sem.title}</span>
+
+                                                        {/* Dates */}
+                                                        <span className="text-[11px] font-mono text-[var(--color-fg-muted)]">
+                                                            {sem.dates}
+                                                            <span className="ml-1.5 text-[10px] opacity-70">({sem.nbJoursOuvrables}j)</span>
+                                                        </span>
+
+                                                        {/* Statut */}
+                                                        <span className={`w-[130px] flex items-center justify-center gap-1 text-[11px] font-semibold ${statusColor}`}>
+                                                            {sem.estValidee ? (
+                                                                <CheckCircle2 size={11} />
+                                                            ) : sem.nbAnomalies > 0 ? (
+                                                                <AlertTriangle size={11} />
+                                                            ) : null}
+                                                            {sem.statut}
+                                                        </span>
+
+                                                        {/* Réalisé / Objectif */}
+                                                        <span className="w-[90px] text-center font-mono text-[11px] text-[var(--color-fg-muted)]">
+                                                            <strong className="text-[var(--color-fg)]">{sem.totalHeures}h</strong>
+                                                            <span className="opacity-50"> / {sem.seuilHeures}h</span>
+                                                        </span>
+
+                                                        {/* Indicateur sélection */}
+                                                        <span className="w-[60px] flex justify-end">
+                                                            {isSelected
+                                                                ? <span className="text-[10px] font-bold text-brand-600">sélect.</span>
+                                                                : <ArrowRight size={11} className="text-[var(--color-border-subtle)]" />
+                                                            }
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -470,11 +472,19 @@ export default function SynthesePointagePage() {
                                                 <AlertTriangle size={15} />
                                                 {selectedSemaine.nbAnomalies} anomalie(s) à résoudre
                                             </span>
-                                        ) : (
-                                            <span className="text-xs text-[var(--color-fg-muted)] ">
-                                                Validation bloquée (validez la semaine précédente)
-                                            </span>
-                                        )}
+                                        ) : (() => {
+                                            // Identifier les semaines précédentes non validées
+                                            const semaineIdx = semaines.findIndex(s => s.id === selectedSemaine.id);
+                                            const blocking = semaines.slice(0, semaineIdx).filter(s => !s.estValidee);
+                                            const blockingMsg = blocking.length > 0
+                                                ? `${blocking.map(s => s.title).join(', ')} doit${blocking.length > 1 ? ' doivent' : ''} être validée${blocking.length > 1 ? 's' : ''} en premier`
+                                                : 'Saisie incomplète — pointages quotidiens manquants';
+                                            return (
+                                                <span className="text-[11px] text-[var(--color-fg-muted)] italic">
+                                                    {blockingMsg}
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
 

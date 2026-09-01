@@ -1,4 +1,4 @@
-import { RefreshCw, ArrowRight, FileSignature, Building2 } from 'lucide-react';
+import { RefreshCw, ArrowRight, FileSignature, Building2, CheckCircle2 } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
 import FormSectionHeader from './FormSectionHeader';
 
@@ -37,18 +37,24 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
                     }
                 }}
                 className={`
-                    p-3.5 border rounded-none cursor-pointer flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-brand-500
+                    p-3.5 border-2 rounded-none cursor-pointer flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all
                     ${isSelected
-                        ? 'border-brand-500 bg-brand-500/10 shadow-sm ring-1 ring-brand-500/40'
+                        ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10 shadow-xs'
                         : 'border-ink-200 dark:border-ink-800 hover:border-brand-400 bg-white dark:bg-ink-950/30'}
                 `}
             >
                 <div>
-                    <p className="font-bold text-xs text-ink-900 dark:text-white flex items-center justify-between gap-1">
+                    <p className={`font-bold text-xs flex items-center justify-between gap-1.5 ${isSelected ? 'text-[var(--color-brand-500)] dark:text-brand-400' : 'text-ink-900 dark:text-white'}`}>
                         <span className="truncate">{t.libelle}</span>
-                        {isSelected && <ArrowRight size={14} className="text-brand-500 shrink-0" />}
+                        {isSelected ? (
+                            <CheckCircle2 size={15} className="text-[var(--color-brand-500)] shrink-0" />
+                        ) : (
+                            <ArrowRight size={13} className="text-ink-300 dark:text-ink-600 shrink-0" />
+                        )}
                     </p>
-                    <p className="text-[11px] text-ink-400 mt-1 leading-normal">{displayDesc}</p>
+                    <p className={`text-[11px] mt-1 leading-normal ${isSelected ? 'text-[var(--color-brand-700)] dark:text-brand-300 font-medium' : 'text-ink-400'}`}>
+                        {displayDesc}
+                    </p>
                 </div>
             </div>
         );

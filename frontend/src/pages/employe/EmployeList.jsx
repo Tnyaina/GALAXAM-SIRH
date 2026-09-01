@@ -363,7 +363,7 @@ export default function EmployeList() {
     const totalInactifs = statsCounts.inactifs;
 
     return (
-        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <PageHeader
                 title="Fiches Employés"
                 subtitle="Répertoire du personnel — gestion des fiches individuelles, carrières et documents"

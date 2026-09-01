@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { RefreshCw, ShieldAlert, Save, X, Eye, EyeOff, FileSignature, Building2, MessageSquareText } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Textarea } from '@/components/ui/forms/Input';
@@ -44,6 +45,15 @@ export default function TransitionModal({
         affectationActive, contratActif, initialData, onSuccess
     });
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     const stepContrat = 2;
@@ -51,7 +61,10 @@ export default function TransitionModal({
     const stepMotif = exigeNouveauContrat ? 4 : 3;
 
     return (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto ${mounted ? 'opacity-100' : 'opacity-0'}`}>
+        <div 
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto transition-opacity duration-200 ${mounted ? 'opacity-100' : 'opacity-0'}`}
+        >
             <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl w-full max-w-[1440px] max-h-[95vh] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="px-7 py-4 border-b border-ink-150 dark:border-ink-700 flex items-center justify-between bg-ink-50/50 dark:bg-ink-950/40">
@@ -89,11 +102,11 @@ export default function TransitionModal({
                 {/* Body split 2 colonnes */}
                 <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-ink-150 dark:divide-ink-700">
                     {/* Formulaire (6/12) */}
-                    <div className={`p-7 space-y-6 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
+                    <div className={`p-4 sm:p-5 space-y-4 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
                         {loadingRef ? (
                             <Loading display="page" label="Chargement des référentiels..." />
                         ) : (
-                            <form id="transition-form" onSubmit={handleSubmit} className="space-y-6">
+                            <form id="transition-form" onSubmit={handleSubmit} className="space-y-4">
                                 {errorMsg && (
                                     <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-none p-3 text-xs flex items-center gap-2">
                                         <ShieldAlert size={16} />

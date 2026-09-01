@@ -55,7 +55,7 @@ export function Th({ children, sortable, sorted, onSort, className = '', ...prop
 
   return (
     <th
-      className={`px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] whitespace-nowrap
+      className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] whitespace-nowrap
         ${!isCentered && !isRight ? 'text-left' : ''}
         ${sortable ? 'cursor-pointer select-none transition-colors duration-[var(--duration-fast)] hover:text-[var(--color-fg)]' : ''}
         ${className}
@@ -93,7 +93,7 @@ export function ThCheckbox({ checked = false, indeterminate = false, onChange, c
   }, [indeterminate]);
 
   return (
-    <th className={`w-10 px-3 py-2.5 ${className}`} {...props}>
+    <th className={`w-10 px-3 py-2 ${className}`} {...props}>
       <Checkbox ref={ref} checked={checked} onChange={onChange} aria-label="Tout sélectionner" />
     </th>
   );
@@ -140,7 +140,7 @@ export function Tr({ children, onClick, selected = false, className = '', ...pro
 export function Td({ children, muted = false, isData = false, className = '', ...props }) {
   return (
     <td
-      className={`px-3 py-2.5 text-xs sm:text-[13px] ${muted ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg)]'
+      className={`px-3 py-2 text-xs ${muted ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg)]'
         } ${isData ? 'font-data' : ''} ${className}`}
       {...props}
     >
@@ -153,7 +153,7 @@ export function Td({ children, muted = false, isData = false, className = '', ..
    stopPropagation évite de déclencher le onClick de la Tr (ex: ouverture d'un détail) */
 export function TdCheckbox({ checked = false, onChange, className = '', ...props }) {
   return (
-    <td className={`w-10 px-3 py-2.5 ${className}`} onClick={(e) => e.stopPropagation()} {...props}>
+    <td className={`w-10 px-3 py-2 ${className}`} onClick={(e) => e.stopPropagation()} {...props}>
       <Checkbox checked={checked} onChange={onChange} aria-label="Sélectionner la ligne" />
     </td>
   );

@@ -1,7 +1,6 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, PlusCircle, Clock, AlertCircle } from 'lucide-react';
-import PageHeader from '@/components/ui/navigation/PageHeader';
+import { AlertCircle, Clock, PlusCircle } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { useToast } from '@/components/ui/feedback/Toast';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
@@ -12,7 +11,6 @@ import periodePaieService from '@/services/periodePaieService';
 
 import PointageGuideStepper from '@/components/pointage/PointageGuideStepper';
 import PointageFerieAlert from '@/components/pointage/PointageFerieAlert';
-import PointageStatsCards from '@/components/pointage/PointageStatsCards';
 import PointageToolbar from '@/components/pointage/PointageToolbar';
 import PointageGridTable from '@/components/pointage/PointageGridTable';
 import PointageAnomaliesSection from '@/components/pointage/PointageAnomaliesSection';
@@ -215,7 +213,7 @@ export default function SaisieQuotidiennePage() {
     }, [grilleData, statutFilter, searchTerm]);
 
     const isReadOnly = useMemo(() => {
-        if (!periodeInfo) return true; // Bloqué si aucune période ouverte pour cette date !
+        if (!periodeInfo) return true;
         const statut = periodeInfo.statut_code;
         if (statut === 'VALIDEE' || statut === 'CLOTUREE') return true;
         if (statut === 'A_VALIDER' && isAgent) return true;
@@ -227,7 +225,7 @@ export default function SaisieQuotidiennePage() {
         ? `${currentSiteObj.codeSite || currentSiteObj.code || 'Site'} — ${currentSiteObj.libelle}`
         : (sites.length > 0 ? `${sites[0].codeSite || sites[0].code || 'Site'} — ${sites[0].libelle}` : 'Site sélectionné');
 
-    // Statistiques calculées en temps réel sur la journée (Priorité aux données certifiées backend)
+    // Statistiques calculées en temps réel
     const statsJour = useMemo(() => {
         if (backendStatsJour && modifiedEmpIds.size === 0) {
             return {
@@ -333,84 +331,29 @@ export default function SaisieQuotidiennePage() {
                 description="Saisie opérationnelle, suivi des retards, heures de nuit et indemnités journalières."
             />
 
-            <div className="space-y-5 max-w-[1440px] mx-auto pb-20">
-                {/* 1. Header de Page */}
-                <PageHeader
-                    title="Pointage & présence quotidienne"
-                    subtitle="Saisissez les horaires du jour, vérifiez les anomalies, puis transmettez le mois à la DAF."
-                    breadcrumbs={[
-                        { label: 'Accueil', href: '/' },
-                        { label: 'Pointages', href: '/pointages/saisie' },
-                        { label: 'Saisie quotidienne' }
-                    ]}
-                    actions={
-                        <div className="flex items-center gap-2.5">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="md"
-                                onClick={() => navigate('/conges/demandes')}
-                                className="font-semibold flex items-center gap-1.5"
-                            >
-                                <PlusCircle size={15} />
-                                <span>Ajouter une absence</span>
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="primary"
-                                size="md"
-                                disabled={isReadOnly || saving || loading}
-                                loading={saving}
-                                onClick={handleRequestSave}
-                                className="font-semibold flex items-center gap-2 shadow-xs"
-                            >
-                                <Save size={15} />
-                                <span>Enregistrer les pointages</span>
-                                <span className="opacity-70 font-normal text-[11px]">(Ctrl+S)</span>
-                            </Button>
-                        </div>
-                    }
-                />
+            <div className="space-y-2 max-w-[1440px] mx-auto pb-6">
 
-                {/* 2. Étape Guidée (Stepper en 4 étapes) */}
-                <PointageGuideStepper
-                    periodeInfo={periodeInfo}
-                    totalWeeks={4}
-                    currentStep={1}
-                />
-
-                {/* Alerte si aucune période de paie n'englobe la date sélectionnée */}
-                {!periodeInfo && !loading && (
-                    <div className="bg-amber-500/10 border-l-4 border-l-amber-500 p-4 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3 shadow-xs">
-                        <AlertCircle size={18} className="shrink-0 text-amber-600 mt-0.5" />
-                        <div>
-                            <p className="font-bold text-[13px]">Aucune période de paie ouverte pour la date du {selectedDate}</p>
-                            <p className="text-[12px] opacity-90 mt-0.5">
-                                La saisie et l'enregistrement des pointages sont verrouillés tant qu'une période de paie active n'englobe pas cette date.
-                            </p>
-                        </div>
+                {/* En-tête minimal : titre + lien rapide */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-[17px] font-bold text-[var(--color-fg)]">Pointage & présence quotidienne</h1>
+                        <p className="text-[11.5px] text-[var(--color-fg-muted)] mt-0.5">
+                            Saisissez les horaires du jour, vérifiez les anomalies, transmettez à la DAF.
+                        </p>
                     </div>
-                )}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate('/conges/demandes')}
+                        className="font-semibold flex items-center gap-1.5 shrink-0"
+                    >
+                        <PlusCircle size={13} />
+                        <span>Ajouter une absence</span>
+                    </Button>
+                </div>
 
-                {/* 3. Bandeau Info Jour (Férié / Période Chômée) */}
-                <PointageFerieAlert
-                    isFerie={statsJour.isFerie}
-                    libelleFerie={statsJour.libelleFerie}
-                    siteLabel={statsJour.siteLabel}
-                />
-
-                {/* 4. Cartes Métriques Synthétiques du Jour */}
-                <PointageStatsCards
-                    totalInscrits={statsJour.totalInscrits}
-                    totalPresents={statsJour.totalPresents}
-                    totalConges={statsJour.totalConges}
-                    totalRetards={statsJour.totalRetards}
-                    cumulMinutesRetard={statsJour.cumulMinutesRetard}
-                    totalHeuresTravaillees={statsJour.totalHeuresTravaillees}
-                    siteLabel={statsJour.siteLabel}
-                />
-
-                {/* 5. Filtres et Paramètres de Saisie */}
+                {/* 1. Barre de Commande Unifiée */}
                 <PointageToolbar
                     sites={sites}
                     selectedSite={selectedSite}
@@ -425,17 +368,47 @@ export default function SaisieQuotidiennePage() {
                     onAutoFillStandard={handleAutoFill}
                     onAutoDeducePauses={handleAutoPauses}
                     isReadOnly={isReadOnly}
+                    onSave={handleRequestSave}
+                    saving={saving}
+                    dirtyCount={dirtyCount}
                 />
 
-                {/* 6. Tableau de Saisie Principal */}
+                {/* 2. Slim Banner Période + Stepper */}
+                <PointageGuideStepper
+                    periodeInfo={periodeInfo}
+                    totalWeeks={4}
+                    currentStep={1}
+                />
+
+                {/* 3. Alert : Aucune période de paie ouverte */}
+                {!periodeInfo && !loading && (
+                    <div className="bg-amber-500/10 border-l-4 border-l-amber-500 p-3.5 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3 shadow-xs">
+                        <AlertCircle size={15} className="shrink-0 text-amber-600 mt-0.5" />
+                        <div>
+                            <p className="font-bold text-[12.5px]">Aucune période de paie ouverte pour le {selectedDate}</p>
+                            <p className="text-[11.5px] opacity-90 mt-0.5">
+                                La saisie est verrouillée tant qu'aucune période active n'englobe cette date.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* 4. Alert Jour Férié */}
+                <PointageFerieAlert
+                    isFerie={statsJour.isFerie}
+                    libelleFerie={statsJour.libelleFerie}
+                    siteLabel={statsJour.siteLabel}
+                />
+
+                {/* 5. Table de Saisie DOMINANTE (scroll interne) */}
                 {loading ? (
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-12 text-center text-xs font-bold text-[var(--color-fg-muted)] flex items-center justify-center gap-2">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-12 text-center text-xs font-bold text-[var(--color-fg-muted)] flex items-center justify-center gap-2" style={{ minHeight: 'calc(100vh - 260px)' }}>
                         <Clock size={16} className="animate-spin text-brand-500" />
-                        Chargement des pointages...
+                        Chargement des pointages…
                     </div>
                 ) : error ? (
                     <div className="bg-rose-500/10 border border-rose-500/30 p-4 text-xs font-bold text-rose-700 dark:text-rose-400 flex items-center gap-2">
-                        <AlertCircle size={16} />
+                        <AlertCircle size={15} />
                         {error}
                     </div>
                 ) : (
@@ -457,18 +430,16 @@ export default function SaisieQuotidiennePage() {
                     />
                 )}
 
-                {/* 7. Contrôle des Anomalies */}
+                {/* 6. Sections secondaires en accordéon */}
                 <PointageAnomaliesSection
                     totalAnomalies={statsJour.totalAnomalies}
                 />
 
-                {/* 8. Synthèse Hebdomadaire (4 semaines réelles via Backend) */}
                 <PointageWeeklySyntheseSection
                     periodeInfo={periodeInfo}
                     selectedSite={selectedSite}
                 />
 
-                {/* 9. Transmission Finale à la DAF */}
                 <PointageTransmissionDafSection
                     periodeInfo={periodeInfo}
                     totalAnomalies={statsJour.totalAnomalies}
@@ -477,35 +448,6 @@ export default function SaisieQuotidiennePage() {
                     onRequestSubmitDaf={() => setIsSubmitModalOpen(true)}
                 />
             </div>
-
-            {/* 10. Barre Sticky Persistante (Intégrée au contenu principal, ne recouvre JAMAIS la sidebar) */}
-            {dirtyCount > 0 && (
-                <div className="sticky bottom-[-24px] -mx-6 -mb-6 bg-[#0F2942] text-white z-30 shadow-2xl border-t border-white/10 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                    <div className="max-w-[1440px] mx-auto px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <p className="text-[13px] text-white/90">
-                            <span className="font-bold text-amber-400">{dirtyCount}</span> salarié{dirtyCount > 1 ? 's' : ''} modifié{dirtyCount > 1 ? 's' : ''} non enregistré{dirtyCount > 1 ? 's' : ''} · N'oubliez pas d'enregistrer avant de changer de date ou de site.
-                        </p>
-                        <div className="flex items-center gap-2.5 shrink-0">
-                            <button
-                                type="button"
-                                onClick={resetAllChanges}
-                                disabled={saving}
-                                className="bg-white/10 hover:bg-white/20 text-white px-3.5 py-2 text-[13px] font-semibold border border-white/20 transition-colors cursor-pointer"
-                            >
-                                Annuler les modifications
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleRequestSave}
-                                disabled={saving}
-                                className="bg-white text-[#0F2942] hover:bg-neutral-100 px-4 py-2 text-[13px] font-bold shadow-sm transition-colors cursor-pointer"
-                            >
-                                Enregistrer les pointages
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Modale Récapitulative & Validation Avant Sauvegarde */}
             <PointageRecapModal

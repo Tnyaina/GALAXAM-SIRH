@@ -202,7 +202,7 @@ export default function CarrieresSupervisionPage() {
     ];
 
     return (
-        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans pb-16">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans pb-16">
             <SEO
                 title="Supervision Contrats & Carrières | GALAXAM SIRH"
                 description="Pilotage centralisé des contrats, périodes d'essai, mouvements et évolutions de carrière."
@@ -250,7 +250,7 @@ export default function CarrieresSupervisionPage() {
 
             {/* ONGLET 1 : REGISTRE DES CONTRATS & ÉCHÉANCES */}
             {activeMainTab === 'contrats' && (
-                <div className="space-y-6">
+                <div className="space-y-3.5">
                     {/* Notifications d'Erreur */}
                     {error && <Alert type="error" onClose={() => setError(null)}>{error}</Alert>}
 

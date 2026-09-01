@@ -59,7 +59,7 @@ export default function PointageGridTable({
     };
 
     return (
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden flex flex-col">
             {/* Légende Métier et Info-Bulle */}
             <div className="flex flex-wrap items-center justify-between px-5 py-2.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-xs text-[var(--color-fg-muted)]">
                 <div className="flex flex-wrap items-center gap-4">
@@ -76,9 +76,9 @@ export default function PointageGridTable({
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
                 <Table className="w-full text-left border-collapse text-[13px]">
-                    <Thead>
+                    <Thead className="sticky top-0 z-10">
                         {/* Ligne 1 d'en-tête (Titres de Blocs) */}
                         <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
                             <Th className="px-5 py-2.5 w-[220px]">Employé</Th>
@@ -109,7 +109,7 @@ export default function PointageGridTable({
                             ))}
                         </Tr>
                         {/* Ligne 2 d'en-tête (Sous-colonnes Entrée / Sortie) */}
-                        <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider">
+                        <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider sticky top-[38px] z-10">
                             <Th className="px-5 py-1.5"></Th>
                             <Th className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">Entrée</Th>
                             <Th className="px-2 py-1.5 text-center">Sortie</Th>
@@ -138,7 +138,7 @@ export default function PointageGridTable({
                             return (
                                 <Tr key={row.idEmploye} className={`border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors ${rowBorderCue}`}>
                                     {/* 1. Identification Salarié */}
-                                    <Td className="px-5 py-3">
+                                    <Td className="px-4 py-1.5">
                                         <div className="flex items-center gap-2.5">
                                             <Avatar
                                                 src={row.photoUrl ? getFullPhotoUrl(row.photoUrl) : null}
@@ -168,7 +168,7 @@ export default function PointageGridTable({
                                     </Td>
 
                                     {/* 2. Entrée Matin */}
-                                    <Td className="px-2 py-3 text-center border-l border-[var(--color-border-subtle)]">
+                                    <Td className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
                                         <TimeInput
                                             inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 0, el)}
                                             value={row.heureEntreeMatin}
@@ -181,7 +181,7 @@ export default function PointageGridTable({
                                     </Td>
 
                                     {/* 3. Sortie Matin */}
-                                    <Td className="px-2 py-3 text-center">
+                                    <Td className="px-2 py-1.5 text-center">
                                         <TimeInput
                                             inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 1, el)}
                                             value={row.heureSortieMatin}
@@ -194,7 +194,7 @@ export default function PointageGridTable({
                                     </Td>
 
                                     {/* 4. Retour Pause Midi */}
-                                    <Td className="px-2 py-3 text-center border-l border-[var(--color-border-subtle)]">
+                                    <Td className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
                                         <TimeInput
                                             inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 2, el)}
                                             value={row.heureEntreeAm}
@@ -207,7 +207,7 @@ export default function PointageGridTable({
                                     </Td>
 
                                     {/* 5. Sortie Soir */}
-                                    <Td className="px-2 py-3 text-center">
+                                    <Td className="px-2 py-1.5 text-center">
                                         <TimeInput
                                             inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 3, el)}
                                             value={row.heureSortieAm}
@@ -219,7 +219,7 @@ export default function PointageGridTable({
                                     </Td>
 
                                     {/* 6. Total Heures */}
-                                    <Td className="px-3 py-3 text-center font-mono font-semibold border-l border-[var(--color-border-subtle)]">
+                                    <Td className="px-3 py-1.5 text-center font-mono font-semibold border-l border-[var(--color-border-subtle)]">
                                         <div className="flex flex-col items-center justify-center">
                                             <span>
                                                 {formatHeuresMinutes(row.totalHeures, true)}
@@ -233,7 +233,7 @@ export default function PointageGridTable({
                                     </Td>
 
                                     {/* 7. Retard */}
-                                    <Td className="px-3 py-3 text-center font-mono font-semibold">
+                                    <Td className="px-3 py-1.5 text-center font-mono font-semibold">
                                         {row.minutesRetard > 0 ? (
                                             <span className="text-danger-600 dark:text-danger-400">
                                                 +{row.minutesRetard} min
@@ -246,7 +246,7 @@ export default function PointageGridTable({
                                     </Td>
 
                                     {/* 8. Statut */}
-                                    <Td className="px-3 py-3 text-center">
+                                    <Td className="px-3 py-1.5 text-center">
                                         {getStatutPointageBadge(row.codeStatut, row.libelleStatut)}
                                     </Td>
 
@@ -263,7 +263,7 @@ export default function PointageGridTable({
                                             const amVal = dynObj.am !== undefined ? dynObj.am : (row.deplacementAm !== false && isAccordee);
 
                                             return (
-                                                <Td key={ind.idIndemnite} className="px-3 py-3 text-center border-l border-[var(--color-border-subtle)]">
+                                                <Td key={ind.idIndemnite} className="px-3 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
                                                     <div className="flex items-center justify-center gap-3">
                                                         <label className={`inline-flex items-center gap-1 text-[11px] font-semibold ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet aller (matin) — ${fmtMoney(montantTrajet)}`}>
                                                             <input
@@ -302,7 +302,7 @@ export default function PointageGridTable({
                                         const checked = isRepas ? !!row.indemniteRepasRecue : isAccordee;
 
                                         return (
-                                            <Td key={ind.idIndemnite} className="px-3 py-3 text-center border-l border-[var(--color-border-subtle)]">
+                                            <Td key={ind.idIndemnite} className="px-3 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
                                                 <div className="flex flex-col items-center justify-center gap-1">
                                                     <label className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Accordée — ${fmtMoney(montantJour)}`}>
                                                         <input

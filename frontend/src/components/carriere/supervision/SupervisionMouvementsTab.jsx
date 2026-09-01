@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, memo } from 'react';
-import { Search, RefreshCw, Layers } from 'lucide-react';
+import { Search, RefreshCw, Layers, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import contratService from '@/api/employe/contratService';
 import organisationService from '@/api/admin/organisationService';
@@ -10,6 +10,7 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Pagination from '@/components/ui/navigation/Pagination';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDate, fmtAriary } from '@/components/dashboard/DashboardUtils';
 import useDebounce from '@/hooks/useDebounce';
 
@@ -198,131 +199,130 @@ function SupervisionMouvementsTab() {
 
             {/* Table du Journal des Mouvements */}
             {!loading && !error && workflows.length > 0 && (
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-x-auto">
-                    <table className="w-full text-xs text-left">
-                        <thead className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] font-bold uppercase tracking-wider text-[10px] text-[var(--color-fg-muted)]">
-                            <tr>
-                                <th className="py-3 px-4">Date d'Effet</th>
-                                <th className="py-3 px-4">Collaborateur</th>
-                                <th className="py-3 px-4">Type de Mouvement</th>
-                                <th className="py-3 px-4">Type &amp; N° Contrat</th>
-                                <th className="py-3 px-4">Poste &amp; Affectation</th>
-                                <th className="py-3 px-4">Rémunération</th>
-                                <th className="py-3 px-4">Statut</th>
-                                <th className="py-3 px-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--color-border-subtle)] text-[var(--color-fg)]">
-                            {workflows.map((wf) => {
-                                const isFuture = wf.dateEffet && new Date(wf.dateEffet) > new Date();
-                                const isAnnule = Boolean(wf.isAnnule);
-                                const isPlanifie = Boolean(wf.isPlanifie) || (isFuture && !isAnnule);
-                                const motifAnnulation = wf.motif || wf.commentaire;
+                <Table>
+                    <Thead>
+                        <Tr>
+                            <Th>Date d'Effet</Th>
+                            <Th>Collaborateur</Th>
+                            <Th>Type de Mouvement</Th>
+                            <Th>Type &amp; N° Contrat</Th>
+                            <Th>Poste &amp; Affectation</Th>
+                            <Th>Rémunération</Th>
+                            <Th>Statut</Th>
+                            <Th align="right">Action</Th>
+                        </Tr>
+                    </Thead>
+                    <Tbody>
+                        {workflows.map((wf) => {
+                            const isFuture = wf.dateEffet && new Date(wf.dateEffet) > new Date();
+                            const isAnnule = Boolean(wf.isAnnule);
+                            const isPlanifie = Boolean(wf.isPlanifie) || (isFuture && !isAnnule);
+                            const motifAnnulation = wf.motif || wf.commentaire;
 
-                                return (
-                                    <tr key={wf.idWorkflow} className="hover:bg-[var(--color-bg-subtle)]/50 transition-colors">
-                                        {/* Date d'effet */}
-                                        <td className="py-3.5 px-4 font-data">
-                                            <div className="font-bold text-[var(--color-fg)]">
-                                                {fmtDate(wf.dateEffet || wf.dateDemande)}
+                            return (
+                                <Tr
+                                    key={wf.idWorkflow}
+                                    onClick={() => navigate(`/employes/${wf.idEmploye}?tab=carriere${wf.idWorkflow ? `&wf=${wf.idWorkflow}` : ''}`)}
+                                    className="cursor-pointer group"
+                                    title="Cliquer pour ouvrir la fiche carrière du collaborateur"
+                                >
+                                    {/* Date d'effet */}
+                                    <Td className="font-data">
+                                        <div className="font-bold text-[var(--color-fg)]">
+                                            {fmtDate(wf.dateEffet || wf.dateDemande)}
+                                        </div>
+                                        {isPlanifie && (
+                                            <div className="text-[10px] font-bold text-[var(--color-brand-600)]">
+                                                Prise d'effet future
                                             </div>
-                                            {isPlanifie && (
-                                                <div className="text-[10px] font-bold text-[var(--color-brand-600)]">
-                                                    Prise d'effet future
+                                        )}
+                                    </Td>
+
+                                    {/* Collaborateur */}
+                                    <Td>
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-7 h-7 bg-brand-500 text-white font-bold flex items-center justify-center text-[11px] shrink-0 rounded-none shadow-xs">
+                                                {wf.nomPrenomEmploye?.charAt(0) || 'E'}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="font-extrabold text-[var(--color-fg)] group-hover:text-brand-500 transition-colors truncate">
+                                                    {wf.nomPrenomEmploye}
                                                 </div>
+                                                <div className="font-data text-[11px] text-[var(--color-fg-subtle)]">
+                                                    #{wf.matriculeEmploye}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Td>
+
+                                    {/* Type d'événement */}
+                                    <Td>
+                                        <Badge variant={getEventBadgeVariant(wf.codeTypeEvenement)} size="xs">
+                                            {wf.libelleTypeEvenement || wf.codeTypeEvenement}
+                                        </Badge>
+                                        {wf.motif && !isAnnule && (
+                                            <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5 truncate max-w-[180px]">
+                                                {wf.motif}
+                                            </div>
+                                        )}
+                                    </Td>
+
+                                    {/* Type & N° Contrat */}
+                                    <Td>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            {wf.libelleTypeContrat && (
+                                                <Badge variant={getEventBadgeVariant(wf.libelleTypeContrat)} size="xs">
+                                                    {wf.libelleTypeContrat}
+                                                </Badge>
                                             )}
-                                        </td>
+                                            <span className="font-mono font-bold text-[var(--color-brand-600)]">
+                                                {wf.numeroContratCible || wf.numeroContratSource || '—'}
+                                            </span>
+                                        </div>
+                                    </Td>
 
-                                        {/* Collaborateur */}
-                                        <td className="py-3.5 px-4">
-                                            <div className="flex items-center gap-2.5">
-                                                <div className="w-7 h-7 bg-brand-500 text-white font-bold flex items-center justify-center text-[11px] shrink-0 rounded-none shadow-xs">
-                                                    {wf.nomPrenomEmploye?.charAt(0) || 'E'}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="font-extrabold text-[var(--color-fg)] truncate">
-                                                        {wf.nomPrenomEmploye}
-                                                    </div>
-                                                    <div className="font-data text-[11px] text-[var(--color-fg-subtle)]">
-                                                        #{wf.matriculeEmploye}
-                                                    </div>
-                                                </div>
+                                    {/* Poste & Affectation */}
+                                    <Td>
+                                        <div className="font-semibold text-[var(--color-fg)]">
+                                            {wf.libelleFonction || 'Fonction inchangée'}
+                                        </div>
+                                        <div className="text-[11px] text-[var(--color-fg-muted)]">
+                                            {wf.libelleSite || 'Site'} {wf.libelleDepartement ? `· ${wf.libelleDepartement}` : ''}
+                                        </div>
+                                    </Td>
+
+                                    {/* Rémunération */}
+                                    <Td className="font-data">
+                                        {wf.salaireBase ? (
+                                            <span className="font-bold text-[var(--color-fg)]">
+                                                {fmtAriary(wf.salaireBase)} Ar
+                                            </span>
+                                        ) : (
+                                            <span className="text-[var(--color-fg-subtle)]">—</span>
+                                        )}
+                                    </Td>
+
+                                    {/* Statut */}
+                                    <Td>
+                                        <StatusBadge status={wf.codeStatutWorkflow} label={wf.libelleStatutWorkflow} size="xs" />
+                                        {isAnnule && motifAnnulation && (
+                                            <div className="text-[10px] text-danger-500 font-normal mt-0.5 max-w-[180px] truncate" title={`Motif : ${motifAnnulation}`}>
+                                                Motif : {motifAnnulation}
                                             </div>
-                                        </td>
+                                        )}
+                                    </Td>
 
-                                        {/* Type d'événement */}
-                                        <td className="py-3.5 px-4">
-                                            <Badge variant={getEventBadgeVariant(wf.codeTypeEvenement)} size="xs">
-                                                {wf.libelleTypeEvenement || wf.codeTypeEvenement}
-                                            </Badge>
-                                            {wf.motif && !isAnnule && (
-                                                <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5 truncate max-w-[180px]">
-                                                    {wf.motif}
-                                                </div>
-                                            )}
-                                        </td>
-
-                                        {/* Type & N° Contrat */}
-                                        <td className="py-3.5 px-4">
-                                            <div className="flex items-center gap-1.5 flex-wrap">
-                                                {wf.libelleTypeContrat && (
-                                                    <Badge variant={getEventBadgeVariant(wf.libelleTypeContrat)} size="xs">
-                                                        {wf.libelleTypeContrat}
-                                                    </Badge>
-                                                )}
-                                                <span className="font-mono font-bold text-[var(--color-brand-600)]">
-                                                    {wf.numeroContratCible || wf.numeroContratSource || '—'}
-                                                </span>
-                                            </div>
-                                        </td>
-
-                                        {/* Poste & Affectation */}
-                                        <td className="py-3.5 px-4">
-                                            <div className="font-semibold text-[var(--color-fg)]">
-                                                {wf.libelleFonction || 'Fonction inchangée'}
-                                            </div>
-                                            <div className="text-[11px] text-[var(--color-fg-muted)]">
-                                                {wf.libelleSite || 'Site'} {wf.libelleDepartement ? `· ${wf.libelleDepartement}` : ''}
-                                            </div>
-                                        </td>
-
-                                        {/* Rémunération */}
-                                        <td className="py-3.5 px-4 font-data">
-                                            {wf.salaireBase ? (
-                                                <span className="font-bold text-[var(--color-fg)]">
-                                                    {fmtAriary(wf.salaireBase)} Ar
-                                                </span>
-                                            ) : (
-                                                <span className="text-[var(--color-fg-subtle)]">—</span>
-                                            )}
-                                        </td>
-
-                                        {/* Statut */}
-                                        <td className="py-3.5 px-4">
-                                            <StatusBadge status={wf.codeStatutWorkflow} label={wf.libelleStatutWorkflow} size="xs" />
-                                            {isAnnule && motifAnnulation && (
-                                                <div className="text-[10px] text-danger-500 font-normal mt-0.5 max-w-[180px] truncate" title={`Motif : ${motifAnnulation}`}>
-                                                    Motif : {motifAnnulation}
-                                                </div>
-                                            )}
-                                        </td>
-
-                                        {/* Actions */}
-                                        <td className="py-3.5 px-4 text-right">
-                                            <Button
-                                                variant="outline"
-                                                size="xs"
-                                                onClick={() => navigate(`/employes/${wf.idEmploye}?tab=carriere${wf.idWorkflow ? `&wf=${wf.idWorkflow}` : ''}`)}
-                                            >
-                                                Fiche Carrière
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                                    {/* Actions */}
+                                    <Td align="right">
+                                        <span className="text-xs font-semibold text-[var(--color-brand-600)] group-hover:text-[var(--color-brand-700)] inline-flex items-center gap-0.5">
+                                            Carrière <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                                        </span>
+                                    </Td>
+                                </Tr>
+                            );
+                        })}
+                    </Tbody>
+                </Table>
             )}
 
             {/* Pagination */}

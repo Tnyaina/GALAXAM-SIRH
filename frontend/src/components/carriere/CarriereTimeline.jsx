@@ -33,7 +33,7 @@ export default function CarriereTimeline({
     const displayContrats = safeContrats.filter(ct => ct && ct.codeStatutContrat !== 'BROUILLON');
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-3.5">
             <TimelineBanners
                 brouillonWf={brouillonWf}
                 workflowPlanifieFutur={workflowPlanifieFutur}
@@ -62,7 +62,7 @@ export default function CarriereTimeline({
             />
 
             {/* Sélecteur de mode d'affichage de l'historique */}
-            <div className="pt-4 border-t border-ink-150 dark:border-ink-700 space-y-4">
+            <div className="pt-3 border-t border-ink-150 dark:border-ink-700 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-ink-900 dark:text-white flex items-center gap-2">
                         <Clock size={14} className="text-brand-500" />

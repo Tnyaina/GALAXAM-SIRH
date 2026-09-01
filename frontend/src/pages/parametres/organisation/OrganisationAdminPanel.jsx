@@ -25,7 +25,7 @@ export default function OrganisationAdminPanel() {
     ];
 
     return (
-        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Organisation & Structure" description="Administration des sites, départements, services et postes." />
 
             <PageHeader
@@ -49,7 +49,7 @@ export default function OrganisationAdminPanel() {
                 />
 
                 {/* Contenu de l'onglet actif */}
-                <div className="p-6">
+                <div className="p-4 sm:p-4.5">
                     <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
                         {activeTab === 'filiales' && <FilialesSitesTab />}
                         {activeTab === 'departements' && <DepartementsServicesTab />}

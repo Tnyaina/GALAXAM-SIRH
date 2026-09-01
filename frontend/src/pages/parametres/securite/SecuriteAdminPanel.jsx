@@ -25,7 +25,7 @@ export default function SecuriteAdminPanel() {
     ];
 
     return (
-        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Sécurité & Accès" description="Administration des comptes utilisateurs, rôles, permissions et menus." />
 
             <PageHeader
@@ -49,7 +49,7 @@ export default function SecuriteAdminPanel() {
                 />
 
                 {/* Contenu de l'onglet actif avec Suspense & SkeletonTable standardisé */}
-                <div className="p-6">
+                <div className="p-4 sm:p-4.5">
                     <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
                         {activeTab === 'users' && <UserManagementTab />}
                         {activeTab === 'roles' && <RolesAndPermissionsTab />}

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { CalendarDays, AlertTriangle, FileSpreadsheet, CalendarRange, ArrowRight } from 'lucide-react';
+import { CalendarDays, AlertTriangle, FileSpreadsheet, CalendarRange } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export default function PointageWorkflowNav() {
@@ -9,21 +9,21 @@ export default function PointageWorkflowNav() {
     const steps = [
         {
             to: '/pointages/saisie',
-            label: 'Saisie Quotidienne',
-            desc: 'Pointage, heures & indemnités',
-            icon: CalendarDays
+            label: 'Saisie quotidienne',
+            icon: CalendarDays,
+            step: 1
         },
         {
             to: '/pointages/anomalies',
-            label: 'Contrôle des Anomalies',
-            desc: 'Saisies incomplets & retards',
-            icon: AlertTriangle
+            label: 'Anomalies',
+            icon: AlertTriangle,
+            step: 2
         },
         {
             to: '/pointages/synthese',
             label: 'Synthèse & Compensations',
-            desc: 'Compensations retards & heures sup',
-            icon: FileSpreadsheet
+            icon: FileSpreadsheet,
+            step: 3
         }
     ];
 
@@ -31,44 +31,35 @@ export default function PointageWorkflowNav() {
         steps.push({
             to: '/pointages/periodes',
             label: 'Périodes de Paie',
-            desc: 'Transmission DAF & Clôture',
-            icon: CalendarRange
+            icon: CalendarRange,
+            step: 4
         });
     }
 
     return (
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2 shadow-xs mb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                {steps.map((step, index) => {
-                    const Icon = step.icon;
-                    return (
-                        <NavLink
-                            key={step.to}
-                            to={step.to}
-                            className={({ isActive }) => `
-                                flex items-center justify-between p-3 border transition-all
-                                ${isActive
-                                    ? 'bg-[var(--color-brand-500)]/10 border-[var(--color-brand-500)] text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shadow-xs'
-                                    : 'bg-[var(--color-bg-subtle)] border-transparent hover:border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                                }
-                            `}
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shrink-0">
-                                    <Icon size={16} />
-                                </div>
-                                <div className="text-left">
-                                    <p className="text-xs font-bold leading-tight">{step.label}</p>
-                                    <p className="text-[10px] text-[var(--color-fg-muted)] leading-tight mt-0.5">{step.desc}</p>
-                                </div>
-                            </div>
-                            {index < steps.length - 1 && (
-                                <ArrowRight size={13} className="hidden lg:block text-[var(--color-border-subtle)]" />
-                            )}
-                        </NavLink>
-                    );
-                })}
-            </div>
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs flex items-stretch overflow-x-auto">
+            {steps.map((step, index) => {
+                const Icon = step.icon;
+                return (
+                    <NavLink
+                        key={step.to}
+                        to={step.to}
+                        className={({ isActive }) => `
+                            flex items-center gap-2 px-4 py-2 text-[11.5px] font-semibold border-r border-[var(--color-border-subtle)] whitespace-nowrap transition-colors shrink-0 last:border-r-0
+                            ${isActive
+                                ? 'bg-brand-600/8 text-brand-700 dark:text-brand-300 border-b-2 border-b-brand-600'
+                                : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
+                            }
+                        `}
+                    >
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[9px] font-bold shrink-0">
+                            {step.step}
+                        </span>
+                        <Icon size={12} className="shrink-0" />
+                        <span>{step.label}</span>
+                    </NavLink>
+                );
+            })}
         </div>
     );
 }

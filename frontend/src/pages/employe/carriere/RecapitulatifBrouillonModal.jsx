@@ -50,6 +50,15 @@ export default function RecapitulatifBrouillonModal({
         setMotifAnnulation('');
     }, [workflowCpl, initialCancelMode]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     const currentWf = activeWf || workflowCpl;
 
     const handleValiderConfirm = async () => {
@@ -150,7 +159,10 @@ export default function RecapitulatifBrouillonModal({
     const isPlanifieFutur = isPlanifie;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto">
+        <div 
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto"
+        >
             <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl max-w-4xl w-full my-8 overflow-hidden flex flex-col max-h-[90vh]">
 
                 {/* Header */}
@@ -189,7 +201,7 @@ export default function RecapitulatifBrouillonModal({
                 </div>
 
                 {/* Body Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
                     {errorMsg && (
                         <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 rounded-none p-4 text-xs flex items-center gap-2 font-medium">
                             <ShieldAlert size={16} className="flex-shrink-0" />
@@ -291,7 +303,7 @@ export default function RecapitulatifBrouillonModal({
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
 
                         {/* Carte 1 : Contrat de Travail */}
                         <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-none space-y-3">

@@ -20,7 +20,7 @@ export function Tabs({
         if (isValidElement(icon)) return icon;
         if (typeof icon === 'function' || (typeof icon === 'object' && icon !== null)) {
             const IconComp = icon;
-            return <IconComp size={16} />;
+            return <IconComp size={15} />;
         }
         return null;
     };
@@ -37,7 +37,7 @@ export function Tabs({
                             type="button"
                             onClick={() => onChange(tab.id)}
                             className={`
-                                flex items-center gap-1.5 py-2.5 px-3 border-b-2 text-xs sm:text-[13px] font-semibold cursor-pointer whitespace-nowrap rounded-none
+                                flex items-center gap-1.5 py-2 px-3 border-b-2 text-xs font-semibold cursor-pointer whitespace-nowrap rounded-none
                                 ${isActive
                                     ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-bold'
                                     : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'

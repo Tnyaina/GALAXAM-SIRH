@@ -62,37 +62,33 @@ export default function ContratActifSection({
     }
 
     return (
-        <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-none shadow-sm p-6 space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-ink-150 dark:border-ink-700">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-success-500/10 text-success-600 rounded-none flex items-center justify-center font-bold">
-                        <Briefcase size={20} />
+        <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100 dark:border-ink-800">
+                <div>
+                    <div className="flex items-center gap-2.5">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                            Contrat actif N° {contratActif.numeroContrat}
+                        </h3>
+                        <Badge variant="success" size="sm" className="font-bold">Actif</Badge>
+                        {(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai) && !workflowsList.some(w => (w.isActif ?? (w.codeStatutWorkflow === 'ACTIF')) && w.codeTypeEvenement === 'CONFIRMATION_ESSAI' && (Number(w.idContratCible) === Number(contratActif.idContrat) || Number(w.idContratSource) === Number(contratActif.idContrat))) && (
+                            <Badge variant="warning" size="sm" icon={<Clock size={12} />}>
+                                Période d'Essai (Fin le {fmtDate(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai)})
+                            </Badge>
+                        )}
                     </div>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h3 className="text-base font-bold text-ink-900 dark:text-white">
-                                Contrat Actif N° {contratActif.numeroContrat}
-                            </h3>
-                            <Badge variant="success" size="sm">ACTIF</Badge>
-                            {(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai) && !workflowsList.some(w => (w.isActif ?? (w.codeStatutWorkflow === 'ACTIF')) && w.codeTypeEvenement === 'CONFIRMATION_ESSAI' && (Number(w.idContratCible) === Number(contratActif.idContrat) || Number(w.idContratSource) === Number(contratActif.idContrat))) && (
-                                <Badge variant="warning" size="sm" icon={<Clock size={12} />}>
-                                    Période d'Essai (Fin le {fmtDate(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai)})
-                                </Badge>
-                            )}
-                        </div>
-                        <p className="text-xs text-ink-400">Relation contractuelle et juridique en cours d'exécution</p>
-                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">Relation contractuelle et juridique en cours d'exécution</p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2.5">
                     {onOpenAttestation && (
                         <Button
                             onClick={() => onOpenAttestation(contratActif)}
                             variant="outline"
                             size="sm"
-                            iconLeft={<FileCheck size={16} />}
+                            iconLeft={<FileCheck size={15} />}
+                            className="text-xs font-semibold"
                         >
-                            Attestation de Travail
+                            Attestation de travail
                         </Button>
                     )}
                     {canWrite && !brouillonWf && (
@@ -110,17 +106,19 @@ export default function ContratActifSection({
                                     onClick={onOpenTransition}
                                     variant="primary"
                                     size="sm"
-                                    iconLeft={<RefreshCw size={16} />}
+                                    iconLeft={<RefreshCw size={15} />}
+                                    className="text-xs font-semibold"
                                 >
-                                    Mouvement / Transition RH
+                                    Mouvement / transition RH
                                 </Button>
                                 <Button
                                     onClick={onOpenRupture}
-                                    variant="danger"
+                                    variant="outline"
                                     size="sm"
-                                    iconLeft={<UserMinus size={16} />}
+                                    iconLeft={<UserMinus size={15} className="text-rose-500" />}
+                                    className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 border-rose-200 dark:border-rose-900/40"
                                 >
-                                    Rupture / Fin de Contrat
+                                    Rupture / fin de contrat
                                 </Button>
                             </>
                         )
@@ -128,35 +126,35 @@ export default function ContratActifSection({
                 </div>
             </div>
 
-            {/* Grille Contrat + Affectation */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Grille Contrat + Affectation en 2 blocs nettement séparés */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
                 {/* Bloc 1 : Termes du Contrat */}
-                <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-800 rounded-none space-y-2 text-xs">
-                    <h4 className="font-bold text-brand-500 uppercase tracking-wider text-[10px] pb-1 border-b border-ink-150 dark:border-ink-800 flex items-center gap-1.5">
-                        <Building size={12} /> Termes Contractuels
+                <div className="bg-slate-50/60 dark:bg-ink-950/40 border border-slate-200/80 dark:border-ink-800 p-4 sm:p-5 rounded-none space-y-2">
+                    <h4 className="font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-xs pb-2 border-b border-slate-200/80 dark:border-ink-800 flex items-center gap-1.5">
+                        <Building size={13} className="text-brand-500" /> Termes Contractuels
                     </h4>
-                    <div className="py-1 flex justify-between">
-                        <span className="text-ink-400">Type de Contrat :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{contratActif?.libelleTypeContrat || workflowCplActif?.libelleTypeContrat || '-'}</span>
+                    <div className="py-1.5 flex justify-between items-baseline text-xs border-b border-slate-200/50 dark:border-ink-800/50">
+                        <span className="text-slate-500 dark:text-ink-400">Type de contrat :</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{contratActif?.libelleTypeContrat || workflowCplActif?.libelleTypeContrat || '—'}</span>
                     </div>
-                    <div className="py-1 flex justify-between">
-                        <span className="text-ink-400">Filiale Employeuse :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{contratActif?.libelleFiliale || workflowCplActif?.libelleFiliale || '-'}</span>
+                    <div className="py-1.5 flex justify-between items-baseline text-xs border-b border-slate-200/50 dark:border-ink-800/50">
+                        <span className="text-slate-500 dark:text-ink-400">Filiale employeuse :</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{contratActif?.libelleFiliale || workflowCplActif?.libelleFiliale || '—'}</span>
                     </div>
-                    <div className="py-1 flex justify-between">
-                        <span className="text-ink-400">Date de Début :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{fmtDate(contratActif.dateDebut)}</span>
+                    <div className="py-1.5 flex justify-between items-baseline text-xs border-b border-slate-200/50 dark:border-ink-800/50">
+                        <span className="text-slate-500 dark:text-ink-400">Date de début :</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{fmtDate(contratActif.dateDebut)}</span>
                     </div>
                     {etatEssai?.isEssaiActif && (
-                        <div className={`py-2 px-2.5 my-1.5 border rounded-none space-y-2 ${etatEssai.isEssaiEchu
+                        <div className={`py-2 px-3 my-2 border rounded-none space-y-2 ${etatEssai.isEssaiEchu
                             ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
                             : 'bg-warning-500/10 border-warning-500/20 text-warning-800 dark:text-warning-300'
                             }`}>
-                            <div className="flex justify-between items-center font-medium">
+                            <div className="flex justify-between items-center font-medium text-xs">
                                 <span className="flex items-center gap-1.5 font-bold">
                                     <Clock size={13} /> {
                                         etatEssai.isEssaiEchu
-                                            ? 'Période d\'Essai Échue (Action requise) :'
+                                            ? 'Période d\'Essai Échue :'
                                             : (etatEssai.isDernierJour ? 'Dernier Jour d\'Essai :' : 'Période d\'Essai :')
                                     }
                                 </span>
@@ -168,25 +166,8 @@ export default function ContratActifSection({
                                     }
                                 </span>
                             </div>
-                            {workflowPlanifieFutur ? (
-                                <div className="pt-1.5 border-t border-current/20 flex flex-wrap items-center gap-2">
-                                    <Badge variant="primary" size="sm" icon={<Clock size={13} />}>
-                                        {workflowPlanifieFutur.codeTypeEvenement === 'CONFIRMATION_ESSAI'
-                                            ? `Confirmation d'essai planifiée (Prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`
-                                            : workflowPlanifieFutur.codeTypeEvenement === 'RENOUVELLEMENT_ESSAI'
-                                                ? `Renouvellement d'essai planifié (Prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`
-                                                : `Événement (${workflowPlanifieFutur.libelleTypeEvenement || workflowPlanifieFutur.codeTypeEvenement}) planifié au ${fmtDate(workflowPlanifieFutur.dateEffet)}`}
-                                    </Badge>
-                                </div>
-                            ) : brouillonWf ? (
-                                <div className="pt-1.5 border-t border-current/20 flex flex-wrap items-center gap-2">
-                                    <Badge variant="warning" size="xs">
-                                        Brouillon en attente de validation ({brouillonWf.libelleTypeEvenement || 'Mouvement RH'})
-                                    </Badge>
-                                </div>
-                            ) : canWrite && (
-                                <div className="pt-1.5 border-t border-current/20 flex flex-wrap items-center gap-2">
-                                    {/* Bouton Confirmer : conditionné strictement par canConfirm */}
+                            {canWrite && !workflowPlanifieFutur && !brouillonWf && (
+                                <div className="pt-2 border-t border-current/20 flex flex-wrap items-center gap-2">
                                     {etatEssai?.canConfirm === true && (
                                         <Button
                                             onClick={onOpenConfirmation}
@@ -197,7 +178,6 @@ export default function ContratActifSection({
                                             Confirmer l'Essai
                                         </Button>
                                     )}
-                                    {/* Bouton Renouveler : conditionné strictement par canRenew */}
                                     {etatEssai?.canRenew === true ? (
                                         <Button
                                             onClick={onOpenRenouvellement}
@@ -207,68 +187,60 @@ export default function ContratActifSection({
                                         >
                                             Renouveller l'Essai
                                         </Button>
-                                    ) : (etatEssai?.nombreRenouvellements ?? 0) >= (etatEssai?.maxRenouvellements ?? 1) ? (
-                                        <Badge variant="warning" size="sm">
-                                            Max légal atteint ({etatEssai.nombreRenouvellements}/{etatEssai.maxRenouvellements})
-                                        </Badge>
                                     ) : null}
                                 </div>
                             )}
                         </div>
                     )}
-                    <div className="py-1 flex justify-between">
-                        <span className="text-ink-400">Date de Fin :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{fmtDate(contratActif.dateFin)}</span>
+                    <div className="py-1.5 flex justify-between items-baseline text-xs border-b border-slate-200/50 dark:border-ink-800/50">
+                        <span className="text-slate-500 dark:text-ink-400">Date de fin :</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{contratActif.dateFin ? fmtDate(contratActif.dateFin) : '—'}</span>
                     </div>
-                    <div className="py-1 flex justify-between">
-                        <span className="text-ink-400">Date Signature :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{fmtDate(contratActif.dateSignature)}</span>
+                    <div className="py-1.5 flex justify-between items-baseline text-xs border-b border-slate-200/50 dark:border-ink-800/50">
+                        <span className="text-slate-500 dark:text-ink-400">Date signature :</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{contratActif.dateSignature ? fmtDate(contratActif.dateSignature) : '—'}</span>
                     </div>
-                    <div className="py-1 flex justify-between">
-                        <span className="text-ink-400">Effectif Légal :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">
+                    <div className="py-1.5 flex justify-between items-baseline text-xs">
+                        <span className="text-slate-500 dark:text-ink-400">Effectif légal :</span>
+                        <span className="font-bold text-slate-900 dark:text-white">
                             {contratActif.comptabiliseEffectif ? 'Oui (Salarié)' : 'Non (Hors effectif)'}
                         </span>
                     </div>
                 </div>
 
-                {/* Bloc 2 : Affectation & Paie */}
-                <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-800 rounded-none space-y-2 text-xs">
-                    <h4 className="font-bold text-brand-500 uppercase tracking-wider text-[10px] pb-1 border-b border-ink-150 dark:border-ink-800 flex items-center gap-1.5">
-                        <Landmark size={12} /> Affectation Courante
+                {/* Bloc 2 : Affectation Courante */}
+                <div className="bg-slate-50/60 dark:bg-ink-950/40 border border-slate-200/80 dark:border-ink-800 p-4 sm:p-5 rounded-none space-y-2">
+                    <h4 className="font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-xs pb-2 border-b border-slate-200/80 dark:border-ink-800 flex items-center gap-1.5">
+                        <Landmark size={13} className="text-brand-500" /> Affectation Courante
                     </h4>
-                    <div className="py-1 flex justify-between">
-                        <span className="text-ink-400">Site :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{affectationActive?.libelleSite || workflowCplActif?.libelleSite || '-'}</span>
+                    <div className="py-1.5 flex justify-between items-baseline text-xs border-b border-slate-200/50 dark:border-ink-800/50">
+                        <span className="text-slate-500 dark:text-ink-400">Site :</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{affectationActive?.libelleSite || workflowCplActif?.libelleSite || '—'}</span>
                     </div>
-                    <div className="py-1 flex justify-between">
-                        <span className="text-ink-400">Département :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{affectationActive?.libelleDepartement || workflowCplActif?.libelleDepartement || '-'}</span>
+                    <div className="py-1.5 flex justify-between items-baseline text-xs border-b border-slate-200/50 dark:border-ink-800/50">
+                        <span className="text-slate-500 dark:text-ink-400">Département :</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{affectationActive?.libelleDepartement || workflowCplActif?.libelleDepartement || '—'}</span>
                     </div>
-                    <div className="py-1 flex justify-between">
-                        <span className="text-ink-400">Service :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{affectationActive?.libelleService || workflowCplActif?.libelleService || '-'}</span>
+                    <div className="py-1.5 flex justify-between items-baseline text-xs border-b border-slate-200/50 dark:border-ink-800/50">
+                        <span className="text-slate-500 dark:text-ink-400">Fonction / poste :</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{affectationActive?.libelleFonction || workflowCplActif?.libelleFonction || '—'}</span>
                     </div>
-                    <div className="py-1 flex justify-between">
-                        <span className="text-ink-400">Fonction / Poste :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{affectationActive?.libelleFonction || workflowCplActif?.libelleFonction || '-'}</span>
+                    <div className="py-1.5 flex justify-between items-baseline text-xs border-b border-slate-200/50 dark:border-ink-800/50">
+                        <span className="text-slate-500 dark:text-ink-400">Catégorie pro :</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{affectationActive?.libelleCategoriePro || affectationActive?.libelleCategorieProfessionnelle || workflowCplActif?.libelleCategoriePro || '—'}</span>
                     </div>
-                    <div className="py-1 flex justify-between">
-                        <span className="text-ink-400">Catégorie Pro :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{affectationActive?.libelleCategoriePro || affectationActive?.libelleCategorieProfessionnelle || workflowCplActif?.libelleCategoriePro || '-'}</span>
+                    <div className="py-1.5 flex justify-between items-baseline text-xs border-b border-slate-200/50 dark:border-ink-800/50">
+                        <span className="text-slate-500 dark:text-ink-400">Supérieur N+1 :</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{affectationActive?.nomPrenomResponsable || affectationActive?.nomResponsableHierarchique || workflowCplActif?.nomPrenomResponsable || '—'}</span>
                     </div>
-                    <div className="py-1 flex justify-between">
-                        <span className="text-ink-400">Supérieur N+1 :</span>
-                        <span className="font-semibold text-ink-800 dark:text-ink-100">{affectationActive?.nomPrenomResponsable || affectationActive?.nomResponsableHierarchique || workflowCplActif?.nomPrenomResponsable || '-'}</span>
-                    </div>
-                    <div className="py-1 flex justify-between border-t border-ink-150 dark:border-ink-800 mt-1 pt-2">
-                        <span className="text-ink-400">Salaire de Base :</span>
-                        <span className="font-bold text-brand-500 font-mono text-sm">
+                    <div className="py-2.5 flex justify-between items-baseline border-t border-slate-200 dark:border-ink-800 mt-2 pt-3">
+                        <span className="text-slate-500 dark:text-ink-400 text-xs">Salaire de base :</span>
+                        <span className="font-extrabold text-slate-900 dark:text-white font-data text-sm sm:text-base">
                             {fmtMoney(affectationActive?.salaireBase)} {
                                 (affectationActive?.libelleModeCalculPaie || workflowCplActif?.libelleModeCalculPaie || '').toLowerCase().includes('horaire')
-                                    ? '/ heure'
+                                    ? '/ h'
                                     : (affectationActive?.libelleModeCalculPaie || workflowCplActif?.libelleModeCalculPaie || '').toLowerCase().includes('journal')
-                                        ? '/ jour'
+                                        ? '/ j'
                                         : '/ mois'
                             }
                         </span>

@@ -47,19 +47,19 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, initialDem
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-[var(--color-brand-900)]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col font-sans">
+    <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-ink-900 border border-slate-200 dark:border-ink-700 max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col font-sans">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border-subtle)] shrink-0">
-          <h3 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-[var(--color-brand-500)]" />
-            {initialDemande?.idDemandeConge ? `Modifier la demande #${initialDemande.idDemandeConge}` : 'Nouvelle demande de congé / absence'}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-ink-800 shrink-0">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-brand-500" />
+            {initialDemande?.idDemandeConge ? `Modifier la demande #${initialDemande.idDemandeConge}` : 'Nouvelle demande de congé ou d\'absence'}
           </h3>
           <button
             onClick={onClose}
             aria-label="Fermer"
-            className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] text-xl leading-none w-8 h-8 flex items-center justify-center cursor-pointer"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-white text-xl leading-none w-8 h-8 flex items-center justify-center cursor-pointer"
           >
             ×
           </button>
