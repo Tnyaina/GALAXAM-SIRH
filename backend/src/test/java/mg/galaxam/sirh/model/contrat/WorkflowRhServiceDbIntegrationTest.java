@@ -111,7 +111,7 @@ public class WorkflowRhServiceDbIntegrationTest {
             c.setAutoCommit(false);
             try {
                 Integer idEmploye = null;
-                try (var ps = c.prepareStatement("SELECT id_employe FROM employe LIMIT 1")) {
+                try (var ps = c.prepareStatement("SELECT e.id_employe FROM employe e JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe LIMIT 1")) {
                     try (var rs = ps.executeQuery()) {
                         if (rs.next()) idEmploye = rs.getInt(1);
                     }
