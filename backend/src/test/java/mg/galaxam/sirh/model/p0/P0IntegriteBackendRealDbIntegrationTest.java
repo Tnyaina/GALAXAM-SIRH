@@ -9,6 +9,8 @@ import mg.galaxam.sirh.model.contrat.EmployeAffectationCarriere;
 import mg.galaxam.sirh.model.employe.Employe;
 import mg.galaxam.sirh.model.pointage.service.PointageAnomalieService;
 import mg.galaxam.sirh.model.pointage.service.PointageSaisieService;
+import mg.galaxam.sirh.model.pointage.service.PointageSyntheseService;
+import mg.galaxam.sirh.api.dto.pointage.PointageSyntheseMensuelleDTO;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -63,6 +65,9 @@ public class P0IntegriteBackendRealDbIntegrationTest {
 
     @Autowired
     private PointageAnomalieService pointageAnomalieService;
+
+    @Autowired
+    private PointageSyntheseService pointageSyntheseService;
 
     private static final List<Integer> createdEmployeIds = new CopyOnWriteArrayList<>();
     private static final List<Integer> createdPeriodeIds = new CopyOnWriteArrayList<>();
@@ -1431,5 +1436,52 @@ public class P0IntegriteBackendRealDbIntegrationTest {
                 }
             }
         }
+    }
+
+    @Test
+    @Order(22)
+    @DisplayName("RealDB-22 : Résolution temporelle de l'affectation et du site dans la synthèse de pointage")
+    void testRealDb_22_PointageSynthese_ResolutionAffectationHistorique() throws Exception {
+        Employe emp = creerEtCommiterEmploye("RDB22");
+        int idSite1;
+        int idSite2;
+        try (Connection c = dataSource.getConnection()) {
+            idSite1 = queryId(c, "SELECT id_site FROM ref_site ORDER BY id_site ASC LIMIT 1");
+            idSite2 = queryId(c, "SELECT id_site FROM ref_site WHERE id_site != " + idSite1 + " LIMIT 1");
+        }
+
+        ContratTravail ct = creerEtCommiterContrat(emp.getIdEmploye(), "ACTIF", Date.valueOf("2024-01-01"), Date.valueOf("2024-12-31"));
+
+        // Affectation 1 : Site 1 de Janvier à Juin 2024
+        creerEtCommiterAffectation(emp.getIdEmploye(), ct.getIdContrat(), idSite1, "CLOTURE", Date.valueOf("2024-01-01"), Date.valueOf("2024-06-30"));
+
+        // Affectation 2 : Site 2 à partir de Juillet 2024 (active)
+        creerEtCommiterAffectation(emp.getIdEmploye(), ct.getIdContrat(), idSite2, "ACTIF", Date.valueOf("2024-07-01"), null);
+
+        // Créer période 1 (Janvier 2024)
+        int idPeriodeJanv = creerEtCommiterPeriodePaie("VALIDEE", LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 31));
+
+        // Créer période 2 (Août 2024)
+        int idPeriodeAout = creerEtCommiterPeriodePaie("EN_COURS", LocalDate.of(2024, 8, 1), LocalDate.of(2024, 8, 31));
+
+        // 1. Vérification Synthèse Janvier 2024 -> L'employé doit être résolu sur Site 1 (historique)
+        List<PointageSyntheseMensuelleDTO> syntheseJanv = pointageSyntheseService.getSynthesePeriode(idPeriodeJanv, null);
+        PointageSyntheseMensuelleDTO dtoJanv = syntheseJanv.stream()
+                .filter(d -> d.getIdEmploye() != null && d.getIdEmploye().intValue() == emp.getIdEmploye().intValue())
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(dtoJanv, "L'employé doit être présent dans la synthèse de Janvier 2024");
+        assertEquals(idSite1, dtoJanv.getIdSite(), "L'employé doit être rattaché à son site historique (Site 1) pour Janvier 2024");
+
+        // 2. Vérification Synthèse Août 2024 -> L'employé doit être résolu sur Site 2 (nouvelle affectation)
+        List<PointageSyntheseMensuelleDTO> syntheseAout = pointageSyntheseService.getSynthesePeriode(idPeriodeAout, null);
+        PointageSyntheseMensuelleDTO dtoAout = syntheseAout.stream()
+                .filter(d -> d.getIdEmploye() != null && d.getIdEmploye().intValue() == emp.getIdEmploye().intValue())
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(dtoAout, "L'employé doit être présent dans la synthèse d'Août 2024");
+        assertEquals(idSite2, dtoAout.getIdSite(), "L'employé doit être rattaché à son nouveau site (Site 2) pour Août 2024");
     }
 }

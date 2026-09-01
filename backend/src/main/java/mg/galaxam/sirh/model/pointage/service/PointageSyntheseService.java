@@ -17,6 +17,7 @@ import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -210,14 +211,15 @@ public class PointageSyntheseService {
             }
         } catch (Exception ignored) {}
 
-        // 2. Charger les employés éligibles
+        // 2. Charger les employés éligibles avec l'affectation active durant cette période (la plus récente si mutation en cours de période)
         StringBuilder sqlEmp = new StringBuilder(
-            "SELECT DISTINCT e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
+            "SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
             "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, " +
             "COALESCE(f.dispense_pointage, FALSE) AS est_autonome, " +
             "COALESCE(cp.code, '') AS code_categorie " +
             "FROM employe e " +
-            "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe AND a.date_fin IS NULL " +
+            "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
+            "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
             "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
             "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
@@ -227,12 +229,15 @@ public class PointageSyntheseService {
         if (idSite != null && idSite > 0) {
             sqlEmp.append("AND a.id_site = ? ");
         }
-        sqlEmp.append("ORDER BY e.nom, e.prenom");
+        sqlEmp.append("ORDER BY e.id_employe, a.date_debut DESC");
 
         // 3. Traiter chaque employé
         try (PreparedStatement psE = c.prepareStatement(sqlEmp.toString())) {
+            int pIdx = 1;
+            psE.setDate(pIdx++, Date.valueOf(dateFin));
+            psE.setDate(pIdx++, Date.valueOf(dateDebut));
             if (idSite != null && idSite > 0) {
-                psE.setInt(1, idSite);
+                psE.setInt(pIdx++, idSite);
             }
             try (ResultSet rsE = psE.executeQuery()) {
                 while (rsE.next()) {
@@ -392,6 +397,9 @@ public class PointageSyntheseService {
             }
         }
 
+        list.sort(Comparator.comparing(PointageSyntheseMensuelleDTO::getNom, Comparator.nullsLast(String::compareToIgnoreCase))
+                .thenComparing(PointageSyntheseMensuelleDTO::getPrenom, Comparator.nullsLast(String::compareToIgnoreCase)));
+
         return list;
     }
 
@@ -550,12 +558,16 @@ public class PointageSyntheseService {
             // Compter les salariés actifs non dispensés pour calculer les pointages attendus
             int nbSalariesActifs = 0;
             String sqlNbEmp = "SELECT COUNT(DISTINCT e.id_employe) FROM employe e " +
-                              "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe AND a.date_fin IS NULL " +
+                              "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
+                              "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
                               "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
                               "WHERE COALESCE(f.dispense_pointage, FALSE) = FALSE " +
                               (idSite != null && idSite > 0 ? "AND a.id_site = ? " : "");
             try (PreparedStatement psEmp = c.prepareStatement(sqlNbEmp)) {
-                if (idSite != null && idSite > 0) psEmp.setInt(1, idSite);
+                int empIdx = 1;
+                psEmp.setDate(empIdx++, Date.valueOf(dateFinTroncon));
+                psEmp.setDate(empIdx++, Date.valueOf(dateDebutTroncon));
+                if (idSite != null && idSite > 0) psEmp.setInt(empIdx++, idSite);
                 try (ResultSet rsEmp = psEmp.executeQuery()) {
                     if (rsEmp.next()) nbSalariesActifs = rsEmp.getInt(1);
                 }
@@ -679,12 +691,13 @@ public class PointageSyntheseService {
         if (nbOuvrables == 0) nbOuvrables = 1;
 
         StringBuilder sqlEmp = new StringBuilder(
-            "SELECT DISTINCT e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
+            "SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
             "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, " +
             "COALESCE(f.dispense_pointage, FALSE) AS est_autonome, " +
             "COALESCE(cp.code, '') AS code_categorie " +
             "FROM employe e " +
-            "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe AND a.date_fin IS NULL " +
+            "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
+            "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
             "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
             "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
@@ -694,11 +707,14 @@ public class PointageSyntheseService {
         if (idSite != null && idSite > 0) {
             sqlEmp.append("AND a.id_site = ? ");
         }
-        sqlEmp.append("ORDER BY e.nom, e.prenom");
+        sqlEmp.append("ORDER BY e.id_employe, a.date_debut DESC");
 
         try (PreparedStatement psE = c.prepareStatement(sqlEmp.toString())) {
+            int pIdx = 1;
+            psE.setDate(pIdx++, Date.valueOf(dateFinTroncon));
+            psE.setDate(pIdx++, Date.valueOf(dateDebutTroncon));
             if (idSite != null && idSite > 0) {
-                psE.setInt(1, idSite);
+                psE.setInt(pIdx++, idSite);
             }
             try (ResultSet rsE = psE.executeQuery()) {
                 while (rsE.next()) {
@@ -808,6 +824,9 @@ public class PointageSyntheseService {
                 }
             }
         }
+
+        list.sort(Comparator.comparing(PointageSyntheseMensuelleDTO::getNom, Comparator.nullsLast(String::compareToIgnoreCase))
+                .thenComparing(PointageSyntheseMensuelleDTO::getPrenom, Comparator.nullsLast(String::compareToIgnoreCase)));
 
         return list;
     }
