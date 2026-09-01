@@ -33,6 +33,7 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, initialDem
     derogationDelaiPreavis, setDerogationDelaiPreavis,
     extensionPathologiqueMaternite, setExtensionPathologiqueMaternite,
     showOptionsAvancees, setShowOptionsAvancees,
+    preavisInfo,
 
     // Variables calculées
     nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres,
@@ -128,6 +129,10 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, initialDem
           isMaternite={isMaternite}
           extensionPathologiqueMaternite={extensionPathologiqueMaternite}
           setExtensionPathologiqueMaternite={setExtensionPathologiqueMaternite}
+          preavisInfo={preavisInfo}
+          derogationDelaiPreavis={derogationDelaiPreavis}
+          setDerogationDelaiPreavis={setDerogationDelaiPreavis}
+          setShowOptionsAvancees={setShowOptionsAvancees}
           fieldErrors={fieldErrors}
           setFieldErrors={setFieldErrors}
         />

@@ -10,6 +10,10 @@ export default function DatesCongeSection({
   selectedType,
   isMaternite,
   extensionPathologiqueMaternite, setExtensionPathologiqueMaternite,
+  preavisInfo,
+  derogationDelaiPreavis,
+  setDerogationDelaiPreavis,
+  setShowOptionsAvancees,
   fieldErrors, setFieldErrors
 }) {
   return (
@@ -121,7 +125,10 @@ export default function DatesCongeSection({
               value={estDemiJournee ? dateDebut : dateFin}
               disabled={estDemiJournee}
               min={dateDebut || undefined}
-              onChange={(e) => setDateFin(e.target.value)}
+              onChange={(e) => {
+                setDateFin(e.target.value);
+                setFieldErrors((prev) => ({ ...prev, dateFin: null }));
+              }}
               required
             />
             {fieldErrors.dateFin && (
@@ -131,6 +138,37 @@ export default function DatesCongeSection({
             )}
           </div>
         </div>
+
+        {/* Alerte Préavis / Rétroactivité explicite */}
+        {preavisInfo?.isDepasse && (
+          <div className="p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 space-y-2 mt-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-[var(--color-warning-500)]">
+              <ShieldAlert className="w-4 h-4 shrink-0" />
+              {preavisInfo.isRetroactif 
+                ? 'Demande de congé rétroactive' 
+                : 'Délai de préavis réglementaire non respecté'}
+            </div>
+            <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+              {preavisInfo.isRetroactif ? (
+                <>La date de début sélectionnée est passée ({Math.abs(preavisInfo.joursConstates)} jours de retard). Une dérogation RH de préavis est requise.</>
+              ) : (
+                <>Le préavis standard pour ce type de congé est de <strong>{preavisInfo.preavisRequis} jours</strong> ({preavisInfo.joursConstates} jours constatés entre aujourd'hui et le début du congé). Une dérogation RH est requise pour autoriser cette soumission.</>
+              )}
+            </p>
+            {!derogationDelaiPreavis && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (setDerogationDelaiPreavis) setDerogationDelaiPreavis(true);
+                  if (setShowOptionsAvancees) setShowOptionsAvancees(true);
+                }}
+                className="text-xs font-bold underline text-[var(--color-warning-500)] hover:text-amber-700 cursor-pointer block"
+              >
+                Activer la dérogation de préavis RH
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Compteur de jours — mis en avant, c'est l'info clé du formulaire */}
         {nbJoursDecomptes > 0 && (

@@ -48,6 +48,27 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
   const isExceptionnel = selectedType && selectedType.code === 'EXCEPTIONNEL';
   const isMaternite = selectedType && selectedType.code === 'MATERNITE';
 
+  const preavisInfo = (() => {
+    if (!dateDebut) return { isDepasse: false, preavisRequis: 0, joursConstates: 0, isRetroactif: false };
+    const dDebut = new Date(dateDebut);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const joursConstates = Math.ceil((dDebut.getTime() - today.getTime()) / (1000 * 3600 * 24));
+    
+    if (joursConstates < 0) {
+      return { isDepasse: true, preavisRequis: 0, joursConstates, isRetroactif: true };
+    }
+
+    if (selectedType?.soumisDelaiPreavis) {
+      const seuilLong = 3;
+      const preavisRequis = (nbJoursDecomptes > seuilLong) ? 15 : 2;
+      if (joursConstates < preavisRequis) {
+        return { isDepasse: true, preavisRequis, joursConstates, isRetroactif: false };
+      }
+    }
+    return { isDepasse: false, preavisRequis: 0, joursConstates, isRetroactif: false };
+  })();
+
   useEffect(() => {
     if (isOpen) {
       if (initialDemande) {
@@ -277,6 +298,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
     derogationDelaiPreavis, setDerogationDelaiPreavis,
     extensionPathologiqueMaternite, setExtensionPathologiqueMaternite,
     showOptionsAvancees, setShowOptionsAvancees,
+    preavisInfo,
 
     nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres,
     loading, error, fieldErrors, setFieldErrors,
