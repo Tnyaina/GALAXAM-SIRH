@@ -66,7 +66,7 @@ export default function DatesCongeSection({
                   onChange={(e) => setMomentDemiJournee(e.target.value)}
                   className="accent-[var(--color-brand-500)]"
                 />
-                Matin (08h - 12h)
+                Matin (Matinée)
               </label>
               <label className={`flex items-center gap-2 p-2.5 border cursor-pointer text-sm font-medium transition-colors ${
                 momentDemiJournee === 'APRES_MIDI' 
@@ -81,7 +81,7 @@ export default function DatesCongeSection({
                   onChange={(e) => setMomentDemiJournee(e.target.value)}
                   className="accent-[var(--color-brand-500)]"
                 />
-                Après-midi (13h - 17h)
+                Après-midi (Deuxième partie)
               </label>
             </div>
             {fieldErrors.momentDemiJournee && (

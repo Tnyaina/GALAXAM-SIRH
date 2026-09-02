@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
 import congeService from '@/api/congeService';
+import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
@@ -22,8 +23,10 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
   useEffect(() => {
     if (initialData) {
       setFormData({
-        ...initialData,
+        code: initialData.code || '',
+        libelle: initialData.libelle || '',
         nbJoursAutorises: initialData.nbJoursAutorises || '',
+        justificatifRequis: initialData.justificatifRequis !== false,
       });
     } else {
       setFormData({
@@ -33,6 +36,7 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
         justificatifRequis: true,
       });
     }
+    setError(null);
   }, [initialData, isOpen]);
 
   const handleChange = (field, value) => {
@@ -41,17 +45,20 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (loading) return;
-    setLoading(true);
-    setError(null);
+    if (!formData.code.trim() || !formData.libelle.trim() || !formData.nbJoursAutorises) {
+      setError('Veuillez remplir tous les champs obligatoires.');
+      return;
+    }
 
     try {
+      setLoading(true);
+      setError(null);
+
       const payload = {
-        ...formData,
-        code: formData.code ? formData.code.trim().toUpperCase() : '',
-        libelle: formData.libelle ? formData.libelle.trim() : '',
-        nbJoursAutorises: formData.nbJoursAutorises ? parseFloat(formData.nbJoursAutorises) : 0,
-        estActif: true
+        code: formData.code.trim().toUpperCase(),
+        libelle: formData.libelle.trim(),
+        nbJoursAutorises: parseInt(formData.nbJoursAutorises),
+        justificatifRequis: formData.justificatifRequis,
       };
 
       if (initialData) {
@@ -65,8 +72,7 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
-      const msg = err.response?.data || err.message;
-      setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      setError(getErrorMessage(err, "Impossible d'enregistrer l'événement familial. Veuillez réessayer."));
     } finally {
       setLoading(false);
     }

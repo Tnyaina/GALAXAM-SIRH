@@ -122,13 +122,37 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
     }
 
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleMessageNotReadable(org.springframework.http.converter.HttpMessageNotReadableException ex, HttpServletRequest request) {
+        log.warn("Format de données reçu illisible sur [{}] : {}", request.getRequestURI(), ex.getMessage());
+        ApiErrorResponse error = new ApiErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                "Le format des données transmises est incorrect (ex: date ou nombre mal formé). Veuillez vérifier votre saisie.",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(java.sql.SQLException.class)
+    public ResponseEntity<ApiErrorResponse> handleSqlException(java.sql.SQLException ex, HttpServletRequest request) {
+        log.error("Erreur SQL lors du traitement sur [{}] : {}", request.getRequestURI(), ex.getMessage(), ex);
+        ApiErrorResponse error = new ApiErrorResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                "Une erreur est survenue lors de l'enregistrement des données. Veuillez réessayer ou contacter l'administrateur si le problème persiste.",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGenericException(Exception ex, HttpServletRequest request) {
         log.error("Erreur serveur inattendue sur [{}]", request.getRequestURI(), ex);
         ApiErrorResponse error = new ApiErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-                "Une anomalie technique temporaire est survenue. Veuillez réessayer dans quelques instants ou contacter le support.",
+                "Une anomalie temporaire est survenue lors du traitement de votre demande. Veuillez réessayer dans quelques instants.",
                 request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);

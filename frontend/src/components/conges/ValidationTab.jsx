@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CheckSquare, Check, X, ShieldAlert, Inbox, XSquare } from 'lucide-react';
 import congeService from '@/api/congeService';
+import { getErrorMessage } from '@/api/apiClient';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import { Textarea, Checkbox } from '@/components/ui/forms/Input';
@@ -31,12 +32,15 @@ export default function ValidationTab({ demandesAValider = [], onReload }) {
 
   const handleValiderConfirm = async () => {
     if (!selectedDemande) return;
+
     try {
       setLoading(true);
       setError(null);
-      await congeService.validerDemande(selectedDemande.idDemandeConge, { justificatifFourni });
+      await congeService.validerDemande(selectedDemande.idDemandeConge, {
+        justificatifFourni
+      });
       toast({
-        title: 'Succès',
+        title: 'Validation réussie',
         message: `La demande #${selectedDemande.idDemandeConge} a été validée avec succès.`,
         type: 'success',
         duration: 3000
@@ -45,7 +49,7 @@ export default function ValidationTab({ demandesAValider = [], onReload }) {
       setSelectedDemande(null);
       if (onReload) onReload();
     } catch (err) {
-      setError(err?.response?.data || err.message || 'Erreur lors de la validation.');
+      setError(getErrorMessage(err, 'Erreur lors de la validation de la demande.'));
     } finally {
       setLoading(false);
     }
@@ -72,7 +76,7 @@ export default function ValidationTab({ demandesAValider = [], onReload }) {
       setMotifRefus('');
       if (onReload) onReload();
     } catch (err) {
-      setError(err?.response?.data || err.message || 'Erreur lors du refus.');
+      setError(getErrorMessage(err, 'Erreur lors du refus de la demande.'));
     } finally {
       setLoading(false);
     }

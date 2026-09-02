@@ -131,27 +131,27 @@ apiClient.interceptors.response.use(
             }
         }
 
-        // Normalisation d'un message convivial pour l'utilisateur
+        // Normalisation d'un message convivial et non technique pour l'utilisateur
         let userMessage = "Une erreur inattendue est survenue.";
         if (error.response) {
             const data = error.response.data;
             if (typeof data === 'string' && data.trim() !== '') {
-                userMessage = data;
-            } else if (data?.message) {
-                userMessage = data.message;
+                userMessage = cleanUserFacingMessage(data);
+            } else if (data?.message && typeof data.message === 'string') {
+                userMessage = cleanUserFacingMessage(data.message);
             } else if (error.response.status === 400) {
                 userMessage = "Les informations fournies sont incomplètes ou invalides.";
             } else if (error.response.status === 403) {
-                userMessage = "Vous ne disposez pas des autorisations requises pour cette opération.";
+                userMessage = "Vous ne disposez pas des autorisations nécessaires pour cette opération.";
             } else if (error.response.status === 404) {
                 userMessage = "L'élément demandé est introuvable ou a été supprimé.";
             } else if (error.response.status === 409) {
-                userMessage = "Cette opération est en conflit avec des données existantes.";
+                userMessage = "Cette opération est en conflit avec des données existantes (ex: doublon ou contrainte métier).";
             } else if (error.response.status >= 500) {
-                userMessage = "Le serveur a rencontré un problème temporaire. Veuillez réessayer ultérieurement.";
+                userMessage = "Une anomalie temporaire est survenue côté serveur. Veuillez réessayer dans quelques instants.";
             }
         } else if (error.request) {
-            userMessage = "Impossible de joindre le serveur. Vérifiez votre connexion au réseau.";
+            userMessage = "Impossible de contacter le serveur. Veuillez vérifier votre connexion au réseau.";
         }
 
         error.userMessage = userMessage;
@@ -161,16 +161,63 @@ apiClient.interceptors.response.use(
 );
 
 /**
- * Extrait un message d'erreur lisible par un utilisateur final à partir de n'importe quelle erreur
+ * Nettoie et transforme tout jargon technique (SQL, Java, HTTP, stacktraces) en langage clair et orienté métier.
  */
-export const getErrorMessage = (error, fallback = "Une erreur est survenue lors de l'opération.") => {
+export const cleanUserFacingMessage = (rawMsg, fallback = "Une erreur inattendue est survenue.") => {
+    if (!rawMsg || typeof rawMsg !== 'string') return fallback;
+    const msg = rawMsg.trim();
+    if (!msg) return fallback;
+
+    const lower = msg.toLowerCase();
+
+    // 1. Détection des erreurs d'unicité / doublons
+    if (lower.includes('duplicate key') || lower.includes('unique constraint') || lower.includes('unique index') || lower.includes('déjà existant') || lower.includes('violates unique')) {
+        return "Cet enregistrement existe déjà dans l'application (valeur unique ou matricule en double).";
+    }
+
+    // 2. Détection des contraintes de clés étrangères / dépendances
+    if (lower.includes('foreign key') || lower.includes('violates foreign key') || lower.includes('is still referenced') || lower.includes('fk_')) {
+        return "Cet élément est actuellement lié à d'autres données actives (employés, contrats, congés) et ne peut pas être supprimé.";
+    }
+
+    // 3. Détection des erreurs de format / parsing JSON
+    if (lower.includes('cannot deserialize') || lower.includes('json parse error') || lower.includes('failed to convert') || lower.includes('methodargumenttype') || lower.includes('httpmessagenotreadable')) {
+        return "Certaines informations saisies ne respectent pas le format attendu (ex: format de date ou valeur numérique invalide).";
+    }
+
+    // 4. Détection des erreurs de réseau / connectivité
+    if (lower.includes('network error') || lower.includes('err_connection') || lower.includes('failed to fetch') || lower.includes('timeout') || lower.includes('econnrefused')) {
+        return "Impossible de joindre le serveur. Veuillez vérifier votre connexion au réseau.";
+    }
+
+    // 5. Détection des exceptions internes / traces Java
+    if (lower.includes('nullpointerexception') || lower.includes('sqlexception') || lower.includes('psqlexception') || lower.includes('dataaccess') || lower.includes('hibernate') || lower.includes('at mg.galaxam') || lower.includes('java.lang') || lower.includes('status code')) {
+        return "Une anomalie temporaire est survenue lors du traitement. Veuillez réessayer dans quelques instants.";
+    }
+
+    return msg;
+};
+
+/**
+ * Extrait systématiquement un message d'erreur lisible, soigné et compréhensible par un utilisateur final.
+ */
+export const getErrorMessage = (error, fallback = "Une erreur inattendue est survenue.") => {
     if (!error) return fallback;
-    if (typeof error === 'string') return error;
-    if (error.userMessage) return error.userMessage;
-    if (error.response?.data?.message) return error.response.data.message;
-    if (typeof error.response?.data === 'string' && error.response.data.trim() !== '') return error.response.data;
-    if (error.message && !error.message.includes('status code')) return error.message;
-    return fallback;
+    if (typeof error === 'string') return cleanUserFacingMessage(error, fallback);
+
+    let candidate = null;
+    if (error.userMessage && typeof error.userMessage === 'string') {
+        candidate = error.userMessage;
+    } else if (error.response?.data) {
+        const d = error.response.data;
+        if (typeof d === 'string' && d.trim() !== '') candidate = d;
+        else if (d.message && typeof d.message === 'string') candidate = d.message;
+        else if (d.error && typeof d.error === 'string') candidate = d.error;
+    } else if (error.message && typeof error.message === 'string') {
+        candidate = error.message;
+    }
+
+    return cleanUserFacingMessage(candidate, fallback);
 };
 
 export default apiClient;

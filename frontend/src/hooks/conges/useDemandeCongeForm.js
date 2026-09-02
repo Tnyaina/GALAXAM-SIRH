@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import congeService from '@/api/congeService';
+import { getErrorMessage } from '@/api/apiClient';
 
 const formatDateForInput = (val) => {
   if (!val) return '';
@@ -272,9 +273,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
-      const message = err?.response?.data?.message || err?.response?.data || err.message
-        || "Impossible d'enregistrer la demande. Veuillez réessayer.";
-      setError(typeof message === 'string' ? message : "Impossible d'enregistrer la demande. Veuillez réessayer.");
+      setError(getErrorMessage(err, "Impossible d'enregistrer la demande. Veuillez vérifier les informations et réessayer."));
     } finally {
       setLoading(false);
     }

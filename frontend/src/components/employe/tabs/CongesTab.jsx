@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Plus, RefreshCw, CalendarDays } from 'lucide-react';
 import congeService from '@/api/congeService';
+import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
@@ -70,7 +71,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
       setConsommationPool(poolRes || []);
       setReferentiels(refRes);
     } catch (err) {
-      setError(err?.response?.data || err.message || 'Erreur chargement congés de l\'employé.');
+      setError(getErrorMessage(err, 'Erreur chargement congés de l\'employé.'));
     } finally {
       setLoading(false);
     }
@@ -100,7 +101,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
         await congeService.annulerDemande(confirmAnnulerState.idDemande);
         loadData();
       } catch (err) {
-        setError(err?.response?.data || err.message || 'Erreur lors de l\'annulation.');
+        setError(getErrorMessage(err, 'Erreur lors de l\'annulation.'));
       } finally {
         setConfirmAnnulerState({ isOpen: false, idDemande: null });
       }

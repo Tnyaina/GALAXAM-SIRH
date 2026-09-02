@@ -639,23 +639,23 @@ export default function PointageTab({ idEmploye }) {
                                 <div className="space-y-2 text-xs">
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Horaire journalier</span>
-                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.horaireJournalier || '08h00'}</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.horaireJournalier || '—'}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Pause déjeuner</span>
-                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.pause || '01h00'}</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.pause || '—'}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Prise de poste théorique</span>
-                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.debutNormal || '08:00'}</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.debutNormal || '—'}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Heure minimale d'arrivée</span>
-                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.plafondArrivee || '07:30'}</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.plafondArrivee || '—'}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Tolérance de retard</span>
-                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.toleranceRetard || '0 min'}</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.toleranceRetard != null ? regles.toleranceRetard : '—'}</span>
                                     </div>
                                 </div>
                             </div>

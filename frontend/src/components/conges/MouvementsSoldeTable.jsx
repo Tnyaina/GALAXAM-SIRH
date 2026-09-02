@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { History, PlusCircle, Filter, X } from 'lucide-react';
 import congeService from '@/api/congeService';
+import { getErrorMessage } from '@/api/apiClient';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea } from '@/components/ui/forms/Input';
@@ -64,7 +65,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
       setShowModalAjustement(false);
       if (onAjustementSuccess) onAjustementSuccess();
     } catch (err) {
-      setError(err?.response?.data || err.message || 'Erreur lors de la création de l\'ajustement.');
+      setError(getErrorMessage(err, 'Erreur lors de la création de l\'ajustement.'));
     } finally {
       setLoading(false);
     }

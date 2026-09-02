@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import { getErrorMessage } from '@/api/apiClient';
 
 // Hooks
 import { useAuth } from '@/context/AuthContext';
@@ -69,7 +70,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
       setShowValiderModal(false);
       setSelectedDemande(null);
     } catch (err) {
-      setActionError(err?.response?.data || err.message || 'Erreur lors de la validation.');
+      setActionError(getErrorMessage(err, 'Erreur lors de la validation de la demande.'));
     } finally {
       setActionLoading(false);
     }
@@ -86,7 +87,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
       setSelectedDemande(null);
       setMotifRefus('');
     } catch (err) {
-      setActionError(err?.response?.data || err.message || 'Erreur lors du refus.');
+      setActionError(getErrorMessage(err, 'Erreur lors du refus de la demande.'));
     } finally {
       setActionLoading(false);
     }

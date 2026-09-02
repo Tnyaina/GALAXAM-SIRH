@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CheckSquare, XSquare } from 'lucide-react';
 import congeService from '@/api/congeService';
+import { getErrorMessage } from '@/api/apiClient';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import { Textarea } from '@/components/ui/forms/Input';
@@ -31,7 +32,7 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
       setSuccessMsg(`La demande #${demande.idDemandeConge} de ${demande.prenom} ${demande.nom} a été validée avec succès.`);
       if (onActionComplete) onActionComplete();
     } catch (err) {
-      setError(err?.response?.data || err.message || 'Erreur lors de la validation.');
+      setError(getErrorMessage(err, 'Erreur lors de la validation de la demande.'));
     } finally {
       setLoading(false);
     }
@@ -55,7 +56,7 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
       setMotifRefus('');
       if (onActionComplete) onActionComplete();
     } catch (err) {
-      setError(err?.response?.data || err.message || 'Erreur lors du refus.');
+      setError(getErrorMessage(err, 'Erreur lors du refus de la demande.'));
     } finally {
       setLoading(false);
     }

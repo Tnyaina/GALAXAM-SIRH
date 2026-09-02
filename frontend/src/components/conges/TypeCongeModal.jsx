@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Info, AlertTriangle } from 'lucide-react';
 import congeService from '@/api/congeService';
+import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
@@ -18,6 +19,7 @@ const EMPTY_FORM = {
   exigeJustificatif: false,
   soumisDelaiPreavis: false,
   suspendAcquisitionSolde: false,
+  description: ''
 };
 
 export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null }) {
@@ -31,11 +33,17 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
     if (!isOpen) return;
     if (initialData) {
       setFormData({
-        ...EMPTY_FORM,
-        ...initialData,
+        code: initialData.code || '',
+        libelle: initialData.libelle || '',
+        estPaye: initialData.estPaye !== false,
+        decompteSoldeAcquis: initialData.decompteSoldeAcquis !== false,
+        exigeAncienneteMinMois: initialData.exigeAncienneteMinMois || 0,
         dureeFixeJours: initialData.dureeFixeJours ?? '',
         plafondJoursEpisode: initialData.plafondJoursEpisode ?? '',
-        exigeAncienneteMinMois: initialData.exigeAncienneteMinMois ?? 0,
+        exigeJustificatif: Boolean(initialData.exigeJustificatif),
+        soumisDelaiPreavis: Boolean(initialData.soumisDelaiPreavis),
+        suspendAcquisitionSolde: Boolean(initialData.suspendAcquisitionSolde),
+        description: initialData.description || ''
       });
     } else {
       setFormData(EMPTY_FORM);
@@ -97,9 +105,7 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
-      const msg = err.response?.data?.message || err.response?.data || err.message
-        || "Impossible d'enregistrer le type de congé. Veuillez réessayer.";
-      setError(typeof msg === 'string' ? msg : "Impossible d'enregistrer le type de congé. Veuillez réessayer.");
+      setError(getErrorMessage(err, "Impossible d'enregistrer le type de congé. Veuillez réessayer."));
     } finally {
       setLoading(false);
     }

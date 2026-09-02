@@ -330,7 +330,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 required
                                 value={formData.diviseurMensuelHeures}
                                 onChange={e => upd('diviseurMensuelHeures', e.target.value)}
-                                hint={`Auto: (40 × 52) / 12 = 173.3333h`}
+                                hint={`Calcul automatique : (${formData.dureeHebdoLegale || '40'}h × 52 sem.) / 12 mois = ${formData.diviseurMensuelHeures || '173.3333'}h`}
                             />
                             <Input
                                 label="Seuil HS Tranche 1 (+30%) *"
