@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock } from 'lucide-react';
 import Select from '@/components/ui/forms/Select';
 import Button from '@/components/ui/forms/Button';
@@ -529,7 +529,15 @@ export default function SynthesePointagePage() {
                                                 {filteredSemaineDetail.map((row) => (
                                                     <Tr key={row.idEmploye} className="border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
                                                         <Td className="py-2 px-3 font-semibold">
-                                                            <div className="truncate max-w-[220px]">{row.nom} {row.prenom}</div>
+                                                            <div className="truncate max-w-[220px]">
+                                                                <Link
+                                                                    to={`/employes/${row.idEmploye}?tab=pointage`}
+                                                                    className="hover:text-brand-600 hover:underline text-[var(--color-fg)]"
+                                                                    title={`${row.nom} ${row.prenom}`}
+                                                                >
+                                                                    {row.nom} {row.prenom}
+                                                                </Link>
+                                                            </div>
                                                             <div className="flex items-center gap-1.5 mt-0.5 text-[10px] font-mono text-[var(--color-fg-muted)]">
                                                                 <span>{row.matricule}</span>
                                                                 {row.estCadre && (
@@ -661,7 +669,13 @@ export default function SynthesePointagePage() {
                                         {filteredData.map((row) => (
                                             <Tr key={row.idEmploye} className="border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
                                                 <Td className="py-2.5 px-4 font-semibold">
-                                                    {row.nom} {row.prenom}
+                                                    <Link
+                                                        to={`/employes/${row.idEmploye}?tab=pointage`}
+                                                        className="hover:text-brand-600 hover:underline text-[var(--color-fg)]"
+                                                        title={`${row.nom} ${row.prenom}`}
+                                                    >
+                                                        {row.nom} {row.prenom}
+                                                    </Link>
                                                     <span className="block text-[10px] font-mono text-[var(--color-fg-muted)]">
                                                         {row.matricule} {row.estCadre && '· CADRE'}
                                                     </span>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, Clock, Search, CheckCircle, ShieldAlert, Wrench } from 'lucide-react';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
@@ -286,7 +287,13 @@ export default function AnomaliesPointagePage() {
                                                     shape="square"
                                                 />
                                                 <div className="min-w-0">
-                                                    <p className="text-xs font-bold text-[var(--color-fg)]">{anom.nom} {anom.prenom}</p>
+                                                    <Link
+                                                        to={`/employes/${anom.idEmploye}?tab=pointage`}
+                                                        className="text-xs font-bold text-[var(--color-fg)] hover:text-brand-600 hover:underline truncate block"
+                                                        title={`${anom.nom} ${anom.prenom}`}
+                                                    >
+                                                        {anom.nom} {anom.prenom}
+                                                    </Link>
                                                     <p className="text-[11px] font-mono text-[var(--color-fg-muted)]">{anom.matricule}</p>
                                                 </div>
                                             </div>
