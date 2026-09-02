@@ -76,9 +76,114 @@ class PointageCalculateurEngineTest {
             assertEquals(0.5, engine.calculerHeuresNuit(LocalTime.of(22,30), LocalTime.of(22,0), LocalTime.of(5,0)));
         }
 
+        @Test @DisplayName("Sortie apres minuit (01h30) traversant minuit -> 3.5h")
+        void apresMinuit() {
+            // 22h -> 24h = 2h, 00h -> 01h30 = 1.5h => 3.5h
+            assertEquals(3.5, engine.calculerHeuresNuit(LocalTime.of(1, 30), LocalTime.of(22, 0), LocalTime.of(5, 0)));
+        }
+
+        @Test @DisplayName("Sortie a 04h00 du matin -> 6.0h de nuit")
+        void a4hMatin() {
+            // 22h -> 24h = 2h, 00h -> 04h00 = 4h => 6.0h
+            assertEquals(6.0, engine.calculerHeuresNuit(LocalTime.of(4, 0), LocalTime.of(22, 0), LocalTime.of(5, 0)));
+        }
+
+        @Test @DisplayName("Sortie a 06h00 (apres 05h00) -> 0h")
+        void apresFinNuit() {
+            assertEquals(0.0, engine.calculerHeuresNuit(LocalTime.of(6, 0), LocalTime.of(22, 0), LocalTime.of(5, 0)));
+        }
+
         @Test @DisplayName("sortie null -> 0")
         void sortieNull() {
             assertEquals(0.0, engine.calculerHeuresNuit(null, LocalTime.of(22,0), LocalTime.of(5,0)));
+        }
+    }
+
+    @Nested @DisplayName("calculerTotalRepasJour (Indemnites & Majorations)")
+    class CalculerTotalRepasJour {
+
+        private final double MNT_MIDI = 2000.0;
+        private final double MNT_REPAS_1 = 2000.0;
+        private final double MNT_REPAS_2 = 4000.0;
+        private final LocalTime SEUIL_1 = LocalTime.of(19, 30);
+        private final LocalTime SEUIL_2 = LocalTime.of(21, 0);
+
+        @Test @DisplayName("Aucun repas coche, pas de sortie soir -> 0 Ar")
+        void aucunRepas() {
+            double total = engine.calculerTotalRepasJour(false, MNT_MIDI, null, SEUIL_1, MNT_REPAS_1, SEUIL_2, MNT_REPAS_2);
+            assertEquals(0.0, total, 0.01);
+        }
+
+        @Test @DisplayName("Repas midi uniquement (sortie normale a 17h00) -> 2000 Ar")
+        void repasMidiSeul() {
+            double total = engine.calculerTotalRepasJour(true, MNT_MIDI, LocalTime.of(17, 0), SEUIL_1, MNT_REPAS_1, SEUIL_2, MNT_REPAS_2);
+            assertEquals(2000.0, total, 0.01);
+        }
+
+        @Test @DisplayName("Repas midi + sortie a 20h00 (depasse 19h30, mais avant 21h00) -> 2000 + 2000 = 4000 Ar")
+        void repasMidiPlusSeuil1() {
+            double total = engine.calculerTotalRepasJour(true, MNT_MIDI, LocalTime.of(20, 0), SEUIL_1, MNT_REPAS_1, SEUIL_2, MNT_REPAS_2);
+            assertEquals(4000.0, total, 0.01);
+        }
+
+        @Test @DisplayName("Repas midi + sortie a 21h30 (depasse 21h00) -> 2000 + 4000 = 6000 Ar (Double panier)")
+        void repasMidiPlusSeuil2() {
+            double total = engine.calculerTotalRepasJour(true, MNT_MIDI, LocalTime.of(21, 30), SEUIL_1, MNT_REPAS_1, SEUIL_2, MNT_REPAS_2);
+            assertEquals(6000.0, total, 0.01);
+        }
+
+        @Test @DisplayName("Repas midi non coche mais sortie tardive a 22h00 -> 0 + 4000 = 4000 Ar")
+        void pasDeMidiMaisSortieTardive() {
+            double total = engine.calculerTotalRepasJour(false, MNT_MIDI, LocalTime.of(22, 0), SEUIL_1, MNT_REPAS_1, SEUIL_2, MNT_REPAS_2);
+            assertEquals(4000.0, total, 0.01);
+        }
+
+        @Test @DisplayName("Seuils nulls -> utilise valeurs par defaut 19h30 et 21h00 sans planter")
+        void seuilsNullsFallback() {
+            double total = engine.calculerTotalRepasJour(true, MNT_MIDI, LocalTime.of(21, 15), null, MNT_REPAS_1, null, MNT_REPAS_2);
+            assertEquals(6000.0, total, 0.01);
+        }
+    }
+
+    @Nested @DisplayName("calculerDeplacementJour (Indemnite Transport)")
+    class CalculerDeplacementJour {
+
+        private final double TARIF_TRAJET = 1500.0;
+
+        @Test @DisplayName("Aucun trajet effectue -> 0 Ar")
+        void zeroTrajet() {
+            double total = engine.calculerDeplacementJour(false, false, TARIF_TRAJET, false, 0.0);
+            assertEquals(0.0, total, 0.01);
+        }
+
+        @Test @DisplayName("Trajet matin seul -> 1500 Ar")
+        void trajetMatinSeul() {
+            double total = engine.calculerDeplacementJour(true, false, TARIF_TRAJET, false, 0.0);
+            assertEquals(1500.0, total, 0.01);
+        }
+
+        @Test @DisplayName("Trajet soir seul -> 1500 Ar")
+        void trajetSoirSeul() {
+            double total = engine.calculerDeplacementJour(false, true, TARIF_TRAJET, false, 0.0);
+            assertEquals(1500.0, total, 0.01);
+        }
+
+        @Test @DisplayName("Aller-retour complet (matin + soir) -> 3000 Ar")
+        void allerRetourComplet() {
+            double total = engine.calculerDeplacementJour(true, true, TARIF_TRAJET, false, 0.0);
+            assertEquals(3000.0, total, 0.01);
+        }
+
+        @Test @DisplayName("Aller-retour avec repas sur site et reduction transport -> 3000 - 500 = 2500 Ar")
+        void allerRetourAvecReductionRepasSurSite() {
+            double total = engine.calculerDeplacementJour(true, true, TARIF_TRAJET, true, 500.0);
+            assertEquals(2500.0, total, 0.01);
+        }
+
+        @Test @DisplayName("Reduction superieure a l'indemnite -> plafonnee a 0 Ar (pas de montant negatif)")
+        void reductionSuperieureBrut() {
+            double total = engine.calculerDeplacementJour(true, false, TARIF_TRAJET, true, 2000.0);
+            assertEquals(0.0, total, 0.01);
         }
     }
 

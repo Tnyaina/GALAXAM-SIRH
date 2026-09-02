@@ -66,11 +66,12 @@ public class DemandeConge extends ClassMere {
         return "id_demande_conge";
     }
 
+    private static final mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine CONGE_ENGINE =
+            new mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine();
+
     /**
-     * Règle de décompte en jours calendaires stricts (Code du Travail malgache Art.
-     * 85, 88).
-     * Si estDemiJournee = true, le décompte est de 0.5 jour.
-     * Sinon, nb_jours_decomptes = (date_fin - date_debut) + 1.
+     * Règle de décompte en jours calendaires stricts (Code du Travail malgache Art. 85, 88).
+     * Déléguée à CongeCalculateurEngine (source unique de vérité).
      */
     public static BigDecimal calculerNombreJoursDecomptes(Date dateDebut, Date dateFin) {
         return calculerNombreJoursDecomptes(dateDebut, dateFin, false);
@@ -79,17 +80,7 @@ public class DemandeConge extends ClassMere {
     public static BigDecimal calculerNombreJoursDecomptes(Date dateDebut, Date dateFin, boolean estDemiJournee) {
         if (dateDebut == null || dateFin == null)
             return BigDecimal.ZERO;
-        LocalDate dDebut = dateDebut.toLocalDate();
-        LocalDate dFin = dateFin.toLocalDate();
-        if (dFin.isBefore(dDebut))
-            return BigDecimal.ZERO;
-
-        if (estDemiJournee) {
-            return new BigDecimal("0.5");
-        }
-
-        long nbJours = ChronoUnit.DAYS.between(dDebut, dFin) + 1;
-        return BigDecimal.valueOf(nbJours);
+        return CONGE_ENGINE.calculerNombreJours(dateDebut.toLocalDate(), dateFin.toLocalDate(), estDemiJournee);
     }
 
     @Override

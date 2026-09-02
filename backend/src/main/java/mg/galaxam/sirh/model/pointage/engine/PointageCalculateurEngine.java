@@ -33,9 +33,13 @@ public class PointageCalculateurEngine {
     public double calculerHeuresNuit(LocalTime sortie, LocalTime debutNuit, LocalTime finNuit) {
         if (sortie == null) return 0.0;
         LocalTime seuilDebut = debutNuit != null ? debutNuit : LocalTime.of(22, 0);
-        
+        LocalTime seuilFin = finNuit != null ? finNuit : LocalTime.of(5, 0);
+
         if (sortie.isAfter(seuilDebut)) {
             long mins = Duration.between(seuilDebut, sortie).toMinutes();
+            return Math.round((mins / 60.0) * 100.0) / 100.0;
+        } else if (sortie.isBefore(seuilFin)) {
+            long mins = Duration.between(seuilDebut, LocalTime.MAX).toMinutes() + 1 + Duration.between(LocalTime.MIN, sortie).toMinutes();
             return Math.round((mins / 60.0) * 100.0) / 100.0;
         }
         return 0.0;

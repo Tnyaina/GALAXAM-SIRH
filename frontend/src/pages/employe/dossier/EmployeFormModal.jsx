@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User, CreditCard, Phone, Users, ShieldAlert, Building, Check, ArrowRight, ArrowLeft } from 'lucide-react';
-import referentielService from '@/api/admin/referentielService';
+import organisationService from '@/api/admin/organisationService';
 import employeService from '@/api/employe/employeService';
 import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
@@ -79,7 +79,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
 
     const loadBanques = async () => { 
         try { 
-            const data = await referentielService.getBanques();
+            const data = await organisationService.getBanques();
             setBanques(data || []); 
         } catch (err) {
             console.error('Erreur chargement banques:', err);

@@ -95,6 +95,14 @@ public class CalendrierOuvrableEngine {
     }
 
     /**
+     * Détermine si une date donnée est un jour de week-end (Samedi ou Dimanche).
+     */
+    public static boolean isWeekend(LocalDate date) {
+        if (date == null) return false;
+        return date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY;
+    }
+
+    /**
      * Calcule le nombre exact de jours ouvrables réels (Lundi au Vendredi hors jours chômés).
      */
     public int compterJoursOuvrables(LocalDate debut, LocalDate fin, Integer idSite, Connection c) {
@@ -103,9 +111,9 @@ public class CalendrierOuvrableEngine {
 
         int count = 0;
         for (LocalDate cur = debut; !cur.isAfter(fin); cur = cur.plusDays(1)) {
-            boolean isWeekend = (cur.getDayOfWeek() == DayOfWeek.SATURDAY || cur.getDayOfWeek() == DayOfWeek.SUNDAY);
+            boolean weekend = isWeekend(cur);
             boolean isChome = feries.contains(cur);
-            if (!isWeekend && !isChome) {
+            if (!weekend && !isChome) {
                 count++;
             }
         }

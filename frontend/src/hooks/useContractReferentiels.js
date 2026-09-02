@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import referentielService from '@/api/admin/referentielService';
+import organisationService from '@/api/admin/organisationService';
 import contratService from '@/api/employe/contratService';
 import employeService from '@/api/employe/employeService';
 
@@ -58,13 +58,13 @@ export function useContractReferentiels(enabled = true, excludeEmployeId = null)
                 filRes, siteRes, depRes, srvRes, fnRes,
                 tcRes, tiRes, catRes, paieRes, tevRes, empRes
             ] = await Promise.all([
-                referentielService.getFiliales(true),
-                referentielService.getSites(true),
-                referentielService.getDepartements(true),
-                referentielService.getServices(true),
-                referentielService.getFonctions(true),
-                referentielService.getTypesContrat(true),
-                referentielService.getTypesIntervenant(true),
+                organisationService.getFiliales(true),
+                organisationService.getSites(true),
+                organisationService.getDepartements(true),
+                organisationService.getServices(true),
+                organisationService.getFonctions(true),
+                organisationService.getTypesContrat(true),
+                organisationService.getTypesIntervenant(true),
                 contratService.getCategoriesPro(true),
                 contratService.getModesPaie(),
                 contratService.getTypesEvenementRh(),

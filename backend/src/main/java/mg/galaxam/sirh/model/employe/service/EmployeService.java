@@ -214,7 +214,7 @@ public class EmployeService {
         }
     }
 
-    public void modifierEmploye(int id, EmployeRequest req) throws Exception {
+    public EmployeCPL modifierEmploye(int id, EmployeRequest req) throws Exception {
         // Validation métier
         validationEngine.validerEmploye(req);
 
@@ -325,7 +325,9 @@ public class EmployeService {
 
                 AuditLog.audit(c, "MODIFICATION", "employe", String.valueOf(id), ancienState, emp);
 
+                EmployeCPL updatedView = new EmployeCPL().rechercherParId(id, c);
                 c.commit();
+                return updatedView;
             } catch (Exception e) {
                 c.rollback();
                 throw e;
@@ -333,7 +335,7 @@ public class EmployeService {
         }
     }
 
-    public void desactiverEmploye(int id, DesactivationRequest req) throws Exception {
+    public EmployeCPL desactiverEmploye(int id, DesactivationRequest req) throws Exception {
         validationEngine.validerDesactivation(req);
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -350,7 +352,9 @@ public class EmployeService {
                 emp.desactiver(motif, c);
                 AuditLog.audit(c, "DESACTIVATION", "employe", String.valueOf(id), null, emp);
 
+                EmployeCPL updatedView = new EmployeCPL().rechercherParId(id, c);
                 c.commit();
+                return updatedView;
             } catch (Exception e) {
                 c.rollback();
                 throw e;
@@ -358,7 +362,7 @@ public class EmployeService {
         }
     }
 
-    public void reactiverEmploye(int id) throws Exception {
+    public EmployeCPL reactiverEmploye(int id) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -370,7 +374,9 @@ public class EmployeService {
                 emp.reactiver(c);
                 AuditLog.audit(c, "ACTIVATION", "employe", String.valueOf(id), null, emp);
 
+                EmployeCPL updatedView = new EmployeCPL().rechercherParId(id, c);
                 c.commit();
+                return updatedView;
             } catch (Exception e) {
                 c.rollback();
                 throw e;
@@ -412,5 +418,19 @@ public class EmployeService {
             }
         }
         return matriculeEngine.genererMatriculeParDefaut(maxSeq + 1);
+    }
+
+    public List<Map<String, Object>> getOptions(Boolean actif) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            List<EmployeCPL> list = EmployeCPL.rechercherEmployes(c, null, actif, 1000, 0);
+            return list.stream().map(e -> Map.<String, Object>of(
+                "idEmploye", e.getTuppleID(),
+                "matricule", e.getMatricule() != null ? e.getMatricule() : "",
+                "nom", e.getNom() != null ? e.getNom() : "",
+                "prenom", e.getPrenom() != null ? e.getPrenom() : "",
+                "nomComplet", e.getNomComplet() != null ? e.getNomComplet() : "",
+                "photoUrl", e.getPhotoUrl() != null ? e.getPhotoUrl() : ""
+            )).toList();
+        }
     }
 }

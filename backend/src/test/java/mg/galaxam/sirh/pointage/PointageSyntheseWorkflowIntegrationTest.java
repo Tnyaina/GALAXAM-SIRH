@@ -171,4 +171,96 @@ public class PointageSyntheseWorkflowIntegrationTest {
         assertEquals(0.0, s1.getTotalHeuresTravaillees(), 0.01, "0h sur week-end pur pour autonome");
         assertEquals(0.0, s1.getMontantRepas(), 0.01, "0 Ar repas sur week-end pur");
     }
+
+    @Test
+    @Order(7)
+    @DisplayName("PTG-07 : Contrôle strict de workflow & Validation de semaine")
+    void testValidationSemaineWorkflow() throws Exception {
+        java.time.LocalDate debutSemaine = java.time.LocalDate.of(2026, 8, 3);
+        java.time.LocalDate finSemaine = java.time.LocalDate.of(2026, 8, 9);
+
+        // 1. Sur période A_VALIDER (id=1), la validation DOIT être bloquée
+        assertThrows(IllegalStateException.class, () -> {
+            pointageSyntheseService.validerSemaine(1, debutSemaine, finSemaine, null, 1);
+        }, "Une période en statut A_VALIDER doit interdire la modification de ses semaines");
+
+        // 2. Sur période OUVERTE (temporairement basculée), la validation doit réussir
+        try (Connection c = dataSource.getConnection()) {
+            int statutAValider = 2;
+            int statutOuverte = 1;
+            try (PreparedStatement ps = c.prepareStatement("SELECT id_statut_periode, code FROM ref_statut_periode_paie WHERE code IN ('OUVERTE', 'A_VALIDER')")) {
+                var rs = ps.executeQuery();
+                while (rs.next()) {
+                    if ("OUVERTE".equals(rs.getString("code"))) statutOuverte = rs.getInt("id_statut_periode");
+                    if ("A_VALIDER".equals(rs.getString("code"))) statutAValider = rs.getInt("id_statut_periode");
+                }
+            }
+
+            try {
+                // Bascule en OUVERTE
+                try (PreparedStatement ps = c.prepareStatement("UPDATE periode_paie SET id_statut_periode = ? WHERE id_periode_paie = 1")) {
+                    ps.setInt(1, statutOuverte);
+                    ps.executeUpdate();
+                }
+
+                // La validation réussit
+                pointageSyntheseService.validerSemaine(1, debutSemaine, finSemaine, null, 1);
+
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT COUNT(*) FROM pointage_semaine_calcule WHERE id_periode_paie = 1 AND debut_semaine = ?")) {
+                    ps.setDate(1, java.sql.Date.valueOf(debutSemaine));
+                    ResultSet rs = ps.executeQuery();
+                    assertTrue(rs.next());
+                    assertTrue(rs.getInt(1) > 0, "La semaine doit être enregistrée dans pointage_semaine_calcule");
+                }
+
+                // Dévalider la semaine
+                pointageSyntheseService.devaliderSemaine(1, debutSemaine);
+
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT COUNT(*) FROM pointage_semaine_calcule WHERE id_periode_paie = 1 AND debut_semaine = ?")) {
+                    ps.setDate(1, java.sql.Date.valueOf(debutSemaine));
+                    ResultSet rs = ps.executeQuery();
+                    assertTrue(rs.next());
+                    assertEquals(0, rs.getInt(1), "La semaine doit être supprimée après dévalidation");
+                }
+            } finally {
+                // Restauration du statut initial A_VALIDER
+                try (PreparedStatement ps = c.prepareStatement("UPDATE periode_paie SET id_statut_periode = ? WHERE id_periode_paie = 1")) {
+                    ps.setInt(1, statutAValider);
+                    ps.executeUpdate();
+                }
+            }
+        }
+    }
+
+    @Test
+    @Order(8)
+    @DisplayName("PTG-08 : Gel et dégel mensuel (pointage_cumul_periode)")
+    void testGelerEtDegelerPeriode() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            // Geler la période
+            pointageSyntheseService.gelerPeriode(1, 1, c);
+
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT COUNT(*) as nb, SUM(total_heures_travaillees) as total_h, SUM(montant_repas) as total_repas " +
+                    "FROM pointage_cumul_periode WHERE id_periode_paie = 1")) {
+                ResultSet rs = ps.executeQuery();
+                assertTrue(rs.next());
+                assertTrue(rs.getInt("nb") >= 4, "Au moins 4 salariés gelés pour la période");
+                assertTrue(rs.getDouble("total_h") > 0, "Total d'heures gelées > 0");
+                assertTrue(rs.getDouble("total_repas") > 0, "Total repas gelé > 0");
+            }
+
+            // Dégeler la période
+            pointageSyntheseService.degelerPeriode(1, c);
+
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT COUNT(*) FROM pointage_cumul_periode WHERE id_periode_paie = 1")) {
+                ResultSet rs = ps.executeQuery();
+                assertTrue(rs.next());
+                assertEquals(0, rs.getInt(1), "Toutes les lignes cumulées doivent être supprimées après dégel");
+            }
+        }
+    }
 }

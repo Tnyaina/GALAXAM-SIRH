@@ -14,6 +14,7 @@ import mg.galaxam.sirh.model.conge.DemandeConge;
 import mg.galaxam.sirh.model.conge.RefStatutDemandeConge;
 import mg.galaxam.sirh.model.conge.RefTypeConge;
 import mg.galaxam.sirh.model.conge.VDemandeCongeCpl;
+import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -317,14 +318,14 @@ public class DemandeCongeController {
                 }
 
                 // Création d'une notification de confirmation de la décision
-                DemandeConge.creerNotificationRh(
+                NotificationRhService.creer(
+                        c,
                         "MOUVEMENT_APPLIQUE",
                         "NORMALE",
                         "Demande de congé validée",
                         "La demande de congé (#" + id + ") a été validée avec succès.",
                         "/conges",
-                        d.getIdEmploye(),
-                        c);
+                        d.getIdEmploye());
 
                 c.commit();
 
@@ -367,14 +368,14 @@ public class DemandeCongeController {
                 }
 
                 // Création d'une notification d'information du refus avec le motif
-                DemandeConge.creerNotificationRh(
+                NotificationRhService.creer(
+                        c,
                         "MOUVEMENT_APPLIQUE",
                         "HAUTE",
                         "Demande de congé refusée",
                         "La demande de congé (#" + id + ") a été refusée. Motif : " + req.get("motifRefus"),
                         "/conges",
-                        d.getIdEmploye(),
-                        c);
+                        d.getIdEmploye());
 
                 c.commit();
 
@@ -406,14 +407,14 @@ public class DemandeCongeController {
                 congeService.annulerDemande(id, currentUserId, "Annulation", c);
 
                 if ("VALIDE".equals(ancienStatut)) {
-                    DemandeConge.creerNotificationRh(
+                    NotificationRhService.creer(
+                            c,
                             "ALERTE_ECHEANCE",
                             "HAUTE",
                             "Annulation d'un congé validé",
                             "Une demande de congé (ID: " + id + ") qui était déjà validée vient d'être annulée.",
                             "/conges",
-                            null, // Destiné aux RH/Admins
-                            c);
+                            null); // Destiné aux RH/Admins
                 }
 
                 // Marquage de l'alerte en attente comme lue
@@ -425,14 +426,14 @@ public class DemandeCongeController {
                 }
 
                 // Création d'une notification de confirmation de l'annulation
-                DemandeConge.creerNotificationRh(
+                NotificationRhService.creer(
+                        c,
                         "MOUVEMENT_APPLIQUE",
                         "NORMALE",
                         "Demande de congé annulée",
                         "La demande de congé (#" + id + ") a été annulée.",
                         "/conges",
-                        d.getIdEmploye(),
-                        c);
+                        d.getIdEmploye());
 
                 c.commit();
 

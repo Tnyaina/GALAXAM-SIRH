@@ -9,6 +9,7 @@ import mg.galaxam.sirh.model.conge.DemandeConge;
 import mg.galaxam.sirh.model.conge.RefStatutDemandeConge;
 import mg.galaxam.sirh.model.conge.RefTypeConge;
 import mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine;
+import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -73,28 +74,28 @@ public class CongeService {
                 d2.save(c);
             }
 
-            DemandeConge.creerNotificationRh(
+            NotificationRhService.creer(
+                    c,
                     "MALADIE_PLAFOND_EPISODE_ATTEINT",
                     "HAUTE",
                     "Bascule Automatique Arrêt Maladie (> 30j)",
                     "L'arrêt maladie continu (" + totalJoursOrigine
                             + "j) a été automatiquement scindé : 30 jours en maintien de salaire et la suite en Maladie Sans Solde (CNaPS).",
                     "/conges/demandes/employe/" + d.getIdEmploye(),
-                    d.getIdEmploye(),
-                    c);
+                    d.getIdEmploye());
         } else {
             d.controler(c);
             d.save(c);
 
-            DemandeConge.creerNotificationRh(
+            NotificationRhService.creer(
+                    c,
                     "CONGE_EN_ATTENTE",
                     "NORMALE",
                     "Nouvelle demande de congé",
                     "Une nouvelle demande de congé (" + (typeConge != null ? typeConge.getLibelle() : "Absence")
                             + ") a été enregistrée et est en attente de validation.",
                     "/conges",
-                    d.getIdEmploye(),
-                    c);
+                    d.getIdEmploye());
         }
 
         return d;

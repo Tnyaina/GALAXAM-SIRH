@@ -107,6 +107,9 @@ public class PointageSyntheseService {
      * @param minutesRetard Total des minutes de retard constatées sur ce tronçon
      * @param isCadre Salarié cadre (pas de HS payées, mais surplus compense retards)
      */
+    private static final mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine CALCULATEUR_ENGINE =
+            new mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine();
+
     public static TronconCalculResult calculerTroncon(
             LocalDate debutSemaine,
             int nbJoursOuvres,
@@ -126,33 +129,21 @@ public class PointageSyntheseService {
             double seuilHeuresJour,
             double seuilHsTranche1
     ) {
-        double seuilTroncon = nbJoursOuvres * seuilHeuresJour;
-        double heuresRetard = Math.round((minutesRetard / 60.0) * 100.0) / 100.0;
-        double hsBrutes = Math.max(0.0, Math.round((totalHeures - seuilTroncon) * 100.0) / 100.0);
-
-        // Compensation 1:1 des retards par le surplus d'heures de la semaine
-        double retardCompense = Math.min(heuresRetard, hsBrutes);
-        double deficitNet = Math.round((heuresRetard - retardCompense) * 100.0) / 100.0;
-
-        // Pour les cadres : forfait contractuel, 0 HS payée, mais compensation active
-        double hsNettes = isCadre ? 0.0 : Math.round((hsBrutes - retardCompense) * 100.0) / 100.0;
-
-        // Ventilation HS 30% (jusqu'à seuilHsTranche1) et HS 50% (au-delà)
-        double hs30 = Math.min(hsNettes, seuilHsTranche1);
-        double hs50 = Math.max(0.0, Math.round((hsNettes - seuilHsTranche1) * 100.0) / 100.0);
+        var bilan = CALCULATEUR_ENGINE.calculerTroncon(
+                debutSemaine, nbJoursOuvres, totalHeures, minutesRetard, isCadre, seuilHeuresJour, seuilHsTranche1);
 
         return new TronconCalculResult(
-                debutSemaine,
-                nbJoursOuvres,
-                seuilTroncon,
-                totalHeures,
-                heuresRetard,
-                hsBrutes,
-                retardCompense,
-                hsNettes,
-                deficitNet,
-                hs30,
-                hs50
+                bilan.debutSemaine(),
+                bilan.nbJoursOuvres(),
+                bilan.seuilTroncon(),
+                bilan.totalHeures(),
+                bilan.heuresRetard(),
+                bilan.hsBrutes(),
+                bilan.retardCompense(),
+                bilan.hsNettes(),
+                bilan.deficitNet(),
+                bilan.hs30(),
+                bilan.hs50()
         );
     }
 
@@ -259,12 +250,13 @@ public class PointageSyntheseService {
             try (ResultSet rsPtg = psPtg.executeQuery()) {
                 while (rsPtg.next()) {
                     LocalDate dPointage = rsPtg.getDate("date_pointage").toLocalDate();
-                    boolean isWeekend = (dPointage.getDayOfWeek() == DayOfWeek.SATURDAY || dPointage.getDayOfWeek() == DayOfWeek.SUNDAY);
+                    boolean isWeekend = CalendrierOuvrableEngine.isWeekend(dPointage);
                     boolean isSunday = (dPointage.getDayOfWeek() == DayOfWeek.SUNDAY);
                     String stCode = rsPtg.getString("statut_code");
                     double th = rsPtg.getDouble("total_heures");
 
-                    if (("DISPENSE_POINTAGE".equals(stCode) || estAutonome)) {
+                    boolean isAbsenceOuConge = "CONGE".equals(stCode) || "ABSENCE_NON_JUSTIFIEE".equals(stCode) || "FERIE_CHOME".equals(stCode);
+                    if ("DISPENSE_POINTAGE".equals(stCode) || (estAutonome && !isAbsenceOuConge)) {
                         if (isWeekend && th <= 0.0) {
                             th = 0.0;
                             stCode = "REPOS";
@@ -306,8 +298,9 @@ public class PointageSyntheseService {
                     cumulHeuresNuit += hn;
                     totalMinsRetard += (estAutonome ? 0 : ret);
 
-                    // Saisie quotidienne est la vérité finale : si la case repas est cochée (ou autonome) -> calcul dynamique complet
-                    if (repas || (estAutonome && !isWeekend)) {
+                    // Saisie quotidienne est la vérité finale : si la case repas est cochée (ou autonome présent) -> calcul dynamique complet
+                    boolean estPresentAutonome = estAutonome && !isWeekend && !isAbsenceOuConge && !"REPOS".equals(stCode);
+                    if (repas || estPresentAutonome) {
                         repasCount++;
                         montantRepasTotal += calculateurEngine.calculerTotalRepasJour(
                                 true, montantRepasMidiDefaut, sa,
@@ -315,8 +308,8 @@ public class PointageSyntheseService {
                         );
                     }
 
-                    if (depM || (estAutonome && !isWeekend)) totalTrajets += 0.5;
-                    if (depA || (estAutonome && !isWeekend)) totalTrajets += 0.5;
+                    if (depM || estPresentAutonome) totalTrajets += 0.5;
+                    if (depA || estPresentAutonome) totalTrajets += 0.5;
 
                     LocalDate lundiSemaine = dPointage.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
                     parSemaine.computeIfAbsent(lundiSemaine, k -> new ArrayList<>());
@@ -352,7 +345,7 @@ public class PointageSyntheseService {
             for (int i = 0; i < 7; i++) {
                 LocalDate cur = lundi.plusDays(i);
                 if (!cur.isBefore(dateDebut) && !cur.isAfter(dateFin)) {
-                    if (cur.getDayOfWeek() != DayOfWeek.SATURDAY && cur.getDayOfWeek() != DayOfWeek.SUNDAY) {
+                    if (!CalendrierOuvrableEngine.isWeekend(cur)) {
                         joursOuvresTroncon++;
                     }
                 }
@@ -660,8 +653,9 @@ public class PointageSyntheseService {
 
             // Si le début du tronçon tombe un Samedi ou Dimanche et qu'il y a une semaine suivante dans la période,
             // on rattache ce weekend directement au dimanche de la semaine suivante (évite une semaine vide de 0 jour ouvré)
-            if ((cur.getDayOfWeek() == DayOfWeek.SATURDAY || cur.getDayOfWeek() == DayOfWeek.SUNDAY) && finSemaine.plusDays(7).isBefore(dateFin.plusDays(7))) {
-                finSemaine = finSemaine.plusDays(7);
+            if (CalendrierOuvrableEngine.isWeekend(cur) && finSemaine.plusDays(7).isBefore(dateFin.plusDays(7))) {
+                cur = cur.plusDays(1);
+                continue;
             }
 
             LocalDate dateDebutTroncon = cur.isBefore(debutSemaine) ? debutSemaine : cur;
@@ -672,7 +666,7 @@ public class PointageSyntheseService {
             // Calcul des jours ouvrés du tronçon
             int nbOuvrables = 0;
             for (LocalDate d = dateDebutTroncon; !d.isAfter(dateFinTroncon); d = d.plusDays(1)) {
-                if (d.getDayOfWeek() != DayOfWeek.SATURDAY && d.getDayOfWeek() != DayOfWeek.SUNDAY) {
+                if (!CalendrierOuvrableEngine.isWeekend(d)) {
                     nbOuvrables++;
                 }
             }
@@ -840,7 +834,7 @@ public class PointageSyntheseService {
         // Compter les jours ouvrés du tronçon
         int nbOuvrables = 0;
         for (LocalDate d = dateDebutTroncon; !d.isAfter(dateFinTroncon); d = d.plusDays(1)) {
-            if (d.getDayOfWeek() != DayOfWeek.SATURDAY && d.getDayOfWeek() != DayOfWeek.SUNDAY) {
+            if (!CalendrierOuvrableEngine.isWeekend(d)) {
                 nbOuvrables++;
             }
         }

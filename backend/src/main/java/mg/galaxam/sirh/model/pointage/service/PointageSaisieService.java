@@ -37,18 +37,29 @@ public class PointageSaisieService {
     @Autowired
     private mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine;
 
+    @Autowired
+    private mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine calculateurEngine;
+
+    private static final mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine CALCULATEUR_ENGINE =
+            new mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine();
+
     public PointageSaisieService() {
         this.calendrierEngine = new CalendrierOuvrableEngine();
+        this.calculateurEngine = CALCULATEUR_ENGINE;
     }
 
     public PointageSaisieService(DataSource dataSource) {
         this.dataSource = dataSource;
         this.calendrierEngine = new CalendrierOuvrableEngine();
+        this.calculateurEngine = CALCULATEUR_ENGINE;
     }
 
-    public PointageSaisieService(DataSource dataSource, mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine) {
+    public PointageSaisieService(DataSource dataSource,
+                                 mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine,
+                                 mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine calculateurEngine) {
         this.dataSource = dataSource;
         this.calendrierEngine = calendrierEngine != null ? calendrierEngine : new CalendrierOuvrableEngine();
+        this.calculateurEngine = calculateurEngine != null ? calculateurEngine : CALCULATEUR_ENGINE;
     }
 
     /**
@@ -86,7 +97,7 @@ public class PointageSaisieService {
     }
 
     /**
-     * Calcul des heures de nuit travaillées (entre 22h00 et 05h00)
+     * Calcul des heures de nuit travaillées (entre 22h00 et 05h00) délégué au moteur.
      */
     public static double calcHeuresNuit(Time sortieSoir) {
         return calcHeuresNuit(sortieSoir, LocalTime.of(22, 0), LocalTime.of(5, 0));
@@ -94,29 +105,15 @@ public class PointageSaisieService {
 
     public static double calcHeuresNuit(Time sortieSoir, LocalTime debutNuit, LocalTime finNuit) {
         if (sortieSoir == null || debutNuit == null) return 0.0;
-        LocalTime s = sortieSoir.toLocalTime();
-        if (finNuit == null) finNuit = LocalTime.of(5, 0);
-
-        if (s.isAfter(debutNuit)) {
-            long mins = Duration.between(debutNuit, s).toMinutes();
-            return Math.round((mins / 60.0) * 100.0) / 100.0;
-        } else if (s.isBefore(finNuit)) {
-            long mins = Duration.between(debutNuit, LocalTime.MAX).toMinutes() + 1 + Duration.between(LocalTime.MIN, s).toMinutes();
-            return Math.round((mins / 60.0) * 100.0) / 100.0;
-        }
-        return 0.0;
+        return CALCULATEUR_ENGINE.calculerHeuresNuit(sortieSoir.toLocalTime(), debutNuit, finNuit);
     }
 
     /**
-     * Calcul des minutes de retard par rapport à une heure prévue
+     * Calcul des minutes de retard par rapport à une heure prévue délégué au moteur.
      */
     public static int calcMinutesRetard(Time reel, LocalTime prevu) {
         if (reel == null || prevu == null) return 0;
-        LocalTime r = reel.toLocalTime();
-        if (r.isAfter(prevu)) {
-            return (int) Duration.between(prevu, r).toMinutes();
-        }
-        return 0;
+        return CALCULATEUR_ENGINE.calculerMinutesRetard(reel.toLocalTime(), prevu, null);
     }
 
     /**
@@ -171,19 +168,16 @@ public class PointageSaisieService {
         if (!aSaisiDesHeures) {
             if (isAutonome) return "DISPENSE_POINTAGE";
             // Un week-end sans heures saisies n'est JAMAIS une absence : c'est un repos légal !
-            if (date != null) {
-                if (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY || date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) {
-                    return "REPOS";
-                }
+            if (CalendrierOuvrableEngine.isWeekend(date)) {
+                return "REPOS";
             }
             return "ABSENCE_NON_JUSTIFIEE";
         }
 
         // 5. Cas pause automatique (Entrée Matin et Sortie Soir uniquement)
         if (em != null && sa != null && sm == null && ea == null) {
-            if (date != null) {
-                if (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY) return "SAMEDI_TRAVAILLE";
-                if (date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) return "DIMANCHE_TRAVAILLE";
+            if (date != null && CalendrierOuvrableEngine.isWeekend(date)) {
+                return (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY) ? "SAMEDI_TRAVAILLE" : "DIMANCHE_TRAVAILLE";
             }
             return "PRESENT";
         }
@@ -204,14 +198,13 @@ public class PointageSaisieService {
         // 8. Jour normal complet ou Week-end travaillé
         double totalH = calcHours(em, sm) + calcHours(ea, sa);
         if (totalH == 0.0) {
-            if (date != null && (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY || date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY)) {
+            if (CalendrierOuvrableEngine.isWeekend(date)) {
                 return "REPOS";
             }
             return "ABSENCE_NON_JUSTIFIEE";
         }
-        if (date != null) {
-            if (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY) return "SAMEDI_TRAVAILLE";
-            if (date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) return "DIMANCHE_TRAVAILLE";
+        if (date != null && CalendrierOuvrableEngine.isWeekend(date)) {
+            return (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY) ? "SAMEDI_TRAVAILLE" : "DIMANCHE_TRAVAILLE";
         }
         return "PRESENT";
     }
@@ -973,18 +966,18 @@ public class PointageSaisieService {
                     totalH = 8.0;
                 }
 
-                // Calcul dynamique du montant repas (déjeuner + extra soirée)
+                // Calcul dynamique du montant repas (déjeuner + extra soirée) via moteur
                 double mntRepasJour = 0.0;
                 if (dto.isIndemniteRepasRecue() && !"FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour()) && !dto.isFerieJour()) {
-                    mntRepasJour = mntRepasMidi;
-                    if (sa != null) {
-                        String saStr = sa.toString().substring(0, 5);
-                        if (saStr.compareTo(seuilRepas2) >= 0) {
-                            mntRepasJour += mntRepas2;
-                        } else if (saStr.compareTo(seuilRepas1) >= 0) {
-                            mntRepasJour += mntRepas1;
-                        }
-                    }
+                    mntRepasJour = CALCULATEUR_ENGINE.calculerTotalRepasJour(
+                            true,
+                            mntRepasMidi,
+                            sa != null ? sa.toLocalTime() : null,
+                            LocalTime.parse(seuilRepas1),
+                            mntRepas1,
+                            LocalTime.parse(seuilRepas2),
+                            mntRepas2
+                    );
                 }
 
                 boolean depM = dto.isDeplacementMatin();
@@ -1004,8 +997,10 @@ public class PointageSaisieService {
                             em, sm, ea, sa, retMins, false
                     );
                 } else if ("PRESENT".equals(codeStatut) && datePtg != null && totalH > 0) {
-                    if (datePtg.getDayOfWeek() == java.time.DayOfWeek.SATURDAY) codeStatut = "SAMEDI_TRAVAILLE";
-                    else if (datePtg.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) codeStatut = "DIMANCHE_TRAVAILLE";
+                    if (CalendrierOuvrableEngine.isWeekend(datePtg)) {
+                        codeStatut = (datePtg.getDayOfWeek() == java.time.DayOfWeek.SATURDAY)
+                                ? "SAMEDI_TRAVAILLE" : "DIMANCHE_TRAVAILLE";
+                    }
                 }
                 if ("RETARD".equals(codeStatut)) {
                     codeStatut = "PRESENT";
