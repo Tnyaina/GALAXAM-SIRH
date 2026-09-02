@@ -5,7 +5,6 @@ import { getMenuIcon } from '@/utils/iconRegistry';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import Button from '@/components/ui/forms/Button';
-import Badge from '@/components/ui/data-display/Badge';
 
 const COLLAPSE_STORAGE_KEY = 'galaxam-sidebar-collapsed';
 

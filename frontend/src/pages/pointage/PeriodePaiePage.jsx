@@ -22,7 +22,6 @@ import Input from '@/components/ui/forms/Input';
 import DatePicker from '@/components/ui/forms/DatePicker';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
-import Breadcrumb from '@/components/ui/navigation/Breadcrumb';
 import Card, { CardBody } from '@/components/ui/data-display/Card';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';

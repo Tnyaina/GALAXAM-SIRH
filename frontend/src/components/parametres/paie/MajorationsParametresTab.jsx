@@ -96,15 +96,15 @@ export default function MajorationsParametresTab() {
                         )}
                     </p>
                     {configLegale && (
-                        <p>• Plafond légal d'heures supplémentaires : 
+                        <p>• Plafond légal d'heures supplémentaires :{' '}
                             <span className="font-bold text-[var(--color-fg)]">{configLegale.plafondHsHebdo}h / semaine</span>
-                             | Tranche HS 1 (premières <span className="font-bold text-[var(--color-fg)]">{configLegale.seuilHsTranche1}h</span>) : 
+                            {' '}| Tranche HS 1 (premières <span className="font-bold text-[var(--color-fg)]">{configLegale.seuilHsTranche1}h</span>) :{' '}
                             <span className="font-bold text-[var(--color-fg)]">
                                 +{majorations.find(m => m.typeMajoration === 'HS_30')
                                     ? Math.round(majorations.find(m => m.typeMajoration === 'HS_30').taux * 100) + '%'
                                     : '—'}
                             </span>
-                             | Au-delà : 
+                            {' '}| Au-delà :{' '}
                             <span className="font-bold text-[var(--color-fg)]">
                                 +{majorations.find(m => m.typeMajoration === 'HS_50')
                                     ? Math.round(majorations.find(m => m.typeMajoration === 'HS_50').taux * 100) + '%'
@@ -113,7 +113,7 @@ export default function MajorationsParametresTab() {
                         </p>
                     )}
                     {majorations.filter(m => ['NUIT','DIMANCHE','FERIE'].includes(m.typeMajoration)).map(m => (
-                        <p key={m.typeMajoration}>• {m.description || m.typeMajoration} : 
+                        <p key={m.typeMajoration}>• {m.description || m.typeMajoration} :{' '}
                             <span className="font-medium text-[var(--color-fg)]">+{Math.round(m.taux * 100)}%</span>
                         </p>
                     ))}

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock, CheckCircle, XCircle, Send, Moon, Sun, Award, Utensils, Bus, Check } from 'lucide-react';
+import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock, CheckCircle, XCircle, Send, Moon, Sun, Award, Check } from 'lucide-react';
 import Select from '@/components/ui/forms/Select';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
@@ -11,7 +11,6 @@ import organisationService from '@/api/admin/organisationService';
 import periodePaieService from '@/services/periodePaieService';
 import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 import SEO from '@/components/system/SEO';
-import PointageWorkflowNav from '@/components/pointage/PointageWorkflowNav';
 import usePointageSynthese from '@/hooks/pointage/usePointageSynthese';
 import { Tabs } from '@/components/ui/navigation/Tabs';
 import Badge from '@/components/ui/data-display/Badge';
@@ -543,17 +542,20 @@ export default function SynthesePointagePage() {
                                                     <CheckCircle2 size={15} />
                                                     Validée &amp; Verrouillée
                                                 </span>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => setShowDevaliderModal(true)}
-                                                    className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] cursor-pointer"
-                                                >
-                                                    <Unlock size={13} className="mr-1" />
-                                                    Déverrouiller
-                                                </Button>
+                                                {consolidationStatus.isEnCours && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setShowDevaliderModal(true)}
+                                                        className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] cursor-pointer"
+                                                        title="Déverrouiller cette semaine pour recalcul ou modifications (Période en cours)"
+                                                    >
+                                                        <Unlock size={13} className="mr-1" />
+                                                        Déverrouiller
+                                                    </Button>
+                                                )}
                                             </div>
-                                        ) : selectedSemaine.ready ? (
+                                        ) : consolidationStatus.isEnCours && selectedSemaine.ready ? (
                                             <div className="flex items-center gap-2">
                                                 {selectedSemaine.nbAnomalies > 0 && (
                                                     <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] bg-[var(--color-warning-500)]/10 px-2 py-1 border border-[var(--color-warning-500)]/30">
@@ -571,6 +573,10 @@ export default function SynthesePointagePage() {
                                                     <span>Valider la {selectedSemaine.title}</span>
                                                 </Button>
                                             </div>
+                                        ) : (!consolidationStatus.isEnCours) ? (
+                                            <span className="text-[11px] font-bold text-[var(--color-fg-muted)]">
+                                                Période {consolidationStatus.currentPeriodeObj?.statutLibelle || 'Verrouillée'} (Lecture seule)
+                                            </span>
                                         ) : (() => {
                                             // Identifier les semaines précédentes non validées
                                             const semaineIdx = semaines.findIndex(s => s.id === selectedSemaine.id);

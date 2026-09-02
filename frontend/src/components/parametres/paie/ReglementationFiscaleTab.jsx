@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
-    Scale, TrendingUp, Calendar, CheckCircle2, Clock, Plus, Edit2,
+    Scale, TrendingUp, CheckCircle2, Clock, Edit2,
     Banknote, Percent, Timer, Palmtree, Info, FileText, AlertTriangle,
-    ArrowRight, Sparkles
+    Sparkles
 } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
@@ -87,11 +87,6 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
     const plafondCalc = formData.smeNational && formData.plafondCotisationNbSme
         ? fmtAr(parseSafe(formData.smeNational) * parseSafe(formData.plafondCotisationNbSme))
         : '—';
-
-    // Calcul du diviseur auto si durée hebdo change
-    const diviseurAuto = formData.dureeHebdoLegale
-        ? ((parseSafe(formData.dureeHebdoLegale) * 52) / 12).toFixed(4)
-        : '';
 
     // Titre et sémantique selon le mode
     const isRevalorisation = mode === 'revaloriser';
@@ -419,7 +414,7 @@ export default function ReglementationFiscaleTab() {
         try {
             const data = await paieConfigService.getAllConfigsLegales();
             setConfigs(data || []);
-        } catch (e) {
+        } catch {
             setError("Impossible de charger les exercices fiscaux.");
         } finally {
             setLoading(false);

@@ -17,10 +17,6 @@ const Dashboard = lazy(() => import("@/pages/dashboard/Dashboard"));
 
 // Module Pointage & Présence
 const GestionPointagesPage = lazy(() => import("@/pages/pointage/GestionPointagesPage"));
-const SaisieQuotidiennePage = lazy(() => import("@/pages/pointage/SaisieQuotidiennePage"));
-const AnomaliesPointagePage = lazy(() => import("@/pages/pointage/AnomaliesPointagePage"));
-const SynthesePointagePage = lazy(() => import("@/pages/pointage/SynthesePointagePage"));
-const PeriodePaiePage = lazy(() => import("@/pages/pointage/PeriodePaiePage"));
 
 // Module Congés & Absences
 const GestionCongesPage = lazy(() => import("@/pages/conges/GestionCongesPage"));

@@ -2,16 +2,13 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
     Clock, 
     Layers, 
-    CalendarRange, 
     CheckCircle2, 
     AlertTriangle, 
     Send, 
     Lock, 
-    ArrowRight, 
     Users, 
-    Calendar, 
     CheckCircle, 
-    XCircle,
+    XCircle, 
     TrendingUp,
     ShieldAlert,
     ClockCheck,
@@ -39,7 +36,7 @@ import periodePaieService from '@/services/periodePaieService';
 import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 
 export default function PointageOverviewTab({ onTabChange }) {
-    const { hasPermission, user } = useAuth();
+    const { hasPermission } = useAuth();
     const { toast } = useToast();
     const isDaf = hasPermission('POINTAGE_VALIDATE');
 

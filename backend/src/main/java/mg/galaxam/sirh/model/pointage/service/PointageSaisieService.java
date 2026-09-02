@@ -577,7 +577,7 @@ public class PointageSaisieService {
                                 dto.setLibelleStatut("Cadre autonome (8h)");
                                 dto.setDeplacementMatin(true);
                                 dto.setDeplacementAm(true);
-                                dto.setIndemniteRepasRecue(true);
+                                dto.setIndemniteRepasRecue(montantRepasJour > 0);
                             } else {
                                 dto.setHeureEntreeMatin("");
                                 dto.setHeureSortieMatin("");
@@ -589,7 +589,7 @@ public class PointageSaisieService {
                                 dto.setLibelleStatut("Non saisi");
                                 dto.setDeplacementMatin(true);
                                 dto.setDeplacementAm(true);
-                                dto.setIndemniteRepasRecue(true);
+                                dto.setIndemniteRepasRecue(montantRepasJour > 0);
                             }
                         }
 

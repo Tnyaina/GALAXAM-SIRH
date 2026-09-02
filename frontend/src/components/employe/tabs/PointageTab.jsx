@@ -549,7 +549,7 @@ export default function PointageTab({ idEmploye }) {
                                         Indemnités du Mois
                                     </span>
                                     <span className="font-mono text-xs font-bold text-emerald-600">
-                                        {kpis.montantRepasTotal || '0 Ar'}
+                                        {kpis.totalIndemnitesMois || kpis.montantRepasTotal || '0 Ar'}
                                     </span>
                                 </h4>
                                 
@@ -594,11 +594,11 @@ export default function PointageTab({ idEmploye }) {
                                                 Transport Déplacement
                                             </span>
                                             <span className="font-mono text-sky-600 font-bold">
-                                                {kpis.totalTrajets || '0 trajet'}
+                                                {kpis.montantDeplacementTotal || kpis.totalTrajets || '0 Ar'}
                                             </span>
                                         </div>
                                         <p className="text-[10.5px] text-[var(--color-fg-muted)] pl-3">
-                                            Proratisé selon présence effective (1 jour = 2 trajets)
+                                            Proratisé ({kpis.totalTrajets || '0 trajet'})
                                         </p>
                                     </div>
 

@@ -3,11 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Clock, PlusCircle } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { useToast } from '@/components/ui/feedback/Toast';
-import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import SEO from '@/components/system/SEO';
 import { useAuth } from '@/context/AuthContext';
 import organisationService from '@/api/admin/organisationService';
-import periodePaieService from '@/services/periodePaieService';
 
 import PointageGuideStepper from '@/components/pointage/PointageGuideStepper';
 import PointageFerieAlert from '@/components/pointage/PointageFerieAlert';
@@ -52,7 +50,6 @@ export default function SaisieQuotidiennePage() {
         loading,
         saving,
         error,
-        loadData,
         isRowModified,
         updateRowHours,
         updateRowIndemnite,
@@ -262,7 +259,7 @@ export default function SaisieQuotidiennePage() {
             libelleFerie,
             siteLabel
         };
-    }, [backendStatsJour, modifiedEmpIds.size, grilleData, siteLabel]);
+    }, [backendStatsJour, modifiedEmpIds.size, grilleData, siteLabel, selectedDate]);
 
     // Ouvre la modale de récapitulatif & validation
     const handleRequestSave = useCallback(() => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Clock } from 'lucide-react';
 import PageHeader from '@/components/ui/navigation/PageHeader';

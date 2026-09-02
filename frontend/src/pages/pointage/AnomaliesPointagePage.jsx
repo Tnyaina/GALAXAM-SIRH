@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, Clock, Search, CheckCircle, ShieldAlert, Wrench } from 'lucide-react';
-import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
@@ -13,7 +12,6 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import organisationService from '@/api/admin/organisationService';
 import periodePaieService from '@/services/periodePaieService';
 import SEO from '@/components/system/SEO';
-import PointageWorkflowNav from '@/components/pointage/PointageWorkflowNav';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
 import { useAuth } from '@/context/AuthContext';

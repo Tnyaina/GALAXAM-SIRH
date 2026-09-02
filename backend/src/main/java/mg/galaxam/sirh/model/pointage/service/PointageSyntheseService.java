@@ -165,26 +165,254 @@ public class PointageSyntheseService {
         }
     }
 
-    public List<PointageSyntheseMensuelleDTO> getSynthesePeriode(int idPeriode, Integer idSite, Connection c) throws SQLException {
-        List<PointageSyntheseMensuelleDTO> list = new ArrayList<>();
-        if (idPeriode <= 0) return list;
-
-        // 0. Charger l'ensemble des paramètres globaux dynamiques
-        Map<String, String> params = ParametreGlobal.loadActiveMap(c);
+    /**
+     * MÉTHODE MÉTIER UNIQUE & UNIFIÉE : Calcule la synthèse complète pour un employé sur une plage de dates donnée.
+     * Réutilisée pour :
+     * 1. Fiche Employé Individuelle (Mois ou période arbitraire)
+     * 2. Détail Hebdomadaire (Tronçon 40h de la semaine)
+     * 3. Synthèse Mensuelle Globale & Clôture DAF
+     */
+    public PointageSyntheseMensuelleDTO calculerSyntheseEmploye(
+            int idEmp,
+            String matricule,
+            String nom,
+            String prenom,
+            String photoUrl,
+            int idSite,
+            String siteCode,
+            String siteNom,
+            String codeCat,
+            boolean isCadre,
+            boolean estAutonome,
+            LocalDate dateDebut,
+            LocalDate dateFin,
+            Integer idPeriode,
+            String codePeriode,
+            String libellePeriode,
+            String statutPeriode,
+            int nbJoursOuvrablesPeriode,
+            Map<Integer, Double> siteDeplacementRefMap,
+            Map<String, String> params,
+            Connection c
+    ) throws SQLException {
         double seuilHeuresJour = ParametreGlobal.getDouble(params, "SEUIL_HEURES_JOUR", 8.0);
         double seuilHsTranche1 = ParametreGlobal.getDouble(params, "SEUIL_HS_TRANCHE_1", 8.0);
         double reductionDeplactTmm = ParametreGlobal.getDouble(params, "REDUCTION_DEPLACT_REPAS_MIDI", 1000.0);
         double montantRepasMidiDefaut = ParametreGlobal.getDouble(params, "MONTANT_REPAS_MIDI", 2000.0);
-        String debutNuitStr = ParametreGlobal.getString(params, "SEUIL_NUIT_DEBUT", "22:00");
-        String finNuitStr = ParametreGlobal.getString(params, "SEUIL_NUIT_FIN", "05:00");
-        LocalTime debutNuit = LocalTime.parse(debutNuitStr.length() == 5 ? debutNuitStr : debutNuitStr.substring(0, 5));
-        LocalTime finNuit = LocalTime.parse(finNuitStr.length() == 5 ? finNuitStr : finNuitStr.substring(0, 5));
         String seuil2eRepas1Str = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_1", "19:30");
         LocalTime seuil2eRepas1 = LocalTime.parse(seuil2eRepas1Str.length() == 5 ? seuil2eRepas1Str : seuil2eRepas1Str.substring(0, 5));
         double montant2eRepas1 = ParametreGlobal.getDouble(params, "MONTANT_2ND_REPAS_1", 2000.0);
         String seuil2eRepas2Str = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_2", "21:00");
         LocalTime seuil2eRepas2 = LocalTime.parse(seuil2eRepas2Str.length() == 5 ? seuil2eRepas2Str : seuil2eRepas2Str.substring(0, 5));
         double montant2eRepas2 = ParametreGlobal.getDouble(params, "MONTANT_2ND_REPAS_2", 4000.0);
+
+        PointageSyntheseMensuelleDTO dto = new PointageSyntheseMensuelleDTO();
+        dto.setIdEmploye(idEmp);
+        dto.setMatricule(matricule);
+        dto.setNom(nom);
+        dto.setPrenom(prenom);
+        dto.setPhotoUrl(photoUrl);
+        dto.setIdSite(idSite);
+        dto.setSiteNom(siteNom);
+        dto.setCodeCategorie(codeCat);
+        dto.setLibelleCategorie(isCadre ? "Cadre" : "Employé");
+        dto.setIdPeriodePaie(idPeriode);
+        dto.setCodePeriode(codePeriode);
+        dto.setLibellePeriode(libellePeriode);
+        dto.setStatutPeriode(statutPeriode);
+        dto.setDispensePointage(estAutonome);
+        dto.setEstCadre(isCadre);
+        dto.setNbJoursOuvrables(nbJoursOuvrablesPeriode);
+
+        // Charger tous les pointages quotidiens de cet employé sur [dateDebut, dateFin]
+        String sqlPtg = "SELECT p.date_pointage, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
+                        "p.deplacement_matin, p.deplacement_am, p.indemnite_deplacement_recue, " +
+                        "p.indemnite_repas_recue, p.montant_repas, st.code AS statut_code " +
+                        "FROM pointage_jour p " +
+                        "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
+                        "WHERE p.id_employe = ? AND p.date_pointage BETWEEN ? AND ? " +
+                        "ORDER BY p.date_pointage";
+
+        int presents = 0;
+        int conges = 0;
+        int absences = 0;
+        int feriesChomes = 0;
+        int feriesTravailles = 0;
+        int dimanchesTravailles = 0;
+        int repasCount = 0;
+        double montantRepasTotal = 0.0;
+        double totalTrajets = 0.0;
+        double cumulHeuresTravaillees = 0.0;
+        double cumulHeuresNuit = 0.0;
+        double cumulHeuresDimanche = 0.0;
+        double cumulHeuresFerie = 0.0;
+        int totalMinsRetard = 0;
+        int nbAnomalies = 0;
+
+        // Regroupement par semaine civile ISO (Lundi du tronçon)
+        Map<LocalDate, List<Map<String, Object>>> parSemaine = new LinkedHashMap<>();
+
+        try (PreparedStatement psPtg = c.prepareStatement(sqlPtg)) {
+            psPtg.setInt(1, idEmp);
+            psPtg.setDate(2, Date.valueOf(dateDebut));
+            psPtg.setDate(3, Date.valueOf(dateFin));
+            try (ResultSet rsPtg = psPtg.executeQuery()) {
+                while (rsPtg.next()) {
+                    LocalDate dPointage = rsPtg.getDate("date_pointage").toLocalDate();
+                    boolean isWeekend = (dPointage.getDayOfWeek() == DayOfWeek.SATURDAY || dPointage.getDayOfWeek() == DayOfWeek.SUNDAY);
+                    boolean isSunday = (dPointage.getDayOfWeek() == DayOfWeek.SUNDAY);
+                    String stCode = rsPtg.getString("statut_code");
+                    double th = rsPtg.getDouble("total_heures");
+
+                    if (("DISPENSE_POINTAGE".equals(stCode) || estAutonome)) {
+                        if (isWeekend && th <= 0.0) {
+                            th = 0.0;
+                            stCode = "REPOS";
+                        } else if (!isWeekend && th <= 0.0) {
+                            th = seuilHeuresJour;
+                        }
+                    }
+
+                    double hn = rsPtg.getDouble("heures_nuit");
+                    int ret = rsPtg.getInt("minutes_retard");
+                    boolean depM = rsPtg.getBoolean("deplacement_matin");
+                    boolean depA = rsPtg.getBoolean("deplacement_am");
+                    boolean repas = rsPtg.getBoolean("indemnite_repas_recue");
+                    double mntRepas = rsPtg.getDouble("montant_repas");
+                    Time saTime = rsPtg.getTime("heure_sortie_am");
+                    LocalTime sa = saTime != null ? saTime.toLocalTime() : null;
+
+                    if ("PRESENT".equals(stCode) || "DISPENSE_POINTAGE".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode)) {
+                        presents++;
+                    } else if ("DIMANCHE_TRAVAILLE".equals(stCode) || (isSunday && th > 0)) {
+                        presents++;
+                        dimanchesTravailles++;
+                        cumulHeuresDimanche += th;
+                    } else if ("CONGE".equals(stCode)) {
+                        conges++;
+                    } else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode)) {
+                        absences++;
+                    } else if ("FERIE_CHOME".equals(stCode)) {
+                        feriesChomes++;
+                    } else if ("FERIE_TRAVAILLE".equals(stCode)) {
+                        presents++;
+                        feriesTravailles++;
+                        cumulHeuresFerie += th;
+                    } else if ("ANOMALIE_SAISIE".equals(stCode)) {
+                        nbAnomalies++;
+                    }
+
+                    cumulHeuresTravaillees += th;
+                    cumulHeuresNuit += hn;
+                    totalMinsRetard += (estAutonome ? 0 : ret);
+
+                    // Saisie quotidienne est la vérité finale : si la case repas est cochée (ou autonome) -> calcul dynamique complet
+                    if (repas || (estAutonome && !isWeekend)) {
+                        repasCount++;
+                        montantRepasTotal += calculateurEngine.calculerTotalRepasJour(
+                                true, montantRepasMidiDefaut, sa,
+                                seuil2eRepas1, montant2eRepas1, seuil2eRepas2, montant2eRepas2
+                        );
+                    }
+
+                    if (depM || (estAutonome && !isWeekend)) totalTrajets += 0.5;
+                    if (depA || (estAutonome && !isWeekend)) totalTrajets += 0.5;
+
+                    LocalDate lundiSemaine = dPointage.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                    parSemaine.computeIfAbsent(lundiSemaine, k -> new ArrayList<>());
+
+                    Map<String, Object> dayRow = new HashMap<>();
+                    dayRow.put("date", dPointage);
+                    dayRow.put("totalHeures", th);
+                    dayRow.put("retardMins", estAutonome ? 0 : ret);
+                    parSemaine.get(lundiSemaine).add(dayRow);
+                }
+            }
+        }
+
+        // Si salarié autonome et aucune ligne de pointage enregistrée : base normale automatique
+        if (estAutonome && presents == 0 && conges == 0 && absences == 0) {
+            presents = nbJoursOuvrablesPeriode;
+            cumulHeuresTravaillees = nbJoursOuvrablesPeriode * seuilHeuresJour;
+        }
+
+        // Calcul de la compensation hebdomadaire par tronçon
+        double totalHs30 = 0.0;
+        double totalHs50 = 0.0;
+        double totalHsBrutes = 0.0;
+        double totalRetardCompense = 0.0;
+        double totalHeuresDeficit = 0.0;
+
+        for (Map.Entry<LocalDate, List<Map<String, Object>>> entry : parSemaine.entrySet()) {
+            LocalDate lundi = entry.getKey();
+            List<Map<String, Object>> jours = entry.getValue();
+
+            // Compter les jours ouvrés du tronçon dans la période
+            int joursOuvresTroncon = 0;
+            for (int i = 0; i < 7; i++) {
+                LocalDate cur = lundi.plusDays(i);
+                if (!cur.isBefore(dateDebut) && !cur.isAfter(dateFin)) {
+                    if (cur.getDayOfWeek() != DayOfWeek.SATURDAY && cur.getDayOfWeek() != DayOfWeek.SUNDAY) {
+                        joursOuvresTroncon++;
+                    }
+                }
+            }
+            if (joursOuvresTroncon == 0) joursOuvresTroncon = 1;
+
+            double hTotSemaine = 0.0;
+            double retMinsSemaine = 0.0;
+            for (Map<String, Object> j : jours) {
+                hTotSemaine += (double) j.get("totalHeures");
+                retMinsSemaine += ((Number) j.get("retardMins")).doubleValue();
+            }
+
+            TronconCalculResult res = calculerTroncon(lundi, joursOuvresTroncon, hTotSemaine, retMinsSemaine, isCadre, seuilHeuresJour, seuilHsTranche1);
+            totalHs30 += res.heuresHs30;
+            totalHs50 += res.heuresHs50;
+            totalHsBrutes += res.heuresHsBrutes;
+            totalRetardCompense += res.retardCompense;
+            totalHeuresDeficit += res.heuresDeficit;
+        }
+
+        dto.setNbJoursPresents(presents);
+        dto.setNbJoursConge(conges);
+        dto.setNbJoursAbsence(absences);
+        dto.setNbJoursFerieChome(feriesChomes);
+        dto.setNbJoursFerieTravaille(feriesTravailles);
+        dto.setNbJoursDimancheTravaille(dimanchesTravailles);
+        dto.setTotalHeuresTravaillees(Math.round(cumulHeuresTravaillees * 100.0) / 100.0);
+        dto.setSurplusBrut(Math.round(totalHsBrutes * 100.0) / 100.0);
+        dto.setHeuresHs30(Math.round(totalHs30 * 100.0) / 100.0);
+        dto.setHeuresHs50(Math.round(totalHs50 * 100.0) / 100.0);
+        dto.setHeuresNuitTotal(Math.round(cumulHeuresNuit * 100.0) / 100.0);
+        dto.setHeuresDimancheTotal(Math.round(cumulHeuresDimanche * 100.0) / 100.0);
+        dto.setHeuresFerieTotal(Math.round(cumulHeuresFerie * 100.0) / 100.0);
+        dto.setRetardCompense(Math.round(totalRetardCompense * 100.0) / 100.0);
+        dto.setHeuresAbsenceRetenues(Math.round(totalHeuresDeficit * 100.0) / 100.0);
+        dto.setTotalMinutesRetard(totalMinsRetard);
+        dto.setNbJoursRepas(repasCount);
+        dto.setMontantRepas(montantRepasTotal);
+        dto.setNbJoursDeplacement((int) Math.round(totalTrajets));
+        dto.setNbAnomaliesNonResolues(nbAnomalies);
+
+        boolean isSiteTmm = (siteCode != null && "TMM".equalsIgnoreCase(siteCode.trim())) ||
+                            (siteNom != null && siteNom.toLowerCase().contains("tamatave"));
+
+        double refDeplacementSite = siteDeplacementRefMap != null ? siteDeplacementRefMap.getOrDefault(idSite, isSiteTmm ? 53200.0 : 31200.0) : 31200.0;
+        double tarifJourDeplacement = calendrierEngine.calculerProrataJournalier(refDeplacementSite, nbJoursOuvrablesPeriode);
+        double brutDeplacement = totalTrajets * tarifJourDeplacement;
+        double mntDeplacement = Math.max(0.0, brutDeplacement - (isSiteTmm ? repasCount * reductionDeplactTmm : 0.0));
+        dto.setMontantDeplacement(Math.round(mntDeplacement * 100.0) / 100.0);
+
+        return dto;
+    }
+
+    public List<PointageSyntheseMensuelleDTO> getSynthesePeriode(int idPeriode, Integer idSite, Connection c) throws SQLException {
+        List<PointageSyntheseMensuelleDTO> list = new ArrayList<>();
+        if (idPeriode <= 0) return list;
+
+        // 0. Charger l'ensemble des paramètres globaux dynamiques
+        Map<String, String> params = ParametreGlobal.loadActiveMap(c);
 
         // 1. Charger les dates de la période de paie
         LocalDate dateDebut = null;
@@ -230,7 +458,7 @@ public class PointageSyntheseService {
             }
         } catch (Exception ignored) {}
 
-        // 2. Charger les employés éligibles avec l'affectation active durant cette période (la plus récente si mutation en cours de période)
+        // 2. Charger les employés éligibles avec l'affectation active durant cette période
         StringBuilder sqlEmp = new StringBuilder(
             "SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
             "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, " +
@@ -250,7 +478,7 @@ public class PointageSyntheseService {
         }
         sqlEmp.append("ORDER BY e.id_employe, a.date_debut DESC");
 
-        // 3. Traiter chaque employé
+        // 3. Traiter chaque employé via la méthode unifiée
         try (PreparedStatement psE = c.prepareStatement(sqlEmp.toString())) {
             int pIdx = 1;
             psE.setDate(pIdx++, Date.valueOf(dateFin));
@@ -265,198 +493,29 @@ public class PointageSyntheseService {
                     String codeCat = rsE.getString("code_categorie");
                     boolean isCadre = estAutonome || "C".equalsIgnoreCase(codeCat) || "HC".equalsIgnoreCase(codeCat);
 
-                    PointageSyntheseMensuelleDTO dto = new PointageSyntheseMensuelleDTO();
-                    dto.setIdEmploye(idEmp);
-                    dto.setMatricule(rsE.getString("matricule"));
-                    dto.setNom(rsE.getString("nom"));
-                    dto.setPrenom(rsE.getString("prenom"));
-                    dto.setPhotoUrl(rsE.getString("photo_url"));
-                    dto.setIdSite(rsE.getInt("id_site"));
-                    dto.setSiteNom(rsE.getString("site_nom"));
-                    dto.setCodeCategorie(codeCat);
-                    dto.setLibelleCategorie(isCadre ? "Cadre" : "Employé");
-                    dto.setIdPeriodePaie(idPeriode);
-                    dto.setCodePeriode(codePeriode);
-                    dto.setLibellePeriode(libellePeriode);
-                    dto.setStatutPeriode(statutPeriode);
-                    dto.setDispensePointage(estAutonome);
-                    dto.setEstCadre(isCadre);
-                    dto.setNbJoursOuvrables(nbJoursOuvrablesPeriode);
-
-                    // Charger tous les pointages quotidiens de cet employé sur la période
-                    String sqlPtg = "SELECT p.date_pointage, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
-                                    "p.deplacement_matin, p.deplacement_am, p.indemnite_deplacement_recue, " +
-                                    "p.indemnite_repas_recue, p.montant_repas, st.code AS statut_code " +
-                                    "FROM pointage_jour p " +
-                                    "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
-                                    "WHERE p.id_employe = ? AND p.id_periode_paie = ? " +
-                                    "ORDER BY p.date_pointage";
-
-                    int presents = 0;
-                    int conges = 0;
-                    int absences = 0;
-                    int feriesChomes = 0;
-                    int feriesTravailles = 0;
-                    int dimanchesTravailles = 0;
-                    int repasCount = 0;
-                    double montantRepasTotal = 0.0;
-                    double totalTrajets = 0.0;
-                    double cumulHeuresTravaillees = 0.0;
-                    double cumulHeuresNuit = 0.0;
-                    double cumulHeuresDimanche = 0.0;
-                    double cumulHeuresFerie = 0.0;
-                    int totalMinsRetard = 0;
-
-                    // Regroupement par semaine civile ISO (Lundi du tronçon)
-                    Map<LocalDate, List<Map<String, Object>>> parSemaine = new LinkedHashMap<>();
-
-                    try (PreparedStatement psPtg = c.prepareStatement(sqlPtg)) {
-                        psPtg.setInt(1, idEmp);
-                        psPtg.setInt(2, idPeriode);
-                        try (ResultSet rsPtg = psPtg.executeQuery()) {
-                            while (rsPtg.next()) {
-                                LocalDate dPointage = rsPtg.getDate("date_pointage").toLocalDate();
-                                boolean isWeekend = (dPointage.getDayOfWeek() == DayOfWeek.SATURDAY || dPointage.getDayOfWeek() == DayOfWeek.SUNDAY);
-                                boolean isSunday = (dPointage.getDayOfWeek() == DayOfWeek.SUNDAY);
-                                String stCode = rsPtg.getString("statut_code");
-                                double th = rsPtg.getDouble("total_heures");
-
-                                if (("DISPENSE_POINTAGE".equals(stCode) || estAutonome)) {
-                                    if (isWeekend && th <= 0.0) {
-                                        th = 0.0;
-                                        stCode = "REPOS";
-                                    } else if (!isWeekend && th <= 0.0) {
-                                        th = seuilHeuresJour;
-                                    }
-                                }
-
-                                double hn = rsPtg.getDouble("heures_nuit");
-                                int ret = rsPtg.getInt("minutes_retard");
-                                boolean depM = rsPtg.getBoolean("deplacement_matin");
-                                boolean depA = rsPtg.getBoolean("deplacement_am");
-                                boolean repas = rsPtg.getBoolean("indemnite_repas_recue");
-                                double mntRepas = rsPtg.getDouble("montant_repas");
-                                Time saTime = rsPtg.getTime("heure_sortie_am");
-                                LocalTime sa = saTime != null ? saTime.toLocalTime() : null;
-
-                                if ("PRESENT".equals(stCode) || "DISPENSE_POINTAGE".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode)) {
-                                    presents++;
-                                } else if ("DIMANCHE_TRAVAILLE".equals(stCode) || (isSunday && th > 0)) {
-                                    presents++;
-                                    dimanchesTravailles++;
-                                    cumulHeuresDimanche += th;
-                                } else if ("CONGE".equals(stCode)) {
-                                    conges++;
-                                } else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode)) {
-                                    absences++;
-                                } else if ("FERIE_CHOME".equals(stCode)) {
-                                    feriesChomes++;
-                                } else if ("FERIE_TRAVAILLE".equals(stCode)) {
-                                    presents++;
-                                    feriesTravailles++;
-                                    cumulHeuresFerie += th;
-                                }
-
-                                cumulHeuresTravaillees += th;
-                                cumulHeuresNuit += hn;
-                                totalMinsRetard += (estAutonome ? 0 : ret);
-
-                                if (repas || (estAutonome && !isWeekend)) {
-                                    repasCount++;
-                                    if (mntRepas > 0) {
-                                        montantRepasTotal += mntRepas;
-                                    } else {
-                                        montantRepasTotal += calculateurEngine.calculerTotalRepasJour(
-                                                true, montantRepasMidiDefaut, sa,
-                                                seuil2eRepas1, montant2eRepas1, seuil2eRepas2, montant2eRepas2
-                                        );
-                                    }
-                                }
-
-                                if (depM || (estAutonome && !isWeekend)) totalTrajets += 0.5;
-                                if (depA || (estAutonome && !isWeekend)) totalTrajets += 0.5;
-
-                                LocalDate lundiSemaine = dPointage.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-                                parSemaine.computeIfAbsent(lundiSemaine, k -> new ArrayList<>());
-
-                                Map<String, Object> dayRow = new HashMap<>();
-                                dayRow.put("date", dPointage);
-                                dayRow.put("totalHeures", th);
-                                dayRow.put("retardMins", estAutonome ? 0 : ret);
-                                parSemaine.get(lundiSemaine).add(dayRow);
-                            }
-                        }
-                    }
-
-                    // Si salarié autonome et aucune ligne de pointage enregistrée : base normale automatique
-                    if (estAutonome && presents == 0 && conges == 0 && absences == 0) {
-                        presents = nbJoursOuvrablesPeriode;
-                        cumulHeuresTravaillees = nbJoursOuvrablesPeriode * seuilHeuresJour;
-                    }
-
-                    // Calcul de la compensation hebdomadaire par tronçon
-                    double totalHs30 = 0.0;
-                    double totalHs50 = 0.0;
-                    double totalHeuresDeficit = 0.0;
-
-                    for (Map.Entry<LocalDate, List<Map<String, Object>>> entry : parSemaine.entrySet()) {
-                        LocalDate lundi = entry.getKey();
-                        List<Map<String, Object>> jours = entry.getValue();
-
-                        // Compter les jours ouvrés du tronçon dans la période
-                        int joursOuvresTroncon = 0;
-                        for (int i = 0; i < 7; i++) {
-                            LocalDate cur = lundi.plusDays(i);
-                            if (!cur.isBefore(dateDebut) && !cur.isAfter(dateFin)) {
-                                if (cur.getDayOfWeek() != DayOfWeek.SATURDAY && cur.getDayOfWeek() != DayOfWeek.SUNDAY) {
-                                    joursOuvresTroncon++;
-                                }
-                            }
-                        }
-                        if (joursOuvresTroncon == 0) joursOuvresTroncon = 1;
-
-                        double hTotSemaine = 0.0;
-                        double retMinsSemaine = 0.0;
-                        for (Map<String, Object> j : jours) {
-                            hTotSemaine += (double) j.get("totalHeures");
-                            retMinsSemaine += ((Number) j.get("retardMins")).doubleValue();
-                        }
-
-                        TronconCalculResult res = calculerTroncon(lundi, joursOuvresTroncon, hTotSemaine, retMinsSemaine, isCadre, seuilHeuresJour, seuilHsTranche1);
-                        totalHs30 += res.heuresHs30;
-                        totalHs50 += res.heuresHs50;
-                        totalHeuresDeficit += res.heuresDeficit;
-                    }
-
-                    dto.setNbJoursPresents(presents);
-                    dto.setNbJoursConge(conges);
-                    dto.setNbJoursAbsence(absences);
-                    dto.setNbJoursFerieChome(feriesChomes);
-                    dto.setNbJoursFerieTravaille(feriesTravailles);
-                    dto.setNbJoursDimancheTravaille(dimanchesTravailles);
-                    dto.setTotalHeuresTravaillees(Math.round(cumulHeuresTravaillees * 100.0) / 100.0);
-                    dto.setHeuresHs30(Math.round(totalHs30 * 100.0) / 100.0);
-                    dto.setHeuresHs50(Math.round(totalHs50 * 100.0) / 100.0);
-                    dto.setHeuresNuitTotal(Math.round(cumulHeuresNuit * 100.0) / 100.0);
-                    dto.setHeuresDimancheTotal(Math.round(cumulHeuresDimanche * 100.0) / 100.0);
-                    dto.setHeuresFerieTotal(Math.round(cumulHeuresFerie * 100.0) / 100.0);
-                    dto.setHeuresAbsenceRetenues(Math.round(totalHeuresDeficit * 100.0) / 100.0);
-                    dto.setTotalMinutesRetard(totalMinsRetard);
-                    dto.setNbJoursRepas(repasCount);
-                    dto.setMontantRepas(montantRepasTotal);
-                    dto.setNbJoursDeplacement((int) Math.round(totalTrajets));
-
-                    int empSiteId = rsE.getInt("id_site");
-                    String siteCode = rsE.getString("site_code");
-                    String siteNom = rsE.getString("site_nom");
-                    boolean isSiteTmm = (siteCode != null && "TMM".equalsIgnoreCase(siteCode.trim())) ||
-                                        (siteNom != null && siteNom.toLowerCase().contains("tamatave"));
-
-                    double refDeplacementSite = siteDeplacementRefMap.getOrDefault(empSiteId, isSiteTmm ? 53200.0 : 31200.0);
-                    double tarifJourDeplacement = calendrierEngine.calculerProrataJournalier(refDeplacementSite, nbJoursOuvrablesPeriode);
-                    double brutDeplacement = totalTrajets * tarifJourDeplacement;
-                    double mntDeplacement = Math.max(0.0, brutDeplacement - (isSiteTmm ? repasCount * reductionDeplactTmm : 0.0));
-                    dto.setMontantDeplacement(Math.round(mntDeplacement * 100.0) / 100.0);
+                    PointageSyntheseMensuelleDTO dto = calculerSyntheseEmploye(
+                            idEmp,
+                            rsE.getString("matricule"),
+                            rsE.getString("nom"),
+                            rsE.getString("prenom"),
+                            rsE.getString("photo_url"),
+                            rsE.getInt("id_site"),
+                            rsE.getString("site_code"),
+                            rsE.getString("site_nom"),
+                            codeCat,
+                            isCadre,
+                            estAutonome,
+                            dateDebut,
+                            dateFin,
+                            idPeriode,
+                            codePeriode,
+                            libellePeriode,
+                            statutPeriode,
+                            nbJoursOuvrablesPeriode,
+                            siteDeplacementRefMap,
+                            params,
+                            c
+                    );
 
                     list.add(dto);
                 }
@@ -763,6 +822,18 @@ public class PointageSyntheseService {
             }
         }
 
+        // Charger les indemnités de déplacement/transport configurées par site (site_indemnite_config)
+        Map<Integer, Double> siteDeplacementRefMap = new HashMap<>();
+        String sqlSiteIndConfig = "SELECT c.id_site, c.montant_reference FROM site_indemnite_config c " +
+                                  "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
+                                  "WHERE i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE";
+        try (PreparedStatement psSIC = c.prepareStatement(sqlSiteIndConfig);
+             ResultSet rsSIC = psSIC.executeQuery()) {
+            while (rsSIC.next()) {
+                siteDeplacementRefMap.put(rsSIC.getInt("id_site"), rsSIC.getDouble("montant_reference"));
+            }
+        } catch (Exception ignored) {}
+
         StringBuilder sqlEmp = new StringBuilder(
             "SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
             "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, " +
@@ -796,154 +867,30 @@ public class PointageSyntheseService {
                     String codeCat = rsE.getString("code_categorie");
                     boolean isCadre = estAutonome || "C".equalsIgnoreCase(codeCat) || "HC".equalsIgnoreCase(codeCat);
 
-                    PointageSyntheseMensuelleDTO dto = new PointageSyntheseMensuelleDTO();
-                    dto.setIdEmploye(idEmp);
-                    dto.setMatricule(rsE.getString("matricule"));
-                    dto.setNom(rsE.getString("nom"));
-                    dto.setPrenom(rsE.getString("prenom"));
-                    dto.setPhotoUrl(rsE.getString("photo_url"));
-                    dto.setIdSite(rsE.getInt("id_site"));
-                    dto.setSiteNom(rsE.getString("site_nom"));
-                    dto.setCodeCategorie(codeCat);
-                    dto.setLibelleCategorie(isCadre ? "Cadre" : "Employé");
-                    dto.setIdPeriodePaie(idPeriode);
-                    dto.setDispensePointage(estAutonome);
-                    dto.setEstCadre(isCadre);
-                    dto.setNbJoursOuvrables(nbOuvrables);
-
-                    String sqlPtg = "SELECT p.date_pointage, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
-                                    "p.deplacement_matin, p.deplacement_am, p.indemnite_deplacement_recue, " +
-                                    "p.indemnite_repas_recue, p.montant_repas, st.code AS statut_code " +
-                                    "FROM pointage_jour p " +
-                                    "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
-                                    "WHERE p.id_employe = ? AND p.id_periode_paie = ? AND p.date_pointage BETWEEN ? AND ? " +
-                                    "ORDER BY p.date_pointage";
-
-                    int presents = 0;
-                    int conges = 0;
-                    int absences = 0;
-                    int feriesChomes = 0;
-                    int feriesTravailles = 0;
-                    int dimanchesTravailles = 0;
-                    int repasCount = 0;
-                    double montantRepasTotal = 0.0;
-                    double totalTrajets = 0.0;
-                    double cumulHeures = 0.0;
-                    double cumulNuit = 0.0;
-                    double cumulDimanche = 0.0;
-                    double cumulFerie = 0.0;
-                    int totalMinsRetard = 0;
-                    int nbAnomalies = 0;
-
-                    try (PreparedStatement psPtg = c.prepareStatement(sqlPtg)) {
-                        psPtg.setInt(1, idEmp);
-                        psPtg.setInt(2, idPeriode);
-                        psPtg.setDate(3, Date.valueOf(dateDebutTroncon));
-                        psPtg.setDate(4, Date.valueOf(dateFinTroncon));
-                        try (ResultSet rsPtg = psPtg.executeQuery()) {
-                            while (rsPtg.next()) {
-                                LocalDate dtPtg = rsPtg.getDate("date_pointage").toLocalDate();
-                                boolean isWeekend = (dtPtg.getDayOfWeek() == DayOfWeek.SATURDAY || dtPtg.getDayOfWeek() == DayOfWeek.SUNDAY);
-                                boolean isSunday = (dtPtg.getDayOfWeek() == DayOfWeek.SUNDAY);
-                                String stCode = rsPtg.getString("statut_code");
-                                double th = rsPtg.getDouble("total_heures");
-
-                                if (("DISPENSE_POINTAGE".equals(stCode) || estAutonome)) {
-                                    if (isWeekend && th <= 0.0) {
-                                        th = 0.0;
-                                        stCode = "REPOS";
-                                    } else if (!isWeekend && th <= 0.0) {
-                                        th = seuilHeuresJour;
-                                    }
-                                }
-
-                                double hn = rsPtg.getDouble("heures_nuit");
-                                int ret = rsPtg.getInt("minutes_retard");
-                                boolean depM = rsPtg.getBoolean("deplacement_matin");
-                                boolean depA = rsPtg.getBoolean("deplacement_am");
-                                boolean repas = rsPtg.getBoolean("indemnite_repas_recue");
-                                double mntRepas = rsPtg.getDouble("montant_repas");
-                                java.sql.Time saTime = rsPtg.getTime("heure_sortie_am");
-                                LocalTime sa = saTime != null ? saTime.toLocalTime() : null;
-
-                                if ("PRESENT".equals(stCode) || "DISPENSE_POINTAGE".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode)) {
-                                    presents++;
-                                } else if ("DIMANCHE_TRAVAILLE".equals(stCode) || (isSunday && th > 0)) {
-                                    presents++;
-                                    dimanchesTravailles++;
-                                    cumulDimanche += th;
-                                } else if ("CONGE".equals(stCode)) {
-                                    conges++;
-                                } else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode)) {
-                                    absences++;
-                                } else if ("FERIE_CHOME".equals(stCode)) {
-                                    feriesChomes++;
-                                } else if ("FERIE_TRAVAILLE".equals(stCode)) {
-                                    presents++;
-                                    feriesTravailles++;
-                                    cumulFerie += th;
-                                } else if ("ANOMALIE_SAISIE".equals(stCode)) {
-                                    nbAnomalies++;
-                                }
-
-                                cumulHeures += th;
-                                cumulNuit += hn;
-                                totalMinsRetard += (estAutonome ? 0 : ret);
-
-                                if (repas || (estAutonome && !isWeekend)) {
-                                    repasCount++;
-                                    if (mntRepas > 0) {
-                                        montantRepasTotal += mntRepas;
-                                    } else {
-                                        montantRepasTotal += calculateurEngine.calculerTotalRepasJour(
-                                                true, montantRepasMidiDefaut, sa,
-                                                seuil2eRepas1, montant2eRepas1, seuil2eRepas2, montant2eRepas2
-                                        );
-                                    }
-                                }
-                                if (depM || (estAutonome && !isWeekend)) totalTrajets += 0.5;
-                                if (depA || (estAutonome && !isWeekend)) totalTrajets += 0.5;
-                            }
-                        }
-                    }
-
-                    // Si salarié autonome et aucune ligne de pointage enregistrée : base normale automatique
-                    if (estAutonome && presents == 0 && conges == 0 && absences == 0) {
-                        presents = nbOuvrables;
-                        cumulHeures = nbOuvrables * seuilHeuresJour;
-                    }
-
-                    TronconCalculResult res = calculerTroncon(
-                        dateDebutTroncon,
-                        nbOuvrables,
-                        cumulHeures,
-                        totalMinsRetard,
-                        isCadre,
-                        seuilHeuresJour,
-                        seuilHsTranche1
+                    PointageSyntheseMensuelleDTO dto = calculerSyntheseEmploye(
+                            idEmp,
+                            rsE.getString("matricule"),
+                            rsE.getString("nom"),
+                            rsE.getString("prenom"),
+                            rsE.getString("photo_url"),
+                            rsE.getInt("id_site"),
+                            rsE.getString("site_code"),
+                            rsE.getString("site_nom"),
+                            codeCat,
+                            isCadre,
+                            estAutonome,
+                            dateDebutTroncon,
+                            dateFinTroncon,
+                            idPeriode,
+                            null,
+                            null,
+                            null,
+                            nbOuvrables,
+                            siteDeplacementRefMap,
+                            params,
+                            c
                     );
-
-                    dto.setNbJoursPresents(presents);
-                    dto.setNbJoursConge(conges);
-                    dto.setNbJoursAbsence(absences);
-                    dto.setNbJoursFerieChome(feriesChomes);
-                    dto.setNbJoursFerieTravaille(feriesTravailles);
-                    dto.setNbJoursDimancheTravaille(dimanchesTravailles);
-                    dto.setHeuresNormales(res.seuilHeuresTroncon);
-                    dto.setTotalHeuresTravaillees(Math.round(cumulHeures * 100.0) / 100.0);
-                    dto.setSurplusBrut(Math.round(res.heuresHsBrutes * 100.0) / 100.0);
-                    dto.setHeuresHs30(Math.round(res.heuresHs30 * 100.0) / 100.0);
-                    dto.setHeuresHs50(Math.round(res.heuresHs50 * 100.0) / 100.0);
-                    dto.setHeuresNuitTotal(Math.round(cumulNuit * 100.0) / 100.0);
-                    dto.setHeuresDimancheTotal(Math.round(cumulDimanche * 100.0) / 100.0);
-                    dto.setHeuresFerieTotal(Math.round(cumulFerie * 100.0) / 100.0);
-                    dto.setRetardCompense(Math.round(res.retardCompense * 100.0) / 100.0);
-                    dto.setHeuresAbsenceRetenues(Math.round(res.heuresDeficit * 100.0) / 100.0);
-                    dto.setTotalMinutesRetard(totalMinsRetard);
-                    dto.setNbJoursRepas(repasCount);
-                    dto.setMontantRepas(montantRepasTotal);
-                    dto.setNbJoursDeplacement((int) Math.round(totalTrajets));
-                    dto.setNbAnomaliesNonResolues(nbAnomalies);
+                    dto.setHeuresNormales(nbOuvrables * ParametreGlobal.getDouble(params, "SEUIL_HEURES_JOUR", 8.0));
 
                     list.add(dto);
                 }
@@ -975,10 +922,24 @@ public class PointageSyntheseService {
     public void validerSemaine(int idPeriode, LocalDate dateDebutTroncon, LocalDate dateFinTroncon, Integer idSite, Integer currentUserId, Connection c) throws SQLException {
         if (idPeriode <= 0 || dateDebutTroncon == null || dateFinTroncon == null) return;
 
+        // Contrôle strict de workflow : la période ne doit être ni clôturée ni transmise/validée par la DAF
+        String sqlCheck = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ?";
+        try (PreparedStatement psC = c.prepareStatement(sqlCheck)) {
+            psC.setInt(1, idPeriode);
+            try (ResultSet rsC = psC.executeQuery()) {
+                if (rsC.next()) {
+                    String st = rsC.getString("code");
+                    if ("CLOTUREE".equalsIgnoreCase(st) || "VALIDEE".equalsIgnoreCase(st) || "A_VALIDER".equalsIgnoreCase(st) || "TRANSMIS_DAF".equalsIgnoreCase(st)) {
+                        throw new IllegalStateException("Action impossible : La période de paie est en statut '" + st + "'. Vous ne pouvez pas modifier ou valider les semaines d'une période clôturée ou transmise.");
+                    }
+                }
+            }
+        }
+
         Map<String, String> params = ParametreGlobal.loadActiveMap(c);
-        double majorationHs30 = ParametreGlobal.getDouble(params, "MAJORATION_HS_30", 30.0);
-        double majorationHs50 = ParametreGlobal.getDouble(params, "MAJORATION_HS_50", 50.0);
-        double majorationNuit = ParametreGlobal.getDouble(params, "MAJORATION_NUIT", 30.0);
+        double majorationHs30 = ParametreGlobal.getDouble(params, "MAJORATION_HS_TRANCHE_1", 30.0);
+        double majorationHs50 = ParametreGlobal.getDouble(params, "MAJORATION_HS_TRANCHE_2", 50.0);
+        double majorationNuit = ParametreGlobal.getDouble(params, "MAJORATION_NUIT", 0.0);
         double majorationDimanche = ParametreGlobal.getDouble(params, "MAJORATION_DIMANCHE", 40.0);
         double majorationFerie = ParametreGlobal.getDouble(params, "MAJORATION_FERIE", 100.0);
 
@@ -1041,14 +1002,29 @@ public class PointageSyntheseService {
     }
 
     /**
-     * Dévalide / déverrouille une semaine
+     * Dévalide / déverrouille une semaine (avec contrôle strict du statut de la période)
      */
     public void devaliderSemaine(int idPeriode, LocalDate dateDebutTroncon) throws SQLException {
-        try (Connection c = dataSource.getConnection();
-             PreparedStatement ps = c.prepareStatement("DELETE FROM pointage_semaine_calcule WHERE id_periode_paie = ? AND debut_semaine = ?")) {
-            ps.setInt(1, idPeriode);
-            ps.setDate(2, Date.valueOf(dateDebutTroncon));
-            ps.executeUpdate();
+        try (Connection c = dataSource.getConnection()) {
+            // Contrôle strict de workflow : la période ne doit être ni clôturée ni transmise/validée par la DAF
+            String sqlCheck = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ?";
+            try (PreparedStatement psC = c.prepareStatement(sqlCheck)) {
+                psC.setInt(1, idPeriode);
+                try (ResultSet rsC = psC.executeQuery()) {
+                    if (rsC.next()) {
+                        String st = rsC.getString("code");
+                        if ("CLOTUREE".equalsIgnoreCase(st) || "VALIDEE".equalsIgnoreCase(st) || "A_VALIDER".equalsIgnoreCase(st) || "TRANSMIS_DAF".equalsIgnoreCase(st)) {
+                            throw new IllegalStateException("Action impossible : La période de paie est en statut '" + st + "'. Vous devez d'abord réouvrir la période avant de déverrouiller une semaine.");
+                        }
+                    }
+                }
+            }
+
+            try (PreparedStatement ps = c.prepareStatement("DELETE FROM pointage_semaine_calcule WHERE id_periode_paie = ? AND debut_semaine = ?")) {
+                ps.setInt(1, idPeriode);
+                ps.setDate(2, Date.valueOf(dateDebutTroncon));
+                ps.executeUpdate();
+            }
         }
     }
 }

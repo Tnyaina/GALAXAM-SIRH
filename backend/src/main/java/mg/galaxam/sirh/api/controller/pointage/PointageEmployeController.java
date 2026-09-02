@@ -2,6 +2,7 @@ package mg.galaxam.sirh.api.controller.pointage;
 
 import mg.galaxam.sirh.api.dto.pointage.FichePointageEmployeDTO;
 import mg.galaxam.sirh.api.dto.pointage.PointageJourDTO;
+import mg.galaxam.sirh.api.dto.pointage.PointageSyntheseMensuelleDTO;
 import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,9 +35,11 @@ import java.util.Set;
 public class PointageEmployeController {
 
     private final DataSource dataSource;
+    private final mg.galaxam.sirh.model.pointage.service.PointageSyntheseService syntheseService;
 
-    public PointageEmployeController(DataSource dataSource) {
+    public PointageEmployeController(DataSource dataSource, mg.galaxam.sirh.model.pointage.service.PointageSyntheseService syntheseService) {
         this.dataSource = dataSource;
+        this.syntheseService = syntheseService;
     }
 
     @GetMapping("/employes/{idEmploye}")
@@ -391,28 +394,30 @@ public class PointageEmployeController {
                 if (aDroitRepas) {
                     nbRepasJour = 1;
                     total1erRepasCount++;
-                    mntRepasJour = (rec.montantRepas > 0 ? rec.montantRepas : tarifRepasDefaut);
+                    double baseStd = tarifRepasDefaut;
+                    double extraSoir = 0.0;
 
                     LocalTime sa = rec.sortieAm != null ? rec.sortieAm.toLocalTime() : null;
                     if (sa != null) {
                         if (!sa.isBefore(seuil2eRepas2)) {
                             nbRepasJour = 2;
                             total2eRepasCount++;
+                            extraSoir = montant2eRepas2;
                             total2eRepasMontant += montant2eRepas2;
-                            if (rec.montantRepas <= 0) mntRepasJour += montant2eRepas2;
                         } else if (!sa.isBefore(seuil2eRepas1)) {
                             nbRepasJour = 2;
                             total2eRepasCount++;
+                            extraSoir = montant2eRepas1;
                             total2eRepasMontant += montant2eRepas1;
-                            if (rec.montantRepas <= 0) mntRepasJour += montant2eRepas1;
                         }
                     } else if (rec.heuresNuit >= 4.0 || totalH >= 11.0) {
                         nbRepasJour = 2;
                         total2eRepasCount++;
+                        extraSoir = montant2eRepas1;
                         total2eRepasMontant += montant2eRepas1;
-                        if (rec.montantRepas <= 0) mntRepasJour += montant2eRepas1;
                     }
 
+                    mntRepasJour = baseStd + extraSoir;
                     totalRepasMontant += mntRepasJour;
                 }
 
@@ -527,61 +532,132 @@ public class PointageEmployeController {
             list.add(dto);
         }
 
+        // 3. Calcul de la synthèse exacte unifiée via le moteur métier centralisé
+        PointageSyntheseMensuelleDTO synDto = null;
+        try (Connection c = dataSource.getConnection()) {
+            Map<String, String> pMap = ParametreGlobal.loadActiveMap(c);
+
+            // Récupération des infos carrières de l'employé
+            String sqlCarriere = "SELECT e.matricule, e.nom, e.prenom, e.photo_url, " +
+                                 "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, " +
+                                 "COALESCE(cp.code, '') AS code_categorie, " +
+                                 "COALESCE(f.dispense_pointage, FALSE) AS est_autonome " +
+                                 "FROM employe e " +
+                                 "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
+                                 "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
+                                 "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
+                                 "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
+                                 "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
+                                 "WHERE e.id_employe = ? ORDER BY a.date_debut DESC LIMIT 1";
+
+            try (PreparedStatement psCar = c.prepareStatement(sqlCarriere)) {
+                psCar.setDate(1, java.sql.Date.valueOf(endDate));
+                psCar.setDate(2, java.sql.Date.valueOf(startDate));
+                psCar.setInt(3, idEmploye);
+                try (ResultSet rsCar = psCar.executeQuery()) {
+                    if (rsCar.next()) {
+                        String codeCat = rsCar.getString("code_categorie");
+                        boolean isCadre = rsCar.getBoolean("est_autonome") || "C".equalsIgnoreCase(codeCat) || "HC".equalsIgnoreCase(codeCat);
+
+                        synDto = syntheseService.calculerSyntheseEmploye(
+                                idEmploye,
+                                rsCar.getString("matricule"),
+                                rsCar.getString("nom"),
+                                rsCar.getString("prenom"),
+                                rsCar.getString("photo_url"),
+                                rsCar.getInt("id_site"),
+                                rsCar.getString("site_code"),
+                                rsCar.getString("site_nom"),
+                                codeCat,
+                                isCadre,
+                                rsCar.getBoolean("est_autonome"),
+                                startDate,
+                                endDate,
+                                resolvedIdPeriode,
+                                null,
+                                resolvedLibellePeriode,
+                                resolvedStatutPeriode,
+                                totalJoursOuvrables,
+                                null,
+                                pMap,
+                                c
+                        );
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         double heuresTheoriquesPlein = totalJoursOuvrables * (dureeJourMins / 60.0);
         int hTheoriquesInt = (int) heuresTheoriquesPlein;
 
+        double heuresRealisees = synDto != null ? synDto.getTotalHeuresTravaillees() : totalHeuresRealisees;
+        int retardsMins = synDto != null ? synDto.getTotalMinutesRetard() : totalMinutesRetard;
+        double hs30 = synDto != null ? synDto.getHeuresHs30() : totalHeuresHs30;
+        double hs50 = synDto != null ? synDto.getHeuresHs50() : totalHeuresHs50;
+        double hNuit = synDto != null ? synDto.getHeuresNuitTotal() : totalHeuresNuit;
+        double hDim = synDto != null ? synDto.getHeuresDimancheTotal() : totalHeuresDimanche;
+        double hFer = synDto != null ? synDto.getHeuresFerieTotal() : totalHeuresFerie;
+        double mntRep = synDto != null ? synDto.getMontantRepas() : totalRepasMontant;
+        int nbRep = synDto != null ? synDto.getNbJoursRepas() : (total1erRepasCount + total2eRepasCount);
+        double mntDepl = synDto != null ? synDto.getMontantDeplacement() : 0.0;
+        double totalIndemnites = mntRep + mntDepl;
+
         Map<String, String> kpis = new LinkedHashMap<>();
-        kpis.put("joursTravailles", totalJoursTravailles + " j");
+        kpis.put("joursTravailles", (synDto != null ? synDto.getNbJoursPresents() : totalJoursTravailles) + " j");
         kpis.put("joursPrevus", totalJoursOuvrables + " prévus");
-        kpis.put("heuresRealisees", String.format("%02dh%02d", (int) Math.floor(totalHeuresRealisees), (int) Math.round((totalHeuresRealisees - Math.floor(totalHeuresRealisees)) * 60)));
+        kpis.put("heuresRealisees", String.format("%02dh%02d", (int) Math.floor(heuresRealisees), (int) Math.round((heuresRealisees - Math.floor(heuresRealisees)) * 60)));
         kpis.put("heuresObjectif", String.format("objectif %02dh00", hTheoriquesInt));
-        kpis.put("retardCumule", String.format("%02dh%02d", totalMinutesRetard / 60, totalMinutesRetard % 60));
+        kpis.put("retardCumule", String.format("%02dh%02d", retardsMins / 60, retardsMins % 60));
         kpis.put("retardOccurrences", nbOccurrencesRetard + " occurrences");
-        kpis.put("heuresSupp", String.format("%02dh%02d", (int) Math.floor(totalHeuresSupp), (int) Math.round((totalHeuresSupp - Math.floor(totalHeuresSupp)) * 60)));
+        kpis.put("heuresSupp", String.format("%02dh%02d", (int) Math.floor(hs30 + hs50), (int) Math.round(((hs30 + hs50) - Math.floor(hs30 + hs50)) * 60)));
         kpis.put("heuresSuppStatut", "à valider");
-        kpis.put("absences", String.format("%02d j", nbAbsences));
+        kpis.put("absences", String.format("%02d j", synDto != null ? synDto.getNbJoursAbsence() : nbAbsences));
         kpis.put("absencesStatut", nbAbsences > 0 ? "justifiée" : "aucune");
 
         // Détails Repas & Trajets
-        int totalRepasCumul = total1erRepasCount + total2eRepasCount;
-        kpis.put("totalRepas", totalRepasCumul + " repas");
+        kpis.put("totalRepas", nbRep + " repas");
         kpis.put("total1erRepas", total1erRepasCount + " std");
         kpis.put("total2eRepas", total2eRepasCount > 0 ? total2eRepasCount + " repas x2" : "0");
-        kpis.put("montantRepasTotal", String.format("%,.0f Ar", totalRepasMontant).replace(',', ' '));
+        kpis.put("montantRepasTotal", String.format("%,.0f Ar", mntRep).replace(',', ' '));
+        kpis.put("montantDeplacementTotal", String.format("%,.0f Ar", mntDepl).replace(',', ' '));
+        kpis.put("totalIndemnitesMois", String.format("%,.0f Ar", totalIndemnites).replace(',', ' '));
         kpis.put("totalTrajets", String.format("%.0f trajets", totalTrajetsCount * 2));
 
         // Détails Majorations
-        kpis.put("heuresHs30", String.format("%.1fh", totalHeuresHs30));
-        kpis.put("heuresHs50", String.format("%.1fh", totalHeuresHs50));
-        kpis.put("heuresNuit", String.format("%.1fh", totalHeuresNuit));
-        kpis.put("heuresDimanche", String.format("%.1fh", totalHeuresDimanche));
-        kpis.put("heuresFerie", String.format("%.1fh", totalHeuresFerie));
+        kpis.put("heuresHs30", String.format("%.1fh", hs30));
+        kpis.put("heuresHs50", String.format("%.1fh", hs50));
+        kpis.put("heuresNuit", String.format("%.1fh", hNuit));
+        kpis.put("heuresDimanche", String.format("%.1fh", hDim));
+        kpis.put("heuresFerie", String.format("%.1fh", hFer));
 
         // Récapitulatif
         Map<String, String> recap = new LinkedHashMap<>();
         recap.put("tempsTheorique", String.format("%02dh00", hTheoriquesInt));
         recap.put("tempsRealise", kpis.get("heuresRealisees"));
-        recap.put("tempsAbsence", String.format("%02dh00", nbAbsences * 8));
+        recap.put("tempsAbsence", String.format("%02dh00", (synDto != null ? synDto.getNbJoursAbsence() : nbAbsences) * 8));
         recap.put("heuresSupp", kpis.get("heuresSupp"));
         recap.put("retards", kpis.get("retardCumule"));
-        recap.put("indemniteRepas", String.format("%d repas (%s)", totalRepasCumul, kpis.get("montantRepasTotal")));
-        recap.put("indemniteTrajets", String.format("%.0f trajets aller/retour", totalTrajetsCount * 2));
+        recap.put("indemniteRepas", String.format("%d repas (%s)", nbRep, kpis.get("montantRepasTotal")));
+        recap.put("indemniteTrajets", String.format("%.0f trajets aller/retour (%s)", totalTrajetsCount * 2, kpis.get("montantDeplacementTotal")));
+        recap.put("totalIndemnites", kpis.get("totalIndemnitesMois"));
 
         // Détails de calcul décomposés pour la Paie
         recap.put("repasStdDetail", String.format("%d × %,.0f Ar = %,.0f Ar", total1erRepasCount, tarifRepasDefaut, total1erRepasCount * tarifRepasDefaut).replace(',', ' '));
         if (total2eRepasCount > 0) {
             recap.put("repas2eDetail", String.format("%d repas (Maj. soir/nuit) = %,.0f Ar", total2eRepasCount, total2eRepasMontant).replace(',', ' '));
         }
-        recap.put("hs30Detail", String.format("%.1fh majorées à 30%%", totalHeuresHs30));
-        recap.put("hs50Detail", String.format("%.1fh majorées à 50%%", totalHeuresHs50));
-        if (totalHeuresNuit > 0) {
-            recap.put("nuitDetail", String.format("%.1fh de nuit", totalHeuresNuit));
+        recap.put("hs30Detail", String.format("%.1fh majorées à 30%%", hs30));
+        recap.put("hs50Detail", String.format("%.1fh majorées à 50%%", hs50));
+        if (hNuit > 0) {
+            recap.put("nuitDetail", String.format("%.1fh de nuit", hNuit));
         }
-        if (totalHeuresDimanche > 0) {
-            recap.put("dimancheDetail", String.format("%.1fh le dimanche (+40%%)", totalHeuresDimanche));
+        if (hDim > 0) {
+            recap.put("dimancheDetail", String.format("%.1fh le dimanche (+40%%)", hDim));
         }
-        if (totalHeuresFerie > 0) {
-            recap.put("ferieDetail", String.format("%.1fh jour férié (+100%%)", totalHeuresFerie));
+        if (hFer > 0) {
+            recap.put("ferieDetail", String.format("%.1fh jour férié (+100%%)", hFer));
         }
 
         result.setKpis(kpis);
