@@ -527,6 +527,12 @@ public class PointageSyntheseService {
             LocalDate debutSemaine = cur.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
             LocalDate finSemaine = cur.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
 
+            // Si le début du tronçon tombe un Samedi ou Dimanche et qu'il y a une semaine suivante dans la période,
+            // on rattache ce weekend directement au dimanche de la semaine suivante (évite une semaine vide de 0 jour ouvré)
+            if ((cur.getDayOfWeek() == DayOfWeek.SATURDAY || cur.getDayOfWeek() == DayOfWeek.SUNDAY) && finSemaine.plusDays(7).isBefore(dateFin.plusDays(7))) {
+                finSemaine = finSemaine.plusDays(7);
+            }
+
             LocalDate dateDebutTroncon = cur.isBefore(debutSemaine) ? debutSemaine : cur;
             if (dateDebutTroncon.isBefore(dateDebut)) dateDebutTroncon = dateDebut;
 

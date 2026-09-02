@@ -144,9 +144,22 @@ public class PointageAnomalieService {
                         dto.setIndemniteRepasRecue(rs.getBoolean("indemnite_repas_recue"));
 
                         String stCode = dto.getStatutCode();
-                        if ("ANOMALIE_SAISIE".equals(stCode)) countIncomplets++;
-                        else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode)) countAbsences++;
-                        else if (dto.getMinutesRetard() != null && dto.getMinutesRetard() > 0) countRetards++;
+                        if ("ANOMALIE_SAISIE".equals(stCode)) {
+                            dto.setTypeAnomalie("INCOMPLET");
+                            dto.setDescriptionAnomalie("Pointage incomplet : heure d'entrée ou de sortie manquante.");
+                            countIncomplets++;
+                        } else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode)) {
+                            dto.setTypeAnomalie("ABSENCE");
+                            dto.setDescriptionAnomalie("Absence non justifiée sur un jour ouvré.");
+                            countAbsences++;
+                        } else if (dto.getMinutesRetard() != null && dto.getMinutesRetard() > 0) {
+                            dto.setTypeAnomalie("RETARD");
+                            dto.setDescriptionAnomalie("Retard de " + dto.getMinutesRetard() + " min sans motif régularisé.");
+                            countRetards++;
+                        } else {
+                            dto.setTypeAnomalie("AUTRE");
+                            dto.setDescriptionAnomalie("Anomalie de pointage.");
+                        }
 
                         anomalies.add(dto);
                     }

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock } from 'lucide-react';
+import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock} from 'lucide-react';
 import Select from '@/components/ui/forms/Select';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
@@ -247,6 +247,24 @@ export default function SynthesePointagePage() {
             nbSalaries: filteredSemaineDetail.length
         };
     }, [filteredSemaineDetail]);
+
+    // Préréquis et contrôle de cohérence pour la Consolidation Mensuelle
+    const consolidationStatus = useMemo(() => {
+        const totalSemaines = semaines.length;
+        const semainesValideesCount = semaines.filter(s => s.estValidee).length;
+        const totalAnomalies = semaines.reduce((acc, s) => acc + (s.nbAnomalies || 0), 0);
+        const allValidees = totalSemaines > 0 && semainesValideesCount === totalSemaines;
+        const currentPeriodeObj = periodes.find(p => p.idPeriodePaie === selectedPeriode);
+
+        return {
+            totalSemaines,
+            semainesValideesCount,
+            totalAnomalies,
+            allValidees,
+            currentPeriodeObj,
+            isCloturee: currentPeriodeObj?.statutCode === 'VALIDEE' || currentPeriodeObj?.statutCode === 'CLOTUREE'
+        };
+    }, [semaines, periodes, selectedPeriode]);
 
     return (
         <>
@@ -625,17 +643,129 @@ export default function SynthesePointagePage() {
                     </div>
                 )}
 
-                {/* VUE 2 : Synthèse Mensuelle Globale */}
+                {/* VUE 2 : Synthèse Mensuelle Globale & Clôture Guidée */}
                 {activeTab === 'mensuel' && (
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
-                        <div className="px-5 py-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                                Tableau Mensuel Consolidé pour la Paie
-                            </h3>
-                            <span className="text-xs font-mono text-[var(--color-fg-muted)]">
-                                {filteredData.length} salarié(s)
-                            </span>
+                    <div className="space-y-3.5">
+                        {/* 1. PANNEAU GUIDÉ : CHECKLIST DE CONSOLIDATION DU MOIS */}
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[var(--color-border-subtle)]">
+                                <div>
+                                    <h3 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2">
+                                        <CalendarRange size={16} className="text-brand-500" />
+                                        <span>Consolidation Mensuelle &amp; Clôture Paie</span>
+                                        {consolidationStatus.currentPeriodeObj && (
+                                            <Badge variant={consolidationStatus.isCloturee ? 'success' : 'info'} size="sm">
+                                                {consolidationStatus.currentPeriodeObj.statutLibelle || consolidationStatus.currentPeriodeObj.statutCode}
+                                            </Badge>
+                                        )}
+                                    </h3>
+                                    <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                                        La synthèse mensuelle consolide les heures réelles et les majorations calculées semaine par semaine.
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <Link to="/pointages/periodes">
+                                        <Button variant="secondary" size="sm" icon={<CalendarRange size={13} />}>
+                                            Gérer les Périodes
+                                        </Button>
+                                    </Link>
+                                </div>
+                            </div>
+
+                            {/* ÉTAPES DU WORKFLOW GUIDÉ */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3.5">
+                                {/* Étape 1 : Anomalies */}
+                                <div className={`p-3 border flex items-start gap-2.5 ${
+                                    consolidationStatus.totalAnomalies === 0
+                                        ? 'bg-[var(--color-success-500)]/6 border-[var(--color-success-500)]/30 text-[var(--color-fg)]'
+                                        : 'bg-[var(--color-warning-500)]/8 border-[var(--color-warning-500)]/35 text-[var(--color-fg)]'
+                                }`}>
+                                    {consolidationStatus.totalAnomalies === 0 ? (
+                                        <CheckCircle2 size={16} className="text-[var(--color-success-600)] shrink-0 mt-0.5" />
+                                    ) : (
+                                        <AlertTriangle size={16} className="text-[var(--color-warning-600)] shrink-0 mt-0.5" />
+                                    )}
+                                    <div className="text-xs">
+                                        <div className="font-bold">1. Contrôle Saisie</div>
+                                        <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                            {consolidationStatus.totalAnomalies === 0
+                                                ? 'Aucune anomalie bloquante'
+                                                : `${consolidationStatus.totalAnomalies} anomalie(s) restante(s)`}
+                                        </div>
+                                        {consolidationStatus.totalAnomalies > 0 && (
+                                            <Link to="/pointages/anomalies" className="text-[11px] text-brand-600 hover:underline font-bold mt-1 inline-block">
+                                                Régulariser →
+                                            </Link>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Étape 2 : Semaines validées */}
+                                <div className={`p-3 border flex items-start gap-2.5 ${
+                                    consolidationStatus.allValidees
+                                        ? 'bg-[var(--color-success-500)]/6 border-[var(--color-success-500)]/30 text-[var(--color-fg)]'
+                                        : 'bg-[var(--color-sky-500)]/8 border-[var(--color-sky-500)]/30 text-[var(--color-fg)]'
+                                }`}>
+                                    {consolidationStatus.allValidees ? (
+                                        <CheckCircle2 size={16} className="text-[var(--color-success-600)] shrink-0 mt-0.5" />
+                                    ) : (
+                                        <Layers size={16} className="text-[var(--color-sky-600)] shrink-0 mt-0.5" />
+                                    )}
+                                    <div className="text-xs">
+                                        <div className="font-bold">2. Semaines Verrouillées</div>
+                                        <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                            {consolidationStatus.semainesValideesCount} sur {consolidationStatus.totalSemaines} semaine(s) validée(s)
+                                        </div>
+                                        {!consolidationStatus.allValidees && (
+                                            <button
+                                                onClick={() => setActiveTab('hebdo')}
+                                                className="text-[11px] text-brand-600 hover:underline font-bold mt-1 inline-block text-left cursor-pointer"
+                                            >
+                                                Valider l'hebdo →
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Étape 3 : Statut Paie */}
+                                <div className={`p-3 border flex items-start gap-2.5 ${
+                                    consolidationStatus.isCloturee
+                                        ? 'bg-[var(--color-success-500)]/6 border-[var(--color-success-500)]/30'
+                                        : consolidationStatus.allValidees
+                                        ? 'bg-brand-500/8 border-brand-500/35'
+                                        : 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)] opacity-70'
+                                }`}>
+                                    <Lock size={16} className={consolidationStatus.isCloturee ? 'text-[var(--color-success-600)] shrink-0 mt-0.5' : 'text-[var(--color-fg-muted)] shrink-0 mt-0.5'} />
+                                    <div className="text-xs">
+                                        <div className="font-bold">3. Clôture &amp; Paie</div>
+                                        <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                            {consolidationStatus.isCloturee
+                                                ? 'Période verrouillée et transmise'
+                                                : consolidationStatus.allValidees
+                                                ? 'Prête pour transmission DAF'
+                                                : 'En attente de validation des semaines'}
+                                        </div>
+                                        {consolidationStatus.allValidees && !consolidationStatus.isCloturee && (
+                                            <Link to="/pointages/periodes" className="text-[11px] text-brand-600 hover:underline font-bold mt-1 inline-block">
+                                                Valider la période →
+                                            </Link>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
+                        {/* 2. TABLEAU MENSUEL CONSOLIDÉ */}
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
+                            <div className="px-5 py-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+                                    Tableau Mensuel Consolidé pour la Paie
+                                </h3>
+                                <span className="text-xs font-mono text-[var(--color-fg-muted)]">
+                                    {filteredData.length} salarié(s)
+                                </span>
+                            </div>
 
                         {loading ? (
                             <div className="p-12 text-center text-xs text-[var(--color-fg-muted)] flex items-center justify-center gap-2">
@@ -713,6 +843,7 @@ export default function SynthesePointagePage() {
                                 </Table>
                             </div>
                         )}
+                        </div>
                     </div>
                 )}
 

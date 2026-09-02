@@ -58,6 +58,7 @@ export default function AnomaliesPointagePage() {
     const [selectedAnomalie, setSelectedAnomalie] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [typeFilter, setTypeFilter] = useState('ALL'); // 'ALL' | 'INCOMPLET' | 'RETARD' | 'ABSENCE'
 
     const [formData, setFormData] = useState({
         statutCode: 'PRESENT',
@@ -132,6 +133,21 @@ export default function AnomaliesPointagePage() {
         label: `${p.code || p.libelle} (${p.dateDebut} au ${p.dateFin})`
     }));
 
+    // Filtrage par type d'incident (Incomplet, Retard, Absence)
+    const filteredAnomalies = (anomalies || []).filter(anom => {
+        if (typeFilter === 'ALL') return true;
+        if (typeFilter === 'INCOMPLET') {
+            return anom.typeAnomalie === 'INCOMPLET' || anom.statutCode === 'ANOMALIE_SAISIE';
+        }
+        if (typeFilter === 'RETARD') {
+            return anom.typeAnomalie === 'RETARD' || (anom.minutesRetard > 0 && anom.statutCode !== 'ANOMALIE_SAISIE' && anom.statutCode !== 'ABSENCE_NON_JUSTIFIEE');
+        }
+        if (typeFilter === 'ABSENCE') {
+            return anom.typeAnomalie === 'ABSENCE' || anom.statutCode === 'ABSENCE_NON_JUSTIFIEE';
+        }
+        return true;
+    });
+
     return (
         <>
             <SEO
@@ -153,19 +169,35 @@ export default function AnomaliesPointagePage() {
                 {/* Barre de navigation guidée */}
                 <PointageWorkflowNav />
 
-                {/* 1. Cartes de Statistiques */}
+                {/* 1. Cartes de Statistiques interactives (cliquables pour filtrer) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs flex items-center justify-between">
+                    <button
+                        type="button"
+                        onClick={() => setTypeFilter('ALL')}
+                        className={`p-3 sm:p-3.5 border shadow-xs flex items-center justify-between text-left transition-all cursor-pointer ${
+                            typeFilter === 'ALL'
+                                ? 'bg-brand-500/10 border-brand-500 ring-1 ring-brand-500 shadow-xs'
+                                : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]'
+                        }`}
+                    >
                         <div>
-                            <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Total Anomalies</p>
+                            <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Total Incidents</p>
                             <p className="text-xl font-bold font-data text-[var(--color-fg)] mt-0.5">{stats.total}</p>
                         </div>
                         <div className="w-9 h-9 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] flex items-center justify-center shrink-0">
                             <AlertTriangle size={18} />
                         </div>
-                    </div>
+                    </button>
 
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs flex items-center justify-between">
+                    <button
+                        type="button"
+                        onClick={() => setTypeFilter('INCOMPLET')}
+                        className={`p-3 sm:p-3.5 border shadow-xs flex items-center justify-between text-left transition-all cursor-pointer ${
+                            typeFilter === 'INCOMPLET'
+                                ? 'bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)] ring-1 ring-[var(--color-danger-500)] shadow-xs'
+                                : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]'
+                        }`}
+                    >
                         <div>
                             <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Pointages Incomplets</p>
                             <p className="text-xl font-bold font-data text-[var(--color-danger-500)] mt-0.5">{stats.incomplets}</p>
@@ -173,32 +205,48 @@ export default function AnomaliesPointagePage() {
                         <div className="w-9 h-9 bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] flex items-center justify-center shrink-0">
                             <ShieldAlert size={18} />
                         </div>
-                    </div>
+                    </button>
 
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs flex items-center justify-between">
+                    <button
+                        type="button"
+                        onClick={() => setTypeFilter('RETARD')}
+                        className={`p-3 sm:p-3.5 border shadow-xs flex items-center justify-between text-left transition-all cursor-pointer ${
+                            typeFilter === 'RETARD'
+                                ? 'bg-[var(--color-warning-500)]/10 border-[var(--color-warning-600)] ring-1 ring-[var(--color-warning-600)] shadow-xs'
+                                : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]'
+                        }`}
+                    >
                         <div>
-                            <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Retards Non Justifiés</p>
+                            <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Retards Constatés</p>
                             <p className="text-xl font-bold font-data text-[var(--color-warning-600)] mt-0.5">{stats.retards}</p>
                         </div>
                         <div className="w-9 h-9 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] flex items-center justify-center shrink-0">
                             <Clock size={18} />
                         </div>
-                    </div>
+                    </button>
 
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs flex items-center justify-between">
+                    <button
+                        type="button"
+                        onClick={() => setTypeFilter('ABSENCE')}
+                        className={`p-3 sm:p-3.5 border shadow-xs flex items-center justify-between text-left transition-all cursor-pointer ${
+                            typeFilter === 'ABSENCE'
+                                ? 'bg-[var(--color-danger-500)]/10 border-[var(--color-danger-700)] ring-1 ring-[var(--color-danger-700)] shadow-xs'
+                                : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]'
+                        }`}
+                    >
                         <div>
-                            <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Absences & Non Saisis</p>
+                            <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Absences Injustifiées</p>
                             <p className="text-xl font-bold font-data text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] mt-0.5">{stats.absences}</p>
                         </div>
                         <div className="w-9 h-9 bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] flex items-center justify-center shrink-0">
                             <AlertTriangle size={18} />
                         </div>
-                    </div>
+                    </button>
                 </div>
 
                 {/* 2. Barre de Filtres */}
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
                         <div>
                             <Select
                                 label="Période de paie"
@@ -220,8 +268,23 @@ export default function AnomaliesPointagePage() {
                         </div>
 
                         <div>
+                            <Select
+                                label="Type d'incident"
+                                options={[
+                                    { value: 'ALL', label: `Tous les incidents (${stats.total})` },
+                                    { value: 'INCOMPLET', label: `Incomplets / Saisie (${stats.incomplets})` },
+                                    { value: 'ABSENCE', label: `Absences non justifiées (${stats.absences})` },
+                                    { value: 'RETARD', label: `Retards (${stats.retards})` }
+                                ]}
+                                value={typeFilter}
+                                onChange={(val) => setTypeFilter(val)}
+                                className="w-full"
+                            />
+                        </div>
+
+                        <div>
                             <DatePicker
-                                label="Date spécifique (optionnel)"
+                                label="Date spécifique"
                                 value={filters.datePointage}
                                 onChange={(val) => updateFilters({ datePointage: val })}
                                 className="w-full"
@@ -230,9 +293,9 @@ export default function AnomaliesPointagePage() {
 
                         <div>
                             <Input
-                                label="Rechercher employé"
-                                iconLeft={<Search size={16} />}
-                                placeholder="Rechercher par nom, matricule..."
+                                label="Rechercher"
+                                iconLeft={<Search size={15} />}
+                                placeholder="Nom, matricule..."
                                 value={filters.search}
                                 onChange={(e) => updateFilters({ search: e.target.value })}
                                 className="w-full"
@@ -265,15 +328,15 @@ export default function AnomaliesPointagePage() {
                                         Chargement des anomalies...
                                     </Td>
                                 </Tr>
-                            ) : anomalies.length === 0 ? (
+                            ) : filteredAnomalies.length === 0 ? (
                                 <Tr>
                                     <Td colSpan={10} className="text-center py-12 text-xs font-bold text-[var(--color-success-500)]">
                                         <CheckCircle size={24} className="mx-auto mb-2 text-[var(--color-success-400)]" />
-                                        Aucune anomalie de pointage détectée pour cette sélection.
+                                        Aucun incident de cette catégorie pour cette sélection.
                                     </Td>
                                 </Tr>
                             ) : (
-                                anomalies.map((anom) => (
+                                filteredAnomalies.map((anom) => (
                                     <Tr key={`${anom.idEmploye}-${anom.datePointage}`} className="border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/50">
                                         <Td className="py-3 px-4 text-xs font-mono font-bold text-[var(--color-fg)]">
                                             {anom.datePointage}
@@ -313,19 +376,26 @@ export default function AnomaliesPointagePage() {
                                             )}
                                         </Td>
                                         <Td className="py-3 px-3 text-center">
-                                            <Badge
-                                                variant={
-                                                    anom.statutCode === 'ABSENCE_NON_JUSTIFIEE' || anom.typeAnomalie === 'ABSENCE'
-                                                        ? 'error'
-                                                        : anom.statutCode === 'ANOMALIE_SAISIE'
-                                                        ? 'warning'
-                                                        : 'info'
-                                                }
-                                                size="sm"
-                                                className="font-bold"
-                                            >
-                                                {anom.statutLibelle || anom.statutCode}
-                                            </Badge>
+                                            {anom.statutCode === 'ABSENCE_NON_JUSTIFIEE' || anom.typeAnomalie === 'ABSENCE' ? (
+                                                <Badge variant="danger" size="sm" className="font-bold">
+                                                    Absence Injustifiée
+                                                </Badge>
+                                            ) : anom.statutCode === 'ANOMALIE_SAISIE' || anom.typeAnomalie === 'INCOMPLET' ? (
+                                                <Badge variant="warning" size="sm" className="font-bold">
+                                                    Saisie Incomplète
+                                                </Badge>
+                                            ) : anom.minutesRetard > 0 ? (
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    <Badge variant="warning" size="sm" className="font-bold !bg-amber-500/10 !text-amber-700 dark:!text-amber-400 !border-amber-500/30">
+                                                        Retard ({anom.minutesRetard} min)
+                                                    </Badge>
+                                                    <span className="text-[10px] text-[var(--color-fg-muted)]">Présence effective</span>
+                                                </div>
+                                            ) : (
+                                                <Badge variant="info" size="sm" className="font-bold">
+                                                    {anom.statutLibelle || anom.statutCode}
+                                                </Badge>
+                                            )}
                                         </Td>
                                         <Td className="py-3 px-4 text-center">
                                             {canWrite ? (

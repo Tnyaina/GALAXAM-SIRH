@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
+import { Clock } from 'lucide-react';
 
 /**
- * Composant de saisie d'heure ultra-fluide avec auto-formatage 4 chiffres (ex: 0800 -> 08:00)
- * et saut automatique vers le champ suivant au 4ème chiffre.
+ * Composant de saisie d'heure ultra-fluide avec icône horloge intégrée (Capture 1),
+ * auto-formatage 4 chiffres (ex: 0800 -> 08:00), touches directionnelles et saut automatique vers le champ suivant.
  */
 export default function TimeInput({
     value = '',
@@ -59,16 +60,21 @@ export default function TimeInput({
     };
 
     return (
-        <input
-            ref={refToUse}
-            type="text"
-            maxLength={5}
-            value={inputValue}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            disabled={disabled}
-            className={`h-8 w-[76px] px-1.5 text-xs font-mono font-bold text-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] focus:border-[var(--color-brand-500)] focus:ring-2 focus:ring-[var(--color-brand-500)]/20 outline-none rounded-none disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-fg-muted)]/70 disabled:cursor-not-allowed shadow-2xs transition-all ${className}`}
-        />
+        <div className={`relative inline-flex items-center group ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}>
+            <input
+                ref={refToUse}
+                type="text"
+                maxLength={5}
+                value={inputValue}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholder}
+                disabled={disabled}
+                className={`h-7 w-[82px] pl-2 pr-6 text-xs font-mono font-bold text-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)]/30 outline-none rounded-none disabled:bg-[var(--color-bg-subtle)] disabled:text-[var(--color-fg-muted)]/70 disabled:cursor-not-allowed shadow-2xs transition-all tracking-wide ${className}`}
+            />
+            <span className="absolute right-1.5 pointer-events-none text-[var(--color-fg-muted)]/60 group-focus-within:text-brand-500 transition-colors">
+                <Clock size={11} strokeWidth={2} />
+            </span>
+        </div>
     );
 }

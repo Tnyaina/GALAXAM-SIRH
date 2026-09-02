@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Layers, ArrowRight, CheckCircle2, Clock, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
+import Badge from '@/components/ui/data-display/Badge';
 import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 
 export default function PointageWeeklySyntheseSection({
@@ -40,24 +41,25 @@ export default function PointageWeeklySyntheseSection({
             <button
                 type="button"
                 onClick={() => setOpen(p => !p)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--color-bg-subtle)]/60 transition-colors cursor-pointer"
+                className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-[var(--color-bg-subtle)]/60 transition-colors cursor-pointer bg-[var(--color-bg-subtle)]/40"
             >
                 <div className="flex items-center gap-2.5">
-                    <Layers size={14} className="text-[var(--color-fg-muted)] shrink-0" />
+                    <Layers size={14} className="text-brand-600 shrink-0" />
                     <span className="text-[12.5px] font-bold text-[var(--color-fg)]">
-                        Synthèse hebdomadaire
+                        Découpage &amp; Validation Séquentielle
                     </span>
-                    <span className="text-[11px] font-mono px-1.5 py-0.5 font-bold bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]">
+                    <span className="text-[10.5px] font-mono px-1.5 py-0.5 font-bold bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]">
                         HS 30%/50% · Retards
                     </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     <Link
                         to="/pointages/synthese"
                         onClick={(e) => e.stopPropagation()}
                         className="text-[11px] font-bold text-brand-600 hover:underline flex items-center gap-1"
                     >
-                        Vue globale <ArrowRight size={11} />
+                        <span>Synthèse détaillée</span>
+                        <ArrowRight size={11} />
                     </Link>
                     {open
                         ? <ChevronDown size={14} className="text-[var(--color-fg-muted)]" />
@@ -66,66 +68,67 @@ export default function PointageWeeklySyntheseSection({
                 </div>
             </button>
 
-            {/* Corps (lazy-chargé à l'ouverture) */}
+            {/* Corps */}
             {open && (
-                <div className="px-4 pb-4 border-t border-[var(--color-border-subtle)]">
+                <div className="p-3 border-t border-[var(--color-border-subtle)]">
                     {loading ? (
                         <div className="py-6 text-center text-xs text-[var(--color-fg-muted)] flex items-center justify-center gap-2">
                             <Clock size={13} className="animate-spin text-brand-500" />
                             Chargement du découpage hebdomadaire…
                         </div>
+                    ) : semaines.length === 0 ? (
+                        <div className="py-4 text-center text-xs text-[var(--color-fg-muted)]">
+                            Aucune semaine pour cette période.
+                        </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
-                            {semaines.map((w) => {
-                                const isReady = w.ready;
-                                const hasAnomalies = w.nbAnomalies > 0;
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                            {semaines.map((sem) => {
+                                const badgeVariant = sem.estValidee
+                                    ? 'success'
+                                    : sem.ready
+                                        ? 'brand'
+                                        : sem.nbAnomalies > 0
+                                            ? 'warning'
+                                            : 'default';
 
                                 return (
-                                    <div
-                                        key={w.id}
-                                        className={`border p-3.5 transition-all ${
-                                            isReady
-                                                ? 'border-brand-500/40 bg-brand-500/5'
-                                                : hasAnomalies
-                                                ? 'border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/5'
-                                                : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] opacity-70'
+                                    <Link
+                                        key={sem.id}
+                                        to={`/pointages/synthese?tab=hebdo&semaine=${sem.id}`}
+                                        className={`p-2.5 text-left border transition-all flex flex-col justify-between gap-1.5 relative hover:shadow-xs ${
+                                            sem.estValidee
+                                                ? 'bg-emerald-500/[0.04] border-emerald-500/30 hover:border-emerald-500/60'
+                                                : sem.ready
+                                                    ? 'bg-brand-500/[0.04] border-brand-500/30 hover:border-brand-500/60'
+                                                    : sem.nbAnomalies > 0
+                                                        ? 'bg-amber-500/[0.04] border-amber-500/30 hover:border-amber-500/60'
+                                                        : 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)] hover:border-[var(--color-border)]'
                                         }`}
                                     >
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-[10.5px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
-                                                {w.title}
-                                            </p>
-                                            {isReady ? (
-                                                <CheckCircle2 size={12} className="text-[var(--color-success-600)]" />
-                                            ) : hasAnomalies ? (
-                                                <AlertTriangle size={12} className="text-[var(--color-warning-600)]" />
+                                        {/* Titre & Coche de validation */}
+                                        <div className="flex items-center justify-between gap-1">
+                                            <span className="text-xs font-bold text-[var(--color-fg)]">
+                                                {sem.title}
+                                            </span>
+                                            {sem.estValidee ? (
+                                                <CheckCircle2 size={13} className="text-[var(--color-success-600)] shrink-0" />
+                                            ) : sem.nbAnomalies > 0 ? (
+                                                <AlertTriangle size={13} className="text-[var(--color-warning-600)] shrink-0" />
                                             ) : null}
                                         </div>
 
-                                        <p className="text-[10.5px] font-mono text-[var(--color-fg-muted)] mt-0.5">
-                                            {w.dates} ({w.nbJoursOuvrables}j)
+                                        {/* Dates */}
+                                        <p className="text-[10.5px] font-mono text-[var(--color-fg-muted)] leading-tight truncate">
+                                            {sem.dates}
                                         </p>
 
-                                        <p className={`text-[13px] font-bold mt-1 ${isReady ? 'text-brand-700 dark:text-brand-300' : hasAnomalies ? 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]' : 'text-[var(--color-fg)]'}`}>
-                                            {w.statut}
-                                        </p>
-
-                                        <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5 leading-snug">
-                                            {w.desc}
-                                        </p>
-
-                                        <Link
-                                            to="/pointages/synthese"
-                                            className={`inline-flex items-center gap-1 mt-2.5 text-[11px] font-bold ${
-                                                isReady
-                                                    ? 'text-brand-600 dark:text-brand-400 hover:underline'
-                                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                                            }`}
-                                        >
-                                            <span>Valider</span>
-                                            <ArrowRight size={11} />
-                                        </Link>
-                                    </div>
+                                        {/* Badge épuré comme la 2e capture */}
+                                        <div className="pt-1 border-t border-[var(--color-border-subtle)]/60 flex items-center justify-between gap-1">
+                                            <Badge variant={badgeVariant} size="xs" className="!text-[9px] !px-1.5 font-bold truncate">
+                                                {sem.estValidee ? 'VALIDÉE' : sem.ready ? 'PRÊTE À VALIDER' : sem.statut.toUpperCase()}
+                                            </Badge>
+                                        </div>
+                                    </Link>
                                 );
                             })}
                         </div>

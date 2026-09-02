@@ -177,7 +177,7 @@ export default function PointageGridTable({
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureEntreeMatin', val)}
                                             onKeyDown={(e) => onKeyDown(e, row.idEmploye, 0)}
                                             onComplete={() => onFocusNext(row.idEmploye, 0)}
-                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}`}
+                                            className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
                                         />
                                     </Td>
 
@@ -190,7 +190,7 @@ export default function PointageGridTable({
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieMatin', val)}
                                             onKeyDown={(e) => onKeyDown(e, row.idEmploye, 1)}
                                             onComplete={() => onFocusNext(row.idEmploye, 1)}
-                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}`}
+                                            className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
                                         />
                                     </Td>
 
@@ -203,7 +203,7 @@ export default function PointageGridTable({
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureEntreeAm', val)}
                                             onKeyDown={(e) => onKeyDown(e, row.idEmploye, 2)}
                                             onComplete={() => onFocusNext(row.idEmploye, 2)}
-                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}`}
+                                            className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
                                         />
                                     </Td>
 
@@ -215,7 +215,7 @@ export default function PointageGridTable({
                                             disabled={isReadOnlyForUser || isCongeFull || isCongeAm}
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieAm', val)}
                                             onKeyDown={(e) => onKeyDown(e, row.idEmploye, 3)}
-                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}`}
+                                            className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
                                         />
                                     </Td>
 
