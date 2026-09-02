@@ -5,10 +5,14 @@ import {
     FileDown, 
     TrendingUp, 
     Info, 
-    RotateCcw,
     ChevronLeft,
     ChevronRight,
-    Calendar
+    Calendar,
+    Utensils,
+    Bus,
+    DollarSign,
+    Moon,
+    RotateCcw
 } from 'lucide-react';
 import pointageEmployeService from '@/api/pointage/pointageEmployeService';
 import periodePaieService from '@/services/periodePaieService';
@@ -399,11 +403,12 @@ export default function PointageTab({ idEmploye }) {
                                         <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Heures</Th>
                                         <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Écart</Th>
                                         <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Statut</Th>
+                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center border-l border-[var(--color-border-subtle)]">Indemnités</Th>
                                     </Thead>
                                     <Tbody>
                                         {pointages.length === 0 ? (
                                             <Tr>
-                                                <Td colSpan={9} className="text-center py-8 text-xs text-[var(--color-fg-muted)]">
+                                                <Td colSpan={10} className="text-center py-8 text-xs text-[var(--color-fg-muted)]">
                                                     Aucune donnée de pointage pour cette période.
                                                 </Td>
                                             </Tr>
@@ -454,6 +459,41 @@ export default function PointageTab({ idEmploye }) {
                                                         <Td className="text-center py-2.5 px-3">
                                                             {getStatutBadge(ptg.statut)}
                                                         </Td>
+
+                                                        {/* Colonne Indemnités Reçues (Repas, 2e Repas, Déplacement) */}
+                                                        <Td className="py-2.5 px-3 border-l border-[var(--color-border-subtle)] text-center">
+                                                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                                                {ptg.indemniteRepas ? (
+                                                                    <span 
+                                                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10.5px] font-bold rounded ${
+                                                                            ptg.nbRepas === 2
+                                                                                ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/30'
+                                                                                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                                                                        }`}
+                                                                        title={ptg.nbRepas === 2 ? '2 Repas (Travail prolongé / Nuit)' : `1 Repas standard (${ptg.montantRepas ? Math.round(ptg.montantRepas) + ' Ar' : '2 000 Ar'})`}
+                                                                    >
+                                                                        <Utensils size={10} />
+                                                                        <span>{ptg.nbRepas === 2 ? 'Repas x2' : 'Repas'}</span>
+                                                                    </span>
+                                                                ) : null}
+
+                                                                {(ptg.deplacementMatin || ptg.deplacementAm) ? (
+                                                                    <span 
+                                                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10.5px] font-bold rounded bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/30"
+                                                                        title={`Déplacement : ${ptg.deplacementMatin && ptg.deplacementAm ? '2 trajets (Matin + Soir)' : ptg.deplacementMatin ? '1 trajet (Matin)' : '1 trajet (Soir)'}`}
+                                                                    >
+                                                                        <Bus size={10} />
+                                                                        <span>
+                                                                            {ptg.deplacementMatin && ptg.deplacementAm ? 'Trajets (M+S)' : ptg.deplacementMatin ? 'Trajet (M)' : 'Trajet (S)'}
+                                                                        </span>
+                                                                    </span>
+                                                                ) : null}
+
+                                                                {!ptg.indemniteRepas && !ptg.deplacementMatin && !ptg.deplacementAm && (
+                                                                    <span className="text-[var(--color-fg-muted)] text-xs">—</span>
+                                                                )}
+                                                            </div>
+                                                        </Td>
                                                     </Tr>
                                                 );
                                             })
@@ -463,13 +503,13 @@ export default function PointageTab({ idEmploye }) {
                             </div>
                         </div>
 
-                        {/* B. Volet Latéral Droit : Récapitulatif & Règles (1 colonne de large) */}
+                        {/* B. Volet Latéral Droit : Récapitulatif, Indemnités & Règles (1 colonne de large) */}
                         <div className="space-y-4">
-                            {/* Carte Récapitulatif */}
+                            {/* Carte Récapitulatif Temps */}
                             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-2 flex items-center gap-1.5">
                                     <TrendingUp size={14} className="text-[var(--color-brand-500)]" />
-                                    Récapitulatif
+                                    Temps de Présence
                                 </h4>
                                 <div className="space-y-2 text-xs">
                                     <div className="flex justify-between items-center">
@@ -498,6 +538,85 @@ export default function PointageTab({ idEmploye }) {
                                             {recap.retards || '00h00'}
                                         </span>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Carte Indemnités Reçues de la Période avec Détails de Calcul */}
+                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-2 flex items-center justify-between">
+                                    <span className="flex items-center gap-1.5">
+                                        <DollarSign size={14} className="text-emerald-600" />
+                                        Indemnités du Mois
+                                    </span>
+                                    <span className="font-mono text-xs font-bold text-emerald-600">
+                                        {kpis.montantRepasTotal || '0 Ar'}
+                                    </span>
+                                </h4>
+                                
+                                <div className="space-y-3 text-xs">
+                                    {/* 1. Décomposition Repas */}
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-center text-[var(--color-fg)] font-semibold">
+                                            <span className="flex items-center gap-1">
+                                                <Utensils size={12} className="text-emerald-600" />
+                                                Panier Repas ({kpis.totalRepas || '0'})
+                                            </span>
+                                            <span className="font-mono text-emerald-600 font-bold">
+                                                {kpis.montantRepasTotal || '0 Ar'}
+                                            </span>
+                                        </div>
+
+                                        {/* Détail 1er Repas */}
+                                        {recap.repasStdDetail && (
+                                            <div className="flex justify-between items-center text-[11px] text-[var(--color-fg-muted)] pl-3 border-l-2 border-emerald-500/30">
+                                                <span>1ᵉʳ Repas (Standard)</span>
+                                                <span className="font-mono">{recap.repasStdDetail}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Détail 2e Repas (Nuit / Long shift) */}
+                                        {recap.repas2eDetail && (
+                                            <div className="flex justify-between items-center text-[11px] text-purple-700 dark:text-purple-300 pl-3 border-l-2 border-purple-500/40 bg-purple-500/5 py-0.5 px-1 rounded-r">
+                                                <span className="flex items-center gap-1">
+                                                    <Moon size={10} />
+                                                    2ᵉ Repas (Nuit / Heures sup)
+                                                </span>
+                                                <span className="font-mono font-bold">{recap.repas2eDetail}</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 2. Déplacement */}
+                                    <div className="pt-2 border-t border-[var(--color-border-subtle)] space-y-1">
+                                        <div className="flex justify-between items-center text-[var(--color-fg)] font-semibold">
+                                            <span className="flex items-center gap-1">
+                                                <Bus size={12} className="text-sky-600" />
+                                                Transport Déplacement
+                                            </span>
+                                            <span className="font-mono text-sky-600 font-bold">
+                                                {kpis.totalTrajets || '0 trajet'}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10.5px] text-[var(--color-fg-muted)] pl-3">
+                                            Proratisé selon présence effective (1 jour = 2 trajets)
+                                        </p>
+                                    </div>
+
+                                    {/* 3. Majorations de Travail Spécifique si existantes */}
+                                    {(recap.hs30Detail || recap.hs50Detail || recap.nuitDetail || recap.dimancheDetail || recap.ferieDetail) && (
+                                        <div className="pt-2 border-t border-[var(--color-border-subtle)] space-y-1">
+                                            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+                                                Majorations applicables
+                                            </span>
+                                            <div className="space-y-0.5 text-[11px] text-[var(--color-fg-muted)] pl-1 font-mono">
+                                                {recap.hs30Detail && <div>• {recap.hs30Detail}</div>}
+                                                {recap.hs50Detail && <div>• {recap.hs50Detail}</div>}
+                                                {recap.nuitDetail && <div className="text-indigo-600 dark:text-indigo-400">• {recap.nuitDetail}</div>}
+                                                {recap.dimancheDetail && <div className="text-amber-600 dark:text-amber-400">• {recap.dimancheDetail}</div>}
+                                                {recap.ferieDetail && <div className="text-emerald-600 dark:text-emerald-400">• {recap.ferieDetail}</div>}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -537,7 +656,7 @@ export default function PointageTab({ idEmploye }) {
                                     Observations
                                 </h4>
                                 <p className="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
-                                    Les heures sont calculées à partir des pointages enregistrés. Toute correction doit être justifiée et validée par le responsable habilité.
+                                    Les heures et indemnités sont calculées à partir des pointages enregistrés. Toute correction doit être justifiée et validée par le responsable habilité.
                                 </p>
                             </div>
                         </div>

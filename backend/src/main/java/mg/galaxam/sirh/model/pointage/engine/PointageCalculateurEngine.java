@@ -8,13 +8,10 @@ import org.springframework.stereotype.Component;
 /**
  * Moteur de calcul des règles de pointage, présence, compensation et majorations.
  * Réf. Code du Travail Malagasy & Conventions d'entreprise GALAXAM.
+ * Tous les calculs sont pilotés dynamiquement par les paramètres globaux (table parametre_global).
  */
 @Component
 public class PointageCalculateurEngine {
-
-    public static final LocalTime SEUIL_NUIT_DEFAUT = LocalTime.of(22, 0);
-    public static final LocalTime SEUIL_2ND_REPAS_1 = LocalTime.of(19, 30);
-    public static final LocalTime SEUIL_2ND_REPAS_2 = LocalTime.of(21, 0);
 
     /**
      * Calcule le retard exact en minutes avec tolérance zéro.
@@ -31,29 +28,41 @@ public class PointageCalculateurEngine {
     }
 
     /**
-     * Détecte et calcule les heures de nuit (au-delà de 22h00).
+     * Détecte et calcule les heures de nuit selon les seuils configurés.
      */
-    public double calculerHeuresNuit(LocalTime sortie, LocalTime seuilNuit) {
+    public double calculerHeuresNuit(LocalTime sortie, LocalTime debutNuit, LocalTime finNuit) {
         if (sortie == null) return 0.0;
-        LocalTime seuil = seuilNuit != null ? seuilNuit : SEUIL_NUIT_DEFAUT;
-        if (sortie.isAfter(seuil)) {
-            long mins = Duration.between(seuil, sortie).toMinutes();
+        LocalTime seuilDebut = debutNuit != null ? debutNuit : LocalTime.of(22, 0);
+        
+        if (sortie.isAfter(seuilDebut)) {
+            long mins = Duration.between(seuilDebut, sortie).toMinutes();
             return Math.round((mins / 60.0) * 100.0) / 100.0;
         }
         return 0.0;
     }
 
     /**
-     * Calcule le montant net du repas journalier incluant les majorations pour sortie tardive.
+     * Calcule le montant net du repas journalier incluant les majorations pour sortie tardive
+     * piloté par les seuils et montants configurés dans parametre_global.
      */
-    public double calculerTotalRepasJour(boolean repasMidiCoche, double montantMidi, LocalTime sortieSoir,
-                                         double primeTardif1, double primeTardif2) {
+    public double calculerTotalRepasJour(
+            boolean repasMidiCoche,
+            double montantMidi,
+            LocalTime sortieSoir,
+            LocalTime seuil2eRepas1,
+            double montant2eRepas1,
+            LocalTime seuil2eRepas2,
+            double montant2eRepas2
+    ) {
         double total = repasMidiCoche ? montantMidi : 0.0;
         if (sortieSoir != null) {
-            if (sortieSoir.isAfter(SEUIL_2ND_REPAS_2)) {
-                total += primeTardif2;
-            } else if (sortieSoir.isAfter(SEUIL_2ND_REPAS_1)) {
-                total += primeTardif1;
+            LocalTime s2 = seuil2eRepas2 != null ? seuil2eRepas2 : LocalTime.of(21, 0);
+            LocalTime s1 = seuil2eRepas1 != null ? seuil2eRepas1 : LocalTime.of(19, 30);
+
+            if (!sortieSoir.isBefore(s2)) {
+                total += montant2eRepas2;
+            } else if (!sortieSoir.isBefore(s1)) {
+                total += montant2eRepas1;
             }
         }
         return total;
@@ -62,8 +71,13 @@ public class PointageCalculateurEngine {
     /**
      * Calcule l'indemnité nette de déplacement journalière.
      */
-    public double calculerDeplacementJour(boolean trajetMatin, boolean trajetSoir, double montantParTrajet,
-                                          boolean aPrisRepasSurSite, double reductionSiRepasSurSite) {
+    public double calculerDeplacementJour(
+            boolean trajetMatin,
+            boolean trajetSoir,
+            double montantParTrajet,
+            boolean aPrisRepasSurSite,
+            double reductionSiRepasSurSite
+    ) {
         int nbTrajets = (trajetMatin ? 1 : 0) + (trajetSoir ? 1 : 0);
         double brut = nbTrajets * montantParTrajet;
         if (aPrisRepasSurSite && reductionSiRepasSurSite > 0 && brut > 0) {

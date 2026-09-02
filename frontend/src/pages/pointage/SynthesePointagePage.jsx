@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock, CheckCircle, XCircle, Send } from 'lucide-react';
+import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock, CheckCircle, XCircle, Send, Moon, Sun, Award, Utensils, Bus, Check } from 'lucide-react';
 import Select from '@/components/ui/forms/Select';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
@@ -604,7 +604,7 @@ export default function SynthesePointagePage() {
                                         Aucune donnée saisie pour cette semaine.
                                     </div>
                                 ) : (
-                                    <div className="overflow-x-auto">
+                                     <div className="overflow-x-auto">
                                         <Table className="w-full text-left border-collapse text-[12.5px]">
                                             <Thead>
                                                 <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[10.5px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
@@ -619,6 +619,9 @@ export default function SynthesePointagePage() {
                                                     <Th className="py-2.5 px-2 text-center">Déficit</Th>
                                                     <Th className="py-2.5 px-2 text-center border-l border-[var(--color-border-subtle)] bg-[var(--color-sky-500)]/[0.04]">HS 30%</Th>
                                                     <Th className="py-2.5 px-2 text-center bg-[var(--color-purple-500)]/[0.04]">HS 50%</Th>
+                                                    <Th className="py-2.5 px-2 text-center bg-indigo-500/[0.04] text-indigo-700 dark:text-indigo-400">Nuit</Th>
+                                                    <Th className="py-2.5 px-2 text-center bg-amber-500/[0.04] text-amber-700 dark:text-amber-400">Dim. +40%</Th>
+                                                    <Th className="py-2.5 px-2 text-center bg-emerald-500/[0.04] text-emerald-700 dark:text-emerald-400">Férié +100%</Th>
                                                     <Th className="py-2.5 px-2 text-center border-l border-[var(--color-border-subtle)]">Repas</Th>
                                                     <Th className="py-2.5 px-2 text-center">Déplact</Th>
                                                 </Tr>
@@ -627,7 +630,7 @@ export default function SynthesePointagePage() {
                                                 {filteredSemaineDetail.map((row) => (
                                                     <Tr key={row.idEmploye} className="border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
                                                         <Td className="py-2 px-3 font-semibold">
-                                                            <div className="truncate max-w-[220px]">
+                                                            <div className="truncate max-w-[200px]">
                                                                 <Link
                                                                     to={`/employes/${row.idEmploye}?tab=pointage`}
                                                                     className="hover:text-brand-600 hover:underline text-[var(--color-fg)]"
@@ -678,8 +681,9 @@ export default function SynthesePointagePage() {
                                                         </Td>
                                                         <Td className="py-2 px-2 text-center font-mono text-xs bg-[var(--color-bg-subtle)]/50">
                                                             {row.retardCompense > 0 ? (
-                                                                <span className="bg-[var(--color-success-500)]/15 text-[var(--color-success-700)] dark:text-[var(--color-success-400)] font-bold px-1.5 py-0.5 text-[11px] font-mono">
-                                                                    ✓ {Math.round(row.retardCompense * 60)}m
+                                                                <span className="inline-flex items-center gap-1 bg-[var(--color-success-500)]/15 text-[var(--color-success-700)] dark:text-[var(--color-success-400)] font-bold px-1.5 py-0.5 text-[11px] font-mono">
+                                                                    <Check size={11} className="stroke-[3]" />
+                                                                    {Math.round(row.retardCompense * 60)}m
                                                                 </span>
                                                             ) : (
                                                                 <span className="text-[var(--color-fg-subtle)]">-</span>
@@ -702,6 +706,36 @@ export default function SynthesePointagePage() {
                                                         <Td className="py-2 px-2 text-center font-mono text-xs bg-[var(--color-purple-500)]/[0.04]">
                                                             {!row.estCadre && row.heuresHs50 > 0 ? (
                                                                 <span className="text-[var(--color-purple-700)] dark:text-[var(--color-purple-400)] font-bold bg-[var(--color-purple-500)]/15 px-1.5 py-0.5">+{row.heuresHs50}h</span>
+                                                            ) : (
+                                                                <span className="text-[var(--color-fg-subtle)]">-</span>
+                                                            )}
+                                                        </Td>
+                                                        <Td className="py-2 px-2 text-center font-mono text-xs bg-indigo-500/[0.04]">
+                                                            {row.heuresNuitTotal > 0 ? (
+                                                                <span className="inline-flex items-center gap-1 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">
+                                                                    <Moon size={10} />
+                                                                    {row.heuresNuitTotal}h
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[var(--color-fg-subtle)]">-</span>
+                                                            )}
+                                                        </Td>
+                                                        <Td className="py-2 px-2 text-center font-mono text-xs bg-amber-500/[0.04]">
+                                                            {row.heuresDimancheTotal > 0 ? (
+                                                                <span className="inline-flex items-center gap-1 font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                                                                    <Sun size={10} />
+                                                                    +{row.heuresDimancheTotal}h
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[var(--color-fg-subtle)]">-</span>
+                                                            )}
+                                                        </Td>
+                                                        <Td className="py-2 px-2 text-center font-mono text-xs bg-emerald-500/[0.04]">
+                                                            {row.heuresFerieTotal > 0 ? (
+                                                                <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                                                                    <Award size={10} />
+                                                                    +{row.heuresFerieTotal}h
+                                                                </span>
                                                             ) : (
                                                                 <span className="text-[var(--color-fg-subtle)]">-</span>
                                                             )}
@@ -940,7 +974,9 @@ export default function SynthesePointagePage() {
                                             <Th className="py-2.5 px-3 text-center border-l border-[var(--color-border-subtle)]">Heures Totales</Th>
                                             <Th className="py-2.5 px-2 text-center">HS 30 %</Th>
                                             <Th className="py-2.5 px-2 text-center">HS 50 %</Th>
-                                            <Th className="py-2.5 px-2 text-center">Nuit</Th>
+                                            <Th className="py-2.5 px-2 text-center bg-indigo-500/[0.04] text-indigo-700 dark:text-indigo-400">Nuit</Th>
+                                            <Th className="py-2.5 px-2 text-center bg-amber-500/[0.04] text-amber-700 dark:text-amber-400">Dim. +40%</Th>
+                                            <Th className="py-2.5 px-2 text-center bg-emerald-500/[0.04] text-emerald-700 dark:text-emerald-400">Férié +100%</Th>
                                             <Th className="py-2.5 px-2 text-center text-[var(--color-danger-500)]">Déficit Retenue</Th>
                                             <Th className="py-2.5 px-3 text-center border-l border-[var(--color-border-subtle)]">Repas</Th>
                                             <Th className="py-2.5 px-3 text-center">Déplacement</Th>
@@ -976,8 +1012,35 @@ export default function SynthesePointagePage() {
                                                 <Td className="py-2.5 px-2 text-center font-mono text-[var(--color-purple-700)] dark:text-[var(--color-purple-400)] font-bold">
                                                     {row.heuresHs50 > 0 ? `+${row.heuresHs50}h` : '0h'}
                                                 </Td>
-                                                <Td className="py-2.5 px-2 text-center font-mono">
-                                                    {row.heuresNuitTotal > 0 ? `${row.heuresNuitTotal}h` : '0h'}
+                                                <Td className="py-2.5 px-2 text-center font-mono bg-indigo-500/[0.04]">
+                                                    {row.heuresNuitTotal > 0 ? (
+                                                        <span className="inline-flex items-center gap-1 font-bold text-indigo-700 dark:text-indigo-400">
+                                                            <Moon size={10} />
+                                                            {row.heuresNuitTotal}h
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[var(--color-fg-subtle)]">0h</span>
+                                                    )}
+                                                </Td>
+                                                <Td className="py-2.5 px-2 text-center font-mono bg-amber-500/[0.04]">
+                                                    {row.heuresDimancheTotal > 0 ? (
+                                                        <span className="inline-flex items-center gap-1 font-bold text-amber-700 dark:text-amber-400">
+                                                            <Sun size={10} />
+                                                            +{row.heuresDimancheTotal}h
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[var(--color-fg-subtle)]">0h</span>
+                                                    )}
+                                                </Td>
+                                                <Td className="py-2.5 px-2 text-center font-mono bg-emerald-500/[0.04]">
+                                                    {row.heuresFerieTotal > 0 ? (
+                                                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
+                                                            <Award size={10} />
+                                                            +{row.heuresFerieTotal}h
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[var(--color-fg-subtle)]">0h</span>
+                                                    )}
                                                 </Td>
                                                 <Td className="py-2.5 px-2 text-center font-mono font-bold text-[var(--color-danger-500)]">
                                                     {row.heuresAbsenceRetenues > 0 ? `-${row.heuresAbsenceRetenues}h` : '0h'}

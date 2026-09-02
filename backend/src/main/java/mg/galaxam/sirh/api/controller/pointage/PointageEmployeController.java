@@ -2,6 +2,7 @@ package mg.galaxam.sirh.api.controller.pointage;
 
 import mg.galaxam.sirh.api.dto.pointage.FichePointageEmployeDTO;
 import mg.galaxam.sirh.api.dto.pointage.PointageJourDTO;
+import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -220,14 +221,15 @@ public class PointageEmployeController {
                 }
             }
         } catch (Exception e) {
-            // Table non disponible
         }
 
-        // 2. Récupération des pointages enregistrés en base
+        // 2. Récupération des pointages enregistrés en base (avec indemnités de repas et déplacement)
         Map<LocalDate, PointageRecord> pointageMap = new HashMap<>();
 
         String sqlPointage = "SELECT p.id_pointage, p.date_pointage, p.heure_entree_matin, p.heure_sortie_matin, " +
-                "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.minutes_retard, s.code AS code_statut " +
+                "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
+                "p.deplacement_matin, p.deplacement_am, p.indemnite_deplacement_recue, " +
+                "p.indemnite_repas_recue, p.montant_repas, s.code AS code_statut " +
                 "FROM pointage_jour p " +
                 "JOIN ref_statut_pointage_jour s ON p.id_statut_jour = s.id_statut_jour " +
                 "WHERE p.id_employe = ? AND p.date_pointage BETWEEN ? AND ?";
@@ -248,7 +250,13 @@ public class PointageEmployeController {
                     r.entreeAm = rs.getTime("heure_entree_am");
                     r.sortieAm = rs.getTime("heure_sortie_am");
                     r.totalHeures = rs.getDouble("total_heures");
+                    r.heuresNuit = rs.getDouble("heures_nuit");
                     r.minutesRetard = rs.getInt("minutes_retard");
+                    r.deplacementMatin = rs.getBoolean("deplacement_matin");
+                    r.deplacementAm = rs.getBoolean("deplacement_am");
+                    r.indemniteDeplacementRecue = rs.getBoolean("indemnite_deplacement_recue");
+                    r.indemniteRepasRecue = rs.getBoolean("indemnite_repas_recue");
+                    r.montantRepas = rs.getDouble("montant_repas");
                     r.codeStatut = rs.getString("code_statut");
                     pointageMap.put(r.datePointage, r);
                 }
@@ -257,7 +265,6 @@ public class PointageEmployeController {
             e.printStackTrace();
         }
 
-        // 2.5 Récupération des congés validés sur la période
         Map<LocalDate, String> congeMap = new HashMap<>();
         String sqlConges = "SELECT dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.moment_demi_journee FROM demande_conge dc " +
                 "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
@@ -269,29 +276,17 @@ public class PointageEmployeController {
             psC.setDate(3, java.sql.Date.valueOf(startDate));
             try (ResultSet rsC = psC.executeQuery()) {
                 while (rsC.next()) {
-                    LocalDate dDebut = rsC.getDate("date_debut").toLocalDate();
-                    LocalDate dFin = rsC.getDate("date_fin").toLocalDate();
-                    boolean isDemi = rsC.getBoolean("est_demi_journee");
-                    String moment = rsC.getString("moment_demi_journee");
-                    
-                    String type = "FULL_DAY";
-                    if (isDemi) {
-                        if ("MATIN".equalsIgnoreCase(moment)) type = "MATIN";
-                        else if ("APRES_MIDI".equalsIgnoreCase(moment)) type = "APRES_MIDI";
-                    }
-                    
-                    for (LocalDate d = dDebut; !d.isAfter(dFin); d = d.plusDays(1)) {
-                        if (!d.isBefore(startDate) && !d.isAfter(endDate)) {
-                            congeMap.put(d, type);
-                        }
+                    LocalDate deb = rsC.getDate("date_debut").toLocalDate();
+                    LocalDate fn = rsC.getDate("date_fin").toLocalDate();
+                    boolean demi = rsC.getBoolean("est_demi_journee");
+                    for (LocalDate d = deb; !d.isAfter(fn); d = d.plusDays(1)) {
+                        congeMap.put(d, demi ? "HALF_DAY" : "FULL_DAY");
                     }
                 }
             }
         } catch (Exception e) {
-            // Table non disponible
         }
 
-        // 3. Expansion dynamique de tous les jours du calendrier de la période
         List<PointageJourDTO> list = new ArrayList<>();
         DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -302,6 +297,32 @@ public class PointageEmployeController {
         int nbOccurrencesRetard = 0;
         double totalHeuresSupp = 0.0;
         int nbAbsences = 0;
+
+        // Totaux Indemnités & Majorations détaillées
+        Map<String, String> params = new HashMap<>();
+        try (Connection c = dataSource.getConnection()) {
+            params = ParametreGlobal.loadActiveMap(c);
+        } catch (Exception ignored) {}
+
+        double tarifRepasDefaut = ParametreGlobal.getDouble(params, "MONTANT_REPAS_MIDI", 2000.0);
+        String seuil2eRepas1Str = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_1", "19:30");
+        LocalTime seuil2eRepas1 = LocalTime.parse(seuil2eRepas1Str.length() == 5 ? seuil2eRepas1Str : seuil2eRepas1Str.substring(0, 5));
+        double montant2eRepas1 = ParametreGlobal.getDouble(params, "MONTANT_2ND_REPAS_1", 2000.0);
+        String seuil2eRepas2Str = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_2", "21:00");
+        LocalTime seuil2eRepas2 = LocalTime.parse(seuil2eRepas2Str.length() == 5 ? seuil2eRepas2Str : seuil2eRepas2Str.substring(0, 5));
+        double montant2eRepas2 = ParametreGlobal.getDouble(params, "MONTANT_2ND_REPAS_2", 4000.0);
+
+        int total1erRepasCount = 0;
+        int total2eRepasCount = 0;
+        double totalRepasMontant = 0.0;
+        double total2eRepasMontant = 0.0;
+        double totalTrajetsCount = 0.0;
+
+        double totalHeuresNuit = 0.0;
+        double totalHeuresDimanche = 0.0;
+        double totalHeuresFerie = 0.0;
+        double totalHeuresHs30 = 0.0;
+        double totalHeuresHs50 = 0.0;
 
         LocalDate today = LocalDate.now();
 
@@ -349,16 +370,68 @@ public class PointageEmployeController {
                 int intMins = (int) Math.round((totalH - intHours) * 60);
                 dto.setHeures(String.format("%02dh%02d", intHours, intMins));
 
+                totalHeuresNuit += rec.heuresNuit;
+
+                // Calcul Indemnités journalières
+                boolean aDroitRepas = rec.indemniteRepasRecue || (isAutonome && !isWeekendRec);
+                boolean depM = rec.deplacementMatin || (isAutonome && !isWeekendRec);
+                boolean depA = rec.deplacementAm || (isAutonome && !isWeekendRec);
+
+                dto.setDeplacementMatin(depM);
+                dto.setDeplacementAm(depA);
+                dto.setIndemniteDeplacement(depM || depA);
+
+                if (depM) totalTrajetsCount += 0.5;
+                if (depA) totalTrajetsCount += 0.5;
+
+                // Gestion 1er / 2e repas pilotée par les paramètres globaux
+                int nbRepasJour = 0;
+                double mntRepasJour = 0.0;
+
+                if (aDroitRepas) {
+                    nbRepasJour = 1;
+                    total1erRepasCount++;
+                    mntRepasJour = (rec.montantRepas > 0 ? rec.montantRepas : tarifRepasDefaut);
+
+                    LocalTime sa = rec.sortieAm != null ? rec.sortieAm.toLocalTime() : null;
+                    if (sa != null) {
+                        if (!sa.isBefore(seuil2eRepas2)) {
+                            nbRepasJour = 2;
+                            total2eRepasCount++;
+                            total2eRepasMontant += montant2eRepas2;
+                            if (rec.montantRepas <= 0) mntRepasJour += montant2eRepas2;
+                        } else if (!sa.isBefore(seuil2eRepas1)) {
+                            nbRepasJour = 2;
+                            total2eRepasCount++;
+                            total2eRepasMontant += montant2eRepas1;
+                            if (rec.montantRepas <= 0) mntRepasJour += montant2eRepas1;
+                        }
+                    } else if (rec.heuresNuit >= 4.0 || totalH >= 11.0) {
+                        nbRepasJour = 2;
+                        total2eRepasCount++;
+                        total2eRepasMontant += montant2eRepas1;
+                        if (rec.montantRepas <= 0) mntRepasJour += montant2eRepas1;
+                    }
+
+                    totalRepasMontant += mntRepasJour;
+                }
+
+                dto.setIndemniteRepas(aDroitRepas);
+                dto.setNbRepas(nbRepasJour);
+                dto.setMontantRepas(mntRepasJour);
+
                 if ("DIMANCHE_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
                     totalHeuresRealisees += totalH;
                     totalHeuresSupp += totalH;
+                    totalHeuresDimanche += totalH;
                     dto.setEcart("+" + dto.getHeures() + " (Maj. 40%)");
                     dto.setEcartPositif(true);
                 } else if ("FERIE_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
                     totalHeuresRealisees += totalH;
                     totalHeuresSupp += totalH;
+                    totalHeuresFerie += totalH;
                     dto.setEcart("+" + dto.getHeures() + " (Gratif. 100%)");
                     dto.setEcartPositif(true);
                 } else if (rec.minutesRetard > 0 && !isAutonome) {
@@ -368,10 +441,18 @@ public class PointageEmployeController {
                     nbOccurrencesRetard++;
                 } else if (totalH > (dureeJourMins / 60.0)) {
                     double diff = totalH - (dureeJourMins / 60.0);
-                    int diffMins = (int) Math.round(diff * 60);
-                    dto.setEcart("+" + String.format("%02d min", diffMins));
+                    int dH = (int) diff;
+                    int dM = (int) Math.round((diff - dH) * 60);
+                    dto.setEcart(String.format("+%02dh%02d", dH, dM));
                     dto.setEcartPositif(true);
                     totalHeuresSupp += diff;
+
+                    if (diff <= 8.0) {
+                        totalHeuresHs30 += diff;
+                    } else {
+                        totalHeuresHs30 += 8.0;
+                        totalHeuresHs50 += (diff - 8.0);
+                    }
                 } else {
                     dto.setEcart("00 min");
                     dto.setEcartPositif(true);
@@ -390,12 +471,16 @@ public class PointageEmployeController {
                     dto.setStatut(rec.codeStatut != null ? rec.codeStatut.toUpperCase() : "PRESENT");
                 }
             } else {
-                // Pas de pointage enregistré pour cette date
                 dto.setEntree("—");
                 dto.setSortiePause("—");
                 dto.setRetourPause("—");
                 dto.setSortie("—");
                 dto.setEcart("—");
+                dto.setDeplacementMatin(false);
+                dto.setDeplacementAm(false);
+                dto.setIndemniteRepas(false);
+                dto.setNbRepas(0);
+                dto.setMontantRepas(0.0);
 
                 String typeConge = congeMap.get(curr);
 
@@ -412,7 +497,6 @@ public class PointageEmployeController {
                     dto.setHeures("00h00");
                     dto.setStatut("REPOS");
                 } else if (isAutonome) {
-                    // Employé autonome : base normale réputée effectuée
                     double totalH = (dureeJourMins / 60.0);
                     int intHours = (int) totalH;
                     int intMins = (int) Math.round((totalH - intHours) * 60);
@@ -420,13 +504,20 @@ public class PointageEmployeController {
                     dto.setStatut("DISPENSE_POINTAGE");
                     dto.setEcart("00 min");
                     dto.setEcartPositif(true);
+                    dto.setDeplacementMatin(true);
+                    dto.setDeplacementAm(true);
+                    dto.setIndemniteRepas(true);
+                    dto.setNbRepas(1);
+                    dto.setMontantRepas(tarifRepasDefaut);
+                    total1erRepasCount += 1;
+                    totalRepasMontant += tarifRepasDefaut;
+                    totalTrajetsCount += 1.0;
                     totalJoursTravailles++;
                     totalHeuresRealisees += totalH;
                 } else if (curr.isAfter(today)) {
                     dto.setHeures("—");
                     dto.setStatut("NON_ECHU");
                 } else {
-                    // Jour ouvré passé sans pointage
                     dto.setHeures("00h00");
                     dto.setStatut("ABSENT");
                     nbAbsences++;
@@ -436,11 +527,9 @@ public class PointageEmployeController {
             list.add(dto);
         }
 
-        // Objectifs et temps théoriques calculés dynamiquement selon les jours ouvrables réels
         double heuresTheoriquesPlein = totalJoursOuvrables * (dureeJourMins / 60.0);
         int hTheoriquesInt = (int) heuresTheoriquesPlein;
 
-        // KPIs
         Map<String, String> kpis = new LinkedHashMap<>();
         kpis.put("joursTravailles", totalJoursTravailles + " j");
         kpis.put("joursPrevus", totalJoursOuvrables + " prévus");
@@ -453,6 +542,21 @@ public class PointageEmployeController {
         kpis.put("absences", String.format("%02d j", nbAbsences));
         kpis.put("absencesStatut", nbAbsences > 0 ? "justifiée" : "aucune");
 
+        // Détails Repas & Trajets
+        int totalRepasCumul = total1erRepasCount + total2eRepasCount;
+        kpis.put("totalRepas", totalRepasCumul + " repas");
+        kpis.put("total1erRepas", total1erRepasCount + " std");
+        kpis.put("total2eRepas", total2eRepasCount > 0 ? total2eRepasCount + " repas x2" : "0");
+        kpis.put("montantRepasTotal", String.format("%,.0f Ar", totalRepasMontant).replace(',', ' '));
+        kpis.put("totalTrajets", String.format("%.0f trajets", totalTrajetsCount * 2));
+
+        // Détails Majorations
+        kpis.put("heuresHs30", String.format("%.1fh", totalHeuresHs30));
+        kpis.put("heuresHs50", String.format("%.1fh", totalHeuresHs50));
+        kpis.put("heuresNuit", String.format("%.1fh", totalHeuresNuit));
+        kpis.put("heuresDimanche", String.format("%.1fh", totalHeuresDimanche));
+        kpis.put("heuresFerie", String.format("%.1fh", totalHeuresFerie));
+
         // Récapitulatif
         Map<String, String> recap = new LinkedHashMap<>();
         recap.put("tempsTheorique", String.format("%02dh00", hTheoriquesInt));
@@ -460,6 +564,25 @@ public class PointageEmployeController {
         recap.put("tempsAbsence", String.format("%02dh00", nbAbsences * 8));
         recap.put("heuresSupp", kpis.get("heuresSupp"));
         recap.put("retards", kpis.get("retardCumule"));
+        recap.put("indemniteRepas", String.format("%d repas (%s)", totalRepasCumul, kpis.get("montantRepasTotal")));
+        recap.put("indemniteTrajets", String.format("%.0f trajets aller/retour", totalTrajetsCount * 2));
+
+        // Détails de calcul décomposés pour la Paie
+        recap.put("repasStdDetail", String.format("%d × %,.0f Ar = %,.0f Ar", total1erRepasCount, tarifRepasDefaut, total1erRepasCount * tarifRepasDefaut).replace(',', ' '));
+        if (total2eRepasCount > 0) {
+            recap.put("repas2eDetail", String.format("%d repas (Maj. soir/nuit) = %,.0f Ar", total2eRepasCount, total2eRepasMontant).replace(',', ' '));
+        }
+        recap.put("hs30Detail", String.format("%.1fh majorées à 30%%", totalHeuresHs30));
+        recap.put("hs50Detail", String.format("%.1fh majorées à 50%%", totalHeuresHs50));
+        if (totalHeuresNuit > 0) {
+            recap.put("nuitDetail", String.format("%.1fh de nuit", totalHeuresNuit));
+        }
+        if (totalHeuresDimanche > 0) {
+            recap.put("dimancheDetail", String.format("%.1fh le dimanche (+40%%)", totalHeuresDimanche));
+        }
+        if (totalHeuresFerie > 0) {
+            recap.put("ferieDetail", String.format("%.1fh jour férié (+100%%)", totalHeuresFerie));
+        }
 
         result.setKpis(kpis);
         result.setRecap(recap);
@@ -477,7 +600,13 @@ public class PointageEmployeController {
         Time entreeAm;
         Time sortieAm;
         double totalHeures;
+        double heuresNuit;
         int minutesRetard;
+        boolean deplacementMatin;
+        boolean deplacementAm;
+        boolean indemniteDeplacementRecue;
+        boolean indemniteRepasRecue;
+        double montantRepas;
         String codeStatut;
     }
 }

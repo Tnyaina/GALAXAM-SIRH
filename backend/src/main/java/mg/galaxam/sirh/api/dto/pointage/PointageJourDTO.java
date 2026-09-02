@@ -14,7 +14,36 @@ public class PointageJourDTO {
     private boolean ecartPositif;
     private String statut;      // PRESENT, RETARD, ABSENT, CONGE, REPOS, EN_COURS
 
+    // Indemnités journalières
+    private boolean deplacementMatin;
+    private boolean deplacementAm;
+    private boolean indemniteRepas;
+    private int nbRepas;                // 1 = Repas standard, 2 = Repas + 2e Repas/Nuit
+    private Double montantRepas;        // ex: 2000.0 ou 4000.0
+    private boolean indemniteDeplacement;
+    private Double montantDeplacement;  // Montant proratisé journalier (si applicable)
+
     // Getters et Setters
+    public boolean isDeplacementMatin() { return deplacementMatin; }
+    public void setDeplacementMatin(boolean deplacementMatin) { this.deplacementMatin = deplacementMatin; }
+
+    public boolean isDeplacementAm() { return deplacementAm; }
+    public void setDeplacementAm(boolean deplacementAm) { this.deplacementAm = deplacementAm; }
+
+    public boolean isIndemniteRepas() { return indemniteRepas; }
+    public void setIndemniteRepas(boolean indemniteRepas) { this.indemniteRepas = indemniteRepas; }
+
+    public int getNbRepas() { return nbRepas; }
+    public void setNbRepas(int nbRepas) { this.nbRepas = nbRepas; }
+
+    public Double getMontantRepas() { return montantRepas; }
+    public void setMontantRepas(Double montantRepas) { this.montantRepas = montantRepas; }
+
+    public boolean isIndemniteDeplacement() { return indemniteDeplacement; }
+    public void setIndemniteDeplacement(boolean indemniteDeplacement) { this.indemniteDeplacement = indemniteDeplacement; }
+
+    public Double getMontantDeplacement() { return montantDeplacement; }
+    public void setMontantDeplacement(Double montantDeplacement) { this.montantDeplacement = montantDeplacement; }
     public Integer getIdPointage() { return idPointage; }
     public void setIdPointage(Integer idPointage) { this.idPointage = idPointage; }
 

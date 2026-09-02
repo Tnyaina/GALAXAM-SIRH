@@ -19,7 +19,10 @@ import {
     FileSpreadsheet,
     Eye,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    Moon,
+    Sun,
+    Award
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import StatCard from '@/components/ui/data-display/StatCard';
@@ -554,10 +557,12 @@ export default function PointageOverviewTab({ onTabChange }) {
                                     <Th className="py-2.5 px-3 text-center border-l border-[var(--color-border-subtle)] font-bold">Heures Réelles</Th>
                                     <Th className="py-2.5 px-2 text-center text-emerald-600 font-bold">HS 30%</Th>
                                     <Th className="py-2.5 px-2 text-center text-emerald-700 font-bold">HS 50%</Th>
-                                    <Th className="py-2.5 px-2 text-center text-indigo-600">Nuit</Th>
+                                    <Th className="py-2.5 px-2 text-center text-indigo-600 bg-indigo-500/[0.04]">Nuit</Th>
+                                    <Th className="py-2.5 px-2 text-center text-amber-600 bg-amber-500/[0.04]">Dim. +40%</Th>
+                                    <Th className="py-2.5 px-2 text-center text-emerald-600 bg-emerald-500/[0.04]">Férié +100%</Th>
                                     <Th className="py-2.5 px-2 text-center text-[var(--color-danger-500)] font-bold">Retenues</Th>
-                                    <Th className="py-2.5 px-3 text-center border-l border-[var(--color-border-subtle)]">Repas (Ar)</Th>
-                                    <Th className="py-2.5 px-3 text-center">Déplacement (Ar)</Th>
+                                    <Th className="py-2.5 px-3 text-center border-l border-[var(--color-border-subtle)]">Repas</Th>
+                                    <Th className="py-2.5 px-3 text-center">Déplacement</Th>
                                     <Th className="py-2.5 px-2 text-center">Fiche</Th>
                                 </Tr>
                             </Thead>
@@ -593,14 +598,35 @@ export default function PointageOverviewTab({ onTabChange }) {
                                         <Td className="py-2.5 px-2 text-center font-mono text-emerald-700 font-bold">
                                             {row.heuresHs50 ? `+${row.heuresHs50}h` : '-'}
                                         </Td>
-                                        <Td className="py-2.5 px-2 text-center font-mono text-indigo-600">
-                                            {row.heuresNuitTotal ? `${row.heuresNuitTotal}h` : '-'}
+                                        <Td className="py-2.5 px-2 text-center font-mono bg-indigo-500/[0.04]">
+                                            {row.heuresNuitTotal > 0 ? (
+                                                <span className="inline-flex items-center gap-1 font-bold text-indigo-700 dark:text-indigo-400">
+                                                    <Moon size={10} />
+                                                    {row.heuresNuitTotal}h
+                                                </span>
+                                            ) : '-'}
+                                        </Td>
+                                        <Td className="py-2.5 px-2 text-center font-mono bg-amber-500/[0.04]">
+                                            {row.heuresDimancheTotal > 0 ? (
+                                                <span className="inline-flex items-center gap-1 font-bold text-amber-700 dark:text-amber-400">
+                                                    <Sun size={10} />
+                                                    +{row.heuresDimancheTotal}h
+                                                </span>
+                                            ) : '-'}
+                                        </Td>
+                                        <Td className="py-2.5 px-2 text-center font-mono bg-emerald-500/[0.04]">
+                                            {row.heuresFerieTotal > 0 ? (
+                                                <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
+                                                    <Award size={10} />
+                                                    +{row.heuresFerieTotal}h
+                                                </span>
+                                            ) : '-'}
                                         </Td>
                                         <Td className="py-2.5 px-2 text-center font-mono font-bold text-[var(--color-danger-500)]">
                                             {row.heuresAbsenceRetenues ? `-${row.heuresAbsenceRetenues}h` : '-'}
                                         </Td>
                                         <Td className="py-2.5 px-3 text-center border-l border-[var(--color-border-subtle)] font-mono text-xs">
-                                            {row.montantRepas ? fmtMoney(row.montantRepas) : '-'}
+                                            {row.nbJoursRepas ? `${row.nbJoursRepas}j (${fmtMoney(row.montantRepas)})` : '-'}
                                         </Td>
                                         <Td className="py-2.5 px-3 text-center font-mono text-xs">
                                             {row.montantDeplacement ? fmtMoney(row.montantDeplacement) : '-'}
