@@ -4,7 +4,6 @@ import Button from '@/components/ui/forms/Button';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
 import Loading from '@/components/ui/feedback/Loading';
 import contratService from '@/api/employe/contratService';
-import referentielService from '@/api/admin/referentielService';
 import {
     DocumentFrame, DocumentHeader, Clause, ArticleBlock, DocumentFooter
 } from '@/components/carriere/ContractDocument';
@@ -100,7 +99,7 @@ export default function RuptureContratModal({
     const loadReferentiels = useCallback(async () => {
         setLoadingRef(true);
         try {
-            const tevRes = await referentielService.getTypesEvenementRh();
+            const tevRes = await contratService.getTypesEvenementRh();
             const list = Array.isArray(tevRes) ? tevRes : (tevRes?.items || tevRes?.content || []);
             const ruptures = list.filter(t =>
                 t && ['DEMISSION', 'LICENCIEMENT', 'RUPTURE_CONVENTIONNELLE', 'FIN_CONTRAT', 'RUPTURE_ESSAI', 'DEPART_RETRAITE'].includes(t.code)
@@ -197,7 +196,7 @@ export default function RuptureContratModal({
                 res = await contratService.modifierBrouillonWorkflow(wfId, payload);
                 if (onSuccess) onSuccess('Brouillon de rupture de contrat modifié avec succès !', res);
             } else {
-                res = await contratService.initierTransition(idEmploye, payload);
+                res = await contratService.creerBrouillonTransition(idEmploye, payload);
                 if (onSuccess) onSuccess('Brouillon de rupture de contrat créé avec succès !', res);
             }
             onClose();

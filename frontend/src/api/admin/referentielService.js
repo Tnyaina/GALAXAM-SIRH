@@ -171,11 +171,6 @@ const referentielService = {
     getTypesIntervenant: async (actifUniquement = false) => {
         const response = await apiClient.get('/referentiel/types-intervenant', { params: { actifUniquement } });
         return response.data;
-    },
-
-    getTypesEvenementRh: async () => {
-        const response = await apiClient.get('/ref-carriere/types-evenements');
-        return response.data;
     }
 };
 

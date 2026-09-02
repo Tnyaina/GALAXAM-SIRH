@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.model.conge.engine.PurgeFifoEngine;
+import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,9 @@ public class PurgeCongeScheduler {
 
     @Autowired
     private PurgeFifoEngine purgeFifoEngine;
+
+    @Autowired
+    private NotificationRhService notificationService;
 
     public static class EmployeSoldeAccumulateur {
         public double acquisAnciens = 0.0;
@@ -80,12 +84,7 @@ public class PurgeCongeScheduler {
                                          "(id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
                                          "VALUES (?, 'EXPIRATION', ?, CURRENT_DATE, 'Purge légale triennale FIFO (droits de +36 mois prescrits)')";
 
-                String insertNotif = "INSERT INTO notification_rh " +
-                                     "(type_alerte, priorite, titre, message, lien, id_employe_concerne) " +
-                                     "VALUES ('ALERTE_ECHEANCE', 'HAUTE', ?, ?, ?, ?)";
-
-                try (PreparedStatement psIn = c.prepareStatement(insertMouvement);
-                     PreparedStatement psNotif = c.prepareStatement(insertNotif)) {
+                try (PreparedStatement psIn = c.prepareStatement(insertMouvement)) {
 
                     for (Map.Entry<Integer, EmployeSoldeAccumulateur> entry : soldesMap.entrySet()) {
                         int idEmploye = entry.getKey();
@@ -98,11 +97,12 @@ public class PurgeCongeScheduler {
                             psIn.setDouble(2, -joursAExpirer);
                             psIn.executeUpdate();
 
-                            psNotif.setString(1, "Congés expirés purgés (FIFO)");
-                            psNotif.setString(2, "Attention, " + String.format("%.2f", joursAExpirer) + " jours de congés acquis il y a plus de 3 ans ont atteint leur limite d'utilisation et ont été expirés.");
-                            psNotif.setString(3, "/employes/" + idEmploye + "?tab=conges");
-                            psNotif.setInt(4, idEmploye);
-                            psNotif.executeUpdate();
+                            notificationService.creer(c, "ALERTE_ECHEANCE", "HAUTE",
+                                "Congés expirés purgés (FIFO)",
+                                "Attention, " + String.format("%.2f", joursAExpirer)
+                                    + " jours de congés acquis il y a plus de 3 ans ont atteint leur limite d'utilisation et ont été expirés.",
+                                "/employes/" + idEmploye + "?tab=conges",
+                                idEmploye);
 
                             log.info("[PurgeCongeScheduler] Employé ID {} : {} jours expirés purgés selon FIFO.", idEmploye, joursAExpirer);
                         }

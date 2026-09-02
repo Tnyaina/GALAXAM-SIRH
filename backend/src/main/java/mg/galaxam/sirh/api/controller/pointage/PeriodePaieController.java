@@ -139,46 +139,26 @@ public class PeriodePaieController {
                 return ResponseEntity.badRequest().build();
             }
 
-            int calendaires = (int) java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1;
-            int nbWeekends = 0;
-            int nbJoursSemaine = 0;
-
-            for (java.time.LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
-                java.time.DayOfWeek dow = d.getDayOfWeek();
-                if (dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY) {
-                    nbWeekends++;
-                } else {
-                    nbJoursSemaine++;
-                }
-            }
-
-            int nbFeriesChomesSemaine = 0;
             try (Connection c = dataSource.getConnection()) {
-                String sql = "SELECT date_ferie FROM ref_calendrier_ferie WHERE date_ferie BETWEEN ? AND ? AND est_chome = TRUE";
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setDate(1, java.sql.Date.valueOf(start));
-                    ps.setDate(2, java.sql.Date.valueOf(end));
-                    try (ResultSet rs = ps.executeQuery()) {
-                        while (rs.next()) {
-                            java.time.LocalDate dFerie = rs.getDate("date_ferie").toLocalDate();
-                            // Décompter uniquement si le férié tombe du lundi au vendredi
-                            if (dFerie.getDayOfWeek() != java.time.DayOfWeek.SATURDAY && dFerie.getDayOfWeek() != java.time.DayOfWeek.SUNDAY) {
-                                nbFeriesChomesSemaine++;
-                            }
-                        }
-                    }
-                }
+                // Délégation à CalendrierOuvrableEngine : source unique de vérité pour les jours ouvrables.
+                // Inclut weekends + fériés nationaux + fériés par site + périodes chômées exceptionnelles.
+                // Ancienne logique inline supprimée car incomplète (sans site, sans périodes chômées).
+                int nbJoursOuvrables = calendrierEngine.compterJoursOuvrables(start, end, null, c);
+                int calendaires = calendrierEngine.compterJoursCalendaires(start, end);
+                int nbWeekends = (int) start.datesUntil(end.plusDays(1))
+                    .filter(d -> d.getDayOfWeek() == java.time.DayOfWeek.SATURDAY
+                              || d.getDayOfWeek() == java.time.DayOfWeek.SUNDAY)
+                    .count();
+                int nbFeries = calendaires - nbWeekends - nbJoursOuvrables;
+
+                Map<String, Object> resp = new HashMap<>();
+                resp.put("nbJoursOuvrables", nbJoursOuvrables);
+                resp.put("nbJoursCalendaires", calendaires);
+                resp.put("nbJoursFeries", Math.max(0, nbFeries));
+                resp.put("nbWeekends", nbWeekends);
+
+                return ResponseEntity.ok(resp);
             }
-
-            int nbJoursOuvrables = Math.max(0, nbJoursSemaine - nbFeriesChomesSemaine);
-
-            Map<String, Object> resp = new HashMap<>();
-            resp.put("nbJoursOuvrables", nbJoursOuvrables);
-            resp.put("nbJoursCalendaires", calendaires);
-            resp.put("nbJoursFeries", nbFeriesChomesSemaine);
-            resp.put("nbWeekends", nbWeekends);
-
-            return ResponseEntity.ok(resp);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().build();

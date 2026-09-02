@@ -10,7 +10,9 @@ import java.util.List;
 import mg.galaxam.sirh.api.dto.contrat.EmbaucheInitialeRequest;
 import mg.galaxam.sirh.api.dto.contrat.TransitionCarriereRequest;
 import mg.galaxam.sirh.api.dto.contrat.ValiderWorkflowRequest;
+import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
 import mg.galaxam.sirh.securite.AuditLog;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -20,6 +22,9 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class WorkflowRhService {
+
+    @Autowired
+    private NotificationRhService notificationService;
 
     /**
      * ÉTAPE 1 — Créer un brouillon d'embauche initiale.
@@ -121,7 +126,7 @@ public class WorkflowRhService {
                     empNomBrouillon = rsEmp.getString(1);
             }
         }
-        creerNotificationRh(c, null, "BROUILLON_CREE", "HAUTE",
+        creerNotif(c, null, "BROUILLON_CREE", "HAUTE",
                 "Nouveau brouillon d'embauche - " + empNomBrouillon,
                 "Un brouillon d'embauche initiale pour " + empNomBrouillon + " a ete cree et attend votre validation.",
                 "/employes/" + idEmploye + "?tab=carriere&wf=" + workflow.getIdWorkflow(), idEmploye);
@@ -187,7 +192,7 @@ public class WorkflowRhService {
                     typeEvNomValide = rsEv.getString(1);
             }
         }
-        creerNotificationRh(c, null, "MOUVEMENT_APPLIQUE", "NORMALE",
+        creerNotif(c, null, "MOUVEMENT_APPLIQUE", "NORMALE",
                 "Mouvement RH validé : " + typeEvNomValide + " - " + empNomValide,
                 "Le mouvement RH (" + typeEvNomValide + ") pour " + empNomValide
                         + " a ete valide et confirme avec succes.",
@@ -577,7 +582,7 @@ public class WorkflowRhService {
                     typeEvNomTrans = rsEv.getString(1);
             }
         }
-        creerNotificationRh(c, null, "BROUILLON_CREE", "HAUTE",
+        creerNotif(c, null, "BROUILLON_CREE", "HAUTE",
                 "Nouveau brouillon : " + typeEvNomTrans + " - " + empNomTrans,
                 "Un brouillon de type " + typeEvNomTrans + " pour " + empNomTrans
                         + " a ete cree et attend votre validation.",
@@ -1003,7 +1008,7 @@ public class WorkflowRhService {
             }
         }
 
-        creerNotificationRh(c, null, "MOUVEMENT_APPLIQUE", "NORMALE",
+        creerNotif(c, null, "MOUVEMENT_APPLIQUE", "NORMALE",
                 "Brouillon de mouvement rejeté - " + empNomAnnule,
                 "Le brouillon de mouvement pour " + empNomAnnule
                         + " a été rejeté ou annulé.",
@@ -1049,7 +1054,7 @@ public class WorkflowRhService {
             }
         }
 
-        creerNotificationRh(c, null, "MOUVEMENT_APPLIQUE", "HAUTE",
+        creerNotif(c, null, "MOUVEMENT_APPLIQUE", "HAUTE",
                 "Planification de mouvement annulée - " + empNomPlanif,
                 "Le mouvement RH planifié pour " + empNomPlanif + " a été annulé.",
                 "/employes/" + workflow.getIdEmploye() + "?tab=carriere", workflow.getIdEmploye());
@@ -1230,7 +1235,7 @@ public class WorkflowRhService {
                             }
                         }
 
-                        creerNotificationRh(c, null, "MOUVEMENT_APPLIQUE", "NORMALE",
+                        creerNotif(c, null, "MOUVEMENT_APPLIQUE", "NORMALE",
                                 "Prise d'effet - " + typeEv + " - " + nomPrenom,
                                 "Le mouvement RH de type " + typeEv + " pour " + nomPrenom
                                         + " est désormais actif (sa date d'effet au "
@@ -1535,27 +1540,13 @@ public class WorkflowRhService {
         }
     }
 
-    private static void creerNotificationRh(Connection c, Integer idUtilisateur, String typeAlerte, String priorite,
+    /**
+     * Adapte la signature de creerNotificationRh vers NotificationRhService.
+     * Conservé pour compatibilité interne durant migration.
+     */
+    private static void creerNotif(Connection c, Integer idUtilisateur, String typeAlerte, String priorite,
             String titre, String message, String lien, Integer idEmployeConcerne) throws Exception {
-        String sql = "INSERT INTO notification_rh (id_utilisateur, type_alerte, priorite, titre, message, lien, id_employe_concerne) "
-                +
-                "VALUES (?, ?, ?, ?, ?, ?, ?)";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            if (idUtilisateur != null)
-                ps.setInt(1, idUtilisateur);
-            else
-                ps.setNull(1, Types.INTEGER);
-            ps.setString(2, typeAlerte);
-            ps.setString(3, priorite);
-            ps.setString(4, titre);
-            ps.setString(5, message);
-            ps.setString(6, lien);
-            if (idEmployeConcerne != null)
-                ps.setInt(7, idEmployeConcerne);
-            else
-                ps.setNull(7, Types.INTEGER);
-            ps.executeUpdate();
-        }
+        NotificationRhService.creer(c, typeAlerte, priorite, titre, message, lien, idEmployeConcerne, idUtilisateur);
     }
 
     private static void validerExigenceDateFin(Integer idTypeContrat, Date dateFin, Connection c) throws Exception {

@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.model.conge.engine.PurgeFifoEngine;
+import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,9 @@ public class NotificationRhScheduler {
 
     @Autowired
     private PurgeFifoEngine purgeFifoEngine;
+
+    @Autowired
+    private NotificationRhService notificationService;
 
     @EventListener(ApplicationReadyEvent.class)
     @Scheduled(cron = "0 30 2 * * ?")
@@ -523,18 +527,7 @@ public class NotificationRhScheduler {
             }
         }
 
-        String sql = "INSERT INTO notification_rh " +
-                     "(id_utilisateur, type_alerte, priorite, titre, message, lien, id_employe_concerne) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?)";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setObject(1, idUtilisateur);
-            ps.setString(2, typeAlerte);
-            ps.setString(3, priorite);
-            ps.setString(4, titre);
-            ps.setString(5, message);
-            ps.setString(6, lien);
-            ps.setObject(7, idEmploye);
-            ps.executeUpdate();
-        }
+        // 3. INSERT via source unique de vérité
+        notificationService.creer(c, typeAlerte, priorite, titre, message, lien, idEmploye, idUtilisateur);
     }
 }

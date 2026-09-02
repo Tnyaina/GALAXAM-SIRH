@@ -14,9 +14,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import javax.sql.DataSource;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -107,7 +109,7 @@ public class StructureEtAdministrationIntegrationTest {
 
     @Test
     @Order(3)
-    @DisplayName("STRUC-03 : Paramétrages légaux & seuils de paie dans parametre_global")
+    @DisplayName("STRUC-03 : Paramétrages légaux & seuils de paie dans parametre_global et paie_config_legale")
     void testParametresGlobauxLegaux() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             List<ParametreGlobal> list = ParametreGlobal.listAll(c);
@@ -120,8 +122,12 @@ public class StructureEtAdministrationIntegrationTest {
             assertEquals("22:00", params.get("SEUIL_NUIT_DEBUT"), "Début travail de nuit = 22h00");
             assertEquals("2000", params.get("MONTANT_REPAS_MIDI"), "Indemnité repas midi = 2000 Ar");
             assertEquals("1000", params.get("REDUCTION_DEPLACT_REPAS_MIDI"), "Déduction transport Tamatave si repas sur site = 1000 Ar");
-            assertEquals("3000.00", params.get("MINIMUM_PERCEPTION_IRSA"), "Perception minimale légale IRSA = 3000 Ar");
-            assertEquals("2000.00", params.get("REDUCTION_IRSA_PAR_ENFANT"), "Déduction fiscale IRSA par enfant = 2000 Ar");
+
+            mg.galaxam.sirh.model.paieconfig.PaieConfigLegale configLegale =
+                mg.galaxam.sirh.model.paieconfig.PaieConfigLegale.findActiveAt(c, LocalDate.of(2026, 1, 1));
+            assertNotNull(configLegale, "Config légale 2026 doit exister");
+            assertEquals(0, new BigDecimal("3000.00").compareTo(configLegale.getMinimumPerceptionIrsa()), "Perception minimale légale IRSA = 3000 Ar");
+            assertEquals(0, new BigDecimal("2000.00").compareTo(configLegale.getDeductionChargeFamille()), "Déduction fiscale IRSA par enfant = 2000 Ar");
         }
     }
 

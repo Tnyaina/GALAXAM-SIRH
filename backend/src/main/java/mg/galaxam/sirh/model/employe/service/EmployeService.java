@@ -9,17 +9,16 @@ import mg.galaxam.sirh.api.dto.common.PageDTO;
 import mg.galaxam.sirh.api.dto.employe.DesactivationRequest;
 import mg.galaxam.sirh.api.dto.employe.EmployeFicheDetailDTO;
 import mg.galaxam.sirh.api.dto.employe.EmployeRequest;
+import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
 import mg.galaxam.sirh.model.employe.Employe;
 import mg.galaxam.sirh.model.employe.EmployeCPL;
 import mg.galaxam.sirh.model.employe.EmployeCompteBanque;
 import mg.galaxam.sirh.model.employe.EmployeConjoint;
 import mg.galaxam.sirh.model.employe.EmployeContactUrgence;
 import mg.galaxam.sirh.model.employe.EmployeEnfant;
-import mg.galaxam.sirh.securite.AuditLog;
-import org.springframework.stereotype.Service;
-
 import mg.galaxam.sirh.model.employe.engine.EmployeValidationEngine;
 import mg.galaxam.sirh.model.employe.engine.MatriculeGeneratorEngine;
+import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -28,11 +27,15 @@ public class EmployeService {
     private final DataSource dataSource;
     private final EmployeValidationEngine validationEngine;
     private final MatriculeGeneratorEngine matriculeEngine;
+    private final NotificationRhService notificationService;
 
-    public EmployeService(DataSource dataSource, EmployeValidationEngine validationEngine, MatriculeGeneratorEngine matriculeEngine) {
+    public EmployeService(DataSource dataSource, EmployeValidationEngine validationEngine,
+                          MatriculeGeneratorEngine matriculeEngine,
+                          NotificationRhService notificationService) {
         this.dataSource = dataSource;
         this.validationEngine = validationEngine;
         this.matriculeEngine = matriculeEngine;
+        this.notificationService = notificationService;
     }
 
     public Map<String, Long> getStats(String q) throws Exception {
@@ -194,16 +197,13 @@ public class EmployeService {
 
                 AuditLog.audit(c, "CREATION", "employe", String.valueOf(empId), null, emp);
 
-                // Notification RH
-                try (PreparedStatement psNotif = c.prepareStatement(
-                        "INSERT INTO notification_rh (id_utilisateur, type_alerte, priorite, titre, message, lien, id_employe_concerne) " +
-                        "VALUES (null, 'EMPLOYE_CREE', 'INFO', ?, ?, ?, ?)")) {
-                    psNotif.setString(1, "Nouvel employe - " + emp.getNom() + " " + emp.getPrenom());
-                    psNotif.setString(2, "La fiche de l'employé " + emp.getNom() + " " + emp.getPrenom() + " a été créée. Pensez à ajouter un contrat et les documents obligatoires.");
-                    psNotif.setString(3, "/employes/" + empId + "?tab=documents");
-                    psNotif.setInt(4, empId);
-                    psNotif.executeUpdate();
-                }
+                // Notification RH via source unique de vérité
+                notificationService.creer(c, "EMPLOYE_CREE", "INFO",
+                    "Nouvel employé - " + emp.getNom() + " " + emp.getPrenom(),
+                    "La fiche de l'employé " + emp.getNom() + " " + emp.getPrenom()
+                        + " a été créée. Pensez à ajouter un contrat et les documents obligatoires.",
+                    "/employes/" + empId + "?tab=documents",
+                    empId);
 
                 c.commit();
                 return new EmployeCPL().rechercherParId(empId, c);

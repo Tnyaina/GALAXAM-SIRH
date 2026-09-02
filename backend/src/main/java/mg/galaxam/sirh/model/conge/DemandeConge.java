@@ -496,40 +496,14 @@ public class DemandeConge extends ClassMere {
         return (DemandeConge) this.update(c);
     }
 
+    /**
+     * @deprecated Utiliser {@link mg.galaxam.sirh.model.dashboard.service.NotificationRhService#creer} via CongeService.
+     * Cette méthode statique délègue directement à {@link mg.galaxam.sirh.model.dashboard.service.NotificationRhService#creer}.
+     */
+    @Deprecated
     public static void creerNotificationRh(String typeAlerte, String priorite, String titre, String message,
             String lien, Integer idEmploye, Connection c) {
-        String sql = "INSERT INTO notification_rh (type_alerte, priorite, titre, message, lien, id_employe_concerne, est_lue, date_creation) "
-                +
-                "VALUES (?, ?, ?, ?, ?, ?, FALSE, CURRENT_TIMESTAMP)";
-        java.sql.Savepoint sp = null;
-        try {
-            if (c != null && !c.getAutoCommit()) {
-                sp = c.setSavepoint("notif_savepoint");
-            }
-            try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setString(1, typeAlerte);
-                ps.setString(2, priorite);
-                ps.setString(3, titre);
-                ps.setString(4, message);
-                ps.setString(5, lien);
-                if (idEmploye != null)
-                    ps.setInt(6, idEmploye);
-                else
-                    ps.setNull(6, Types.INTEGER);
-                ps.executeUpdate();
-            }
-            if (sp != null) {
-                c.releaseSavepoint(sp);
-            }
-        } catch (Exception e) {
-            if (sp != null && c != null) {
-                try {
-                    c.rollback(sp);
-                } catch (Exception ignored) {
-                }
-            }
-            System.err.println("[DemandeConge] Impossible de créer la notification RH : " + e.getMessage());
-        }
+        mg.galaxam.sirh.model.dashboard.service.NotificationRhService.creer(c, typeAlerte, priorite, titre, message, lien, idEmploye);
     }
 
     private int getParamGlobalInt(String code, int defaultValue, Connection c) {
