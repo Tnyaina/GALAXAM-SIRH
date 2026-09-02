@@ -75,7 +75,9 @@ export function useSoldesOverview(demandesGlobales = []) {
         statut: d.codeStatutDemande,
         originalStart: d.dateDebut,
         originalEnd: d.dateFin,
-        dureeJours: d.nbJoursDecomptes
+        dureeJours: d.nbJoursDecomptes,
+        estDemiJournee: !!d.estDemiJournee,
+        momentDemiJournee: d.momentDemiJournee
       };
     });
   }, [demandesGlobales, year, month]);
@@ -96,6 +98,7 @@ export function useSoldesOverview(demandesGlobales = []) {
       .map((row) => {
         const sortedItems = [...row.items].sort((a, b) => a.startDay - b.startDay);
         const laneEnds = [];
+        let totalJoursPris = 0;
         const itemsWithLane = sortedItems.map((item) => {
           let laneIndex = laneEnds.findIndex((end) => end < item.startDay);
           if (laneIndex === -1) {
@@ -104,9 +107,17 @@ export function useSoldesOverview(demandesGlobales = []) {
           } else {
             laneEnds[laneIndex] = item.endDay;
           }
-          return { ...item, laneIndex };
+          const jours = Number(item.dureeJours) || (item.endDay - item.startDay + 1);
+          totalJoursPris += jours;
+          return { ...item, laneIndex, calcJours: jours };
         });
-        return { employe: row.employe, idEmploye: row.idEmploye, items: itemsWithLane, laneCount: laneEnds.length };
+        return {
+          employe: row.employe,
+          idEmploye: row.idEmploye,
+          items: itemsWithLane,
+          laneCount: laneEnds.length,
+          totalPrisMois: totalJoursPris % 1 === 0 ? totalJoursPris : totalJoursPris.toFixed(1)
+        };
       });
   }, [ganttData]);
 

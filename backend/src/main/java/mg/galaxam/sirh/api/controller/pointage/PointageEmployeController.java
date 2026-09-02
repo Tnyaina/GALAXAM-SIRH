@@ -157,22 +157,29 @@ public class PointageEmployeController {
         regles.put("plafondArrivee", hPlafondTolerance.toString().substring(0, 5));
         regles.put("toleranceRetard", "0 min");
 
-        // 1. Récupération des infos salarié (date embauche / fin de contrat robuste)
+        // 1. Récupération des infos salarié (date embauche / fin de contrat robuste & statut autonome)
         LocalDate dateEmbauche = null;
         LocalDate dateDepart = null;
+        boolean isAutonome = false;
+
         String sqlEmpInfo = "SELECT " +
                             "  (SELECT MIN(date_debut) FROM contrat_travail WHERE id_employe = ?) AS date_embauche, " +
                             "  (CASE WHEN EXISTS (SELECT 1 FROM contrat_travail WHERE id_employe = ? AND (date_fin IS NULL OR statut = 'ACTIF')) THEN NULL " +
-                            "        ELSE (SELECT MAX(date_fin) FROM contrat_travail WHERE id_employe = ?) END) AS date_depart";
+                            "        ELSE (SELECT MAX(date_fin) FROM contrat_travail WHERE id_employe = ?) END) AS date_depart, " +
+                            "  (SELECT COALESCE(f.dispense_pointage, FALSE) FROM employe_affectation_carriere a " +
+                            "   LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
+                            "   WHERE a.id_employe = ? AND a.date_fin IS NULL LIMIT 1) AS est_autonome";
         try (Connection c = dataSource.getConnection();
              PreparedStatement psEmp = c.prepareStatement(sqlEmpInfo)) {
             psEmp.setInt(1, idEmploye);
             psEmp.setInt(2, idEmploye);
             psEmp.setInt(3, idEmploye);
+            psEmp.setInt(4, idEmploye);
             try (ResultSet rsEmp = psEmp.executeQuery()) {
                 if (rsEmp.next()) {
                     if (rsEmp.getDate("date_embauche") != null) dateEmbauche = rsEmp.getDate("date_embauche").toLocalDate();
                     if (rsEmp.getDate("date_depart") != null) dateDepart = rsEmp.getDate("date_depart").toLocalDate();
+                    isAutonome = rsEmp.getBoolean("est_autonome");
                 }
             }
         } catch (Exception e) {
@@ -328,6 +335,16 @@ public class PointageEmployeController {
                 dto.setSortie(rec.sortieAm != null ? rec.sortieAm.toString().substring(0, 5) : "—");
 
                 double totalH = rec.totalHeures;
+                boolean isWeekendRec = (curr.getDayOfWeek() == DayOfWeek.SATURDAY || curr.getDayOfWeek() == DayOfWeek.SUNDAY);
+
+                if ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut)) {
+                    if (isWeekendRec && totalH <= 0.0) {
+                        totalH = 0.0;
+                    } else if (!isWeekendRec && totalH <= 0.0) {
+                        totalH = (dureeJourMins / 60.0);
+                    }
+                }
+
                 int intHours = (int) totalH;
                 int intMins = (int) Math.round((totalH - intHours) * 60);
                 dto.setHeures(String.format("%02dh%02d", intHours, intMins));
@@ -336,7 +353,7 @@ public class PointageEmployeController {
                     totalJoursTravailles++;
                     totalHeuresRealisees += totalH;
                     totalHeuresSupp += totalH;
-                    dto.setEcart("+" + dto.getHeures() + " (HS 100%)");
+                    dto.setEcart("+" + dto.getHeures() + " (Maj. 40%)");
                     dto.setEcartPositif(true);
                 } else if ("FERIE_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
@@ -344,7 +361,7 @@ public class PointageEmployeController {
                     totalHeuresSupp += totalH;
                     dto.setEcart("+" + dto.getHeures() + " (Gratif. 100%)");
                     dto.setEcartPositif(true);
-                } else if (rec.minutesRetard > 0) {
+                } else if (rec.minutesRetard > 0 && !isAutonome) {
                     dto.setEcart("-" + rec.minutesRetard + " min");
                     dto.setEcartPositif(false);
                     totalMinutesRetard += rec.minutesRetard;
@@ -360,14 +377,18 @@ public class PointageEmployeController {
                     dto.setEcartPositif(true);
                 }
 
-                if ("PRESENT".equalsIgnoreCase(rec.codeStatut) || "DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) || "SAMEDI_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
+                if ("PRESENT".equalsIgnoreCase(rec.codeStatut) || ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) && !isWeekendRec) || "SAMEDI_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
                     totalHeuresRealisees += totalH;
                 } else if ("ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(rec.codeStatut)) {
                     nbAbsences++;
                 }
 
-                dto.setStatut(rec.codeStatut != null ? rec.codeStatut.toUpperCase() : "PRESENT");
+                if ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) && isWeekendRec && rec.totalHeures <= 0.0) {
+                    dto.setStatut("REPOS");
+                } else {
+                    dto.setStatut(rec.codeStatut != null ? rec.codeStatut.toUpperCase() : "PRESENT");
+                }
             } else {
                 // Pas de pointage enregistré pour cette date
                 dto.setEntree("—");
@@ -390,6 +411,17 @@ public class PointageEmployeController {
                 } else if (isWeekend) {
                     dto.setHeures("00h00");
                     dto.setStatut("REPOS");
+                } else if (isAutonome) {
+                    // Employé autonome : base normale réputée effectuée
+                    double totalH = (dureeJourMins / 60.0);
+                    int intHours = (int) totalH;
+                    int intMins = (int) Math.round((totalH - intHours) * 60);
+                    dto.setHeures(String.format("%02dh%02d", intHours, intMins));
+                    dto.setStatut("DISPENSE_POINTAGE");
+                    dto.setEcart("00 min");
+                    dto.setEcartPositif(true);
+                    totalJoursTravailles++;
+                    totalHeuresRealisees += totalH;
                 } else if (curr.isAfter(today)) {
                     dto.setHeures("—");
                     dto.setStatut("NON_ECHU");

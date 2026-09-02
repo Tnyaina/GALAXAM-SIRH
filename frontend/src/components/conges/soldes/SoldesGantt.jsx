@@ -268,33 +268,42 @@ export default function SoldesGantt({
                         );
                       })}
 
-                      {row.items.map((item) => (
-                        <div
-                          key={item.id}
-                          role="img"
-                          aria-label={`${row.employe} — ${item.type}, ${item.statut === 'EN_ATTENTE' ? 'en attente' : 'validé'}, ${item.dureeJours} jour(s)`}
-                          className={`absolute flex items-center overflow-hidden rounded-xs border shadow-xs cursor-help transition-transform hover:scale-[1.01] ${
-                            (item.endDay - item.startDay + 1) >= 3 ? 'px-2' : 'px-0.5 justify-center'
-                          } ${
-                            item.statut === 'EN_ATTENTE'
-                              ? 'bg-[var(--color-warning-500)] border-[var(--color-warning-500)] text-white font-semibold'
-                              : 'bg-brand-600 border-brand-700 text-white font-semibold'
-                          }`}
-                          style={{
-                            left: `${((item.startDay - 1) / daysInMonth) * 100}%`,
-                            width: `${((item.endDay - item.startDay + 1) / daysInMonth) * 100}%`,
-                            top: `${3 + item.laneIndex * LANE_HEIGHT}px`,
-                            height: `${LANE_HEIGHT - 6}px`,
-                          }}
-                          title={`${item.type} — ${item.statut === 'EN_ATTENTE' ? 'En attente de validation' : 'Validé'} (${item.dureeJours} jour${item.dureeJours > 1 ? 's' : ''}) du ${formatDate(item.originalStart)} au ${formatDate(item.originalEnd)}`}
-                        >
-                          <span className="text-[10.5px] truncate tracking-tight font-medium">
-                            {(item.endDay - item.startDay + 1) >= 3
-                              ? `${item.type}${item.statut === 'EN_ATTENTE' ? ' (en attente)' : ''}`
-                              : item.type.slice(0, 3)}
-                          </span>
-                        </div>
-                      ))}
+                      {row.items.map((item) => {
+                        const isDemi = !!item.estDemiJournee;
+                        const isMatin = item.momentDemiJournee === 'MATIN';
+                        const daySpan = isDemi ? 0.5 : (item.endDay - item.startDay + 1);
+                        const leftOffset = isDemi && !isMatin ? (item.startDay - 1 + 0.5) : (item.startDay - 1);
+                        const dureeLabel = isDemi
+                          ? (isMatin ? '0.5j Matin' : '0.5j Après-midi')
+                          : `${item.calcJours || item.dureeJours || (item.endDay - item.startDay + 1)}j`;
+
+                        return (
+                          <div
+                            key={item.id}
+                            role="img"
+                            aria-label={`${row.employe} — ${item.type}, ${item.statut === 'EN_ATTENTE' ? 'en attente' : 'validé'}, ${dureeLabel}`}
+                            className={`absolute flex items-center overflow-hidden rounded-xs border shadow-xs cursor-help transition-transform hover:scale-[1.01] ${
+                              daySpan >= 2 ? 'px-2' : 'px-1 justify-center'
+                            } ${
+                              item.statut === 'EN_ATTENTE'
+                                ? 'bg-[var(--color-warning-500)] border-[var(--color-warning-500)] text-white font-semibold'
+                                : 'bg-brand-600 border-brand-700 text-white font-semibold'
+                            }`}
+                            style={{
+                              left: `${(leftOffset / daysInMonth) * 100}%`,
+                              width: `${(daySpan / daysInMonth) * 100}%`,
+                              top: `${3 + item.laneIndex * LANE_HEIGHT}px`,
+                              height: `${LANE_HEIGHT - 6}px`,
+                            }}
+                            title={`${item.type} — ${item.statut === 'EN_ATTENTE' ? 'En attente de validation' : 'Validé'} (${dureeLabel}) du ${formatDate(item.originalStart)} au ${formatDate(item.originalEnd)}`}
+                          >
+                            <span className="text-[10.5px] truncate tracking-tight font-medium flex items-center gap-1">
+                              <span>{item.type}</span>
+                              <span className="font-mono text-[9.5px] opacity-90 font-bold">({dureeLabel})</span>
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );

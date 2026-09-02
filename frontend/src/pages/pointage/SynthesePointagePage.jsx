@@ -529,10 +529,20 @@ export default function SynthesePointagePage() {
                                                 {filteredSemaineDetail.map((row) => (
                                                     <Tr key={row.idEmploye} className="border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
                                                         <Td className="py-2 px-3 font-semibold">
-                                                            {row.nom} {row.prenom}
-                                                            <span className="block text-[10px] font-mono text-[var(--color-fg-muted)]">
-                                                                {row.matricule} {row.estCadre && '· CADRE'}
-                                                            </span>
+                                                            <div className="truncate max-w-[220px]">{row.nom} {row.prenom}</div>
+                                                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px] font-mono text-[var(--color-fg-muted)]">
+                                                                <span>{row.matricule}</span>
+                                                                {row.estCadre && (
+                                                                    <span className="text-[9px] font-bold uppercase px-1 py-0.2 rounded bg-neutral-500/10 text-neutral-600 dark:text-neutral-300 border border-neutral-500/20">
+                                                                        CADRE
+                                                                    </span>
+                                                                )}
+                                                                {row.dispensePointage && (
+                                                                    <span className="text-[9px] font-bold uppercase px-1 py-0.2 rounded bg-brand-500/10 text-brand-700 dark:text-brand-300 border border-brand-500/20">
+                                                                        AUTONOME
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </Td>
                                                         <Td className="py-2 px-2 text-xs text-[var(--color-fg-muted)]">
                                                             {row.siteNom || `Site #${row.idSite}`}
@@ -541,13 +551,13 @@ export default function SynthesePointagePage() {
                                                             {row.nbJoursPresents}j
                                                         </Td>
                                                         <Td className="py-2 px-2 text-center font-mono text-xs border-l border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]">
-                                                            {row.heuresNormales || row.nbJoursOuvrables * 8}h
+                                                            {row.heuresNormales !== undefined ? row.heuresNormales : (row.nbJoursOuvrables || 0) * 8}h
                                                         </Td>
                                                         <Td className="py-2 px-2 text-center font-mono text-xs font-bold text-[var(--color-fg)]">
                                                             {row.totalHeuresTravaillees}h
                                                         </Td>
                                                         <Td className="py-2 px-2 text-center font-mono text-xs bg-brand-500/[0.06] border-x border-[var(--color-border-subtle)]">
-                                                            {row.surplusBrut > 0 ? (
+                                                            {!row.estCadre && row.surplusBrut > 0 ? (
                                                                 <span className="font-bold text-brand-700 dark:text-brand-300">+{row.surplusBrut}h</span>
                                                             ) : (
                                                                 <span className="text-[var(--color-fg-subtle)]">-</span>
@@ -577,14 +587,14 @@ export default function SynthesePointagePage() {
                                                             )}
                                                         </Td>
                                                         <Td className="py-2 px-2 text-center font-mono text-xs border-l border-[var(--color-border-subtle)] bg-[var(--color-sky-500)]/[0.04]">
-                                                            {row.heuresHs30 > 0 ? (
+                                                            {!row.estCadre && row.heuresHs30 > 0 ? (
                                                                 <span className="text-[var(--color-sky-700)] dark:text-[var(--color-sky-400)] font-bold bg-[var(--color-sky-500)]/15 px-1.5 py-0.5">+{row.heuresHs30}h</span>
                                                             ) : (
                                                                 <span className="text-[var(--color-fg-subtle)]">-</span>
                                                             )}
                                                         </Td>
                                                         <Td className="py-2 px-2 text-center font-mono text-xs bg-[var(--color-purple-500)]/[0.04]">
-                                                            {row.heuresHs50 > 0 ? (
+                                                            {!row.estCadre && row.heuresHs50 > 0 ? (
                                                                 <span className="text-[var(--color-purple-700)] dark:text-[var(--color-purple-400)] font-bold bg-[var(--color-purple-500)]/15 px-1.5 py-0.5">+{row.heuresHs50}h</span>
                                                             ) : (
                                                                 <span className="text-[var(--color-fg-subtle)]">-</span>

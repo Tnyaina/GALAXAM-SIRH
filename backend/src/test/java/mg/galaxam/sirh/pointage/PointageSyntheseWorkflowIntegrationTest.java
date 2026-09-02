@@ -149,4 +149,26 @@ public class PointageSyntheseWorkflowIntegrationTest {
         assertNotNull(s5);
         assertEquals(11, s5.getNbJoursPresents(), "11 jours travaillés à partir du 17 Août");
     }
+
+    @Test
+    @Order(6)
+    @DisplayName("PTG-06 : Test des semaines et détail de semaine 1 via PointageSyntheseService")
+    void testSemainesEtDetailService() throws Exception {
+        List<Map<String, Object>> semaines = pointageSyntheseService.getSemainesPeriode(1, null);
+        assertNotNull(semaines);
+        assertFalse(semaines.isEmpty());
+
+        List<PointageSyntheseMensuelleDTO> detailSemaine1 = pointageSyntheseService.getSyntheseSemaineDetail(
+                1, java.time.LocalDate.of(2026, 8, 1), java.time.LocalDate.of(2026, 8, 2), null);
+        assertNotNull(detailSemaine1);
+        assertFalse(detailSemaine1.isEmpty());
+
+        // Vérifier que le cadre autonome a 0h sur le week-end du 1-2 août
+        PointageSyntheseMensuelleDTO s1 = detailSemaine1.stream()
+                .filter(d -> d.getIdEmploye() == 1)
+                .findFirst().orElse(null);
+        assertNotNull(s1);
+        assertEquals(0.0, s1.getTotalHeuresTravaillees(), 0.01, "0h sur week-end pur pour autonome");
+        assertEquals(0.0, s1.getMontantRepas(), 0.01, "0 Ar repas sur week-end pur");
+    }
 }

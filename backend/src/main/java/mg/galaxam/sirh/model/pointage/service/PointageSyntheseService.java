@@ -292,8 +292,19 @@ public class PointageSyntheseService {
                         try (ResultSet rsPtg = psPtg.executeQuery()) {
                             while (rsPtg.next()) {
                                 LocalDate dPointage = rsPtg.getDate("date_pointage").toLocalDate();
+                                boolean isWeekend = (dPointage.getDayOfWeek() == DayOfWeek.SATURDAY || dPointage.getDayOfWeek() == DayOfWeek.SUNDAY);
                                 String stCode = rsPtg.getString("statut_code");
                                 double th = rsPtg.getDouble("total_heures");
+
+                                if (("DISPENSE_POINTAGE".equals(stCode) || estAutonome)) {
+                                    if (isWeekend && th <= 0.0) {
+                                        th = 0.0;
+                                        stCode = "REPOS";
+                                    } else if (!isWeekend && th <= 0.0) {
+                                        th = seuilHeuresJour;
+                                    }
+                                }
+
                                 double hn = rsPtg.getDouble("heures_nuit");
                                 int ret = rsPtg.getInt("minutes_retard");
                                 boolean depM = rsPtg.getBoolean("deplacement_matin");
@@ -309,15 +320,15 @@ public class PointageSyntheseService {
 
                                 cumulHeuresTravaillees += th;
                                 cumulHeuresNuit += hn;
-                                totalMinsRetard += ret;
+                                totalMinsRetard += (estAutonome ? 0 : ret);
 
-                                if (repas) {
+                                if (repas || (estAutonome && !isWeekend)) {
                                     repasCount++;
                                     montantRepasTotal += (mntRepas > 0 ? mntRepas : 2000.0);
                                 }
 
-                                if (depM) totalTrajets += 0.5;
-                                if (depA) totalTrajets += 0.5;
+                                if (depM || (estAutonome && !isWeekend)) totalTrajets += 0.5;
+                                if (depA || (estAutonome && !isWeekend)) totalTrajets += 0.5;
 
                                 LocalDate lundiSemaine = dPointage.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
                                 parSemaine.computeIfAbsent(lundiSemaine, k -> new ArrayList<>());
@@ -325,10 +336,16 @@ public class PointageSyntheseService {
                                 Map<String, Object> dayRow = new HashMap<>();
                                 dayRow.put("date", dPointage);
                                 dayRow.put("totalHeures", th);
-                                dayRow.put("retardMins", ret);
+                                dayRow.put("retardMins", estAutonome ? 0 : ret);
                                 parSemaine.get(lundiSemaine).add(dayRow);
                             }
                         }
+                    }
+
+                    // Si salarié autonome et aucune ligne de pointage enregistrée : base normale automatique
+                    if (estAutonome && presents == 0 && conges == 0 && absences == 0) {
+                        presents = nbJoursOuvrablesPeriode;
+                        cumulHeuresTravaillees = nbJoursOuvrablesPeriode * seuilHeuresJour;
                     }
 
                     // Calcul de la compensation hebdomadaire par tronçon
@@ -522,7 +539,6 @@ public class PointageSyntheseService {
                     nbOuvrables++;
                 }
             }
-            if (nbOuvrables == 0) nbOuvrables = 1;
 
             double seuilHeures = nbOuvrables * 8.0;
 
@@ -688,7 +704,6 @@ public class PointageSyntheseService {
                 nbOuvrables++;
             }
         }
-        if (nbOuvrables == 0) nbOuvrables = 1;
 
         StringBuilder sqlEmp = new StringBuilder(
             "SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
@@ -763,8 +778,20 @@ public class PointageSyntheseService {
                         psPtg.setDate(4, Date.valueOf(dateFinTroncon));
                         try (ResultSet rsPtg = psPtg.executeQuery()) {
                             while (rsPtg.next()) {
+                                LocalDate dtPtg = rsPtg.getDate("date_pointage").toLocalDate();
+                                boolean isWeekend = (dtPtg.getDayOfWeek() == DayOfWeek.SATURDAY || dtPtg.getDayOfWeek() == DayOfWeek.SUNDAY);
                                 String stCode = rsPtg.getString("statut_code");
                                 double th = rsPtg.getDouble("total_heures");
+
+                                if (("DISPENSE_POINTAGE".equals(stCode) || estAutonome)) {
+                                    if (isWeekend && th <= 0.0) {
+                                        th = 0.0;
+                                        stCode = "REPOS";
+                                    } else if (!isWeekend && th <= 0.0) {
+                                        th = seuilHeuresJour;
+                                    }
+                                }
+
                                 double hn = rsPtg.getDouble("heures_nuit");
                                 int ret = rsPtg.getInt("minutes_retard");
                                 boolean depM = rsPtg.getBoolean("deplacement_matin");
@@ -780,16 +807,22 @@ public class PointageSyntheseService {
 
                                 cumulHeures += th;
                                 cumulNuit += hn;
-                                totalMinsRetard += ret;
+                                totalMinsRetard += (estAutonome ? 0 : ret);
 
-                                if (repas) {
+                                if (repas || (estAutonome && !isWeekend)) {
                                     repasCount++;
                                     montantRepasTotal += (mntRepas > 0 ? mntRepas : 2000.0);
                                 }
-                                if (depM) totalTrajets += 0.5;
-                                if (depA) totalTrajets += 0.5;
+                                if (depM || (estAutonome && !isWeekend)) totalTrajets += 0.5;
+                                if (depA || (estAutonome && !isWeekend)) totalTrajets += 0.5;
                             }
                         }
+                    }
+
+                    // Si salarié autonome et aucune ligne de pointage enregistrée : base normale automatique
+                    if (estAutonome && presents == 0 && conges == 0 && absences == 0) {
+                        presents = nbOuvrables;
+                        cumulHeures = nbOuvrables * seuilHeuresJour;
                     }
 
                     TronconCalculResult res = calculerTroncon(
