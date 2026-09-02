@@ -19,14 +19,14 @@ export default function PointageAnomaliesSection({
             >
                 <div className="flex items-center gap-2.5">
                     {hasAnomalies ? (
-                        <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+                        <AlertTriangle size={14} className="text-[var(--color-warning-600)] shrink-0" />
                     ) : (
-                        <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                        <CheckCircle2 size={14} className="text-[var(--color-success-600)] shrink-0" />
                     )}
                     <span className="text-[12.5px] font-bold text-[var(--color-fg)]">
                         Contrôle des anomalies
                     </span>
-                    <span className={`text-[11px] font-mono px-1.5 py-0.5 font-bold ${hasAnomalies ? 'bg-amber-500/10 text-amber-700' : 'bg-emerald-500/10 text-emerald-700'}`}>
+                    <span className={`text-[11px] font-mono px-1.5 py-0.5 font-bold ${hasAnomalies ? 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]' : 'bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-300)]'}`}>
                         {totalAnomalies} anomalie{totalAnomalies !== 1 ? 's' : ''}
                     </span>
                 </div>
@@ -42,7 +42,7 @@ export default function PointageAnomaliesSection({
                     <div className="flex items-center justify-between mt-3">
                         <p className="text-[12.5px] text-[var(--color-fg-muted)] leading-relaxed max-w-xl">
                             {hasAnomalies ? (
-                                <span className="text-amber-700 dark:text-amber-400 font-medium">
+                                <span className="text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-medium">
                                     Des anomalies ont été détectées sur la période. Régularisez-les avant de lancer la synthèse hebdomadaire.
                                 </span>
                             ) : (

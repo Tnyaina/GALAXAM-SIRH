@@ -80,8 +80,8 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe 
 
   const getSoldeColor = () => {
     if (soldeActuel < 0) return 'danger';
-    if (soldeActuel <= 3) return 'warning';
-    return 'success';
+    if (soldeActuel > 0) return 'brand';
+    return 'neutral';
   };
 
   const formatJours = (val) => {
@@ -94,39 +94,39 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe 
       {/* ── Bandeau Statut Éligibilité Légale au Congé Annuel (Art. 83) ── */}
       {ancienneteInfo && (
         ancienneteInfo.isEligible ? (
-          <div className="p-3.5 bg-success-500/10 border border-success-500/30 flex flex-wrap items-center justify-between gap-3 text-xs text-success-900 dark:text-success-200">
+          <div className="p-3.5 bg-[var(--color-success-500)]/10 border border-[var(--color-success-500)]/30 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
             <div className="flex items-center gap-2.5">
-              <CheckCircle size={17} className="text-success-600 dark:text-success-400 shrink-0" />
+              <CheckCircle size={17} className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)] shrink-0" />
               <div>
                 <span className="font-bold text-sm">Éligible aux congés payés annuels (Art. 85)</span>
-                <p className="text-xs text-success-800 dark:text-success-300 mt-0.5">
+                <p className="text-xs text-[var(--color-success-600)] dark:text-[var(--color-success-400)] mt-0.5">
                   Ancienneté de <strong>{ancienneteInfo.textAnciennete}</strong> (embauché(e) le {ancienneteInfo.dateDebutStr}). Droit ouvert depuis le {ancienneteInfo.dateOuvertureStr}.
                 </p>
               </div>
             </div>
-            <span className="text-[11px] font-bold bg-success-500/20 text-success-800 dark:text-success-200 px-2.5 py-1 border border-success-500/30">
+            <span className="text-[11px] font-bold bg-[var(--color-success-500)]/20 text-[var(--color-success-600)] dark:text-[var(--color-success-400)] px-2.5 py-1 border border-[var(--color-success-500)]/30">
               Droit Ouvert (≥ 1 an)
             </span>
           </div>
         ) : (
-          <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
+          <div className="p-3.5 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-200)]">
             <div className="flex items-center gap-2.5">
-              <AlertTriangle size={17} className="text-amber-600 shrink-0" />
+              <AlertTriangle size={17} className="text-[var(--color-warning-600)] shrink-0" />
               <div>
                 <span className="font-bold text-sm">Période d'acquisition d'ancienneté en cours ({ancienneteInfo.months} mois / 12)</span>
-                <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
+                <p className="text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] mt-0.5">
                   L'ouverture du droit légal au congé annuel payé aura lieu le <strong>{ancienneteInfo.dateOuvertureStr}</strong> (Art. 85). Une <strong>dérogation RH</strong> est requise pour toute prise anticipée.
                 </p>
               </div>
             </div>
-            <span className="text-[11px] font-bold bg-amber-500/20 text-amber-800 dark:text-amber-200 px-2.5 py-1 border border-amber-500/30">
+            <span className="text-[11px] font-bold bg-[var(--color-warning-500)]/20 text-[var(--color-warning-700)] dark:text-[var(--color-warning-200)] px-2.5 py-1 border border-[var(--color-warning-500)]/30">
               Ancienneté &lt; 1 an (Dérogation requise)
             </span>
           </div>
         )
       )}
 
-      {/* Grille des 4 Cartes Métier */}
+      {/* Grille des 4 Cartes Métier Harmonieuses */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Solde Net Utilisable */}
         <StatCard
@@ -142,7 +142,7 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe 
           title="Cumul des Droits Acquis"
           value={`+${formatJours(totalCumule)} j`}
           icon={<Clock size={20} />}
-          color="info"
+          color="neutral"
           subtext="Total octroyé depuis l'embauche (2.5j/m)"
         />
 
@@ -151,7 +151,7 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe 
           title={totalExpire > 0 ? "Congés Déduits & Prescrits" : "Congés Payés Posés"}
           value={`${formatJours(totalPris + totalExpire)} j`}
           icon={<ArrowDownCircle size={20} />}
-          color={totalExpire > 0 ? "warning" : "brand"}
+          color={totalExpire > 0 ? "warning" : "neutral"}
           subtext={totalExpire > 0 ? `${formatJours(totalPris)}j pris • ${formatJours(totalExpire)}j forclos (+36 mois)` : "Total congés payés consommés"}
         />
 
@@ -160,28 +160,28 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe 
           title="Événements Familiaux"
           value={`${formatJours(poolJoursConsommes)} / 10 j`}
           icon={<ShieldAlert size={20} />}
-          color={poolJoursConsommes >= 10 ? 'danger' : poolJoursConsommes >= 7 ? 'warning' : 'success'}
+          color={poolJoursConsommes >= 10 ? 'danger' : poolJoursConsommes >= 7 ? 'warning' : 'neutral'}
           subtext="Mariage, décès, naissance (non déduit du solde)"
         />
       </div>
 
       {/* Bandeau explicatif de la formule du solde si prescription ou déductions */}
       {totalExpire > 0 && (
-        <div className="px-4 py-2.5 bg-amber-500/10 border border-amber-500/30 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
+        <div className="px-4 py-2.5 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-200)]">
           <div className="flex items-center gap-2">
-            <Info size={16} className="text-amber-600 shrink-0" />
+            <Info size={16} className="text-[var(--color-warning-600)] shrink-0" />
             <span className="font-semibold">Décomposition du Solde :</span>
             <span className="font-data">
               <strong>+{formatJours(totalCumule)}j</strong> (Acquis)
-              <span className="mx-1.5 text-amber-700 dark:text-amber-400">−</span>
+              <span className="mx-1.5 text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">−</span>
               <strong>{formatJours(totalExpire)}j</strong> (Prescription légale &gt; 3 ans)
-              <span className="mx-1.5 text-amber-700 dark:text-amber-400">−</span>
+              <span className="mx-1.5 text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">−</span>
               <strong>{formatJours(totalPris)}j</strong> (Pris)
-              <span className="mx-1.5 text-amber-700 dark:text-amber-400">=</span>
-              <strong className="text-success-600 dark:text-success-400">+{formatJours(soldeActuel)} jours disponibles</strong>
+              <span className="mx-1.5 text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">=</span>
+              <strong className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">+{formatJours(soldeActuel)} jours disponibles</strong>
             </span>
           </div>
-          <span className="text-[11px] text-amber-800 dark:text-amber-300">
+          <span className="text-[11px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]">
             Code du travail : prescription après 36 mois sans prise.
           </span>
         </div>

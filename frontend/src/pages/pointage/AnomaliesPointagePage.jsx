@@ -159,7 +159,7 @@ export default function AnomaliesPointagePage() {
                             <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Total Anomalies</p>
                             <p className="text-xl font-bold font-data text-[var(--color-fg)] mt-0.5">{stats.total}</p>
                         </div>
-                        <div className="w-9 h-9 bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                        <div className="w-9 h-9 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] flex items-center justify-center shrink-0">
                             <AlertTriangle size={18} />
                         </div>
                     </div>
@@ -167,9 +167,9 @@ export default function AnomaliesPointagePage() {
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Pointages Incomplets</p>
-                            <p className="text-xl font-bold font-data text-rose-600 mt-0.5">{stats.incomplets}</p>
+                            <p className="text-xl font-bold font-data text-[var(--color-danger-500)] mt-0.5">{stats.incomplets}</p>
                         </div>
-                        <div className="w-9 h-9 bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0">
+                        <div className="w-9 h-9 bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] flex items-center justify-center shrink-0">
                             <ShieldAlert size={18} />
                         </div>
                     </div>
@@ -177,9 +177,9 @@ export default function AnomaliesPointagePage() {
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Retards Non Justifiés</p>
-                            <p className="text-xl font-bold font-data text-amber-600 mt-0.5">{stats.retards}</p>
+                            <p className="text-xl font-bold font-data text-[var(--color-warning-600)] mt-0.5">{stats.retards}</p>
                         </div>
-                        <div className="w-9 h-9 bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                        <div className="w-9 h-9 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] flex items-center justify-center shrink-0">
                             <Clock size={18} />
                         </div>
                     </div>
@@ -187,9 +187,9 @@ export default function AnomaliesPointagePage() {
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-3.5 shadow-xs flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Absences & Non Saisis</p>
-                            <p className="text-xl font-bold font-data text-red-700 mt-0.5">{stats.absences}</p>
+                            <p className="text-xl font-bold font-data text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] mt-0.5">{stats.absences}</p>
                         </div>
-                        <div className="w-9 h-9 bg-red-500/10 text-red-700 flex items-center justify-center shrink-0">
+                        <div className="w-9 h-9 bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] flex items-center justify-center shrink-0">
                             <AlertTriangle size={18} />
                         </div>
                     </div>
@@ -266,8 +266,8 @@ export default function AnomaliesPointagePage() {
                                 </Tr>
                             ) : anomalies.length === 0 ? (
                                 <Tr>
-                                    <Td colSpan={10} className="text-center py-12 text-xs font-bold text-emerald-600">
-                                        <CheckCircle size={24} className="mx-auto mb-2 text-emerald-500" />
+                                    <Td colSpan={10} className="text-center py-12 text-xs font-bold text-[var(--color-success-500)]">
+                                        <CheckCircle size={24} className="mx-auto mb-2 text-[var(--color-success-400)]" />
                                         Aucune anomalie de pointage détectée pour cette sélection.
                                     </Td>
                                 </Tr>
@@ -300,7 +300,7 @@ export default function AnomaliesPointagePage() {
                                         <Td className="py-3 px-2 text-center font-mono text-xs">{anom.heureSortieAm || '--:--'}</Td>
                                         <Td className="py-3 px-3 text-center font-mono text-xs">
                                             {anom.minutesRetard > 0 ? (
-                                                <span className="text-amber-600 font-bold">+{anom.minutesRetard} min</span>
+                                                <span className="text-[var(--color-warning-600)] font-bold">+{anom.minutesRetard} min</span>
                                             ) : (
                                                 <span className="text-[var(--color-fg-muted)]">00 min</span>
                                             )}

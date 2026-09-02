@@ -383,8 +383,8 @@ export default function SaisieQuotidiennePage() {
 
                 {/* 3. Alert : Aucune période de paie ouverte */}
                 {!periodeInfo && !loading && (
-                    <div className="bg-amber-500/10 border-l-4 border-l-amber-500 p-3.5 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3 shadow-xs">
-                        <AlertCircle size={15} className="shrink-0 text-amber-600 mt-0.5" />
+                    <div className="bg-[var(--color-warning-500)]/10 border-l-4 border-l-amber-500 p-3.5 text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] flex items-start gap-3 shadow-xs">
+                        <AlertCircle size={15} className="shrink-0 text-[var(--color-warning-600)] mt-0.5" />
                         <div>
                             <p className="font-bold text-[12.5px]">Aucune période de paie ouverte pour le {selectedDate}</p>
                             <p className="text-[11.5px] opacity-90 mt-0.5">
@@ -408,7 +408,7 @@ export default function SaisieQuotidiennePage() {
                         Chargement des pointages…
                     </div>
                 ) : error ? (
-                    <div className="bg-rose-500/10 border border-rose-500/30 p-4 text-xs font-bold text-rose-700 dark:text-rose-400 flex items-center gap-2">
+                    <div className="bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/30 p-4 text-xs font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] flex items-center gap-2">
                         <AlertCircle size={15} />
                         {error}
                     </div>

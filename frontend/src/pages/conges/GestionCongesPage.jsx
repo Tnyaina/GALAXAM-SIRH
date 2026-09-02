@@ -92,7 +92,7 @@ export default function GestionCongesPage() {
       )}
 
       {/* Barre d'onglets sobre de premier niveau */}
-      <div className="border-b border-slate-200 dark:border-ink-800">
+      <div className="border-b border-[var(--color-border-subtle)]">
         <Tabs
           tabs={tabsList}
           activeTab={activeTab}

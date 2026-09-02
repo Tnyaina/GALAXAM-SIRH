@@ -28,10 +28,10 @@ export default function PointageStatsCards({
             {/* 2. Présence */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs">
                 <p className="text-[11px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                    <UserCheck size={13} className="text-emerald-500" />
+                    <UserCheck size={13} className="text-[var(--color-success-500)]" />
                     <span>Présence</span>
                 </p>
-                <p className="text-[24px] font-extrabold font-mono text-emerald-600 dark:text-emerald-400 mt-1.5">
+                <p className="text-[24px] font-extrabold font-mono text-[var(--color-success-600)] dark:text-[var(--color-success-400)] mt-1.5">
                     {totalPresents}<span className="text-[15px] font-sans font-semibold text-[var(--color-fg-muted)]">/{totalInscrits}</span>
                 </p>
                 <p className="text-[12px] text-[var(--color-fg-muted)] mt-0.5">
@@ -42,10 +42,10 @@ export default function PointageStatsCards({
             {/* 3. Congés & absences */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs">
                 <p className="text-[11px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                    <Calendar size={13} className="text-amber-500" />
+                    <Calendar size={13} className="text-[var(--color-warning-500)]" />
                     <span>Congés &amp; absences</span>
                 </p>
-                <p className="text-[24px] font-extrabold font-mono text-amber-600 dark:text-amber-400 mt-1.5">
+                <p className="text-[24px] font-extrabold font-mono text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] mt-1.5">
                     {totalConges}
                 </p>
                 <p className="text-[12px] text-[var(--color-fg-muted)] mt-0.5">
@@ -77,7 +77,7 @@ export default function PointageStatsCards({
             {/* 5. Heures travaillées */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs col-span-2 md:col-span-1">
                 <p className="text-[11px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                    <TrendingUp size={13} className="text-indigo-500" />
+                    <TrendingUp size={13} className="text-[var(--color-info-500)]" />
                     <span>Heures travaillées</span>
                 </p>
                 <p className="text-[24px] font-extrabold font-mono text-[var(--color-fg)] mt-1.5">

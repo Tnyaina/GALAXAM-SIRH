@@ -55,6 +55,30 @@
   --color-info-600: #312e81;
   --color-info-700: #1e1b4b;
 
+  /* ---- Sky — Mise en évidence "Congés & Absences / Planification" ------- */
+  --color-sky-50: #f0f9ff;
+  --color-sky-100: #e0f2fe;
+  --color-sky-200: #bae6fd;
+  --color-sky-500: #0284c7;
+  --color-sky-600: #0369a1;
+  --color-sky-700: #075985;
+
+  /* ---- Purple — Mise en évidence "Heures de Nuit / Majoration spécifique" */
+  --color-purple-50: #faf5ff;
+  --color-purple-100: #f3e8ff;
+  --color-purple-200: #e9d5ff;
+  --color-purple-500: #7e22ce;
+  --color-purple-600: #6b21a8;
+  --color-purple-700: #581c87;
+
+  /* ---- Orange — Accent "Horaires décalés / Crépuscule / Indemnités" ---- */
+  --color-orange-50: #fff7ed;
+  --color-orange-100: #ffedd5;
+  --color-orange-200: #fed7aa;
+  --color-orange-500: #ea580c;
+  --color-orange-600: #c2410c;
+  --color-orange-700: #9a3412;
+
   /* ---- Neutres "Gris Sauge" — désaturés à dessein --------------------- */
   --color-ink-950: #14150f;
   --color-ink-900: #1c2318;

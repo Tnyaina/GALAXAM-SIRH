@@ -301,12 +301,12 @@ export default function PeriodePaiePage() {
 
                 <Card bordered shadow="sm">
                     <CardBody className="p-3.5 sm:p-4 flex items-center gap-3.5">
-                        <div className="w-9 h-9 bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0">
+                        <div className="w-9 h-9 bg-[var(--color-info-500)]/10 text-[var(--color-info-500)] flex items-center justify-center shrink-0">
                             <Clock size={18} />
                         </div>
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400">En cours (Active)</p>
-                            <p className="text-xl font-bold font-data text-sky-500">{stats.enCours}</p>
+                            <p className="text-xl font-bold font-data text-[var(--color-info-500)]">{stats.enCours}</p>
                         </div>
                     </CardBody>
                 </Card>
@@ -339,13 +339,13 @@ export default function PeriodePaiePage() {
             {error && <Alert type="danger" message={error} onClose={() => setError(null)} />}
 
             {/* Table des Périodes */}
-            <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-ink-150 dark:border-ink-700 flex items-center justify-between">
+            <div className="bg-[var(--color-surface)] dark:bg-[var(--color-surface)] border border-ink-150 dark:border-[var(--color-border)] shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-ink-150 dark:border-[var(--color-border)] flex items-center justify-between">
                     <div>
                         <h2 className="text-sm font-bold uppercase tracking-wider text-ink-800 dark:text-white">
                             Historique et Statut des Périodes de Paie
                         </h2>
-                        <p className="text-xs text-ink-400 dark:text-ink-400 mt-0.5">
+                        <p className="text-xs text-ink-400 dark:text-[var(--color-fg-muted)] mt-0.5">
                             Le verrouillage bloque instantanément toute modification dans la Saisie Quotidienne.
                         </p>
                     </div>
@@ -371,7 +371,7 @@ export default function PeriodePaiePage() {
                                 {periodes.map(p => {
                                     const isLocked = p.statutCode === 'VALIDEE' || p.statutCode === 'CLOTUREE';
                                     return (
-                                        <Tr key={p.idPeriodePaie} className={isLocked ? 'bg-ink-50/30 dark:bg-ink-950/30' : ''}>
+                                        <Tr key={p.idPeriodePaie} className={isLocked ? 'bg-ink-50/30 dark:bg-[var(--color-bg-subtle)]' : ''}>
                                             <Td className="font-mono font-bold text-brand-600 dark:text-brand-400">
                                                 {p.code}
                                             </Td>
@@ -386,7 +386,7 @@ export default function PeriodePaiePage() {
                                                         {p.nbJoursOuvrables ?? '-'} j
                                                     </span>
                                                     {p.nbJoursFeries > 0 && (
-                                                        <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400" title={`${p.nbJoursFeries} jour(s) férié(s) chômé(s)`}>
+                                                        <span className="text-[10px] font-medium text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]" title={`${p.nbJoursFeries} jour(s) férié(s) chômé(s)`}>
                                                             ({p.nbJoursFeries} f.)
                                                         </span>
                                                     )}
@@ -455,7 +455,7 @@ export default function PeriodePaiePage() {
                                 })}
                                 {periodes.length === 0 && !loading && (
                                     <Tr>
-                                        <Td colSpan={7} className="text-center py-12 text-ink-400 dark:text-ink-400">
+                                        <Td colSpan={7} className="text-center py-12 text-ink-400 dark:text-[var(--color-fg-muted)]">
                                             <CalendarRange size={36} className="mx-auto mb-2 opacity-40" />
                                             Aucune période de paie configurée pour le moment.
                                         </Td>
@@ -508,7 +508,7 @@ export default function PeriodePaiePage() {
 
                     {/* Bloc Synthèse Dynamique Calculée Côté Serveur (Backend-Driven) */}
                     {simulating && (
-                        <div className="p-3 bg-ink-50 dark:bg-ink-900/40 border border-ink-200 dark:border-ink-800 text-xs text-ink-500 animate-pulse flex items-center gap-2">
+                        <div className="p-3 bg-ink-50 dark:bg-[var(--color-surface)]/40 border border-ink-200 dark:border-[var(--color-border-subtle)] text-xs text-ink-500 animate-pulse flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-brand-500 animate-ping"></span>
                             Calcul officiel des jours ouvrables par le serveur...
                         </div>
@@ -517,7 +517,7 @@ export default function PeriodePaiePage() {
                     {simulation && !simulating && (
                         <div className="bg-brand-50/60 dark:bg-brand-950/30 border border-brand-200 dark:border-brand-800/50 p-3.5 flex items-center justify-between gap-4 text-xs">
                             <div>
-                                <span className="text-ink-600 dark:text-ink-300 block text-[11px] uppercase tracking-wider font-semibold">
+                                <span className="text-ink-600 dark:text-[var(--color-fg-muted)] block text-[11px] uppercase tracking-wider font-semibold">
                                     Jours Ouvrables Réels
                                 </span>
                                 <span className="font-bold text-lg text-brand-600 dark:text-brand-400 font-data">
@@ -527,7 +527,7 @@ export default function PeriodePaiePage() {
                                     (Lun - Ven hors fériés chômés)
                                 </span>
                             </div>
-                            <div className="text-right text-[11px] text-ink-600 dark:text-ink-300 space-y-0.5 border-l border-brand-200 dark:border-brand-800/40 pl-4">
+                            <div className="text-right text-[11px] text-ink-600 dark:text-[var(--color-fg-muted)] space-y-0.5 border-l border-brand-200 dark:border-brand-800/40 pl-4">
                                 <div>Total calendaire : <strong className="font-data text-ink-900 dark:text-ink-100">{simulation.nbJoursCalendaires} j</strong></div>
                                 <div>Fériés chômés : <strong className="font-data text-ink-900 dark:text-ink-100">{simulation.nbJoursFeries} j</strong></div>
                                 <div>Week-ends : <strong className="font-data text-ink-900 dark:text-ink-100">{simulation.nbWeekends} j</strong></div>
@@ -535,7 +535,7 @@ export default function PeriodePaiePage() {
                         </div>
                     )}
 
-                    <div className="pt-4 flex justify-end gap-3 border-t border-ink-150 dark:border-ink-700">
+                    <div className="pt-4 flex justify-end gap-3 border-t border-ink-150 dark:border-[var(--color-border)]">
                         <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreateModalOpen(false)}>
                             Annuler
                         </Button>

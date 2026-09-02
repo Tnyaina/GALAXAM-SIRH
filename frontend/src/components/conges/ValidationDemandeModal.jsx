@@ -219,10 +219,10 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
 
       {/* Modal de Refus Explicite */}
       {showRefusModal && selectedDemande && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-ink-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-3">
-              <h4 className="text-xs font-bold text-rose-500 flex items-center gap-2 uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-[var(--color-danger-500)] flex items-center gap-2 uppercase tracking-wider">
                 <XSquare className="w-4 h-4" />
                 Refus de la Demande #{selectedDemande.idDemandeConge}
               </h4>

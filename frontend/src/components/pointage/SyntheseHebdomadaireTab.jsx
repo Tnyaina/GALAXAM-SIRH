@@ -232,7 +232,7 @@ export default function SyntheseHebdomadaireTab({
                                             {/* Retards */}
                                             <Td className="text-right font-mono">
                                                 {row.heuresRetard > 0 ? (
-                                                    <span className="text-amber-700 dark:text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5">
+                                                    <span className="text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-semibold bg-[var(--color-warning-500)]/10 px-2 py-0.5">
                                                         {row.heuresRetard.toFixed(1)}h
                                                     </span>
                                                 ) : (
@@ -243,7 +243,7 @@ export default function SyntheseHebdomadaireTab({
                                             {/* Compensées */}
                                             <Td className="text-right font-mono">
                                                 {row.heuresCompensees > 0 ? (
-                                                    <span className="text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5">
+                                                    <span className="text-[var(--color-success-700)] dark:text-[var(--color-success-400)] font-bold bg-[var(--color-success-500)]/10 px-2 py-0.5">
                                                         +{row.heuresCompensees.toFixed(1)}h
                                                     </span>
                                                 ) : (
@@ -254,7 +254,7 @@ export default function SyntheseHebdomadaireTab({
                                             {/* HS 30% */}
                                             <Td className="text-right font-mono">
                                                 {row.heuresHs30 > 0 ? (
-                                                    <span className="text-sky-700 dark:text-sky-400 font-bold bg-sky-500/10 px-2 py-0.5">
+                                                    <span className="text-[var(--color-sky-700)] dark:text-[var(--color-sky-400)] font-bold bg-[var(--color-sky-500)]/10 px-2 py-0.5">
                                                         +{row.heuresHs30.toFixed(1)}h
                                                     </span>
                                                 ) : (
@@ -265,7 +265,7 @@ export default function SyntheseHebdomadaireTab({
                                             {/* HS 50% */}
                                             <Td className="text-right font-mono">
                                                 {row.heuresHs50 > 0 ? (
-                                                    <span className="text-purple-700 dark:text-purple-400 font-bold bg-purple-500/10 px-2 py-0.5">
+                                                    <span className="text-[var(--color-purple-700)] dark:text-[var(--color-purple-400)] font-bold bg-[var(--color-purple-500)]/10 px-2 py-0.5">
                                                         +{row.heuresHs50.toFixed(1)}h
                                                     </span>
                                                 ) : (
@@ -276,7 +276,7 @@ export default function SyntheseHebdomadaireTab({
                                             {/* Dimanche & Férié */}
                                             <Td className="text-right font-mono">
                                                 {row.heuresDimanche > 0 || row.heuresFerie > 0 ? (
-                                                    <span className="text-amber-700 dark:text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5">
+                                                    <span className="text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-semibold bg-[var(--color-warning-500)]/10 px-2 py-0.5">
                                                         {(row.heuresDimanche + row.heuresFerie).toFixed(1)}h
                                                     </span>
                                                 ) : (
@@ -287,11 +287,11 @@ export default function SyntheseHebdomadaireTab({
                                             {/* Déficit (Retenue) */}
                                             <Td className="text-right font-mono">
                                                 {row.heuresDeficit > 0 ? (
-                                                    <span className="text-rose-700 dark:text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5">
+                                                    <span className="text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] font-bold bg-[var(--color-danger-500)]/10 px-2 py-0.5">
                                                         -{row.heuresDeficit.toFixed(1)}h
                                                     </span>
                                                 ) : (
-                                                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold">0h</span>
+                                                    <span className="text-[var(--color-success-700)] dark:text-[var(--color-success-400)] font-semibold">0h</span>
                                                 )}
                                             </Td>
                                         </Tr>

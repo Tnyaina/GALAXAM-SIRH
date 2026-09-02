@@ -117,7 +117,7 @@ export default function PointageToolbar({
                         title="Remplir 08h–17h pour les non saisis"
                         className="flex items-center gap-1 px-2 h-[28px] text-[11px] font-semibold border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     >
-                        <ClockCheck size={11} className="text-emerald-600 shrink-0" />
+                        <ClockCheck size={11} className="text-[var(--color-success-600)] shrink-0" />
                         08h–17h
                     </button>
                     <button
@@ -127,7 +127,7 @@ export default function PointageToolbar({
                         title="Déduire les pauses déjeuner"
                         className="flex items-center gap-1 px-2 h-[28px] text-[11px] font-semibold border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     >
-                        <Coffee size={11} className="text-amber-600 shrink-0" />
+                        <Coffee size={11} className="text-[var(--color-warning-600)] shrink-0" />
                         Pauses
                     </button>
                 </div>

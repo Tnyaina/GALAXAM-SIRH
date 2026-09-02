@@ -172,15 +172,15 @@ export default function SyntheseMensuelleTab({
                                             {/* Assiduité */}
                                             <Td className="text-center">
                                                 <div className="flex items-center justify-center gap-1 font-mono text-xs">
-                                                    <span className="text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5" title="Jours Présents">
+                                                    <span className="text-[var(--color-success-700)] dark:text-[var(--color-success-400)] font-bold bg-[var(--color-success-500)]/10 px-1.5 py-0.5" title="Jours Présents">
                                                         {row.nbJoursPresents}j
                                                     </span>
                                                     <span className="text-[var(--color-fg-subtle)]">/</span>
-                                                    <span className={`px-1.5 py-0.5 ${row.nbJoursAbsence > 0 ? 'text-rose-700 dark:text-rose-400 font-bold bg-rose-500/10' : 'text-[var(--color-fg-muted)]'}`} title="Jours Absences">
+                                                    <span className={`px-1.5 py-0.5 ${row.nbJoursAbsence > 0 ? 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] font-bold bg-[var(--color-danger-500)]/10' : 'text-[var(--color-fg-muted)]'}`} title="Jours Absences">
                                                         {row.nbJoursAbsence}j
                                                     </span>
                                                     <span className="text-[var(--color-fg-subtle)]">/</span>
-                                                    <span className="text-sky-700 dark:text-sky-400 font-medium bg-sky-500/10 px-1.5 py-0.5" title="Jours Congés">
+                                                    <span className="text-[var(--color-sky-700)] dark:text-[var(--color-sky-400)] font-medium bg-[var(--color-sky-500)]/10 px-1.5 py-0.5" title="Jours Congés">
                                                         {row.nbJoursConge}j
                                                     </span>
                                                 </div>
@@ -194,7 +194,7 @@ export default function SyntheseMensuelleTab({
                                             {/* HS 30% */}
                                             <Td className="text-right font-mono">
                                                 {row.heuresHs30 > 0 ? (
-                                                    <span className="bg-sky-500/10 text-sky-700 dark:text-sky-400 font-bold px-2 py-0.5">
+                                                    <span className="bg-[var(--color-sky-500)]/10 text-[var(--color-sky-700)] dark:text-[var(--color-sky-400)] font-bold px-2 py-0.5">
                                                         +{row.heuresHs30.toFixed(1)}h
                                                     </span>
                                                 ) : (
@@ -205,7 +205,7 @@ export default function SyntheseMensuelleTab({
                                             {/* HS 50% */}
                                             <Td className="text-right font-mono">
                                                 {row.heuresHs50 > 0 ? (
-                                                    <span className="bg-purple-500/10 text-purple-700 dark:text-purple-400 font-bold px-2 py-0.5">
+                                                    <span className="bg-[var(--color-purple-500)]/10 text-[var(--color-purple-700)] dark:text-[var(--color-purple-400)] font-bold px-2 py-0.5">
                                                         +{row.heuresHs50.toFixed(1)}h
                                                     </span>
                                                 ) : (
@@ -216,7 +216,7 @@ export default function SyntheseMensuelleTab({
                                             {/* Dimanche & Férié */}
                                             <Td className="text-right font-mono">
                                                 {row.heuresDimancheTotal > 0 || row.heuresFerieTotal > 0 ? (
-                                                    <span className="bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold px-2 py-0.5">
+                                                    <span className="bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-semibold px-2 py-0.5">
                                                         {(row.heuresDimancheTotal + row.heuresFerieTotal).toFixed(1)}h
                                                     </span>
                                                 ) : (
@@ -227,7 +227,7 @@ export default function SyntheseMensuelleTab({
                                             {/* Retenues Absences */}
                                             <Td className="text-right font-mono">
                                                 {row.heuresAbsenceRetenues > 0 ? (
-                                                    <span className="bg-rose-500/10 text-rose-700 dark:text-rose-400 font-bold px-2 py-0.5">
+                                                    <span className="bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] font-bold px-2 py-0.5">
                                                         -{row.heuresAbsenceRetenues.toFixed(1)}h
                                                     </span>
                                                 ) : (

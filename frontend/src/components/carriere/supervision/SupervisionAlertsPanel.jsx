@@ -9,14 +9,14 @@ function SupervisionAlertsPanel({ alertes = [], onActionClick, onVerifyDoublons 
     const totalUrgent = alertes.filter(a => a.variant === 'danger' || a.type === 'DOUBLON').length;
 
     return (
-        <div className="bg-[var(--color-surface)] border border-amber-500/30 shadow-sm overflow-hidden">
+        <div className="bg-[var(--color-surface)] border border-[var(--color-warning-500)]/30 shadow-sm overflow-hidden">
             {/* Header d'Alerte Prioritaire */}
-            <div className="px-5 py-3.5 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border-b border-amber-500/20 flex items-center justify-between">
+            <div className="px-5 py-3.5 bg-gradient-to-r from-[var(--color-warning-500)]/15 via-[var(--color-warning-500)]/5 to-transparent border-b border-[var(--color-warning-500)]/20 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                    <div className="w-6 h-6 rounded-none bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                    <div className="w-6 h-6 rounded-none bg-[var(--color-warning-500)] text-white flex items-center justify-center shadow-xs">
                         <AlertTriangle size={14} strokeWidth={2.5} />
                     </div>
-                    <h2 className="text-xs font-extrabold uppercase tracking-wider text-amber-950 dark:text-amber-200">
+                    <h2 className="text-xs font-extrabold uppercase tracking-wider text-[var(--color-warning-700)] dark:text-[var(--color-warning-200)]">
                         À traiter en priorité
                     </h2>
                 </div>
@@ -43,9 +43,9 @@ function SupervisionAlertsPanel({ alertes = [], onActionClick, onVerifyDoublons 
                             key={idx}
                             className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 transition-colors ${
                                 isDanger
-                                    ? 'border-l-4 border-l-red-500 bg-red-500/[0.04] hover:bg-red-500/[0.08]'
+                                    ? 'border-l-4 border-l-[var(--color-danger-500)] bg-[var(--color-danger-500)]/[0.04] hover:bg-[var(--color-danger-500)]/[0.08]'
                                     : isWarning
-                                        ? 'border-l-4 border-l-amber-500 bg-amber-500/[0.03] hover:bg-amber-500/[0.06]'
+                                        ? 'border-l-4 border-l-[var(--color-warning-500)] bg-[var(--color-warning-500)]/[0.03] hover:bg-[var(--color-warning-500)]/[0.06]'
                                         : 'border-l-4 border-l-[var(--color-brand-500)] bg-[var(--color-brand-500)]/[0.02] hover:bg-[var(--color-brand-500)]/[0.05]'
                             }`}
                         >
@@ -53,9 +53,9 @@ function SupervisionAlertsPanel({ alertes = [], onActionClick, onVerifyDoublons 
                                 <div
                                     className={`w-9 h-9 rounded-none flex items-center justify-center shrink-0 border ${
                                         isDanger
-                                            ? 'bg-red-500/15 border-red-500/30 text-red-700 dark:text-red-300'
+                                            ? 'bg-[var(--color-danger-500)]/15 border-[var(--color-danger-500)]/30 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'
                                             : isWarning
-                                                ? 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300'
+                                                ? 'bg-[var(--color-warning-500)]/15 border-[var(--color-warning-500)]/30 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]'
                                                 : 'bg-[var(--color-brand-500)]/15 border-[var(--color-brand-500)]/30 text-[var(--color-brand-600)]'
                                     }`}
                                 >

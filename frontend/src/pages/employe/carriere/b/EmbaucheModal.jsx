@@ -269,7 +269,7 @@ export default function EmbaucheModal({
                                     : hasHistory
                                         ? 'Contractualisation (Réembauche / Réintégration)'
                                         : 'Nouvelle Embauche Initiale'}
-                                <span className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono rounded-none">
+                                <span className="text-xs px-2 py-0.5 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] border border-[var(--color-warning-500)]/20 font-mono rounded-none">
                                     BROUILLON
                                 </span>
                             </h2>
@@ -434,7 +434,7 @@ export default function EmbaucheModal({
                 {/* Footer Boutons */}
                 <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center">
                     <p className="text-xs text-ink-400 hidden sm:block">
-                        Le contrat et l'affectation restent au statut <strong className="text-amber-500">BROUILLON</strong> tant qu'ils ne sont pas validés.
+                        Le contrat et l'affectation restent au statut <strong className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]">BROUILLON</strong> tant qu'ils ne sont pas validés.
                     </p>
                     <div className="flex gap-3 ml-auto">
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">

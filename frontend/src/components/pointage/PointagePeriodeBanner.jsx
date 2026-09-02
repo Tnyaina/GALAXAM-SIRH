@@ -80,18 +80,18 @@ export default function PointagePeriodeBanner({
                     <Users size={14} className="text-[var(--color-fg-muted)]" />
                     <span>{totalEmployes} inscrits</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--color-success-500)]/10 border border-[var(--color-success-500)]/20 text-xs font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
                     <CheckCircle size={14} />
                     <span>{totalPresents} présents</span>
                 </div>
                 {totalConges > 0 && (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-700 dark:text-amber-400">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/20 text-xs font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">
                         <Palmtree size={14} />
                         <span>{totalConges} congés</span>
                     </div>
                 )}
                 {totalAnomalies > 0 && (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-500/10 border border-rose-500/20 text-xs font-bold text-rose-700 dark:text-rose-400">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/20 text-xs font-bold text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)]">
                         <AlertTriangle size={14} />
                         <span>{totalAnomalies} anomalies</span>
                     </div>

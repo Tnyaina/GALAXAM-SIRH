@@ -56,10 +56,10 @@ export default function CotisationsList({
                                 <Td className="font-semibold text-[var(--color-fg)]">
                                     {c.libelle}
                                 </Td>
-                                <Td isData className="text-right font-bold text-sky-500">
+                                <Td isData className="text-right font-bold text-sky-600 dark:text-sky-400">
                                     {c.tauxSalarial}%
                                 </Td>
-                                <Td isData className="text-right font-bold text-amber-500">
+                                <Td isData className="text-right font-bold text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]">
                                     {c.tauxPatronal}%
                                 </Td>
                                 <Td isData className="text-right font-bold text-[var(--color-brand-500)]">

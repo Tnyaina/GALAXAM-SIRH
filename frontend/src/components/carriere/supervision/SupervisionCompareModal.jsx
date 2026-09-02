@@ -3,6 +3,7 @@ import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDate } from '@/components/dashboard/DashboardUtils';
 
 function SupervisionCompareModal({
@@ -21,43 +22,41 @@ function SupervisionCompareModal({
             size="lg"
         >
             <div className="space-y-4">
-                <Alert variant="warning" title="Analyse des Contrats">
+                <Alert type="warning" title="Analyse des Contrats">
                     Plusieurs enregistrements de contrat ont été détectés pour ce collaborateur. Comparez les dates et les numéros pour identifier les doublons à clôturer ou annuler.
                 </Alert>
 
-                <div className="overflow-x-auto border border-[var(--color-border-subtle)]">
-                    <table className="w-full text-xs text-left">
-                        <thead className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] font-bold uppercase tracking-wider text-[10px]">
-                            <tr>
-                                <th className="p-3">N° Contrat</th>
-                                <th className="p-3">Type</th>
-                                <th className="p-3">Statut</th>
-                                <th className="p-3">Date Début</th>
-                                <th className="p-3">Date Fin</th>
-                                <th className="p-3">Site / Fonction</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                <div className="overflow-x-auto">
+                    <Table>
+                        <Thead>
+                            <Tr>
+                                <Th>N° Contrat</Th>
+                                <Th>Type</Th>
+                                <Th>Statut</Th>
+                                <Th>Date Début</Th>
+                                <Th>Date Fin</Th>
+                                <Th>Site / Fonction</Th>
+                            </Tr>
+                        </Thead>
+                        <Tbody>
                             {employeeGroup.contrats?.map((ct, i) => (
-                                <tr key={i} className="hover:bg-[var(--color-bg-subtle)]/50">
-                                    <td className="p-3 font-data font-bold text-[var(--color-brand-600)]">
+                                <Tr key={i}>
+                                    <Td isData className="font-bold text-[var(--color-brand-600)]">
                                         {ct.numeroContrat || '-'}
-                                    </td>
-                                    <td className="p-3 font-semibold">{ct.libelleTypeContrat}</td>
-                                    <td className="p-3">
+                                    </Td>
+                                    <Td className="font-semibold">{ct.libelleTypeContrat}</Td>
+                                    <Td>
                                         <Badge variant={ct.codeStatutContrat === 'ACTIF' ? 'success' : 'default'} size="xs">
                                             {ct.libelleStatutContrat}
                                         </Badge>
-                                    </td>
-                                    <td className="p-3 font-data">{fmtDate(ct.dateDebut)}</td>
-                                    <td className="p-3 font-data">{ct.dateFin ? fmtDate(ct.dateFin) : 'Indéterminée'}</td>
-                                    <td className="p-3 text-[var(--color-fg-muted)]">
-                                        {ct.nomSite} / {ct.nomFonction}
-                                    </td>
-                                </tr>
+                                    </Td>
+                                    <Td isData>{fmtDate(ct.dateDebut)}</Td>
+                                    <Td isData>{ct.dateFin ? fmtDate(ct.dateFin) : 'Indéterminée'}</Td>
+                                    <Td muted>{ct.nomSite} / {ct.nomFonction}</Td>
+                                </Tr>
                             ))}
-                        </tbody>
-                    </table>
+                        </Tbody>
+                    </Table>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-3 border-t border-[var(--color-border-subtle)]">

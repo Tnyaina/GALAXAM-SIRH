@@ -3,8 +3,8 @@ import Badge from '@/components/ui/data-display/Badge';
 
 const InfoBlock = ({ label, value, children }) => (
     <div className="space-y-1">
-        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400">{label}</p>
-        {children || <p className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white truncate">{value || '—'}</p>}
+        <p className="text-[11px] font-medium text-[var(--color-fg-muted)] dark:text-[var(--color-fg-muted)]">{label}</p>
+        {children || <p className="text-xs sm:text-[13px] font-bold text-[var(--color-fg)] dark:text-white truncate">{value || '—'}</p>}
     </div>
 );
 
@@ -24,9 +24,9 @@ export default function HistoriqueStatutTab({ emp }) {
 
     return (
         <div className="space-y-4">
-            <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-ink-800">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-2">
+            <div className="bg-[var(--color-surface)] dark:bg-[var(--color-surface)] border border-[var(--color-border-subtle)] dark:border-[var(--color-border)] shadow-xs p-5 sm:p-6 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--color-border-subtle)] dark:border-[var(--color-border-subtle)]">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] dark:text-white flex items-center gap-2">
                         <FileText size={14} className="text-brand-500" />
                         Statut du Dossier & Traçabilité
                     </h3>
@@ -39,11 +39,11 @@ export default function HistoriqueStatutTab({ emp }) {
                     <InfoBlock label="Statut opérationnel">
                         <div className="flex items-center gap-2">
                             {emp.estActif ? (
-                                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                <span className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-success-500)] dark:text-[var(--color-success-400)]">
                                     <ShieldCheck size={14} /> Dossier RH Actif
                                 </span>
                             ) : (
-                                <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                                <span className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-fg-muted)]">
                                     <ShieldAlert size={14} /> Dossier Clôturé
                                 </span>
                             )}

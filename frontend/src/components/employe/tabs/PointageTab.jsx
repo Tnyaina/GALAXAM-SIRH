@@ -327,10 +327,10 @@ export default function PointageTab({ idEmploye }) {
                                 <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
                                     Retard Cumulé
                                 </span>
-                                <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                                <div className={`w-2.5 h-2.5 rounded-full ${kpis.retardCumule && kpis.retardCumule !== '00h00' && kpis.retardCumule !== '0h' ? 'bg-[var(--color-warning-500)]' : 'bg-[var(--color-border)]'}`} />
                             </div>
                             <div className="mt-2">
-                                <span className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                                <span className={`text-2xl font-bold font-mono ${kpis.retardCumule && kpis.retardCumule !== '00h00' && kpis.retardCumule !== '0h' ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' : 'text-[var(--color-fg)]'}`}>
                                     {kpis.retardCumule || '00h00'}
                                 </span>
                                 <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
@@ -345,10 +345,10 @@ export default function PointageTab({ idEmploye }) {
                                 <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
                                     Heures Supplémentaires
                                 </span>
-                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                                <div className={`w-2.5 h-2.5 rounded-full ${kpis.heuresSupp && kpis.heuresSupp !== '00h00' && kpis.heuresSupp !== '0h' ? 'bg-[var(--color-success-500)]' : 'bg-[var(--color-border)]'}`} />
                             </div>
                             <div className="mt-2">
-                                <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                                <span className={`text-2xl font-bold font-mono ${kpis.heuresSupp && kpis.heuresSupp !== '00h00' && kpis.heuresSupp !== '0h' ? 'text-[var(--color-success-500)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
                                     {kpis.heuresSupp || '00h00'}
                                 </span>
                                 <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
@@ -363,14 +363,14 @@ export default function PointageTab({ idEmploye }) {
                                 <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
                                     Absences & Congés
                                 </span>
-                                <div className="w-2.5 h-2.5 rounded-full bg-sky-500" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-[var(--color-border)]" />
                             </div>
                             <div className="mt-2">
                                 <span className="text-2xl font-bold font-mono text-[var(--color-fg)]">
-                                    {kpis.absences || '0 j'}
+                                    {kpis.absences || '00 j'}
                                 </span>
                                 <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                                    {kpis.absencesStatut || 'justifiée'}
+                                    {kpis.absencesStatut || 'aucune'}
                                 </p>
                             </div>
                         </div>
@@ -438,11 +438,11 @@ export default function PointageTab({ idEmploye }) {
                                                         </Td>
                                                         <Td className="font-mono text-xs text-center py-2.5 px-3">
                                                             {ptg.ecart && ptg.ecart.startsWith('-') ? (
-                                                                <span className="text-rose-600 dark:text-rose-400 font-bold">
+                                                                <span className="text-[var(--color-danger-500)] dark:text-[var(--color-danger-400)] font-bold">
                                                                     {ptg.ecart}
                                                                 </span>
                                                             ) : ptg.ecart && ptg.ecart.startsWith('+') ? (
-                                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                                                <span className="text-[var(--color-success-500)] dark:text-[var(--color-success-400)] font-bold">
                                                                     {ptg.ecart}
                                                                 </span>
                                                             ) : (
@@ -478,19 +478,25 @@ export default function PointageTab({ idEmploye }) {
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Temps réalisé</span>
-                                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{recap.tempsRealise || '00h00'}</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{recap.tempsRealise || '00h00'}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Temps d'absence</span>
-                                        <span className="font-mono font-bold text-rose-600 dark:text-rose-400">{recap.tempsAbsence || '00h00'}</span>
+                                        <span className={`font-mono ${recap.tempsAbsence && recap.tempsAbsence !== '00h00' && recap.tempsAbsence !== '0h' ? 'font-bold text-[var(--color-danger-500)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                            {recap.tempsAbsence || '00h00'}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Heures supplémentaires</span>
-                                        <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{recap.heuresSupp || '00h00'}</span>
+                                        <span className={`font-mono ${recap.heuresSupp && recap.heuresSupp !== '00h00' && recap.heuresSupp !== '0h' ? 'font-bold text-[var(--color-info-600)] dark:text-[var(--color-info-200)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                            {recap.heuresSupp || '00h00'}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Retards</span>
-                                        <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{recap.retards || '00h00'}</span>
+                                        <span className={`font-mono ${recap.retards && recap.retards !== '00h00' && recap.retards !== '0h' ? 'font-bold text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                            {recap.retards || '00h00'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -498,7 +504,7 @@ export default function PointageTab({ idEmploye }) {
                             {/* Carte Règles Appliquées */}
                             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-2 flex items-center gap-1.5">
-                                    <Info size={14} className="text-sky-500" />
+                                    <Info size={14} className="text-[var(--color-info-500)]" />
                                     Règles Appliquées
                                 </h4>
                                 <div className="space-y-2 text-xs">
@@ -520,7 +526,7 @@ export default function PointageTab({ idEmploye }) {
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Tolérance de retard</span>
-                                        <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{regles.toleranceRetard || '0 min'}</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.toleranceRetard || '0 min'}</span>
                                     </div>
                                 </div>
                             </div>

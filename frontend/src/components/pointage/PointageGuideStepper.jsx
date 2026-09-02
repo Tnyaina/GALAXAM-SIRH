@@ -14,12 +14,12 @@ export default function PointageGuideStepper({
         : 'AUCUNE PÉRIODE DE PAIE ACTIVE';
 
     const statusDot = noPeriode
-        ? 'bg-amber-500'
+        ? 'bg-[var(--color-warning-500)]'
         : isCloturee
             ? 'bg-[var(--color-fg-muted)]'
             : isEnValidation
-                ? 'bg-amber-500'
-                : 'bg-emerald-500';
+                ? 'bg-[var(--color-warning-500)]'
+                : 'bg-[var(--color-success-500)]';
 
     const statusLabel = noPeriode
         ? 'Saisie verrouillée'
@@ -39,14 +39,14 @@ export default function PointageGuideStepper({
     const stepLabels = ['Saisie', 'Anomalies', 'Synthèse', 'Transmission'];
 
     return (
-        <div className={`border px-3.5 py-1.5 flex items-center justify-between gap-4 ${noPeriode ? 'bg-amber-500/[0.08] border-amber-500/30' : 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)]'}`}>
+        <div className={`border px-3.5 py-1.5 flex items-center justify-between gap-4 ${noPeriode ? 'bg-[var(--color-warning-500)]/[0.08] border-[var(--color-warning-500)]/30' : 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)]'}`}>
             {/* Gauche : info période */}
             <div className="flex items-center gap-2 min-w-0">
                 {noPeriode
-                    ? <AlertTriangle size={12} className="text-amber-600 shrink-0" />
+                    ? <AlertTriangle size={12} className="text-[var(--color-warning-600)] shrink-0" />
                     : <Calendar size={12} className="text-[var(--color-fg-muted)] shrink-0" />
                 }
-                <span className={`text-[11px] font-mono font-bold tracking-wide truncate ${noPeriode ? 'text-amber-700 dark:text-amber-400' : 'text-[var(--color-fg)]'}`}>
+                <span className={`text-[11px] font-mono font-bold tracking-wide truncate ${noPeriode ? 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]' : 'text-[var(--color-fg)]'}`}>
                     {periodeLibelle}
                 </span>
                 {periodeInfo?.date_debut && periodeInfo?.date_fin && (
@@ -56,7 +56,7 @@ export default function PointageGuideStepper({
                 )}
                 <span className="flex items-center gap-1.5 shrink-0">
                     <span className={`w-1.5 h-1.5 rounded-full ${statusDot} ${!isCloturee ? 'animate-pulse' : ''}`} />
-                    <span className={`text-[10.5px] font-semibold ${noPeriode ? 'text-amber-600' : 'text-[var(--color-fg-muted)]'}`}>
+                    <span className={`text-[10.5px] font-semibold ${noPeriode ? 'text-[var(--color-warning-600)]' : 'text-[var(--color-fg-muted)]'}`}>
                         {statusLabel}
                     </span>
                 </span>

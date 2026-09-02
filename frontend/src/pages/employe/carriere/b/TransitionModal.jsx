@@ -75,7 +75,7 @@ export default function TransitionModal({
                         <div>
                             <h2 className="font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
                                 {isEditMode ? 'Corriger le Brouillon de Transition' : (typeEvObj?.libelle || 'Transition de Carrière')}
-                                <span className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono rounded-none">
+                                <span className="text-xs px-2 py-0.5 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] border border-[var(--color-warning-500)]/20 font-mono rounded-none">
                                     BROUILLON
                                 </span>
                             </h2>
@@ -226,7 +226,7 @@ export default function TransitionModal({
                 {/* Footer Boutons */}
                 <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center">
                     <p className="text-xs text-ink-400 hidden sm:block">
-                        Le mouvement RH reste au statut <strong className="text-amber-500">BROUILLON</strong> tant qu'il n'est pas validé.
+                        Le mouvement RH reste au statut <strong className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]">BROUILLON</strong> tant qu'il n'est pas validé.
                     </p>
                     <div className="flex gap-3 ml-auto">
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">

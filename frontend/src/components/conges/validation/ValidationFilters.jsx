@@ -49,7 +49,7 @@ export default function ValidationFilters({
                     : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-fg)] border border-[var(--color-border-subtle)]'
                 }`}
               >
-                <Icon size={13} className={isUrgent ? 'text-amber-400' : ''} />
+                <Icon size={13} className={isUrgent ? 'text-[var(--color-warning-400)]' : ''} />
                 <span>{s.label}</span>
                 {count !== null && (
                   <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold px-1.5 ml-0.5 ${

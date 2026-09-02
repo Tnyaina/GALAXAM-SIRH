@@ -40,7 +40,7 @@ export default function PointageGridTable({
             case 'CONGE_DEMI_JOURNEE':
                 return <Badge variant="warning" size="sm" className="font-bold">{libelle || 'Demi-journée'}</Badge>;
             case 'FERIE_CHOME':
-                return <span className="bg-[#EEF0F2] dark:bg-ink-800 text-[var(--color-fg-muted)] text-[11px] font-semibold px-2 py-1">{libelle || 'Férié chômé'}</span>;
+                return <span className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)] text-[11px] font-semibold px-2 py-1">{libelle || 'Férié chômé'}</span>;
             case 'FERIE_TRAVAILLE':
                 return <Badge variant="error" size="sm" className="font-bold">Férié (+100%)</Badge>;
             case 'SAMEDI_TRAVAILLE':
@@ -64,9 +64,9 @@ export default function PointageGridTable({
             <div className="flex flex-wrap items-center justify-between px-5 py-2.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-xs text-[var(--color-fg-muted)]">
                 <div className="flex flex-wrap items-center gap-4">
                     <span className="font-bold text-[var(--color-fg)]">Légende :</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-amber-500 inline-block"></span> Congé</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-stone-400 inline-block"></span> Férié chômé</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-indigo-500 inline-block"></span> Cadre autonome</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-[var(--color-warning-500)] inline-block"></span> Congé</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-[var(--color-ink-350)] inline-block"></span> Férié chômé</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-[var(--color-info-500)] inline-block"></span> Cadre autonome</span>
                     <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] inline-block"></span> Non saisi</span>
                 </div>
 
@@ -138,31 +138,32 @@ export default function PointageGridTable({
                             return (
                                 <Tr key={row.idEmploye} className={`border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors ${rowBorderCue}`}>
                                     {/* 1. Identification Salarié */}
-                                    <Td className="px-4 py-1.5">
-                                        <div className="flex items-center gap-2.5">
+                                    <Td className="px-3.5 py-2">
+                                        <div className="flex items-center gap-2.5 min-w-[210px]">
                                             <Avatar
                                                 src={row.photoUrl ? getFullPhotoUrl(row.photoUrl) : null}
                                                 name={`${row.prenom || ''} ${row.nom || ''}`}
                                                 size="sm"
                                                 shape="square"
                                             />
-                                            <div>
-                                                <p className="font-semibold text-[var(--color-fg)] leading-tight flex items-center gap-1.5">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-semibold text-[var(--color-fg)] leading-tight truncate">
                                                     <Link
                                                         to={`/employes/${row.idEmploye}`}
                                                         className="hover:text-brand-600 hover:underline"
+                                                        title={`${row.nom} ${row.prenom}`}
                                                     >
                                                         {row.nom} {row.prenom}
                                                     </Link>
+                                                </p>
+                                                <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--color-fg-muted)] mt-0.5">
+                                                    <span>{row.matricule}</span>
                                                     {row.estAutonome && (
-                                                        <span className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold px-1.5 py-0.5">
+                                                        <span className="bg-[var(--color-info-500)]/15 text-[var(--color-info-600)] dark:text-[var(--color-info-200)] text-[9px] font-bold px-1 py-0.2 tracking-wide shrink-0">
                                                             AUTONOME
                                                         </span>
                                                     )}
-                                                </p>
-                                                <p className="text-[11.5px] font-mono text-[var(--color-fg-muted)]">
-                                                    Matricule {row.matricule}
-                                                </p>
+                                                </div>
                                             </div>
                                         </div>
                                     </Td>
@@ -176,7 +177,7 @@ export default function PointageGridTable({
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureEntreeMatin', val)}
                                             onKeyDown={(e) => onKeyDown(e, row.idEmploye, 0)}
                                             onComplete={() => onFocusNext(row.idEmploye, 0)}
-                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-red-500 !bg-red-50' : ''}`}
+                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}`}
                                         />
                                     </Td>
 
@@ -189,7 +190,7 @@ export default function PointageGridTable({
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieMatin', val)}
                                             onKeyDown={(e) => onKeyDown(e, row.idEmploye, 1)}
                                             onComplete={() => onFocusNext(row.idEmploye, 1)}
-                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-red-500 !bg-red-50' : ''}`}
+                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}`}
                                         />
                                     </Td>
 
@@ -202,7 +203,7 @@ export default function PointageGridTable({
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureEntreeAm', val)}
                                             onKeyDown={(e) => onKeyDown(e, row.idEmploye, 2)}
                                             onComplete={() => onFocusNext(row.idEmploye, 2)}
-                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-red-500 !bg-red-50' : ''}`}
+                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}`}
                                         />
                                     </Td>
 
@@ -214,7 +215,7 @@ export default function PointageGridTable({
                                             disabled={isReadOnlyForUser || isCongeFull || isCongeAm}
                                             onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieAm', val)}
                                             onKeyDown={(e) => onKeyDown(e, row.idEmploye, 3)}
-                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-red-500 !bg-red-50' : ''}`}
+                                            className={`w-[74px] mx-auto text-center font-mono text-[13px] ${row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}`}
                                         />
                                     </Td>
 
@@ -225,7 +226,7 @@ export default function PointageGridTable({
                                                 {formatHeuresMinutes(row.totalHeures, true)}
                                             </span>
                                             {row.heuresNuit > 0 && (
-                                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-600 bg-indigo-500/10 px-1 mt-0.5">
+                                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-1 mt-0.5">
                                                     <Moon size={9} /> nuit
                                                 </span>
                                             )}
@@ -239,7 +240,7 @@ export default function PointageGridTable({
                                                 +{row.minutesRetard} min
                                             </span>
                                         ) : (
-                                            <span className="text-emerald-600 dark:text-emerald-400">
+                                            <span className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
                                                 00 min
                                             </span>
                                         )}
@@ -317,7 +318,7 @@ export default function PointageGridTable({
                                                             }}
                                                             className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
                                                         />
-                                                        <span className={checked ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-[var(--color-fg-muted)]'}>
+                                                        <span className={checked ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold' : 'text-[var(--color-fg-muted)]'}>
                                                             {checked && montantJour > 0 ? fmtMoney(montantJour) : '0 Ar'}
                                                         </span>
                                                     </label>

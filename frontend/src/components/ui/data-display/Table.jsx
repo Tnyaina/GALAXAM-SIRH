@@ -75,7 +75,6 @@ export function Th({ children, sortable, sorted, onSort, className = '', ...prop
             <ChevronDown
               size={9}
               className={sorted === 'desc' ? 'text-[var(--color-brand-500)]' : 'text-[var(--color-fg-subtle)]'}
-              style={{ marginTop: -2 }}
             />
           </span>
         )}

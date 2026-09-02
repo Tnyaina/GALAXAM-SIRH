@@ -225,7 +225,7 @@ export function DonutChart({ segments, size = 224, strokeWidth = 26 }) {
           fill="var(--color-fg)"
           fontSize="28"
           fontWeight="800"
-          style={{ fontFamily: 'var(--font-mono)' }}
+          fontFamily="var(--font-mono)"
         >
           {total}
         </text>

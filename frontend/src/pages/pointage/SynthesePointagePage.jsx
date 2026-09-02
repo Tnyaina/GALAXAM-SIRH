@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, ArrowRight, Info, Lock, Unlock } from 'lucide-react';
+import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock } from 'lucide-react';
 import Select from '@/components/ui/forms/Select';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
@@ -12,6 +12,8 @@ import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 import SEO from '@/components/system/SEO';
 import PointageWorkflowNav from '@/components/pointage/PointageWorkflowNav';
 import usePointageSynthese from '@/hooks/pointage/usePointageSynthese';
+import { Tabs } from '@/components/ui/navigation/Tabs';
+import Badge from '@/components/ui/data-display/Badge';
 
 export default function SynthesePointagePage() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -310,34 +312,15 @@ export default function SynthesePointagePage() {
                 </div>
 
                 {/* Onglets Hebdo / Mensuel */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] flex shadow-xs">
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('hebdo')}
-                        className={`flex items-center gap-1.5 px-4 py-2 text-[11.5px] font-semibold border-r border-[var(--color-border-subtle)] transition-all cursor-pointer ${activeTab === 'hebdo'
-                                ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] font-bold border-b-2 border-b-[var(--color-brand-500)]'
-                                : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
-                            }`}
-                    >
-                        <Layers size={12} />
-                        <span>Synthèse Hebdomadaire</span>
-                        <span className="bg-[var(--color-brand-500)]/15 text-[var(--color-brand-500)] px-1.5 py-0.5 text-[10px] font-mono font-bold">
-                            {semaines.length} sem.
-                        </span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('mensuel')}
-                        className={`flex items-center gap-1.5 px-4 py-2 text-[11.5px] font-semibold transition-all cursor-pointer ${activeTab === 'mensuel'
-                                ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] font-bold border-b-2 border-b-[var(--color-brand-500)]'
-                                : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
-                            }`}
-                    >
-                        <CalendarRange size={12} />
-                        <span>Synthèse Mensuelle (Clôture DAF)</span>
-                    </button>
-                </div>
+                <Tabs
+                    tabs={[
+                        { id: 'hebdo', label: 'Synthèse Hebdomadaire', icon: <Layers size={12} />, count: semaines.length ? `${semaines.length} sem.` : undefined },
+                        { id: 'mensuel', label: 'Synthèse Mensuelle (Clôture DAF)', icon: <CalendarRange size={12} /> },
+                    ]}
+                    activeTab={activeTab}
+                    onChange={setActiveTab}
+                    variant="underline"
+                />
 
                 {/* VUE 1 : Synthèse Hebdomadaire Séquentielle */}
                 {activeTab === 'hebdo' && (
@@ -366,75 +349,57 @@ export default function SynthesePointagePage() {
 
 
 
-                            {/* Lignes compactes des semaines — liste tabulaire */}
+                            {/* Grille de cartes horizontales des semaines (Semainier interactif) */}
                             {!loadingSemaines && (
-                                <div className="border-t border-[var(--color-border-subtle)]">
+                                <div className="p-3">
                                     {semaines.length === 0 ? (
                                         <div className="p-6 text-center text-xs text-[var(--color-fg-muted)]">
                                             Aucune semaine disponible pour cette période.
                                         </div>
                                     ) : (
-                                        <div>
-                                            {/* En-tête de la liste */}
-                                            <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-0 text-[9.5px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] px-3 py-1.5 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)]">
-                                                <span className="w-[90px]">Semaine</span>
-                                                <span>Période</span>
-                                                <span className="w-[130px] text-center">Statut</span>
-                                                <span className="w-[90px] text-center">Réalisé / Objectif</span>
-                                                <span className="w-[60px]"></span>
-                                            </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                                             {semaines.map((sem) => {
                                                 const isSelected = selectedSemaine?.id === sem.id;
-                                                const statusColor = sem.estValidee
-                                                    ? 'text-emerald-700'
+                                                const badgeVariant = sem.estValidee
+                                                    ? 'success'
                                                     : sem.ready
-                                                        ? 'text-brand-700'
+                                                        ? 'brand'
                                                         : sem.nbAnomalies > 0
-                                                            ? 'text-amber-700'
-                                                            : 'text-[var(--color-fg-muted)]';
+                                                            ? 'warning'
+                                                            : 'default';
+
                                                 return (
                                                     <button
                                                         key={sem.id}
                                                         type="button"
                                                         onClick={() => setSelectedSemaine(sem)}
-                                                        className={`w-full grid grid-cols-[auto_1fr_auto_auto_auto] gap-0 items-center px-3 py-1.5 border-b border-[var(--color-border-subtle)] text-left cursor-pointer transition-colors ${
+                                                        className={`p-2.5 text-left border transition-all cursor-pointer flex flex-col justify-between gap-1.5 relative ${
                                                             isSelected
-                                                                ? 'bg-[var(--color-brand-500)]/10 border-l-2 border-l-[var(--color-brand-500)]'
-                                                                : 'hover:bg-[var(--color-bg-subtle)] border-l-2 border-l-transparent'
+                                                                ? 'bg-brand-500/10 border-brand-500 ring-1 ring-brand-500 shadow-xs'
+                                                                : 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)] hover:border-[var(--color-border)]'
                                                         }`}
                                                     >
-                                                        {/* Titre semaine */}
-                                                        <span className="w-[90px] text-[11px] font-bold text-[var(--color-fg)]">{sem.title}</span>
+                                                        {/* Titre & Coche de validation */}
+                                                        <div className="flex items-center justify-between gap-1">
+                                                            <span className={`text-xs font-bold ${isSelected ? 'text-brand-700 dark:text-brand-300' : 'text-[var(--color-fg)]'}`}>
+                                                                {sem.title}
+                                                            </span>
+                                                            {sem.estValidee && (
+                                                                <CheckCircle2 size={13} className="text-[var(--color-success-600)] shrink-0" />
+                                                            )}
+                                                        </div>
 
-                                                        {/* Dates */}
-                                                        <span className="text-[11px] font-mono text-[var(--color-fg-muted)]">
+                                                        {/* Dates & Jours ouvrés */}
+                                                        <p className="text-[10.5px] font-mono text-[var(--color-fg-muted)] leading-tight truncate">
                                                             {sem.dates}
-                                                            <span className="ml-1.5 text-[10px] opacity-70">({sem.nbJoursOuvrables}j)</span>
-                                                        </span>
+                                                        </p>
 
-                                                        {/* Statut */}
-                                                        <span className={`w-[130px] flex items-center justify-center gap-1 text-[11px] font-semibold ${statusColor}`}>
-                                                            {sem.estValidee ? (
-                                                                <CheckCircle2 size={11} />
-                                                            ) : sem.nbAnomalies > 0 ? (
-                                                                <AlertTriangle size={11} />
-                                                            ) : null}
-                                                            {sem.statut}
-                                                        </span>
-
-                                                        {/* Réalisé / Objectif */}
-                                                        <span className="w-[90px] text-center font-mono text-[11px] text-[var(--color-fg-muted)]">
-                                                            <strong className="text-[var(--color-fg)]">{sem.totalHeures}h</strong>
-                                                            <span className="opacity-50"> / {sem.seuilHeures}h</span>
-                                                        </span>
-
-                                                        {/* Indicateur sélection */}
-                                                        <span className="w-[60px] flex justify-end">
-                                                            {isSelected
-                                                                ? <span className="text-[10px] font-bold text-brand-600">sélect.</span>
-                                                                : <ArrowRight size={11} className="text-[var(--color-border-subtle)]" />
-                                                            }
-                                                        </span>
+                                                        {/* Statut épuré */}
+                                                        <div className="pt-1 border-t border-[var(--color-border-subtle)]/60 flex items-center justify-between gap-1">
+                                                            <Badge variant={badgeVariant} size="xs" className="!text-[9px] !px-1.5 font-bold truncate">
+                                                                {sem.estValidee ? 'Validée' : sem.ready ? 'Prête à valider' : sem.statut}
+                                                            </Badge>
+                                                        </div>
                                                     </button>
                                                 );
                                             })}
@@ -447,7 +412,7 @@ export default function SynthesePointagePage() {
                         {/* Action feedback */}
                         {actionFeedback && (
                             <Alert
-                                variant={actionFeedback.type}
+                                type={actionFeedback.type}
                                 title={actionFeedback.type === 'success' ? 'Opération réussie' : 'Attention'}
                                 onClose={() => setActionFeedback(null)}
                             >
@@ -470,16 +435,16 @@ export default function SynthesePointagePage() {
 
                                     <div className="flex items-center gap-4 text-xs font-mono">
                                         <span>Total Heures : <strong className="text-[var(--color-fg)]">{semKpis.totalH}h</strong></span>
-                                        <span>HS 30% : <strong className="text-indigo-600 font-bold">+{semKpis.totalHs30}h</strong></span>
-                                        <span>HS 50% : <strong className="text-indigo-700 font-bold">+{semKpis.totalHs50}h</strong></span>
-                                        <span>Retenues : <strong className="text-rose-600 font-bold">-{semKpis.totalRetenues}h</strong></span>
+                                        <span>HS 30% : <strong className="text-[var(--color-sky-700)] dark:text-[var(--color-sky-400)] font-bold">+{semKpis.totalHs30}h</strong></span>
+                                        <span>HS 50% : <strong className="text-[var(--color-purple-700)] dark:text-[var(--color-purple-400)] font-bold">+{semKpis.totalHs50}h</strong></span>
+                                        <span>Retenues : <strong className="text-[var(--color-danger-500)] font-bold">-{semKpis.totalRetenues}h</strong></span>
                                     </div>
 
                                     {/* Action de Validation de la semaine */}
                                     <div className="flex items-center gap-2">
                                         {selectedSemaine.estValidee ? (
                                             <div className="flex items-center gap-2">
-                                                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 px-3 py-1.5">
+                                                <span className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-success-600)] bg-[var(--color-success-500)]/8 dark:bg-[var(--color-success-500)]/5 border border-[var(--color-success-500)]/40 dark:border-[var(--color-success-500)]/30 px-3 py-1.5">
                                                     <CheckCircle2 size={15} />
                                                     Validée &amp; Verrouillée
                                                 </span>
@@ -487,7 +452,7 @@ export default function SynthesePointagePage() {
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={() => setShowDevaliderModal(true)}
-                                                    className="text-xs text-[var(--color-fg-muted)] hover:text-rose-600 cursor-pointer"
+                                                    className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] cursor-pointer"
                                                 >
                                                     <Unlock size={13} className="mr-1" />
                                                     Déverrouiller
@@ -504,7 +469,7 @@ export default function SynthesePointagePage() {
                                                 <span>Valider la {selectedSemaine.title}</span>
                                             </Button>
                                         ) : selectedSemaine.nbAnomalies > 0 ? (
-                                            <span className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 px-3 py-1.5">
+                                            <span className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-warning-700)] bg-[var(--color-warning-500)]/8 dark:bg-[var(--color-warning-500)]/5 border border-[var(--color-warning-500)]/40 px-3 py-1.5">
                                                 <AlertTriangle size={15} />
                                                 {selectedSemaine.nbAnomalies} anomalie(s) à résoudre
                                             </span>
@@ -542,20 +507,20 @@ export default function SynthesePointagePage() {
                                     </div>
                                 ) : (
                                     <div className="overflow-x-auto">
-                                        <Table className="w-full text-left border-collapse text-[12px]">
+                                        <Table className="w-full text-left border-collapse text-[12.5px]">
                                             <Thead>
-                                                <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+                                                <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[10.5px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
                                                     <Th className="py-2.5 px-3">Salarié</Th>
                                                     <Th className="py-2.5 px-2">Site</Th>
                                                     <Th className="py-2.5 px-1.5 text-center">Jours</Th>
-                                                    <Th className="py-2.5 px-2 text-center border-l border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/40">Base Normale</Th>
-                                                    <Th className="py-2.5 px-2 text-center bg-[var(--color-bg-subtle)]/40">Réalisées</Th>
-                                                    <Th className="py-2.5 px-2 text-center bg-[var(--color-bg-subtle)]/40 font-bold text-brand-600">Surplus Brut</Th>
-                                                    <Th className="py-2.5 px-2 text-center border-l border-[var(--color-border-subtle)]">Retards</Th>
-                                                    <Th className="py-2.5 px-2 text-center text-emerald-600 font-bold">Compensé 1:1</Th>
-                                                    <Th className="py-2.5 px-2 text-center text-rose-600 font-bold">Déficit Restant</Th>
-                                                    <Th className="py-2.5 px-2 text-center border-l border-[var(--color-border-subtle)] text-indigo-600 font-bold">HS 30 %</Th>
-                                                    <Th className="py-2.5 px-2 text-center text-indigo-700 font-bold">HS 50 %</Th>
+                                                    <Th className="py-2.5 px-2 text-center border-l border-[var(--color-border-subtle)]">Base</Th>
+                                                    <Th className="py-2.5 px-2 text-center">Réalisées</Th>
+                                                    <Th className="py-2.5 px-2 text-center bg-brand-500/[0.06] border-x border-[var(--color-border-subtle)] text-brand-700 dark:text-brand-300 font-bold">Surplus</Th>
+                                                    <Th className="py-2.5 px-2 text-center">Retards</Th>
+                                                    <Th className="py-2.5 px-2 text-center bg-[var(--color-bg-subtle)]/50">Compensé</Th>
+                                                    <Th className="py-2.5 px-2 text-center">Déficit</Th>
+                                                    <Th className="py-2.5 px-2 text-center border-l border-[var(--color-border-subtle)] bg-[var(--color-sky-500)]/[0.04]">HS 30%</Th>
+                                                    <Th className="py-2.5 px-2 text-center bg-[var(--color-purple-500)]/[0.04]">HS 50%</Th>
                                                     <Th className="py-2.5 px-2 text-center border-l border-[var(--color-border-subtle)]">Repas</Th>
                                                     <Th className="py-2.5 px-2 text-center">Déplact</Th>
                                                 </Tr>
@@ -581,36 +546,52 @@ export default function SynthesePointagePage() {
                                                         <Td className="py-2 px-2 text-center font-mono text-xs font-bold text-[var(--color-fg)]">
                                                             {row.totalHeuresTravaillees}h
                                                         </Td>
-                                                        <Td className="py-2 px-2 text-center font-mono text-xs font-bold text-brand-600">
-                                                            {row.surplusBrut > 0 ? `+${row.surplusBrut}h` : '0h'}
+                                                        <Td className="py-2 px-2 text-center font-mono text-xs bg-brand-500/[0.06] border-x border-[var(--color-border-subtle)]">
+                                                            {row.surplusBrut > 0 ? (
+                                                                <span className="font-bold text-brand-700 dark:text-brand-300">+{row.surplusBrut}h</span>
+                                                            ) : (
+                                                                <span className="text-[var(--color-fg-subtle)]">-</span>
+                                                            )}
                                                         </Td>
-                                                        <Td className="py-2 px-2 text-center font-mono text-xs border-l border-[var(--color-border-subtle)] text-amber-600">
-                                                            {row.totalMinutesRetard > 0 ? `${row.totalMinutesRetard}m` : '0m'}
+                                                        <Td className="py-2 px-2 text-center font-mono text-xs">
+                                                            {row.totalMinutesRetard > 0 ? (
+                                                                <span className="font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] bg-[var(--color-warning-500)]/10 px-1.5 py-0.5">{row.totalMinutesRetard}m</span>
+                                                            ) : (
+                                                                <span className="text-[var(--color-fg-subtle)]">-</span>
+                                                            )}
                                                         </Td>
-                                                        <Td className="py-2 px-2 text-center font-mono text-xs font-bold text-emerald-600">
+                                                        <Td className="py-2 px-2 text-center font-mono text-xs bg-[var(--color-bg-subtle)]/50">
                                                             {row.retardCompense > 0 ? (
-                                                                <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 text-[11px] font-mono">
+                                                                <span className="bg-[var(--color-success-500)]/15 text-[var(--color-success-700)] dark:text-[var(--color-success-400)] font-bold px-1.5 py-0.5 text-[11px] font-mono">
                                                                     ✓ {Math.round(row.retardCompense * 60)}m
                                                                 </span>
                                                             ) : (
-                                                                <span className="text-[var(--color-fg-subtle)]">0m</span>
+                                                                <span className="text-[var(--color-fg-subtle)]">-</span>
                                                             )}
                                                         </Td>
-                                                        <Td className="py-2 px-2 text-center font-mono text-xs font-bold">
+                                                        <Td className="py-2 px-2 text-center font-mono text-xs">
                                                             {row.heuresAbsenceRetenues > 0 ? (
-                                                                <span className="text-rose-600">-{row.heuresAbsenceRetenues}h</span>
+                                                                <span className="text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] font-bold bg-[var(--color-danger-500)]/10 px-1.5 py-0.5">-{row.heuresAbsenceRetenues}h</span>
                                                             ) : (
-                                                                <span className="text-emerald-600">0h</span>
+                                                                <span className="text-[var(--color-fg-subtle)]">-</span>
                                                             )}
                                                         </Td>
-                                                        <Td className="py-2 px-2 text-center font-mono text-xs border-l border-[var(--color-border-subtle)] text-indigo-600 font-bold">
-                                                            {row.heuresHs30 > 0 ? `+${row.heuresHs30}h` : '0h'}
+                                                        <Td className="py-2 px-2 text-center font-mono text-xs border-l border-[var(--color-border-subtle)] bg-[var(--color-sky-500)]/[0.04]">
+                                                            {row.heuresHs30 > 0 ? (
+                                                                <span className="text-[var(--color-sky-700)] dark:text-[var(--color-sky-400)] font-bold bg-[var(--color-sky-500)]/15 px-1.5 py-0.5">+{row.heuresHs30}h</span>
+                                                            ) : (
+                                                                <span className="text-[var(--color-fg-subtle)]">-</span>
+                                                            )}
                                                         </Td>
-                                                        <Td className="py-2 px-2 text-center font-mono text-xs text-indigo-700 font-bold">
-                                                            {row.heuresHs50 > 0 ? `+${row.heuresHs50}h` : '0h'}
+                                                        <Td className="py-2 px-2 text-center font-mono text-xs bg-[var(--color-purple-500)]/[0.04]">
+                                                            {row.heuresHs50 > 0 ? (
+                                                                <span className="text-[var(--color-purple-700)] dark:text-[var(--color-purple-400)] font-bold bg-[var(--color-purple-500)]/15 px-1.5 py-0.5">+{row.heuresHs50}h</span>
+                                                            ) : (
+                                                                <span className="text-[var(--color-fg-subtle)]">-</span>
+                                                            )}
                                                         </Td>
                                                         <Td className="py-2 px-2 text-center font-mono text-xs border-l border-[var(--color-border-subtle)]">
-                                                            {row.nbJoursRepas} j ({fmtMoney(row.montantRepas)})
+                                                            {row.nbJoursRepas} j {row.montantRepas > 0 ? `(${fmtMoney(row.montantRepas)})` : ''}
                                                         </Td>
                                                         <Td className="py-2 px-2 text-center font-mono text-xs">
                                                             {row.nbJoursDeplacement} j
@@ -644,7 +625,7 @@ export default function SynthesePointagePage() {
                                 Chargement de la synthèse mensuelle...
                             </div>
                         ) : error ? (
-                            <div className="p-4 text-xs font-bold text-rose-600 bg-rose-50 border-l-4 border-rose-500">
+                            <div className="p-4 text-xs font-bold text-[var(--color-danger-500)] bg-[var(--color-danger-500)]/8 border-l-4 border-[var(--color-danger-500)]">
                                 {error}
                             </div>
                         ) : (
@@ -661,7 +642,7 @@ export default function SynthesePointagePage() {
                                             <Th className="py-2.5 px-2 text-center">HS 30 %</Th>
                                             <Th className="py-2.5 px-2 text-center">HS 50 %</Th>
                                             <Th className="py-2.5 px-2 text-center">Nuit</Th>
-                                            <Th className="py-2.5 px-2 text-center text-rose-600">Déficit Retenue</Th>
+                                            <Th className="py-2.5 px-2 text-center text-[var(--color-danger-500)]">Déficit Retenue</Th>
                                             <Th className="py-2.5 px-3 text-center border-l border-[var(--color-border-subtle)]">Repas</Th>
                                             <Th className="py-2.5 px-3 text-center">Déplacement</Th>
                                         </Tr>
@@ -684,16 +665,16 @@ export default function SynthesePointagePage() {
                                                 <Td className="py-2.5 px-3 text-center font-mono font-bold border-l border-[var(--color-border-subtle)]">
                                                     {row.totalHeuresTravaillees} h
                                                 </Td>
-                                                <Td className="py-2.5 px-2 text-center font-mono text-indigo-600 font-bold">
+                                                <Td className="py-2.5 px-2 text-center font-mono text-[var(--color-sky-700)] dark:text-[var(--color-sky-400)] font-bold">
                                                     {row.heuresHs30 > 0 ? `+${row.heuresHs30}h` : '0h'}
                                                 </Td>
-                                                <Td className="py-2.5 px-2 text-center font-mono text-indigo-700 font-bold">
+                                                <Td className="py-2.5 px-2 text-center font-mono text-[var(--color-purple-700)] dark:text-[var(--color-purple-400)] font-bold">
                                                     {row.heuresHs50 > 0 ? `+${row.heuresHs50}h` : '0h'}
                                                 </Td>
                                                 <Td className="py-2.5 px-2 text-center font-mono">
                                                     {row.heuresNuitTotal > 0 ? `${row.heuresNuitTotal}h` : '0h'}
                                                 </Td>
-                                                <Td className="py-2.5 px-2 text-center font-mono font-bold text-rose-600">
+                                                <Td className="py-2.5 px-2 text-center font-mono font-bold text-[var(--color-danger-500)]">
                                                     {row.heuresAbsenceRetenues > 0 ? `-${row.heuresAbsenceRetenues}h` : '0h'}
                                                 </Td>
                                                 <Td className="py-2.5 px-3 text-center font-mono border-l border-[var(--color-border-subtle)]">

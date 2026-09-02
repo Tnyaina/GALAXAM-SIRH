@@ -142,7 +142,7 @@ export default function EmployeTable({
                                             {initial}
                                         </div>
                                         <span
-                                            className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[var(--color-surface)] ${emp.estActif ? 'bg-emerald-500' : 'bg-slate-400'
+                                            className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[var(--color-surface)] ${emp.estActif ? 'bg-[var(--color-success-500)]/80' : 'bg-[var(--color-ink-350)]'
                                                 }`}
                                         />
                                     </div>

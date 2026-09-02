@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { TrendingUp } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import Badge from '@/components/ui/data-display/Badge';
+import { Avatar } from '@/components/ui/data-display/Avatar';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import ExpandableList from './ExpandableList';
 import { fmtRelative } from '@/utils/formatters';
@@ -36,9 +37,7 @@ const ActiviteRow = memo(function ActiviteRow({ ev }) {
             to={`/employes/${ev.idEmploye}?tab=${targetTab}`}
             className="flex items-center gap-3 py-3 px-1 hover:bg-[var(--color-bg-subtle)] group"
         >
-            <div className="w-7 h-7 rounded-none bg-brand-500 text-white flex items-center justify-center shrink-0 text-[10px] font-bold shadow-xs">
-                {ev.nomPrenom?.charAt(0) || '?'}
-            </div>
+            <Avatar name={ev.nomPrenom} size="sm" shape="square" />
             <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-[var(--color-fg)] truncate">{ev.nomPrenom}</p>
                 <p className="text-[11px] text-[var(--color-fg-muted)] truncate">{ev.typeEvenement}</p>

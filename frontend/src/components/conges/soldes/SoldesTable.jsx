@@ -29,16 +29,16 @@ export default function SoldesTable({
   const canViewEmploye = hasPermission('EMPLOYE_READ');
 
   const renderSortIcon = (field) => {
-    if (tableSortField !== field) return <ArrowUpDown size={12} className="text-slate-400 opacity-40 ml-1 inline-block" />;
+    if (tableSortField !== field) return <ArrowUpDown size={12} className="text-[var(--color-fg-subtle)] opacity-40 ml-1 inline-block" />;
     return tableSortOrder === 'asc'
       ? <ArrowUp size={12} className="text-brand-600 ml-1 inline-block font-bold" />
       : <ArrowDown size={12} className="text-brand-600 ml-1 inline-block font-bold" />;
   };
 
   return (
-    <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
-      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-ink-800">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-2">
+    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4">
+      <div className="flex items-center justify-between pb-3 border-b border-[var(--color-border-subtle)]">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
           <Calendar size={14} className="text-brand-500" />
           Dernières Absences & Départs du Mois ({totalTableItems})
         </h3>
@@ -76,16 +76,16 @@ export default function SoldesTable({
           </Thead>
           <Tbody>
             {paginatedTableData.map((item, idx) => (
-              <Tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-ink-800/30 transition-colors">
-                <Td className="font-bold text-slate-900 dark:text-white">
+              <Tr key={idx} className="hover:bg-[var(--color-surface-hover)] transition-colors">
+                <Td className="font-bold text-[var(--color-fg)]">
                   {item.idEmploye && canViewEmploye ? (
                     <Link
                       to={`/employes/${item.idEmploye}?tab=conges`}
-                      className="hover:text-brand-600 hover:underline inline-flex items-center gap-1.5 text-slate-900 dark:text-white"
+                      className="hover:text-brand-600 hover:underline inline-flex items-center gap-1.5 text-[var(--color-fg)]"
                       title={`Consulter le dossier congé de ${item.employe}`}
                     >
                       {item.employe}
-                      <ExternalLink size={12} className="text-slate-400 hover:text-brand-600" />
+                      <ExternalLink size={12} className="text-[var(--color-fg-subtle)] hover:text-brand-600" />
                     </Link>
                   ) : (
                     item.employe
@@ -96,13 +96,13 @@ export default function SoldesTable({
                     {item.type}
                   </Badge>
                 </Td>
-                <Td isData className="font-mono text-xs text-slate-700 dark:text-ink-200">
+                <Td isData className="font-mono text-xs text-[var(--color-fg-muted)]">
                   {formatDate(item.originalStart)}
                 </Td>
-                <Td isData className="font-mono text-xs text-slate-700 dark:text-ink-200">
+                <Td isData className="font-mono text-xs text-[var(--color-fg-muted)]">
                   {formatDate(item.originalEnd)}
                 </Td>
-                <Td isData className="font-mono text-xs font-bold text-slate-900 dark:text-white">
+                <Td isData className="font-mono text-xs font-bold text-[var(--color-fg)]">
                   {item.dureeJours} j
                 </Td>
                 <Td>

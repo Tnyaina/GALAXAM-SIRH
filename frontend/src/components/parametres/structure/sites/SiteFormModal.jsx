@@ -110,7 +110,7 @@ export default function SiteFormModal({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-1.5">
-                                <Sun size={14} className="text-amber-500 shrink-0" />
+                                <Sun size={14} className="text-[var(--color-warning-500)] shrink-0" />
                                 <span>Plage 1 : Matinée</span>
                             </div>
                             <div className="space-y-2">

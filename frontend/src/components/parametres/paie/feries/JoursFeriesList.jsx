@@ -79,7 +79,7 @@ export default function JoursFeriesList({
                                         </button>
                                         <button
                                             onClick={() => onDelete && onDelete(f)}
-                                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-none cursor-pointer"
+                                            className="p-1.5 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer"
                                             title="Supprimer ce jour férié"
                                         >
                                             <Trash2 size={15} />

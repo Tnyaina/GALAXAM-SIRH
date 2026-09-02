@@ -47,7 +47,7 @@ const NotifRow = memo(function NotifRow({ notif, onClick }) {
             <div className="flex items-start gap-3">
                 <div className={`w-8 h-8 rounded-none flex items-center justify-center shrink-0 border ${
                     notif.priorite === 'CRITIQUE' || notif.priorite === 'HAUTE'
-                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
+                        ? 'bg-[var(--color-warning-500)]/10 border-[var(--color-warning-500)]/30 text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]'
                         : 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]'
                 }`}>
                     <Icon size={15} strokeWidth={2} />

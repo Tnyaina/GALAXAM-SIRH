@@ -29,16 +29,16 @@ export default function CarriereHeaderCard({
     return (
         <div className="space-y-4">
             {/* 1. Situation Contractuelle & Rémunération (Format Horizontal Aéré selon le Mockup) */}
-            <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4">
                 <div className="flex justify-between items-center">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
                         Situation Contractuelle & Rémunération
                     </h3>
                     {onRefresh && (
                         <button
                             type="button"
                             onClick={onRefresh}
-                            className="px-3 py-1 text-xs font-semibold border border-slate-200 dark:border-ink-700 hover:bg-slate-50 dark:hover:bg-ink-800 text-slate-700 dark:text-ink-200 transition-colors"
+                            className="px-3 py-1 text-xs font-semibold border border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)] text-[var(--color-fg-muted)] transition-colors cursor-pointer"
                         >
                             Actualiser
                         </button>
@@ -48,7 +48,7 @@ export default function CarriereHeaderCard({
                 {/* Métadonnées horizontales réparties */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 pt-1">
                     <div>
-                        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400 mb-1.5">Statut actuel</p>
+                        <p className="text-[11px] font-medium text-[var(--color-fg-muted)] mb-1.5">Statut actuel</p>
                         {contratActif ? (
                             <Badge variant="success" size="sm" className="font-bold">Actif</Badge>
                         ) : brouillonWf ? (
@@ -58,30 +58,30 @@ export default function CarriereHeaderCard({
                         )}
                     </div>
                     <div>
-                        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400 mb-1">Type de contrat</p>
-                        <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                        <p className="text-[11px] font-medium text-[var(--color-fg-muted)] mb-1">Type de contrat</p>
+                        <p className="text-xs sm:text-sm font-bold text-[var(--color-fg)] truncate">
                             {contratActif?.libelleTypeContrat || '—'}
                         </p>
                     </div>
                     <div>
-                        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400 mb-1">Intervenant</p>
-                        <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                        <p className="text-[11px] font-medium text-[var(--color-fg-muted)] mb-1">Intervenant</p>
+                        <p className="text-xs sm:text-sm font-bold text-[var(--color-fg)] truncate">
                             {contratActif?.libelleTypeIntervenant || '—'}
                         </p>
                     </div>
                     <div>
-                        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400 mb-1">Date d'entrée</p>
-                        <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                        <p className="text-[11px] font-medium text-[var(--color-fg-muted)] mb-1">Date d'entrée</p>
+                        <p className="text-xs sm:text-sm font-bold text-[var(--color-fg)]">
                             {contratActif?.dateDebut ? fmtDate(contratActif.dateDebut) : '—'}
                         </p>
                     </div>
                     <div>
-                        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400 mb-1">Ancienneté</p>
-                        <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                        <p className="text-[11px] font-medium text-[var(--color-fg-muted)] mb-1">Ancienneté</p>
+                        <p className="text-xs sm:text-sm font-bold text-[var(--color-fg)]">
                             {employe?.ancienneteEffectiveTexte || contratActif?.ancienneteEffectiveTexte || '—'}
                         </p>
                         {(employe?.nombreContratsChaine || contratActif?.nombreContratsChaine) > 1 && (
-                            <p className="text-[10px] text-slate-400 mt-0.5">
+                            <p className="text-[10px] text-[var(--color-fg-subtle)] mt-0.5">
                                 Cumul ({employe?.nombreContratsChaine || contratActif?.nombreContratsChaine} contrats)
                             </p>
                         )}
@@ -89,12 +89,12 @@ export default function CarriereHeaderCard({
                 </div>
 
                 {/* Séparateur doux & Ligne Salaire */}
-                <div className="pt-3 border-t border-slate-100 dark:border-ink-800 flex items-baseline gap-2 text-xs">
-                    <span className="text-slate-500 dark:text-ink-400">Salaire actuel ({periodiciteLabel})</span>
-                    <span className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white font-data">
+                <div className="pt-3 border-t border-[var(--color-border-subtle)] flex items-baseline gap-2 text-xs">
+                    <span className="text-[var(--color-fg-muted)]">Salaire actuel ({periodiciteLabel})</span>
+                    <span className="text-sm sm:text-base font-extrabold text-[var(--color-fg)] font-data">
                         {salaireValeur || '—'}
                     </span>
-                    <span className="text-slate-400 text-[11px]">{rawMode}</span>
+                    <span className="text-[var(--color-fg-subtle)] text-[11px]">{rawMode}</span>
                 </div>
             </div>
 

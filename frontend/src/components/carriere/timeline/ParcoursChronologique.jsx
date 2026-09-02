@@ -68,7 +68,7 @@ export default function ParcoursChronologique({
                         label: `Évolution de poste : ${prev.libelleFonction} → ${current.libelleFonction}`,
                         valeur: current.libelleFonction,
                         ancienneValeur: prev.libelleFonction,
-                        icon: <TrendingUp size={12} className="text-indigo-500" />
+                        icon: <TrendingUp size={12} className="text-[var(--color-info-500)]" />
                     });
                 }
 
@@ -78,7 +78,7 @@ export default function ParcoursChronologique({
                         type: 'SITE',
                         label: `Mobilité de site : ${prev.libelleSite} → ${current.libelleSite}`,
                         valeur: current.libelleSite,
-                        icon: <MapPin size={12} className="text-amber-500" />
+                        icon: <MapPin size={12} className="text-[var(--color-warning-500)]" />
                     });
                 }
 
@@ -94,7 +94,7 @@ export default function ParcoursChronologique({
                         type: 'SALAIRE',
                         label: `Révision salariale : ${salCurrent.toLocaleString('fr-FR')} Ar (${isAugmentation ? '+' : ''}${diffMontant.toLocaleString('fr-FR')} Ar${diffPct ? ` · ${isAugmentation ? '+' : ''}${diffPct}%` : ''})`,
                         valeur: `${salCurrent.toLocaleString('fr-FR')} Ar`,
-                        icon: <DollarSign size={12} className="text-emerald-500" />
+                        icon: <DollarSign size={12} className="text-[var(--color-success-500)]" />
                     });
                 }
 
@@ -183,9 +183,9 @@ export default function ParcoursChronologique({
         if (isActif) return <CheckCircle2 size={15} className="text-success-600 dark:text-success-400" />;
         if (code.includes('EMBAUCHE')) return <Briefcase size={15} className="text-brand-500" />;
         if (code.includes('CDI')) return <Award size={15} className="text-success-600 dark:text-success-400" />;
-        if (code.includes('PROMOTION') || code.includes('REVALORISATION')) return <TrendingUp size={15} className="text-indigo-500" />;
-        if (code.includes('MUTATION')) return <MapPin size={15} className="text-amber-500" />;
-        if (code.includes('CONFIRMATION')) return <FileCheck size={15} className="text-emerald-500" />;
+        if (code.includes('PROMOTION') || code.includes('REVALORISATION')) return <TrendingUp size={15} className="text-[var(--color-info-500)]" />;
+        if (code.includes('MUTATION')) return <MapPin size={15} className="text-[var(--color-warning-500)]" />;
+        if (code.includes('CONFIRMATION')) return <FileCheck size={15} className="text-[var(--color-success-500)]" />;
         if (code.includes('RENOUVELLEMENT')) return <RotateCw size={15} className="text-sky-500" />;
         return <FileText size={15} className="text-ink-500" />;
     };
@@ -409,7 +409,7 @@ export default function ParcoursChronologique({
                                                         ${isWfActif
                                                             ? 'bg-white dark:bg-ink-900 border-ink-200 dark:border-ink-700'
                                                             : isWfBrouillon
-                                                                ? 'bg-amber-500/5 dark:bg-amber-950/20 border-amber-500/30'
+                                                                ? 'bg-[var(--color-warning-500)]/5 dark:bg-[var(--color-warning-500)]/10 border-[var(--color-warning-500)]/30'
                                                                 : isWfAnnule
                                                                     ? 'bg-ink-50/40 dark:bg-ink-950/40 border-ink-150 dark:border-ink-800 opacity-75'
                                                                     : 'bg-ink-50/40 dark:bg-ink-950/40 border-ink-150 dark:border-ink-800'

@@ -4,9 +4,9 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 
 const InfoBlock = ({ label, value, mono = false, icon, href }) => (
     <div className="space-y-1">
-        <p className="text-[11px] font-medium text-slate-500 dark:text-ink-400">{label}</p>
+        <p className="text-[11px] font-medium text-[var(--color-fg-muted)]">{label}</p>
         <div className="flex items-center gap-1.5">
-            {icon && <span className="text-slate-400 dark:text-ink-500 shrink-0">{icon}</span>}
+            {icon && <span className="text-[var(--color-fg-subtle)] shrink-0">{icon}</span>}
             {href ? (
                 <a
                     href={href}
@@ -15,7 +15,7 @@ const InfoBlock = ({ label, value, mono = false, icon, href }) => (
                     {value || '—'}
                 </a>
             ) : (
-                <p className={`text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white truncate ${mono ? 'font-mono' : ''}`}>
+                <p className={`text-xs sm:text-[13px] font-bold text-[var(--color-fg)] truncate ${mono ? 'font-mono' : ''}`}>
                     {value || '—'}
                 </p>
             )}
@@ -40,9 +40,9 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
     return (
         <div className="space-y-4">
             {/* Carte 1 : État Civil & Identité */}
-            <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-ink-800">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-2">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--color-border-subtle)]">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
                         <User size={14} className="text-brand-500" />
                         État Civil & Identité Juridique
                     </h3>
@@ -77,8 +77,8 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
             </div>
 
             {/* Carte 2 : Domicile & Coordonnées */}
-            <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-ink-800">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2 pb-3 border-b border-[var(--color-border-subtle)]">
                     <Phone size={14} className="text-brand-500" />
                     Domicile & Coordonnées de Contact
                 </h3>
@@ -107,9 +107,9 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
             </div>
 
             {/* Carte 3 : Sécurité Sociale & Coordonnées Bancaires */}
-            <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-ink-800">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-2">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--color-border-subtle)]">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
                         <Landmark size={14} className="text-brand-500" />
                         Sécurité Sociale & Coordonnées Bancaires
                     </h3>
@@ -126,7 +126,7 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
                 </div>
 
                 <div className="pt-2">
-                    <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2.5">
+                    <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-2.5">
                         Comptes Bancaires ({comptes.length})
                     </h4>
                     {comptes.length > 0 ? (
@@ -143,14 +143,14 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
                             <Tbody>
                                 {comptes.map((cb, i) => (
                                     <Tr key={i}>
-                                        <Td className="font-bold text-slate-900 dark:text-white">
+                                        <Td className="font-bold text-[var(--color-fg)]">
                                             {cb.nomBanque || cb.libelleBanque || cb.codeBanque || (cb.idBanque ? `Banque N°${cb.idBanque}` : '—')}
                                         </Td>
-                                        <Td className="text-slate-600 dark:text-ink-300">{cb.agence || '—'}</Td>
-                                        <Td isData className="font-mono text-xs font-bold text-slate-900 dark:text-white">
+                                        <Td className="text-[var(--color-fg-muted)]">{cb.agence || '—'}</Td>
+                                        <Td isData className="font-mono text-xs font-bold text-[var(--color-fg)]">
                                             {cb.numCompteRib || '—'}
                                         </Td>
-                                        <Td className="text-slate-600 dark:text-ink-300">{cb.titulaireCompte || '—'}</Td>
+                                        <Td className="text-[var(--color-fg-muted)]">{cb.titulaireCompte || '—'}</Td>
                                         <Td align="center">
                                             {cb.estPrincipal ? (
                                                 <Badge variant="success" size="xs" className="font-bold">Principal</Badge>
@@ -163,7 +163,7 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
                             </Tbody>
                         </Table>
                     ) : (
-                        <p className="text-xs text-slate-400 p-3 bg-slate-50/50 dark:bg-ink-950/30 border border-slate-200/60 dark:border-ink-800 text-center">
+                        <p className="text-xs text-[var(--color-fg-muted)] p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-center">
                             Aucun compte bancaire enregistré pour ce collaborateur.
                         </p>
                     )}

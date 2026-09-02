@@ -37,7 +37,7 @@ export default function PointageTransmissionDafSection({
                         Transmission à la DAF
                     </span>
                     {allDone ? (
-                        <span className="text-[11px] font-semibold px-1.5 py-0.5 bg-emerald-500/10 text-emerald-700 font-mono">
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-400)] font-mono">
                             Prêt à transmettre
                         </span>
                     ) : (
@@ -65,7 +65,7 @@ export default function PointageTransmissionDafSection({
                                 {conditions.map((c) => (
                                     <li key={c.id} className="flex items-center gap-2 text-[12.5px]">
                                         {c.done ? (
-                                            <CheckSquare size={13} className="text-emerald-600 shrink-0" />
+                                            <CheckSquare size={13} className="text-[var(--color-success-600)] shrink-0" />
                                         ) : (
                                             <Square size={13} className="text-[var(--color-border-strong)] shrink-0" />
                                         )}

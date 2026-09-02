@@ -61,7 +61,7 @@ export default function Login() {
     };
 
     return (
-        <main className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg)] px-4 py-12">
+        <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg)] px-4 py-12 focus:outline-none">
             <SEO title="Connexion" description="Connectez-vous à l'intranet RH de Galaxam." />
             <div className="w-full max-w-md">
                 <Card shadow="sm" bordered className="border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
@@ -77,10 +77,10 @@ export default function Login() {
                                 decoding="async"
                             />
                             <div className="text-center flex flex-col items-center justify-center -mt-2">
-                                <h1 className="text-[26px] font-black tracking-tighter text-[#012f41] uppercase leading-none">
+                                <span className="text-[26px] font-black tracking-tighter text-[var(--color-fg)] uppercase leading-none block">
                                     Galaxam
-                                </h1>
-                                <span className="text-sm font-light tracking-[0.25em] text-gray-500 uppercase mt-0.5 ml-1">
+                                </span>
+                                <span className="text-sm font-light tracking-[0.25em] text-[var(--color-fg-muted)] uppercase mt-0.5 ml-1">
                                     Logistics
                                 </span>
                             </div>

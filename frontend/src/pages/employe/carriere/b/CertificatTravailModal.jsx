@@ -175,7 +175,7 @@ export default function CertificatTravailModal({
                             <button
                                 type="button"
                                 onClick={() => setTypeAnciennete('contrat')}
-                                className={`px-3 py-1 text-xs font-semibold rounded-xs  cursor-pointer ${
+                                className={`px-3 py-1 text-xs font-semibold rounded-none  cursor-pointer ${
                                     typeAnciennete === 'contrat'
                                         ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs font-bold'
                                         : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-white'
@@ -186,7 +186,7 @@ export default function CertificatTravailModal({
                             <button
                                 type="button"
                                 onClick={() => setTypeAnciennete('globale')}
-                                className={`px-3 py-1 text-xs font-semibold rounded-xs  cursor-pointer ${
+                                className={`px-3 py-1 text-xs font-semibold rounded-none  cursor-pointer ${
                                     typeAnciennete === 'globale'
                                         ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs font-bold'
                                         : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-white'

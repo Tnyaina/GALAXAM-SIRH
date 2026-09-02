@@ -118,13 +118,13 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
   return (
     <div className="space-y-5 font-sans">
       {/* En-tête de l'onglet avec CTA Soumettre Congé */}
-      <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-[var(--color-surface)] dark:bg-[var(--color-surface)] border border-[var(--color-border-subtle)] dark:border-[var(--color-border)] shadow-xs p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-2">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] dark:text-white flex items-center gap-2">
             <CalendarDays size={15} className="text-brand-500" />
             Situation Individuelle des Congés & Absences
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-[var(--color-fg-subtle)] mt-0.5">
             Suivi des droits légaux, compteurs et historique des demandes
           </p>
         </div>
@@ -136,7 +136,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
             onClick={loadData}
             loading={loading}
             iconLeft={<RefreshCw size={13} />}
-            className="text-slate-600 hover:text-slate-900"
+            className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
           >
             Actualiser
           </Button>
@@ -160,14 +160,14 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
       <SoldeCongeWidget soldeData={soldeEmploye} consommationPool={consommationPool} employe={employe} />
 
       {/* Navigation Sous-onglets sobre */}
-      <div className="flex border-b border-slate-200 dark:border-ink-800 gap-6 text-xs font-bold uppercase tracking-wider">
+      <div className="flex border-b border-[var(--color-border-subtle)] dark:border-[var(--color-border-subtle)] gap-6 text-xs font-bold uppercase tracking-wider">
         <button
           type="button"
           onClick={() => setActiveSubTab('demandes')}
           className={`pb-3 transition-colors cursor-pointer ${
             activeSubTab === 'demandes'
               ? 'border-b-2 border-brand-500 text-brand-600 font-extrabold'
-              : 'text-slate-500 hover:text-slate-800 dark:hover:text-white border-b-2 border-transparent'
+              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] dark:hover:text-white border-b-2 border-transparent'
           }`}
         >
           Demandes de Congé ({totalDemandes})
@@ -178,7 +178,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
           className={`pb-3 transition-colors cursor-pointer ${
             activeSubTab === 'registre'
               ? 'border-b-2 border-brand-500 text-brand-600 font-extrabold'
-              : 'text-slate-500 hover:text-slate-800 dark:hover:text-white border-b-2 border-transparent'
+              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] dark:hover:text-white border-b-2 border-transparent'
           }`}
         >
           Registre des Mouvements de Solde
@@ -186,13 +186,13 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
       </div>
 
       {activeSubTab === 'demandes' && (
-        <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 sm:p-6 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-ink-800">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-2">
+        <div className="bg-[var(--color-surface)] dark:bg-[var(--color-surface)] border border-[var(--color-border-subtle)] dark:border-[var(--color-border)] shadow-xs p-5 sm:p-6 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[var(--color-border-subtle)] dark:border-[var(--color-border-subtle)]">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] dark:text-white flex items-center gap-2">
               <Calendar size={14} className="text-brand-500" />
               Historique des Demandes de Congé
             </h4>
-            <span className="text-xs text-slate-400 font-mono">
+            <span className="text-xs text-[var(--color-fg-subtle)] font-mono">
               {totalDemandes} demande{totalDemandes > 1 ? 's' : ''} enregistrée{totalDemandes > 1 ? 's' : ''}
             </span>
           </div>
@@ -220,13 +220,13 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
                 </Thead>
                 <Tbody>
                   {demandesEmploye.map((d) => (
-                    <Tr key={d.idDemandeConge} className="hover:bg-slate-50/60 dark:hover:bg-ink-800/30 transition-colors">
+                    <Tr key={d.idDemandeConge} className="hover:bg-[var(--color-bg-subtle)]/60 dark:hover:bg-ink-800/30 transition-colors">
                       <Td>
                         <Badge variant="default" size="xs" className="font-semibold">
                           {d.libelleTypeConge || d.codeTypeConge}
                         </Badge>
                         {d.libelleMotifEvenement && (
-                          <div className="text-[11px] text-amber-700 dark:text-amber-300 font-medium mt-0.5">{d.libelleMotifEvenement}</div>
+                          <div className="text-[11px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-medium mt-0.5">{d.libelleMotifEvenement}</div>
                         )}
                       </Td>
                       <Td>
@@ -236,15 +236,15 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
                           size="xs"
                         />
                         {(d.isRefuse || d.codeStatutDemande === 'REFUSE') && d.motifRefus && (
-                          <div className="text-[10px] text-rose-500 font-medium mt-1 max-w-xs leading-tight" title={d.motifRefus}>
+                          <div className="text-[10px] text-[var(--color-danger-500)] font-medium mt-1 max-w-xs leading-tight" title={d.motifRefus}>
                             Motif : {d.motifRefus}
                           </div>
                         )}
                       </Td>
-                      <Td className="font-mono text-xs text-slate-700 dark:text-ink-200">
-                        {formatDateOnly(d.dateDebut)} <span className="text-slate-400">→</span> {formatDateOnly(d.dateFin)}
+                      <Td className="font-mono text-xs text-[var(--color-fg)] dark:text-[var(--color-fg)]">
+                        {formatDateOnly(d.dateDebut)} <span className="text-[var(--color-fg-subtle)]">→</span> {formatDateOnly(d.dateFin)}
                       </Td>
-                      <Td className="text-center font-mono font-bold text-slate-900 dark:text-white text-xs">
+                      <Td className="text-center font-mono font-bold text-[var(--color-fg)] dark:text-white text-xs">
                         {d.nbJoursDecomptes} j
                       </Td>
                       <Td className="space-y-1">
@@ -258,7 +258,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
                           <Badge variant="warning" size="xs">Solde Négatif</Badge>
                         )}
                         {d.commentaire && (
-                          <div className="text-[11px] text-slate-400 max-w-xs truncate" title={d.commentaire}>
+                          <div className="text-[11px] text-[var(--color-fg-subtle)] max-w-xs truncate" title={d.commentaire}>
                             {d.commentaire}
                           </div>
                         )}
@@ -280,7 +280,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
                               variant="ghost"
                               size="xs"
                               onClick={() => setConfirmAnnulerState({ isOpen: true, idDemande: d.idDemandeConge })}
-                              className="text-rose-600 hover:text-rose-700"
+                              className="text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)]"
                             >
                               Annuler
                             </Button>

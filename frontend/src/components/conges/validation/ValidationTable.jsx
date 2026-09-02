@@ -84,20 +84,20 @@ export default function ValidationTable({
                 return (
                   <Tr
                     key={d.idDemandeConge}
-                    className="hover:bg-slate-50/60 dark:hover:bg-ink-800/30 transition-colors group"
+                    className="hover:bg-[var(--color-surface-hover)] transition-colors group"
                   >
                     {/* Référence */}
-                    <Td className="font-mono text-xs text-slate-500 whitespace-nowrap">
+                    <Td className="font-mono text-xs text-[var(--color-fg-subtle)] whitespace-nowrap">
                       #{d.idDemandeConge}
                     </Td>
 
                     {/* Collaborateur */}
                     <Td>
-                      <div className="font-bold text-slate-900 dark:text-white text-xs leading-tight">
+                      <div className="font-bold text-[var(--color-fg)] text-xs leading-tight">
                         {employeName}
                       </div>
                       {d.matricule && (
-                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                        <div className="text-[11px] text-[var(--color-fg-subtle)] font-mono mt-0.5">
                           Matr. {d.matricule}
                         </div>
                       )}
@@ -110,7 +110,7 @@ export default function ValidationTable({
                           {d.libelleTypeConge || d.codeTypeConge}
                         </Badge>
                         {d.libelleMotifEvenement && (
-                          <span className="text-[11px] text-amber-700 dark:text-amber-300 font-medium block">
+                          <span className="text-[11px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-medium block">
                             {d.libelleMotifEvenement}
                           </span>
                         )}
@@ -119,8 +119,8 @@ export default function ValidationTable({
 
                     {/* Période */}
                     <Td className="text-xs whitespace-nowrap">
-                      <div className="font-medium text-slate-800 dark:text-ink-200">
-                        {formatDate(d.dateDebut)} <span className="text-slate-400">→</span> {formatDate(d.dateFin)}
+                      <div className="font-medium text-[var(--color-fg)]">
+                        {formatDate(d.dateDebut)} <span className="text-[var(--color-fg-subtle)]">→</span> {formatDate(d.dateFin)}
                       </div>
                     </Td>
 
@@ -129,16 +129,16 @@ export default function ValidationTable({
                       {d.estDemiJournee ? (
                         <div>
                           <span className="font-mono font-bold text-brand-600 text-xs">0,5 j</span>
-                          <div className="text-[10px] text-slate-400">
+                          <div className="text-[10px] text-[var(--color-fg-subtle)]">
                             {d.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}
                           </div>
                         </div>
                       ) : (
                         <div>
-                          <span className="font-mono font-bold text-slate-900 dark:text-white text-xs">
+                          <span className="font-mono font-bold text-[var(--color-fg)] text-xs">
                             {d.nbJoursDecomptes}
                           </span>
-                          <span className="text-xs text-slate-500"> j ouvrés</span>
+                          <span className="text-xs text-[var(--color-fg-muted)]"> j ouvrés</span>
                         </div>
                       )}
                     </Td>
@@ -149,7 +149,7 @@ export default function ValidationTable({
                         <StatusBadge status={d.codeStatutDemande || d.statutCode} size="xs" />
                         <div className="flex flex-wrap gap-1">
                           {isRefuse && d.motifRefus && (
-                            <p className="text-[10px] text-rose-500 font-medium truncate max-w-xs" title={d.motifRefus}>
+                            <p className="text-[10px] text-[var(--color-danger-500)] font-medium truncate max-w-xs" title={d.motifRefus}>
                               Motif : {d.motifRefus}
                             </p>
                           )}

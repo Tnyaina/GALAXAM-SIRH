@@ -162,7 +162,7 @@ export default function DatesCongeSection({
                   if (setDerogationDelaiPreavis) setDerogationDelaiPreavis(true);
                   if (setShowOptionsAvancees) setShowOptionsAvancees(true);
                 }}
-                className="text-xs font-bold underline text-[var(--color-warning-500)] hover:text-amber-700 cursor-pointer block"
+                className="text-xs font-bold underline text-[var(--color-warning-500)] hover:text-[var(--color-warning-700)] cursor-pointer block"
               >
                 Activer la dérogation de préavis RH
               </button>

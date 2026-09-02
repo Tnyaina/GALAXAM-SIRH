@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
+import { Avatar } from '@/components/ui/data-display/Avatar';
 import { fmtDate } from '@/components/dashboard/DashboardUtils';
 
 function SupervisionEmployeeGroup({
@@ -31,10 +32,8 @@ function SupervisionEmployeeGroup({
                         : 'hover:bg-[var(--color-bg-subtle)]/60'
                 }`}
             >
-                {/* Avatar Initiale */}
-                <div className="w-9 h-9 bg-brand-500 text-white font-bold flex items-center justify-center text-xs shrink-0 rounded-none shadow-xs">
-                    {group.nomPrenom?.charAt(0) || 'E'}
-                </div>
+                {/* Avatar */}
+                <Avatar name={group.nomPrenom} size="md" shape="square" />
 
                 {/* Identité & Métadonnées */}
                 <div className="flex-1 min-w-0">

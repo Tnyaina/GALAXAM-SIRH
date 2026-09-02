@@ -87,7 +87,7 @@ export default function PointageWeeklySyntheseSection({
                                             isReady
                                                 ? 'border-brand-500/40 bg-brand-500/5'
                                                 : hasAnomalies
-                                                ? 'border-amber-500/40 bg-amber-500/5'
+                                                ? 'border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/5'
                                                 : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] opacity-70'
                                         }`}
                                     >
@@ -96,9 +96,9 @@ export default function PointageWeeklySyntheseSection({
                                                 {w.title}
                                             </p>
                                             {isReady ? (
-                                                <CheckCircle2 size={12} className="text-emerald-600" />
+                                                <CheckCircle2 size={12} className="text-[var(--color-success-600)]" />
                                             ) : hasAnomalies ? (
-                                                <AlertTriangle size={12} className="text-amber-600" />
+                                                <AlertTriangle size={12} className="text-[var(--color-warning-600)]" />
                                             ) : null}
                                         </div>
 
@@ -106,7 +106,7 @@ export default function PointageWeeklySyntheseSection({
                                             {w.dates} ({w.nbJoursOuvrables}j)
                                         </p>
 
-                                        <p className={`text-[13px] font-bold mt-1 ${isReady ? 'text-brand-700 dark:text-brand-300' : hasAnomalies ? 'text-amber-700' : 'text-[var(--color-fg)]'}`}>
+                                        <p className={`text-[13px] font-bold mt-1 ${isReady ? 'text-brand-700 dark:text-brand-300' : hasAnomalies ? 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]' : 'text-[var(--color-fg)]'}`}>
                                             {w.statut}
                                         </p>
 

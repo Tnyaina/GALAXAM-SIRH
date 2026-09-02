@@ -243,21 +243,23 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                     )}
                 </nav>
 
-                {/* Pied de Sidebar : Profil utilisateur avec Avatar square, Badge haute lisibilité & Bouton déconnexion */}
+                {/* Pied de Sidebar : Profil utilisateur haute lisibilité & Bouton déconnexion */}
                 {user && (
-                    <div className={`border-t border-[var(--color-sidebar-border)] p-2.5 shrink-0 bg-[var(--color-sidebar-bg)] ${collapsed ? 'lg:flex lg:flex-col lg:items-center' : ''}`}>
-                        <div className="flex items-center justify-between gap-2 w-full">
-                            <div className="flex items-center gap-2 min-w-0">
-                                <Avatar name={user?.identifiant || 'Utilisateur'} size="xs" shape="square" status="online" />
+                    <div className={`border-t border-[var(--color-sidebar-border)] p-3 shrink-0 bg-[var(--color-sidebar-bg)] ${collapsed ? 'lg:flex lg:flex-col lg:items-center' : ''}`}>
+                        <div className="flex items-center justify-between gap-2.5 w-full">
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <Avatar name={user?.identifiant || 'Utilisateur'} size="sm" shape="square" />
                                 {!collapsed && (
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-[11px] font-bold truncate text-[var(--color-sidebar-fg-active)]">
+                                        <p className="text-[12px] font-bold truncate text-white leading-tight">
                                             {user?.identifiant}
                                         </p>
                                         {user?.role && (
-                                            <Badge size="sm" className="mt-0.5 !text-[8.5px] !px-1.5 !py-0 font-bold !text-sky-200 !bg-sky-500/20 !border-sky-400/30">
-                                                {user.role}
-                                            </Badge>
+                                            <div className="mt-1">
+                                                <span className="inline-block text-[9px] font-mono font-bold tracking-wider uppercase px-1.5 py-0.5 bg-white/15 text-white border border-white/25">
+                                                    {user.role}
+                                                </span>
+                                            </div>
                                         )}
                                     </div>
                                 )}
@@ -266,20 +268,20 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                             {!collapsed ? (
                                 <Button
                                     variant="ghost"
-                                    size="xs"
+                                    size="sm"
                                     onClick={handleLogout}
                                     title="Déconnexion"
-                                    className="!p-1 !text-[var(--color-sidebar-fg)] hover:!text-red-400 hover:!bg-white/10 shrink-0"
-                                    iconLeft={<LogOut size={14} />}
+                                    className="!p-1.5 !text-[var(--color-sidebar-fg)] hover:!text-red-400 hover:!bg-white/10 shrink-0"
+                                    iconLeft={<LogOut size={15} />}
                                 />
                             ) : (
                                 <Button
                                     variant="ghost"
-                                    size="xs"
+                                    size="sm"
                                     onClick={handleLogout}
                                     title="Déconnexion"
-                                    className="hidden lg:flex mt-1.5 !p-1 !text-[var(--color-sidebar-fg)] hover:!text-red-400 hover:!bg-white/10 shrink-0"
-                                    iconLeft={<LogOut size={14} />}
+                                    className="hidden lg:flex mt-2 !p-1.5 !text-[var(--color-sidebar-fg)] hover:!text-red-400 hover:!bg-white/10 shrink-0"
+                                    iconLeft={<LogOut size={15} />}
                                 />
                             )}
                         </div>

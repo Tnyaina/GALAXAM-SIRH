@@ -227,7 +227,7 @@ export default function ParametresCongesTab() {
                           </Td>
                           <Td className="text-center font-data text-xs font-semibold">
                             {type.exigeAncienneteMinMois > 0 ? (
-                              <span className="text-amber-600 dark:text-amber-400 font-bold">{type.exigeAncienneteMinMois} mois ({type.exigeAncienneteMinMois / 12} an)</span>
+                              <span className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-bold">{type.exigeAncienneteMinMois} mois ({type.exigeAncienneteMinMois / 12} an)</span>
                             ) : (
                               <span className="text-[var(--color-fg-subtle)]">Aucune (0m)</span>
                             )}
@@ -352,9 +352,9 @@ export default function ParametresCongesTab() {
                   </div>
                 </CardHeader>
                 <CardBody className="space-y-6">
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
-                    <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={20} />
-                    <div className="text-xs space-y-1.5 text-amber-900 dark:text-amber-200">
+                  <div className="p-4 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 flex items-start gap-3">
+                    <AlertTriangle className="text-[var(--color-warning-600)] shrink-0 mt-0.5" size={20} />
+                    <div className="text-xs space-y-1.5 text-[var(--color-warning-700)] dark:text-[var(--color-warning-200)]">
                       <p className="font-bold text-sm">Prescription légale après 3 ans (36 mois) :</p>
                       <p className="leading-relaxed">
                         Conformément au Code du travail malgache, les jours de congés payés acquis par un salarié doivent être pris dans un délai maximum de <strong>3 ans</strong> suivant leur ouverture de droit. Les droits non consommés au-delà de cette échéance sont légalement forclos et purgés du solde.

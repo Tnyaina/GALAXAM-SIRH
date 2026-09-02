@@ -14,9 +14,9 @@ const fmtDate = (d) => {
 function MiniRow({ label, value, isMono = false }) {
     if (!value || value === '-') return null;
     return (
-        <div className="flex items-baseline justify-between gap-4 py-1.5 text-xs border-b border-slate-100 dark:border-ink-800/60 last:border-0">
-            <span className="text-slate-500 dark:text-ink-400 text-xs whitespace-nowrap">{label}</span>
-            <span className={`text-right truncate font-bold text-slate-800 dark:text-white ${isMono ? 'font-mono' : ''}`}>
+        <div className="flex items-baseline justify-between gap-4 py-1.5 text-xs border-b border-[var(--color-border-subtle)] last:border-0">
+            <span className="text-[var(--color-fg-muted)] text-xs whitespace-nowrap">{label}</span>
+            <span className={`text-right truncate font-bold text-[var(--color-fg)] ${isMono ? 'font-mono' : ''}`}>
                 {value}
             </span>
         </div>
@@ -37,8 +37,8 @@ export default function EmployeSideSummaryPanel({
     return (
         <div className="space-y-4">
             {/* 1. Affectation & Hiérarchie */}
-            <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
                     Affectation & Hiérarchie
                 </h3>
                 <div className="space-y-1">
@@ -49,9 +49,9 @@ export default function EmployeSideSummaryPanel({
             </div>
 
             {/* 2. Statut Contractuel */}
-            <div className="bg-white dark:bg-ink-900 border border-slate-200/90 dark:border-ink-700 shadow-xs p-5 space-y-3">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 space-y-3">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
                         Statut Contractuel
                     </h3>
                     <Badge variant={hasContract ? "success" : "default"} size="sm" className="font-bold">

@@ -11,6 +11,7 @@ import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import { Avatar } from '@/components/ui/data-display/Avatar';
 import { fmtDate, fmtAriary } from '@/components/dashboard/DashboardUtils';
 import useDebounce from '@/hooks/useDebounce';
 
@@ -178,7 +179,7 @@ function SupervisionMouvementsTab() {
             </div>
 
             {/* Erreur */}
-            {error && <Alert variant="danger" title="Erreur">{error}</Alert>}
+            {error && <Alert type="error" title="Erreur">{error}</Alert>}
 
             {/* Skeleton */}
             {loading && <SkeletonTable rows={8} />}
@@ -241,9 +242,7 @@ function SupervisionMouvementsTab() {
                                     {/* Collaborateur */}
                                     <Td>
                                         <div className="flex items-center gap-2.5">
-                                            <div className="w-7 h-7 bg-brand-500 text-white font-bold flex items-center justify-center text-[11px] shrink-0 rounded-none shadow-xs">
-                                                {wf.nomPrenomEmploye?.charAt(0) || 'E'}
-                                            </div>
+                                            <Avatar name={wf.nomPrenomEmploye} size="sm" shape="square" />
                                             <div className="min-w-0">
                                                 <div className="font-extrabold text-[var(--color-fg)] group-hover:text-brand-500 transition-colors truncate">
                                                     {wf.nomPrenomEmploye}

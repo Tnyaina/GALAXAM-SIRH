@@ -30,56 +30,59 @@ Si tu génères un nouveau composant et que tu hésites → **carré (`rounded-n
 
 ---
 
-## 3. Palette de couleurs (Deep Navy & Slate Blue)
+## 3. Palette de couleurs (Sauge Apaisant & Gris Neutres)
 
-La palette repose sur un équilibre technique entre le **Bleu Nuit / Deep Navy** pour la structure et le **Bleu Acier Moyen (Slate Blue)** pour l'accent et l'interactivité.
+La palette repose sur un équilibre technique entre le **Vert Sauge Organique (#5C7A52, #2A3626)** pour la marque/structure et les **Gris Sauge désaturés (`ink`)** pour la clarté et l'ergonomie documentaire sans fatigue oculaire.
 
-### 1. Marque & Accent Principal — Bleu Acier (`brand`)
+### 1. Marque & Accent Principal — Sauge (`brand`)
 
-Utilisé pour les boutons primaires, accents, focus, CTA et liens.
+Utilisé pour les boutons primaires, accents, focus, CTA et liens. Volontairement plus saturé/vert que la famille ink (texte/bordures) pour qu'un élément interactif ne se confonde jamais avec du texte neutre.
 
 | Token | Hex | Rôle / Usage |
 | :--- | :--- | :--- |
-| `brand-950` | `#070e17` | Ink ultra-sombre |
-| `brand-900` | `#0d1b2a` | Fond ultra-sombre / Ink 950 |
-| `brand-800` | `#1b263b` | Fond sidebar / cartes sombres |
-| `brand-700` | `#1d2c3e` | Arrière-plan foncé |
-| `brand-600` | `#26384f` | Survol sombre / Fond accentué |
-| `brand-500` | `#334862` | **Accent principal** (CTA, focus, état actif, liens) |
-| `brand-hover` | `#26384f` | Survol bouton principal / liens |
-| `brand-400` | `#3b5370` | Accent intermédiaire |
-| `brand-300` | `#4a617c` | Accent secondaire haute visibilité (WCAG AA >= 4.5:1) |
-| `brand-200` | `#c2cfda` | Bordure / Texte clair |
-| `brand-100` | `#e0e6ec` | Arrière-plan clair |
-| `brand-50` | `#f4f6f8` | Fond d'accent très clair |
+| `brand-950` | `#14150f` | Fond ultra-sombre |
+| `brand-900` | `#1c2318` | Conteneurs sombres profonds |
+| `brand-800` | `#2a3626` | Fond sidebar / cartes sombres |
+| `brand-700` | `#384b32` | Bordures sidebar / accents sombres |
+| `brand-600` | `#47603f` | Survol sombre / Accent fort |
+| `brand-500` | `#5c7a52` | **Accent principal** (CTA, focus, état actif, liens) |
+| `brand-hover` | `#47603f` | Survol bouton principal / liens |
+| `brand-400` | `#7a9c68` | Accent secondaire haute visibilité (WCAG AA >= 4.5:1) |
+| `brand-300` | `#9fbe8c` | Accent intermédiaire doux |
+| `brand-200` | `#c7d9bc` | Bordure d'accent / fond doux |
+| `brand-100` | `#edf2e8` | Arrière-plan doux |
+| `brand-50` | `#fafaf9` | Fond d'accent très clair |
 
 ### 2. Neutres — `ink` (Surfaces, texte, bordures)
 
-Famille de neutres "Bleu-Gris" calibrée pour le contraste clair/sombre.
+Famille de neutres "Gris Sauge" désaturés à dessein, calibrée pour le contraste clair/sombre.
 
 | Token | Hex | Usage |
 | :--- | :--- | :--- |
-| `ink-950` | `#0d1b2a` | Fond mode sombre profond |
-| `ink-900` | `#1b263b` | Sidebar & conteneurs sombres |
-| `ink-800` | `#25334a` | Texte principal mode clair / boutons neutres |
-| `ink-700` | `#35475e` | Titres / bordures sombres |
-| `ink-600` | `#2b3e55` | Titres secondaires |
-| `ink-500` | `#334862` | Texte secondaire / icônes (Contraste > 7.2:1) |
-| `ink-400` | `#4a617c` | Muted / placeholders / bordures subtiles |
-| `ink-350` | `#4a617c` | Hint / Disabled |
-| `ink-200` | `#c9d5e3` | **Bordure par défaut** |
-| `ink-150` | `#e2e8f0` | **Bordure des cartes / Fond doux (`--color-bg-subtle`)** |
-| `ink-100` | `#edf2f7` | Hover doux / surfaces secondaires |
-| `ink-50` | `#f7f8f9` | **Fond de page clair par défaut (`--color-bg`)** |
+| `ink-950` | `#14150f` | Fond mode sombre profond |
+| `ink-900` | `#1c2318` | Conteneurs sombres / Modales |
+| `ink-800` | `#262922` | Surfaces sombres / Hover lignes |
+| `ink-700` | `#333630` | Bordures sombres |
+| `ink-600` | `#454840` | Éléments d'interface discrets |
+| `ink-500` | `#5e6258` | Texte secondaire / icônes (Contraste > 7:1) |
+| `ink-400` | `#7e8277` | Muted / placeholders / bordures subtiles (WCAG AA >= 4.5:1) |
+| `ink-350` | `#9ca096` | Hint / Disabled |
+| `ink-200` | `#d7d9d2` | **Bordure par défaut** |
+| `ink-150` | `#e6e7e1` | **Bordure des cartes / Fond doux (`--color-bg-subtle`)** |
+| `ink-100` | `#f1f1ed` | Hover doux / surfaces secondaires |
+| `ink-50` | `#fafaf9` | **Fond de page clair par défaut (`--color-bg`)** |
 
-### 3. Statuts sémantiques & Alertes
+### 3. Statuts sémantiques, Alertes & Mises en valeur
 
-| Statut | Jetons / Hex | Usage |
+| Statut / Domaine | Jetons / Hex | Usage |
 | :--- | :--- | :--- |
-| **Succès** | `success-500` (`#16a34a`), `success-400` (`#4ade80`), `success-600` (`#15803d`) | `Alert type="success"`, badges validés, validations |
-| **Danger / Erreur** | `danger-500` (`#dc2626`), `danger-400` (`#f87171`), `danger-200` (`#fecaca`), `danger-600` (`#b91c1c`) | `Button variant="danger"`, erreurs de formulaire, alertes critiques |
-| **Warning (Ambre)** | `warning-500` (`#d97706`), `warning-400` (`#f59e0b`), `warning-200` (`#fef08a`), `warning-100` (`#fef9c3`), `warning-50` (`#fefce8`), `warning-700` (`#92400e`) | Badges warning, alertes de conformité et vigilance (doré équilibré) |
-| **Info (Indigo)** | `info-500` (`#3730a3`), `info-600` (`#312e81`), `info-700` (`#1e1b4b`), `info-100` (`#e0e7ff`), `info-50` (`#f0f3ff`) | Badges informatifs, notifications d'information |
+| **Succès (`success`)** | `success-500` (`#16a34a`), `success-400` (`#4ade80`), `success-600` (`#15803d`) | `Alert type="success"`, badges validés, validations |
+| **Danger / Erreur (`danger`)** | `danger-500` (`#dc2626`), `danger-400` (`#f87171`), `danger-200` (`#fecaca`), `danger-600` (`#b91c1c`) | `Button variant="danger"`, erreurs de formulaire, alertes critiques |
+| **Warning / Vigilance (`warning`)** | `warning-500` (`#d97706`), `warning-400` (`#f59e0b`), `warning-200` (`#fef08a`), `warning-100` (`#fef9c3`), `warning-50` (`#fefce8`), `warning-700` (`#92400e`) | Badges warning, alertes de conformité et vigilance (ambre équilibré) |
+| **Info (`info`)** | `info-500` (`#3730a3`), `info-600` (`#312e81`), `info-700` (`#1e1b4b`), `info-100` (`#e0e7ff`), `info-50` (`#f0f3ff`) | Notifications d'information, badges informatifs |
+| **Congés & Planification (`sky`)** | `sky-500` (`#0284c7`), `sky-600` (`#0369a1`), `sky-700` (`#075985`), `sky-100` (`#e0f2fe`), `sky-50` (`#f0f9ff`) | Badges congés, part salariale cotisations, planification |
+| **Heures de nuit / Majorations (`purple`)** | `purple-500` (`#7e22ce`), `purple-600` (`#6b21a8`), `purple-700` (`#581c87`), `purple-100` (`#f3e8ff`), `purple-50` (`#faf5ff`) | Heures de nuit, primes spécifiques |
+| **Horaires décalés & Indemnités (`orange`)** | `orange-500` (`#ea580c`), `orange-600` (`#c2410c`), `orange-700` (`#9a3412`), `orange-100` (`#ffedd5`), `orange-50` (`#fff7ed`) | Plages crépusculaires, indemnités panier/transport spécifiques |
 
 ---
 
@@ -89,18 +92,18 @@ Toujours privilégier les variables sémantiques du thème :
 
 | Variable | Mode Clair (Light) | Mode Sombre (`.dark`) | Description / Rôle |
 | :--- | :--- | :--- | :--- |
-| `--color-bg` | `#f7f8f9` (`ink-50`) | `#0d1b2a` | Fond d'écran global |
-| `--color-bg-subtle` | `#edf2f7` | `#162335` | Fond de conteneurs discrets / en-têtes |
-| `--color-surface` | `#ffffff` | `#1b263b` | Fond des cartes, tables, modales |
-| `--color-surface-hover`| `#f1f5f9` | `#24334d` | Hover sur lignes et cartes |
-| `--color-fg` | `#0d1b2a` | `#f4f6f8` | Texte principal (Contraste high) |
-| `--color-fg-muted` | `#334862` | `#c2cfda` | Texte secondaire / sous-titres (WCAG AA > 7:1) |
-| `--color-fg-subtle`| `#4a617c` | `#9ab0c7` | Placeholders, légendes, hints (WCAG AA >= 4.5:1) |
-| `--color-border` | `#c9d5e3` | `#2a3a50` | Bordures principales |
-| `--color-border-subtle`| `#e2e8f0` | `#1e2c40` | Séparateurs, bordures douces |
-| `--color-accent` | `#334862` | `#9ab0c7` | Liens, accents, focus actif |
-| `--color-sidebar-bg` | `#1b263b` | `#070e17` | Fond de navigation latérale |
-| `--color-sidebar-fg` | `#9ab0c7` | `#9ab0c7` | Texte / icônes sidebar |
+| `--color-bg` | `#fafaf9` (`ink-50`) | `#14150f` | Fond d'écran global |
+| `--color-bg-subtle` | `#f1f1ed` (`ink-100`) | `#1c2318` | Fond de conteneurs discrets / en-têtes |
+| `--color-surface` | `#ffffff` | `#262922` | Fond des cartes, tables, modales |
+| `--color-surface-hover`| `#eeefe9` | `#333630` | Hover sur lignes et cartes |
+| `--color-fg` | `#1c2318` | `#f1f1ed` | Texte principal (Contraste high) |
+| `--color-fg-muted` | `#5e6258` | `#c7cbbf` | Texte secondaire / sous-titres (WCAG AA > 7:1) |
+| `--color-fg-subtle`| `#7e8277` | `#9ca096` | Placeholders, légendes, hints (WCAG AA >= 4.5:1) |
+| `--color-border` | `#d7d9d2` | `#3a3d35` | Bordures principales |
+| `--color-border-subtle`| `#e6e7e1` | `#2e312a` | Séparateurs, bordures douces |
+| `--color-accent` | `#5c7a52` (`brand-500`) | `#9bc98a` | Liens, accents, focus actif |
+| `--color-sidebar-bg` | `#2a3626` | `#14150f` | Fond de navigation latérale |
+| `--color-sidebar-fg` | `#d7d9d2` | `#d7d9d2` | Texte / icônes sidebar |
 
 ---
 
