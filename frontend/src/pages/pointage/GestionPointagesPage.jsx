@@ -1,10 +1,12 @@
-import { lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Clock } from 'lucide-react';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
 import { useAuth } from '@/context/AuthContext';
+import PointageWorkflowNav from '@/components/pointage/PointageWorkflowNav';
+import periodePaieService from '@/services/periodePaieService';
 
 // Sous-composants Onglets en Lazy-loading pour une performance optimale
 const PointageOverviewTab = lazy(() => import('@/components/pointage/PointageOverviewTab'));
@@ -15,10 +17,26 @@ const PeriodePaiePage = lazy(() => import('@/pages/pointage/PeriodePaiePage'));
 
 export default function GestionPointagesPage() {
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeTab = searchParams.get('tab') || 'vue-globale';
+    const activeTab = searchParams.get('tab') || 'saisie';
+    const [activePeriode, setActivePeriode] = useState(null);
 
     const { hasPermission } = useAuth();
     const canViewPeriodes = hasPermission('POINTAGE_VALIDATE');
+
+    useEffect(() => {
+        const fetchActivePeriode = async () => {
+            try {
+                const list = await periodePaieService.getAllPeriodes();
+                if (list && list.length > 0) {
+                    const activeP = list.find(p => p.statutCode === 'EN_COURS' || p.statutCode === 'A_VALIDER') || list[0];
+                    setActivePeriode(activeP);
+                }
+            } catch (err) {
+                console.error('Erreur chargement période active:', err);
+            }
+        };
+        fetchActivePeriode();
+    }, [activeTab]);
 
     const handleTabChange = (tabId, extraParams = {}) => {
         setSearchParams(prev => {
@@ -36,21 +54,14 @@ export default function GestionPointagesPage() {
     };
 
     return (
-        <div className="space-y-4 max-w-[1600px] mx-auto w-full font-sans pb-12">
+        <div className="space-y-3 max-w-[1600px] mx-auto w-full font-sans pb-8">
             <SEO 
                 title="Pointage & Présences | GALAXAM SIRH" 
                 description="Cockpit de gestion des temps, badgeages, anomalies, majorations HS et clôture de paie." 
             />
 
-            <PageHeader
-                title="Pointage & Gestion des Temps"
-                subtitle="Supervision de la présence, calcul des majorations (HS, nuit, repas), compensation des retards et clôture paie."
-                icon={Clock}
-                breadcrumbs={[
-                    { label: 'Tableau de bord', href: '/dashboard' },
-                    { label: 'Pointage & Présences' }
-                ]}
-            />
+            {/* Barre de navigation et statut */}
+            <PointageWorkflowNav activePeriode={activePeriode} />
 
             {/* Contenu fluide de l'onglet actif */}
             <div className="pt-1">

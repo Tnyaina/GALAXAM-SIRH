@@ -452,15 +452,26 @@ export default function SynthesePointagePage() {
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                                            {semaines.map((sem) => {
+                                            {semaines.map((sem, idx) => {
                                                 const isSelected = selectedSemaine?.id === sem.id;
-                                                const badgeVariant = sem.estValidee
-                                                    ? 'success'
-                                                    : sem.ready
-                                                        ? 'brand'
-                                                        : sem.nbAnomalies > 0
-                                                            ? 'warning'
-                                                            : 'default';
+                                                const prevBlocking = semaines.slice(0, idx).some(s => !s.estValidee);
+                                                
+                                                let badgeVariant = 'default';
+                                                let badgeLabel = sem.statut;
+
+                                                if (sem.estValidee) {
+                                                    badgeVariant = 'success';
+                                                    badgeLabel = 'Validée';
+                                                } else if (!consolidationStatus.isEnCours) {
+                                                    badgeVariant = 'default';
+                                                    badgeLabel = consolidationStatus.isAValider ? 'Transmise DAF' : 'Période fermée';
+                                                } else if (prevBlocking) {
+                                                    badgeVariant = 'default';
+                                                    badgeLabel = 'En attente S' + idx;
+                                                } else if (sem.ready) {
+                                                    badgeVariant = sem.nbAnomalies > 0 ? 'warning' : 'brand';
+                                                    badgeLabel = sem.nbAnomalies > 0 ? `${sem.nbAnomalies} anomalie(s)` : 'Prête à valider';
+                                                }
 
                                                 return (
                                                     <button
@@ -488,10 +499,10 @@ export default function SynthesePointagePage() {
                                                             {sem.dates}
                                                         </p>
 
-                                                        {/* Statut épuré */}
+                                                        {/* Statut épuré et exact */}
                                                         <div className="pt-1 border-t border-[var(--color-border-subtle)]/60 flex items-center justify-between gap-1">
                                                             <Badge variant={badgeVariant} size="xs" className="!text-[9px] !px-1.5 font-bold truncate">
-                                                                {sem.estValidee ? 'Validée' : sem.ready ? 'Prête à valider' : sem.statut}
+                                                                {badgeLabel}
                                                             </Badge>
                                                         </div>
                                                     </button>
@@ -499,6 +510,33 @@ export default function SynthesePointagePage() {
                                             })}
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {/* BANNIÈRE DE TRANSMISSION DIRECTE À LA DAF (Dès que 100% des semaines sont validées) */}
+                            {consolidationStatus.allValidees && consolidationStatus.isEnCours && (
+                                <div className="mx-3 mb-3 p-3 bg-emerald-500/10 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                                    <div className="flex items-center gap-2.5">
+                                        <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                                        <div>
+                                            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                                                Toutes les semaines du mois sont validées ({consolidationStatus.semainesValideesCount}/{consolidationStatus.totalSemaines}) !
+                                            </span>
+                                            <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">
+                                                Vous pouvez désormais transmettre officiellement la période à la DAF pour arbitrage et clôture.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="primary"
+                                        size="sm"
+                                        onClick={() => setShowTransmissionModal(true)}
+                                        className="font-bold flex items-center gap-1.5 shadow-xs shrink-0"
+                                    >
+                                        <Send size={13} />
+                                        <span>Transmettre à la DAF</span>
+                                    </Button>
                                 </div>
                             )}
                         </div>
@@ -784,13 +822,15 @@ export default function SynthesePointagePage() {
                                     </p>
                                 </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <Link to="/pointages/periodes">
-                                        <Button variant="secondary" size="sm" icon={<CalendarRange size={13} />}>
-                                            Gérer les Périodes
-                                        </Button>
-                                    </Link>
-                                </div>
+                                {canValidateDaf && (
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <Link to="/pointages?tab=periodes">
+                                            <Button variant="secondary" size="sm" icon={<CalendarRange size={13} />}>
+                                                Gérer les Périodes
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                )}
                             </div>
 
                             {/* ÉTAPES DU WORKFLOW GUIDÉ */}

@@ -12,6 +12,8 @@ export default function PointageGridTable({
     grilleData = [],
     _siteParams,
     siteIndemnites = [],
+    selectedStatutFilter = 'ALL',
+    onStatutFilterChange,
     onUpdateHours,
     onUpdateIndemnite,
     onUpdateDynamicIndemnite,
@@ -60,19 +62,46 @@ export default function PointageGridTable({
 
     return (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden flex flex-col">
-            {/* Légende Métier et Info-Bulle */}
-            <div className="flex flex-wrap items-center justify-between px-5 py-2.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-xs text-[var(--color-fg-muted)]">
-                <div className="flex flex-wrap items-center gap-4">
-                    <span className="font-bold text-[var(--color-fg)]">Légende :</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-[var(--color-warning-500)] inline-block"></span> Congé</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-[var(--color-ink-350)] inline-block"></span> Férié chômé</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-[var(--color-info-500)] inline-block"></span> Cadre autonome</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] inline-block"></span> Non saisi</span>
+            {/* Barre combinée : Filtres de statut à gauche + Info & Légende à droite */}
+            <div className="flex flex-wrap items-center justify-between px-3 py-1.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-xs text-[var(--color-fg-muted)] gap-2">
+                {/* 1. Filtres d'état (Pills au-dessus de la table) */}
+                <div className="flex items-center gap-1 overflow-x-auto">
+                    {[
+                        { id: 'ALL', label: 'Tous', count: grilleData.length },
+                        { id: 'PRESENT', label: 'Présents', count: grilleData.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0)).length },
+                        { id: 'NON_SAISI', label: 'Non saisis', count: grilleData.filter(r => (!r.totalHeures || r.totalHeures === 0) && !r.conge && !r.dispensePointage && !r.ferieChome).length },
+                        { id: 'RETARD', label: 'Retards', count: grilleData.filter(r => r.retard || (r.minutesRetard && r.minutesRetard > 0)).length },
+                        { id: 'CONGE', label: 'Congés', count: grilleData.filter(r => r.conge).length },
+                    ].map((tab) => {
+                        const isActive = selectedStatutFilter === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => onStatutFilterChange?.(tab.id)}
+                                className={`
+                                    px-2.5 py-1 text-[11px] transition-all cursor-pointer border h-[26px] whitespace-nowrap flex items-center shrink-0
+                                    ${isActive
+                                        ? 'bg-brand-600 border-brand-600 text-white font-bold'
+                                        : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
+                                    }
+                                `}
+                            >
+                                <span>{tab.label}</span>
+                                <span className={`ml-1.5 font-mono text-[10px] ${isActive ? 'opacity-95 font-bold' : 'opacity-60'}`}>
+                                    {tab.count}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
 
-                <div className="flex items-center gap-1.5 text-[11.5px] text-[var(--color-fg-muted)]" title="Matin = arrivée + pause déjeuner · Après-midi = retour + sortie du soir">
-                    <Info size={13} className="text-brand-500" />
-                    <span className="hidden sm:inline">Matin (arrivée/pause) · Après-midi (retour/départ)</span>
+                {/* 2. Légende & Info */}
+                <div className="flex items-center gap-3 text-[11px]">
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[var(--color-warning-500)] inline-block"></span> Congé</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[var(--color-ink-350)] inline-block"></span> Férié</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[var(--color-info-500)] inline-block"></span> Cadre</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] inline-block"></span> Non saisi</span>
                 </div>
             </div>
 

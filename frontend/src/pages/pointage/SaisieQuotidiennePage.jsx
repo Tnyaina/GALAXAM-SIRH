@@ -308,20 +308,6 @@ export default function SaisieQuotidiennePage() {
 
             <div className="space-y-2 max-w-[1440px] mx-auto pb-6">
 
-                {/* En-tête minimal : titre + lien rapide */}
-                <div className="flex items-center justify-end">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate('/conges?tab=demandes')}
-                        className="font-semibold flex items-center gap-1.5 shrink-0"
-                    >
-                        <PlusCircle size={13} />
-                        <span>Ajouter une absence / congé</span>
-                    </Button>
-                </div>
-
                 {/* 1. Barre de Commande Unifiée */}
                 <PointageToolbar
                     sites={sites}
@@ -336,28 +322,22 @@ export default function SaisieQuotidiennePage() {
                     statusCounts={statusCounts}
                     onAutoFillStandard={handleAutoFill}
                     onAutoDeducePauses={handleAutoPauses}
+                    onAddConge={() => navigate('/conges?tab=demandes')}
                     isReadOnly={isReadOnly}
                     onSave={handleRequestSave}
                     saving={saving}
                     dirtyCount={dirtyCount}
                 />
 
-                {/* 2. Slim Banner Période + Stepper */}
-                <PointageGuideStepper
-                    periodeInfo={periodeInfo}
-                    totalWeeks={4}
-                    currentStep={1}
-                />
-
-                {/* 3. Alert : Aucune période de paie ouverte */}
+                {/* 2. Alert : Aucune période de paie ouverte */}
                 {!periodeInfo && !loading && (
-                    <div className="bg-[var(--color-warning-500)]/10 border-l-4 border-l-amber-500 p-3.5 text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] flex items-start gap-3 shadow-xs">
-                        <AlertCircle size={15} className="shrink-0 text-[var(--color-warning-600)] mt-0.5" />
-                        <div>
-                            <p className="font-bold text-[12.5px]">Aucune période de paie ouverte pour le {selectedDate}</p>
-                            <p className="text-[11.5px] opacity-90 mt-0.5">
-                                La saisie est verrouillée tant qu'aucune période active n'englobe cette date.
-                            </p>
+                    <div className="bg-[var(--color-warning-500)]/10 border-l-4 border-l-amber-500 p-3 text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] flex items-center justify-between gap-3 shadow-xs">
+                        <div className="flex items-center gap-2.5">
+                            <AlertCircle size={15} className="shrink-0 text-[var(--color-warning-600)]" />
+                            <div>
+                                <span className="font-bold">Aucune période de paie ouverte pour le {selectedDate}</span>
+                                <span className="ml-2 text-[11px] opacity-80">— La saisie est verrouillée en lecture seule.</span>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -385,6 +365,8 @@ export default function SaisieQuotidiennePage() {
                         grilleData={filteredData}
                         siteParams={siteParams}
                         siteIndemnites={siteIndemnites}
+                        selectedStatutFilter={statutFilter}
+                        onStatutFilterChange={(sf) => { setStatutFilter(sf); setCurrentPage(1); }}
                         onUpdateHours={handleUpdateHours}
                         onUpdateIndemnite={handleUpdateIndemnite}
                         onUpdateDynamicIndemnite={handleUpdateDynamicIndemnite}
@@ -398,16 +380,6 @@ export default function SaisieQuotidiennePage() {
                         isReadOnly={isReadOnly}
                     />
                 )}
-
-                {/* 6. Sections secondaires en accordéon */}
-                <PointageAnomaliesSection
-                    totalAnomalies={statsJour.totalAnomalies}
-                />
-
-                <PointageWeeklySyntheseSection
-                    periodeInfo={periodeInfo}
-                    selectedSite={selectedSite}
-                />
             </div>
 
             {/* Modale Récapitulative & Validation Avant Sauvegarde */}

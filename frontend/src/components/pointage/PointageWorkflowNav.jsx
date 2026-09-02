@@ -1,73 +1,116 @@
-import { NavLink, useSearchParams } from 'react-router-dom';
-import { CalendarDays, AlertTriangle, FileSpreadsheet, CalendarRange } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { 
+    CalendarDays, 
+    AlertTriangle, 
+    Layers, 
+    CalendarRange, 
+    TrendingUp, 
+    Lock,
+    Clock,
+    ShieldCheck
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
-export default function PointageWorkflowNav() {
+export default function PointageWorkflowNav({ activePeriode = null }) {
     const { hasPermission } = useAuth();
-    const canViewPeriodes = hasPermission('POINTAGE_VALIDATE');
+    const isDaf = hasPermission('POINTAGE_VALIDATE');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const currentTab = searchParams.get('tab') || 'vue-globale';
 
-    const steps = [
+    const handleSelectTab = (tabId) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', tabId);
+            return next;
+        });
+    };
+
+    const tabs = [
         {
-            to: '/pointages?tab=saisie',
+            tab: 'vue-globale',
+            label: 'Vue Globale',
+            icon: TrendingUp
+        },
+        {
             tab: 'saisie',
-            label: '1. Saisie Quotidienne (Agent)',
-            icon: CalendarDays,
-            step: 1
+            label: 'Saisie Quotidienne',
+            icon: CalendarDays
         },
         {
-            to: '/pointages?tab=anomalies',
             tab: 'anomalies',
-            label: '2. Suivi Anomalies & Incidents',
-            icon: AlertTriangle,
-            step: 2
+            label: 'Anomalies & Retards',
+            icon: AlertTriangle
         },
         {
-            to: '/pointages?tab=synthese',
             tab: 'synthese',
-            label: '3. Consolidation Hebdo & Clôture DAF',
-            icon: FileSpreadsheet,
-            step: 3
+            label: 'Synthèse & Clôture',
+            icon: Layers
         }
     ];
 
-    if (canViewPeriodes) {
-        steps.push({
-            to: '/pointages?tab=periodes',
+    if (isDaf) {
+        tabs.push({
             tab: 'periodes',
-            label: '4. Calendrier des Périodes',
-            icon: CalendarRange,
-            step: 4
+            label: 'Périodes de Paie',
+            icon: CalendarRange
         });
     }
 
-    const [searchParams] = useSearchParams();
-    const currentTab = searchParams.get('tab') || 'vue-globale';
+    const stCode = activePeriode?.statutCode || activePeriode?.statut_code;
+    const isEnCours = stCode === 'EN_COURS' || !stCode;
+    const isTransmis = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
+    const isCloturee = stCode === 'CLOTUREE' || stCode === 'VALIDEE';
 
     return (
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs flex items-stretch overflow-x-auto">
-            {steps.map((step) => {
-                const Icon = step.icon;
-                const isActive = currentTab === step.tab;
-                return (
-                    <NavLink
-                        key={step.to}
-                        to={step.to}
-                        className={`
-                            flex items-center gap-2 px-4 py-2 text-[11.5px] font-semibold border-r border-[var(--color-border-subtle)] whitespace-nowrap transition-colors shrink-0 last:border-r-0
-                            ${isActive
-                                ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] font-bold border-b-2 border-b-[var(--color-brand-500)]'
-                                : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
-                            }
-                        `}
-                    >
-                        <span className="flex items-center justify-center w-4 h-4 rounded-full bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[9px] font-bold shrink-0">
-                            {step.step}
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs flex flex-wrap items-center justify-between gap-3 px-2 py-1.5">
+            {/* 1. Onglets horizontaux fins & élégants */}
+            <div className="flex items-center gap-1 overflow-x-auto">
+                {tabs.map((t) => {
+                    const Icon = t.icon;
+                    const isActive = currentTab === t.tab;
+                    return (
+                        <button
+                            key={t.tab}
+                            type="button"
+                            onClick={() => handleSelectTab(t.tab)}
+                            className={`
+                                flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-none transition-all cursor-pointer whitespace-nowrap
+                                ${isActive 
+                                    ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] font-bold border border-[var(--color-brand-500)]/30' 
+                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] border border-transparent'
+                                }
+                            `}
+                        >
+                            <Icon size={14} className={isActive ? 'text-[var(--color-brand-500)]' : 'text-[var(--color-fg-muted)]'} />
+                            <span>{t.label}</span>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* 2. Statut compact & discret de la période active */}
+            {activePeriode && (
+                <div className="flex items-center gap-2.5 text-xs pr-2">
+                    <span className="text-[11px] text-[var(--color-fg-muted)]">
+                        Période : <strong className="font-mono text-[var(--color-fg)]">{activePeriode.libelle || activePeriode.code}</strong>
+                    </span>
+                    <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${
+                        isCloturee 
+                            ? 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-[var(--color-border)]' 
+                            : isTransmis 
+                            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30' 
+                            : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+                    }`}>
+                        {activePeriode.statutLibelle || activePeriode.statutCode || 'En cours'}
+                    </span>
+                    {isCloturee && (
+                        <span className="flex items-center gap-1 text-[11px] text-[var(--color-fg-muted)] hidden md:inline-flex">
+                            <Lock size={12} />
+                            (Lecture seule)
                         </span>
-                        <Icon size={12} className="shrink-0" />
-                        <span>{step.label}</span>
-                    </NavLink>
-                );
-            })}
+                    )}
+                </div>
+            )}
         </div>
     );
 }
