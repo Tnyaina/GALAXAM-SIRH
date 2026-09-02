@@ -205,15 +205,15 @@ public class PeriodePaieController {
 
         try (Connection c = dataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, code);
-            ps.setString(2, libelle != null ? libelle : code);
-            ps.setDate(3, java.sql.Date.valueOf(dateDebut));
-            ps.setDate(4, java.sql.Date.valueOf(dateFin));
-            ps.executeUpdate();
+                ps.setString(1, code);
+                ps.setString(2, libelle != null ? libelle : code);
+                ps.setDate(3, java.sql.Date.valueOf(dateDebut));
+                ps.setDate(4, java.sql.Date.valueOf(dateFin));
+                ps.executeUpdate();
 
-            resp.put("success", true);
-            resp.put("message", "Période de paie créée avec succès.");
-            return ResponseEntity.ok(resp);
+                resp.put("success", true);
+                resp.put("message", "Période de paie créée avec succès.");
+                return ResponseEntity.ok(resp);
         } catch (SQLException e) {
             e.printStackTrace();
             resp.put("success", false);

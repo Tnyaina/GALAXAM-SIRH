@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Clock, PlusCircle } from 'lucide-react';
+import { AlertCircle, Clock, PlusCircle, Sparkles } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { useToast } from '@/components/ui/feedback/Toast';
 import SEO from '@/components/system/SEO';
@@ -331,14 +331,34 @@ export default function SaisieQuotidiennePage() {
 
                 {/* 2. Alert : Aucune période de paie ouverte */}
                 {!periodeInfo && !loading && (
-                    <div className="bg-[var(--color-warning-500)]/10 border-l-4 border-l-amber-500 p-3 text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] flex items-center justify-between gap-3 shadow-xs">
+                    <div className="bg-amber-500/10 border-l-4 border-l-amber-500 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-3 shadow-xs flex-wrap">
                         <div className="flex items-center gap-2.5">
-                            <AlertCircle size={15} className="shrink-0 text-[var(--color-warning-600)]" />
+                            <AlertCircle size={16} className="shrink-0 text-amber-600 dark:text-amber-400" />
                             <div>
                                 <span className="font-bold">Aucune période de paie ouverte pour le {selectedDate}</span>
-                                <span className="ml-2 text-[11px] opacity-80">— La saisie est verrouillée en lecture seule.</span>
+                                <span className="ml-2 text-[11px] opacity-85">— La saisie est verrouillée en lecture seule.</span>
                             </div>
                         </div>
+                        {canValidate && (
+                            <Button
+                                size="xs"
+                                variant="primary"
+                                onClick={() => navigate(`/pointages?tab=periodes&action=create&targetDate=${selectedDate}`)}
+                                icon={<Sparkles size={13} className="text-amber-300" />}
+                                className="shrink-0"
+                            >
+                                Créer la période ({(() => {
+                                    if (!selectedDate) return 'Suivante';
+                                    const parts = selectedDate.split('-');
+                                    if (parts.length === 3) {
+                                        const mIdx = parseInt(parts[1], 10) - 1;
+                                        const moisFr = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+                                        return `${moisFr[mIdx]} ${parts[0]}`;
+                                    }
+                                    return 'Suivante';
+                                })()})
+                            </Button>
+                        )}
                     </div>
                 )}
 

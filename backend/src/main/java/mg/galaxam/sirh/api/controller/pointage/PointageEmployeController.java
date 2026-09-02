@@ -648,6 +648,12 @@ public class PointageEmployeController {
         if (total2eRepasCount > 0) {
             recap.put("repas2eDetail", String.format("%d repas (Maj. soir/nuit) = %,.0f Ar", total2eRepasCount, total2eRepasMontant).replace(',', ' '));
         }
+
+        double tarifJourDeplacementRef = (totalJoursOuvrables > 0 && totalTrajetsCount > 0) ? (mntDepl / totalTrajetsCount) : (totalJoursOuvrables > 0 ? 53200.0 / totalJoursOuvrables : 2418.0);
+        double tarifTrajetRef = tarifJourDeplacementRef / 2.0;
+        recap.put("deplacementDetail", String.format("%.0f trajets × %,.0f Ar = %,.0f Ar", totalTrajetsCount * 2, tarifTrajetRef, mntDepl).replace(',', ' '));
+        recap.put("deplacementFormule", String.format("Prorata %d j ouvrables (%,.0f Ar/j, soit %,.0f Ar/trajet)", totalJoursOuvrables, tarifJourDeplacementRef, tarifTrajetRef).replace(',', ' '));
+
         recap.put("hs30Detail", String.format("%.1fh majorées à 30%%", hs30));
         recap.put("hs50Detail", String.format("%.1fh majorées à 50%%", hs50));
         if (hNuit > 0) {

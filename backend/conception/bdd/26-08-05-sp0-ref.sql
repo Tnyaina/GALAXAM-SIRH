@@ -299,9 +299,9 @@ INSERT INTO ref_taux_majoration (type_majoration, taux, description, date_debut)
 ('FERIE', 1.00, 'Travail jour férié', '2026-01-01');
 
 -- 10. Indemnités & Configuration des Sites (Conforme aux spécifications réelles)
-INSERT INTO ref_indemnite (code, libelle, imposable_irsa) VALUES
-('DEPLACEMENT', 'Indemnité de Déplacement', FALSE),
-('REPAS', 'Indemnité de Repas', FALSE);
+INSERT INTO ref_indemnite (code, libelle, imposable_irsa,fractionnable) VALUES
+('DEPLACEMENT', 'Indemnité de Déplacement', FALSE,TRUE),
+('REPAS', 'Indemnité de Repas', FALSE,FALSE);
 
 INSERT INTO ref_site (code_site, libelle, id_filiale_rattachement, horaire_continu, heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi) VALUES
 ('TNR', 'Antananarivo - Siège', 1, TRUE, '08:00', '12:00', '13:00', '17:00'),

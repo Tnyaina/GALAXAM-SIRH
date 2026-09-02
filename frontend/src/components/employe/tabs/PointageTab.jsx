@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
-    Clock, 
-    Printer, 
-    FileDown, 
-    TrendingUp, 
-    Info, 
+import {
+    Clock,
+    Printer,
+    FileDown,
+    TrendingUp,
+    Info,
     ChevronLeft,
     ChevronRight,
     Calendar,
@@ -170,9 +170,8 @@ export default function PointageTab({ idEmploye }) {
                                 type="button"
                                 onClick={() => handleNavigatePeriode(-1)}
                                 disabled={currIndexInList >= periodesList.length - 1}
-                                className={`px-3 py-2 text-[var(--color-fg)] transition-colors cursor-pointer ${
-                                    currIndexInList >= periodesList.length - 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--color-bg-subtle)]'
-                                }`}
+                                className={`px-3 py-2 text-[var(--color-fg)] transition-colors cursor-pointer ${currIndexInList >= periodesList.length - 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--color-bg-subtle)]'
+                                    }`}
                                 title="Période précédente"
                             >
                                 <ChevronLeft size={16} />
@@ -202,9 +201,8 @@ export default function PointageTab({ idEmploye }) {
                                 type="button"
                                 onClick={() => handleNavigatePeriode(1)}
                                 disabled={currIndexInList <= 0}
-                                className={`px-3 py-2 text-[var(--color-fg)] transition-colors cursor-pointer ${
-                                    currIndexInList <= 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--color-bg-subtle)]'
-                                }`}
+                                className={`px-3 py-2 text-[var(--color-fg)] transition-colors cursor-pointer ${currIndexInList <= 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--color-bg-subtle)]'
+                                    }`}
                                 title="Période suivante"
                             >
                                 <ChevronRight size={16} />
@@ -230,11 +228,10 @@ export default function PointageTab({ idEmploye }) {
                                 key={key}
                                 type="button"
                                 onClick={() => setPeriodView(key)}
-                                className={`px-3 py-1 text-xs font-bold uppercase transition-colors cursor-pointer ${
-                                    periodView === key
+                                className={`px-3 py-1 text-xs font-bold uppercase transition-colors cursor-pointer ${periodView === key
                                         ? 'bg-[var(--color-brand-500)] text-white shadow-xs'
                                         : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                                }`}
+                                    }`}
                             >
                                 {label}
                             </button>
@@ -416,7 +413,7 @@ export default function PointageTab({ idEmploye }) {
                                             pointages.map((ptg, idx) => {
                                                 const isWeekend = ptg.statut === 'REPOS';
                                                 return (
-                                                    <Tr 
+                                                    <Tr
                                                         key={`${ptg.dateComplete || ptg.date}-${idx}`}
                                                         className={isWeekend ? 'bg-[var(--color-bg-subtle)]/40' : ''}
                                                     >
@@ -464,12 +461,11 @@ export default function PointageTab({ idEmploye }) {
                                                         <Td className="py-2.5 px-3 border-l border-[var(--color-border-subtle)] text-center">
                                                             <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                                                 {ptg.indemniteRepas ? (
-                                                                    <span 
-                                                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10.5px] font-bold rounded ${
-                                                                            ptg.nbRepas === 2
+                                                                    <span
+                                                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10.5px] font-bold rounded ${ptg.nbRepas === 2
                                                                                 ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/30'
                                                                                 : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                                                                        }`}
+                                                                            }`}
                                                                         title={ptg.nbRepas === 2 ? '2 Repas (Travail prolongé / Nuit)' : `1 Repas standard (${ptg.montantRepas ? Math.round(ptg.montantRepas) + ' Ar' : '2 000 Ar'})`}
                                                                     >
                                                                         <Utensils size={10} />
@@ -478,7 +474,7 @@ export default function PointageTab({ idEmploye }) {
                                                                 ) : null}
 
                                                                 {(ptg.deplacementMatin || ptg.deplacementAm) ? (
-                                                                    <span 
+                                                                    <span
                                                                         className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10.5px] font-bold rounded bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/30"
                                                                         title={`Déplacement : ${ptg.deplacementMatin && ptg.deplacementAm ? '2 trajets (Matin + Soir)' : ptg.deplacementMatin ? '1 trajet (Matin)' : '1 trajet (Soir)'}`}
                                                                     >
@@ -552,7 +548,7 @@ export default function PointageTab({ idEmploye }) {
                                         {kpis.totalIndemnitesMois || kpis.montantRepasTotal || '0 Ar'}
                                     </span>
                                 </h4>
-                                
+
                                 <div className="space-y-3 text-xs">
                                     {/* 1. Décomposition Repas */}
                                     <div className="space-y-1.5">
@@ -586,20 +582,34 @@ export default function PointageTab({ idEmploye }) {
                                         )}
                                     </div>
 
-                                    {/* 2. Déplacement */}
-                                    <div className="pt-2 border-t border-[var(--color-border-subtle)] space-y-1">
+                                    {/* 2. Déplacement Proratisé & Fractionnable */}
+                                    <div className="pt-2 border-t border-[var(--color-border-subtle)] space-y-1.5">
                                         <div className="flex justify-between items-center text-[var(--color-fg)] font-semibold">
-                                            <span className="flex items-center gap-1">
-                                                <Bus size={12} className="text-sky-600" />
+                                            <span className="flex items-center gap-1.5">
+                                                <Bus size={13} className="text-sky-600" />
                                                 Transport Déplacement
                                             </span>
                                             <span className="font-mono text-sky-600 font-bold">
-                                                {kpis.montantDeplacementTotal || kpis.totalTrajets || '0 Ar'}
+                                                {kpis.montantDeplacementTotal || '0 Ar'}
                                             </span>
                                         </div>
-                                        <p className="text-[10.5px] text-[var(--color-fg-muted)] pl-3">
-                                            Proratisé ({kpis.totalTrajets || '0 trajet'})
-                                        </p>
+
+                                        {recap.deplacementDetail ? (
+                                            <div className="flex justify-between items-center text-[11px] text-[var(--color-fg-muted)] pl-3 border-l-2 border-sky-500/30">
+                                                <span>Prorata ({kpis.totalTrajets || '0 trajet'})</span>
+                                                <span className="font-mono text-[var(--color-fg)] font-semibold">{recap.deplacementDetail}</span>
+                                            </div>
+                                        ) : (
+                                            <p className="text-[10.5px] text-[var(--color-fg-muted)] pl-3">
+                                                Proratisé ({kpis.totalTrajets || '0 trajet'})
+                                            </p>
+                                        )}
+
+                                        {recap.deplacementFormule && (
+                                            <p className="text-[10px] text-[var(--color-fg-muted)] pl-3 italic">
+                                                {recap.deplacementFormule}
+                                            </p>
+                                        )}
                                     </div>
 
                                     {/* 3. Majorations de Travail Spécifique si existantes */}

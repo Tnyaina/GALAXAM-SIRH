@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
     CalendarRange,
     Plus,
@@ -10,7 +11,8 @@ import {
     Clock,
     CheckCheck,
     Archive,
-    ShieldCheck
+    ShieldCheck,
+    Sparkles
 } from 'lucide-react';
 import { usePeriodePaie } from '@/hooks/pointage/usePeriodePaie';
 import periodePaieService from '@/services/periodePaieService';
@@ -56,7 +58,93 @@ const STATUT_CONFIG = {
     }
 };
 
+const MOIS_FR = [
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+];
+
+const computeNextPeriodeSuggestion = (periodesList) => {
+    if (!periodesList || periodesList.length === 0) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth();
+        const mPad = String(m + 1).padStart(2, '0');
+        const lastDay = new Date(y, m + 1, 0).getDate();
+        return {
+            code: `${y}-${mPad}`,
+            libelle: `${MOIS_FR[m]} ${y}`,
+            dateDebut: `${y}-${mPad}-01`,
+            dateFin: `${y}-${mPad}-${String(lastDay).padStart(2, '0')}`,
+            baseLibelle: null
+        };
+    }
+
+    // Trouver la période la plus récente par dateFin ou dateDebut
+    const sorted = [...periodesList].sort((a, b) => {
+        const dFinA = a.dateFin || a.date_fin || '';
+        const dFinB = b.dateFin || b.date_fin || '';
+        return dFinB.localeCompare(dFinA);
+    });
+
+    const latest = sorted[0];
+    let nextYear, nextMonth;
+
+    if (latest.dateFin) {
+        const parts = latest.dateFin.split('-');
+        if (parts.length === 3) {
+            let y = parseInt(parts[0], 10);
+            let m = parseInt(parts[1], 10) - 1; // 0 à 11
+            m += 1;
+            if (m > 11) {
+                m = 0;
+                y += 1;
+            }
+            nextYear = y;
+            nextMonth = m;
+        }
+    }
+
+    if (!nextYear) {
+        const now = new Date();
+        nextYear = now.getFullYear();
+        nextMonth = now.getMonth();
+    }
+
+    const mPad = String(nextMonth + 1).padStart(2, '0');
+    const lastDay = new Date(nextYear, nextMonth + 1, 0).getDate();
+
+    return {
+        code: `${nextYear}-${mPad}`,
+        libelle: `${MOIS_FR[nextMonth]} ${nextYear}`,
+        dateDebut: `${nextYear}-${mPad}-01`,
+        dateFin: `${nextYear}-${mPad}-${String(lastDay).padStart(2, '0')}`,
+        baseLibelle: latest.libelle || latest.code
+    };
+};
+
+const computePeriodeForDate = (dateStr) => {
+    if (!dateStr) return null;
+    try {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            const y = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10) - 1; // 0 à 11
+            const mPad = String(m + 1).padStart(2, '0');
+            const lastDay = new Date(y, m + 1, 0).getDate();
+            return {
+                code: `${y}-${mPad}`,
+                libelle: `${MOIS_FR[m]} ${y}`,
+                dateDebut: `${y}-${mPad}-01`,
+                dateFin: `${y}-${mPad}-${String(lastDay).padStart(2, '0')}`,
+                baseLibelle: null
+            };
+        }
+    } catch (e) {}
+    return null;
+};
+
 export default function PeriodePaiePage() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const {
         periodes,
         loading,
@@ -71,6 +159,9 @@ export default function PeriodePaiePage() {
     const canManage = hasPermission('POINTAGE_VALIDATE') || hasPermission('ADMIN');
     const toast = useToast();
 
+    // Calcul automatique de la prochaine période suggérée
+    const nextSuggestion = useMemo(() => computeNextPeriodeSuggestion(periodes), [periodes]);
+
     // Modale de Création
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -80,6 +171,51 @@ export default function PeriodePaiePage() {
         dateDebut: '',
         dateFin: ''
     });
+
+    // Détection de l'action "create" dans l'URL pour ouvrir directement la modale
+    useEffect(() => {
+        const action = searchParams.get('action');
+        if (action === 'create') {
+            const targetDate = searchParams.get('targetDate');
+            const customForDate = targetDate ? computePeriodeForDate(targetDate) : null;
+            const initial = customForDate || nextSuggestion;
+            setNewPeriode({
+                code: initial.code,
+                libelle: initial.libelle,
+                dateDebut: initial.dateDebut,
+                dateFin: initial.dateFin
+            });
+            setIsCreateModalOpen(true);
+
+            // Nettoyer les paramètres d'URL pour ne pas ré-ouvrir au refresh/close
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.delete('action');
+                next.delete('targetDate');
+                return next;
+            }, { replace: true });
+        }
+    }, [searchParams, nextSuggestion, setSearchParams]);
+
+    const handleOpenCreateWithSuggestion = () => {
+        setNewPeriode({
+            code: nextSuggestion.code,
+            libelle: nextSuggestion.libelle,
+            dateDebut: nextSuggestion.dateDebut,
+            dateFin: nextSuggestion.dateFin
+        });
+        setIsCreateModalOpen(true);
+    };
+
+    const handleOpenCreateBlank = () => {
+        setNewPeriode({
+            code: '',
+            libelle: '',
+            dateDebut: '',
+            dateFin: ''
+        });
+        setIsCreateModalOpen(true);
+    };
 
     // Simulation server-driven des jours ouvrables (Backend-Driven)
     const [simulation, setSimulation] = useState(null);
@@ -248,7 +384,7 @@ export default function PeriodePaiePage() {
                     </p>
                 </div>
 
-                <div className="relative flex items-center gap-2 shrink-0">
+                <div className="relative flex items-center flex-wrap gap-2 shrink-0">
                     <Button
                         onClick={loadPeriodes}
                         variant="outline"
@@ -258,14 +394,26 @@ export default function PeriodePaiePage() {
                         Actualiser
                     </Button>
                     {canManage && (
-                        <Button
-                            onClick={() => setIsCreateModalOpen(true)}
-                            variant="primary"
-                            size="sm"
-                            icon={<Plus size={15} />}
-                        >
-                            Nouvelle période
-                        </Button>
+                        <>
+                            <Button
+                                onClick={handleOpenCreateWithSuggestion}
+                                variant="primary"
+                                size="sm"
+                                icon={<Sparkles size={14} className="text-amber-300" />}
+                                title={`Créer automatiquement la suite logique : ${nextSuggestion.libelle} (${nextSuggestion.dateDebut} au ${nextSuggestion.dateFin})`}
+                            >
+                                Créer {nextSuggestion.libelle} (Suggéré)
+                            </Button>
+                            <Button
+                                onClick={handleOpenCreateBlank}
+                                variant="outline"
+                                size="sm"
+                                icon={<Plus size={14} />}
+                                title="Créer une période avec des dates personnalisées"
+                            >
+                                Personnalisée...
+                            </Button>
+                        </>
                     )}
                 </div>
             </div>
@@ -459,6 +607,30 @@ export default function PeriodePaiePage() {
                 title="Créer une Nouvelle Période de Paie"
             >
                 <form onSubmit={handleCreate} className="space-y-4">
+                    {/* Bannière de suggestion automatique */}
+                    {nextSuggestion && (
+                        <div className="p-3 bg-amber-500/10 dark:bg-amber-950/25 border border-amber-500/30 flex items-center justify-between gap-3 text-xs">
+                            <div className="flex items-center gap-2">
+                                <Sparkles size={16} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                                <span className="text-amber-950 dark:text-amber-200">
+                                    Suite suggérée : <strong>{nextSuggestion.libelle}</strong> ({nextSuggestion.dateDebut} au {nextSuggestion.dateFin})
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setNewPeriode({
+                                    code: nextSuggestion.code,
+                                    libelle: nextSuggestion.libelle,
+                                    dateDebut: nextSuggestion.dateDebut,
+                                    dateFin: nextSuggestion.dateFin
+                                })}
+                                className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 dark:text-amber-200 font-bold text-[11px] border border-amber-500/40 cursor-pointer whitespace-nowrap transition-colors"
+                            >
+                                Appliquer la suggestion
+                            </button>
+                        </div>
+                    )}
+
                     <div className="bg-brand-50/50 dark:bg-brand-900/20 p-3 border border-brand-200 dark:border-brand-800/40 text-xs text-brand-800 dark:text-brand-300">
                         La période sera initialement créée au statut <strong>Brouillon</strong>. Vous pourrez ensuite l'ouvrir à la saisie.
                     </div>

@@ -398,10 +398,33 @@ public class PointageSyntheseService {
         boolean isSiteTmm = (siteCode != null && "TMM".equalsIgnoreCase(siteCode.trim())) ||
                             (siteNom != null && siteNom.toLowerCase().contains("tamatave"));
 
-        double refDeplacementSite = siteDeplacementRefMap != null ? siteDeplacementRefMap.getOrDefault(idSite, isSiteTmm ? 53200.0 : 31200.0) : 31200.0;
+        // Récupération du montant de référence mensuel pour le site (ex: 53 200 Ar pour TMM, 31 200 Ar pour TNR)
+        double refDeplacementSite = 0.0;
+        if (siteDeplacementRefMap != null && siteDeplacementRefMap.containsKey(idSite)) {
+            refDeplacementSite = siteDeplacementRefMap.get(idSite);
+        } else {
+            String sqlSiteInd = "SELECT c.montant_reference FROM site_indemnite_config c " +
+                                "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
+                                "WHERE c.id_site = ? AND i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE LIMIT 1";
+            try (PreparedStatement psSI = c.prepareStatement(sqlSiteInd)) {
+                psSI.setInt(1, idSite);
+                try (ResultSet rsSI = psSI.executeQuery()) {
+                    if (rsSI.next()) {
+                        refDeplacementSite = rsSI.getDouble("montant_reference");
+                    }
+                }
+            } catch (Exception ignored) {}
+            if (refDeplacementSite <= 0.0) {
+                refDeplacementSite = isSiteTmm ? 53200.0 : 31200.0;
+            }
+        }
+
+        // Déplacement fractionnable et proratisé :
+        // Montant jour = montantReference / nbJoursOuvrables
+        // Montant par case/trajet (demi-journée) = montantJour / 2
+        // totalTrajets accumule 0.5 par case cochée (matin/soir), soit 1.0 par jour complet
         double tarifJourDeplacement = calendrierEngine.calculerProrataJournalier(refDeplacementSite, nbJoursOuvrablesPeriode);
-        double brutDeplacement = totalTrajets * tarifJourDeplacement;
-        double mntDeplacement = Math.max(0.0, brutDeplacement - (isSiteTmm ? repasCount * reductionDeplactTmm : 0.0));
+        double mntDeplacement = totalTrajets * tarifJourDeplacement;
         dto.setMontantDeplacement(Math.round(mntDeplacement * 100.0) / 100.0);
 
         return dto;

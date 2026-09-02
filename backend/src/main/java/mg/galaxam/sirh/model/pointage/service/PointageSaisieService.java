@@ -341,9 +341,15 @@ public class PointageSaisieService {
                     ? (int) periodeInfo.get("nbJoursOuvrables")
                     : 22;
 
+            // Chargement anticipé des paramètres globaux pour résoudre MONTANT_REPAS_MIDI
+            // (nécessaire dès la construction de siteIndemnites pour les sites à tarif repas = 0 comme TMM)
+            Map<String, String> globalParams = ParametreGlobal.loadActiveMap(c);
+            double mntRepasMidiGlobal = ParametreGlobal.getDouble(globalParams, "MONTANT_REPAS_MIDI", 2000.0);
+
             double montantDeplacementMois = 31200.0;
             double montantDeplacementJour = calendrierEngine.calculerProrataJournalier(montantDeplacementMois, nbOuvrablesPeriode);
-            double montantRepasJour = 2000.0;
+            double montantRepasSite = 0.0;
+            boolean siteRepasInclusParDefaut = false;
 
             List<Map<String, Object>> siteIndemnites = new ArrayList<>();
             String sqlSiteInd = "SELECT c.id_indemnite, i.code, i.libelle, COALESCE(i.fractionnable, FALSE) AS fractionnable, " +
@@ -369,9 +375,19 @@ public class PointageSaisieService {
                                 : montantRef;
                         double montantTrajet = fractionnable ? calendrierEngine.calculerMontantTrajet(montantJour) : montantJour;
 
-                        String sousTitre = isProratise
-                                ? "prorata (" + String.format(Locale.FRENCH, "%,d", Math.round(montantJour)) + " Ar/j)"
-                                : String.format(Locale.FRENCH, "%,d", Math.round(montantJour)) + " Ar/j";
+                        // Pour les indemnités REPAS avec montantRef = 0 (ex: TMM), le montant affiché
+                        // quand la case est cochée manuellement doit être le montant global MONTANT_REPAS_MIDI.
+                        boolean isRepasZero = "REPAS".equalsIgnoreCase(codeInd) && montantRef <= 0.0;
+                        double montantGlobal = isRepasZero ? mntRepasMidiGlobal : montantJour;
+
+                        String sousTitre;
+                        if (isRepasZero) {
+                            sousTitre = "Non inclus site (" + String.format(Locale.FRENCH, "%,d", Math.round(montantGlobal)) + " Ar/j si coché)";
+                        } else if (isProratise) {
+                            sousTitre = "prorata (" + String.format(Locale.FRENCH, "%,d", Math.round(montantJour)) + " Ar/j)";
+                        } else {
+                            sousTitre = String.format(Locale.FRENCH, "%,d", Math.round(montantJour)) + " Ar/j";
+                        }
 
                         ind.put("idIndemnite", idInd);
                         ind.put("code", codeInd);
@@ -382,6 +398,12 @@ public class PointageSaisieService {
                         ind.put("periodicite", period);
                         ind.put("montantReference", montantRef);
                         ind.put("montantJour", montantJour);
+                        // montantGlobal = montant à utiliser si coché manuellement alors que montantJour = 0
+                        ind.put("montantGlobal", montantGlobal);
+                        // useGlobalIfZero = true indique au frontend que la valeur site est 0 et que le
+                        // montant effectif appliqué sera celui des paramètres globaux si l'agent coche la case
+                        ind.put("useGlobalIfZero", isRepasZero);
+                        ind.put("cocheParDefaut", !isRepasZero);  // false = non coché par défaut si site = 0
                         ind.put("montantTrajet", montantTrajet);
                         ind.put("sousTitre", sousTitre);
                         ind.put("nbJoursOuvrablesPeriode", nbOuvrablesPeriode);
@@ -391,7 +413,8 @@ public class PointageSaisieService {
                             montantDeplacementMois = montantRef;
                             montantDeplacementJour = montantJour;
                         } else if ("REPAS".equalsIgnoreCase(codeInd)) {
-                            montantRepasJour = montantRef;
+                            montantRepasSite = montantRef;
+                            siteRepasInclusParDefaut = montantRef > 0.0;
                         }
                     }
                 }
@@ -402,7 +425,9 @@ public class PointageSaisieService {
             siteParams.put("montantDeplacementMois", montantDeplacementMois);
             siteParams.put("montantDeplacementJour", montantDeplacementJour);
             siteParams.put("montantDeplacementTrajet", Math.round((montantDeplacementJour / 2.0) * 100.0) / 100.0);
-            siteParams.put("montantRepasJour", montantRepasJour);
+            siteParams.put("montantRepasJour", siteRepasInclusParDefaut ? montantRepasSite : mntRepasMidiGlobal);
+            siteParams.put("siteRepasInclusParDefaut", siteRepasInclusParDefaut);
+            result.put("siteParams", siteParams);
             result.put("siteParams", siteParams);
 
             // 5. Employés Affectés au Site avec Contrat ACTIF couvrant la date
@@ -565,7 +590,7 @@ public class PointageSaisieService {
                                 dto.setLibelleStatut(isAutonome ? "Cadre autonome (4h)" : "Congé Après-midi");
                                 dto.setDeplacementMatin(true);
                                 dto.setDeplacementAm(false);
-                                dto.setIndemniteRepasRecue(true);
+                                dto.setIndemniteRepasRecue(siteRepasInclusParDefaut);
                             } else if (isAutonome) {
                                 dto.setHeureEntreeMatin((String) siteParams.get("heureDebutMatin"));
                                 dto.setHeureSortieMatin((String) siteParams.get("heureFinMatin"));
@@ -577,7 +602,7 @@ public class PointageSaisieService {
                                 dto.setLibelleStatut("Cadre autonome (8h)");
                                 dto.setDeplacementMatin(true);
                                 dto.setDeplacementAm(true);
-                                dto.setIndemniteRepasRecue(montantRepasJour > 0);
+                                dto.setIndemniteRepasRecue(siteRepasInclusParDefaut);
                             } else {
                                 dto.setHeureEntreeMatin("");
                                 dto.setHeureSortieMatin("");
@@ -589,7 +614,7 @@ public class PointageSaisieService {
                                 dto.setLibelleStatut("Non saisi");
                                 dto.setDeplacementMatin(true);
                                 dto.setDeplacementAm(true);
-                                dto.setIndemniteRepasRecue(montantRepasJour > 0);
+                                dto.setIndemniteRepasRecue(siteRepasInclusParDefaut);
                             }
                         }
 
@@ -618,10 +643,15 @@ public class PointageSaisieService {
                                     dynMap.put(String.valueOf(idInd), savedDyn.get(idInd));
                                 } else {
                                     double mntJour = (double) sInd.get("montantJour");
+                                    double mntGlobal = sInd.get("montantGlobal") != null ? (double) sInd.get("montantGlobal") : mntJour;
+                                    boolean useGlobal = Boolean.TRUE.equals(sInd.get("useGlobalIfZero"));
+                                    boolean cocheParDefaut = !Boolean.FALSE.equals(sInd.get("cocheParDefaut"));
+                                    boolean acc = !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour) && cocheParDefaut;
+
                                     Map<String, Object> item = new HashMap<>();
-                                    item.put("accordee", !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour));
-                                    item.put("montantApplique", mntJour);
-                                    item.put("fractionJour", (!isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour)) ? 1.0 : 0.0);
+                                    item.put("accordee", acc);
+                                    item.put("montantApplique", useGlobal ? mntGlobal : mntJour);
+                                    item.put("fractionJour", acc ? 1.0 : 0.0);
                                     dynMap.put(String.valueOf(idInd), item);
                                 }
                             }
@@ -667,12 +697,18 @@ public class PointageSaisieService {
                             for (Map<String, Object> sInd : siteIndemnites) {
                                 int idInd = (int) sInd.get("idIndemnite");
                                 double mntJour = (double) sInd.get("montantJour");
+                                double mntGlobal = sInd.get("montantGlobal") != null ? (double) sInd.get("montantGlobal") : mntJour;
+                                boolean useGlobal = Boolean.TRUE.equals(sInd.get("useGlobalIfZero"));
+                                boolean cochePaDefaut = !Boolean.FALSE.equals(sInd.get("cochePaDefaut"));
                                 boolean estExclu = exclusionsIndemnites.contains(idInd);
-                                boolean acc = !estExclu && !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour);
+                                // Si le site a un tarif = 0 (useGlobal), la case n'est pas cochée par défaut
+                                // même si l'employé n'est pas en congé/férié.
+                                boolean acc = !estExclu && !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour) && cochePaDefaut;
 
                                 Map<String, Object> item = new HashMap<>();
                                 item.put("accordee", acc);
-                                item.put("montantApplique", mntJour);
+                                // Si coché, on applique le montant global (MONTANT_REPAS_MIDI) si site = 0
+                                item.put("montantApplique", useGlobal ? mntGlobal : mntJour);
                                 item.put("fractionJour", acc ? 1.0 : 0.0);
                                 dynMap.put(String.valueOf(idInd), item);
                             }

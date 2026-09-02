@@ -329,12 +329,24 @@ export default function PointageGridTable({
 
                                         // Indemnité journalière standard (Repas, etc.)
                                         const isRepas = ind.code === 'REPAS';
-                                        const checked = isRepas ? !!row.indemniteRepasRecue : isAccordee;
+                                        const useGlobalIfZero = !!ind.useGlobalIfZero;
+                                        const checked = isRepas
+                                            ? (row.indemniteRepasRecue !== undefined ? !!row.indemniteRepasRecue : (useGlobalIfZero ? false : isAccordee))
+                                            : (useGlobalIfZero ? (dynObj.accordee === true) : isAccordee);
+                                        const montantEffectif = useGlobalIfZero && checked
+                                            ? (ind.montantGlobal || ind.montantJour || 0)
+                                            : (ind.montantJour || ind.montantReference || 0);
 
                                         return (
                                             <Td key={ind.idIndemnite} className="px-3 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
                                                 <div className="flex flex-col items-center justify-center gap-1">
-                                                    <label className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Accordée — ${fmtMoney(montantJour)}`}>
+                                                    <label
+                                                        className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`}
+                                                        title={useGlobalIfZero
+                                                            ? `Non inclus dans les indemnités du site — Si coché, applique le paramètre global : ${fmtMoney(ind.montantGlobal || 0)}/j`
+                                                            : `Accordée — ${fmtMoney(montantEffectif)}`
+                                                        }
+                                                    >
                                                         <input
                                                             type="checkbox"
                                                             checked={checked}
@@ -347,10 +359,22 @@ export default function PointageGridTable({
                                                             }}
                                                             className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
                                                         />
-                                                        <span className={checked ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold' : 'text-[var(--color-fg-muted)]'}>
-                                                            {checked && montantJour > 0 ? fmtMoney(montantJour) : '0 Ar'}
+                                                        <span className={checked
+                                                            ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold'
+                                                            : useGlobalIfZero ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--color-fg-muted)]'
+                                                        }>
+                                                            {checked && montantEffectif > 0
+                                                                ? fmtMoney(montantEffectif)
+                                                                : useGlobalIfZero ? <span className="text-[10px] opacity-70">Manuel</span> : '0 Ar'
+                                                            }
                                                         </span>
                                                     </label>
+                                                    {/* Badge discret si repas non inclus par défaut dans ce site */}
+                                                    {useGlobalIfZero && !checked && (
+                                                        <span className="text-[9px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 leading-tight">
+                                                            opt.
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </Td>
                                         );
