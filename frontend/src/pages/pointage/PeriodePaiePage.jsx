@@ -238,29 +238,15 @@ export default function PeriodePaiePage() {
         <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Périodes de Paie & Clôture" description="Gestion des périodes mensuelles de pointage et cycle de paie." />
 
-            {/* Fil d'Ariane */}
-            <Breadcrumb items={[
-                { label: 'Tableau de bord', href: '/dashboard' },
-                { label: 'Pointage & Présence', href: '/pointages/saisie' },
-                { label: 'Périodes de Paie & Clôture' }
-            ]} />
-
-            {/* En-tête standard Galaxam Compact */}
-            <div className="relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-xs p-3.5 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3.5">
-                <div className="absolute top-0 right-0 w-48 h-48 bg-[var(--color-brand-500)]/5 rounded-none blur-2xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-
-                <div className="relative flex items-center gap-3.5 min-w-0">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-[var(--color-brand-400)] to-[var(--color-brand-600)] text-white rounded-none flex items-center justify-center shadow-xs shrink-0">
-                        <CalendarRange size={19} strokeWidth={2.2} />
-                    </div>
-                    <div className="min-w-0">
-                        <h1 className="text-base sm:text-lg font-bold text-[var(--color-fg)] tracking-tight truncate">
-                            Périodes de Paie & Clôture
-                        </h1>
-                        <p className="text-xs text-[var(--color-fg-muted)] mt-0.5 font-normal truncate">
-                            Cycle de paie mensuel — ouverture, validation DAF, clôture et verrouillage de la saisie des présences.
-                        </p>
-                    </div>
+            {/* Barre d'action de création de période */}
+            <div className="flex items-center justify-between bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 shadow-xs">
+                <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+                        Calendrier des Cycles de Paie
+                    </h3>
+                    <p className="text-[11.5px] text-[var(--color-fg-muted)] mt-0.5">
+                        Création, activation, validation et clôture immuable des périodes de pointage.
+                    </p>
                 </div>
 
                 <div className="relative flex items-center gap-2 shrink-0">

@@ -15,7 +15,6 @@ import PointageToolbar from '@/components/pointage/PointageToolbar';
 import PointageGridTable from '@/components/pointage/PointageGridTable';
 import PointageAnomaliesSection from '@/components/pointage/PointageAnomaliesSection';
 import PointageWeeklySyntheseSection from '@/components/pointage/PointageWeeklySyntheseSection';
-import PointageTransmissionDafSection from '@/components/pointage/PointageTransmissionDafSection';
 import PointageRecapModal from '@/components/pointage/PointageRecapModal';
 import usePointageSaisie from '@/hooks/pointage/usePointageSaisie';
 
@@ -98,8 +97,6 @@ export default function SaisieQuotidiennePage() {
 
     // Modales
     const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
-    const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
-    const [submittingDaf, setSubmittingDaf] = useState(false);
 
     // Actions
     const handleUpdateHours = (idEmploye, field, value) => {
@@ -293,32 +290,6 @@ export default function SaisieQuotidiennePage() {
         }
     };
 
-    const handleSubmitToDaf = async () => {
-        if (!periodeInfo || !periodeInfo.id_periode_paie) return;
-        setSubmittingDaf(true);
-        try {
-            await saveAll();
-            setModifiedEmpIds(new Set());
-            await periodePaieService.updateStatut(periodeInfo.id_periode_paie, 'A_VALIDER');
-            toast({
-                title: 'Période transmise à la DAF',
-                message: 'La période a été transmise avec succès pour validation finale.',
-                type: 'success'
-            });
-            setIsSubmitModalOpen(false);
-            await loadData();
-        } catch (err) {
-            console.error('Erreur transmission DAF:', err);
-            toast({
-                title: 'Erreur de transmission',
-                message: 'Impossible de transmettre la période à la DAF.',
-                type: 'error'
-            });
-        } finally {
-            setSubmittingDaf(false);
-        }
-    };
-
     // Raccourci clavier Ctrl+S / Cmd+S
     useEffect(() => {
         const handleKeyDownGlobal = (e) => {
@@ -341,22 +312,16 @@ export default function SaisieQuotidiennePage() {
             <div className="space-y-2 max-w-[1440px] mx-auto pb-6">
 
                 {/* En-tête minimal : titre + lien rapide */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-[17px] font-bold text-[var(--color-fg)]">Pointage & présence quotidienne</h1>
-                        <p className="text-[11.5px] text-[var(--color-fg-muted)] mt-0.5">
-                            Saisissez les horaires du jour, vérifiez les anomalies, transmettez à la DAF.
-                        </p>
-                    </div>
+                <div className="flex items-center justify-end">
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => navigate('/conges/demandes')}
+                        onClick={() => navigate('/conges?tab=demandes')}
                         className="font-semibold flex items-center gap-1.5 shrink-0"
                     >
                         <PlusCircle size={13} />
-                        <span>Ajouter une absence</span>
+                        <span>Ajouter une absence / congé</span>
                     </Button>
                 </div>
 
@@ -446,14 +411,6 @@ export default function SaisieQuotidiennePage() {
                     periodeInfo={periodeInfo}
                     selectedSite={selectedSite}
                 />
-
-                <PointageTransmissionDafSection
-                    periodeInfo={periodeInfo}
-                    totalAnomalies={statsJour.totalAnomalies}
-                    isReadOnly={isReadOnly}
-                    submittingDaf={submittingDaf}
-                    onRequestSubmitDaf={() => setIsSubmitModalOpen(true)}
-                />
             </div>
 
             {/* Modale Récapitulative & Validation Avant Sauvegarde */}
@@ -466,17 +423,6 @@ export default function SaisieQuotidiennePage() {
                 siteIndemnites={siteIndemnites}
                 selectedDate={selectedDate}
                 siteLabel={siteLabel}
-            />
-
-            {/* Modale de Confirmation de Transmission DAF */}
-            <ConfirmDialog
-                isOpen={isSubmitModalOpen}
-                title="Confirmer la transmission de la période à la DAF ?"
-                message={`Vous êtes sur le point de transmettre la période "${periodeInfo?.libelle || periodeInfo?.code}" à la DAF. La saisie quotidienne sera verrouillée pour les agents jusqu'à validation finale.`}
-                confirmLabel="Confirmer et Transmettre"
-                confirmVariant="primary"
-                onConfirm={handleSubmitToDaf}
-                onCancel={() => setIsSubmitModalOpen(false)}
             />
         </>
     );

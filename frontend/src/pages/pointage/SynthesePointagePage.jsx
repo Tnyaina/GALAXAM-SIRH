@@ -24,11 +24,11 @@ export default function SynthesePointagePage() {
     const [periodes, setPeriodes] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     
-    const activeTab = searchParams.get('tab') || 'hebdo';
+    const activeTab = searchParams.get('subTab') || 'hebdo';
     const setActiveTab = (tab) => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
-            next.set('tab', tab);
+            next.set('subTab', tab);
             return next;
         });
     };
@@ -52,6 +52,8 @@ export default function SynthesePointagePage() {
 
     // États d'actions DAF sur la période
     const [updatingPeriodeStatut, setUpdatingPeriodeStatut] = useState(false);
+    const [transmittingDaf, setTransmittingDaf] = useState(false);
+    const [showTransmissionModal, setShowTransmissionModal] = useState(false);
     const [showRejetModal, setShowRejetModal] = useState(false);
     const [showValiderPeriodeModal, setShowValiderPeriodeModal] = useState(false);
     const [showCloturerPeriodeModal, setShowCloturerPeriodeModal] = useState(false);
@@ -118,7 +120,13 @@ export default function SynthesePointagePage() {
             if (res?.semaines) {
                 setSemaines(res.semaines);
                 if (res.semaines.length > 0) {
+                    const paramSemaine = searchParams.get('semaine');
+                    const targetSemaine = paramSemaine
+                        ? res.semaines.find(s => String(s.id) === paramSemaine || s.dateDebut === paramSemaine)
+                        : null;
+
                     setSelectedSemaine(prev => {
+                        if (targetSemaine) return targetSemaine;
                         if (!prev) return res.semaines[0];
                         const found = res.semaines.find(s => s.id === prev.id);
                         return found || res.semaines[0];
@@ -130,7 +138,7 @@ export default function SynthesePointagePage() {
         } finally {
             setLoadingSemaines(false);
         }
-    }, [selectedPeriode, selectedSite]);
+    }, [selectedPeriode, selectedSite, searchParams]);
 
     useEffect(() => {
         fetchSemaines();
@@ -248,6 +256,33 @@ export default function SynthesePointagePage() {
         }
     };
 
+    // Transmission officielle de la période à la DAF par l'agent (uniquement si 100% des semaines sont validées)
+    const handleTransmettreDaf = async () => {
+        if (!selectedPeriode) return;
+        setTransmittingDaf(true);
+        try {
+            await periodePaieService.updateStatut(selectedPeriode, 'A_VALIDER');
+            toast({
+                title: 'Période transmise à la DAF',
+                message: 'Toutes les semaines ont été verrouillées. La période est transmise à la DAF pour validation finale.',
+                type: 'success'
+            });
+            setShowTransmissionModal(false);
+            const list = await periodePaieService.getAllPeriodes();
+            if (list) setPeriodes(list);
+            await fetchSemaines();
+        } catch (err) {
+            console.error('Erreur transmission DAF:', err);
+            toast({
+                title: 'Erreur',
+                message: err?.response?.data?.error || 'Impossible de transmettre la période à la DAF.',
+                type: 'error'
+            });
+        } finally {
+            setTransmittingDaf(false);
+        }
+    };
+
     const periodeOptions = periodes.map(p => ({
         value: p.idPeriodePaie,
         label: `${p.libelle || p.code} (${p.statutLibelle || p.statutCode})`
@@ -329,19 +364,6 @@ export default function SynthesePointagePage() {
             />
 
             <div className="space-y-2 max-w-[1600px] mx-auto pb-8">
-                {/* Mini titre + breadcrumb */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-[17px] font-bold text-[var(--color-fg)]">Synthèse &amp; Compensations</h1>
-                        <p className="text-[11.5px] text-[var(--color-fg-muted)] mt-0.5">
-                            Consolidez les semaines de travail, compensez les retards et préparez la clôture paie.
-                        </p>
-                    </div>
-                </div>
-
-                {/* Workflow Nav slim */}
-                <PointageWorkflowNav />
-
                 {/* Filtres compact (1 ligne) */}
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-3 py-2 shadow-xs flex items-center gap-3 flex-wrap lg:flex-nowrap">
                     <Select
@@ -775,6 +797,20 @@ export default function SynthesePointagePage() {
                                         <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
                                             {consolidationStatus.semainesValideesCount} sur {consolidationStatus.totalSemaines} semaine(s) validée(s)
                                         </div>
+                                        {consolidationStatus.allValidees && consolidationStatus.isEnCours && (
+                                            <div className="mt-2 pt-2 border-t border-[var(--color-border-subtle)]">
+                                                <Button
+                                                    type="button"
+                                                    variant="primary"
+                                                    size="xs"
+                                                    onClick={() => setShowTransmissionModal(true)}
+                                                    className="font-bold flex items-center gap-1.5 shadow-xs"
+                                                >
+                                                    <Send size={12} />
+                                                    <span>Transmettre à la DAF</span>
+                                                </Button>
+                                            </div>
+                                        )}
                                         {!consolidationStatus.allValidees && (
                                             <button
                                                 onClick={() => setActiveTab('hebdo')}
@@ -1050,6 +1086,19 @@ export default function SynthesePointagePage() {
                         </div>
                     </div>
                 </Modal>
+
+                {/* Modale Agent : Transmission de la Période à la DAF */}
+                <ConfirmDialog
+                    isOpen={showTransmissionModal}
+                    onClose={() => setShowTransmissionModal(false)}
+                    onConfirm={handleTransmettreDaf}
+                    title={`Transmettre la période ${consolidationStatus.currentPeriodeObj?.libelle || ''} à la DAF ?`}
+                    message="Toutes les semaines du mois ont été validées et consolidées. Cette action transmet la période à la DAF (statut A_VALIDER) et verrouille la saisie quotidienne des agents jusqu'à arbitrage."
+                    confirmLabel="Confirmer et Transmettre"
+                    cancelLabel="Annuler"
+                    variant="primary"
+                    loading={transmittingDaf}
+                />
 
                 {/* Modale DAF : Clôture Définitive pour la Paie */}
                 <ConfirmDialog

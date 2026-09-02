@@ -16,6 +16,7 @@ const Login = lazy(() => import("@/pages/auth/Login"));
 const Dashboard = lazy(() => import("@/pages/dashboard/Dashboard"));
 
 // Module Pointage & Présence
+const GestionPointagesPage = lazy(() => import("@/pages/pointage/GestionPointagesPage"));
 const SaisieQuotidiennePage = lazy(() => import("@/pages/pointage/SaisieQuotidiennePage"));
 const AnomaliesPointagePage = lazy(() => import("@/pages/pointage/AnomaliesPointagePage"));
 const SynthesePointagePage = lazy(() => import("@/pages/pointage/SynthesePointagePage"));
@@ -79,11 +80,11 @@ export default function Router() {
                     {/* Module Pointage & Présence (Admin & Agent Pointage)  */}
                     {/* ---------------------------------------------------- */}
                     <Route element={<ProtectedRoute requiredPermission="POINTAGE_READ" allowedRoles={["ROLE_ADMIN", "ROLE_AGENT_POINTAGE"]} />}>
-                        <Route path="/pointages" element={<Navigate to="/pointages/saisie" replace />} />
-                        <Route path="/pointages/saisie" element={<SaisieQuotidiennePage />} />
-                        <Route path="/pointages/anomalies" element={<AnomaliesPointagePage />} />
-                        <Route path="/pointages/synthese" element={<SynthesePointagePage />} />
-                        <Route path="/pointages/periodes" element={<PeriodePaiePage />} />
+                        <Route path="/pointages" element={<GestionPointagesPage />} />
+                        <Route path="/pointages/saisie" element={<Navigate to="/pointages?tab=saisie" replace />} />
+                        <Route path="/pointages/anomalies" element={<Navigate to="/pointages?tab=anomalies" replace />} />
+                        <Route path="/pointages/synthese" element={<Navigate to="/pointages?tab=synthese" replace />} />
+                        <Route path="/pointages/periodes" element={<Navigate to="/pointages?tab=periodes" replace />} />
                     </Route>
 
                     <Route element={<ProtectedRoute />}>

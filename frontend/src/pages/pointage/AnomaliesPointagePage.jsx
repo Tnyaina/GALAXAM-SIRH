@@ -156,19 +156,6 @@ export default function AnomaliesPointagePage() {
             />
 
             <div className="space-y-3.5 max-w-[1600px] mx-auto pb-12">
-                <PageHeader
-                    title="Anomalies & Régularisations de Pointage"
-                    subtitle="Détection des Saisies incomplets, retards non justifiés et absences"
-                    breadcrumbs={[
-                        { label: 'Tableau de bord', href: '/dashboard' },
-                        { label: 'Pointages', href: '/pointages/saisie' },
-                        { label: 'Anomalies' }
-                    ]}
-                />
-
-                {/* Barre de navigation guidée */}
-                <PointageWorkflowNav />
-
                 {/* 1. Cartes de Statistiques interactives (cliquables pour filtrer) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                     <button
