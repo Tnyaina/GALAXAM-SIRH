@@ -9,19 +9,19 @@ export default function PointageWorkflowNav() {
     const steps = [
         {
             to: '/pointages/saisie',
-            label: 'Saisie quotidienne',
+            label: '1. Saisie Quotidienne (Agent)',
             icon: CalendarDays,
             step: 1
         },
         {
             to: '/pointages/anomalies',
-            label: 'Anomalies',
+            label: '2. Suivi Anomalies & Incidents',
             icon: AlertTriangle,
             step: 2
         },
         {
             to: '/pointages/synthese',
-            label: 'Synthèse & Compensations',
+            label: '3. Consolidation Hebdo & Clôture DAF',
             icon: FileSpreadsheet,
             step: 3
         }
@@ -30,7 +30,7 @@ export default function PointageWorkflowNav() {
     if (canViewPeriodes) {
         steps.push({
             to: '/pointages/periodes',
-            label: 'Périodes de Paie',
+            label: '4. Calendrier des Périodes',
             icon: CalendarRange,
             step: 4
         });

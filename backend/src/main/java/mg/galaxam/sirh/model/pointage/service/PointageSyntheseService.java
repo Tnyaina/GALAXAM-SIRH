@@ -640,26 +640,22 @@ public class PointageSyntheseService {
                 statut = "Validée";
                 desc = "Heures supplémentaires et compensations consolidées.";
                 isReady = false;
-            } else if (nbAnomalies > 0) {
-                statut = "Anomalies à corriger";
-                desc = nbAnomalies + " anomalie(s) de saisie à régulariser.";
-                isReady = false;
             } else if (totalPointages == 0) {
                 statut = "Saisie en cours";
                 desc = "Pointages quotidiens non encore saisis.";
                 isReady = false;
+            } else if (nbAnomalies > 0) {
+                statut = "Prête (avec anomalies)";
+                desc = nbAnomalies + " anomalie(s) détectée(s). Validation possible avec signalement.";
+                isReady = true; // Non-bloquant mais signalé !
             } else if (totalPointages < pointagesAttendus) {
-                statut = "Saisie en cours";
-                desc = "Saisie partielle (" + totalPointages + "/" + pointagesAttendus + " pointages réalisés).";
-                isReady = false;
-            } else if (totalPointages >= pointagesAttendus && pointagesAttendus > 0) {
+                statut = "Saisie partielle";
+                desc = "Saisie en cours (" + totalPointages + "/" + pointagesAttendus + " pointages réalisés).";
+                isReady = true; // Permettre la validation opérationnelle
+            } else {
                 statut = "Prête à valider";
                 desc = "Saisie complète, aucune anomalie.";
                 isReady = true;
-            } else {
-                statut = "Saisie en cours";
-                desc = "Pointages quotidiens en cours de saisie.";
-                isReady = false;
             }
 
             semMap.put("statut", statut);

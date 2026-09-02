@@ -81,8 +81,11 @@ public class PointageAnomalieService {
                 "JOIN employe e ON p.id_employe = e.id_employe " +
                 "LEFT JOIN ref_site s ON p.id_site = s.id_site " +
                 "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
-                "WHERE (st.code IN ('ANOMALIE_SAISIE', 'ABSENCE_NON_JUSTIFIEE') " +
-                "   OR (p.minutes_retard > 0 AND (p.motif_ajustement IS NULL OR TRIM(p.motif_ajustement) = ''))) "
+                "WHERE (" +
+                "   st.code = 'ANOMALIE_SAISIE' " +
+                "   OR (st.code = 'ABSENCE_NON_JUSTIFIEE' AND EXTRACT(DOW FROM p.date_pointage) NOT IN (0, 6)) " +
+                "   OR (p.minutes_retard > 0 AND (p.motif_ajustement IS NULL OR TRIM(p.motif_ajustement) = ''))" +
+                ") "
             );
 
             List<Object> params = new ArrayList<>();

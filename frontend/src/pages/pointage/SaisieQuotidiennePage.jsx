@@ -243,7 +243,13 @@ export default function SaisieQuotidiennePage() {
         const totalRetards = safeList.filter(r => r.retard || (r.minutesRetard && r.minutesRetard > 0)).length;
         const cumulMinutesRetard = safeList.reduce((acc, r) => acc + (Number(r.minutesRetard) || 0), 0);
         const totalHeuresTravaillees = safeList.reduce((acc, r) => acc + (Number(r.totalHeures) || 0), 0);
-        const totalAnomalies = safeList.filter(r => r.anomalie || r.absenceNonJustifiee).length;
+        let isWeekend = false;
+        if (selectedDate) {
+            const dObj = new Date(selectedDate);
+            const day = dObj.getDay();
+            isWeekend = (day === 0 || day === 6);
+        }
+        const totalAnomalies = safeList.filter(r => r.anomalie || (!isWeekend && r.absenceNonJustifiee)).length;
         const isFerie = safeList[0]?.ferieJour || false;
         const libelleFerie = safeList[0]?.libelleFerie || null;
 

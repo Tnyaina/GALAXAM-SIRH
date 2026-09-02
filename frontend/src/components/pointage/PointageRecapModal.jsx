@@ -20,10 +20,16 @@ export default function PointageRecapModal({
     const fmtMoney = (val) => formatMonnaie(val);
 
     const totalInscrits = safeData.length;
+    let isWeekend = false;
+    if (selectedDate) {
+        const dObj = new Date(selectedDate);
+        const day = dObj.getDay();
+        isWeekend = (day === 0 || day === 6);
+    }
     const presents = safeData.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0));
     const retards = safeData.filter(r => r.retard || (r.minutesRetard && r.minutesRetard > 0));
     const cumulRetard = safeData.reduce((acc, r) => acc + (Number(r.minutesRetard) || 0), 0);
-    const anomalies = safeData.filter(r => r.anomalie || r.absenceNonJustifiee);
+    const anomalies = safeData.filter(r => r.anomalie || (!isWeekend && r.absenceNonJustifiee));
     const repasCount = safeData.filter(r => r.indemniteRepasRecue).length;
     const totalTrajets = safeData.reduce((acc, r) => {
         let cnt = 0;

@@ -137,9 +137,15 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
         } else if (hasValidationError) {
             codeStatut = 'ANOMALIE_SAISIE';
         } else if (em === null && sm === null && ea === null && sa === null) {
-            if (row.estAutonome) codeStatut = 'DISPENSE_POINTAGE';
-            else if (row.idPointage) codeStatut = 'ABSENCE_NON_JUSTIFIEE';
-            else codeStatut = 'NON_SAISI';
+            if (row.estAutonome) {
+                codeStatut = (dayOfWeek === 0 || dayOfWeek === 6) ? 'NON_SAISI' : 'DISPENSE_POINTAGE';
+            } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+                codeStatut = 'NON_SAISI';
+            } else if (row.idPointage) {
+                codeStatut = 'ABSENCE_NON_JUSTIFIEE';
+            } else {
+                codeStatut = 'NON_SAISI';
+            }
         } else if (isPauseAuto) {
             if (dayOfWeek === 6) codeStatut = 'SAMEDI_TRAVAILLE';
             else if (dayOfWeek === 0) codeStatut = 'DIMANCHE_TRAVAILLE';
@@ -151,7 +157,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
         } else if (em === null && sm === null && ea !== null && sa !== null) {
             codeStatut = isCongeMatin ? (totalMinutesRetard > 0 ? 'RETARD' : 'PRESENT') : 'ANOMALIE_SAISIE';
         } else if (totalH === 0.0) {
-            codeStatut = 'ABSENCE_NON_JUSTIFIEE';
+            codeStatut = (dayOfWeek === 0 || dayOfWeek === 6) ? 'NON_SAISI' : 'ABSENCE_NON_JUSTIFIEE';
         } else if (dayOfWeek === 6 && totalH > 0) {
             codeStatut = 'SAMEDI_TRAVAILLE';
         } else if (dayOfWeek === 0 && totalH > 0) {
@@ -334,10 +340,35 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
         );
     };
 
-    const saveAll = async () => {
+    const saveAll = async (targetEmpIds = null) => {
         setSaving(true);
         try {
-            const res = await pointageSaisieService.enregistrerBatch(grilleData);
+            let payload = grilleData;
+            // Si une liste d'employés modifiés est fournie, ou si on filtre intelligemment :
+            if (targetEmpIds && targetEmpIds.size > 0) {
+                payload = grilleData.filter(r => targetEmpIds.has(r.idEmploye));
+            } else if (initialGrilleData && initialGrilleData.length > 0) {
+                // Détecter un weekend : en weekend, on n'envoie que les employés ayant des heures ou explicitement modifiés
+                const dStr = selectedDate;
+                let isWeekend = false;
+                if (dStr) {
+                    const dObj = new Date(dStr);
+                    isWeekend = (dObj.getDay() === 0 || dObj.getDay() === 6);
+                }
+                if (isWeekend) {
+                    payload = grilleData.filter(r => {
+                        const hasHours = (r.heureEntreeMatin || r.heureSortieMatin || r.heureEntreeAm || r.heureSortieAm);
+                        const isMod = isRowModified(r, initialGrilleData);
+                        return hasHours || isMod;
+                    });
+                }
+            }
+
+            if (payload.length === 0) {
+                return true;
+            }
+
+            const res = await pointageSaisieService.enregistrerBatch(payload);
             if (res && res.success) {
                 await loadData();
                 return true;

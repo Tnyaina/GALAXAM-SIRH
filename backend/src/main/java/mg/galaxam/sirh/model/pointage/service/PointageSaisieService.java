@@ -170,6 +170,12 @@ public class PointageSaisieService {
         // 4. Aucun horaire saisi
         if (!aSaisiDesHeures) {
             if (isAutonome) return "DISPENSE_POINTAGE";
+            // Un week-end sans heures saisies n'est JAMAIS une absence : c'est un repos légal !
+            if (date != null) {
+                if (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY || date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) {
+                    return "REPOS";
+                }
+            }
             return "ABSENCE_NON_JUSTIFIEE";
         }
 
@@ -198,6 +204,9 @@ public class PointageSaisieService {
         // 8. Jour normal complet ou Week-end travaillé
         double totalH = calcHours(em, sm) + calcHours(ea, sa);
         if (totalH == 0.0) {
+            if (date != null && (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY || date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY)) {
+                return "REPOS";
+            }
             return "ABSENCE_NON_JUSTIFIEE";
         }
         if (date != null) {

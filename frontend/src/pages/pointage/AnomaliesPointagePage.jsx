@@ -441,7 +441,7 @@ export default function AnomaliesPointagePage() {
                             <label className="text-xs font-bold text-[var(--color-fg)] uppercase">Statut régularisé :</label>
                             <Select
                                 value={formData.statutCode}
-                                onChange={(e) => setFormData({ ...formData, statutCode: e.target.value })}
+                                onChange={(val) => setFormData(prev => ({ ...prev, statutCode: val }))}
                                 options={[
                                     { value: 'PRESENT', label: 'Présent (heures réelles travaillées)' },
                                     { value: 'ABSENCE_JUSTIFIEE', label: 'Absence justifiée (justificatif RH / maladie)' },
