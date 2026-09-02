@@ -18,7 +18,7 @@ public class PointageAnomalieController {
     private PointageAnomalieService pointageAnomalieService;
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> getAnomalies(
             @RequestParam(required = false) Integer idSite,
             @RequestParam(required = false) Integer idPeriode,
@@ -39,7 +39,7 @@ public class PointageAnomalieController {
     }
 
     @PutMapping("/{idPointage}/regulariser")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> regulariser(
             @PathVariable int idPointage,
             @RequestBody Map<String, Object> payload

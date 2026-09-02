@@ -12,7 +12,7 @@ export default function CarriereModalsManager({
     // Données de base
     idEmploye, employe, nomEmploye, matriculeEmploye,
     contratActif, affectationActive, workflowCplActif, contratsList, brouillonWf,
-    etatEssai,
+    etatEssai, canWrite = true, canValidate = false,
     
     // États et Hooks
     modalsState,
@@ -57,6 +57,8 @@ export default function CarriereModalsManager({
                     }}
                     workflowCpl={selectedWfModal || brouillonWf}
                     initialCancelMode={isRecapCancelMode}
+                    canWrite={canWrite}
+                    canValidate={canValidate}
                     onEdit={(wf) => handleOpenEditModal(wf)}
                     onActionSuccess={(msg) => handleSuccessAction(msg)}
                 />

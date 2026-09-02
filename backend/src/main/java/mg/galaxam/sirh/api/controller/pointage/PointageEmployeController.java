@@ -43,7 +43,7 @@ public class PointageEmployeController {
     }
 
     @GetMapping("/employes/{idEmploye}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FichePointageEmployeDTO> getFichePointageEmploye(
             @PathVariable Integer idEmploye,
             @RequestParam(required = false) String date,

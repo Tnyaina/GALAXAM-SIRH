@@ -139,7 +139,9 @@ const computePeriodeForDate = (dateStr) => {
                 baseLibelle: null
             };
         }
-    } catch (e) {}
+    } catch {
+        // Ignorer les erreurs de parsing de date
+    }
     return null;
 };
 

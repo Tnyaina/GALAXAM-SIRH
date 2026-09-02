@@ -7,6 +7,7 @@ import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import { Textarea } from '@/components/ui/forms/Input';
+import { useAuth } from '@/context/AuthContext';
 import contratService from '@/api/employe/contratService';
 import {
     fmtDate, fmtMoney, getWorkflowLibellesUI,
@@ -32,9 +33,15 @@ export default function RecapitulatifBrouillonModal({
     onClose,
     workflowCpl,
     initialCancelMode = false,
+    canWrite = true,
+    canValidate = false,
     onEdit,
     onActionSuccess,
 }) {
+    const { hasPermission } = useAuth();
+    const effectiveCanValidate = canValidate || hasPermission('EMPLOYE_VALIDATE');
+    const effectiveCanWrite = canWrite || hasPermission('EMPLOYE_WRITE');
+
     const [activeWf, setActiveWf] = useState(workflowCpl);
     const [isCancelling, setIsCancelling] = useState(Boolean(initialCancelMode));
     const [commentaireValidation, setCommentaireValidation] = useState('');
@@ -418,19 +425,23 @@ export default function RecapitulatifBrouillonModal({
                 {isBrouillon ? (
                     !isCancelling && (
                         <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex items-center justify-between gap-4">
-                            <Button
-                                type="button"
-                                onClick={() => setIsCancelling(true)}
-                                variant="danger"
-                                size="md"
-                                iconLeft={<XCircle size={16} />}
-                                className="shrink-0"
-                            >
-                                Annuler ce Brouillon
-                            </Button>
+                            {(effectiveCanWrite || effectiveCanValidate) ? (
+                                <Button
+                                    type="button"
+                                    onClick={() => setIsCancelling(true)}
+                                    variant="danger"
+                                    size="md"
+                                    iconLeft={<XCircle size={16} />}
+                                    className="shrink-0"
+                                >
+                                    Annuler ce Brouillon
+                                </Button>
+                            ) : (
+                                <div />
+                            )}
 
                             <div className="flex items-center gap-3 shrink-0">
-                                {onEdit && (
+                                {onEdit && effectiveCanWrite && (
                                     <Button
                                         type="button"
                                         onClick={() => {
@@ -445,23 +456,30 @@ export default function RecapitulatifBrouillonModal({
                                     </Button>
                                 )}
 
-                                <Button
-                                    type="button"
-                                    onClick={handleValiderConfirm}
-                                    variant="success"
-                                    size="md"
-                                    iconLeft={<CheckCircle size={16} />}
-                                    loading={submitting}
-                                >
-                                    {isConfirmationEssai ? 'Valider la Confirmation d\'Essai' : isRenouvellementEssai ? 'Valider le Renouvellement d\'Essai' : isEmbauche ? 'Valider Définitivement (Activer)' : 'Valider le Mouvement RH'}
-                                </Button>
+                                {effectiveCanValidate ? (
+                                    <Button
+                                        type="button"
+                                        onClick={handleValiderConfirm}
+                                        variant="success"
+                                        size="md"
+                                        iconLeft={<CheckCircle size={16} />}
+                                        loading={submitting}
+                                    >
+                                        {isConfirmationEssai ? 'Valider la Confirmation d\'Essai' : isRenouvellementEssai ? 'Valider le Renouvellement d\'Essai' : isEmbauche ? 'Valider Définitivement (Activer)' : 'Valider le Mouvement RH'}
+                                    </Button>
+                                ) : (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-ink-100 dark:bg-ink-900 border border-ink-200 dark:border-ink-800 text-[11px] text-ink-500 rounded-none">
+                                        <ShieldAlert size={14} className="text-warning-500 shrink-0" />
+                                        <span>Validation réservée aux DAF / Responsables RH</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )
                 ) : (
                     !isCancelling && (
                         <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center">
-                            {isPlanifieFutur ? (
+                            {isPlanifieFutur && (effectiveCanWrite || effectiveCanValidate) ? (
                                 <Button
                                     type="button"
                                     onClick={() => setIsCancelling(true)}

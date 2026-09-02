@@ -20,7 +20,7 @@ public class PointageSyntheseController {
     private PointageSyntheseService pointageSyntheseService;
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> getSynthese(
             @RequestParam(defaultValue = "0") int idPeriodePaie,
             @RequestParam(required = false) Integer idSite
@@ -42,7 +42,7 @@ public class PointageSyntheseController {
     }
 
     @GetMapping("/semaines")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> getSemaines(
             @RequestParam(defaultValue = "0") int idPeriodePaie,
             @RequestParam(required = false) Integer idSite
@@ -64,7 +64,7 @@ public class PointageSyntheseController {
     }
 
     @GetMapping("/semaine-detail")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> getSemaineDetail(
             @RequestParam(defaultValue = "0") int idPeriodePaie,
             @RequestParam String dateDebut,
@@ -90,7 +90,7 @@ public class PointageSyntheseController {
     }
 
     @PostMapping("/semaines/valider")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> validerSemaine(
             @RequestBody Map<String, Object> body,
             @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails

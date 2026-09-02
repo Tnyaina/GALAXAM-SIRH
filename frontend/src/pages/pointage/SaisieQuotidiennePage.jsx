@@ -1,18 +1,15 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Clock, PlusCircle, Sparkles } from 'lucide-react';
+import { AlertCircle, Clock, Sparkles } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { useToast } from '@/components/ui/feedback/Toast';
 import SEO from '@/components/system/SEO';
 import { useAuth } from '@/context/AuthContext';
 import organisationService from '@/api/admin/organisationService';
 
-import PointageGuideStepper from '@/components/pointage/PointageGuideStepper';
 import PointageFerieAlert from '@/components/pointage/PointageFerieAlert';
 import PointageToolbar from '@/components/pointage/PointageToolbar';
 import PointageGridTable from '@/components/pointage/PointageGridTable';
-import PointageAnomaliesSection from '@/components/pointage/PointageAnomaliesSection';
-import PointageWeeklySyntheseSection from '@/components/pointage/PointageWeeklySyntheseSection';
 import PointageRecapModal from '@/components/pointage/PointageRecapModal';
 import usePointageSaisie from '@/hooks/pointage/usePointageSaisie';
 

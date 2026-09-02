@@ -1,4 +1,4 @@
-import { Search, MapPin, ClockCheck, Coffee, Save, CalendarOff } from 'lucide-react';
+import { Search, ClockCheck, Coffee, Save, CalendarOff } from 'lucide-react';
 import Select from '@/components/ui/forms/Select';
 import PeriodNavigator from '@/components/ui/navigation/PeriodNavigator';
 
@@ -10,14 +10,11 @@ export default function PointageToolbar({
     onDateChange,
     searchTerm,
     onSearchChange,
-    selectedStatutFilter = 'ALL',
-    onStatutFilterChange,
-    statusCounts = { ALL: 0, PRESENT: 0, CONGE: 0, NON_SAISI: 0, RETARD: 0 },
     onAutoFillStandard,
     onAutoDeducePauses,
     onAddConge,
     isReadOnly = false,
-    // Nouvelles props pour Save intégré
+    // Props pour Save intégré
     onSave,
     saving = false,
     dirtyCount = 0,
@@ -26,14 +23,6 @@ export default function PointageToolbar({
         value: s.idSite,
         label: `${s.codeSite || s.code || `Site #${s.idSite}`} — ${s.libelle}`
     }));
-
-    const statusTabs = [
-        { id: 'ALL', label: 'Tous', count: statusCounts.ALL ?? 0 },
-        { id: 'PRESENT', label: 'Présents', count: statusCounts.PRESENT ?? 0 },
-        { id: 'NON_SAISI', label: 'Non saisis', count: statusCounts.NON_SAISI ?? 0 },
-        { id: 'RETARD', label: 'Retards', count: statusCounts.RETARD ?? 0 },
-        { id: 'CONGE', label: 'Congés', count: statusCounts.CONGE ?? 0 },
-    ];
 
     return (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">

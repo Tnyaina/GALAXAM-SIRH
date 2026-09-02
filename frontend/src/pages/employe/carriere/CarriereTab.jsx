@@ -20,6 +20,7 @@ export default function CarriereTab({
     nomEmploye,
     matriculeEmploye,
     canWrite = true,
+    canValidate = false,
     autoOpenWorkflowId = null,
     onEmployeUpdated,
 }) {
@@ -124,6 +125,8 @@ export default function CarriereTab({
                 contratsList={contratsList}
                 brouillonWf={brouillonWf}
                 etatEssai={etatEssai}
+                canWrite={canWrite}
+                canValidate={canValidate}
                 modalsState={modalsState}
             />
         </div>

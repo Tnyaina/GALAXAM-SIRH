@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Moon, Info } from 'lucide-react';
+import { Moon } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { getFullPhotoUrl } from '@/utils/fileUtils';

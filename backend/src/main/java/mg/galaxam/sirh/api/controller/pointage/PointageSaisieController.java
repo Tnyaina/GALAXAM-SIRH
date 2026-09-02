@@ -25,7 +25,7 @@ public class PointageSaisieController {
     private PointageSaisieService pointageSaisieService;
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> getGrilleSaisie(
             @RequestParam int idSite,
             @RequestParam String date
@@ -42,7 +42,7 @@ public class PointageSaisieController {
     }
 
     @PostMapping("/batch")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> enregistrerBatch(@RequestBody List<SaisiePointageJourDTO> pointages) {
         Map<String, Object> resp = new HashMap<>();
         if (pointages == null || pointages.isEmpty()) {

@@ -19,6 +19,7 @@ public class TypeContratController {
     private DataSource dataSource;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getAllTypesContrat() {
         try (Connection c = dataSource.getConnection()) {
             List<RefTypeContrat> list = RefTypeContrat.listAll(c);
@@ -31,7 +32,7 @@ public class TypeContratController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ADMIN_ACCESS')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createTypeContrat(@RequestBody RefTypeContrat request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -51,7 +52,7 @@ public class TypeContratController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ADMIN_ACCESS')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateTypeContrat(@PathVariable int id, @RequestBody RefTypeContrat request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -82,7 +83,7 @@ public class TypeContratController {
     }
 
     @PutMapping("/{id}/desactiver")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ADMIN_ACCESS')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deactivateTypeContrat(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -109,7 +110,7 @@ public class TypeContratController {
     }
 
     @PutMapping("/{id}/activer")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ADMIN_ACCESS')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> activateTypeContrat(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

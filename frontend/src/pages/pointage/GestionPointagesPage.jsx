@@ -1,7 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Clock } from 'lucide-react';
-import PageHeader from '@/components/ui/navigation/PageHeader';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
 import { useAuth } from '@/context/AuthContext';

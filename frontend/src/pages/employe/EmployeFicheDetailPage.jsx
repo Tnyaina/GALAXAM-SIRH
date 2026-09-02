@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     ArrowLeft, User, Users, Briefcase, XCircle, Folder,
@@ -29,8 +29,6 @@ const UploadDocumentModal = lazy(() => import('@/components/employe/tabs/UploadD
 import SEO from '@/components/system/SEO';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 
-const VALID_TABS = ['personnel', 'documents', 'famille', 'carriere', 'conges', 'pointage'];
-
 const TabLoader = () => (
     <div className="p-6">
         <SkeletonTable rows={5} columns={4} />
@@ -42,6 +40,9 @@ export default function EmployeFicheDetailPage() {
     const navigate = useNavigate();
     const { hasPermission } = useAuth();
     const canWrite = hasPermission('EMPLOYE_WRITE');
+    const canValidate = hasPermission('EMPLOYE_VALIDATE');
+    const canReadConges = hasPermission('CONGE_READ');
+    const canReadPointages = hasPermission('POINTAGE_READ');
 
     const [detailData, setDetailData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -50,7 +51,6 @@ export default function EmployeFicheDetailPage() {
 
     const [searchParams, setSearchParams] = useSearchParams();
     const tabFromUrl = searchParams.get('tab');
-    const activeTab = VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'personnel';
 
     const handleTabChange = (tabId) => {
         setSearchParams(prev => {
@@ -60,10 +60,30 @@ export default function EmployeFicheDetailPage() {
         });
     };
 
-    // État Documents RH
     const [documentsData, setDocumentsData] = useState({ documents: [], obligatoiresManquants: [] });
     const [loadingDocs, setLoadingDocs] = useState(false);
     const [typesDoc, setTypesDoc] = useState([]);
+
+    const mainTabs = useMemo(() => {
+        const tabs = [
+            { id: 'personnel', label: 'Fiche Personnelle', icon: <User size={16} /> },
+            { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: <Folder size={16} /> },
+            { id: 'famille', label: 'Famille & Contacts', icon: <Users size={16} /> },
+            { id: 'carriere', label: 'Carrière & Affectation', icon: <Briefcase size={16} /> },
+        ];
+        if (canReadConges) {
+            tabs.push({ id: 'conges', label: 'Congés & Absences', icon: <Calendar size={16} /> });
+        }
+        if (canReadPointages) {
+            tabs.push({ id: 'pointage', label: 'Pointages & Présence', icon: <Clock size={16} /> });
+        }
+        return tabs;
+    }, [documentsData.documents.length, canReadConges, canReadPointages]);
+
+    const activeTab = useMemo(() => {
+        const allowedTabIds = mainTabs.map(t => t.id);
+        return allowedTabIds.includes(tabFromUrl) ? tabFromUrl : 'personnel';
+    }, [mainTabs, tabFromUrl]);
 
     // Modale Téléversement Document
     const [isUploadDocModalOpen, setIsUploadDocModalOpen] = useState(false);
@@ -279,15 +299,6 @@ export default function EmployeFicheDetailPage() {
 
     const hasNoActiveContract = !emp?.idContratActif && !emp?.dateEmbauche && !emp?.nomFonction && (!emp?.statutContrat || emp?.statutContrat === 'Aucun contrat' || emp?.statutContrat === 'BROUILLON');
 
-    const mainTabs = [
-        { id: 'personnel', label: 'Fiche Personnelle', icon: <User size={16} /> },
-        { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: <Folder size={16} /> },
-        { id: 'famille', label: 'Famille & Contacts', icon: <Users size={16} /> },
-        { id: 'carriere', label: 'Carrière & Affectation', icon: <Briefcase size={16} /> },
-        { id: 'conges', label: 'Congés & Absences', icon: <Calendar size={16} /> },
-        { id: 'pointage', label: 'Pointages & Présence', icon: <Clock size={16} /> }
-    ];
-
     return (
         <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO 
@@ -305,6 +316,7 @@ export default function EmployeFicheDetailPage() {
             <EmployeHeaderCard
                 emp={emp}
                 canWrite={canWrite}
+                canValidate={canValidate}
                 onEdit={() => setIsFormOpen(true)}
                 onDesactiver={() => setIsDesactivationModalOpen(true)}
                 onReactiver={() => setIsReactiverModalOpen(true)}
@@ -396,6 +408,7 @@ export default function EmployeFicheDetailPage() {
                                     nomEmploye={`${emp.nom || ''} ${emp.prenom || ''}`}
                                     matriculeEmploye={emp.matricule}
                                     canWrite={canWrite}
+                                    canValidate={canValidate}
                                     autoOpenWorkflowId={searchParams.get('wf')}
                                     onEmployeUpdated={loadEmployeDetail}
                                 />

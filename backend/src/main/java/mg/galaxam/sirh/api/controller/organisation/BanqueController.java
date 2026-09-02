@@ -19,6 +19,7 @@ public class BanqueController {
     private DataSource dataSource;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getAllBanques() {
         try (Connection c = dataSource.getConnection()) {
             List<RefBanque> list = RefBanque.listAll(c);
@@ -31,7 +32,7 @@ public class BanqueController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ADMIN_ACCESS')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createBanque(@RequestBody RefBanque request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -51,7 +52,7 @@ public class BanqueController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ADMIN_ACCESS')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateBanque(@PathVariable int id, @RequestBody RefBanque request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -82,7 +83,7 @@ public class BanqueController {
     }
 
     @PutMapping("/{id}/desactiver")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ADMIN_ACCESS')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deactivateBanque(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -109,7 +110,7 @@ public class BanqueController {
     }
 
     @PutMapping("/{id}/activer")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ADMIN_ACCESS')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> activateBanque(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

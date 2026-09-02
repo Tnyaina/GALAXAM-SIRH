@@ -5,9 +5,7 @@ import {
     Layers, 
     CalendarRange, 
     TrendingUp, 
-    Lock,
-    Clock,
-    ShieldCheck
+    Lock
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -57,7 +55,6 @@ export default function PointageWorkflowNav({ activePeriode = null }) {
     }
 
     const stCode = activePeriode?.statutCode || activePeriode?.statut_code;
-    const isEnCours = stCode === 'EN_COURS' || !stCode;
     const isTransmis = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
     const isCloturee = stCode === 'CLOTUREE' || stCode === 'VALIDEE';
 

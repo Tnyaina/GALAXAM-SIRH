@@ -45,7 +45,7 @@ public class SecurityConfig {
                 .requestMatchers("/auth/login", "/auth/register", "/auth/refresh", "/auth/logout", "/uploads/photos/**", "/error").permitAll()
                 .requestMatchers("/uploads/documents/**").authenticated()
                 .requestMatchers("/admin/**", "/securite/**").hasAuthority("ROLE_ADMIN")
-                .requestMatchers("/pointages/**", "/pointage/**", "/periodes/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_AGENT_POINTAGE")
+                .requestMatchers("/pointages/**", "/pointage/**", "/periodes/**").authenticated()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

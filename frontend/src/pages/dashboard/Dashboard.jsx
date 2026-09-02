@@ -8,10 +8,14 @@ import BrouillonsEnAttenteWidget from '@/components/dashboard/widgets/Brouillons
 import EcheancesWidget from '@/components/dashboard/widgets/EcheancesWidget';
 import ActiviteRhWidget from '@/components/dashboard/widgets/ActiviteRhWidget';
 import AccesRapidesWidget from '@/components/dashboard/widgets/AccesRapidesWidget';
+import { useAuth } from '@/context/AuthContext';
 import SEO from '@/components/system/SEO';
 
 export default function Dashboard() {
     const { data, loading, error, refresh, lastRefresh } = useDashboard();
+    const { hasPermission } = useAuth();
+    const canValidateConges = hasPermission('CONGE_VALIDATE');
+    const canValidateEmployes = hasPermission('EMPLOYE_VALIDATE');
 
     const kpis = data?.kpis;
     const alertesCritiques = data?.alertesCritiques || [];
@@ -48,16 +52,18 @@ export default function Dashboard() {
 
             {/* Layout principal équilibré : Grille 2 colonnes parfaitement alignée */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-                {/* Ligne 1 : Congés à valider & Salariés absents */}
-                <CongesAValiderWidget 
-                    loading={loading} 
-                    demandesCongeAValider={demandesCongeAValider}
-                    className="h-full"
-                />
+                {/* Ligne 1 : Congés à valider (si valideur) & Salariés absents */}
+                {canValidateConges && (
+                    <CongesAValiderWidget 
+                        loading={loading} 
+                        demandesCongeAValider={demandesCongeAValider}
+                        className="h-full"
+                    />
+                )}
                 <AbsentsWidget 
                     loading={loading} 
                     absentsAujourdhui={absentsAujourdhui}
-                    className="h-full"
+                    className={`h-full ${!canValidateConges ? 'lg:col-span-2' : ''}`}
                 />
 
                 {/* Ligne 2 : Échéances contrats/essais & Supervision planning quinzaine */}
@@ -75,14 +81,16 @@ export default function Dashboard() {
                     className="h-full"
                 />
 
-                {/* Ligne 3 : Brouillons en attente & Accès rapides */}
-                <BrouillonsEnAttenteWidget
-                    loading={loading}
-                    brouillons={brouillons}
-                    className="h-full"
-                />
+                {/* Ligne 3 : Brouillons en attente (si valideur) & Accès rapides */}
+                {canValidateEmployes && (
+                    <BrouillonsEnAttenteWidget
+                        loading={loading}
+                        brouillons={brouillons}
+                        className="h-full"
+                    />
+                )}
                 <AccesRapidesWidget 
-                    className="h-full"
+                    className={`h-full ${!canValidateEmployes ? 'lg:col-span-2' : ''}`}
                 />
 
                 {/* Activité récente (pleine largeur en bas si présente) */}

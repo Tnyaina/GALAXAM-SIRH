@@ -5,7 +5,8 @@ import { getFullPhotoUrl } from '@/utils/fileUtils';
 
 export default function EmployeHeaderCard({
     emp,
-    canWrite,
+    canWrite = false,
+    canValidate = false,
     onEdit,
     onDesactiver,
     onReactiver,
@@ -85,35 +86,39 @@ export default function EmployeHeaderCard({
                 </div>
             </div>
 
-            {canWrite && (
+            {(canWrite || canValidate) && (
                 <div className="flex items-center gap-2 self-stretch md:self-auto">
-                    <Button
-                        onClick={onEdit}
-                        variant="outline"
-                        size="sm"
-                        iconLeft={<Edit2 size={15} />}
-                    >
-                        Modifier le profil
-                    </Button>
-                    {emp.estActif ? (
+                    {canWrite && (
                         <Button
-                            onClick={onDesactiver}
-                            variant="ghost"
+                            onClick={onEdit}
+                            variant="outline"
                             size="sm"
-                            className="text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10"
-                            iconLeft={<Power size={15} />}
+                            iconLeft={<Edit2 size={15} />}
                         >
-                            Désactiver
+                            Modifier le profil
                         </Button>
-                    ) : (
-                        <Button
-                            onClick={onReactiver}
-                            variant="primary"
-                            size="sm"
-                            iconLeft={<RotateCcw size={15} />}
-                        >
-                            Réactiver l'employé
-                        </Button>
+                    )}
+                    {canValidate && (
+                        emp.estActif ? (
+                            <Button
+                                onClick={onDesactiver}
+                                variant="ghost"
+                                size="sm"
+                                className="text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10"
+                                iconLeft={<Power size={15} />}
+                            >
+                                Désactiver
+                            </Button>
+                        ) : (
+                            <Button
+                                onClick={onReactiver}
+                                variant="primary"
+                                size="sm"
+                                iconLeft={<RotateCcw size={15} />}
+                            >
+                                Réactiver l'employé
+                            </Button>
+                        )
                     )}
                 </div>
             )}

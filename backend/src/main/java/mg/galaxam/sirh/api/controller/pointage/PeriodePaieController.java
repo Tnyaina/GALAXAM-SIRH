@@ -35,7 +35,7 @@ public class PeriodePaieController {
     private mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine;
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<PeriodePaieDTO>> getAllPeriodes() {
         List<PeriodePaieDTO> list = new ArrayList<>();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
@@ -78,7 +78,7 @@ public class PeriodePaieController {
     }
 
     @GetMapping("/current")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<PeriodePaieDTO> getCurrentPeriode(@RequestParam(required = false) String date) {
         String targetDate = (date != null && !date.trim().isEmpty()) ? date : java.time.LocalDate.now().toString();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
@@ -122,7 +122,7 @@ public class PeriodePaieController {
     }
 
     @GetMapping("/simuler")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> simulerPeriode(
             @RequestParam String dateDebut,
             @RequestParam String dateFin
@@ -186,7 +186,7 @@ public class PeriodePaieController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('POINTAGE_VALIDATE')")
     public ResponseEntity<Map<String, Object>> createPeriode(@RequestBody Map<String, Object> payload) {
         Map<String, Object> resp = new HashMap<>();
         String code = (String) payload.get("code");
@@ -223,7 +223,7 @@ public class PeriodePaieController {
     }
 
     @PutMapping("/{id}/statut")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_AGENT_POINTAGE')")
+    @PreAuthorize("hasAuthority('POINTAGE_VALIDATE') or hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> updateStatut(@PathVariable Integer id, @RequestBody Map<String, String> body) {
         Map<String, Object> resp = new HashMap<>();
         String newStatutCode = body.get("statutCode");
