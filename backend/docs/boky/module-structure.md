@@ -224,29 +224,24 @@ Les jours fériés sont utilisés par :
 - Le module **Congés** : pour le décompte calendaire strict.
 - Le scheduler de **notifications** : pour anticiper les alertes de fin de contrat.
 
-### 4.4 Paramètres Globaux (`parametre_global`)
+### 4.4 Paramètres Globaux (`parametre_global`) & Exercices Fiscaux (`paie_config_legale`)
 
-La table `parametre_global` centralise l'intégralité des **32 paramètres de calcul configurables** du système, structurés en **4 catégories métiers** avec historisation temporelle et chargement universel en mémoire via `ParametreGlobal.loadActiveMap(Connection c)` :
+Afin de garantir une stricte séparation entre les **paramètres opérationnels RH/Pointage** et les **constantes légales/fiscales évolutives**, le système s'appuie sur deux mécanismes distincts :
 
-```sql
-Table parametre_global {
-  id_parametre    INTEGER PK
-  code_parametre  VARCHAR(50) UNIQUE  -- ex: 'SEUIL_HEURES_JOUR', 'SEUIL_NUIT_DEBUT'
-  valeur          VARCHAR(100) NOT NULL
-  description     TEXT
-  categorie       VARCHAR(30) NOT NULL -- 'RH_GENERAL', 'POINTAGE', 'CONGE', 'PAIE'
-  date_debut      DATE NOT NULL        -- Historisation
-  date_fin        DATE                 -- NULL = valeur actuellement en vigueur
-}
-```
+#### 1. Paramètres Opérationnels (`parametre_global`)
+Centralise les paramètres de calcul opérationnels non soumis à la Loi de Finances annuelle :
+* **`RH_GENERAL`** : Durée normale quotidienne (`SEUIL_HEURES_JOUR` = 8h), durée hebdomadaire normale (`SEUIL_HEURES_SEMAINE` = 40h), seuil HS tranche 1 (`SEUIL_HS_TRANCHE_1` = 8h), plafond HS hebdo (`PLAFOND_HEURES_SUPP_SEMAINE` = 20h).
+* **`POINTAGE`** : Début nuit (`SEUIL_NUIT_DEBUT` = 22:00), fin nuit (`SEUIL_NUIT_FIN` = 05:00), indemnité repas (`MONTANT_REPAS_MIDI` = 2 000 Ar), tranches 2nd repas (19:30 à 2 000 Ar, 21:00 à 4 000 Ar), détection pause minimale (60 min).
+* **`CONGE`** : Durées légales maternité (98j / 119j), plafonds solde négatif (-10j), préavis de dépôt (2j / 15j) et seuils d'alertes.
 
-**Répartition par Catégorie Métier** :
-* **`RH_GENERAL` (4)** : `SEUIL_HEURES_JOUR` (8h), `SEUIL_HEURES_SEMAINE` (40h), `SEUIL_HS_TRANCHE_1` (8h à +30%), `PLAFOND_HEURES_SUPP_SEMAINE` (20h max).
-* **`POINTAGE` (9)** : `SEUIL_NUIT_DEBUT` (22:00), `SEUIL_NUIT_FIN` (05:00), `MONTANT_REPAS_MIDI` (2 000 Ar), `SEUIL_2ND_REPAS_1` (19:30), `MONTANT_2ND_REPAS_1` (2 000 Ar), `SEUIL_2ND_REPAS_2` (21:00), `MONTANT_2ND_REPAS_2` (4 000 Ar), `SEUIL_PAUSE_MIDI_MIN` (60 min), `REDUCTION_DEPLACT_REPAS_MIDI` (1 000 Ar).
-* **`CONGE` (14)** : Durées légales maternité, plafonds maladie, préavis de dépôt, solde négatif et seuils d'alertes.
-* **`PAIE` (5)** : Plafonds SMIG, diviseurs horaires légaux d'absence et seuils de tranches.
+#### 2. Millésimes Fiscaux & Sociaux (`paie_config_legale`)
+Gère l'historique immuable de la législation malgache par version (ex: `LF_2024`, `LF_2026`) :
+* **SME National & Agricole** (262 680 Ar / 266 500 Ar en 2026).
+* **Plafond Social CNaPS/Santé** : $8 \times \text{SME} = 2\,101\,440\text{ Ar}$.
+* **Règles IRSA** : Seuil d'exonération (350 000 Ar), minimum de perception (3 000 Ar), déduction par charge de famille (2 000 Ar/personne).
+* **Temps de travail & Congés** : Diviseur moyen mensuel ($173.3333\text{ h}$), acquisition mensuelle ($2.5\text{ j}$), diviseur de valorisation des congés ($\div 30$).
 
----
+> 📖 Pour la spécification complète de ce système, consulter : [`module-paie-reglementation-fiscale.md`](./module-paie-reglementation-fiscale.md).
 
 ## 5. Référentiels Fiscaux & Sociaux
 

@@ -14,8 +14,10 @@
 |---|---|---|---|
 | 📋 **Module Employé** | Employé | Dossier individuel, identité civile, documents RH | [`module-employe.md`](./module-employe.md) |
 | 🏢 **Module Structure** | Organisation | Filiales, Sites, Référentiels, Fiscalité | [`module-structure.md`](./module-structure.md) |
+| 📜 **Réglementation Fiscale** | Paie & Fiscalité | Millésimes Loi de Finances, SME, Plafonds $8 \times \text{SME}$, IRSA | [`module-paie-reglementation-fiscale.md`](./module-paie-reglementation-fiscale.md) |
 | 📝 **Module Contrat** | Contrat & Carrière | Contrats, Workflow RH, Notifications, Certificats | [`Contrats-RG.md`](./Contrats-RG.md) |
 | 🏖️ **Module Congés** | Congés & Absences | Acquisition, Décompte, Purge FIFO, Alertes | [`module-conges-absences.md`](./module-conges-absences.md) |
+| 💳 **Module Paie & Variables** | Paie | Avances, acomptes, notes de frais, prêts | [`module-paie-avances-frais.md`](./module-paie-avances-frais.md) |
 | 🔐 **Sécurité & RBAC** | Transversal | Authentification JWT, RBAC dynamique | [`securite.md`](./securite.md) |
 | 🔧 **Initialisation** | Infrastructure | Setup, déploiement, base de données | [`init.md`](./init.md) |
 | ⚡ **Optimisation** | Transversal | Performances, indexation, requêtes | [`optimisation.md`](./optimisation.md) |

@@ -60,8 +60,40 @@ Table ref_banque {
 // 2. REGLES FISCALES & SOCIALES
 // ==========================================
 
+Table paie_config_legale {
+  id_config_legale integer [pk, increment]
+  code_version varchar(30) [unique, not null, note: 'ex: LF_2026, LF_2027']
+  libelle varchar(200) [not null]
+  date_debut date [not null]
+  date_fin date [note: 'NULL = en vigueur']
+  
+  // Salaire Minimum & Plafonds Sociaux
+  sme_national decimal(12,2) [not null, note: 'SME national non agricole, ex: 262680']
+  sme_agricole decimal(12,2) [not null, note: 'SME secteur agricole, ex: 266500']
+  plafond_cotisation_nb_sme decimal(4,2) [default: 8.00, note: 'Multiplicateur plafond CNaPS / Santé (8 x SME = 2 101 440 Ar)']
+  
+  // Fiscalité IRSA
+  seuil_exoneration_irsa decimal(12,2) [not null, note: 'Ex: 350 000 Ar']
+  minimum_perception_irsa decimal(12,2) [not null, note: 'Ex: 3 000 Ar en 2026']
+  deduction_charge_famille decimal(12,2) [not null, note: 'Ex: 2 000 Ar / enfant']
+  arrondi_base_irsa varchar(20) [default: 'CENTAINE_INF']
+  
+  // Temps de Travail (Loi 2003-044)
+  duree_hebdo_legale decimal(5,2) [default: 40.00]
+  diviseur_mensuel_heures decimal(7,4) [default: 173.3333, note: '(40 x 52) / 12']
+  seuil_hs_tranche1 decimal(5,2) [default: 8.00, note: '8 premières HS à +30%']
+  plafond_hs_hebdo decimal(5,2) [default: 20.00, note: 'Max légal hebdo']
+  
+  // Congés Payés (Art. 85)
+  acquisition_conge_mensuel_jours decimal(4,2) [default: 2.50, note: '2.5 j/mois = 30 j/an']
+  diviseur_valorisation_conge_jours integer [default: 30, note: 'Salaire brut ÷ 30']
+
+  Note: 'SP4 - Millésime légal évolutif pour la Loi de Finances et les décrets SME/Plafonds.'
+}
+
 Table ref_type_cotisation {
   id_type_cotisation integer [pk, increment]
+  id_config_legale integer [ref: > paie_config_legale.id_config_legale, note: 'Millésime associé']
   code varchar(20) [unique, not null, note: 'ex: CNAPS, OSTIE, OMSI, ISI']
   libelle varchar(100) [not null]
   taux_salarial decimal(5,2) [note: 'ex: 1.00 pour OSTIE, 1.50 pour OMSI']
@@ -73,6 +105,7 @@ Table ref_type_cotisation {
 
 Table bareme_irsa {
   id_tranche integer [pk, increment]
+  id_config_legale integer [ref: > paie_config_legale.id_config_legale, note: 'Millésime associé']
   numero_tranche integer [not null, note: 'ordre de la tranche, ex: 1 à 6']
   tranche_min decimal(12,2) [not null]
   tranche_max decimal(12,2) [note: 'NULL = dernière tranche, sans plafond']
@@ -152,11 +185,13 @@ Table site_calendrier_ferie {
 
 Table parametre_global {
   id_parametre integer [pk, increment]
-  code_parametre varchar(50) [unique, not null, note: 'ex: SEUIL_SECOND_REPAS, SME_COURANT']
-  valeur varchar(100) [not null, note: 'ex: 19:30, 300000']
+  code_parametre varchar(50) [unique, not null, note: 'ex: SEUIL_NUIT_DEBUT, MONTANT_REPAS_MIDI']
+  valeur varchar(100) [not null, note: 'ex: 22:00, 2000']
   description text
-  date_debut date [not null, note: 'AJOUTE — historisation, ex: le SME change dans le temps']
-  date_fin date [note: 'AJOUTE — NULL = valeur actuellement en vigueur']
+  date_debut date [not null, note: 'Historisation dans le temps']
+  date_fin date [note: 'NULL = valeur actuellement en vigueur']
+
+  Note: 'Paramètres opérationnels RH & Pointage uniquement. Les constantes légales et fiscales (SME, plafonds, IRSA, diviseurs) sont dans paie_config_legale.'
 }
 
 // ==========================================

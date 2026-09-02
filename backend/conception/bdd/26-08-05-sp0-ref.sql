@@ -335,11 +335,11 @@ INSERT INTO site_cotisation (id_site, id_type_cotisation) VALUES
 -- ============================================================
 INSERT INTO parametre_global (code_parametre, categorie, valeur, description, date_debut) VALUES
 
--- ---- RH_GENERAL : temps de travail (utilisés par Pointage) ----
-('SEUIL_HEURES_JOUR',          'RH_GENERAL', '8',      'Heures normales quotidiennes', '2026-01-01'),
-('SEUIL_HEURES_SEMAINE',       'RH_GENERAL', '40',     'Heures normales hebdomadaires', '2026-01-01'),
-('PLAFOND_HEURES_SUPP_SEMAINE','RH_GENERAL', '20',     'Plafond légal HS/semaine (Décret 2007-563)', '2026-01-01'),
-('SEUIL_HS_TRANCHE_1',         'RH_GENERAL', '8',      'Les X premières heures supplémentaires de la semaine sont payées avec une majoration de +30%', '2026-01-01'),
+-- ---- RH_GENERAL : seuils de temps de travail (lus par le module Pointage) ----
+-- SEUIL_HEURES_JOUR et SEUIL_HEURES_SEMAINE restent ici (utilisés par PointageSyntheseService).
+-- PLAFOND_HEURES_SUPP_SEMAINE et SEUIL_HS_TRANCHE_1 également (calcul des tranches HS en pointage).
+('PLAFOND_HEURES_SUPP_SEMAINE','RH_GENERAL', '20',     'Plafond légal HS/semaine (Code du Travail Art. 83)', '2026-01-01'),
+('SEUIL_HS_TRANCHE_1',         'RH_GENERAL', '8',      'Les X premières heures supplementaires de la semaine sont payees avec une majoration de +30%', '2026-01-01'),
 
 -- ---- POINTAGE : seuils et montants spécifiques au module Pointage ----
 ('SEUIL_NUIT_DEBUT',           'POINTAGE', '22:00', 'Début du travail de nuit (Art. 83 Code Travail Malgache)', '2026-01-01'),
@@ -352,10 +352,12 @@ INSERT INTO parametre_global (code_parametre, categorie, valeur, description, da
 ('SEUIL_PAUSE_MIDI_MIN',       'POINTAGE', '60',    'Pause midi minimale en minutes (détection « ne rentre pas midi » TMM)', '2026-01-01'),
 ('REDUCTION_DEPLACT_REPAS_MIDI','POINTAGE', '1000', 'Déduction indemnité déplacement (en Ar) si repas midi reçu sur site TMM', '2026-01-01'),
 
--- ---- PAIE : utilisés uniquement par le module Paie (futur) ----
--- Ces paramètres sont déjà stockés ici pour anticiper, mais ne seront lus que par le module Paie.
-('SME_COURANT',                 'PAIE', '300000.00', 'Salaire Minimum Embauche en Ariary (2026)', '2026-01-01'),
-('DIVISEUR_HORAIRE_ABSENCE',    'PAIE', '173.33',    'Heures/mois pour valoriser une absence (40h x 52/12)', '2026-01-01'),
-('PLAFOND_COTISATION_SME_MULT', 'PAIE', '8',         '8 x SME = plafond de la base CNaPS/OSTIE', '2026-01-01'),
-('MINIMUM_PERCEPTION_IRSA',     'PAIE', '3000.00',   'Minimum de perception légal IRSA en Ariary', '2026-01-01'),
-('REDUCTION_IRSA_PAR_ENFANT',   'PAIE', '2000.00',   'Déduction IRSA par enfant à charge', '2026-01-01');
+-- ---- PAIE : SME, IRSA, plafonds sociaux ----
+-- IMPORTANT : Ces constantes fiscales et sociales ont été migrées dans la table
+-- paie_config_legale (script 26-09-02-sp4-paie.sql) pour permettre le
+-- versionnement par exercice fiscal (Loi de Finances annuelle).
+-- NE PAS ajouter ici de paramètres de calcul de paie.
+-- Les constantes restantes (SEUIL_HEURES_JOUR, SEUIL_HEURES_SEMAINE) sont
+-- conservées ici car lues par le module Pointage AVANT le moteur de paie.
+('SEUIL_HEURES_JOUR',          'RH_GENERAL', '8',  'Durée normale d une journée de travail (utilisée par Pointage)', '2026-01-01'),
+('SEUIL_HEURES_SEMAINE',       'RH_GENERAL', '40', 'Durée légale hebdomadaire normale (40h, Code du Travail Art. 83)', '2026-01-01');

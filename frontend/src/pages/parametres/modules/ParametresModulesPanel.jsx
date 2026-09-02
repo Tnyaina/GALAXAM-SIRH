@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText } from 'lucide-react';
+import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText, Scale } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
@@ -12,6 +12,7 @@ const CalendrierFerieTab = lazy(() => import('@/components/parametres/paie/Calen
 const CotisationsIrsaTab = lazy(() => import('@/components/parametres/paie/CotisationsIrsaTab'));
 const IndemnitesSitesTab = lazy(() => import('@/components/parametres/paie/IndemnitesSitesTab'));
 const MajorationsParametresTab = lazy(() => import('@/components/parametres/paie/MajorationsParametresTab'));
+const ReglementationFiscaleTab = lazy(() => import('@/components/parametres/paie/ReglementationFiscaleTab'));
 
 // Composants de paramétrage Pointage
 const ToleranceArriveeSiteTab = lazy(() => import('@/components/parametres/pointage/ToleranceArriveeSiteTab'));
@@ -31,7 +32,7 @@ export default function ParametresModulesPanel() {
     
     // Niveau 2: Sous-onglet
     const activeTab = searchParams.get('tab') || (
-        activeModule === 'paie' ? 'parametres_globaux' : 
+        activeModule === 'paie' ? 'reglementation_fiscale' : 
         activeModule === 'conges' ? 'regles_acquisition' :
         activeModule === 'pointage' ? 'parametres_globaux_pointage' :
         'parametres_globaux_systeme'
@@ -52,11 +53,11 @@ export default function ParametresModulesPanel() {
 
     // Définition des sous-onglets pour la Paie
     const paieTabs = [
-        { id: 'parametres_globaux', label: 'Constantes (Paie)', icon: <Sliders size={16} /> },
-        { id: 'calendrier', label: 'Calendrier & Fériés', icon: <Calendar size={16} /> },
-        { id: 'cotisations_irsa', label: 'Cotisations & Barèmes', icon: <ShieldCheck size={16} /> },
+        { id: 'reglementation_fiscale', label: 'Exercice Fiscal & Réglementation', icon: <Scale size={16} /> },
+        { id: 'cotisations_irsa', label: 'Barèmes IRSA & Cotisations', icon: <ShieldCheck size={16} /> },
+        { id: 'majorations', label: 'Majorations HS / Nuit / Férié', icon: <Clock size={16} /> },
         { id: 'indemnites_sites', label: 'Indemnités (Sites)', icon: <Gift size={16} /> },
-        { id: 'majorations', label: 'Majorations & HS', icon: <Clock size={16} /> },
+        { id: 'calendrier', label: 'Calendrier & Fériés', icon: <Calendar size={16} /> },
     ];
 
     // Définition des sous-onglets pour les Congés
@@ -140,11 +141,13 @@ export default function ParametresModulesPanel() {
 
                         {activeModule === 'paie' && (
                             <>
-                                {activeTab === 'parametres_globaux' && <ParametresGlobauxTab fixedCategory="PAIE" />}
+                                {activeTab === 'reglementation_fiscale' && <ReglementationFiscaleTab />}
                                 {activeTab === 'calendrier' && <CalendrierFerieTab />}
                                 {activeTab === 'cotisations_irsa' && <CotisationsIrsaTab />}
                                 {activeTab === 'indemnites_sites' && <IndemnitesSitesTab />}
                                 {(activeTab === 'majorations' || activeTab === 'majorations_params') && <MajorationsParametresTab />}
+                                {/* Compatibilité ascendante : l'ancien onglet 'parametres_globaux' redirige vers reglementation */}
+                                {activeTab === 'parametres_globaux' && <ReglementationFiscaleTab />}
                             </>
                         )}
 

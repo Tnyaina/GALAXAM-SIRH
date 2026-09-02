@@ -15,6 +15,7 @@ export default function MajorationsParametresTab() {
     const todayStr = fmtDateInput(new Date());
 
     const [majorations, setMajorations] = useState([]);
+    const [configLegale, setConfigLegale] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [modalError, setModalError] = useState(null);
@@ -32,8 +33,12 @@ export default function MajorationsParametresTab() {
         setLoading(true);
         setError(null);
         try {
-            const majData = await paieConfigService.getTauxMajoration();
+            const [majData, cfgData] = await Promise.all([
+                paieConfigService.getTauxMajoration(),
+                paieConfigService.getConfigLegaleActive().catch(() => null),
+            ]);
             setMajorations(majData || []);
+            setConfigLegale(cfgData || null);
         } catch (err) {
             setError("Erreur lors du chargement des taux de majoration.");
             console.error(err);
@@ -81,14 +86,40 @@ export default function MajorationsParametresTab() {
         <div className="space-y-6">
             {error && <Alert type="error" message={error} />}
 
-            {/* Bannière de rappel réglementaire et plafond légal */}
+            {/* Bannière réglementaire — 100% dynamique depuis BDD */}
             <div className="bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/20 p-4 rounded-none flex items-start gap-3">
                 <Info className="text-[var(--color-brand-500)] shrink-0 mt-0.5" size={18} />
                 <div className="text-xs text-[var(--color-fg-muted)] space-y-1">
-                    <p className="font-semibold text-[var(--color-fg)]">Cadre Réglementaire (Décret n°2007-563) :</p>
-                    <p>• Plafond légal maximal d'heures supplémentaires : <span className="font-bold text-[var(--color-fg)]">20h / semaine</span>.</p>
-                    <p>• 41ᵉ à 48ᵉ heure de la semaine : <span className="font-medium text-[var(--color-fg)]">+30%</span> | Au-delà de la 48ᵉ heure : <span className="font-medium text-[var(--color-fg)]">+50%</span>.</p>
-                    <p>• Travail de Nuit (22h - 5h) : <span className="font-medium text-[var(--color-fg)]">+30%</span> | Dimanche : <span className="font-medium text-[var(--color-fg)]">+40%</span> | Férié : <span className="font-medium text-[var(--color-fg)]">+100%</span>.</p>
+                    <p className="font-semibold text-[var(--color-fg)]">Cadre Réglementaire en vigueur
+                        {configLegale && (
+                            <span className="ml-2 font-normal text-[var(--color-fg-muted)]">— {configLegale.codeVersion}</span>
+                        )}
+                    </p>
+                    {configLegale && (
+                        <p>• Plafond légal d'heures supplémentaires : 
+                            <span className="font-bold text-[var(--color-fg)]">{configLegale.plafondHsHebdo}h / semaine</span>
+                             | Tranche HS 1 (premières <span className="font-bold text-[var(--color-fg)]">{configLegale.seuilHsTranche1}h</span>) : 
+                            <span className="font-bold text-[var(--color-fg)]">
+                                +{majorations.find(m => m.typeMajoration === 'HS_30')
+                                    ? Math.round(majorations.find(m => m.typeMajoration === 'HS_30').taux * 100) + '%'
+                                    : '—'}
+                            </span>
+                             | Au-delà : 
+                            <span className="font-bold text-[var(--color-fg)]">
+                                +{majorations.find(m => m.typeMajoration === 'HS_50')
+                                    ? Math.round(majorations.find(m => m.typeMajoration === 'HS_50').taux * 100) + '%'
+                                    : '—'}
+                            </span>
+                        </p>
+                    )}
+                    {majorations.filter(m => ['NUIT','DIMANCHE','FERIE'].includes(m.typeMajoration)).map(m => (
+                        <p key={m.typeMajoration}>• {m.description || m.typeMajoration} : 
+                            <span className="font-medium text-[var(--color-fg)]">+{Math.round(m.taux * 100)}%</span>
+                        </p>
+                    ))}
+                    {!configLegale && majorations.length === 0 && (
+                        <p className="">Aucun taux configuré — ajoutez des taux ci-dessous.</p>
+                    )}
                 </div>
             </div>
 
