@@ -4,16 +4,12 @@
 
 DROP TABLE IF EXISTS site_indemnite_config CASCADE;
 DROP TABLE IF EXISTS site_calendrier_ferie CASCADE;
-DROP TABLE IF EXISTS site_cotisation CASCADE;
 DROP TABLE IF EXISTS parametre_global CASCADE;
-DROP TABLE IF EXISTS ref_taux_majoration CASCADE;
 DROP TABLE IF EXISTS ref_calendrier_ferie CASCADE;
 DROP TABLE IF EXISTS ref_periode_chomee CASCADE;
 DROP TABLE IF EXISTS ref_site CASCADE;
 DROP TABLE IF EXISTS ref_type_intervenant CASCADE;
 DROP TABLE IF EXISTS ref_indemnite CASCADE;
-DROP TABLE IF EXISTS bareme_irsa CASCADE;
-DROP TABLE IF EXISTS ref_type_cotisation CASCADE;
 DROP TABLE IF EXISTS ref_banque CASCADE;
 DROP TABLE IF EXISTS ref_type_contrat CASCADE;
 DROP TABLE IF EXISTS ref_fonction CASCADE;
@@ -79,28 +75,8 @@ CREATE TABLE ref_banque (
 );
 
 -- ------------------------------------------
--- 3. REGLES FISCALES, SOCIALES & BAREMES
+-- 3. INDEMNITES & TYPES D'INTERVENANTS
 -- ------------------------------------------
-
-CREATE TABLE ref_type_cotisation (
-    id_type_cotisation SERIAL PRIMARY KEY,
-    code VARCHAR(20) NOT NULL UNIQUE,
-    libelle VARCHAR(100) NOT NULL,
-    taux_salarial NUMERIC(5,2),
-    taux_patronal NUMERIC(5,2),
-    date_debut DATE NOT NULL,
-    date_fin DATE
-);
-
-CREATE TABLE bareme_irsa (
-    id_tranche SERIAL PRIMARY KEY,
-    numero_tranche INT NOT NULL,
-    tranche_min NUMERIC(12,2) NOT NULL,
-    tranche_max NUMERIC(12,2), -- NULL si tranche sans plafond
-    taux NUMERIC(5,2) NOT NULL,
-    date_debut DATE NOT NULL,
-    date_fin DATE
-);
 
 CREATE TABLE ref_indemnite (
     id_indemnite SERIAL PRIMARY KEY,
@@ -122,15 +98,6 @@ CREATE TABLE ref_type_intervenant (
     est_actif BOOLEAN DEFAULT TRUE
 );
 
-CREATE TABLE ref_taux_majoration (
-    id_taux_majoration SERIAL PRIMARY KEY,
-    type_majoration VARCHAR(20) NOT NULL,
-    taux NUMERIC(5,2) NOT NULL,
-    description TEXT,
-    date_debut DATE NOT NULL,
-    date_fin DATE
-);
-
 -- ------------------------------------------
 -- 4. CONFIGURATION SITES & CALENDRIERS
 -- ------------------------------------------
@@ -146,14 +113,6 @@ CREATE TABLE ref_site (
     heure_debut_apres_midi TIME,
     heure_fin_apres_midi TIME,
     est_actif BOOLEAN DEFAULT TRUE
-);
-
-CREATE TABLE site_cotisation (
-    id_site_cotisation SERIAL PRIMARY KEY,
-    id_site INT NOT NULL REFERENCES ref_site(id_site),
-    id_type_cotisation INT NOT NULL REFERENCES ref_type_cotisation(id_type_cotisation),
-    est_actif BOOLEAN DEFAULT TRUE,
-    CONSTRAINT uk_site_cotisation UNIQUE (id_site, id_type_cotisation)
 );
 
 CREATE TABLE site_indemnite_config (
@@ -194,12 +153,13 @@ CREATE TABLE ref_periode_chomee (
 
 CREATE TABLE parametre_global (
     id_parametre SERIAL PRIMARY KEY,
-    code_parametre VARCHAR(50) NOT NULL UNIQUE,
+    code_parametre VARCHAR(50) NOT NULL,
     categorie VARCHAR(30) NOT NULL DEFAULT 'GENERAL',
     valeur VARCHAR(100) NOT NULL,
     description TEXT,
     date_debut DATE NOT NULL,
-    date_fin DATE
+    date_fin DATE,
+    CONSTRAINT uq_parametre_global_code_date UNIQUE (code_parametre, date_debut)
 );
 
 -- Index d'optimisation
@@ -274,34 +234,10 @@ INSERT INTO ref_banque (code_banque, nom_banque, code_swift) VALUES
 ('BNI', 'BNI Madagascar', 'BNIMA3MG'),
 ('BFV', 'Société Générale Madagasikara', 'SOGEMGMG');
 
--- 7. Cotisations Sociales
-INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, date_debut) VALUES
-('CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, '2026-01-01'),
-('OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, '2026-01-01'),
-('OMSI', 'Organisation Médicale Inter-entreprises', 1.50, 5.50, '2026-01-01'),
-('ISI', 'Impôt Synthétique Intermédiaire', 0.00, 5.00, '2026-01-01');
-
--- 8. Barème IRSA Officiel (6 Tranches - Loi de Finances 2026)
-INSERT INTO bareme_irsa (numero_tranche, tranche_min, tranche_max, taux, date_debut) VALUES
-(1, 0.00, 350000.00, 0.00, '2026-01-01'),
-(2, 350001.00, 400000.00, 5.00, '2026-01-01'),
-(3, 400001.00, 500000.00, 10.00, '2026-01-01'),
-(4, 500001.00, 600000.00, 15.00, '2026-01-01'),
-(5, 600001.00, 4000000.00, 20.00, '2026-01-01'),
-(6, 4000001.00, NULL, 25.00, '2026-01-01');
-
--- 9. Majorations HS / Spéciales
-INSERT INTO ref_taux_majoration (type_majoration, taux, description, date_debut) VALUES
-('HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine', '2026-01-01'),
-('HS_50', 0.50, 'Au-delà de la 48ᵉ heure', '2026-01-01'),
-('NUIT', 0.30, 'Heures de nuit (22h - 05h)', '2026-01-01'),
-('DIMANCHE', 0.40, 'Travail le dimanche', '2026-01-01'),
-('FERIE', 1.00, 'Travail jour férié', '2026-01-01');
-
--- 10. Indemnités & Configuration des Sites (Conforme aux spécifications réelles)
-INSERT INTO ref_indemnite (code, libelle, imposable_irsa,fractionnable) VALUES
-('DEPLACEMENT', 'Indemnité de Déplacement', FALSE,TRUE),
-('REPAS', 'Indemnité de Repas', FALSE,FALSE);
+-- 7. Indemnités & Configuration des Sites (Conforme aux spécifications réelles)
+INSERT INTO ref_indemnite (code, libelle, imposable_irsa, fractionnable) VALUES
+('DEPLACEMENT', 'Indemnité de Déplacement', FALSE, TRUE),
+('REPAS', 'Indemnité de Repas', FALSE, FALSE);
 
 INSERT INTO ref_site (code_site, libelle, id_filiale_rattachement, horaire_continu, heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi) VALUES
 ('TNR', 'Antananarivo - Siège', 1, TRUE, '08:00', '12:00', '13:00', '17:00'),
@@ -317,16 +253,7 @@ INSERT INTO site_indemnite_config (id_site, id_indemnite, periodicite, montant_r
 -- TMM Repas Journalier : 0 Ar
 (2, 2, 'JOURNALIER', 0.00, '2026-01-01');
 
--- Cotisations de Santé et Prévoyance rattachées par Site
-INSERT INTO site_cotisation (id_site, id_type_cotisation) VALUES
--- Antananarivo - Siège (TNR) : CNaPS (1) + OSTIE (2)
-(1, 1),
-(1, 2),
--- Toamasina - Agence (TMM) : CNaPS (1) + OMSI (3)
-(2, 1),
-(2, 3);
-
--- 11. Paramètres Globaux Légaux et Opérationnels
+-- 8. Paramètres Globaux Légaux et Opérationnels
 -- ============================================================
 -- CONVENTION : séparés par CATEGORIE pour faciliter la lecture du code
 --   RH_GENERAL  : règles métier communes (pointage, temps de travail)

@@ -1,16 +1,20 @@
 -- ==============================================================================
--- SP4 — PAIE : Réglementation Fiscale & Sociale Évolutive
--- Table : paie_config_legale (Millésime fiscal : SME, Plafonds, Seuils IRSA, HS)
+-- SP4 — PAIE : Réglementation Fiscale & Sociale Évolutive (Conception Finale)
 -- ==============================================================================
--- PRINCIPE : Chaque ligne = 1 exercice fiscal (ex: LF_2026).
--- Les tables filles (bareme_irsa, ref_type_cotisation, ref_taux_majoration)
--- référencent cet identifiant pour une cohérence millésimée complète.
--- Le moteur de paie lit TOUJOURS la ligne active à la date de la période.
+-- PRINCIPE : Chaque millésime fiscal (ex: LF_2026) est centralisé dans
+-- paie_config_legale. Les tables fiscales filles (bareme_irsa,
+-- ref_type_cotisation, ref_taux_majoration) référencent directement cet
+-- identifiant à la création, garantissant une autonomie totale du module.
 -- ==============================================================================
 
 -- ------------------------------------------
--- 1. NETTOYAGE
+-- 1. NETTOYAGE DES TABLES DU MODULE PAIE
 -- ------------------------------------------
+DROP VIEW IF EXISTS v_config_legale_active CASCADE;
+DROP TABLE IF EXISTS site_cotisation CASCADE;
+DROP TABLE IF EXISTS bareme_irsa CASCADE;
+DROP TABLE IF EXISTS ref_type_cotisation CASCADE;
+DROP TABLE IF EXISTS ref_taux_majoration CASCADE;
 DROP TABLE IF EXISTS paie_config_legale CASCADE;
 
 -- ------------------------------------------
@@ -27,35 +31,24 @@ CREATE TABLE paie_config_legale (
     date_debut          DATE         NOT NULL,
     date_fin            DATE,
 
-    -- -------------------------------------------------------
-    -- 1. SALAIRE MINIMUM ET PLAFONDS SOCIAUX
-    -- -------------------------------------------------------
+    -- 1. Salaire Minimum et Plafonds Sociaux
     sme_national                NUMERIC(12,2) NOT NULL,
     sme_agricole                NUMERIC(12,2) NOT NULL,
-    -- Plafond de cotisation sociale = N x SME (pour CNaPS, OSTIE, FMFP)
     plafond_cotisation_nb_sme   NUMERIC(4,2)  NOT NULL DEFAULT 8.00,
 
-    -- -------------------------------------------------------
-    -- 2. RÈGLES FISCALES IRSA (CGI — Loi de Finances)
-    -- -------------------------------------------------------
+    -- 2. Règles Fiscales IRSA (CGI — Loi de Finances)
     seuil_exoneration_irsa      NUMERIC(12,2) NOT NULL,
     minimum_perception_irsa     NUMERIC(12,2) NOT NULL,
     deduction_charge_famille    NUMERIC(12,2) NOT NULL,
     arrondi_base_irsa           VARCHAR(20)   NOT NULL DEFAULT 'CENTAINE_INF',
 
-    -- -------------------------------------------------------
-    -- 3. CADRE DU TEMPS DE TRAVAIL (Code du Travail L. 2003-044)
-    -- -------------------------------------------------------
+    -- 3. Cadre du Temps de Travail (Code du Travail L. 2003-044)
     duree_hebdo_legale          NUMERIC(5,2)  NOT NULL DEFAULT 40.00,
-    -- Diviseur mensuel moyen : (40h x 52 semaines) / 12 mois
     diviseur_mensuel_heures     NUMERIC(7,4)  NOT NULL DEFAULT 173.3333,
-    -- Nombre de HS/semaine avant bascule vers tranche HS_50
     seuil_hs_tranche1           NUMERIC(5,2)  NOT NULL DEFAULT 8.00,
     plafond_hs_hebdo            NUMERIC(5,2)  NOT NULL DEFAULT 20.00,
 
-    -- -------------------------------------------------------
-    -- 4. CONGÉS PAYÉS (Code du Travail Art. 85-88)
-    -- -------------------------------------------------------
+    -- 4. Congés Payés (Code du Travail Art. 85-88)
     acquisition_conge_mensuel_jours   NUMERIC(4,2) NOT NULL DEFAULT 2.50,
     diviseur_valorisation_conge_jours INT          NOT NULL DEFAULT 30,
 
@@ -69,22 +62,71 @@ CREATE INDEX idx_config_legale_actif ON paie_config_legale(date_debut, date_fin)
     WHERE date_fin IS NULL;
 
 -- ------------------------------------------
--- 3. AJOUT FK MILLÉSIME SUR LES TABLES FILLES
+-- 3. COTISATIONS SOCIALES (Légales & Conventionnelles)
 -- ------------------------------------------
-ALTER TABLE bareme_irsa
-    ADD COLUMN IF NOT EXISTS id_config_legale INT REFERENCES paie_config_legale(id_config_legale);
+CREATE TABLE ref_type_cotisation (
+    id_type_cotisation  SERIAL PRIMARY KEY,
+    id_config_legale    INT REFERENCES paie_config_legale(id_config_legale) ON DELETE CASCADE,
+    code                VARCHAR(20) NOT NULL UNIQUE,
+    libelle             VARCHAR(100) NOT NULL,
+    taux_salarial       NUMERIC(5,2),
+    taux_patronal       NUMERIC(5,2),
+    plafonne            BOOLEAN DEFAULT TRUE,
+    ordre               INT DEFAULT 1,
+    est_actif           BOOLEAN DEFAULT TRUE,
+    date_debut          DATE NOT NULL DEFAULT '2026-01-01',
+    date_fin            DATE
+);
 
-ALTER TABLE ref_type_cotisation
-    ADD COLUMN IF NOT EXISTS id_config_legale INT REFERENCES paie_config_legale(id_config_legale);
-
-ALTER TABLE ref_taux_majoration
-    ADD COLUMN IF NOT EXISTS id_config_legale INT REFERENCES paie_config_legale(id_config_legale);
+CREATE INDEX idx_type_cotisation_config ON ref_type_cotisation(id_config_legale);
 
 -- ------------------------------------------
--- 4. SEEDING : EXERCICES FISCAUX
+-- 4. BARÈME OFFICIEL DE L'IRSA
+-- ------------------------------------------
+CREATE TABLE bareme_irsa (
+    id_tranche          SERIAL PRIMARY KEY,
+    id_config_legale    INT REFERENCES paie_config_legale(id_config_legale) ON DELETE CASCADE,
+    numero_tranche      INT NOT NULL,
+    tranche_min         NUMERIC(12,2) NOT NULL,
+    tranche_max         NUMERIC(12,2), -- NULL si tranche supérieure sans plafond
+    taux                NUMERIC(5,2) NOT NULL,
+    date_debut          DATE NOT NULL,
+    date_fin            DATE
+);
+
+CREATE INDEX idx_bareme_irsa_config ON bareme_irsa(id_config_legale);
+
+-- ------------------------------------------
+-- 5. MAJORATIONS HEURES SUPPLÉMENTAIRES & SPÉCIALES
+-- ------------------------------------------
+CREATE TABLE ref_taux_majoration (
+    id_taux_majoration  SERIAL PRIMARY KEY,
+    id_config_legale    INT REFERENCES paie_config_legale(id_config_legale) ON DELETE CASCADE,
+    type_majoration     VARCHAR(20) NOT NULL,
+    taux                NUMERIC(5,2) NOT NULL,
+    description         TEXT,
+    date_debut          DATE NOT NULL,
+    date_fin            DATE
+);
+
+CREATE INDEX idx_taux_majoration_config ON ref_taux_majoration(id_config_legale);
+
+-- ------------------------------------------
+-- 6. RATTACHEMENT DES COTISATIONS PAR SITE
+-- ------------------------------------------
+CREATE TABLE site_cotisation (
+    id_site_cotisation  SERIAL PRIMARY KEY,
+    id_site             INT NOT NULL REFERENCES ref_site(id_site) ON DELETE CASCADE,
+    id_type_cotisation  INT NOT NULL REFERENCES ref_type_cotisation(id_type_cotisation) ON DELETE CASCADE,
+    est_actif           BOOLEAN DEFAULT TRUE,
+    CONSTRAINT uk_site_cotisation UNIQUE (id_site, id_type_cotisation)
+);
+
+-- ------------------------------------------
+-- 7. SEEDING INITIAL : EXERCICES FISCAUX
 -- ------------------------------------------
 
--- ---- EXERCICE 2024 (historique, cloture au 31/12/2025) ----
+-- ---- EXERCICE 2024 (historique, clôturé au 31/12/2025) ----
 INSERT INTO paie_config_legale (
     code_version, libelle, date_debut, date_fin,
     sme_national, sme_agricole, plafond_cotisation_nb_sme,
@@ -93,7 +135,7 @@ INSERT INTO paie_config_legale (
     acquisition_conge_mensuel_jours, diviseur_valorisation_conge_jours
 ) VALUES (
     'LF_2024',
-    'Loi de Finances 2024 — Bareme IRSA 5 tranches, SME 200 000 Ar',
+    'Loi de Finances 2024 — Barème IRSA 5 tranches, SME 200 000 Ar',
     '2024-01-01', '2025-12-31',
     200000.00, 205000.00, 8.00,
     350000.00, 2000.00, 2000.00, 'CENTAINE_INF',
@@ -110,7 +152,7 @@ INSERT INTO paie_config_legale (
     acquisition_conge_mensuel_jours, diviseur_valorisation_conge_jours
 ) VALUES (
     'LF_2026',
-    'Loi de Finances 2026 (Loi n°2025-021) — Nouveau bareme IRSA 6 tranches (25%), SME 262 680 Ar',
+    'Loi de Finances 2026 (Loi n°2025-021) — Nouveau barème IRSA 6 tranches (25%), SME 262 680 Ar',
     '2026-01-01', NULL,
     262680.00, 266500.00, 8.00,
     350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
@@ -119,36 +161,44 @@ INSERT INTO paie_config_legale (
 );
 
 -- ------------------------------------------
--- 5. MISE A JOUR COHERENCE TABLES FILLES
+-- 8. SEEDING TABLES FILLES (Rattachées au Millésime LF_2026)
 -- ------------------------------------------
-UPDATE bareme_irsa
-    SET id_config_legale = (SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026')
-    WHERE date_debut >= '2026-01-01';
 
-UPDATE ref_type_cotisation
-    SET id_config_legale = (SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026')
-    WHERE date_debut >= '2026-01-01';
+-- Cotisations Sociales
+INSERT INTO ref_type_cotisation (id_config_legale, code, libelle, taux_salarial, taux_patronal, date_debut) VALUES
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, '2026-01-01'),
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 'OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, '2026-01-01'),
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 'OMSI', 'Organisation Médicale Inter-entreprises', 1.50, 5.50, '2026-01-01'),
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 'ISI', 'Impôt Synthétique Intermédiaire', 0.00, 5.00, '2026-01-01');
 
-UPDATE ref_taux_majoration
-    SET id_config_legale = (SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026')
-    WHERE date_debut >= '2026-01-01';
+-- Barème IRSA Officiel (6 Tranches - Loi de Finances 2026)
+INSERT INTO bareme_irsa (id_config_legale, numero_tranche, tranche_min, tranche_max, taux, date_debut) VALUES
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 1, 0.00, 350000.00, 0.00, '2026-01-01'),
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 2, 350001.00, 400000.00, 5.00, '2026-01-01'),
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 3, 400001.00, 500000.00, 10.00, '2026-01-01'),
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 4, 500001.00, 600000.00, 15.00, '2026-01-01'),
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 5, 600001.00, 4000000.00, 20.00, '2026-01-01'),
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 6, 4000001.00, NULL, 25.00, '2026-01-01');
+
+-- Majorations HS / Spéciales
+INSERT INTO ref_taux_majoration (id_config_legale, type_majoration, taux, description, date_debut) VALUES
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine', '2026-01-01'),
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure', '2026-01-01'),
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 'NUIT', 0.30, 'Heures de nuit (22h - 05h)', '2026-01-01'),
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 'DIMANCHE', 0.40, 'Travail le dimanche', '2026-01-01'),
+((SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026'), 'FERIE', 1.00, 'Travail jour férié', '2026-01-01');
+
+-- Cotisations de Santé et Prévoyance rattachées par Site
+INSERT INTO site_cotisation (id_site, id_type_cotisation) VALUES
+-- Antananarivo - Siège (TNR) : CNaPS (1) + OSTIE (2)
+(1, 1),
+(1, 2),
+-- Toamasina - Agence (TMM) : CNaPS (1) + OMSI (3)
+(2, 1),
+(2, 3);
 
 -- ------------------------------------------
--- 6. SUPPRESSION des parametres PAIE migres dans paie_config_legale
--- ------------------------------------------
-DELETE FROM parametre_global WHERE code_parametre IN (
-    'SME_COURANT',
-    'DIVISEUR_HORAIRE_ABSENCE',
-    'PLAFOND_COTISATION_SME_MULT',
-    'MINIMUM_PERCEPTION_IRSA',
-    'REDUCTION_IRSA_PAR_ENFANT'
-);
--- NB : SEUIL_HS_TRANCHE_1 et PLAFOND_HEURES_SUPP_SEMAINE restent dans RH_GENERAL
---      car lus par le module Pointage avant d'acceder au moteur de paie.
---      SEUIL_HEURES_JOUR (8h) et SEUIL_HEURES_SEMAINE (40h) aussi conserves.
-
--- ------------------------------------------
--- 7. VUE UTILITAIRE : config active courante
+-- 9. VUE UTILITAIRE : config active courante
 -- ------------------------------------------
 CREATE OR REPLACE VIEW v_config_legale_active AS
 SELECT

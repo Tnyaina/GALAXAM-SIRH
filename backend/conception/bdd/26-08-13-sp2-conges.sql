@@ -287,7 +287,7 @@ INSERT INTO parametre_global (code_parametre, categorie, valeur, description, da
 ('SEUIL_ANCIENNETE_BONIFICATION_ANS', 'CONGE', '3', 'Ancienneté minimale (en années) à partir de laquelle la bonification de congé s applique (Art. 86/87)', '2026-01-01'),
 ('PALIER_ANNEES_BONIFICATION', 'CONGE', '5', 'Nombre d années par tranche donnant droit à un jour de bonification supplémentaire (Art. 86/87)', '2026-01-01'),
 ('JOURS_BONIFICATION_PAR_PALIER', 'CONGE', '1', 'Nombre de jours de congé supplémentaires accordés par tranche d ancienneté atteinte (Art. 86/87)', '2026-01-01')
-ON CONFLICT (code_parametre) DO NOTHING;
+ON CONFLICT (code_parametre, date_debut) DO NOTHING;
 
 -- ------------------------------------------
 -- 8. DONNÉES INITIALES

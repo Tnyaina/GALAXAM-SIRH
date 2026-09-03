@@ -406,7 +406,7 @@ INSERT INTO parametre_global (code_parametre, categorie, valeur, description, da
 ('DUREE_MAX_CDD_MOIS', 'CONTRAT', '24', 'Durée maximale cumulée d un CDD et de ses renouvellements (24 mois / 2 ans). Au-delà, requalification en CDI de plein droit.', '2026-01-01'),
 ('NB_MAX_RENOUVELLEMENTS_CDD', 'CONTRAT', '2', 'Nombre maximal de renouvellements d un CDD par avenant (2 fois max). Au 3ème renouvellement, requalification en CDI.', '2026-01-01'),
 ('MAX_RENOUVELLEMENTS_ESSAI', 'RH_GENERAL', '1', 'Nombre maximal de renouvellements autorisés pour une période d essai (droit malgache : 1 seul renouvellement)', '2026-01-01')
-ON CONFLICT (code_parametre) DO UPDATE 
+ON CONFLICT (code_parametre, date_debut) DO UPDATE 
 SET valeur = EXCLUDED.valeur, description = EXCLUDED.description;
 
 -- ============================================================

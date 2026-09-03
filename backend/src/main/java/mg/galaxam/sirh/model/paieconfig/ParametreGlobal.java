@@ -153,12 +153,25 @@ public class ParametreGlobal extends ClassMere {
      * Charge l'ensemble des paramètres globaux actifs sous forme de Map clé-valeur (clé en majuscules).
      */
     public static java.util.Map<String, String> loadActiveMap(Connection c) {
+        return loadActiveMapAtDate(new Date(System.currentTimeMillis()), c);
+    }
+
+    /**
+     * Charge les paramètres actifs à une date de référence spécifique (ex: période de paie passée).
+     */
+    public static java.util.Map<String, String> loadActiveMapAtDate(Date dateRef, Connection c) {
         java.util.Map<String, String> map = new java.util.HashMap<>();
-        String sql = "SELECT code_parametre, valeur FROM parametre_global WHERE date_fin IS NULL OR date_fin >= CURRENT_DATE";
-        try (PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                map.put(rs.getString("code_parametre").toUpperCase(), rs.getString("valeur"));
+        Date d = (dateRef != null) ? dateRef : new Date(System.currentTimeMillis());
+        String sql = "SELECT code_parametre, valeur FROM parametre_global " +
+                     "WHERE date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) " +
+                     "ORDER BY date_debut ASC, id_parametre ASC";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, d);
+            ps.setDate(2, d);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    map.put(rs.getString("code_parametre").toUpperCase(), rs.getString("valeur"));
+                }
             }
         } catch (Exception e) {
             System.err.println("[PARAMETRE GLOBAL] Erreur de chargement: " + e.getMessage());
@@ -171,7 +184,9 @@ public class ParametreGlobal extends ClassMere {
      */
     public static java.util.Map<String, String> loadActiveMapByCategorie(String categorie, Connection c) {
         java.util.Map<String, String> map = new java.util.HashMap<>();
-        String sql = "SELECT code_parametre, valeur FROM parametre_global WHERE UPPER(categorie) = UPPER(?) AND (date_fin IS NULL OR date_fin >= CURRENT_DATE)";
+        String sql = "SELECT code_parametre, valeur FROM parametre_global " +
+                     "WHERE UPPER(categorie) = UPPER(?) AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) " +
+                     "ORDER BY date_debut ASC, id_parametre ASC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, categorie.trim());
             try (ResultSet rs = ps.executeQuery()) {

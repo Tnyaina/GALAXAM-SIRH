@@ -25,8 +25,6 @@ DROP TABLE IF EXISTS ref_statut_pointage_jour CASCADE;
 DROP TABLE IF EXISTS periode_paie CASCADE;
 DROP TABLE IF EXISTS ref_statut_periode_paie CASCADE;
 
--- Ajout de la colonne "dispense_pointage" sur ref_fonction (poste autonome)
-ALTER TABLE ref_fonction ADD COLUMN IF NOT EXISTS dispense_pointage BOOLEAN DEFAULT FALSE;
 
 -- ============================================================
 -- 1. RÉFÉRENTIELS

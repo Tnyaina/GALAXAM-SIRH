@@ -153,7 +153,7 @@ export default function ParametresModulesPanel() {
 
                         {activeModule === 'conges' && (
                             <>
-                                {activeTab === 'parametres_globaux_conges' && <ParametresGlobauxTab fixedCategory="CONGES" />}
+                                {activeTab === 'parametres_globaux_conges' && <ParametresGlobauxTab fixedCategory="CONGE" />}
                                 {activeTab === 'regles_acquisition' && <ParametresCongesTab />}
                             </>
                         )}
