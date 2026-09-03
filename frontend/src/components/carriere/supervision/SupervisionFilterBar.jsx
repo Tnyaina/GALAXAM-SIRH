@@ -40,11 +40,13 @@ function SupervisionFilterBar({
                     className="py-2 px-3 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] min-w-[170px]"
                 >
                     <option value="">Tous les sites d'affectation</option>
-                    {sites.map((s, idx) => (
-                        <option key={s.idSite || idx} value={s.idSite}>
-                            {s.libelle || s.nomSite || s.codeSite || `Site #${s.idSite}`}{s.codeSite ? ` (${s.codeSite})` : ''}
-                        </option>
-                    ))}
+                    {sites
+                        .filter(s => s.estActif !== false && s.actif !== false)
+                        .map((s, idx) => (
+                            <option key={s.idSite || idx} value={s.idSite}>
+                                {s.libelle || s.nomSite || s.codeSite || `Site #${s.idSite}`}{s.codeSite ? ` (${s.codeSite})` : ''}
+                            </option>
+                        ))}
                 </select>
 
                 {/* Filtre Statut */}

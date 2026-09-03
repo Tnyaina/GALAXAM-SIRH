@@ -45,11 +45,13 @@ export default function SiteCotisationFormModal({
                     onChange={(e) => setFormData({ ...formData, idSite: e.target.value })}
                 >
                     <option value="">-- Sélectionner un site --</option>
-                    {sites.map((s) => (
-                        <option key={s.idSite} value={s.idSite}>
-                            {s.libelle} ({s.codeSite})
-                        </option>
-                    ))}
+                    {sites
+                        .filter(s => s.estActif !== false && s.actif !== false || String(s.idSite) === String(formData.idSite))
+                        .map((s) => (
+                            <option key={s.idSite} value={s.idSite}>
+                                {s.libelle} ({s.codeSite})
+                            </option>
+                        ))}
                 </Select>
 
                 <Select

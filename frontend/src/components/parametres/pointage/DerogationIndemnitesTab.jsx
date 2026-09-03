@@ -213,11 +213,13 @@ export default function DerogationIndemnitesTab() {
                         onChange={(e) => setFormData({ ...formData, idIndemnite: e.target.value })}
                         required
                     >
-                        {indemnites.map(i => (
-                            <option key={i.idIndemnite} value={i.idIndemnite}>
-                                {i.code} — {i.libelle}
-                            </option>
-                        ))}
+                        {indemnites
+                            .filter(i => i.estActif !== false && i.actif !== false || String(i.idIndemnite) === String(formData.idIndemnite))
+                            .map(i => (
+                                <option key={i.idIndemnite} value={i.idIndemnite}>
+                                    {i.code} — {i.libelle}
+                                </option>
+                            ))}
                     </Select>
 
                     <div className="p-3 bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/20 text-xs text-[var(--color-danger-500)] font-medium flex items-start gap-2 rounded-none">

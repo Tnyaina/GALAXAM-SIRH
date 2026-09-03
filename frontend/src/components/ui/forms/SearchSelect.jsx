@@ -48,6 +48,9 @@ export default function SearchSelect({
   };
 
   const filteredOptions = options.filter((opt) => {
+    if (opt.estActif === false || opt.actif === false) {
+      if (String(opt.value) !== String(value)) return false;
+    }
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
     const optLabel = (opt.label || '').toLowerCase();

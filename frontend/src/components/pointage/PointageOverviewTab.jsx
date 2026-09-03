@@ -262,7 +262,9 @@ export default function PointageOverviewTab({ onTabChange }) {
                         <Select
                             options={[
                                 { value: 0, label: 'Tous les sites' },
-                                ...sites.map(s => ({ value: s.idSite, label: `${s.codeSite || s.code || `Site #${s.idSite}`} — ${s.libelle}` }))
+                                ...sites
+                                    .filter(s => s.estActif !== false && s.actif !== false || Number(s.idSite) === Number(selectedSite))
+                                    .map(s => ({ value: s.idSite, label: `${s.codeSite || s.code || `Site #${s.idSite}`} — ${s.libelle}` }))
                             ]}
                             value={selectedSite}
                             onChange={(val) => setSelectedSite(Number(val))}

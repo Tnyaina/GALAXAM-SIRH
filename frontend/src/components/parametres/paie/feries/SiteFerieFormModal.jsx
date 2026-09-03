@@ -44,11 +44,13 @@ export default function SiteFerieFormModal({
                     onChange={(e) => setFormData({ ...formData, idSite: e.target.value })}
                 >
                     <option value="">-- Choisir un site --</option>
-                    {sites.map((s) => (
-                        <option key={s.idSite} value={s.idSite}>
-                            {s.codeSite} — {s.libelle}
-                        </option>
-                    ))}
+                    {sites
+                        .filter(s => s.estActif !== false && s.actif !== false || String(s.idSite) === String(formData.idSite))
+                        .map((s) => (
+                            <option key={s.idSite} value={s.idSite}>
+                                {s.codeSite} — {s.libelle}
+                            </option>
+                        ))}
                 </Select>
 
                 <Select

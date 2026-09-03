@@ -106,9 +106,11 @@ export default function PeriodeChomeeFormModal({
                             onChange={(e) => handleChange('idSite', e.target.value)}
                         >
                             <option value="">-- Sélectionner un site --</option>
-                            {sites.map(s => (
-                                <option key={s.idSite} value={s.idSite}>{s.libelle}</option>
-                            ))}
+                            {(sites || [])
+                                .filter(s => s.estActif !== false && s.actif !== false || String(s.idSite) === String(formData.idSite))
+                                .map(s => (
+                                    <option key={s.idSite} value={s.idSite}>{s.libelle}</option>
+                                ))}
                         </Select>
                     )}
                 </div>

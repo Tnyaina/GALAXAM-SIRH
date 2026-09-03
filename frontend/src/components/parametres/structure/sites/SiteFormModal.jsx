@@ -71,11 +71,13 @@ export default function SiteFormModal({
                         onChange={(e) => setFormData({ ...formData, idFilialeRattachement: e.target.value })}
                     >
                         <option value="">-- Sélectionner une filiale --</option>
-                        {filiales.map((f) => (
-                            <option key={f.idFiliale} value={f.idFiliale}>
-                                {f.raisonSociale} ({f.codeFiliale})
-                            </option>
-                        ))}
+                        {filiales
+                            .filter(f => f.estActif !== false && f.actif !== false || String(f.idFiliale) === String(formData.idFilialeRattachement))
+                            .map((f) => (
+                                <option key={f.idFiliale} value={f.idFiliale}>
+                                    {f.raisonSociale} ({f.codeFiliale})
+                                </option>
+                            ))}
                     </Select>
                 </div>
 

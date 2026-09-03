@@ -19,10 +19,12 @@ export default function PointageToolbar({
     saving = false,
     dirtyCount = 0,
 }) {
-    const siteOptions = sites.map(s => ({
-        value: s.idSite,
-        label: `${s.codeSite || s.code || `Site #${s.idSite}`} — ${s.libelle}`
-    }));
+    const siteOptions = sites
+        .filter(s => s.estActif !== false && s.actif !== false || String(s.idSite) === String(selectedSite))
+        .map(s => ({
+            value: s.idSite,
+            label: `${s.codeSite || s.code || `Site #${s.idSite}`} — ${s.libelle}`
+        }));
 
     return (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">

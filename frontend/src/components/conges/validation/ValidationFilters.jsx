@@ -78,11 +78,13 @@ export default function ValidationFilters({
                 className="w-full h-8 text-xs bg-[var(--color-bg-subtle)] border border-[var(--color-border)] text-[var(--color-fg)] px-2.5 py-1 outline-none focus:border-[var(--color-brand-500)] cursor-pointer font-medium rounded-none"
               >
                 <option value="">Tous les types d'absence</option>
-                {typesConges.map((t) => (
-                  <option key={t.idTypeConge} value={t.idTypeConge}>
-                    {t.libelleTypeConge || t.codeTypeConge}
-                  </option>
-                ))}
+                {typesConges
+                  .filter((t) => t.estActif !== false && t.actif !== false)
+                  .map((t) => (
+                    <option key={t.idTypeConge} value={t.idTypeConge}>
+                      {t.libelleTypeConge || t.codeTypeConge}
+                    </option>
+                  ))}
               </select>
             </div>
           )}

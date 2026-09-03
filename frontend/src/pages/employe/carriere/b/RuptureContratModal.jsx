@@ -287,9 +287,11 @@ export default function RuptureContratModal({
                                         value={formData.codeTypeEvenement}
                                         onChange={handleChange}
                                     >
-                                        {typesEvenement.map(t => (
-                                            <option key={t.code} value={t.code}>{t.libelle}</option>
-                                        ))}
+                                        {typesEvenement
+                                            .filter(t => t.estActif !== false && t.actif !== false || String(t.code) === String(formData.codeTypeEvenement))
+                                            .map(t => (
+                                                <option key={t.code} value={t.code}>{t.libelle}</option>
+                                            ))}
                                     </Select>
                                 </div>
 

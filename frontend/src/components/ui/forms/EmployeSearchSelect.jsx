@@ -39,7 +39,7 @@ export default function EmployeSearchSelect({
     setLoadingList(true);
 
     employeService
-      .getEmployes({ q: debouncedQuery.trim() || undefined, size: 20 })
+      .getEmployes({ q: debouncedQuery.trim() || undefined, size: 20, actif: true })
       .then((res) => {
         if (!isMounted) return;
         const list = Array.isArray(res) ? res : res?.content || [];
@@ -58,23 +58,15 @@ export default function EmployeSearchSelect({
   // Retrouver l'objet employé si seule la valeur (ID) est passée depuis le parent
   useEffect(() => {
     if (value) {
-      // Chercher d'abord dans la liste courante
-      const found = listEmployes.find((emp) => String(emp.idEmploye) === String(value));
-      if (found) {
-        setSelectedEmployeObj(found);
-      } else if (!selectedEmployeObj || String(selectedEmployeObj.idEmploye) !== String(value)) {
-        // Sinon charger les détails de l'employé spécifique par son ID depuis le serveur
-        employeService
-          .getEmployeFicheDetail(value)
-          .then((empData) => {
-            if (empData) setSelectedEmployeObj(empData);
-          })
-          .catch(() => null);
-      }
+      if (selectedEmployeObj && String(selectedEmployeObj.idEmploye) === String(value)) return;
+      employeService
+        .getEmployeFicheDetail(value)
+        .then((res) => setSelectedEmployeObj(res))
+        .catch(() => setSelectedEmployeObj(null));
     } else {
       setSelectedEmployeObj(null);
     }
-  }, [value, listEmployes, selectedEmployeObj]);
+  }, [value, selectedEmployeObj]);
 
   // Fermeture du dropdown au clic extérieur
   useEffect(() => {
@@ -104,16 +96,17 @@ export default function EmployeSearchSelect({
     }
   };
 
-  // Filtrage local complémentaire si employesProp a été fourni
-  const displayEmployes = employesProp
-    ? listEmployes.filter((emp) => {
-      const query = empSearchQuery.toLowerCase().trim();
-      if (!query) return true;
-      const fullName = `${emp.nom || ''} ${emp.prenom || ''}`.toLowerCase();
-      const matricule = (emp.matricule || '').toLowerCase();
-      return fullName.includes(query) || matricule.includes(query);
-    })
-    : listEmployes;
+  // Filtrage local complémentaire avec exclusion des employés inactifs/désactivés
+  const displayEmployes = listEmployes.filter((emp) => {
+    if (emp.actif === false || emp.statut === 'INACTIF' || emp.statut === 'DESACTIVE') {
+      if (String(emp.idEmploye) !== String(value)) return false;
+    }
+    const query = empSearchQuery.toLowerCase().trim();
+    if (!query) return true;
+    const fullName = `${emp.nom || ''} ${emp.prenom || ''}`.toLowerCase();
+    const matricule = (emp.matricule || '').toLowerCase();
+    return fullName.includes(query) || matricule.includes(query);
+  });
 
   return (
     <div className={`space-y-1.5 relative ${className}`} ref={dropdownRef}>

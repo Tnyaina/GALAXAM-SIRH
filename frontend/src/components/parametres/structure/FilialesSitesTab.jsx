@@ -367,11 +367,13 @@ export default function FilialesSitesTab() {
                                 className="text-xs border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2.5 py-1.5 rounded-none focus:outline-none focus:border-[var(--color-brand-500)]"
                             >
                                 <option value="">Toutes les filiales</option>
-                                {safeFiliales.map(f => (
-                                    <option key={f.idFiliale} value={f.idFiliale}>
-                                        {f.codeFiliale} - {f.raisonSociale}
-                                    </option>
-                                ))}
+                                {safeFiliales
+                                    .filter(f => f.estActif !== false && f.actif !== false)
+                                    .map(f => (
+                                        <option key={f.idFiliale} value={f.idFiliale}>
+                                            {f.codeFiliale} - {f.raisonSociale}
+                                        </option>
+                                    ))}
                             </select>
                         </div>
                     )}

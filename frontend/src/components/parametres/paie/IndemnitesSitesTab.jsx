@@ -452,9 +452,11 @@ export default function IndemnitesSitesTab() {
                         onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, idSite: e.target.value })}
                     >
                         <option value="">-- Choisir un site --</option>
-                        {sites.map((s) => (
-                            <option key={s.idSite} value={s.idSite}>{s.libelle} ({s.codeSite})</option>
-                        ))}
+                        {sites
+                            .filter(s => s.estActif !== false && s.actif !== false || String(s.idSite) === String(siteIndemniteFormData.idSite))
+                            .map((s) => (
+                                <option key={s.idSite} value={s.idSite}>{s.libelle} ({s.codeSite})</option>
+                            ))}
                     </Select>
                     <Select
                         label="Type d'Indemnité"

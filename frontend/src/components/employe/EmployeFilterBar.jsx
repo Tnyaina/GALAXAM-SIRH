@@ -85,11 +85,13 @@ export default function EmployeFilterBar({
                         className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer rounded-none"
                     >
                         <option value="">Site : Tous les sites</option>
-                        {sites.map(s => (
-                            <option key={s.idSite || s.id_site} value={s.idSite || s.id_site}>
-                                {s.nomSite || s.nom_site || s.libelle}
-                            </option>
-                        ))}
+                        {sites
+                            .filter(s => s.estActif !== false && s.actif !== false)
+                            .map(s => (
+                                <option key={s.idSite || s.id_site} value={s.idSite || s.id_site}>
+                                    {s.nomSite || s.nom_site || s.libelle}
+                                </option>
+                            ))}
                     </select>
                 </div>
 
@@ -104,11 +106,13 @@ export default function EmployeFilterBar({
                         className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer rounded-none"
                     >
                         <option value="">Département : Tous</option>
-                        {departements.map(d => (
-                            <option key={d.idDepartement || d.id_departement} value={d.idDepartement || d.id_departement}>
-                                {d.nomDepartement || d.nom_departement || d.libelle}
-                            </option>
-                        ))}
+                        {departements
+                            .filter(d => d.estActif !== false && d.actif !== false)
+                            .map(d => (
+                                <option key={d.idDepartement || d.id_departement} value={d.idDepartement || d.id_departement}>
+                                    {d.nomDepartement || d.nom_departement || d.libelle}
+                                </option>
+                            ))}
                     </select>
                 </div>
 
@@ -120,11 +124,13 @@ export default function EmployeFilterBar({
                         className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer rounded-none"
                     >
                         <option value="">Service : Tous</option>
-                        {filteredServices.map(srv => (
-                            <option key={srv.idService || srv.id_service} value={srv.idService || srv.id_service}>
-                                {srv.nomService || srv.nom_service || srv.libelle}
-                            </option>
-                        ))}
+                        {filteredServices
+                            .filter(srv => srv.estActif !== false && srv.actif !== false)
+                            .map(srv => (
+                                <option key={srv.idService || srv.id_service} value={srv.idService || srv.id_service}>
+                                    {srv.nomService || srv.nom_service || srv.libelle}
+                                </option>
+                            ))}
                     </select>
                 </div>
 

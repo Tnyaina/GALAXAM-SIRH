@@ -377,9 +377,11 @@ export default function CalendrierFerieTab() {
                             className="bg-[var(--color-surface)] text-xs font-semibold text-[var(--color-fg)] px-2 py-1.5 border border-[var(--color-border)] rounded-none focus:outline-none cursor-pointer"
                         >
                             <option value="">Tous les sites</option>
-                            {sites.map(s => (
-                                <option key={s.idSite} value={s.idSite}>{s.libelle}</option>
-                            ))}
+                            {sites
+                                .filter(s => s.estActif !== false && s.actif !== false)
+                                .map(s => (
+                                    <option key={s.idSite} value={s.idSite}>{s.libelle}</option>
+                                ))}
                         </select>
                     )}
                 </div>

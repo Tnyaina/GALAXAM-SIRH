@@ -43,11 +43,13 @@ export default function ServiceFormModal({
                     onChange={(e) => setFormData({ ...formData, idDepartement: e.target.value })}
                 >
                     <option value="">-- Sélectionner un département --</option>
-                    {departements.map((d) => (
-                        <option key={d.idDepartement} value={d.idDepartement}>
-                            {d.libelle} ({d.codeDepartement})
-                        </option>
-                    ))}
+                    {departements
+                        .filter(d => d.estActif !== false && d.actif !== false || String(d.idDepartement) === String(formData.idDepartement))
+                        .map((d) => (
+                            <option key={d.idDepartement} value={d.idDepartement}>
+                                {d.libelle} ({d.codeDepartement})
+                            </option>
+                        ))}
                 </Select>
 
                 <Input

@@ -61,11 +61,13 @@ export default function UploadDocumentModal({
                     onChange={(e) => setSelectedTypeId(e.target.value)}
                 >
                     <option value="">-- Sélectionner un type --</option>
-                    {typesDoc.map(t => (
-                        <option key={t.idTypeDocument} value={t.idTypeDocument}>
-                            {t.libelle} {t.obligatoire ? '(Obligatoire)' : ''} — [{t.categorie}]
-                        </option>
-                    ))}
+                    {typesDoc
+                        .filter(t => t.actif !== false && t.estActif !== false || String(t.idTypeDocument) === String(selectedTypeId))
+                        .map(t => (
+                            <option key={t.idTypeDocument} value={t.idTypeDocument}>
+                                {t.libelle} {t.obligatoire ? '(Obligatoire)' : ''} — [{t.categorie}]
+                            </option>
+                        ))}
                 </Select>
 
                 <div className="space-y-1">

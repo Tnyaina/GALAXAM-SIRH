@@ -72,19 +72,20 @@ export function useContractReferentiels(enabled = true, excludeEmployeId = null)
             ]);
 
             const empArray = Array.isArray(empRes) ? empRes : (empRes?.content || []);
+            const isItemActive = (item) => item && item.estActif !== false && item.actif !== false;
 
             const newData = {
-                filiales: filRes || [],
-                sites: siteRes || [],
-                departements: depRes || [],
-                services: srvRes || [],
-                fonctions: fnRes || [],
-                typesContrat: tcRes || [],
-                typesIntervenant: tiRes || [],
-                categoriesPro: catRes || [],
-                modesPaie: paieRes || [],
-                typesEvenementRh: tevRes || [],
-                employes: empArray,
+                filiales: (filRes || []).filter(isItemActive),
+                sites: (siteRes || []).filter(isItemActive),
+                departements: (depRes || []).filter(isItemActive),
+                services: (srvRes || []).filter(isItemActive),
+                fonctions: (fnRes || []).filter(isItemActive),
+                typesContrat: (tcRes || []).filter(isItemActive),
+                typesIntervenant: (tiRes || []).filter(isItemActive),
+                categoriesPro: (catRes || []).filter(isItemActive),
+                modesPaie: (paieRes || []).filter(isItemActive),
+                typesEvenementRh: (tevRes || []).filter(isItemActive),
+                employes: empArray.filter(e => e.actif !== false && e.statut !== 'INACTIF'),
             };
 
 

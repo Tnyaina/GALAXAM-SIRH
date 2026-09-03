@@ -29,11 +29,18 @@ export default function Select({
                 {...props}
             >
                 {placeholder && <option value="">{placeholder}</option>}
-                {options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                    </option>
-                ))}
+                {options
+                    .filter(opt => {
+                        if (opt.estActif === false || opt.actif === false) {
+                            return String(opt.value) === String(value);
+                        }
+                        return true;
+                    })
+                    .map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                        </option>
+                    ))}
             </select>
         </div>
     );

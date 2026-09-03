@@ -23,11 +23,13 @@ export default function CnapsBanqueStep({
                         label="Banque"
                         value={formData.compteBanquePrincipal.idBanque}
                         onChange={(val) => setNested('compteBanquePrincipal', 'idBanque', val)}
-                        options={banques.map((b) => ({
-                            value: b.idBanque,
-                            label: b.nomBanque,
-                            sublabel: b.codeBanque,
-                        }))}
+                        options={banques
+                            .filter(b => b.estActif !== false && b.actif !== false || String(b.idBanque) === String(formData.compteBanquePrincipal.idBanque))
+                            .map((b) => ({
+                                value: b.idBanque,
+                                label: b.nomBanque,
+                                sublabel: b.codeBanque,
+                            }))}
                         placeholder="Rechercher une banque…"
                     />
                     <Input label="Agence" value={formData.compteBanquePrincipal.agence} onChange={e => setNested('compteBanquePrincipal', 'agence', e.target.value)} placeholder="Agence" />

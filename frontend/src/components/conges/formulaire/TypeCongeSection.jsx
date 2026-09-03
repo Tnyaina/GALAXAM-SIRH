@@ -20,11 +20,13 @@ export default function TypeCongeSection({
             setIdMotifEvenementFamilial('');
             setFieldErrors((prev) => ({ ...prev, idTypeConge: null }));
           }}
-          options={typesConge.map(t => ({
-            value: t.idTypeConge,
-            label: t.libelle,
-            sublabel: `${t.estPaye ? 'Rémunéré' : 'Sans solde'}${t.soumisDelaiPreavis ? ' · Préavis requis' : ''}`
-          }))}
+          options={typesConge
+            .filter(t => t.estActif !== false && t.actif !== false || String(t.idTypeConge) === String(idTypeConge))
+            .map(t => ({
+              value: t.idTypeConge,
+              label: t.libelle,
+              sublabel: `${t.estPaye ? 'Rémunéré' : 'Sans solde'}${t.soumisDelaiPreavis ? ' · Préavis requis' : ''}`
+            }))}
           placeholder="Sélectionner un type de congé…"
           error={fieldErrors.idTypeConge}
         />
@@ -41,11 +43,13 @@ export default function TypeCongeSection({
               setIdMotifEvenementFamilial(val);
               setFieldErrors((prev) => ({ ...prev, idMotifEvenementFamilial: null }));
             }}
-            options={motifsFamiliaux.map(m => ({
-              value: m.idMotif,
-              label: m.libelle,
-              sublabel: `${m.nbJoursAutorises} jours autorisés`
-            }))}
+            options={motifsFamiliaux
+              .filter(m => m.estActif !== false && m.actif !== false || String(m.idMotif) === String(idMotifEvenementFamilial))
+              .map(m => ({
+                value: m.idMotif,
+                label: m.libelle,
+                sublabel: `${m.nbJoursAutorises} jours autorisés`
+              }))}
             placeholder="Sélectionner un motif…"
             error={fieldErrors.idMotifEvenementFamilial}
           />

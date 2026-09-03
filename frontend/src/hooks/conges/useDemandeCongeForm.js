@@ -48,8 +48,8 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
 
-  const typesConge = referentiels?.typesConge || [];
-  const motifsFamiliaux = referentiels?.motifsFamiliaux || [];
+  const typesConge = (referentiels?.typesConge || []).filter(t => t.estActif !== false && t.actif !== false || String(t.idTypeConge) === String(idTypeConge));
+  const motifsFamiliaux = (referentiels?.motifsFamiliaux || []).filter(m => m.estActif !== false && m.actif !== false || String(m.idMotif) === String(idMotifEvenementFamilial));
 
   const selectedType = typesConge.find((t) => String(t.idTypeConge) === String(idTypeConge));
   const isExceptionnel = selectedType && selectedType.code === 'EXCEPTIONNEL';
