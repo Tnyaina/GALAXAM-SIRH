@@ -103,4 +103,14 @@ public class PeriodePaieDTO {
     public void setNbJoursFeries(Integer nbJoursFeries) {
         this.nbJoursFeries = nbJoursFeries;
     }
+
+    private String motifRejet;
+
+    public String getMotifRejet() {
+        return motifRejet;
+    }
+
+    public void setMotifRejet(String motifRejet) {
+        this.motifRejet = motifRejet;
+    }
 }

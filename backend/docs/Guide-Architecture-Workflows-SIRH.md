@@ -4,7 +4,7 @@ Ce document constitue la référence officielle du SIRH GALAXAM. Il formalise l'
 
 ---
 
-## 🏛️ 1. Architecture Générale & Paradigme Technique
+## 1. Architecture Générale & Paradigme Technique
 
 ### Backend (Spring Boot 4.1 / Java 17)
 - **Accès Données** : Paradigme POO pur JDBC (`bean.ClassMere`) sans ORM JPA/Hibernate pour un contrôle transactionnel total et zéro surcoût N+1.
@@ -25,12 +25,13 @@ Ce document constitue la référence officielle du SIRH GALAXAM. Il formalise l'
   - `EmployeService` : Gestion du profil, statut, composition familiale, pagination standardisée.
   - `WorkflowRhService` : Transitions de carrière, auto-clôture des contrats/affectations antérieurs.
   - `CongeService` : Simulation, scission maladie Art. 13 (> 30j), validation/refus.
-  - `PointageSaisieService` : Saisie quotidienne, calcul des heures normales, heures de nuit dynamiques (> 22h00), 0 tolérance aux retards, reconstitution des pauses et indemnités.
-  - `PointageAnomalieService` : Détection et qualification des anomalies (pointages incomplets, absences non justifiées, retards), régularisation unitaire et en lot.
-  - `PointageSyntheseService` : Compensation hebdomadaire stricte (HS compensant les retards), majorations légales 30%/50%, déduction TMM (-1 000 Ar/j) et consolidation paie.
+  - `PointageSaisieService` : Saisie quotidienne, calcul des heures normales, heures de nuit dynamiques (> 22h00), 0 tolérance aux retards, reconstitution des pauses et indemnités. Verrouillage strict si période transmise ou validée.
+  - `PointageAnomalieService` : Détection et qualification des anomalies (pointages incomplets, absences non justifiées, retards), régularisation unitaire et synchronisation transactionnelle avec `pointage_indemnite_jour`.
+  - `PointageSyntheseService` : Calcul global 1-clic de toutes les semaines, verrous pessimistes PostgreSQL `FOR UPDATE`, transmission sécurisée à la DAF avec contrôle d'anomalies multi-sites, validation finale et rejet avec motif obligatoire.
+  - `NotificationRhService` : Source unique d'émission des notifications avec ségrégation par profil (`cible_role` : `ROLE_ADMIN` vs `ROLE_AGENT_POINTAGE`).
   - `DashboardService` : Agrégation centralisée des KPIs, alertes critiques (J-0, J-7, J-30), brouillons en attente et effectif en congé.
   - `ParametreGlobal` : Modèle et gestionnaire centralisé de lecture dynamique (`loadActiveMap`, `getDouble`, `getLocalTime`, etc.) sans valeur codée en dur.
-- **Gestion Globale des Erreurs** : `GlobalExceptionHandler` (`@RestControllerAdvice`) capturant les exceptions et renvoyant une réponse normalisée `ApiErrorResponse` avec journalisation **SLF4J**.
+- **Gestion Globale des Erreurs** : `GlobalExceptionHandler` (`@RestControllerAdvice`) capturant les exceptions et renvoyant une réponse normalisée `ApiErrorResponse` avec journalisation SLF4J.
 
 ### Frontend (React 19 / Vite 8 / Tailwind CSS)
 - **Polices Système Natives** : 0 requête externe Google Fonts / CDN.
@@ -41,20 +42,20 @@ Ce document constitue la référence officielle du SIRH GALAXAM. Il formalise l'
   - `ConfirmDialog.jsx` : Fenêtres de confirmation modales ergonomiques (0 `window.confirm`).
   - `Afficher masqués` (`showInactive`) : Bascule avec icône œil standardisée sur toutes les tables de référentiels et paramètres.
 
-### 🛡️ Règle Fondamentale d'Architecture : Zéro Comparaison de Statut en Dur (Backend-Driven Booleans)
-Afin de garantir l'étanchéité de la logique métier et d'éviter les désynchronisations ou bugs de typage dans l'interface, **le frontend ne doit jamais effectuer de comparaisons de chaînes en dur** (ex: `=== 'ACTIF'`, `=== 'BROUILLON'`, `=== 'RENOUVELLEMENT_CDD'`).
+### Règle Fondamentale d'Architecture : Zéro Comparaison de Statut en Dur (Backend-Driven Booleans)
+Afin de garantir l'étanchéité de la logique métier et d'éviter les désynchronisations ou bugs de typage dans l'interface, le frontend ne doit jamais effectuer de comparaisons de chaînes en dur (ex: `=== 'ACTIF'`, `=== 'BROUILLON'`, `=== 'RENOUVELLEMENT_CDD'`).
 
 1. **Calcul & Exposition Côté Backend (POO / Jackson)** :
    Toutes les entités, référentiels et DTOs sérialisés exposent des getters booléens explicites :
    - **Carrière / Contrats** : `isBrouillon`, `isPlanifie`, `isActif`, `isAnnule`, `isModifiable`, `isAnnulable`, `exigeNouveauContrat`, `autorisePeriodeEssai`, `isEmbauche`, `isConfirmationEssai`, `isRenouvellementEssai`, `isRenouvellementCdd`, `isRupture`, `isAvenant`, `isCdi`, `isCdd`.
    - **Congés & Absences** : `isEnAttente`, `isValide`, `isRefuse`, `isAnnule`, `isModifiable`, `isAnnulable`, `canValidate`, `canRefuse`.
-   - **Pointage & Présences** : `isPresent`, `isRetard`, `isAbsent`, `isConge`, `isRepos`, `isEnCours`, `isAnomalie`, `isIncomplet`, `isAbsence`, `isPeriodeOuverte`, `isPeriodeCloturee`, `hasAnomalies`.
+   - **Pointage & Présences** : `isPresent`, `isRetard`, `isAbsent`, `isConge`, `isRepos`, `isEnCours`, `isAValider`, `isValidee`, `isCloturee`, `isAnomalie`, `isIncomplet`, `isAbsence`, `isPeriodeOuverte`, `isPeriodeCloturee`, `hasAnomalies`.
 2. **Consommation Côté Frontend** :
    Les composants React s'appuient uniquement sur ces propriétés booléennes pour le rendu conditionnel, l'activation des boutons d'actions et les transitions d'état.
 
 ---
 
-## 🔄 2. Suite Logique des Workflows SIRH
+## 2. Suite Logique des Workflows SIRH
 
 ### A. Cycle de Vie Employé & Carrière
 ```mermaid
@@ -71,32 +72,39 @@ flowchart LR
 ### B. Cycle de Pointage & Préparation Paie
 ```mermaid
 flowchart LR
-    A[Saisie Quotidienne] --> B[0 Tolérance Retard & Heures de Nuit]
-    B --> C[Compensation Hebdomadaire par Tronçon]
-    C --> D[Détection & Régularisation des Anomalies]
-    D --> E[Période A_VALIDER]
-    E --> F[Validation & Gel des Données Paie]
+    A[Saisie Quotidienne & Anomalies] --> B[Calcul Global 1-Clic Toutes Semaines]
+    B --> C[Consultation & Ajustements Libres EN_COURS]
+    C --> D[Transmission DAF Contrôle 0 Anomalie]
+    D --> E[Statut A_VALIDER Verrou Écriture Agent]
+    E --> F{Arbitrage DAF}
+    F -->|Validation| G[Statut VALIDEE Gel Cumuls Paie]
+    F -->|Rejet avec Motif| H[Retour EN_COURS Bannière Alerte Agent]
+    G --> I[Clôture Paie CLOTUREE Immuable]
 ```
 
 #### Règles Clés du Pointage :
-1. **0 Tolérance aux Retards** : Tout dépassement dès `08h01` ou `13h01/14h01` génère un retard décompté à la minute près.
+1. **0 Tolérance aux Retards** : Tout dépassement dès 08h01 ou 13h01/14h01 génère un retard décompté à la minute près.
 2. **Compensation Hebdomadaire (HS vs Retards)** :
    * Chaque semaine civile (tronçon) calcule son propre solde : les HS de la semaine compensent prioritairement les retards de la même semaine.
-   * Semaine excédentaire $\rightarrow$ HS payées (jusqu'à 8h à +30%, au-delà à +50%).
-   * Semaine déficitaire $\rightarrow$ Retard net déduit sur la paie (100%).
+   * Semaine excédentaire : HS payées (jusqu'à 8h à +30%, au-delà à +50%).
+   * Semaine déficitaire : Retard net déduit sur la paie (100%).
 3. **Travail de Nuit Dynamique (`SEUIL_NUIT_DEBUT: 22:00` / `SEUIL_NUIT_FIN: 05:00`)** : Toute heure effectuée dans la tranche nocturne est calculée automatiquement et majorée.
 4. **Spécificité Tamatave TMM (`REDUCTION_DEPLACT_REPAS_MIDI: 1000 Ar`)** : Si un salarié de TMM déjeune sur place ou travaille en journée continue (2 trajets au lieu de 4), une déduction de 1 000 Ar/j est appliquée, ramenant son indemnité quotidienne au tarif TNR.
+5. **Fluidité & Sécurité du Workflow** :
+   * La consolidation hebdomadaire s'effectue en 1 clic pour toutes les semaines du mois sans bloquer séquentiellement le travail de l'agent.
+   * La transmission à la DAF vérifie l'absence d'anomalies bloquantes sur l'entreprise entière avant de figer la période en lecture seule.
+   * Le rejet par la DAF impose un motif explicatif, alerte l'agent en priorité et affiche une bannière explicative sur l'interface pour guider la correction.
 
 ### C. Gestion des Congés & Absences Légales
 - **Décompte Standard** : En jours ouvrés ou calendaires selon le paramétrage.
-- **Demi-Journée** : Décompte strict de `0.5` jour (Matin ou Après-Midi).
+- **Demi-Journée** : Décompte strict de 0.5 jour (Matin ou Après-Midi).
 - **Arrêt Maladie > 30 Jours (Art. 13 Code du Travail Malagasy)** : Scission automatique entre les 30 premiers jours à plein salaire et le reliquat pris en charge sans solde / CNaPS.
 - **Maternité** : 14 semaines (98 jours).
 - **Événements Familiaux** : 3 jours forfaitaires pour Mariage, Décès ou Naissance.
 
 ---
 
-## ⏰ 3. Tâches Planifiées (Cron & Schedulers)
+## 3. Tâches Planifiées (Cron & Schedulers)
 
 | Scheduler | Fréquence (Cron) | Rôle & Action Métier |
 | :--- | :--- | :--- |
@@ -109,7 +117,7 @@ flowchart LR
 
 ---
 
-## 🔒 4. Sécurité, Sessions & Tokens
+## 4. Sécurité, Sessions & Tokens
 
 - **Hachage Mot de Passe** : BCrypt avec salage dynamique.
 - **Access Token JWT** : Signature HMAC SHA-512, expiration courte (15 min), transport des rôles et permissions granulaires (`ROLE_ADMIN`, `CONGE_WRITE`, etc.).

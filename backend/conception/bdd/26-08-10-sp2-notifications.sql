@@ -9,7 +9,8 @@ DROP TABLE IF EXISTS notification_rh CASCADE;
 
 CREATE TABLE notification_rh (
     id_notification     SERIAL PRIMARY KEY,
-    id_utilisateur      INTEGER,          -- NULL = broadcast tous les utilisateurs RH
+    id_utilisateur      INTEGER,          -- NULL = broadcast ou filtré par cible_role
+    cible_role          VARCHAR(50),      -- ROLE_ADMIN, ROLE_AGENT_POINTAGE, ou NULL (tous)
     type_alerte         VARCHAR(50) NOT NULL,
     -- CONTRAT_EXPIRE_J       : contrat dont date_fin = aujourd'hui
     -- CONTRAT_EXPIRE_7J      : contrat expirant dans 7 jours
@@ -47,7 +48,7 @@ CREATE TABLE notification_rh (
         'POOL_EXCEPTIONNEL_EPUISE', 'BONIFICATION_ANCIENNETE_APPLIQUEE',
         -- Pointage
         'POINTAGE_MANQUANT', 'PERIODE_POINTAGE_A_VALIDER',
-        'PERIODE_POINTAGE_VALIDEE', 'RETARD_RECURRENT',
+        'PERIODE_POINTAGE_VALIDEE', 'PERIODE_POINTAGE_REJETEE', 'RETARD_RECURRENT',
         -- Alertes génériques
         'ALERTE_ECHEANCE'
     ))
@@ -55,6 +56,7 @@ CREATE TABLE notification_rh (
 
 -- Index de performance (requêtes fréquentes)
 CREATE INDEX idx_notif_utilisateur ON notification_rh(id_utilisateur) WHERE est_lue = FALSE;
+CREATE INDEX idx_notif_cible_role  ON notification_rh(cible_role) WHERE est_lue = FALSE;
 CREATE INDEX idx_notif_non_lues    ON notification_rh(est_lue, date_creation DESC);
 CREATE INDEX idx_notif_type        ON notification_rh(type_alerte);
 CREATE INDEX idx_notif_employe     ON notification_rh(id_employe_concerne);

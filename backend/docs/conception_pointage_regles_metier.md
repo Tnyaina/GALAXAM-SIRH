@@ -85,20 +85,32 @@ Chaque site peut configurer des indemnités complémentaires (`site_indemnite_co
 ```mermaid
 stateDiagram-v2
     [*] --> EN_COURS : Ouverture de la période
-    EN_COURS --> A_VALIDER : Transmission par l'Agent (Fin de mois)
-    A_VALIDER --> VALIDEE : Contrôle & Validation DAF
+    EN_COURS --> EN_COURS : Calcul global 1-clic (toutes semaines)
+    EN_COURS --> A_VALIDER : Transmission DAF (Contrôle 0 anomalie entreprise)
+    A_VALIDER --> VALIDEE : Validation DAF (Figeage définitif cumuls paie)
+    A_VALIDER --> EN_COURS : Rejet DAF (Motif obligatoire & alerte agent)
     VALIDEE --> CLOTUREE : Clôture Paie (Verrouillage immuable)
-    VALIDEE --> EN_COURS : Réouverture exceptionnelle (Admin/DAF)
 ```
 
-1. **`EN_COURS` (Saisie Active)** :
+1. EN_COURS (Saisie Active, Consultation & Calcul Global) :
    - L'agent de pointage saisit et enregistre quotidiennement les pointages sur le site.
    - Les modifications sont libres et sauvegardées par lot.
-2. **`A_VALIDER` (Contrôle DAF)** :
-   - L'agent transmet la période à la fin du mois via le bouton dédié en bas de page.
-   - La saisie quotidienne est verrouillée pour l'agent. La DAF vérifie les anomalies et la synthèse hebdo/mensuelle.
-3. **`VALIDEE` / `CLOTUREE` (Scellé Paie)** :
-   - Les heures, retards nets et indemnités sont figés et injectés dans le bulletin de paie.
+   - Calcul global 1-clic : l'agent génère la consolidation de toutes les semaines du mois en une transaction unique sans bloquer la consultation ni les ajustements.
+
+2. A_VALIDER (Contrôle DAF & Verrou d'Écriture) :
+   - L'agent transmet la période à la fin du mois via le bouton dédié.
+   - Le système vérifie de façon bloquante l'absence totale d'anomalies non résolues sur l'ensemble des sites, recalcule et passe la période en A_VALIDER.
+   - La saisie quotidienne et la régularisation des anomalies sont verrouillées en lecture seule pour l'agent.
+   - Une notification ciblée est envoyée aux administrateurs DAF.
+
+3. VALIDEE / CLOTUREE (Scellé Paie) :
+   - La DAF valide la synthèse mensuelle. Les cumuls sont figés de façon immuable dans pointage_cumul_periode.
+   - Les heures, retards nets et indemnités sont injectés dans la paie.
+   - Une fois la clôture comptable actée (CLOTUREE), aucune modification n'est permise.
+
+4. Renvoi pour correction (Rejet DAF) :
+   - Si la DAF constate une incohérence, elle rejette la période avec un motif obligatoire.
+   - La période repasse en EN_COURS, la saisie se déverrouille pour l'agent, et une notification prioritaire ainsi qu'une bannière explicative s'affichent sur l'interface.
 
 ---
 

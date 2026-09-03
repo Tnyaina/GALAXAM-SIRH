@@ -204,27 +204,31 @@ public class PointageSyntheseWorkflowIntegrationTest {
         java.time.LocalDate debutSemaine = java.time.LocalDate.of(2026, 8, 3);
         java.time.LocalDate finSemaine = java.time.LocalDate.of(2026, 8, 9);
 
-        // 1. Sur période A_VALIDER (id=1), la validation DOIT être bloquée
-        assertThrows(IllegalStateException.class, () -> {
-            pointageSyntheseService.validerSemaine(1, debutSemaine, finSemaine, null, 1);
-        }, "Une période en statut A_VALIDER doit interdire la modification de ses semaines");
-
-        // 2. Sur période OUVERTE (temporairement basculée), la validation doit réussir
         try (Connection c = dataSource.getConnection()) {
-            int statutAValider = 2;
-            int statutOuverte = 1;
-            try (PreparedStatement ps = c.prepareStatement("SELECT id_statut_periode, code FROM ref_statut_periode_paie WHERE code IN ('OUVERTE', 'A_VALIDER')")) {
+            int statutAValider = 3;
+            int statutEnCours = 2;
+            try (PreparedStatement ps = c.prepareStatement("SELECT id_statut_periode, code FROM ref_statut_periode_paie WHERE code IN ('EN_COURS', 'A_VALIDER')")) {
                 var rs = ps.executeQuery();
                 while (rs.next()) {
-                    if ("OUVERTE".equals(rs.getString("code"))) statutOuverte = rs.getInt("id_statut_periode");
+                    if ("EN_COURS".equals(rs.getString("code"))) statutEnCours = rs.getInt("id_statut_periode");
                     if ("A_VALIDER".equals(rs.getString("code"))) statutAValider = rs.getInt("id_statut_periode");
                 }
             }
 
+            // 1. Sur période A_VALIDER (id=1), la validation DOIT être bloquée
+            try (PreparedStatement ps = c.prepareStatement("UPDATE periode_paie SET id_statut_periode = ? WHERE id_periode_paie = 1")) {
+                ps.setInt(1, statutAValider);
+                ps.executeUpdate();
+            }
+
+            assertThrows(IllegalStateException.class, () -> {
+                pointageSyntheseService.validerSemaine(1, debutSemaine, finSemaine, null, 1);
+            }, "Une période en statut A_VALIDER doit interdire la modification de ses semaines");
+
             try {
-                // Bascule en OUVERTE
+                // 2. Sur période EN_COURS (temporairement basculée), la validation doit réussir
                 try (PreparedStatement ps = c.prepareStatement("UPDATE periode_paie SET id_statut_periode = ? WHERE id_periode_paie = 1")) {
-                    ps.setInt(1, statutOuverte);
+                    ps.setInt(1, statutEnCours);
                     ps.executeUpdate();
                 }
 
@@ -350,23 +354,39 @@ public class PointageSyntheseWorkflowIntegrationTest {
     @Order(10)
     @DisplayName("PTG-10 : Régularisation d'anomalie synchronise fidèlement pointage_indemnite_jour")
     void testResoudreAnomalieSynchroniseIndemnites() throws Exception {
-        int idPtg;
-        int currentVer;
+        int idPtg = -1;
+        int currentVer = 1;
         try (Connection c = dataSource.getConnection()) {
-            // Remettre 2026-08-17 au propre au cas où
-            try (PreparedStatement ps = c.prepareStatement("UPDATE pointage_jour SET minutes_retard = 10 WHERE id_employe = 2 AND date_pointage = '2026-08-17'")) {
+            int statutAValider = 2;
+            int statutOuverte = 1;
+            try (PreparedStatement ps = c.prepareStatement("SELECT id_statut_periode, code FROM ref_statut_periode_paie WHERE code IN ('OUVERTE', 'EN_COURS', 'A_VALIDER')")) {
+                var rs = ps.executeQuery();
+                while (rs.next()) {
+                    if ("OUVERTE".equals(rs.getString("code")) || "EN_COURS".equals(rs.getString("code"))) statutOuverte = rs.getInt("id_statut_periode");
+                    if ("A_VALIDER".equals(rs.getString("code"))) statutAValider = rs.getInt("id_statut_periode");
+                }
+            }
+
+            // Basculer temporairement en période ouverte pour autoriser la régularisation
+            try (PreparedStatement ps = c.prepareStatement("UPDATE periode_paie SET id_statut_periode = ? WHERE id_periode_paie = 1")) {
+                ps.setInt(1, statutOuverte);
                 ps.executeUpdate();
             }
 
-            try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT id_pointage, version FROM pointage_jour WHERE id_employe = 2 AND date_pointage = '2026-08-18'")) {
-                var rs = ps.executeQuery();
-                assertTrue(rs.next());
-                idPtg = rs.getInt("id_pointage");
-                currentVer = rs.getInt("version");
-            }
-
             try {
+                // Remettre 2026-08-17 au propre au cas où
+                try (PreparedStatement ps = c.prepareStatement("UPDATE pointage_jour SET minutes_retard = 10 WHERE id_employe = 2 AND date_pointage = '2026-08-17'")) {
+                    ps.executeUpdate();
+                }
+
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT id_pointage, version FROM pointage_jour WHERE id_employe = 2 AND date_pointage = '2026-08-18'")) {
+                    var rs = ps.executeQuery();
+                    assertTrue(rs.next());
+                    idPtg = rs.getInt("id_pointage");
+                    currentVer = rs.getInt("version");
+                }
+
                 // Régulariser l'anomalie avec repas = false et deplacementMatin = false
                 Map<String, Object> payload = new java.util.HashMap<>();
                 payload.put("idPointage", idPtg);
@@ -411,6 +431,12 @@ public class PointageSyntheseWorkflowIntegrationTest {
                     assertTrue(foundDep, "L'indemnité DEPLACEMENT doit être présente dans pointage_indemnite_jour");
                 }
             } finally {
+                // Restauration du statut initial A_VALIDER
+                try (PreparedStatement ps = c.prepareStatement("UPDATE periode_paie SET id_statut_periode = ? WHERE id_periode_paie = 1")) {
+                    ps.setInt(1, statutAValider);
+                    ps.executeUpdate();
+                }
+
                 // Restauration de l'état initial
                 try (PreparedStatement ps = c.prepareStatement(
                         "UPDATE pointage_jour SET deplacement_matin = true, deplacement_am = true, " +

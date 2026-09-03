@@ -1082,4 +1082,273 @@ public class PointageSyntheseService {
             }
         }
     }
+
+    /**
+     * Calcule et actualise en une seule transaction atomique l'ensemble des semaines de la periode,
+     * sans modifier son statut (reste EN_COURS pour consultation et corrections libres par l'agent).
+     */
+    public Map<String, Object> calculerToutesSemainesPeriode(int idPeriode, Integer idSite, Integer currentUserId) throws SQLException {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                Map<String, Object> res = calculerToutesSemainesPeriode(idPeriode, idSite, currentUserId, c);
+                c.commit();
+                return res;
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        }
+    }
+
+    public Map<String, Object> calculerToutesSemainesPeriode(int idPeriode, Integer idSite, Integer currentUserId, Connection c) throws SQLException {
+        List<Map<String, Object>> semaines = getSemainesPeriode(idPeriode, idSite, c);
+        int nbSemainesCalculees = 0;
+
+        for (Map<String, Object> sem : semaines) {
+            String strDeb = (String) sem.get("dateDebut");
+            String strFin = (String) sem.get("dateFin");
+            if (strDeb != null && strFin != null) {
+                LocalDate dDeb = LocalDate.parse(strDeb);
+                LocalDate dFin = LocalDate.parse(strFin);
+                validerSemaine(idPeriode, dDeb, dFin, idSite, currentUserId, c);
+                nbSemainesCalculees++;
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("nbSemaines", nbSemainesCalculees);
+        result.put("message", nbSemainesCalculees + " semaine(s) calculee(s) et actualisee(s) avec succes.");
+        return result;
+    }
+
+    /**
+     * Verifie l'absence d'anomalies bloquantes sur l'ensemble de l'entreprise,
+     * recalcule toutes les semaines pour 100% des employes,
+     * passe la periode a A_VALIDER et emet une notification ciblee vers la DAF (ROLE_ADMIN).
+     */
+    public Map<String, Object> transmettreDaf(int idPeriode, Integer idSite, Integer currentUserId) throws SQLException {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                // 1. Verifier le statut actuel de la periode (avec verrou exclusif de ligne)
+                String sqlCheck = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ? FOR UPDATE";
+                try (PreparedStatement psC = c.prepareStatement(sqlCheck)) {
+                    psC.setInt(1, idPeriode);
+                    try (ResultSet rsC = psC.executeQuery()) {
+                        if (rsC.next()) {
+                            String st = rsC.getString("code");
+                            if ("CLOTUREE".equalsIgnoreCase(st)) {
+                                throw new IllegalStateException("Transmission impossible : La période de paie est clôturée définitivement.");
+                            }
+                            if ("VALIDEE".equalsIgnoreCase(st)) {
+                                throw new IllegalStateException("Transmission impossible : La période de paie est déjà validée par la DAF.");
+                            }
+                            if ("A_VALIDER".equalsIgnoreCase(st)) {
+                                throw new IllegalStateException("Transmission impossible : La période de paie est déjà transmise et en attente d'arbitrage DAF.");
+                            }
+                        }
+                    }
+                }
+
+                // 2. Verifier qu'il existe des pointages saisis sur cette periode
+                String sqlCount = "SELECT COUNT(*) FROM pointage_jour WHERE id_periode_paie = ?";
+                try (PreparedStatement psCnt = c.prepareStatement(sqlCount)) {
+                    psCnt.setInt(1, idPeriode);
+                    try (ResultSet rsCnt = psCnt.executeQuery()) {
+                        if (rsCnt.next() && rsCnt.getInt(1) == 0) {
+                            throw new IllegalStateException("Transmission impossible : aucun pointage n'a été saisi pour cette période.");
+                        }
+                    }
+                }
+
+                // 3. Verifier s'il reste des anomalies bloquantes sur TOUS les sites (la periode_paie etant globale)
+                String sqlAnomalies = "SELECT COUNT(*) FROM pointage_jour p " +
+                                      "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
+                                      "WHERE p.id_periode_paie = ? AND st.code IN ('ANOMALIE_SAISIE', 'ABSENCE_NON_JUSTIFIEE')";
+                try (PreparedStatement psA = c.prepareStatement(sqlAnomalies)) {
+                    psA.setInt(1, idPeriode);
+                    try (ResultSet rsA = psA.executeQuery()) {
+                        if (rsA.next() && rsA.getInt(1) > 0) {
+                            int count = rsA.getInt(1);
+                            throw new IllegalStateException("Transmission impossible : il reste " + count + " anomalie(s) ou absence(s) non regularisee(s) sur cette periode. Veuillez les regulariser avant transmission.");
+                        }
+                    }
+                }
+
+                // 4. Calculer / actualiser TOUS les employes de TOUS les sites (idSite = null) pour sceller la conformite
+                calculerToutesSemainesPeriode(idPeriode, null, currentUserId, c);
+
+                // 5. Basculer le statut de la periode a A_VALIDER
+                String sqlUpdate = "UPDATE periode_paie SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'A_VALIDER') WHERE id_periode_paie = ?";
+                try (PreparedStatement psU = c.prepareStatement(sqlUpdate)) {
+                    psU.setInt(1, idPeriode);
+                    psU.executeUpdate();
+                }
+
+                // 6. Recuperer le libelle de la periode pour la notification
+                String libellePeriode = "la periode";
+                try (PreparedStatement psP = c.prepareStatement("SELECT code, libelle FROM periode_paie WHERE id_periode_paie = ?")) {
+                    psP.setInt(1, idPeriode);
+                    try (ResultSet rsP = psP.executeQuery()) {
+                        if (rsP.next()) libellePeriode = rsP.getString("libelle");
+                    }
+                }
+
+                // 7. Emettre la notification pour la DAF (ROLE_ADMIN)
+                mg.galaxam.sirh.model.dashboard.service.NotificationRhService.creerPourRole(
+                    c,
+                    "ROLE_ADMIN",
+                    "PERIODE_POINTAGE_A_VALIDER",
+                    "NORMALE",
+                    "Periode transmise pour validation - " + libellePeriode,
+                    "La synthese de pointage pour " + libellePeriode + " a ete finalisee par l'agent de site et est prete pour controle et cloture paie.",
+                    "/pointages/synthese?subTab=mensuel",
+                    null
+                );
+
+                c.commit();
+                Map<String, Object> resp = new HashMap<>();
+                resp.put("success", true);
+                resp.put("message", "La periode a ete transmise a la DAF avec succes.");
+                return resp;
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        }
+    }
+
+    /**
+     * DAF renvoie la periode pour correction avec motif obligatoire :
+     * Statut repasse a EN_COURS, enregistre motif_rejet,
+     * et emet une notification HAUTE priorite pour ROLE_AGENT_POINTAGE.
+     */
+    public Map<String, Object> rejeterParDaf(int idPeriode, String motif, Integer currentUserId) throws SQLException {
+        if (motif == null || motif.trim().isEmpty()) {
+            throw new IllegalArgumentException("Le motif de renvoi pour correction est obligatoire.");
+        }
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                // Verifier que la periode n'est pas cloturee (avec verrou exclusif de ligne)
+                String sqlCheck = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ? FOR UPDATE";
+                try (PreparedStatement psC = c.prepareStatement(sqlCheck)) {
+                    psC.setInt(1, idPeriode);
+                    try (ResultSet rsC = psC.executeQuery()) {
+                        if (rsC.next()) {
+                            String st = rsC.getString("code");
+                            if ("CLOTUREE".equalsIgnoreCase(st)) {
+                                throw new IllegalStateException("Action impossible : La période de paie est clôturée définitivement (archivée). Elle ne peut plus être rouverte.");
+                            }
+                        }
+                    }
+                }
+
+                String sqlUpdate = "UPDATE periode_paie SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'EN_COURS'), motif_rejet = ? WHERE id_periode_paie = ?";
+                try (PreparedStatement psU = c.prepareStatement(sqlUpdate)) {
+                    psU.setString(1, motif.trim());
+                    psU.setInt(2, idPeriode);
+                    psU.executeUpdate();
+                }
+
+                String libellePeriode = "la periode";
+                try (PreparedStatement psP = c.prepareStatement("SELECT code, libelle FROM periode_paie WHERE id_periode_paie = ?")) {
+                    psP.setInt(1, idPeriode);
+                    try (ResultSet rsP = psP.executeQuery()) {
+                        if (rsP.next()) libellePeriode = rsP.getString("libelle");
+                    }
+                }
+
+                // Notification ciblee pour l'agent
+                mg.galaxam.sirh.model.dashboard.service.NotificationRhService.creerPourRole(
+                    c,
+                    "ROLE_AGENT_POINTAGE",
+                    "PERIODE_POINTAGE_REJETEE",
+                    "HAUTE",
+                    "Periode renvoyee par la DAF - " + libellePeriode,
+                    "La DAF demande des corrections sur " + libellePeriode + ". Motif : " + motif.trim(),
+                    "/pointages/anomalies",
+                    null
+                );
+
+                c.commit();
+                Map<String, Object> resp = new HashMap<>();
+                resp.put("success", true);
+                resp.put("message", "La periode a ete renvoyee a l'agent avec succes pour correction.");
+                return resp;
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        }
+    }
+
+    /**
+     * DAF valide la periode :
+     * Fige les cumuls mensuels dans pointage_cumul_periode,
+     * passe le statut a VALIDEE, efface l'eventuel motif_rejet,
+     * et emet une notification INFO pour ROLE_AGENT_POINTAGE.
+     */
+    public Map<String, Object> validerParDaf(int idPeriode, Integer currentUserId) throws SQLException {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                // Verifier que la periode n'est pas deja cloturee (avec verrou exclusif de ligne)
+                String sqlCheck = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ? FOR UPDATE";
+                try (PreparedStatement psC = c.prepareStatement(sqlCheck)) {
+                    psC.setInt(1, idPeriode);
+                    try (ResultSet rsC = psC.executeQuery()) {
+                        if (rsC.next()) {
+                            String st = rsC.getString("code");
+                            if ("CLOTUREE".equalsIgnoreCase(st)) {
+                                throw new IllegalStateException("Action impossible : La période de paie est déjà clôturée définitivement.");
+                            }
+                        }
+                    }
+                }
+
+                // 1. Figer la periode (remplit pointage_cumul_periode et pointage_cumul_indemnite)
+                gelerPeriode(idPeriode, currentUserId, c);
+
+                // 2. Mettre a jour le statut et la date de validation
+                String sqlUpdate = "UPDATE periode_paie SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'VALIDEE'), date_validation = CURRENT_TIMESTAMP, valide_par = ?, motif_rejet = NULL WHERE id_periode_paie = ?";
+                try (PreparedStatement psU = c.prepareStatement(sqlUpdate)) {
+                    if (currentUserId != null) psU.setInt(1, currentUserId); else psU.setNull(1, java.sql.Types.INTEGER);
+                    psU.setInt(2, idPeriode);
+                    psU.executeUpdate();
+                }
+
+                String libellePeriode = "la periode";
+                try (PreparedStatement psP = c.prepareStatement("SELECT code, libelle FROM periode_paie WHERE id_periode_paie = ?")) {
+                    psP.setInt(1, idPeriode);
+                    try (ResultSet rsP = psP.executeQuery()) {
+                        if (rsP.next()) libellePeriode = rsP.getString("libelle");
+                    }
+                }
+
+                // Notification ciblee pour l'agent
+                mg.galaxam.sirh.model.dashboard.service.NotificationRhService.creerPourRole(
+                    c,
+                    "ROLE_AGENT_POINTAGE",
+                    "PERIODE_POINTAGE_VALIDEE",
+                    "INFO",
+                    "Periode validee par la DAF - " + libellePeriode,
+                    "La synthese de pointage pour " + libellePeriode + " a ete validee avec succes par la DAF et transmise a la paie.",
+                    "/pointages/synthese?subTab=mensuel",
+                    null
+                );
+
+                c.commit();
+                Map<String, Object> resp = new HashMap<>();
+                resp.put("success", true);
+                resp.put("message", "La periode a ete validee avec succes.");
+                return resp;
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        }
+    }
 }

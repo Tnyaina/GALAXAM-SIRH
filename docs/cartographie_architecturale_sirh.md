@@ -175,6 +175,13 @@ Le système couvre le cycle de vie complet du collaborateur :
    * Découplage de la dépendance exclusive aux heures fixes nocturnes (`00:10:00`) grâce à un battement de cœur régulier (`fixedDelay = 15 min`). Au réveil d'une machine mise en veille (ordinateur portable Mac / développeur), le planificateur s'exécute automatiquement dans les secondes post-réveil sans nécessiter de redémarrage serveur ni d'action manuelle.
    * Filet de sécurité paresseux (Lazy Catch-up) : interception asynchrone sur requêtes HTTP authentifiées (`JwtAuthenticationFilter`, `POST /auth/refresh`, `POST /auth/login`) exécutant les traitements échus dès le premier signe de vie de la journée.
    * Résilience du pool JDBC HikariCP face aux coupures de sockets consécutives aux mises en veille (`keepalive-time=30000`, `max-lifetime=600000`).
+9. **Workflow Transactionnel de Pointage & Ségrégation RBAC des Notifications** :
+   * **Calcul global 1-clic** : consolidation atomique de 100% des semaines du mois sans modification du statut `EN_COURS`. L'agent conserve une liberté totale de consultation et de rectification sans aucun verrouillage séquentiel contraignant.
+   * **Transmission d'entreprise inviolable** : contrôle d'absence d'anomalies bloquantes sur l'intégralité des sites de l'entreprise, recalcul scellé (`idSite = null`), passage de `periode_paie` en `A_VALIDER` avec verrouillage hermétique des écritures dans `PointageSaisieService` et `PointageAnomalieService`, et notification ciblée vers `ROLE_ADMIN`.
+   * **Verrous de concurrence pessimistes (`FOR UPDATE`)** : sérialisation stricte des transitions d'état de `periode_paie` dans `transmettreDaf`, `validerParDaf` et `rejeterParDaf`.
+   * **Arbitrage DAF avec motif obligatoire** : persistance de `motif_rejet` dans `periode_paie`, retour en `EN_COURS`, alerte prioritaire vers `ROLE_AGENT_POINTAGE` et bannière explicative persistante sur l'IHM.
+   * **Cloisonnement RBAC des notifications** : ajout de la colonne `cible_role` (`ROLE_ADMIN` vs `ROLE_AGENT_POINTAGE`) et filtrage SQL dans `NotificationController`.
+   * **Immuabilité des périodes clôturées** : barrière absolue `IllegalStateException` interdisant toute modification ou réouverture sur statut `CLOTUREE`.
 
 ---
 
@@ -252,7 +259,7 @@ classDiagram
 
 ---
 
-## 8. Inventaire Exhaustif des 39 Contrôleurs REST & 216 Endpoints
+## 8. Inventaire Exhaustif des 39 Contrôleurs REST & 220 Endpoints
 
 Le tableau suivant répertorie l'intégralité des 39 contrôleurs du système avec leur préfixe d'URI et leur responsabilité :
 
@@ -277,7 +284,7 @@ Le tableau suivant répertorie l'intégralité des 39 contrôleurs du système a
 | **PeriodePaieController**       | [`PeriodePaieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PeriodePaieController.java)             | `/periodes`                                    |     5     | Création de période, simulation ouvrables, transition de statut, gel/dégel       |
 | **PointageSaisieController**    | [`PointageSaisieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageSaisieController.java)       | `/pointages/saisie`                            |     2     | Grille journalière, badgeages et batch save synchronisé avec pointage_indemnite_jour |
 | **PointageAnomalieController**  | [`PointageAnomalieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageAnomalieController.java)   | `/pointages/anomalies`                         |     2     | Détection retards/absences et régularisation synchronisée pointage_indemnite_jour |
-| **PointageSyntheseController**  | [`PointageSyntheseController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageSyntheseController.java)   | `/pointages/synthese`                          |     5     | Synthèse mensuelle et hebdomadaire, validation/dévalidation de tronçon           |
+| **PointageSyntheseController**  | [`PointageSyntheseController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageSyntheseController.java)   | `/pointages/synthese`                          |     9     | Synthèse mensuelle/hebdo, calcul global 1-clic, transmission DAF, arbitrage DAF (valider/rejeter) |
 | **PointageEmployeController**   | [`PointageEmployeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageEmployeController.java)     | `/pointages/employes`                          |     1     | Fiche mensuelle individuelle de pointage et calculs détaillés                     |
 | **PointageParametreController** | [`PointageParametreController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageParametreController.java) | `/pointages/parametres`                        |     6     | Tolérances d'arrivée par site et dérogations d'indemnités repas/déplacement    |
 | **PaieConfigLegaleController**  | [`PaieConfigLegaleController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/paieconfig/PaieConfigLegaleController.java) | `/paie/config-legale`                          |     6     | Configuration des plafonds et taux CNaPS, OSTIE, FMFP et SMIG légal                |
@@ -745,10 +752,10 @@ Assurer le suivi rigoureux des temps de présence, badgeages matin/après-midi, 
 
 ### 3. Frontend
 
-* **Pages** : [`GestionPointagesPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/pointage/GestionPointagesPage.jsx), `PointageOverviewTab.jsx`, `SaisieQuotidiennePage.jsx`, `AnomaliesPointagePage.jsx`, `SynthesePointagePage.jsx`, `PeriodePaiePage.jsx`
+* **Pages** : [`GestionPointagesPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/pointage/GestionPointagesPage.jsx), `PointageOverviewTab.jsx`, `SaisieQuotidiennePage.jsx`, `AnomaliesPointagePage.jsx`, `SynthesePointagePage.jsx` (calcul global 1-clic, cartes semaines non bloquantes, bannière rejet DAF avec motif, modale arbitrage), `PeriodePaiePage.jsx`
 * **Composants** : `PointageGridTable.jsx`, `PointageWeeklySyntheseSection.jsx`, `PointageAnomaliesSection.jsx`, `PointageTransmissionDafSection.jsx`, `PointageWorkflowNav.jsx`, `PointageGuideStepper.jsx`
-* **Hooks & Résilience** : `usePointageSaisie.js`, `usePointageAnomalies.js` (avec `useDebounce` 350ms et `AbortController`), `usePointageSynthese.js`, `usePeriodePaie.js`, `useToleranceArrivee.js`, `useDerogationIndemnites.js`, filtrages debouncés dans la grille de saisie et la synthèse
-* **Services** : `pointageSaisieService.js`, `pointageAnomalieService.js` (support signal d'annulation), `pointageSyntheseService.js`, `pointageEmployeService.js`, `periodePaieService.js`
+* **Hooks & Résilience** : `usePointageSaisie.js`, `usePointageAnomalies.js` (avec `useDebounce` 350ms et `AbortController`), `usePointageSynthese.js` (synchronisation bidirectionnelle `loadSynthese`), `usePeriodePaie.js`, `useToleranceArrivee.js`, `useDerogationIndemnites.js`, filtrages debouncés dans la grille de saisie et la synthèse
+* **Services** : `pointageSaisieService.js`, `pointageAnomalieService.js` (support signal d'annulation), `pointageSyntheseService.js` (méthodes `calculerTout`, `transmettreDaf`, `validerDaf`, `rejeterDaf`), `pointageEmployeService.js`, `periodePaieService.js`
 * **Routes** : `/pointages` (avec onglets `saisie`, `anomalies`, `synthese`, `periodes`)
 
 ### 4. Backend
@@ -759,19 +766,23 @@ Assurer le suivi rigoureux des temps de présence, badgeages matin/après-midi, 
 
 ### 5. Database
 
-* **Tables & Vues** : `periode_paie`, `pointage_jour`, `pointage_indemnite_jour`, `pointage_troncon_semaine`, `pointage_synthese_mensuelle`, `ref_statut_pointage_jour`, `ref_tolerance_arrivee_pointage`, `site_indemnite_config`, `employe_indemnite_derogation`, `ref_statut_periode_paie`, `v_pointage_journalier_cpl`, `v_pointage_synthese_mensuelle_cpl`
+* **Tables & Vues** : `periode_paie` (colonnes `id_statut_periode`, `date_validation`, `valide_par`, `motif_rejet`), `pointage_jour`, `pointage_indemnite_jour`, `pointage_semaine_calcule`, `pointage_cumul_periode`, `pointage_cumul_indemnite`, `ref_statut_pointage_jour`, `ref_tolerance_arrivee_pointage`, `site_indemnite_config`, `employe_indemnite_derogation`, `ref_statut_periode_paie`, `v_pointage_journalier_cpl`, `v_pointage_synthese_mensuelle_cpl`
 
 ### 6. API
 
 * `GET /pointages/saisie` : Données de la grille quotidienne incluant les paramètres d'horaires et indemnités du site.
-* `POST /pointages/saisie/batch` : Sauvegarde par lot des badgeages et écriture synchronisée dans `pointage_jour` et `pointage_indemnite_jour`.
+* `POST /pointages/saisie/batch` : Sauvegarde par lot des badgeages et écriture synchronisée dans `pointage_jour` et `pointage_indemnite_jour`. Verrouillé si période en `VALIDEE`, `CLOTUREE`, `A_VALIDER`.
 * `GET /pointages/anomalies` : Liste filtrée des anomalies (incomplets, retards non justifiés, absences non justifiées, alertes de demandes de permissions en attente RH).
-* `PUT /pointages/anomalies/{idPointage}/regulariser` : Régularisation d'une anomalie avec synchronisation transactionnelle obligatoire dans `pointage_indemnite_jour` (`syncIndemniteJour`).
+* `PUT /pointages/anomalies/{idPointage}/regulariser` : Régularisation d'une anomalie avec synchronisation transactionnelle obligatoire dans `pointage_indemnite_jour` (`syncIndemniteJour`). Verrouillé si période en `VALIDEE`, `CLOTUREE`, `A_VALIDER`.
 * `GET /pointages/synthese` : Synthèse globale du mois par collaborateur.
 * `GET /pointages/synthese/semaines` : Découpage par tronçons de semaine (40h) et ventilation des majorations.
-* `POST /pointages/synthese/semaines/valider` : Verrouillage d'une semaine.
+* `POST /pointages/synthese/semaines/valider` : Verrouillage d'une semaine individuelle.
+* `POST /pointages/synthese/calculer-tout` : Calcul et consolidation transactionnelle de 100% des semaines du mois en une passe unique. Statut conservé à `EN_COURS` pour consultation et ajustements libres de l'agent.
+* `POST /pointages/synthese/transmettre-daf` : Transmission officielle à la DAF avec contrôle préalable de zéro anomalie sur l'ensemble de l'entreprise, recalcul complet, basculement en `A_VALIDER` (lecture seule hermétique) et alerte pour `ROLE_ADMIN`. Verrou pessimiste `FOR UPDATE`.
+* `POST /pointages/synthese/valider-daf` : Validation DAF finale, figeage immuable dans `pointage_cumul_periode`, statut `VALIDEE` et alerte pour `ROLE_AGENT_POINTAGE`.
+* `POST /pointages/synthese/rejeter-daf` : Renvoi pour correction avec motif obligatoire persisté dans `motif_rejet`, statut `EN_COURS` et alerte prioritaire pour `ROLE_AGENT_POINTAGE`.
 * `GET|POST /periodes` : Consultation et ouverture de période de paie.
-* `PUT /periodes/{id}/statut` : Transition de statut (ex: `A_VALIDER`, `VALIDEE` -> Gel automatique).
+* `PUT /periodes/{id}/statut` : Transition manuelle de statut avec gestion du motif de rejet.
 
 ---
 
@@ -869,9 +880,9 @@ Offrir une vue cockpit 360° en temps réel sur l'activité des Ressources Humai
 
 ### 4. Backend
 
-* **Controllers** : `DashboardController.java`, `NotificationController.java`
-* **Services & Schedulers** : `DashboardService.java`, `NotificationRhScheduler.java`
-* **Database** : `notification_rh`, `v_dashboard_kpi_global`
+* **Controllers** : `DashboardController.java`, `NotificationController.java` (filtrage par rôle connecté `ROLE_ADMIN` vs `ROLE_AGENT_POINTAGE`)
+* **Services & Schedulers** : `DashboardService.java`, `NotificationRhService.java` (source unique de vérité d'écriture avec support `cible_role` et transaction savepoint), `NotificationRhScheduler.java` (routage des anomalies pointage vers `ROLE_AGENT_POINTAGE`)
+* **Database** : `notification_rh` (colonnes `cible_role VARCHAR(50)`, `id_utilisateur`, `type_alerte`, `est_lue`, index partiel `idx_notif_cible_role`), `v_dashboard_kpi_global`
 
 ---
 
@@ -1143,7 +1154,8 @@ Le tableau central ci-dessous constitue l'index technique absolu du projet GALAX
 | **Planning Collaborateurs (Gantt)**| Congé    | `SoldesGantt.jsx`                                                                                                                                                  | `congeService.js`            | `CongeSoldeController.java`                                                                                                                                                                        | `CongeService.java` (CTE `base_emp` SQL)                                                                                                                                                    | `employe`, `demande_conge`, `contrat`  |
 | **Grille Pointage Journalier**    | Pointage   | `SaisieQuotidiennePage.jsx`                                                                                                                                        | `pointageSaisieService.js`   | [`PointageSaisieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageSaisieController.java)       | `PointageSaisieService.java`                                                                                                                                                                | `pointage_jour`, `pointage_indemnite`  |
 | **Anomalies de Pointage**         | Pointage   | `AnomaliesPointagePage.jsx`                                                                                                                                        | `pointageAnomalieService.js` | [`PointageAnomalieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageAnomalieController.java)   | `PointageAnomalieService.java` (`syncIndemniteJour`)                                                                                                                                        | `pointage_jour`, `pointage_indemnite`  |
-| **Synthèse Hebdo (40h & HS)**    | Pointage   | `SynthesePointagePage.jsx`                                                                                                                                         | `pointageSyntheseService.js` | [`PointageSyntheseController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageSyntheseController.java)   | [`PointageCalculateurEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/pointage/engine/PointageCalculateurEngine.java) | `pointage_troncon_semaine`, `v_syn...` |
+| **Synthèse Hebdo & Calcul Global** | Pointage   | `SynthesePointagePage.jsx`                                                                                                                                         | `pointageSyntheseService.js` | [`PointageSyntheseController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageSyntheseController.java)   | [`PointageCalculateurEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/pointage/engine/PointageCalculateurEngine.java) | `pointage_semaine_calcule`, `v_syn...` |
+| **Transmission & Arbitrage DAF** | Pointage   | `SynthesePointagePage.jsx` / `PointageOverviewTab.jsx`                                                                                                             | `pointageSyntheseService.js` | `PointageSyntheseController.java`                                                                                                                                                                 | `PointageSyntheseService.java` (`transmettreDaf`, `validerParDaf`, `rejeterParDaf`)                                                                                                        | `periode_paie` (`motif_rejet`), `pointage_cumul_periode` |
 | **Périodes de Paie & Gel DAF**   | Pointage   | `PeriodePaiePage.jsx`                                                                                                                                              | `periodePaieService.js`      | [`PeriodePaieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PeriodePaieController.java)             | `PointageSyntheseService.java`                                                                                                                                                              | `periode_paie`                           |
 | **Barème IRSA & Fiscalité**     | Paie       | [`ParametresModulesPanel.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/parametres/modules/ParametresModulesPanel.jsx)      | `paieConfigService.js`       | [`IrsaController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/paieconfig/IrsaController.java)                         | [`CalculateurPaieEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/paieconfig/engine/CalculateurPaieEngine.java)       | `bareme_irsa`                            |
 | **Cotisations Sociales & SMIG**   | Paie       | `PaieConfigLegaleTab.jsx`                                                                                                                                          | `paieConfigService.js`       | [`PaieConfigLegaleController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/paieconfig/PaieConfigLegaleController.java) | `CalculateurPaieEngine.java`                                                                                                                                                                | `paie_config_legale`, `site_cotis...`  |

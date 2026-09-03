@@ -171,7 +171,16 @@ export default function PointageOverviewTab({ onTabChange }) {
         if (!selectedPeriode) return;
         setProcessingAction(true);
         try {
-            await periodePaieService.updateStatut(selectedPeriode, nouveauStatut);
+            if (nouveauStatut === 'VALIDEE') {
+                await pointageSyntheseService.validerDaf({ idPeriodePaie: selectedPeriode });
+            } else if (nouveauStatut === 'EN_COURS' && motif) {
+                await pointageSyntheseService.rejeterDaf({ idPeriodePaie: selectedPeriode, motif: motif.trim() });
+            } else {
+                await periodePaieService.updateStatut(selectedPeriode, nouveauStatut);
+            }
+
+            window.dispatchEvent(new Event('refresh-notifications'));
+
             toast({
                 title: nouveauStatut === 'VALIDEE'
                     ? 'Période validée par la DAF'
@@ -179,7 +188,7 @@ export default function PointageOverviewTab({ onTabChange }) {
                     ? 'Période clôturée définitivement'
                     : 'Période renvoyée en cours',
                 message: nouveauStatut === 'EN_COURS'
-                    ? `Période renvoyée aux agents pour révision. Motif : ${motif || 'Non précisé'}`
+                    ? `Période renvoyée aux agents pour révision avec notification prioritaire. Motif : ${motif || 'Non précisé'}`
                     : `Statut mis à jour (${nouveauStatut}).`,
                 type: nouveauStatut === 'EN_COURS' ? 'warning' : 'success'
             });
@@ -207,10 +216,14 @@ export default function PointageOverviewTab({ onTabChange }) {
         if (!selectedPeriode) return;
         setProcessingAction(true);
         try {
-            await periodePaieService.updateStatut(selectedPeriode, 'A_VALIDER');
+            await pointageSyntheseService.transmettreDaf({
+                idPeriodePaie: selectedPeriode,
+                idSite: selectedSite || undefined
+            });
+            window.dispatchEvent(new Event('refresh-notifications'));
             toast({
                 title: 'Transmission effectuée',
-                message: 'Toutes les semaines ont été verrouillées. La période a été transmise à la DAF pour arbitrage.',
+                message: 'Toutes les semaines ont été consolidées. La période a été transmise à la DAF pour contrôle et validation.',
                 type: 'success'
             });
             setShowTransmissionModal(false);
@@ -274,6 +287,24 @@ export default function PointageOverviewTab({ onTabChange }) {
                     )}
                 </div>
             </div>
+
+            {/* BANNIÈRE D'ALERTE : Période renvoyée par la DAF pour correction */}
+            {currentPeriodeObj?.motifRejet && workflowStatus.isEnCours && (
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/40 text-amber-900 dark:text-amber-200 flex items-start gap-3 shadow-xs">
+                    <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                        <strong className="block text-xs uppercase font-bold tracking-wider text-amber-800 dark:text-amber-300">
+                            Période renvoyée par la DAF pour correction
+                        </strong>
+                        <p className="text-xs mt-1 font-mono bg-amber-500/15 p-2 border border-amber-500/30">
+                            Motif communiqué par la DAF : {currentPeriodeObj.motifRejet}
+                        </p>
+                        <p className="text-[11.5px] text-amber-800 dark:text-amber-300 mt-1.5">
+                            Veuillez régulariser les anomalies ou ajuster les pointages contestés, puis recalculez la synthèse avant de la soumettre à nouveau.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* SECTION 1 : BANNIÈRE DAF D'ARBITRAGE RAPIDE (Si période A_VALIDER ou VALIDEE) */}
             {isDaf && (workflowStatus.isAValider || workflowStatus.isValidee) && (

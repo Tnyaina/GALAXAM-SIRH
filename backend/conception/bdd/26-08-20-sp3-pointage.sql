@@ -55,6 +55,7 @@ CREATE TABLE periode_paie (
     id_statut_periode INTEGER NOT NULL REFERENCES ref_statut_periode_paie(id_statut_periode),
     date_validation TIMESTAMP,
     valide_par INTEGER REFERENCES utilisateur(id_utilisateur),
+    motif_rejet TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_periode_dates CHECK (date_fin > date_debut)

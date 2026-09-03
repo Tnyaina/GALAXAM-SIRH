@@ -476,7 +476,7 @@ public class NotificationRhScheduler {
                 String codePeriode = rs.getString("code");
                 String libellePeriode = rs.getString("libelle");
 
-                insererNotification(c, null, "POINTAGE_MANQUANT", "HAUTE",
+                insererNotification(c, null, "ROLE_AGENT_POINTAGE", "POINTAGE_MANQUANT", "HAUTE",
                     "Anomalies de pointage en attente - " + codePeriode,
                     "La période " + libellePeriode + " comporte " + nbAnomalies + " anomalie(s) de pointage non résolue(s) avant la clôture de paie.",
                     "/pointages/anomalies", null);
@@ -489,6 +489,12 @@ public class NotificationRhScheduler {
     // =========================================================================
 
     private void insererNotification(Connection c, Integer idUtilisateur, String typeAlerte,
+                                     String priorite, String titre, String message,
+                                     String lien, Integer idEmploye) throws Exception {
+        insererNotification(c, idUtilisateur, null, typeAlerte, priorite, titre, message, lien, idEmploye);
+    }
+
+    private void insererNotification(Connection c, Integer idUtilisateur, String cibleRole, String typeAlerte,
                                      String priorite, String titre, String message,
                                      String lien, Integer idEmploye) throws Exception {
         // 1. Anti-doublon non lue
@@ -528,6 +534,6 @@ public class NotificationRhScheduler {
         }
 
         // 3. INSERT via source unique de vérité
-        notificationService.creer(c, typeAlerte, priorite, titre, message, lien, idEmploye, idUtilisateur);
+        notificationService.creer(c, typeAlerte, priorite, titre, message, lien, idEmploye, idUtilisateur, cibleRole);
     }
 }

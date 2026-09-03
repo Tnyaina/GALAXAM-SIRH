@@ -347,8 +347,8 @@ public class PointageAnomalieService {
                     try (ResultSet rsCP = psCP.executeQuery()) {
                         if (rsCP.next()) {
                             String stCode = rsCP.getString("code");
-                            if ("VALIDEE".equalsIgnoreCase(stCode) || "CLOTUREE".equalsIgnoreCase(stCode) || "TRANSMIS_DAF".equalsIgnoreCase(stCode)) {
-                                throw new IllegalStateException("Impossible de modifier les pointages : la période de paie est fermée.");
+                            if ("VALIDEE".equalsIgnoreCase(stCode) || "CLOTUREE".equalsIgnoreCase(stCode) || "A_VALIDER".equalsIgnoreCase(stCode) || "TRANSMIS_DAF".equalsIgnoreCase(stCode)) {
+                                throw new IllegalStateException("Impossible de modifier les pointages : la période de paie est fermée ou en attente de validation DAF.");
                             }
                         }
                     }

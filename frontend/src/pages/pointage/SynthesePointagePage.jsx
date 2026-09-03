@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock, CheckCircle, XCircle, Send, Moon, Sun, Award, Check } from 'lucide-react';
+import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock, CheckCircle, XCircle, Send, Moon, Sun, Award, Check, RotateCw } from 'lucide-react';
 import Select from '@/components/ui/forms/Select';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
@@ -44,7 +44,8 @@ export default function SynthesePointagePage() {
     const { toast } = useToast();
     const canValidateDaf = hasPermission('POINTAGE_VALIDATE');
 
-    // États de validation
+    // États de calcul et validation
+    const [calculatingAll, setCalculatingAll] = useState(false);
     const [showValiderModal, setShowValiderModal] = useState(false);
     const [showDevaliderModal, setShowDevaliderModal] = useState(false);
     const [validatingSemaine, setValidatingSemaine] = useState(false);
@@ -67,7 +68,8 @@ export default function SynthesePointagePage() {
         setSelectedSite,
         syntheseData,
         loading,
-        error
+        error,
+        loadSynthese
     } = usePointageSynthese(1, 0);
 
     useEffect(() => {
@@ -220,31 +222,128 @@ export default function SynthesePointagePage() {
         }
     };
 
-    // Actions DAF directes sur la période sans avoir à naviguer
+    // Action de calcul global de toutes les semaines en 1 clic
+    const handleCalculerTout = async () => {
+        if (!selectedPeriode) return;
+        setCalculatingAll(true);
+        setActionFeedback(null);
+        try {
+            const res = await pointageSyntheseService.calculerTout({
+                idPeriodePaie: selectedPeriode,
+                idSite: selectedSite || undefined
+            });
+            if (res?.success) {
+                toast({
+                    title: 'Synthèse calculée et actualisée',
+                    message: `${res.nbSemaines || 'Toutes les'} semaines ont été calculées avec succès. Vous pouvez consulter les résultats ci-dessous.`,
+                    type: 'success'
+                });
+                await fetchSemaines();
+                await fetchDetail();
+                await loadSynthese();
+            }
+        } catch (err) {
+            console.error('Erreur calcul global synthèse:', err);
+            toast({
+                title: 'Erreur de calcul',
+                message: err?.response?.data?.error || 'Impossible de calculer la synthèse.',
+                type: 'error'
+            });
+        } finally {
+            setCalculatingAll(false);
+        }
+    };
+
+    // Actions DAF directes sur la période
+    const handleValiderDaf = async () => {
+        if (!selectedPeriode) return;
+        setUpdatingPeriodeStatut(true);
+        try {
+            const res = await pointageSyntheseService.validerDaf({ idPeriodePaie: selectedPeriode });
+            if (res?.success) {
+                toast({
+                    title: 'Période validée par la DAF',
+                    message: 'La synthèse de pointage a été validée et gelée pour la paie.',
+                    type: 'success'
+                });
+                window.dispatchEvent(new Event('refresh-notifications'));
+                setShowValiderPeriodeModal(false);
+                const list = await periodePaieService.getAllPeriodes();
+                if (list) setPeriodes(list);
+                await fetchSemaines();
+                await fetchDetail();
+                await loadSynthese();
+            }
+        } catch (err) {
+            console.error('Erreur validation DAF:', err);
+            toast({
+                title: 'Erreur',
+                message: err?.response?.data?.error || 'Impossible de valider la période.',
+                type: 'error'
+            });
+        } finally {
+            setUpdatingPeriodeStatut(false);
+        }
+    };
+
+    const handleRejeterDaf = async () => {
+        if (!selectedPeriode || !motifRejet.trim()) return;
+        setUpdatingPeriodeStatut(true);
+        try {
+            const res = await pointageSyntheseService.rejeterDaf({
+                idPeriodePaie: selectedPeriode,
+                motif: motifRejet.trim()
+            });
+            if (res?.success) {
+                toast({
+                    title: 'Période renvoyée pour correction',
+                    message: 'La période a été réouverte pour corrections agents avec notification prioritaire.',
+                    type: 'warning'
+                });
+                window.dispatchEvent(new Event('refresh-notifications'));
+                setShowRejetModal(false);
+                setMotifRejet('');
+                const list = await periodePaieService.getAllPeriodes();
+                if (list) setPeriodes(list);
+                await fetchSemaines();
+                await fetchDetail();
+                await loadSynthese();
+            }
+        } catch (err) {
+            console.error('Erreur renvoi DAF:', err);
+            toast({
+                title: 'Erreur',
+                message: err?.response?.data?.error || 'Impossible de renvoyer la période.',
+                type: 'error'
+            });
+        } finally {
+            setUpdatingPeriodeStatut(false);
+        }
+    };
+
     const handleUpdatePeriodeStatut = async (nouveauStatut, motif = '') => {
+        if (nouveauStatut === 'VALIDEE') {
+            await handleValiderDaf();
+            return;
+        }
+        if (nouveauStatut === 'EN_COURS' && motif) {
+            await handleRejeterDaf();
+            return;
+        }
         if (!selectedPeriode) return;
         setUpdatingPeriodeStatut(true);
         try {
             await periodePaieService.updateStatut(selectedPeriode, nouveauStatut);
             toast({
-                title: nouveauStatut === 'VALIDEE'
-                    ? 'Période validée par la DAF'
-                    : nouveauStatut === 'CLOTUREE'
-                    ? 'Période clôturée définitivement'
-                    : 'Période renvoyée en cours',
-                message: nouveauStatut === 'EN_COURS'
-                    ? `La période a été réouverte pour corrections agents. Motif : ${motif || 'Non précisé'}`
-                    : `Le statut de la période a été mis à jour avec succès (${nouveauStatut}).`,
-                type: nouveauStatut === 'EN_COURS' ? 'warning' : 'success'
+                title: nouveauStatut === 'CLOTUREE' ? 'Période clôturée définitivement' : 'Statut mis à jour',
+                message: `Le statut de la période a été mis à jour avec succès (${nouveauStatut}).`,
+                type: 'success'
             });
-            setShowRejetModal(false);
-            setShowValiderPeriodeModal(false);
             setShowCloturerPeriodeModal(false);
-            setMotifRejet('');
-            // Rafraîchir les périodes
             const list = await periodePaieService.getAllPeriodes();
             if (list) setPeriodes(list);
             await fetchSemaines();
+            await loadSynthese();
         } catch (err) {
             console.error('Erreur mise à jour période:', err);
             toast({
@@ -257,25 +356,33 @@ export default function SynthesePointagePage() {
         }
     };
 
-    // Transmission officielle de la période à la DAF par l'agent (uniquement si 100% des semaines sont validées)
+    // Transmission officielle de la période à la DAF par l'agent
     const handleTransmettreDaf = async () => {
         if (!selectedPeriode) return;
         setTransmittingDaf(true);
         try {
-            await periodePaieService.updateStatut(selectedPeriode, 'A_VALIDER');
-            toast({
-                title: 'Période transmise à la DAF',
-                message: 'Toutes les semaines ont été verrouillées. La période est transmise à la DAF pour validation finale.',
-                type: 'success'
+            const res = await pointageSyntheseService.transmettreDaf({
+                idPeriodePaie: selectedPeriode,
+                idSite: selectedSite || undefined
             });
-            setShowTransmissionModal(false);
-            const list = await periodePaieService.getAllPeriodes();
-            if (list) setPeriodes(list);
-            await fetchSemaines();
+            if (res?.success) {
+                toast({
+                    title: 'Période transmise à la DAF',
+                    message: 'La synthèse a été transmise avec succès à la DAF. La saisie passe en lecture seule.',
+                    type: 'success'
+                });
+                window.dispatchEvent(new Event('refresh-notifications'));
+                setShowTransmissionModal(false);
+                const list = await periodePaieService.getAllPeriodes();
+                if (list) setPeriodes(list);
+                await fetchSemaines();
+                await fetchDetail();
+                await loadSynthese();
+            }
         } catch (err) {
             console.error('Erreur transmission DAF:', err);
             toast({
-                title: 'Erreur',
+                title: 'Transmission impossible',
                 message: err?.response?.data?.error || 'Impossible de transmettre la période à la DAF.',
                 type: 'error'
             });
@@ -407,6 +514,24 @@ export default function SynthesePointagePage() {
                     </div>
                 </div>
 
+                {/* BANNIÈRE D'ALERTE : Période renvoyée par la DAF pour correction */}
+                {consolidationStatus.currentPeriodeObj?.motifRejet && consolidationStatus.isEnCours && (
+                    <div className="p-3.5 bg-amber-500/10 border border-amber-500/40 text-amber-900 dark:text-amber-200 flex items-start gap-3 shadow-xs">
+                        <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <strong className="block text-xs uppercase font-bold tracking-wider text-amber-800 dark:text-amber-300">
+                                Période renvoyée par la DAF pour correction
+                            </strong>
+                            <p className="text-xs mt-1 font-mono bg-amber-500/15 p-2 border border-amber-500/30">
+                                Motif communiqué par la DAF : {consolidationStatus.currentPeriodeObj.motifRejet}
+                            </p>
+                            <p className="text-[11.5px] text-amber-800 dark:text-amber-300 mt-1.5">
+                                Effectuez les ajustements de saisie ou résolvez les anomalies demandées, puis cliquez sur <strong>Calculer / Actualiser la Synthèse</strong> ci-dessous avant de re-transmettre à la DAF.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Onglets Hebdo / Mensuel */}
                 <Tabs
                     tabs={[
@@ -418,22 +543,57 @@ export default function SynthesePointagePage() {
                     variant="underline"
                 />
 
-                {/* VUE 1 : Synthèse Hebdomadaire Séquentielle */}
+                {/* VUE 1 : Synthèse Hebdomadaire */}
                 {activeTab === 'hebdo' && (
                     <div className="space-y-3.5">
                         {/* Cartes de Découpage Hebdomadaire */}
                         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
-                            {/* En-tête du bloc */}
-                            <div className="px-4 py-2.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between">
+                            {/* En-tête du bloc avec actions rapides */}
+                            <div className="px-4 py-2.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex flex-wrap items-center justify-between gap-3">
                                 <div className="flex items-center gap-2">
                                     <Layers size={13} className="text-brand-500" />
-                                    <span className="text-[12px] font-bold text-[var(--color-fg)]">Découpage & Validation Séquentielle</span>
+                                    <span className="text-[12px] font-bold text-[var(--color-fg)]">Découpage Hebdomadaire &amp; Synthèse des Tronçons (Loi 40h)</span>
                                 </div>
-                                {selectedSemaine && (
-                                    <span className="text-[11px] font-mono font-bold text-brand-700 dark:text-brand-300">
-                                        {selectedSemaine.title} sélectionnée
-                                    </span>
-                                )}
+                                
+                                <div className="flex items-center gap-2">
+                                    {consolidationStatus.isEnCours && (
+                                        <>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                loading={calculatingAll}
+                                                disabled={calculatingAll}
+                                                onClick={handleCalculerTout}
+                                                className="font-bold flex items-center gap-1.5 shadow-xs text-xs"
+                                                title="Calcule et actualise l'ensemble des semaines du mois en 1 clic"
+                                            >
+                                                <RotateCw size={13} className={calculatingAll ? 'animate-spin' : ''} />
+                                                <span>Calculer / Actualiser la Synthèse</span>
+                                            </Button>
+
+                                            <Button
+                                                type="button"
+                                                variant="primary"
+                                                size="sm"
+                                                loading={transmittingDaf}
+                                                disabled={transmittingDaf}
+                                                onClick={() => setShowTransmissionModal(true)}
+                                                className="font-bold flex items-center gap-1.5 shadow-xs text-xs"
+                                                title="Transmet la période à la DAF pour vérification et clôture"
+                                            >
+                                                <Send size={13} />
+                                                <span>Transmettre à la DAF</span>
+                                            </Button>
+                                        </>
+                                    )}
+
+                                    {selectedSemaine && (
+                                        <span className="text-[11px] font-mono font-bold text-brand-700 dark:text-brand-300 ml-2">
+                                            {selectedSemaine.title} sélectionnée
+                                        </span>
+                                    )}
+                                </div>
                             </div>
 
                             {loadingSemaines && (
@@ -442,8 +602,6 @@ export default function SynthesePointagePage() {
                                     Chargement…
                                 </div>
                             )}
-
-
 
                             {/* Grille de cartes horizontales des semaines (Semainier interactif) */}
                             {!loadingSemaines && (
@@ -454,25 +612,27 @@ export default function SynthesePointagePage() {
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                                            {semaines.map((sem, idx) => {
+                                            {semaines.map((sem) => {
                                                 const isSelected = selectedSemaine?.id === sem.id;
-                                                const prevBlocking = semaines.slice(0, idx).some(s => !s.estValidee);
                                                 
-                                                let badgeVariant = 'default';
-                                                let badgeLabel = sem.statut;
+                                                let badgeVariant;
+                                                let badgeLabel;
 
                                                 if (sem.estValidee) {
                                                     badgeVariant = 'success';
-                                                    badgeLabel = 'Validée';
+                                                    badgeLabel = 'Calculée';
                                                 } else if (!consolidationStatus.isEnCours) {
                                                     badgeVariant = 'default';
                                                     badgeLabel = consolidationStatus.isAValider ? 'Transmise DAF' : 'Période fermée';
-                                                } else if (prevBlocking) {
+                                                } else if (sem.nbAnomalies > 0) {
+                                                    badgeVariant = 'warning';
+                                                    badgeLabel = `${sem.nbAnomalies} anomalie(s)`;
+                                                } else if (sem.totalPointages > 0) {
+                                                    badgeVariant = 'brand';
+                                                    badgeLabel = 'Prête à calculer';
+                                                } else {
                                                     badgeVariant = 'default';
-                                                    badgeLabel = 'En attente S' + idx;
-                                                } else if (sem.ready) {
-                                                    badgeVariant = sem.nbAnomalies > 0 ? 'warning' : 'brand';
-                                                    badgeLabel = sem.nbAnomalies > 0 ? `${sem.nbAnomalies} anomalie(s)` : 'Prête à valider';
+                                                    badgeLabel = 'Saisie en cours';
                                                 }
 
                                                 return (
@@ -617,19 +777,19 @@ export default function SynthesePointagePage() {
                                             <span className="text-[11px] font-bold text-[var(--color-fg-muted)]">
                                                 Période {consolidationStatus.currentPeriodeObj?.statutLibelle || 'Verrouillée'} (Lecture seule)
                                             </span>
-                                        ) : (() => {
-                                            // Identifier les semaines précédentes non validées
-                                            const semaineIdx = semaines.findIndex(s => s.id === selectedSemaine.id);
-                                            const blocking = semaines.slice(0, semaineIdx).filter(s => !s.estValidee);
-                                            const blockingMsg = blocking.length > 0
-                                                ? `${blocking.map(s => s.title).join(', ')} doit${blocking.length > 1 ? ' doivent' : ''} être validée${blocking.length > 1 ? 's' : ''} en premier`
-                                                : 'Saisie incomplète — pointages quotidiens manquants';
-                                            return (
-                                                <span className="text-[11px] text-[var(--color-fg-muted)] ">
-                                                    {blockingMsg}
-                                                </span>
-                                            );
-                                        })()}
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setShowValiderModal(true)}
+                                                    className="cursor-pointer font-bold shadow-xs flex items-center gap-1.5 text-xs"
+                                                >
+                                                    <RotateCw size={13} />
+                                                    <span>Calculer cette semaine</span>
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1152,7 +1312,7 @@ export default function SynthesePointagePage() {
                 <Modal
                     isOpen={showRejetModal}
                     onClose={() => setShowRejetModal(false)}
-                    title="Rejeter et renvoyer la période pour correction"
+                    title="Renvoyer la période à l'agent pour correction"
                     icon={<XCircle className="text-[var(--color-danger-500)]" size={18} />}
                     size="md"
                     footer={
@@ -1171,6 +1331,7 @@ export default function SynthesePointagePage() {
                                 variant="danger"
                                 size="sm"
                                 loading={updatingPeriodeStatut}
+                                disabled={updatingPeriodeStatut || !motifRejet.trim()}
                                 onClick={() => handleUpdatePeriodeStatut('EN_COURS', motifRejet)}
                                 className="font-bold"
                             >
@@ -1181,14 +1342,14 @@ export default function SynthesePointagePage() {
                 >
                     <div className="space-y-3 p-1">
                         <p className="text-xs text-[var(--color-fg-muted)]">
-                            La période sera réouverte en statut <strong>EN COURS</strong>. Les agents de pointage pourront de nouveau modifier les horaires quotidiens et les régularisations.
+                            La période sera réouverte en statut <strong>EN COURS</strong>. Une notification prioritaire contenant vos instructions sera immédiatement transmise aux agents de pointage.
                         </p>
                         <div>
                             <label className="block text-[11px] font-bold text-[var(--color-fg)] mb-1">
-                                Motif du rejet / Instructions de correction (Optionnel)
+                                Motif du renvoi / Instructions de correction <span className="text-[var(--color-danger-500)]">*</span>
                             </label>
                             <textarea
-                                placeholder="Précisez les anomalies constatées ou les corrections attendues par les agents..."
+                                placeholder="Précisez obligatoirement les anomalies constatées ou les corrections attendues..."
                                 value={motifRejet}
                                 onChange={(e) => setMotifRejet(e.target.value)}
                                 rows={3}

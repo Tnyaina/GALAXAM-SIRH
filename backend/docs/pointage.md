@@ -446,40 +446,60 @@ Pour éviter toute incohérence si le congé est ensuite modifié/annulé, deux 
 ## 5. Workflow & Circuit de Validation
 
 ```
-PERIODE_PAIE : BROUILLON → EN_COURS → A_VALIDER → VALIDEE → CLOTUREE
-                  │            │           │          │
-                  │            │           │          └── Consommée par la Paie (verrou définitif)
-                  │            │           └── Contrôle DAF (RBAC : droit_validation sur module POINTAGE)
-                  │            └── Saisie quotidienne par l'agent de pointage (droit_ecriture, pas de droit_validation — cf RBAC déjà en place)
-                  └── Ouverture de la période (auto ou manuelle par Admin)
+PERIODE_PAIE : BROUILLON -> EN_COURS <------------------------> A_VALIDER -> VALIDEE -> CLOTUREE
+                  |            |        (Rejet DAF avec           |           |          |
+                  |            |         motif obligatoire)       |           |          └── Consommée par la Paie (verrou définitif)
+                  |            |                                  |           └── Contrôle & Validation finale DAF (gel pointage_cumul_periode)
+                  |            |                                  └── Contrôle DAF (verrou d'écriture pour l'agent)
+                  |            └── Saisie quotidienne, résolution anomalies et calcul global 1-clic
+                  └── Ouverture de la période (automatique ou manuelle par Admin)
 ```
 
-Ceci correspond exactement à la matrice RBAC déjà définie dans `26-07-29_init.sql` : `ROLE_AGENT_POINTAGE` a `droit_lecture`/`droit_ecriture` sur `POINTAGE` mais **pas** `droit_validation` — seul `ROLE_ADMIN` peut faire passer la période en `VALIDEE`/`CLOTUREE`.
+Le workflow modernisé supprime le cloisonnement séquentiel contraignant semaine par semaine au profit d'une fluidité opérationnelle contrôlée :
+
+1. Phase de Saisie & Consultation Libre (statut EN_COURS) :
+   - L'agent de pointage saisit les présences et traite les anomalies quotidiennes.
+   - En fin de mois, l'agent déclenche la consolidation globale en un clic (endpoint POST /pointages/synthese/calculer-tout). Toutes les semaines sont calculées sans verrouiller la grille. L'agent peut librement consulter, comparer et ajuster les pointages si nécessaire.
+
+2. Phase de Transmission Sécurisée à la DAF (statut A_VALIDER) :
+   - L'agent clique sur "Transmettre à la DAF" (endpoint POST /pointages/synthese/transmettre-daf).
+   - Le système vérifie de manière bloquante qu'aucune anomalie non résolue ne subsiste sur l'ensemble des sites de l'entreprise.
+   - Le système recalcule l'intégralité des tronçons et passe la période en statut A_VALIDER avec verrouillage pessimiste PostgreSQL (FOR UPDATE).
+   - La saisie quotidienne et la régularisation des anomalies sont strictement bloquées en lecture seule pour les agents de site (contrôle au niveau de PointageSaisieService et PointageAnomalieService).
+   - Une notification ciblée est adressée exclusivement aux administrateurs DAF (cible_role = 'ROLE_ADMIN').
+
+3. Phase d'Arbitrage DAF :
+   - Option A - Validation (POST /pointages/synthese/valider-daf) : la DAF valide la synthèse. Les cumuls sont figés de manière immuable dans pointage_cumul_periode et pointage_cumul_indemnite. La période passe en VALIDEE. Une notification de confirmation est envoyée aux agents (cible_role = 'ROLE_AGENT_POINTAGE').
+   - Option B - Rejet pour correction (POST /pointages/synthese/rejeter-daf) : la DAF renvoie la période avec un motif de rejet obligatoire (motif_rejet). La période repasse en EN_COURS, déverrouillant la saisie pour l'agent. Une alerte prioritaire est notifiée aux agents (cible_role = 'ROLE_AGENT_POINTAGE') et un bandeau d'alerte jaune s'affiche sur la page de synthèse avec le motif explicatif.
+
+4. Clôture Définitive (statut CLOTUREE) :
+   - Une fois la paie exécutée, la période est clôturée. Toute modification ultérieure est strictement interdite.
 
 ---
 
 ## 6. Automatisations & Schedulers
 
-Aligné sur les schedulers existants (`00:00`, `00:05`, `01:00`, `02:00`) :
+Aligné sur les schedulers existants (00:00, 00:05, 01:00, 02:00) :
 
-| Heure        | Scheduler                   | Fréquence | Action                                                                                                                                          |
-| ------------ | --------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `00:10:00` | `PointageRappelScheduler` | Quotidien  | Détecte les employés sans`pointage_jour` la veille (hors `DISPENSE_POINTAGE`, `CONGE`, `FERIE_CHOME`), génère `POINTAGE_MANQUANT` |
-| `00:15:00` | `PeriodePaieScheduler`    | Quotidien  | Fait passer`periode_paie` de `EN_COURS` à `A_VALIDER` quand `date_fin` est dépassée, notifie le DAF                                  |
-| `00:20:00` | `FerieChomeScheduler`     | Quotidien  | Pré-crée les lignes`pointage_jour` en statut `FERIE_CHOME` pour les jours fériés à venir (basé sur `site_calendrier_ferie`)         |
+| Heure | Scheduler | Fréquence | Action |
+| :--- | :--- | :--- | :--- |
+| 00:10:00 | PointageRappelScheduler | Quotidien | Détecte les employés sans pointage_jour la veille (hors DISPENSE_POINTAGE, CONGE, FERIE_CHOME), génère POINTAGE_MANQUANT pour ROLE_AGENT_POINTAGE |
+| 00:15:00 | PeriodePaieScheduler | Quotidien | Rappel des périodes arrivées à échéance |
+| 00:20:00 | FerieChomeScheduler | Quotidien | Pré-crée les lignes pointage_jour en statut FERIE_CHOME pour les jours fériés à venir |
 
 ---
 
-## 7. Notifications
+## 7. Notifications & Cloisonnement RBAC
 
-Nouveaux types à ajouter à `notification_rh.type_alerte` (extension de la contrainte `chk_notif_type` existante) :
+Les notifications RH sont partitionnées par rôle via la colonne cible_role de la table notification_rh :
 
-| Type d'Alerte                  | Priorité  | Déclencheur                                                                                        |
-| ------------------------------ | ---------- | --------------------------------------------------------------------------------------------------- |
-| `POINTAGE_MANQUANT`          | 🟠 HAUTE   | Aucune saisie la veille pour un employé actif non dispensé                                        |
-| `PERIODE_POINTAGE_A_VALIDER` | 🟠 HAUTE   | `periode_paie` passe en `A_VALIDER`                                                             |
-| `PERIODE_POINTAGE_VALIDEE`   | 🔵 INFO    | Confirmation au DAF/agent après validation                                                         |
-| `RETARD_RECURRENT`           | 🟡 NORMALE | ≥ 3 retards non compensés dans la semaine pour un même employé (optionnel, alerte managériale) |
+| Type d'Alerte | Destinataire Cible (cible_role) | Priorité | Déclencheur |
+| :--- | :--- | :--- | :--- |
+| POINTAGE_MANQUANT | ROLE_AGENT_POINTAGE | HAUTE | Aucune saisie la veille pour un employé actif non dispensé |
+| PERIODE_POINTAGE_A_VALIDER | ROLE_ADMIN | HAUTE | Transmission de la période par l'agent à la DAF |
+| PERIODE_POINTAGE_VALIDEE | ROLE_AGENT_POINTAGE | INFO | Confirmation de validation de la période par la DAF |
+| PERIODE_POINTAGE_REJETEE | ROLE_AGENT_POINTAGE | HAUTE | Renvoi de la période par la DAF avec motif explicatif obligatoire |
+| RETARD_RECURRENT | ROLE_AGENT_POINTAGE | NORMALE | Plus de 3 retards non compensés dans la semaine pour un employé |
 
 ---
 
@@ -596,7 +616,7 @@ Base URL : `/api/pointage`
 
 ## 11. Points Tranchés & Décisions de Conception
 
-### ✅ Décisions validées (historique)
+### Decisions validees (historique)
 
 | Point                       | Décision retenue                                                                                                                                                                                           |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -615,7 +635,7 @@ Base URL : `/api/pointage`
 | Verrouillage CLOTUREE       | **Strict et définitif** — aucune modification possible, quel que soit le rôle.                                                                                                                     |
 | Paramètres                 | Dates de période de paie paramétrables (`periode_paie`). Montants indemnités, seuils HS, diviseur horaire dans `parametre_global` et `site_indemnite_config`.                                      |
 
-### 📋 Point encore ouvert
+### Point encore ouvert
 
 1. **Menus RBAC navigation** (recommandation ci-dessous) : à valider.
 
@@ -877,11 +897,11 @@ Site: TNR   Semaine: 26–30 Nov 2025   Période: Déc 2025
 ─────────────────────────────────────────────────────────────────────────
 Employé          │ Lun 26 │ Mar 27 │ Mer 28 │ Jeu 29 │ Ven 30 │ Total
 ─────────────────────────────────────────────────────────────────────────
-RAKETAKA         │  ✅ 8h  │ ⚠️ 7h  │  ✅ 8h  │  🔴 —  │  ✅ 8h  │ 31h
-RASOA            │  ✅ 8h  │  ✅ 8h  │  🟦 C  │  🟦 C  │  ✅ 8h  │ 16h
-RAKOTO [auto]    │  ▪️ 8h  │  ▪️ 8h  │  ▪️ 8h  │  ▪️ 8h  │  ▪️ 8h  │ 40h
+RAKETAKA         │ [P] 8h │ [!] 7h │ [P] 8h │ [A] —  │ [P] 8h │ 31h
+RASOA            │ [P] 8h │ [P] 8h │ [C] —  │ [C] —  │ [P] 8h │ 16h
+RAKOTO [auto]    │ [X] 8h │ [X] 8h │ [X] 8h │ [X] 8h │ [X] 8h │ 40h
 ─────────────────────────────────────────────────────────────────────────
-Légende : ✅ Présent  ⚠️ Anomalie/Retard  🔴 Absent  🟦 Congé  ▪️ Autonome
+Légende : [P] Présent  [!] Retard/Anomalie  [A] Absent  [C] Congé  [X] Autonome
 ```
 
 - **Hover sur cellule** → tooltip : heures + retard + HS + indemnités
@@ -897,7 +917,7 @@ Légende : ✅ Présent  ⚠️ Anomalie/Retard  🔴 Absent  🟦 Congé  ▪�
 ```
 ┌─ SAISIE — RAKETAKA  Mer 28 Nov 2025 ──────────────────────────┐
 │                                                                 │
-│  ▌ POINTAGES (logique métier)                                  │
+│  POINTAGES (logique métier)                                     │
 │  Matin    Entrée [08:12]  Sortie [12:03]                        │
 │  Après-midi Entrée [13:05]  Sortie [17:08]                      │
 │  [ ] Horaire continu ce jour (ne rentre pas le midi)            │
@@ -906,16 +926,16 @@ Légende : ✅ Présent  ⚠️ Anomalie/Retard  🔴 Absent  🟦 Congé  ▪�
 │  → Total : 7h 51min                                             │
 │  → Seuil tronçon : 40h | Cumul semaine : 31h/40h               │
 │                                                                 │
-│  ▌ INDEMNITÉS (ajustables par l'agent)                         │
-│  [☑] Déplacement    pré-coché (L1: TNR standard)               │
-│  [☑] Repas midi     pré-coché (L1: TNR horaire continu)        │
+│  INDEMNITÉS (ajustables par l'agent)                            │
+│  [X] Déplacement    pré-coché (L1: TNR standard)                │
+│  [X] Repas midi     pré-coché (L1: TNR horaire continu)         │
 │  [--] 2ᵉ repas soir  ⟵ automatique si sortie > 19h30          │
 │       Sortie à 17h08 → Non applicable                           │
 │                                                                 │
 │  Statut jour : [PRESENT ▼]                                      │
 │  Motif (si ajustement) : [________________________]             │
 │                                                                 │
-│  [✓ Enregistrer]  [✗ Marquer Absent]  [⚠ Signaler Anomalie]   │
+│  [Enregistrer]  [Marquer Absent]  [Signaler Anomalie]           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -935,9 +955,9 @@ Légende : ✅ Présent  ⚠️ Anomalie/Retard  🔴 Absent  🟦 Congé  ▪�
 
 ```
 En-tête de la grille :
-  [📋 Appliquer horaires théoriques à tous]  →  pré-remplit les heures théoriques du site
-  [⚠️ Voir anomalies seulement]              →  filtre les lignes avec ANOMALIE_SAISIE
-  [📤 Exporter semaine]                      →  CSV / PDF de la semaine affichée
+  [Appliquer horaires théoriques à tous]  →  pré-remplit les heures théoriques du site
+  [Voir anomalies seulement]              →  filtre les lignes avec ANOMALIE_SAISIE
+  [Exporter semaine]                      →  CSV / PDF de la semaine affichée
 ```
 
 ---

@@ -39,7 +39,7 @@ public class PeriodePaieController {
     public ResponseEntity<List<PeriodePaieDTO>> getAllPeriodes() {
         List<PeriodePaieDTO> list = new ArrayList<>();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
-                     "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle " +
+                     "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle, p.motif_rejet " +
                      "FROM periode_paie p " +
                      "JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                      "ORDER BY p.date_debut DESC";
@@ -60,6 +60,7 @@ public class PeriodePaieController {
                 dto.setIdStatutPeriode(rs.getInt("id_statut_periode"));
                 dto.setStatutCode(rs.getString("statut_code"));
                 dto.setStatutLibelle(rs.getString("statut_libelle"));
+                dto.setMotifRejet(rs.getString("motif_rejet"));
 
                 if (dDeb != null && dFin != null) {
                     dto.setNbJoursOuvrables(calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
@@ -82,7 +83,7 @@ public class PeriodePaieController {
     public ResponseEntity<PeriodePaieDTO> getCurrentPeriode(@RequestParam(required = false) String date) {
         String targetDate = (date != null && !date.trim().isEmpty()) ? date : java.time.LocalDate.now().toString();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
-                     "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle " +
+                     "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle, p.motif_rejet " +
                      "FROM periode_paie p " +
                      "JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                      "WHERE ? BETWEEN p.date_debut AND p.date_fin " +
@@ -104,6 +105,7 @@ public class PeriodePaieController {
                     dto.setIdStatutPeriode(rs.getInt("id_statut_periode"));
                     dto.setStatutCode(rs.getString("statut_code"));
                     dto.setStatutLibelle(rs.getString("statut_libelle"));
+                    dto.setMotifRejet(rs.getString("motif_rejet"));
 
                     if (dDeb != null && dFin != null) {
                         dto.setNbJoursOuvrables(calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
@@ -234,10 +236,13 @@ public class PeriodePaieController {
         Timestamp dateValidation = isValidee ? new Timestamp(System.currentTimeMillis()) : null;
         Integer valideurId = isValidee ? currentUserId : null;
 
+        String motifRejet = body.containsKey("motifRejet") && body.get("motifRejet") != null ? ((String) body.get("motifRejet")).trim() : null;
+
         String sql = "UPDATE periode_paie " +
                      "SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?), " +
                      "date_validation = ?, " +
-                     "valide_par = ? " +
+                     "valide_par = ?, " +
+                     "motif_rejet = CASE WHEN ? = 'VALIDEE' THEN NULL WHEN ? IS NOT NULL THEN ? ELSE motif_rejet END " +
                      "WHERE id_periode_paie = ?";
 
         try (Connection c = dataSource.getConnection()) {
@@ -248,14 +253,17 @@ public class PeriodePaieController {
                     ps.setString(1, newStatutCode);
                     if (dateValidation != null) ps.setTimestamp(2, dateValidation); else ps.setNull(2, java.sql.Types.TIMESTAMP);
                     if (valideurId != null) ps.setInt(3, valideurId); else ps.setNull(3, java.sql.Types.INTEGER);
-                    ps.setInt(4, id);
+                    ps.setString(4, newStatutCode);
+                    if (motifRejet != null) ps.setString(5, motifRejet); else ps.setNull(5, java.sql.Types.VARCHAR);
+                    if (motifRejet != null) ps.setString(6, motifRejet); else ps.setNull(6, java.sql.Types.VARCHAR);
+                    ps.setInt(7, id);
                     rows = ps.executeUpdate();
                 }
 
                 if (rows > 0) {
                     if ("VALIDEE".equals(newStatutCode) || "CLOTUREE".equals(newStatutCode)) {
                         pointageSyntheseService.gelerPeriode(id, currentUserId, c);
-                    } else if ("EN_COURS".equals(newStatutCode) || "BROUILLON".equals(newStatutCode) || "A_VALIDER".equals(newStatutCode)) {
+                    } else if ("BROUILLON".equals(newStatutCode)) {
                         pointageSyntheseService.degelerPeriode(id, c);
                     }
                     c.commit();

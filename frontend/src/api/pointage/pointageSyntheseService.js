@@ -38,6 +38,37 @@ export const pointageSyntheseService = {
             dateDebut
         });
         return response.data;
+    },
+
+    calculerTout: async ({ idPeriodePaie, idSite }) => {
+        const response = await apiClient.post('/pointages/synthese/calculer-tout', {
+            idPeriodePaie,
+            idSite
+        });
+        return response.data;
+    },
+
+    transmettreDaf: async ({ idPeriodePaie, idSite }) => {
+        const response = await apiClient.post('/pointages/synthese/transmettre-daf', {
+            idPeriodePaie,
+            idSite
+        });
+        return response.data;
+    },
+
+    validerDaf: async ({ idPeriodePaie }) => {
+        const response = await apiClient.post('/pointages/synthese/valider-daf', {
+            idPeriodePaie
+        });
+        return response.data;
+    },
+
+    rejeterDaf: async ({ idPeriodePaie, motif }) => {
+        const response = await apiClient.post('/pointages/synthese/rejeter-daf', {
+            idPeriodePaie,
+            motif
+        });
+        return response.data;
     }
 };
 
