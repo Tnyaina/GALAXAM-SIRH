@@ -140,6 +140,13 @@ export default function PointageTab({ idEmploye }) {
     const regles = ficheData?.reglesAppliquees || {};
     const pointages = ficheData?.pointagesData || [];
 
+    const hs30Val = parseFloat(kpis?.heuresHs30) || 0;
+    const hs50Val = parseFloat(kpis?.heuresHs50) || 0;
+    const nuitVal = parseFloat(kpis?.heuresNuit) || 0;
+    const dimVal = parseFloat(kpis?.heuresDimanche) || 0;
+    const ferVal = parseFloat(kpis?.heuresFerie) || 0;
+    const hasMajorations = (hs30Val > 0 || hs50Val > 0 || nuitVal > 0 || dimVal > 0 || ferVal > 0);
+
     const currIndexInList = periodesList.findIndex(p => p.idPeriodePaie === selectedPeriodeId);
 
     return (
@@ -229,8 +236,8 @@ export default function PointageTab({ idEmploye }) {
                                 type="button"
                                 onClick={() => setPeriodView(key)}
                                 className={`px-3 py-1 text-xs font-bold uppercase transition-colors cursor-pointer ${periodView === key
-                                        ? 'bg-[var(--color-brand-500)] text-white shadow-xs'
-                                        : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                                    ? 'bg-[var(--color-brand-500)] text-white shadow-xs'
+                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                     }`}
                             >
                                 {label}
@@ -377,137 +384,136 @@ export default function PointageTab({ idEmploye }) {
                         </div>
                     </div>
 
-                    {/* 3. Grille Principale (Détail journalier à gauche + Panneaux récapitulatifs à droite) */}
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-                        {/* A. Tableau Détail Journalier (3 colonnes de large) */}
-                        <div className="lg:col-span-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
-                            <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-sm font-bold text-[var(--color-fg)]">Détail journalier</h3>
-                                    <p className="text-xs text-[var(--color-fg-muted)]">Pointages et calculs automatiques</p>
-                                </div>
-                            </div>
-
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <Thead>
-                                        <Th className="text-xs font-bold uppercase py-3 px-3">Date</Th>
-                                        <Th className="text-xs font-bold uppercase py-3 px-3">Jour</Th>
-                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Entrée</Th>
-                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Sortie Pause</Th>
-                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Retour</Th>
-                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Sortie</Th>
-                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Heures</Th>
-                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Écart</Th>
-                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Statut</Th>
-                                        <Th className="text-xs font-bold uppercase py-3 px-3 text-center border-l border-[var(--color-border-subtle)]">Indemnités</Th>
-                                    </Thead>
-                                    <Tbody>
-                                        {pointages.length === 0 ? (
-                                            <Tr>
-                                                <Td colSpan={10} className="text-center py-8 text-xs text-[var(--color-fg-muted)]">
-                                                    Aucune donnée de pointage pour cette période.
-                                                </Td>
-                                            </Tr>
-                                        ) : (
-                                            pointages.map((ptg, idx) => {
-                                                const isWeekend = ptg.statut === 'REPOS';
-                                                return (
-                                                    <Tr
-                                                        key={`${ptg.dateComplete || ptg.date}-${idx}`}
-                                                        className={isWeekend ? 'bg-[var(--color-bg-subtle)]/40' : ''}
-                                                    >
-                                                        <Td className="font-mono text-xs font-bold text-[var(--color-fg)] py-2.5 px-3">
-                                                            {ptg.date}
-                                                        </Td>
-                                                        <Td className="text-xs text-[var(--color-fg-muted)] py-2.5 px-3">
-                                                            {ptg.jour}
-                                                        </Td>
-                                                        <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                            {ptg.entree}
-                                                        </Td>
-                                                        <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                            {ptg.sortiePause}
-                                                        </Td>
-                                                        <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                            {ptg.retourPause}
-                                                        </Td>
-                                                        <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                            {ptg.sortie}
-                                                        </Td>
-                                                        <Td className="font-mono text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
-                                                            {ptg.heures}
-                                                        </Td>
-                                                        <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                            {ptg.ecart && ptg.ecart.startsWith('-') ? (
-                                                                <span className="text-[var(--color-danger-500)] dark:text-[var(--color-danger-400)] font-bold">
-                                                                    {ptg.ecart}
-                                                                </span>
-                                                            ) : ptg.ecart && ptg.ecart.startsWith('+') ? (
-                                                                <span className="text-[var(--color-success-500)] dark:text-[var(--color-success-400)] font-bold">
-                                                                    {ptg.ecart}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-[var(--color-fg-muted)]">
-                                                                    {ptg.ecart}
-                                                                </span>
-                                                            )}
-                                                        </Td>
-                                                        <Td className="text-center py-2.5 px-3">
-                                                            {getStatutBadge(ptg.statut)}
-                                                        </Td>
-
-                                                        {/* Colonne Indemnités Reçues (Repas, 2e Repas, Déplacement) */}
-                                                        <Td className="py-2.5 px-3 border-l border-[var(--color-border-subtle)] text-center">
-                                                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                                                {ptg.indemniteRepas ? (
-                                                                    <span
-                                                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10.5px] font-bold rounded ${ptg.nbRepas === 2
-                                                                                ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/30'
-                                                                                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                                                                            }`}
-                                                                        title={ptg.nbRepas === 2 ? '2 Repas (Travail prolongé / Nuit)' : `1 Repas standard (${ptg.montantRepas ? Math.round(ptg.montantRepas) + ' Ar' : '2 000 Ar'})`}
-                                                                    >
-                                                                        <Utensils size={10} />
-                                                                        <span>{ptg.nbRepas === 2 ? 'Repas x2' : 'Repas'}</span>
-                                                                    </span>
-                                                                ) : null}
-
-                                                                {(ptg.deplacementMatin || ptg.deplacementAm) ? (
-                                                                    <span
-                                                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10.5px] font-bold rounded bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/30"
-                                                                        title={`Déplacement : ${ptg.deplacementMatin && ptg.deplacementAm ? '2 trajets (Matin + Soir)' : ptg.deplacementMatin ? '1 trajet (Matin)' : '1 trajet (Soir)'}`}
-                                                                    >
-                                                                        <Bus size={10} />
-                                                                        <span>
-                                                                            {ptg.deplacementMatin && ptg.deplacementAm ? 'Trajets (M+S)' : ptg.deplacementMatin ? 'Trajet (M)' : 'Trajet (S)'}
-                                                                        </span>
-                                                                    </span>
-                                                                ) : null}
-
-                                                                {!ptg.indemniteRepas && !ptg.deplacementMatin && !ptg.deplacementAm && (
-                                                                    <span className="text-[var(--color-fg-muted)] text-xs">—</span>
-                                                                )}
-                                                            </div>
-                                                        </Td>
-                                                    </Tr>
-                                                );
-                                            })
-                                        )}
-                                    </Tbody>
-                                </Table>
+                    {/* 3. Tableau Détail Journalier (Pleine Largeur) */}
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
+                        <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
+                            <div>
+                                <h3 className="text-sm font-bold text-[var(--color-fg)]">Détail journalier</h3>
+                                <p className="text-xs text-[var(--color-fg-muted)]">Pointages et calculs automatiques</p>
                             </div>
                         </div>
 
-                        {/* B. Volet Latéral Droit : Récapitulatif, Indemnités & Règles (1 colonne de large) */}
-                        <div className="space-y-4">
-                            {/* Carte Récapitulatif Temps */}
-                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <Thead>
+                                    <Th className="text-xs font-bold uppercase py-3 px-3">Date</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-3">Jour</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Entrée</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Sortie Pause</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Retour</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Sortie</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Heures</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Écart</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Statut</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-3 text-center border-l border-[var(--color-border-subtle)]">Indemnités</Th>
+                                </Thead>
+                                <Tbody>
+                                    {pointages.length === 0 ? (
+                                        <Tr>
+                                            <Td colSpan={10} className="text-center py-8 text-xs text-[var(--color-fg-muted)]">
+                                                Aucune donnée de pointage pour cette période.
+                                            </Td>
+                                        </Tr>
+                                    ) : (
+                                        pointages.map((ptg, idx) => {
+                                            const isWeekend = ptg.statut === 'REPOS';
+                                            return (
+                                                <Tr
+                                                    key={`${ptg.dateComplete || ptg.date}-${idx}`}
+                                                    className={isWeekend ? 'bg-[var(--color-bg-subtle)]/40' : ''}
+                                                >
+                                                    <Td className="font-mono text-xs font-bold text-[var(--color-fg)] py-2.5 px-3">
+                                                        {ptg.date}
+                                                    </Td>
+                                                    <Td className="text-xs text-[var(--color-fg-muted)] py-2.5 px-3">
+                                                        {ptg.jour}
+                                                    </Td>
+                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                        {ptg.entree}
+                                                    </Td>
+                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                        {ptg.sortiePause}
+                                                    </Td>
+                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                        {ptg.retourPause}
+                                                    </Td>
+                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                        {ptg.sortie}
+                                                    </Td>
+                                                    <Td className="font-mono text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
+                                                        {ptg.heures}
+                                                    </Td>
+                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                        {ptg.ecart && ptg.ecart.startsWith('-') ? (
+                                                            <span className="text-[var(--color-danger-500)] dark:text-[var(--color-danger-400)] font-bold">
+                                                                {ptg.ecart}
+                                                            </span>
+                                                        ) : ptg.ecart && ptg.ecart.startsWith('+') ? (
+                                                            <span className="text-[var(--color-success-500)] dark:text-[var(--color-success-400)] font-bold">
+                                                                {ptg.ecart}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[var(--color-fg-muted)]">
+                                                                {ptg.ecart}
+                                                            </span>
+                                                        )}
+                                                    </Td>
+                                                    <Td className="text-center py-2.5 px-3">
+                                                        {getStatutBadge(ptg.statut)}
+                                                    </Td>
+
+                                                    {/* Colonne Indemnités Reçues (Repas, 2e Repas, Déplacement) */}
+                                                    <Td className="py-2.5 px-3 border-l border-[var(--color-border-subtle)] text-center">
+                                                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                                            {ptg.indemniteRepas ? (
+                                                                <span
+                                                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10.5px] font-bold rounded ${ptg.nbRepas === 2
+                                                                        ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/30'
+                                                                        : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                                                                        }`}
+                                                                    title={ptg.nbRepas === 2 ? '2 Repas (Travail prolongé / Nuit)' : `1 Repas standard (${ptg.montantRepas ? Math.round(ptg.montantRepas) + ' Ar' : '2 000 Ar'})`}
+                                                                >
+                                                                    <Utensils size={10} />
+                                                                    <span>{ptg.nbRepas === 2 ? 'Repas x2' : 'Repas'}</span>
+                                                                </span>
+                                                            ) : null}
+
+                                                            {(ptg.deplacementMatin || ptg.deplacementAm) ? (
+                                                                <span
+                                                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10.5px] font-bold rounded bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/30"
+                                                                    title={`Déplacement : ${ptg.deplacementMatin && ptg.deplacementAm ? '2 trajets (Matin + Soir)' : ptg.deplacementMatin ? '1 trajet (Matin)' : '1 trajet (Soir)'}`}
+                                                                >
+                                                                    <Bus size={10} />
+                                                                    <span>
+                                                                        {ptg.deplacementMatin && ptg.deplacementAm ? 'Trajets (M+S)' : ptg.deplacementMatin ? 'Trajet (M)' : 'Trajet (S)'}
+                                                                    </span>
+                                                                </span>
+                                                            ) : null}
+
+                                                            {!ptg.indemniteRepas && !ptg.deplacementMatin && !ptg.deplacementAm && (
+                                                                <span className="text-[var(--color-fg-muted)] text-xs">—</span>
+                                                            )}
+                                                        </div>
+                                                    </Td>
+                                                </Tr>
+                                            );
+                                        })
+                                    )}
+                                </Tbody>
+                            </Table>
+                        </div>
+                    </div>
+
+                    {/* 4. Grille de Synthèse Mensuelle, Indemnités & Règles (Pied de page modulaire aéré) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch pt-2">
+                        {/* Carte 1 : Temps de Présence */}
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col justify-between space-y-3">
+                            <div>
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-2 flex items-center gap-1.5">
                                     <TrendingUp size={14} className="text-[var(--color-brand-500)]" />
                                     Temps de Présence
                                 </h4>
-                                <div className="space-y-2 text-xs">
+                                <div className="space-y-2 text-xs pt-1">
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Temps théorique</span>
                                         <span className="font-mono font-bold text-[var(--color-fg)]">{recap.tempsTheorique || '168h00'}</span>
@@ -536,107 +542,126 @@ export default function PointageTab({ idEmploye }) {
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* Carte Indemnités Reçues de la Période avec Détails de Calcul */}
-                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-2 flex items-center justify-between">
-                                    <span className="flex items-center gap-1.5">
+                        {/* Carte 2 : Indemnités & Majorations du Mois (Relevé structuré & aéré) */}
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col justify-between space-y-3">
+                            <div>
+                                <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2.5">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-1.5">
                                         <DollarSign size={14} className="text-emerald-600" />
                                         Indemnités du Mois
-                                    </span>
-                                    <span className="font-mono text-xs font-bold text-emerald-600">
+                                    </h4>
+                                    <span className="font-mono text-sm font-black text-emerald-600">
                                         {kpis.totalIndemnitesMois || kpis.montantRepasTotal || '0 Ar'}
                                     </span>
-                                </h4>
+                                </div>
 
-                                <div className="space-y-3 text-xs">
-                                    {/* 1. Décomposition Repas */}
-                                    <div className="space-y-1.5">
-                                        <div className="flex justify-between items-center text-[var(--color-fg)] font-semibold">
-                                            <span className="flex items-center gap-1">
-                                                <Utensils size={12} className="text-emerald-600" />
-                                                Panier Repas ({kpis.totalRepas || '0'})
-                                            </span>
-                                            <span className="font-mono text-emerald-600 font-bold">
-                                                {kpis.montantRepasTotal || '0 Ar'}
-                                            </span>
+                                <div className="space-y-2.5 pt-2.5">
+                                    {/* 1. Tuile Panier Repas */}
+                                    <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] space-y-1.5">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <div className="w-6 h-6 rounded flex items-center justify-center bg-emerald-500/10 text-emerald-600 shrink-0">
+                                                    <Utensils size={13} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-xs font-bold text-[var(--color-fg)]">Panier Repas</div>
+                                                    <div className="text-[11px] text-[var(--color-fg-muted)] truncate">
+                                                        {kpis.totalRepas || '0 repas'} validés · Tarif : 2 000 Ar / repas
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <span className="font-mono text-sm font-bold text-emerald-600">
+                                                    {kpis.montantRepasTotal || '0 Ar'}
+                                                </span>
+                                            </div>
                                         </div>
 
-                                        {/* Détail 1er Repas */}
-                                        {recap.repasStdDetail && (
-                                            <div className="flex justify-between items-center text-[11px] text-[var(--color-fg-muted)] pl-3 border-l-2 border-emerald-500/30">
-                                                <span>1ᵉʳ Repas (Standard)</span>
-                                                <span className="font-mono">{recap.repasStdDetail}</span>
-                                            </div>
-                                        )}
-
-                                        {/* Détail 2e Repas (Nuit / Long shift) */}
+                                        {/* Détail 2e Repas si existant */}
                                         {recap.repas2eDetail && (
-                                            <div className="flex justify-between items-center text-[11px] text-purple-700 dark:text-purple-300 pl-3 border-l-2 border-purple-500/40 bg-purple-500/5 py-0.5 px-1 rounded-r">
-                                                <span className="flex items-center gap-1">
-                                                    <Moon size={10} />
-                                                    2ᵉ Repas (Nuit / Heures sup)
-                                                </span>
-                                                <span className="font-mono font-bold">{recap.repas2eDetail}</span>
+                                            <div className="text-[10.5px] text-purple-700 dark:text-purple-300 pt-1 border-t border-[var(--color-border-subtle)] flex items-center justify-between font-mono">
+                                                <span className="flex items-center gap-1"><Moon size={10} /> 2ᵉ Repas (Nuit / HS)</span>
+                                                <span className="font-bold">{recap.repas2eDetail}</span>
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* 2. Déplacement Proratisé & Fractionnable */}
-                                    <div className="pt-2 border-t border-[var(--color-border-subtle)] space-y-1.5">
-                                        <div className="flex justify-between items-center text-[var(--color-fg)] font-semibold">
-                                            <span className="flex items-center gap-1.5">
-                                                <Bus size={13} className="text-sky-600" />
-                                                Transport Déplacement
-                                            </span>
-                                            <span className="font-mono text-sky-600 font-bold">
-                                                {kpis.montantDeplacementTotal || '0 Ar'}
-                                            </span>
+                                    {/* 2. Tuile Transport & Déplacement */}
+                                    <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] space-y-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <div className="w-6 h-6 rounded flex items-center justify-center bg-sky-500/10 text-sky-600 shrink-0">
+                                                    <Bus size={13} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-xs font-bold text-[var(--color-fg)]">Transport &amp; Déplacement</div>
+                                                    <div className="text-[11px] text-[var(--color-fg-muted)] truncate">
+                                                        {kpis.totalTrajets || '0 trajet'} (A/R) · Prorata 21 j ouvrables
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <span className="font-mono text-sm font-bold text-sky-600">
+                                                    {kpis.montantDeplacementTotal || '0 Ar'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 3. Majorations applicables */}
+                                    <div className="pt-2 border-t border-[var(--color-border-subtle)] space-y-1">
+                                        <div className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+                                            Majorations applicables
                                         </div>
 
-                                        {recap.deplacementDetail ? (
-                                            <div className="flex justify-between items-center text-[11px] text-[var(--color-fg-muted)] pl-3 border-l-2 border-sky-500/30">
-                                                <span>Prorata ({kpis.totalTrajets || '0 trajet'})</span>
-                                                <span className="font-mono text-[var(--color-fg)] font-semibold">{recap.deplacementDetail}</span>
+                                        {hasMajorations ? (
+                                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                                {hs30Val > 0 && (
+                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                                                        +{hs30Val}h à 30%
+                                                    </span>
+                                                )}
+                                                {hs50Val > 0 && (
+                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-orange-500/10 text-orange-700 dark:text-orange-300 border border-orange-500/20">
+                                                        +{hs50Val}h à 50%
+                                                    </span>
+                                                )}
+                                                {nuitVal > 0 && (
+                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
+                                                        +{nuitVal}h nuit
+                                                    </span>
+                                                )}
+                                                {dimVal > 0 && (
+                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
+                                                        +{dimVal}h dimanche
+                                                    </span>
+                                                )}
+                                                {ferVal > 0 && (
+                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                                                        +{ferVal}h férié
+                                                    </span>
+                                                )}
                                             </div>
                                         ) : (
-                                            <p className="text-[10.5px] text-[var(--color-fg-muted)] pl-3">
-                                                Proratisé ({kpis.totalTrajets || '0 trajet'})
-                                            </p>
-                                        )}
-
-                                        {recap.deplacementFormule && (
-                                            <p className="text-[10px] text-[var(--color-fg-muted)] pl-3">
-                                                {recap.deplacementFormule}
-                                            </p>
+                                            <div className="text-[11px] text-[var(--color-fg-muted)]">
+                                                Aucune majoration sur cette période
+                                            </div>
                                         )}
                                     </div>
-
-                                    {/* 3. Majorations de Travail Spécifique si existantes */}
-                                    {(recap.hs30Detail || recap.hs50Detail || recap.nuitDetail || recap.dimancheDetail || recap.ferieDetail) && (
-                                        <div className="pt-2 border-t border-[var(--color-border-subtle)] space-y-1">
-                                            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                                                Majorations applicables
-                                            </span>
-                                            <div className="space-y-0.5 text-[11px] text-[var(--color-fg-muted)] pl-1 font-mono">
-                                                {recap.hs30Detail && <div>• {recap.hs30Detail}</div>}
-                                                {recap.hs50Detail && <div>• {recap.hs50Detail}</div>}
-                                                {recap.nuitDetail && <div className="text-indigo-600 dark:text-indigo-400">• {recap.nuitDetail}</div>}
-                                                {recap.dimancheDetail && <div className="text-amber-600 dark:text-amber-400">• {recap.dimancheDetail}</div>}
-                                                {recap.ferieDetail && <div className="text-emerald-600 dark:text-emerald-400">• {recap.ferieDetail}</div>}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
+                        </div>
 
-                            {/* Carte Règles Appliquées */}
-                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
+                        {/* Carte 3 : Règles Appliquées & Observations */}
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col justify-between space-y-3">
+                            <div className="space-y-2.5">
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-2 flex items-center gap-1.5">
                                     <Info size={14} className="text-[var(--color-info-500)]" />
                                     Règles Appliquées
                                 </h4>
-                                <div className="space-y-2 text-xs">
+                                <div className="space-y-1.5 text-xs">
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Horaire journalier</span>
                                         <span className="font-mono font-bold text-[var(--color-fg)]">{regles.horaireJournalier || '—'}</span>
@@ -660,14 +685,10 @@ export default function PointageTab({ idEmploye }) {
                                 </div>
                             </div>
 
-                            {/* Carte Observations */}
-                            <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-2">
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
-                                    Observations
-                                </h4>
-                                <p className="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
-                                    Les heures et indemnités sont calculées à partir des pointages enregistrés. Toute correction doit être justifiée et validée par le responsable habilité.
-                                </p>
+                            {/* Note d'observation intégrée */}
+                            <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-2.5 text-[11px] text-[var(--color-fg-muted)] leading-relaxed mt-1">
+                                <span className="font-bold text-[var(--color-fg)] block text-[10px] uppercase tracking-wider mb-0.5">Observations</span>
+                                Les heures et indemnités sont calculées à partir des pointages enregistrés. Toute correction doit être justifiée et validée par le responsable habilité.
                             </div>
                         </div>
                     </div>

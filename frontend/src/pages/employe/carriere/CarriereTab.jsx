@@ -111,6 +111,7 @@ export default function CarriereTab({
                 onSelectWorkflowRecap={modalsState.handleSelectWorkflowRecap}
                 onOpenCertificat={modalsState.handleOpenCertificat}
                 onOpenAttestation={modalsState.handleOpenAttestation}
+                onOpenContrat={modalsState.handleOpenContrat}
             />
 
             {/* Gestionnaire Centralisé de Modales */}

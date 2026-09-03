@@ -75,6 +75,7 @@ export default function ParametresModulesPanel() {
     // Définition des sous-onglets pour le Système
     const generalTabs = [
         { id: 'parametres_globaux_systeme', label: 'Constantes Générales', icon: <Sliders size={16} /> },
+        { id: 'parametres_globaux_contrats', label: 'Règles Contrats & CDD', icon: <FileText size={16} /> },
     ];
 
     const currentTabs = activeModule === 'paie' 
@@ -136,6 +137,7 @@ export default function ParametresModulesPanel() {
                         {activeModule === 'general' && (
                             <>
                                 {activeTab === 'parametres_globaux_systeme' && <ParametresGlobauxTab fixedCategory="RH_GENERAL" />}
+                                {activeTab === 'parametres_globaux_contrats' && <ParametresGlobauxTab fixedCategory="CONTRAT" />}
                             </>
                         )}
 

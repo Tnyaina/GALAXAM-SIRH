@@ -200,6 +200,43 @@ public class ParametreGlobal extends ClassMere {
         return map;
     }
 
+    /**
+     * Clôture la version précédente d'un paramètre global à la veille de la nouvelle date d'effet.
+     */
+    public static void cloturerPrecedent(String codeParametre, Date dateDebutNouveau, Connection c) throws Exception {
+        if (codeParametre == null || dateDebutNouveau == null) return;
+        String closeSql = "UPDATE parametre_global SET date_fin = ? " +
+                          "WHERE UPPER(code_parametre) = UPPER(?) " +
+                          "AND (date_fin IS NULL OR date_fin >= ?) " +
+                          "AND date_debut < ?";
+        try (PreparedStatement ps = c.prepareStatement(closeSql)) {
+            ps.setDate(1, java.sql.Date.valueOf(dateDebutNouveau.toLocalDate().minusDays(1)));
+            ps.setString(2, codeParametre.trim());
+            ps.setDate(3, dateDebutNouveau);
+            ps.setDate(4, dateDebutNouveau);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Retourne la valeur active d'un paramètre global à ce jour.
+     */
+    public static String getActiveValue(String codeParametre, Connection c) {
+        if (codeParametre == null || codeParametre.isBlank()) return null;
+        String sql = "SELECT valeur FROM parametre_global WHERE UPPER(code_parametre) = UPPER(?) " +
+                     "AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) " +
+                     "ORDER BY date_debut DESC LIMIT 1";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, codeParametre.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString(1);
+            }
+        } catch (Exception e) {
+            System.err.println("[PARAMETRE GLOBAL] Erreur getActiveValue: " + e.getMessage());
+        }
+        return null;
+    }
+
     // Helper static getters typés
     public static double getDouble(java.util.Map<String, String> params, String key, double defaultValue) {
         if (params == null || key == null) return defaultValue;

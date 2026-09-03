@@ -1373,7 +1373,7 @@ public class WorkflowRhService {
      */
     private static int resolveParametreGlobalInt(String code, int defaultValue, Connection c) throws Exception {
         try (var ps = c.prepareStatement(
-                "SELECT valeur FROM parametre_global WHERE code_parametre = ? AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) ORDER BY date_debut DESC LIMIT 1")) {
+                "SELECT valeur FROM parametre_global WHERE code_parametre = ? AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) ORDER BY date_debut DESC LIMIT 1")) {
             ps.setString(1, code);
             try (var rs = ps.executeQuery()) {
                 if (rs.next()) {

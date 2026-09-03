@@ -26,6 +26,7 @@ export default function CarriereTimeline({
     onSelectWorkflowRecap,
     onOpenCertificat,
     onOpenAttestation,
+    onOpenContrat,
 }) {
     const [modeAffichage, setModeAffichage] = useState('tables'); // 'tables' par défaut | 'parcours'
 
@@ -127,6 +128,7 @@ export default function CarriereTimeline({
                             contratActif={contratActif}
                             onOpenCertificat={onOpenCertificat}
                             onOpenAttestation={onOpenAttestation}
+                            onOpenContrat={onOpenContrat}
                         />
                     </div>
                 )}

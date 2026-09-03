@@ -55,6 +55,10 @@ public class ParametreGlobalController {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                if (request.getCodeParametre() != null && request.getDateDebut() != null) {
+                    ParametreGlobal.cloturerPrecedent(request.getCodeParametre(), request.getDateDebut(), c);
+                }
+
                 ParametreGlobal pg = new ParametreGlobal();
                 pg.setCodeParametre(request.getCodeParametre());
                 pg.setValeur(request.getValeur());

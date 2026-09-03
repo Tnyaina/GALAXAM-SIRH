@@ -353,10 +353,10 @@ export default function EmployeFicheDetailPage() {
                 </div>
             )}
 
-            {/* Grille Master-Detail (Wireframe 1) : Contenu Principal (9/12) + Volet Contextuel (3/12) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+            {/* Grille Master-Detail : Contenu Principal (élargi) + Volet Contextuel (largeur compacte) */}
+            <div className="flex flex-col lg:flex-row items-start gap-3.5">
                 {/* Colonne Principale : Onglets & Contenu Métier */}
-                <div className="lg:col-span-8 xl:col-span-9 bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xs overflow-hidden">
+                <div className="flex-1 min-w-0 w-full bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xs overflow-hidden">
                     <Tabs 
                         tabs={mainTabs} 
                         activeTab={activeTab} 
@@ -432,8 +432,8 @@ export default function EmployeFicheDetailPage() {
                     </div>
                 </div>
 
-                {/* Volet Contextuel Permanent (Wireframe 1) : Sticky */}
-                <aside className="lg:col-span-4 xl:col-span-3">
+                {/* Volet Contextuel Permanent : Largeur compacte & Sticky */}
+                <aside className="w-full lg:w-64 xl:w-72 shrink-0">
                     <div className="lg:sticky lg:top-3.5">
                         <EmployeSideSummaryPanel
                             emp={emp}

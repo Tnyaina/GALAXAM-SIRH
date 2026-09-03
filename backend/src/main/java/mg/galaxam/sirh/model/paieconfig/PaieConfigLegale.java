@@ -98,30 +98,35 @@ public class PaieConfigLegale extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        String sql = "UPDATE paie_config_legale SET libelle=?, date_debut=?, date_fin=?, " +
+        String sql = "UPDATE paie_config_legale SET code_version=?, libelle=?, date_debut=?, date_fin=?, " +
                 "sme_national=?, sme_agricole=?, plafond_cotisation_nb_sme=?, " +
                 "seuil_exoneration_irsa=?, minimum_perception_irsa=?, deduction_charge_famille=?, arrondi_base_irsa=?, " +
                 "duree_hebdo_legale=?, diviseur_mensuel_heures=?, seuil_hs_tranche1=?, plafond_hs_hebdo=?, " +
                 "acquisition_conge_mensuel_jours=?, diviseur_valorisation_conge_jours=?, updated_at=NOW() " +
                 "WHERE id_config_legale=?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, libelle);
-            ps.setDate(2, dateDebut);
-            ps.setDate(3, dateFin);
-            ps.setBigDecimal(4, smeNational);
-            ps.setBigDecimal(5, smeAgricole);
-            ps.setBigDecimal(6, plafondCotisationNbSme);
-            ps.setBigDecimal(7, seuilExonerationIrsa);
-            ps.setBigDecimal(8, minimumPerceptionIrsa);
-            ps.setBigDecimal(9, deductionChargeFamille);
-            ps.setString(10, arrondiBaseIrsa);
-            ps.setBigDecimal(11, dureeHebdoLegale);
-            ps.setBigDecimal(12, diviseurMensuelHeures);
-            ps.setBigDecimal(13, seuilHsTranche1);
-            ps.setBigDecimal(14, plafondHsHebdo);
-            ps.setBigDecimal(15, acquisitionCongeMensuelJours);
-            ps.setInt(16, diviseurValorisationCongeJours != null ? diviseurValorisationCongeJours : 30);
-            ps.setInt(17, idConfigLegale);
+            ps.setString(1, codeVersion);
+            ps.setString(2, libelle);
+            ps.setDate(3, dateDebut);
+            ps.setDate(4, dateFin);
+            ps.setBigDecimal(5, smeNational);
+            ps.setBigDecimal(6, smeAgricole);
+            ps.setBigDecimal(7, plafondCotisationNbSme != null ? plafondCotisationNbSme : new BigDecimal("8.00"));
+            ps.setBigDecimal(8, seuilExonerationIrsa);
+            ps.setBigDecimal(9, minimumPerceptionIrsa);
+            ps.setBigDecimal(10, deductionChargeFamille);
+            ps.setString(11, arrondiBaseIrsa != null ? arrondiBaseIrsa : "CENTAINE_INF");
+            ps.setBigDecimal(12, dureeHebdoLegale != null ? dureeHebdoLegale : new BigDecimal("40.00"));
+            ps.setBigDecimal(13, diviseurMensuelHeures != null ? diviseurMensuelHeures : new BigDecimal("173.3333"));
+            ps.setBigDecimal(14, seuilHsTranche1 != null ? seuilHsTranche1 : new BigDecimal("8.00"));
+            ps.setBigDecimal(15, plafondHsHebdo != null ? plafondHsHebdo : new BigDecimal("20.00"));
+            ps.setBigDecimal(16, acquisitionCongeMensuelJours != null ? acquisitionCongeMensuelJours : new BigDecimal("2.50"));
+            ps.setInt(17, diviseurValorisationCongeJours != null ? diviseurValorisationCongeJours : 30);
+            if (idConfigLegale != null) {
+                ps.setInt(18, idConfigLegale);
+            } else {
+                throw new IllegalArgumentException("L'identifiant de la configuration légale est requis pour la modification.");
+            }
             ps.executeUpdate();
         }
         return this;
@@ -232,6 +237,7 @@ public class PaieConfigLegale extends ClassMere {
 
     // Getters & Setters
     public Integer getIdConfigLegale() { return idConfigLegale; }
+    public void setIdConfigLegale(Integer v) { this.idConfigLegale = v; }
     public String getCodeVersion() { return codeVersion; }
     public void setCodeVersion(String v) { this.codeVersion = v; }
     public String getLibelle() { return libelle; }

@@ -1,4 +1,4 @@
-import { Edit2, Power, Users, Mail, Phone, MapPin, Building } from 'lucide-react';
+import { Edit2, Power, Mail, Phone, MapPin, Building, UserPlus, SearchX } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -17,6 +17,8 @@ export default function EmployeTable({
     loading = false,
     canWrite = false,
     canValidate = false,
+    hasActiveFilters = false,
+    onOpenCreate,
     onOpenDetail,
     onOpenEdit,
     onToggleStatus,
@@ -33,13 +35,26 @@ export default function EmployeTable({
     }
 
     if (employes.length === 0) {
+        if (hasActiveFilters) {
+            return (
+                <EmptyState
+                    icon={SearchX}
+                    title="Aucun collaborateur trouvé"
+                    description="Aucun collaborateur ne correspond à vos critères actuels de recherche ou de filtrage."
+                    actionLabel={onResetFilters ? "Réinitialiser les filtres" : undefined}
+                    onAction={onResetFilters}
+                />
+            );
+        }
+
         return (
             <EmptyState
-                icon={Users}
-                title="Aucun employé trouvé"
-                description="Aucun collaborateur ne correspond à vos critères de recherche ou de filtrage."
-                actionLabel={onResetFilters ? "Réinitialiser les filtres" : undefined}
-                onAction={onResetFilters}
+                icon={UserPlus}
+                title="Aucun employé enregistré"
+                description="Votre annuaire du personnel est actuellement vide. Commencez par ajouter votre premier collaborateur."
+                actionLabel={canWrite && onOpenCreate ? "Nouvel Employé" : undefined}
+                onAction={canWrite && onOpenCreate ? onOpenCreate : undefined}
+                actionIcon={<UserPlus size={16} />}
             />
         );
     }

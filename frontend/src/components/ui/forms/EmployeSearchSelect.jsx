@@ -28,8 +28,14 @@ export default function EmployeSearchSelect({
   useEffect(() => {
     if (employesProp && Array.isArray(employesProp)) {
       setListEmployes(employesProp);
+      if (value && String(value).trim() !== '' && String(value) !== '0') {
+        const found = employesProp.find((e) => String(e.idEmploye ?? e.id_employe) === String(value));
+        if (found) {
+          setSelectedEmployeObj(found);
+        }
+      }
     }
-  }, [employesProp]);
+  }, [employesProp, value]);
 
   // Mode 2 : Si pas de prop, recherche débouncée côté serveur (Front + Back)
   useEffect(() => {
@@ -57,16 +63,53 @@ export default function EmployeSearchSelect({
 
   // Retrouver l'objet employé si seule la valeur (ID) est passée depuis le parent
   useEffect(() => {
-    if (value) {
-      if (selectedEmployeObj && String(selectedEmployeObj.idEmploye) === String(value)) return;
-      employeService
-        .getEmployeFicheDetail(value)
-        .then((res) => setSelectedEmployeObj(res))
-        .catch(() => setSelectedEmployeObj(null));
-    } else {
+    if (!value || String(value).trim() === '' || String(value) === '0') {
       setSelectedEmployeObj(null);
+      return;
     }
-  }, [value, selectedEmployeObj]);
+
+    const currentId = selectedEmployeObj
+      ? (selectedEmployeObj.idEmploye ?? selectedEmployeObj.id_employe)
+      : null;
+
+    if (currentId && String(currentId) === String(value)) {
+      return;
+    }
+
+    // 1. Chercher d'abord dans la liste locale déjà disponible en mémoire
+    const sourceList = (employesProp && Array.isArray(employesProp) && employesProp.length > 0)
+      ? employesProp
+      : listEmployes;
+    const found = sourceList.find((e) => String(e.idEmploye ?? e.id_employe) === String(value));
+    if (found) {
+      setSelectedEmployeObj(found);
+      return;
+    }
+
+    // 2. Si non trouvé dans la liste en mémoire, charger la fiche depuis le serveur
+    let isMounted = true;
+    employeService
+      .getEmployeFicheDetail(value)
+      .then((res) => {
+        if (!isMounted) return;
+        // getEmployeFicheDetail retourne { employe: { idEmploye, nom, prenom, matricule, ... }, conjoint, ... }
+        const emp = res?.employe || res;
+        if (emp && (emp.idEmploye || emp.id_employe)) {
+          setSelectedEmployeObj(emp);
+        } else {
+          setSelectedEmployeObj(null);
+        }
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        console.error('Erreur récupération détail employé sélectionné:', err);
+        setSelectedEmployeObj(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [value, selectedEmployeObj, employesProp, listEmployes]);
 
   // Fermeture du dropdown au clic extérieur
   useEffect(() => {
@@ -84,7 +127,8 @@ export default function EmployeSearchSelect({
     setShowEmpDropdown(false);
     setEmpSearchQuery('');
     if (onChange) {
-      onChange(emp ? emp.idEmploye : '', emp);
+      const empId = emp ? (emp.idEmploye ?? emp.id_employe) : '';
+      onChange(empId, emp);
     }
   };
 
@@ -98,8 +142,9 @@ export default function EmployeSearchSelect({
 
   // Filtrage local complémentaire avec exclusion des employés inactifs/désactivés
   const displayEmployes = listEmployes.filter((emp) => {
+    const empId = emp.idEmploye ?? emp.id_employe;
     if (emp.actif === false || emp.statut === 'INACTIF' || emp.statut === 'DESACTIVE') {
-      if (String(emp.idEmploye) !== String(value)) return false;
+      if (String(empId) !== String(value)) return false;
     }
     const query = empSearchQuery.toLowerCase().trim();
     if (!query) return true;
@@ -107,6 +152,8 @@ export default function EmployeSearchSelect({
     const matricule = (emp.matricule || '').toLowerCase();
     return fullName.includes(query) || matricule.includes(query);
   });
+
+  const selectedId = selectedEmployeObj ? (selectedEmployeObj.idEmploye ?? selectedEmployeObj.id_employe) : null;
 
   return (
     <div className={`space-y-1.5 relative ${className}`} ref={dropdownRef}>
@@ -116,7 +163,7 @@ export default function EmployeSearchSelect({
         </label>
       )}
 
-      {selectedEmployeObj ? (
+      {selectedEmployeObj && selectedId ? (
         /* Carte récapitulative de l'employé sélectionné */
         <div className="flex items-center justify-between p-2 sm:p-2.5 border border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/5 text-xs sm:text-sm font-sans">
           <div className="flex items-center gap-2.5">
@@ -130,7 +177,7 @@ export default function EmployeSearchSelect({
               <div className="text-[11px] text-[var(--color-fg-muted)]">
                 {selectedEmployeObj.matricule
                   ? `Matricule : ${selectedEmployeObj.matricule}`
-                  : `ID : #${selectedEmployeObj.idEmploye}`}
+                  : `ID : #${selectedId}`}
               </div>
             </div>
           </div>

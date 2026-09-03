@@ -50,11 +50,18 @@ function StatutBadge({ statut }) {
     );
 }
 
-function formatPeriodeValidite(dateDebut, dateFin) {
+function formatPeriodeValidite(dateDebut, dateFin, statut) {
     const fmt = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : null;
-    const dStr = fmt(dateDebut) || 'Origine';
-    const fStr = fmt(dateFin) || 'En vigueur';
-    return `${dStr} - ${fStr}`;
+    const dStr = fmt(dateDebut);
+    const fStr = fmt(dateFin);
+
+    if (statut === 'PROGRAMME') {
+        return fStr ? `Prend effet le ${dStr} (jusqu'au ${fStr})` : `Prend effet le ${dStr}`;
+    }
+    if (statut === 'ARCHIVE') {
+        return `${dStr || 'Origine'} - ${fStr || 'Clôturé'}`;
+    }
+    return `${dStr || 'Origine'} - ${fStr || 'En vigueur'}`;
 }
 
 function formatValeurAffichage(code, valeur) {
@@ -102,7 +109,7 @@ export default function ParametresGlobauxTab({ fixedCategory }) {
     // Filtres, vue & tri
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState(fixedCategory || 'ALL');
-    const [selectedStatut, setSelectedStatut] = useState('ALL');
+    const [selectedStatut, setSelectedStatut] = useState('EN_VIGUEUR');
     const [viewMode, setViewMode] = useState('CARDS'); // 'CARDS' ou 'TABLE'
     const [sortBy, setSortBy] = useState('CODE_ASC');
 
@@ -293,24 +300,59 @@ function matchCategory(itemCat, targetCat) {
         <div className="space-y-6">
             {error && <Alert type="error" message={error} />}
 
-            {/* Barre de synthèse & KPIs rapides */}
+            {/* Barre de synthèse & KPIs rapides (cliquables pour filtrer) */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
-                    <div className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider">Total Parametres</div>
+                <button
+                    type="button"
+                    onClick={() => setSelectedStatut('ALL')}
+                    className={`text-left p-3 transition-colors border cursor-pointer ${
+                        selectedStatut === 'ALL'
+                            ? 'bg-[var(--color-bg-subtle)] border-[var(--color-fg)] shadow-xs'
+                            : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]'
+                    }`}
+                >
+                    <div className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider font-semibold">Total Paramètres</div>
                     <div className="text-xl font-bold text-[var(--color-fg)] mt-0.5">{metrics.total}</div>
-                </div>
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
-                    <div className="text-[10px] text-[var(--color-success-600)] uppercase tracking-wider">En Vigueur</div>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => setSelectedStatut('EN_VIGUEUR')}
+                    className={`text-left p-3 transition-colors border cursor-pointer ${
+                        selectedStatut === 'EN_VIGUEUR'
+                            ? 'bg-[var(--color-success-500)]/10 border-[var(--color-success-600)] shadow-xs'
+                            : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]'
+                    }`}
+                >
+                    <div className="text-[10px] text-[var(--color-success-600)] uppercase tracking-wider font-semibold">En Vigueur</div>
                     <div className="text-xl font-bold text-[var(--color-success-600)] mt-0.5">{metrics.enVigueur}</div>
-                </div>
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
-                    <div className="text-[10px] text-[var(--color-brand-500)] uppercase tracking-wider">Programmes</div>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => setSelectedStatut('PROGRAMME')}
+                    className={`text-left p-3 transition-colors border cursor-pointer ${
+                        selectedStatut === 'PROGRAMME'
+                            ? 'bg-[var(--color-brand-500)]/10 border-[var(--color-brand-500)] shadow-xs'
+                            : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]'
+                    }`}
+                >
+                    <div className="text-[10px] text-[var(--color-brand-500)] uppercase tracking-wider font-semibold">Programmés</div>
                     <div className="text-xl font-bold text-[var(--color-brand-500)] mt-0.5">{metrics.programmes}</div>
-                </div>
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
-                    <div className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider">Archives</div>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => setSelectedStatut('ARCHIVE')}
+                    className={`text-left p-3 transition-colors border cursor-pointer ${
+                        selectedStatut === 'ARCHIVE'
+                            ? 'bg-[var(--color-bg-subtle)] border-[var(--color-fg-muted)] shadow-xs'
+                            : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]'
+                    }`}
+                >
+                    <div className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider font-semibold">Archivés</div>
                     <div className="text-xl font-bold text-[var(--color-fg-muted)] mt-0.5">{metrics.archives}</div>
-                </div>
+                </button>
             </div>
 
             {/* Barre d'actions & Filtres */}
@@ -433,8 +475,8 @@ function matchCategory(itemCat, targetCat) {
 
                                                 <CardBody className="py-3 px-4 space-y-2 flex-1">
                                                     <div>
-                                                        <div className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider">
-                                                            Valeur Active
+                                                        <div className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider font-semibold">
+                                                            {statut === 'EN_VIGUEUR' ? 'Valeur Active' : statut === 'PROGRAMME' ? 'Valeur Programmée' : 'Valeur Archivée'}
                                                         </div>
                                                         <div className="text-xl font-black text-[var(--color-fg)] mt-0.5 tracking-tight">
                                                             {valeurAffichee}
@@ -448,21 +490,23 @@ function matchCategory(itemCat, targetCat) {
                                                     <div className="pt-2 border-t border-[var(--color-border-subtle)] flex items-center justify-between text-[11px] text-[var(--color-fg-muted)]">
                                                         <span className="flex items-center gap-1">
                                                             <Calendar size={12} />
-                                                            {formatPeriodeValidite(param.dateDebut, param.dateFin)}
+                                                            {formatPeriodeValidite(param.dateDebut, param.dateFin, statut)}
                                                         </span>
                                                     </div>
                                                 </CardBody>
 
                                                 <CardFooter className="py-2 px-4 flex items-center justify-end gap-2 bg-[var(--color-bg-subtle)]">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="xs"
-                                                        onClick={() => handleOpenEdit(param, true)}
-                                                        title="Programmer une nouvelle version a date d'effet future"
-                                                    >
-                                                        <Plus size={13} className="mr-1" />
-                                                        Versionner
-                                                    </Button>
+                                                    {statut !== 'PROGRAMME' && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="xs"
+                                                            onClick={() => handleOpenEdit(param, true)}
+                                                            title="Programmer une nouvelle version a date d'effet future"
+                                                        >
+                                                            <Plus size={13} className="mr-1" />
+                                                            Versionner
+                                                        </Button>
+                                                    )}
                                                     <Button
                                                         variant="secondary"
                                                         size="xs"
@@ -527,21 +571,23 @@ function matchCategory(itemCat, targetCat) {
                                                 {p.description || '-'}
                                             </Td>
                                             <Td isData muted className="text-xs">
-                                                {formatPeriodeValidite(p.dateDebut, p.dateFin)}
+                                                {formatPeriodeValidite(p.dateDebut, p.dateFin, statut)}
                                             </Td>
                                             <Td isData>
                                                 <StatutBadge statut={statut} />
                                             </Td>
                                             <Td className="text-right">
                                                 <div className="inline-flex items-center gap-1.5">
-                                                    <button
-                                                        onClick={() => handleOpenEdit(p, true)}
-                                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] cursor-pointer"
-                                                        title="Programmer une nouvelle version a date future"
-                                                        aria-label={`Programmer nouvelle version pour ${p.codeParametre}`}
-                                                    >
-                                                        <Plus size={15} />
-                                                    </button>
+                                                    {statut !== 'PROGRAMME' && (
+                                                        <button
+                                                            onClick={() => handleOpenEdit(p, true)}
+                                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] cursor-pointer"
+                                                            title="Programmer une nouvelle version a date future"
+                                                            aria-label={`Programmer nouvelle version pour ${p.codeParametre}`}
+                                                        >
+                                                            <Plus size={15} />
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => handleOpenEdit(p, false)}
                                                         className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] cursor-pointer"
@@ -586,10 +632,12 @@ function matchCategory(itemCat, targetCat) {
                     <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3 text-xs text-[var(--color-fg-muted)] space-y-1">
                         <div className="font-bold text-[var(--color-fg)] flex items-center gap-1.5">
                             <ShieldCheck size={14} className="text-[var(--color-brand-500)]" />
-                            Regle d'Integrite Comptable & Historique
+                            {isNouvelleVersion ? "Programmation d'une nouvelle version" : "Règle d'Intégrité Comptable & Historique"}
                         </div>
                         <div>
-                            Les periodes de paie et de pointage validees ou cloturees sont scellees de facon immuable. La modification s'applique uniquement a la periode en cours et aux periodes futures.
+                            {isNouvelleVersion
+                                ? "Cette nouvelle valeur sera enregistrée avec le statut « Programmé ». Elle ne s'activera qu'à compter de la date d'effet choisie et ne remplacera pas la valeur en vigueur actuelle tant que cette date n'est pas atteinte."
+                                : "Les modifications directes s'appliquent immédiatement à la période en cours. Les périodes clôturées restent scellées."}
                         </div>
                     </div>
 

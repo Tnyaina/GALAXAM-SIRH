@@ -76,6 +76,7 @@ const EMPTY_FORM = {
     codeVersion: '', libelle: '', dateDebut: '', dateFin: '',
     smeNational: '262680', smeAgricole: '266500', plafondCotisationNbSme: '8',
     seuilExonerationIrsa: '350000', minimumPerceptionIrsa: '3000', deductionChargeFamille: '2000',
+    arrondiBaseIrsa: 'CENTAINE_INF',
     dureeHebdoLegale: '40', diviseurMensuelHeures: '173.3333', seuilHsTranche1: '8', plafondHsHebdo: '20',
     acquisitionCongeMensuelJours: '2.5', diviseurValorisationCongeJours: '30',
 };
@@ -447,6 +448,7 @@ export default function ReglementationFiscaleTab() {
             seuilExonerationIrsa:     String(activeConfig.seuilExonerationIrsa ?? ''),
             minimumPerceptionIrsa:    String(activeConfig.minimumPerceptionIrsa ?? ''),
             deductionChargeFamille:   String(activeConfig.deductionChargeFamille ?? ''),
+            arrondiBaseIrsa:          activeConfig.arrondiBaseIrsa ?? 'CENTAINE_INF',
             dureeHebdoLegale:         String(activeConfig.dureeHebdoLegale ?? '40'),
             diviseurMensuelHeures:    String(activeConfig.diviseurMensuelHeures ?? '173.3333'),
             seuilHsTranche1:          String(activeConfig.seuilHsTranche1 ?? '8'),
@@ -474,6 +476,7 @@ export default function ReglementationFiscaleTab() {
             seuilExonerationIrsa:     String(config.seuilExonerationIrsa ?? ''),
             minimumPerceptionIrsa:    String(config.minimumPerceptionIrsa ?? ''),
             deductionChargeFamille:   String(config.deductionChargeFamille ?? ''),
+            arrondiBaseIrsa:          config.arrondiBaseIrsa ?? 'CENTAINE_INF',
             dureeHebdoLegale:         String(config.dureeHebdoLegale ?? '40'),
             diviseurMensuelHeures:    String(config.diviseurMensuelHeures ?? '173.3333'),
             seuilHsTranche1:          String(config.seuilHsTranche1 ?? '8'),
@@ -498,6 +501,7 @@ export default function ReglementationFiscaleTab() {
         seuilExonerationIrsa:         parseSafe(formData.seuilExonerationIrsa),
         minimumPerceptionIrsa:        parseSafe(formData.minimumPerceptionIrsa),
         deductionChargeFamille:       parseSafe(formData.deductionChargeFamille),
+        arrondiBaseIrsa:              formData.arrondiBaseIrsa || 'CENTAINE_INF',
         dureeHebdoLegale:             parseSafe(formData.dureeHebdoLegale, 40),
         diviseurMensuelHeures:        parseSafe(formData.diviseurMensuelHeures, 173.3333),
         seuilHsTranche1:              parseSafe(formData.seuilHsTranche1, 8),
@@ -526,7 +530,8 @@ export default function ReglementationFiscaleTab() {
             setShowModal(false);
             load();
         } catch (err) {
-            setModalError(err.response?.data || "Erreur lors de la sauvegarde. Vérifiez les données saisies.");
+            const errMsg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response?.data : null) || "Erreur lors de la sauvegarde. Vérifiez les données saisies.";
+            setModalError(errMsg);
         } finally {
             setSubmitting(false);
         }

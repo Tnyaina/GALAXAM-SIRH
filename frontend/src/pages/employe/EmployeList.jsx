@@ -383,6 +383,14 @@ export default function EmployeList() {
     const totalActifs = statsCounts.actifs;
     const totalInactifs = statsCounts.inactifs;
 
+    const hasActiveFilters = Boolean(
+        searchQuery.trim() ||
+        statusFilter !== 'ALL' ||
+        siteFilter ||
+        departementFilter ||
+        serviceFilter
+    );
+
     return (
         <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <PageHeader
@@ -463,6 +471,8 @@ export default function EmployeList() {
                     loading={loading}
                     canWrite={canWrite}
                     canValidate={canValidate}
+                    hasActiveFilters={hasActiveFilters}
+                    onOpenCreate={handleOpenCreate}
                     onOpenDetail={handleOpenDetail}
                     onOpenEdit={handleOpenEdit}
                     onToggleStatus={handleToggleStatus}

@@ -109,7 +109,7 @@ public class ContratTravailController {
             int maxRenouvellements = 1;
             try (var psParam = c.prepareStatement(
                     "SELECT valeur FROM parametre_global WHERE code_parametre = 'MAX_RENOUVELLEMENTS_ESSAI' " +
-                            "AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) ORDER BY date_debut DESC LIMIT 1")) {
+                            "AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) ORDER BY date_debut DESC LIMIT 1")) {
                 try (var rsParam = psParam.executeQuery()) {
                     if (rsParam.next()) {
                         try {

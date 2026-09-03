@@ -133,10 +133,15 @@ public class PaieConfigLegaleController {
                     return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Exercice fiscal introuvable.");
                 }
                 PaieConfigLegale updated = mapFromRequest(request);
+                updated.setIdConfigLegale(id);
+                if (updated.getCodeVersion() == null || updated.getCodeVersion().isBlank()) {
+                    updated.setCodeVersion(existing.getCodeVersion());
+                }
                 updated.update(c);
                 AuditLog.audit(c, "CORRECTION", "paie_config_legale", String.valueOf(id), existing, updated);
                 c.commit();
-                return ResponseEntity.ok(updated);
+                PaieConfigLegale reloaded = PaieConfigLegale.findById(id, c);
+                return ResponseEntity.ok(reloaded != null ? reloaded : updated);
             } catch (Exception ex) {
                 c.rollback();
                 return ResponseEntity.badRequest().body(ex.getMessage());

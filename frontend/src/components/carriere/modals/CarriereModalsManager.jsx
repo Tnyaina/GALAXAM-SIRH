@@ -6,6 +6,7 @@ import RenouvellementEssaiModal from '@/pages/employe/carriere/b/RenouvellementE
 import RuptureContratModal from '@/pages/employe/carriere/b/RuptureContratModal';
 import CertificatTravailModal from '@/pages/employe/carriere/b/CertificatTravailModal';
 import AttestationTravailModal from '@/pages/employe/carriere/b/AttestationTravailModal';
+import ContratTravailModal from '@/pages/employe/carriere/b/ContratTravailModal';
 import Loading from '@/components/ui/feedback/Loading';
 
 export default function CarriereModalsManager({
@@ -30,6 +31,8 @@ export default function CarriereModalsManager({
         selectedCertificatContrat, selectedCertificatAffectation, loadingCertificatAffectation,
         isAttestationModalOpen, setIsAttestationModalOpen,
         selectedAttestationContrat, selectedAttestationAffectation, loadingAttestationAffectation,
+        isContratModalOpen, setIsContratModalOpen,
+        selectedContratDoc, selectedContratAffectation, loadingContratAffectation,
         handleSuccessAction, handleOpenEditModal
     } = modalsState;
 
@@ -153,6 +156,18 @@ export default function CarriereModalsManager({
                             ? [...contratsList].sort((a, b) => new Date(a.dateDebut || 0) - new Date(b.dateDebut || 0))[0]?.dateDebut
                             : selectedAttestationContrat?.dateDebut
                     }
+                />
+            )}
+
+            {isContratModalOpen && (
+                <ContratTravailModal
+                    isOpen={isContratModalOpen}
+                    onClose={() => setIsContratModalOpen(false)}
+                    employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
+                    contrat={selectedContratDoc || contratActif || (contratsList?.length > 0 ? contratsList[0] : null)}
+                    affectation={selectedContratAffectation || affectationActive}
+                    loadingAffectation={loadingContratAffectation}
+                    filiale={selectedContratDoc?.filiale || contratActif?.filiale}
                 />
             )}
 
