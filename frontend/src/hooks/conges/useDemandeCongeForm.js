@@ -33,6 +33,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   const [derogationDelaiPreavis, setDerogationDelaiPreavis] = useState(false);
   const [derogationContinuiteService, setDerogationContinuiteService] = useState(false);
   const [extensionPathologiqueMaternite, setExtensionPathologiqueMaternite] = useState(false);
+  const [estRemunere, setEstRemunere] = useState(true);
   const [showOptionsAvancees, setShowOptionsAvancees] = useState(false);
 
   // Simulation, Conflits de poste & Continuité de service
@@ -92,6 +93,13 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         setDerogationDelaiPreavis(!!initialDemande.derogationDelaiPreavis);
         setDerogationContinuiteService(!!initialDemande.derogationContinuiteService);
         setExtensionPathologiqueMaternite(!!initialDemande.extensionPathologiqueMaternite);
+        if (initialDemande.estRemunere !== undefined && initialDemande.estRemunere !== null) {
+          setEstRemunere(Boolean(initialDemande.estRemunere));
+        } else if (initialDemande.estPaye !== undefined) {
+          setEstRemunere(Boolean(initialDemande.estPaye));
+        } else {
+          setEstRemunere(true);
+        }
         if (initialDemande.derogationSoldeNegatif || initialDemande.derogationDelaiPreavis || initialDemande.derogationContinuiteService || initialDemande.extensionPathologiqueMaternite) {
           setShowOptionsAvancees(true);
         } else {
@@ -108,6 +116,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         setEstDemiJournee(false);
         setMomentDemiJournee('MATIN');
         setDerogationSoldeNegatif(false);
+        setEstRemunere(true);
         setDerogationDelaiPreavis(false);
         setDerogationContinuiteService(false);
         setExtensionPathologiqueMaternite(false);
@@ -265,6 +274,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         derogationDelaiPreavis: Boolean(derogationDelaiPreavis),
         derogationContinuiteService: Boolean(derogationContinuiteService),
         extensionPathologiqueMaternite: Boolean(extensionPathologiqueMaternite),
+        estRemunere: Boolean(estRemunere),
       };
 
       const isEditMode = !!initialDemande?.idDemandeConge;
@@ -312,6 +322,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
     derogationDelaiPreavis, setDerogationDelaiPreavis,
     derogationContinuiteService, setDerogationContinuiteService,
     extensionPathologiqueMaternite, setExtensionPathologiqueMaternite,
+    estRemunere, setEstRemunere,
     showOptionsAvancees, setShowOptionsAvancees,
     preavisInfo,
 

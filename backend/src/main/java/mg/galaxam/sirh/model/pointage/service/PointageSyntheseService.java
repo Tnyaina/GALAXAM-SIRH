@@ -288,7 +288,7 @@ public class PointageSyntheseService {
                         cumulHeuresDimanche += th;
                     } else if ("CONGE".equals(stCode)) {
                         conges++;
-                    } else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode)) {
+                    } else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode) || "ABSENCE_JUSTIFIEE".equals(stCode)) {
                         absences++;
                     } else if ("FERIE_CHOME".equals(stCode)) {
                         feriesChomes++;

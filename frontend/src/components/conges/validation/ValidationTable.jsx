@@ -109,6 +109,15 @@ export default function ValidationTable({
                         <Badge variant="default" size="xs" className="font-semibold">
                           {d.libelleTypeConge || d.codeTypeConge}
                         </Badge>
+                        {d.estPaye ? (
+                          <Badge variant="success" size="xs" className="font-medium">
+                            Rémunéré
+                          </Badge>
+                        ) : (
+                          <Badge variant="neutral" size="xs" className="font-medium">
+                            Sans solde
+                          </Badge>
+                        )}
                         {d.libelleMotifEvenement && (
                           <span className="text-[11px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-medium block">
                             {d.libelleMotifEvenement}

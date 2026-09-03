@@ -736,7 +736,7 @@ Modéliser le parcours professionnel et contractuel des collaborateurs via un mo
 
 ### 1. Objectif
 
-Assurer le suivi rigoureux des temps de présence, badgeages matin/après-midi, détection et calcul précis des retards, ventilation hebdomadaire au seuil légal de 40 heures/semaine avec compensation 1:1 retard/HS, majorations pour heures supplémentaires (130%, 150%), heures de nuit, dimanches et jours fériés, modèle relationnel normalisé des indemnités repas et transport (`pointage_indemnite_jour`), régularisation des anomalies avec synchronisation bidirectionnelle et clôture/gel des périodes de paie pour transmission à la DAF.
+Assurer le suivi rigoureux des temps de présence, badgeages matin/après-midi, détection et calcul précis des retards, ventilation hebdomadaire au seuil légal de 40 heures/semaine avec compensation 1:1 retard/HS, majorations pour heures supplémentaires (130%, 150%), heures de nuit, dimanches et jours fériés, modèle relationnel normalisé des indemnités repas et transport (`pointage_indemnite_jour`), régularisation des anomalies avec synchronisation bidirectionnelle et clôture/gel des périodes de paie pour transmission à la DAF. Le module intègre la détection proactive des demandes de congés ou permissions en attente de validation RH lors de l'analyse des anomalies, et applique la stricte distinction d'impact salarial lors des régularisations : maintien de salaire (`CONGE` ou permission rémunérée) vs décompte du salaire au temps de travail effectif (`ABSENCE_JUSTIFIEE` et `ABSENCE_NON_JUSTIFIEE`).
 
 ### 2. Acteurs
 
@@ -765,7 +765,7 @@ Assurer le suivi rigoureux des temps de présence, badgeages matin/après-midi, 
 
 * `GET /pointages/saisie` : Données de la grille quotidienne incluant les paramètres d'horaires et indemnités du site.
 * `POST /pointages/saisie/batch` : Sauvegarde par lot des badgeages et écriture synchronisée dans `pointage_jour` et `pointage_indemnite_jour`.
-* `GET /pointages/anomalies` : Liste filtrée des anomalies (incomplets, retards non justifiés, absences non justifiées).
+* `GET /pointages/anomalies` : Liste filtrée des anomalies (incomplets, retards non justifiés, absences non justifiées, alertes de demandes de permissions en attente RH).
 * `PUT /pointages/anomalies/{idPointage}/regulariser` : Régularisation d'une anomalie avec synchronisation transactionnelle obligatoire dans `pointage_indemnite_jour` (`syncIndemniteJour`).
 * `GET /pointages/synthese` : Synthèse globale du mois par collaborateur.
 * `GET /pointages/synthese/semaines` : Découpage par tronçons de semaine (40h) et ventilation des majorations.
@@ -779,7 +779,7 @@ Assurer le suivi rigoureux des temps de présence, badgeages matin/après-midi, 
 
 ### 1. Objectif
 
-Gérer les demandes d'absences et de congés payés, le suivi des droits acquis (2.5 jours/mois), la consommation par imputation stricte FIFO sur les pools d'années de référence, le calcul automatique des jours ouvrables/fériés décomptés, la planification d'équipe via calendrier Gantt interactif fluide (mode mois/semaine, sélection directe par glisser-déposer), l'anti-collision organisationnelle multi-sites `(id_fonction, id_site)` avec tolérance des demi-journées complémentaires, le contrôle d'ancienneté légale 12 mois (Art. 85 Code du Travail Malagasy), la bascule automatique des arrêts maladie longue durée > 30 jours (Art. 13) et les purges annuelles.
+Gérer les demandes d'absences et de congés payés, le suivi des droits acquis (2.5 jours/mois), la consommation par imputation stricte FIFO sur les pools d'années de référence, le calcul automatique des jours ouvrables/fériés décomptés, la planification d'équipe via calendrier Gantt interactif fluide (mode mois/semaine, sélection directe par glisser-déposer), l'anti-collision organisationnelle multi-sites `(id_fonction, id_site)` avec tolérance des demi-journées complémentaires, le contrôle d'ancienneté légale 12 mois (Art. 85 Code du Travail Malagasy), la bascule automatique des arrêts maladie longue durée > 30 jours (Art. 13), les permissions exceptionnelles configurables dynamiquement en rémunéré ou sans solde (`est_remunere`), et les purges annuelles.
 
 ### 2. Acteurs
 

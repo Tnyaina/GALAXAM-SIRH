@@ -36,12 +36,16 @@ export default function ValidationModals({
   actionError
 }) {
   const [justificatifFourni, setJustificatifFourni] = useState(false);
+  const [estRemunere, setEstRemunere] = useState(true);
 
   useEffect(() => {
-    if (showValiderModal) {
-      setJustificatifFourni(false);
+    if (showValiderModal && selectedDemande) {
+      setJustificatifFourni(Boolean(selectedDemande.justificatifFourni));
+      setEstRemunere(selectedDemande.estRemunere !== undefined && selectedDemande.estRemunere !== null
+        ? Boolean(selectedDemande.estRemunere)
+        : Boolean(selectedDemande.estPaye));
     }
-  }, [showValiderModal]);
+  }, [showValiderModal, selectedDemande]);
 
   return (
     <>
@@ -168,19 +172,35 @@ export default function ValidationModals({
         message={`Valider la demande de ${selectedDemande?.prenom || ''} ${selectedDemande?.nom || ''} (${selectedDemande?.estDemiJournee ? `0,5 jour ${selectedDemande?.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}` : `${selectedDemande?.nbJoursDecomptes} jours`} de ${selectedDemande?.codeTypeConge}) ?`}
         confirmLabel="Valider la demande"
         confirmVariant="success"
-        onConfirm={() => onConfirmValider(justificatifFourni)}
+        onConfirm={() => onConfirmValider(justificatifFourni, estRemunere)}
         onClose={onCloseValider}
         loading={actionLoading}
       >
-        {!selectedDemande?.justificatifFourni && (
-          <div className="mt-4 pt-4 border-t border-[var(--color-border-subtle)]">
+        <div className="mt-4 pt-4 border-t border-[var(--color-border-subtle)] space-y-3">
+          <label className="flex items-start gap-3 cursor-pointer p-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+            <input
+              type="checkbox"
+              checked={estRemunere}
+              onChange={(e) => setEstRemunere(e.target.checked)}
+              className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
+            />
+            <span className="text-sm font-medium text-[var(--color-fg)]">
+              Maintien de la rémunération (Rémunéré à 100%)
+              <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5 font-normal">
+                {estRemunere
+                  ? 'Rémunération maintenue : 100% du salaire préservé lors du calcul de paie.'
+                  : 'Non rémunéré (sans solde) : déduction proportionnelle au temps de travail sur le bulletin.'}
+              </span>
+            </span>
+          </label>
+          {!selectedDemande?.justificatifFourni && (
             <Checkbox
               label="Marquer le justificatif comme fourni (Requis pour valider certains congés comme Maladie)"
               checked={justificatifFourni}
               onChange={(e) => setJustificatifFourni(e.target.checked)}
             />
-          </div>
-        )}
+          )}
+        </div>
       </ConfirmDialog>
 
       {/* ── Modal refus avec motif ─────────────────────────────────────────── */}

@@ -26,6 +26,7 @@ public class PointageAnomalieDTO {
     private String typeAnomalie; // 'INCOMPLET', 'RETARD', 'ABSENCE'
     private String descriptionAnomalie;
     private String motifAjustement;
+    private String demandeEnAttenteLibelle;
     
     private Boolean indemniteDeplacementRecue;
     private Boolean deplacementMatin = true;
@@ -124,6 +125,9 @@ public class PointageAnomalieDTO {
 
     public String getStatutPeriodeCode() { return statutPeriodeCode; }
     public void setStatutPeriodeCode(String statutPeriodeCode) { this.statutPeriodeCode = statutPeriodeCode; }
+
+    public String getDemandeEnAttenteLibelle() { return demandeEnAttenteLibelle; }
+    public void setDemandeEnAttenteLibelle(String demandeEnAttenteLibelle) { this.demandeEnAttenteLibelle = demandeEnAttenteLibelle; }
 
     // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
     public boolean isIncomplet()       { return "INCOMPLET".equalsIgnoreCase(typeAnomalie) || "ANOMALIE_SAISIE".equalsIgnoreCase(statutCode); }

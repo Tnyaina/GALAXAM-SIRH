@@ -362,8 +362,19 @@ export default function AnomaliesPointagePage() {
                                         </Td>
                                         <Td className="py-3 px-3 text-center">
                                             {anom.statutCode === 'ABSENCE_NON_JUSTIFIEE' || anom.typeAnomalie === 'ABSENCE' ? (
-                                                <Badge variant="danger" size="sm" className="font-bold">
-                                                    Absence Injustifiée
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <Badge variant="danger" size="sm" className="font-bold">
+                                                        Absence Injustifiée
+                                                    </Badge>
+                                                    {anom.demandeEnAttenteLibelle && (
+                                                        <span className="text-[10px] font-medium text-[var(--color-info-fg)] bg-[var(--color-info-subtle)] px-1.5 py-0.5 border border-[var(--color-info-border)]">
+                                                            Demande en attente : {anom.demandeEnAttenteLibelle}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ) : anom.statutCode === 'ABSENCE_JUSTIFIEE' ? (
+                                                <Badge variant="warning" size="sm" className="font-bold">
+                                                    Absence Justifiée (Non payée)
                                                 </Badge>
                                             ) : anom.statutCode === 'ANOMALIE_SAISIE' || anom.typeAnomalie === 'INCOMPLET' ? (
                                                 <Badge variant="warning" size="sm" className="font-bold">
@@ -376,6 +387,10 @@ export default function AnomaliesPointagePage() {
                                                     </Badge>
                                                     <span className="text-[10px] text-[var(--color-fg-muted)]">Présence effective</span>
                                                 </div>
+                                            ) : anom.statutCode === 'CONGE' ? (
+                                                <Badge variant="secondary" size="sm" className="font-bold">
+                                                    Permission / Congé
+                                                </Badge>
                                             ) : (
                                                 <Badge variant="info" size="sm" className="font-bold">
                                                     {anom.statutLibelle || anom.statutCode}
@@ -421,6 +436,12 @@ export default function AnomaliesPointagePage() {
                             </p>
                         </div>
 
+                        {selectedAnomalie.demandeEnAttenteLibelle && (
+                            <div className="p-3 bg-[var(--color-info-subtle)] border border-[var(--color-info-border)] text-xs text-[var(--color-info-fg)]">
+                                Attention : Une demande de <strong className="font-bold">{selectedAnomalie.demandeEnAttenteLibelle}</strong> est actuellement en cours de validation RH pour cette date.
+                            </div>
+                        )}
+
                         {/* 0. Statut de régularisation */}
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold text-[var(--color-fg)] uppercase">Statut régularisé :</label>
@@ -429,9 +450,9 @@ export default function AnomaliesPointagePage() {
                                 onChange={(val) => setFormData(prev => ({ ...prev, statutCode: val }))}
                                 options={[
                                     { value: 'PRESENT', label: 'Présent (heures réelles travaillées)' },
-                                    { value: 'ABSENCE_JUSTIFIEE', label: 'Absence justifiée (justificatif RH / maladie)' },
-                                    { value: 'ABSENCE_NON_JUSTIFIEE', label: 'Absence non justifiée (décomptée du salaire)' },
-                                    { value: 'CONGE', label: 'Congé exceptionnel régularisé' }
+                                    { value: 'CONGE', label: 'Permission / Congé rémunéré (maintien de salaire)' },
+                                    { value: 'ABSENCE_JUSTIFIEE', label: 'Absence justifiée (justificatif fourni — non rémunérée)' },
+                                    { value: 'ABSENCE_NON_JUSTIFIEE', label: 'Absence non justifiée (non rémunérée)' }
                                 ]}
                             />
                         </div>

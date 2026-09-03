@@ -466,7 +466,8 @@ public class PointageSaisieService {
                         dto.setLibelleFerie(libelleFerie);
 
                         // Congé approuvé ce jour
-                        String sqlConge = "SELECT tc.libelle, dc.est_demi_journee, dc.moment_demi_journee " +
+                        String sqlConge = "SELECT tc.libelle, tc.code AS type_code, COALESCE(dc.est_remunere, tc.est_paye) AS est_paye, " +
+                                          "dc.est_demi_journee, dc.moment_demi_journee " +
                                           "FROM demande_conge dc " +
                                           "JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
                                           "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
@@ -481,7 +482,18 @@ public class PointageSaisieService {
                                 psC.setDate(2, date);
                                 try (ResultSet rsC = psC.executeQuery()) {
                                     if (rsC.next()) {
-                                        libelleConge = rsC.getString("libelle");
+                                        String tCode = rsC.getString("type_code");
+                                        boolean estPayeConge = rsC.getBoolean("est_paye");
+                                        String baseLib = rsC.getString("libelle");
+
+                                        if ("PERMISSION".equalsIgnoreCase(tCode)) {
+                                            libelleConge = estPayeConge ? "Permission autorisée (Payée)" : "Permission autorisée (Non payée)";
+                                        } else if (!estPayeConge) {
+                                            libelleConge = baseLib + " (Sans solde)";
+                                        } else {
+                                            libelleConge = baseLib;
+                                        }
+
                                         boolean estDemi = rsC.getBoolean("est_demi_journee");
                                         String mdj = rsC.getString("moment_demi_journee");
                                         if (estDemi && "MATIN".equalsIgnoreCase(mdj)) typeCongeJour = "MATIN";

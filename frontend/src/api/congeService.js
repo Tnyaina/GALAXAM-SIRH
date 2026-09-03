@@ -207,10 +207,15 @@ const congeService = {
    * Valide une demande de congé (génère automatiquement le débit PRISE dans le ledger)
    */
   validerDemande: async (id, options = {}) => {
-    let url = `/conges/demandes/${id}/valider`;
+    const params = new URLSearchParams();
     if (options.justificatifFourni) {
-      url += `?justificatifFourni=true`;
+      params.append('justificatifFourni', 'true');
     }
+    if (options.estRemunere !== undefined && options.estRemunere !== null) {
+      params.append('estRemunere', String(options.estRemunere));
+    }
+    const queryString = params.toString();
+    const url = `/conges/demandes/${id}/valider${queryString ? `?${queryString}` : ''}`;
     const response = await apiClient.post(url);
     return response.data;
   },

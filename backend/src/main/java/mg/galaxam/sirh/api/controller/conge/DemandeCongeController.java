@@ -143,6 +143,9 @@ public class DemandeCongeController {
                     d.setExtensionPathologiqueMaternite(
                             Boolean.parseBoolean(req.get("extensionPathologiqueMaternite").toString()));
                 }
+                if (req.get("estRemunere") != null && !req.get("estRemunere").toString().isBlank()) {
+                    d.setEstRemunere(Boolean.parseBoolean(req.get("estRemunere").toString()));
+                }
                 if (req.get("justificatifFourni") != null) {
                     d.setJustificatifFourni(Boolean.parseBoolean(req.get("justificatifFourni").toString()));
                 }
@@ -325,7 +328,8 @@ public class DemandeCongeController {
     @PostMapping("/{id}/valider")
     @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> validerDemande(@PathVariable Integer id,
-            @RequestParam(required = false, defaultValue = "false") boolean justificatifFourni) {
+            @RequestParam(required = false, defaultValue = "false") boolean justificatifFourni,
+            @RequestParam(required = false) Boolean estRemunere) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -336,6 +340,10 @@ public class DemandeCongeController {
                 if (justificatifFourni) {
                     d.setJustificatifFourni(true);
                 }
+                if (estRemunere != null) {
+                    d.setEstRemunere(estRemunere);
+                }
+                d.update(c);
 
                 Integer currentUserId = getCurrentUserId();
                 congeService.validerDemande(id, currentUserId, null, c);

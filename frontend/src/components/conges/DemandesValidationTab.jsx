@@ -60,12 +60,12 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
   const openModifier = (d) => { setSelectedDemande(d); setShowDemandeModal(true); };
   const closeDetail = () => { setShowDetailModal(false); setSelectedDemande(null); };
 
-  const onConfirmValider = async (justificatifFourni) => {
+  const onConfirmValider = async (justificatifFourni, estRemunere) => {
     if (!selectedDemande) return;
     try {
       setActionLoading(true);
       setActionError(null);
-      await handleValider(selectedDemande.idDemandeConge, { justificatifFourni });
+      await handleValider(selectedDemande.idDemandeConge, { justificatifFourni, estRemunere });
       toast({ title: 'Demande validée', message: `La demande #${selectedDemande.idDemandeConge} a été validée.`, type: 'success', duration: 3000 });
       setShowValiderModal(false);
       setSelectedDemande(null);

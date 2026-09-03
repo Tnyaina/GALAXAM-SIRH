@@ -127,6 +127,7 @@ CREATE TABLE demande_conge (
     est_demi_journee BOOLEAN DEFAULT FALSE,
     moment_demi_journee VARCHAR(10) CHECK (moment_demi_journee IN ('MATIN', 'APRES_MIDI')),
 
+    est_remunere BOOLEAN DEFAULT NULL, -- NULL = selon ref_type_conge, TRUE = rémunérée (maintien salaire), FALSE = non rémunérée (sans solde)
     justificatif_fourni BOOLEAN DEFAULT FALSE,
     commentaire TEXT,
 
@@ -224,7 +225,8 @@ SELECT
     d.id_type_conge,
     tc.code AS code_type_conge,
     tc.libelle AS libelle_type_conge,
-    tc.est_paye,
+    COALESCE(d.est_remunere, tc.est_paye) AS est_paye,
+    d.est_remunere,
     tc.suspend_acquisition_solde,
     d.id_motif_evenement_familial,
     m.code AS code_motif_evenement,
@@ -320,6 +322,7 @@ INSERT INTO ref_type_conge (code, libelle, est_paye, decompte_solde_acquis, exig
 INSERT INTO ref_type_conge (code, libelle, est_paye, decompte_solde_acquis, exige_anciennete_min_mois, duree_fixe_jours, exige_justificatif, soumis_delai_preavis, suspend_acquisition_solde) VALUES
 ('ANNUEL',     'Congé annuel payé',  TRUE,  TRUE,  12, NULL, FALSE, TRUE,  FALSE),
 ('MATERNITE',  'Congé maternité',    TRUE,  FALSE, 0,  98,   TRUE,  FALSE, FALSE),
+('PERMISSION', 'Permission exceptionnelle autorisée', TRUE, FALSE, 0, NULL, TRUE, FALSE, FALSE),
 ('SABBATIQUE', 'Congé sabbatique',   FALSE, FALSE, 0,  NULL, FALSE, TRUE,  TRUE),
 ('FORMATION',  'Congé formation',    FALSE, FALSE, 0,  NULL, FALSE, TRUE,  TRUE),
 ('SANS_SOLDE', 'Congé sans solde',   FALSE, FALSE, 0,  NULL, FALSE, FALSE, TRUE);

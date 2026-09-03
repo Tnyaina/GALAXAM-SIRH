@@ -43,6 +43,7 @@ export default function DemandeCongeModal({
     derogationDelaiPreavis, setDerogationDelaiPreavis,
     derogationContinuiteService, setDerogationContinuiteService,
     extensionPathologiqueMaternite, setExtensionPathologiqueMaternite,
+    estRemunere, setEstRemunere,
     showOptionsAvancees, setShowOptionsAvancees,
     preavisInfo,
 
@@ -210,6 +211,8 @@ export default function DemandeCongeModal({
               setDerogationDelaiPreavis={setDerogationDelaiPreavis}
               derogationContinuiteService={derogationContinuiteService}
               setDerogationContinuiteService={setDerogationContinuiteService}
+              estRemunere={estRemunere}
+              setEstRemunere={setEstRemunere}
             />
           </div>
 

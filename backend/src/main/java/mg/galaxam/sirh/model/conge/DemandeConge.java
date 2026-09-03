@@ -42,6 +42,7 @@ public class DemandeConge extends ClassMere {
     private String momentDemiJournee; // MATIN ou APRES_MIDI
 
     private boolean justificatifFourni = false;
+    private Boolean estRemunere;
     private String commentaire;
 
     private Integer saisiPar;
@@ -610,8 +611,8 @@ public class DemandeConge extends ClassMere {
                 "date_debut, date_fin, date_demande, nb_jours_decomptes, " +
                 "derogation_solde_negatif, derogation_delai_preavis, derogation_continuite_service, extension_pathologique_maternite, " +
                 "est_demi_journee, moment_demi_journee, " +
-                "justificatif_fourni, commentaire, saisi_par" +
-                ") VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "est_remunere, justificatif_fourni, commentaire, saisi_par" +
+                ") VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             int i = 1;
@@ -629,6 +630,7 @@ public class DemandeConge extends ClassMere {
             ps.setBoolean(i++, extensionPathologiqueMaternite);
             ps.setBoolean(i++, estDemiJournee);
             setNullableString(ps, i++, momentDemiJournee);
+            setNullableBoolean(ps, i++, estRemunere);
             ps.setBoolean(i++, justificatifFourni);
             setNullableString(ps, i++, commentaire);
             setNullableInt(ps, i++, saisiPar);
@@ -650,7 +652,7 @@ public class DemandeConge extends ClassMere {
                 "date_debut = ?, date_fin = ?, date_demande = ?, nb_jours_decomptes = ?, " +
                 "derogation_solde_negatif = ?, derogation_delai_preavis = ?, derogation_continuite_service = ?, extension_pathologique_maternite = ?, " +
                 "est_demi_journee = ?, moment_demi_journee = ?, " +
-                "justificatif_fourni = ?, commentaire = ?, valide_par = ?, date_validation = ?, motif_refus = ?, " +
+                "est_remunere = ?, justificatif_fourni = ?, commentaire = ?, valide_par = ?, date_validation = ?, motif_refus = ?, " +
                 "updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_demande_conge = ?";
 
@@ -669,6 +671,7 @@ public class DemandeConge extends ClassMere {
             ps.setBoolean(i++, extensionPathologiqueMaternite);
             ps.setBoolean(i++, estDemiJournee);
             setNullableString(ps, i++, momentDemiJournee);
+            setNullableBoolean(ps, i++, estRemunere);
             ps.setBoolean(i++, justificatifFourni);
             setNullableString(ps, i++, commentaire);
             setNullableInt(ps, i++, validePar);
@@ -747,6 +750,11 @@ public class DemandeConge extends ClassMere {
         obj.setEstDemiJournee(rs.getBoolean("est_demi_journee"));
         obj.setMomentDemiJournee(rs.getString("moment_demi_journee"));
         obj.setJustificatifFourni(rs.getBoolean("justificatif_fourni"));
+        try {
+            if (rs.getObject("est_remunere") != null) {
+                obj.setEstRemunere(rs.getBoolean("est_remunere"));
+            }
+        } catch (Exception ignored) {}
         obj.setCommentaire(rs.getString("commentaire"));
         obj.setSaisiPar(getNullableIntFromRs(rs, "saisi_par"));
         obj.setValidePar(getNullableIntFromRs(rs, "valide_par"));
@@ -776,6 +784,13 @@ public class DemandeConge extends ClassMere {
             ps.setTimestamp(index, value);
         else
             ps.setNull(index, Types.TIMESTAMP);
+    }
+
+    private static void setNullableBoolean(PreparedStatement ps, int index, Boolean value) throws Exception {
+        if (value != null)
+            ps.setBoolean(index, value);
+        else
+            ps.setNull(index, Types.BOOLEAN);
     }
 
     private static Integer getNullableIntFromRs(ResultSet rs, String colName) throws Exception {
@@ -966,5 +981,13 @@ public class DemandeConge extends ClassMere {
 
     public void setUpdatedAt(Timestamp updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Boolean getEstRemunere() {
+        return estRemunere;
+    }
+
+    public void setEstRemunere(Boolean estRemunere) {
+        this.estRemunere = estRemunere;
     }
 }

@@ -69,9 +69,9 @@ export const getStatutPointageBadge = (codeStatut, minutesRetard = 0) => {
         case 'ABSENT':
             return <Badge variant="danger">Absent</Badge>;
         case 'ABSENCE_JUSTIFIEE':
-            return <Badge variant="info">Absence justifiée</Badge>;
+            return <Badge variant="warning">Absence justifiée (non payée)</Badge>;
         case 'CONGE':
-            return <Badge variant="secondary">Congé</Badge>;
+            return <Badge variant="secondary">Congé / Permission</Badge>;
         case 'DISPENSE_POINTAGE':
             return <Badge variant="info">Autonome</Badge>;
         case 'FERIE_TRAVAILLE':

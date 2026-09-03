@@ -4,7 +4,8 @@ export default function OptionsRHSection({
   showOptionsAvancees, setShowOptionsAvancees,
   derogationSoldeNegatif, setDerogationSoldeNegatif,
   derogationDelaiPreavis, setDerogationDelaiPreavis,
-  derogationContinuiteService, setDerogationContinuiteService
+  derogationContinuiteService, setDerogationContinuiteService,
+  estRemunere, setEstRemunere
 }) {
   return (
     <div className="border border-[var(--color-border-subtle)] mt-4">
@@ -22,6 +23,22 @@ export default function OptionsRHSection({
       </button>
       {showOptionsAvancees && (
         <div className="px-4 pb-4 pt-1 border-t border-[var(--color-border-subtle)] space-y-3">
+          {setEstRemunere && (
+            <label className="flex items-start gap-3 cursor-pointer p-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+              <input
+                type="checkbox"
+                checked={estRemunere ?? true}
+                onChange={(e) => setEstRemunere(e.target.checked)}
+                className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
+              />
+              <span className="text-sm font-medium text-[var(--color-fg)]">
+                Maintien de la rémunération (Rémunéré à 100%)
+                <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5 font-normal">
+                  Coché : le salaire est intégralement maintenu. Décoché : absence non rémunérée / sans solde, décomptée au temps de travail sur la paie.
+                </span>
+              </span>
+            </label>
+          )}
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"

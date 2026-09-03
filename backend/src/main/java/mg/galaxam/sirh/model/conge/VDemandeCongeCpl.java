@@ -22,6 +22,7 @@ public class VDemandeCongeCpl extends ClassMere {
     private String codeTypeConge;
     private String libelleTypeConge;
     private boolean estPaye;
+    private Boolean estRemunere;
     private boolean suspendAcquisitionSolde;
 
     private Integer idMotifEvenementFamilial;
@@ -254,6 +255,11 @@ public class VDemandeCongeCpl extends ClassMere {
         obj.setCodeTypeConge(rs.getString("code_type_conge"));
         obj.setLibelleTypeConge(rs.getString("libelle_type_conge"));
         obj.setEstPaye(rs.getBoolean("est_paye"));
+        try {
+            if (rs.getObject("est_remunere") != null) {
+                obj.setEstRemunere(rs.getBoolean("est_remunere"));
+            }
+        } catch (Exception ignored) {}
         obj.setSuspendAcquisitionSolde(rs.getBoolean("suspend_acquisition_solde"));
 
         obj.setIdMotifEvenementFamilial(getNullableIntFromRs(rs, "id_motif_evenement_familial"));
@@ -399,6 +405,9 @@ public class VDemandeCongeCpl extends ClassMere {
 
     public Timestamp getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Timestamp updatedAt) { this.updatedAt = updatedAt; }
+
+    public Boolean getEstRemunere() { return estRemunere; }
+    public void setEstRemunere(Boolean estRemunere) { this.estRemunere = estRemunere; }
 
     // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
     public boolean isEnAttente() { return "EN_ATTENTE".equalsIgnoreCase(codeStatutDemande); }

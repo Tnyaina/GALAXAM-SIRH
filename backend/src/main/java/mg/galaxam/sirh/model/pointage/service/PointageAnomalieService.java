@@ -76,11 +76,19 @@ public class PointageAnomalieService {
                 "p.id_site, s.libelle AS site_nom, p.date_pointage, " +
                 "p.heure_entree_matin, p.heure_sortie_matin, p.heure_entree_am, p.heure_sortie_am, " +
                 "p.total_heures, p.minutes_retard, st.code AS statut_code, st.libelle AS statut_libelle, " +
-                "p.motif_ajustement, p.deplacement_matin, p.deplacement_am, p.indemnite_repas_recue " +
+                "p.motif_ajustement, p.deplacement_matin, p.deplacement_am, p.indemnite_repas_recue, " +
+                "ltr_conge.libelle_conge AS demande_en_attente_libelle " +
                 "FROM pointage_jour p " +
                 "JOIN employe e ON p.id_employe = e.id_employe " +
                 "LEFT JOIN ref_site s ON p.id_site = s.id_site " +
                 "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
+                "LEFT JOIN LATERAL (" +
+                "   SELECT tc.libelle AS libelle_conge FROM demande_conge dc " +
+                "   JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
+                "   JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
+                "   WHERE dc.id_employe = p.id_employe AND p.date_pointage BETWEEN dc.date_debut AND dc.date_fin " +
+                "   AND sc.code = 'EN_ATTENTE' LIMIT 1" +
+                ") ltr_conge ON TRUE " +
                 "WHERE (" +
                 "   st.code = 'ANOMALIE_SAISIE' " +
                 "   OR (st.code = 'ABSENCE_NON_JUSTIFIEE' AND EXTRACT(DOW FROM p.date_pointage) NOT IN (0, 6)) " +
@@ -145,6 +153,7 @@ public class PointageAnomalieService {
                         dto.setDeplacementMatin(rs.getBoolean("deplacement_matin"));
                         dto.setDeplacementAm(rs.getBoolean("deplacement_am"));
                         dto.setIndemniteRepasRecue(rs.getBoolean("indemnite_repas_recue"));
+                        dto.setDemandeEnAttenteLibelle(rs.getString("demande_en_attente_libelle"));
 
                         String stCode = dto.getStatutCode();
                         if ("ANOMALIE_SAISIE".equals(stCode)) {
@@ -153,7 +162,11 @@ public class PointageAnomalieService {
                             countIncomplets++;
                         } else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode)) {
                             dto.setTypeAnomalie("ABSENCE");
-                            dto.setDescriptionAnomalie("Absence non justifiée sur un jour ouvré.");
+                            if (dto.getDemandeEnAttenteLibelle() != null && !dto.getDemandeEnAttenteLibelle().isBlank()) {
+                                dto.setDescriptionAnomalie("Absence : demande de " + dto.getDemandeEnAttenteLibelle() + " en attente de validation RH.");
+                            } else {
+                                dto.setDescriptionAnomalie("Absence non justifiée sur un jour ouvré.");
+                            }
                             countAbsences++;
                         } else if (dto.getMinutesRetard() != null && dto.getMinutesRetard() > 0) {
                             dto.setTypeAnomalie("RETARD");
