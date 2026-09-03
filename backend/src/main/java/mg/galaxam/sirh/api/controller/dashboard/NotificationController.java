@@ -57,7 +57,7 @@ public class NotificationController {
 
             List<Map<String, Object>> notifications = new ArrayList<>();
             try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setObject(1, idUtilisateur);
+                ps.setObject(1, idUtilisateur, java.sql.Types.INTEGER);
                 ResultSet rs = ps.executeQuery();
                 while (rs.next()) {
                     Map<String, Object> n = new LinkedHashMap<>();
@@ -99,7 +99,7 @@ public class NotificationController {
                     "WHERE est_lue = FALSE " +
                     "AND (id_utilisateur IS NULL OR id_utilisateur = ?)";
             try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setObject(1, idUtilisateur);
+                ps.setObject(1, idUtilisateur, java.sql.Types.INTEGER);
                 int updated = ps.executeUpdate();
                 return ResponseEntity.ok(Map.of("marquees", updated));
             }
@@ -141,7 +141,7 @@ public class NotificationController {
             Integer idUtilisateur = getCurrentUserId(c);
             String sql = "DELETE FROM notification_rh WHERE (id_utilisateur IS NULL OR id_utilisateur = ?)";
             try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setObject(1, idUtilisateur);
+                ps.setObject(1, idUtilisateur, java.sql.Types.INTEGER);
                 int deleted = ps.executeUpdate();
                 return ResponseEntity.ok(Map.of("supprimees", deleted));
             }
