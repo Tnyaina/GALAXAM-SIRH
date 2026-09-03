@@ -165,7 +165,7 @@ CREATE INDEX idx_pointage_periode ON pointage_jour(id_periode_paie);
 CREATE INDEX idx_pointage_date ON pointage_jour(date_pointage);
 CREATE INDEX idx_pointage_statut ON pointage_jour(id_statut_jour);
 
--- Table universelle d'ajustements dynamiques des indemnités journalières (Extensibilité Future)
+-- Table universelle des indemnités journalières (Source unique de vérité des primes et indemnités)
 CREATE TABLE IF NOT EXISTS pointage_indemnite_jour (
     id_pointage_indemnite SERIAL PRIMARY KEY,
     id_pointage INT NOT NULL REFERENCES pointage_jour(id_pointage) ON DELETE CASCADE,
@@ -182,6 +182,22 @@ CREATE TABLE IF NOT EXISTS pointage_indemnite_jour (
 
 CREATE INDEX IF NOT EXISTS idx_pointage_indemnite_ptg ON pointage_indemnite_jour(id_pointage);
 CREATE INDEX IF NOT EXISTS idx_pointage_indemnite_ref ON pointage_indemnite_jour(id_indemnite);
+
+-- Vue unifiée des indemnités par pointage pour faciliter les requêtes de synthèse
+CREATE OR REPLACE VIEW v_pointage_indemnites AS
+SELECT 
+    pij.id_pointage_indemnite,
+    pij.id_pointage,
+    pij.id_indemnite,
+    ri.code AS code_indemnite,
+    ri.libelle AS libelle_indemnite,
+    pij.fraction,
+    pij.quantite,
+    pij.montant_calcule,
+    pij.accorde,
+    pij.motif_ajustement
+FROM pointage_indemnite_jour pij
+JOIN ref_indemnite ri ON pij.id_indemnite = ri.id_indemnite;
 
 -- ============================================================
 -- 3. FONCTION : JOURS OUVRABLES DU MOIS (pour prorata des indemnités)
@@ -272,16 +288,21 @@ SELECT
     COALESCE(SUM(p.heures_nuit), 0)                                 AS heures_nuit_total,
     COALESCE(SUM(
         CASE 
+            WHEN pij_dep.quantite IS NOT NULL THEN (CASE WHEN pij_dep.accorde THEN pij_dep.quantite ELSE 0.0 END)
             WHEN p.deplacement_matin IS NOT NULL AND p.deplacement_am IS NOT NULL 
                 THEN (CASE WHEN p.deplacement_matin = TRUE THEN 0.5 ELSE 0.0 END + CASE WHEN p.deplacement_am = TRUE THEN 0.5 ELSE 0.0 END)
             WHEN p.indemnite_deplacement_recue = TRUE THEN 1.0
             ELSE 0.0 
         END
     ), 0) AS nb_jours_deplacement,
-    COUNT(*) FILTER (WHERE p.indemnite_repas_recue)                 AS nb_jours_repas,
-    COALESCE(SUM(p.montant_repas), 0)                               AS montant_repas_total
+    COUNT(*) FILTER (WHERE COALESCE(pij_repas.accorde, p.indemnite_repas_recue)) AS nb_jours_repas,
+    COALESCE(SUM(COALESCE(pij_repas.montant_calcule, p.montant_repas)), 0)       AS montant_repas_total
 FROM pointage_jour p
 JOIN ref_statut_pointage_jour s ON p.id_statut_jour = s.id_statut_jour
+LEFT JOIN pointage_indemnite_jour pij_repas ON p.id_pointage = pij_repas.id_pointage 
+    AND pij_repas.id_indemnite = (SELECT id_indemnite FROM ref_indemnite WHERE code = 'REPAS' LIMIT 1)
+LEFT JOIN pointage_indemnite_jour pij_dep ON p.id_pointage = pij_dep.id_pointage 
+    AND pij_dep.id_indemnite IN (SELECT id_indemnite FROM ref_indemnite WHERE code IN ('DEPLACEMENT', 'TRANSPORT') LIMIT 1)
 GROUP BY p.id_employe, p.id_periode_paie;
 
 -- Agrégat des HS brutes mensuelle depuis les tronçons hebdomadaires
@@ -357,9 +378,25 @@ CREATE TABLE pointage_cumul_periode (
 CREATE INDEX idx_cumul_periode_employe
     ON pointage_cumul_periode(id_employe, id_periode_paie);
 
+-- Cumul mensuel dynamique des indemnités figé à la clôture (extensibilité totale pour toutes indemnités)
+CREATE TABLE IF NOT EXISTS pointage_cumul_indemnite (
+    id_cumul_indemnite   SERIAL PRIMARY KEY,
+    id_periode_paie      INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie) ON DELETE CASCADE,
+    id_employe           INTEGER NOT NULL REFERENCES employe(id_employe) ON DELETE CASCADE,
+    id_indemnite         INTEGER NOT NULL REFERENCES ref_indemnite(id_indemnite),
+    quantite_totale      DECIMAL(6,2) NOT NULL DEFAULT 0,
+    montant_total        DECIMAL(12,2) NOT NULL DEFAULT 0,
+    gele_at              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_cumul_indemnite UNIQUE (id_periode_paie, id_employe, id_indemnite)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cumul_indemnite_periode
+    ON pointage_cumul_indemnite(id_periode_paie, id_employe);
+
 -- ============================================================
 -- 6. EXTENSION DE notification_rh (nouveaux types d'alerte pointage)
 -- ============================================================
 -- NOTE : La contrainte chk_notif_type est définie de façon exhaustive
 -- dans 26-08-10-sp2-notifications.sql. Aucune modification nécessaire ici.
+
 

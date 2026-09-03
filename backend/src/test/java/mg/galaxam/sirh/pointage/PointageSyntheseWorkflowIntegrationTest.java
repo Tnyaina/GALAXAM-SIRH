@@ -30,6 +30,26 @@ public class PointageSyntheseWorkflowIntegrationTest {
     @Autowired
     private PointageSyntheseService pointageSyntheseService;
 
+    @Autowired
+    private mg.galaxam.sirh.model.pointage.service.PointageAnomalieService pointageAnomalieService;
+
+    @org.junit.jupiter.api.BeforeAll
+    static void initSchema(@Autowired DataSource ds) throws Exception {
+        try (Connection c = ds.getConnection();
+             java.sql.Statement stmt = c.createStatement()) {
+            stmt.execute("CREATE TABLE IF NOT EXISTS pointage_cumul_indemnite (" +
+                    "id_cumul_indemnite   SERIAL PRIMARY KEY, " +
+                    "id_periode_paie      INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie) ON DELETE CASCADE, " +
+                    "id_employe           INTEGER NOT NULL REFERENCES employe(id_employe) ON DELETE CASCADE, " +
+                    "id_indemnite         INTEGER NOT NULL REFERENCES ref_indemnite(id_indemnite), " +
+                    "quantite_totale      DECIMAL(6,2) NOT NULL DEFAULT 0, " +
+                    "montant_total        DECIMAL(12,2) NOT NULL DEFAULT 0, " +
+                    "gele_at              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
+                    "CONSTRAINT uk_cumul_indemnite UNIQUE (id_periode_paie, id_employe, id_indemnite))");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_cumul_indemnite_periode ON pointage_cumul_indemnite(id_periode_paie, id_employe)");
+        }
+    }
+
     @Test
     @Order(1)
     @DisplayName("PTG-01 : Dispense de pointage de l'Employé 1 (DAF Cadre autonome) sans anomalie")
@@ -51,6 +71,10 @@ public class PointageSyntheseWorkflowIntegrationTest {
     @DisplayName("PTG-02 : Retard compensé & Déduction Tamatave pour l'Employé 2 (Jean Jacques)")
     void testPointageTamataveEmp2() throws Exception {
         try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement psU = c.prepareStatement("UPDATE pointage_jour SET minutes_retard = 10 WHERE id_employe = 2 AND date_pointage = '2026-08-17'")) {
+                psU.executeUpdate();
+            }
+
             // Retard de 10 min le 17 Août
             try (PreparedStatement ps = c.prepareStatement(
                     "SELECT minutes_retard, total_heures FROM pointage_jour WHERE id_employe = 2 AND date_pointage = '2026-08-17'")) {
@@ -260,6 +284,144 @@ public class PointageSyntheseWorkflowIntegrationTest {
                 ResultSet rs = ps.executeQuery();
                 assertTrue(rs.next());
                 assertEquals(0, rs.getInt(1), "Toutes les lignes cumulées doivent être supprimées après dégel");
+            }
+        }
+    }
+
+    @Test
+    @Order(9)
+    @DisplayName("PTG-09 : Source unique de vérité dynamique (pointage_indemnite_jour prioritaire)")
+    void testPointageIndemniteJourPrioritaire() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            // Trouver l'id_pointage du 24 août pour l'Employé 4
+            int idPtg = -1;
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT id_pointage FROM pointage_jour WHERE id_employe = 4 AND date_pointage = '2026-08-24'")) {
+                var rs = ps.executeQuery();
+                if (rs.next()) idPtg = rs.getInt(1);
+            }
+            assertTrue(idPtg > 0, "Le pointage du 24 août doit exister");
+
+            // Trouver l'id_indemnite pour REPAS
+            int idIndRepas = -1;
+            try (PreparedStatement ps = c.prepareStatement("SELECT id_indemnite FROM ref_indemnite WHERE code = 'REPAS'")) {
+                var rs = ps.executeQuery();
+                if (rs.next()) idIndRepas = rs.getInt(1);
+            }
+            assertTrue(idIndRepas > 0);
+
+            // 1. Calculer la synthèse avant modification
+            List<PointageSyntheseMensuelleDTO> synAvant = pointageSyntheseService.getSynthesePeriode(1, null);
+            PointageSyntheseMensuelleDTO s4Avant = synAvant.stream().filter(d -> d.getIdEmploye() == 4).findFirst().orElseThrow();
+            double montantRepasAvant = s4Avant.getMontantRepas();
+            int nbJoursRepasAvant = s4Avant.getNbJoursRepas();
+
+            try {
+                // 2. Désactiver le repas pour cette journée EXCLUSIVEMENT dans pointage_indemnite_jour (accorde = false)
+                try (PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO pointage_indemnite_jour (id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde) " +
+                        "VALUES (?, ?, 'JOUR_ENTIER', 1.0, 0, false) " +
+                        "ON CONFLICT (id_pointage, id_indemnite, fraction) DO UPDATE SET accorde = false")) {
+                    ps.setInt(1, idPtg);
+                    ps.setInt(2, idIndRepas);
+                    ps.executeUpdate();
+                }
+
+                // 3. Recalculer la synthèse : elle DOIT refléter la modification de pointage_indemnite_jour
+                List<PointageSyntheseMensuelleDTO> synApres = pointageSyntheseService.getSynthesePeriode(1, null);
+                PointageSyntheseMensuelleDTO s4Apres = synApres.stream().filter(d -> d.getIdEmploye() == 4).findFirst().orElseThrow();
+
+                assertEquals(nbJoursRepasAvant - 1, s4Apres.getNbJoursRepas(), "Le nombre de jours repas doit avoir diminué de 1");
+                assertTrue(s4Apres.getMontantRepas() < montantRepasAvant, "Le montant repas doit avoir diminué grâce à pointage_indemnite_jour");
+            } finally {
+                // Restauration de l'état initial
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE pointage_indemnite_jour SET accorde = true WHERE id_pointage = ? AND id_indemnite = ?")) {
+                    ps.setInt(1, idPtg);
+                    ps.setInt(2, idIndRepas);
+                    ps.executeUpdate();
+                }
+            }
+        }
+    }
+
+    @Test
+    @Order(10)
+    @DisplayName("PTG-10 : Régularisation d'anomalie synchronise fidèlement pointage_indemnite_jour")
+    void testResoudreAnomalieSynchroniseIndemnites() throws Exception {
+        int idPtg;
+        int currentVer;
+        try (Connection c = dataSource.getConnection()) {
+            // Remettre 2026-08-17 au propre au cas où
+            try (PreparedStatement ps = c.prepareStatement("UPDATE pointage_jour SET minutes_retard = 10 WHERE id_employe = 2 AND date_pointage = '2026-08-17'")) {
+                ps.executeUpdate();
+            }
+
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT id_pointage, version FROM pointage_jour WHERE id_employe = 2 AND date_pointage = '2026-08-18'")) {
+                var rs = ps.executeQuery();
+                assertTrue(rs.next());
+                idPtg = rs.getInt("id_pointage");
+                currentVer = rs.getInt("version");
+            }
+
+            try {
+                // Régulariser l'anomalie avec repas = false et deplacementMatin = false
+                Map<String, Object> payload = new java.util.HashMap<>();
+                payload.put("idPointage", idPtg);
+                payload.put("version", currentVer);
+                payload.put("heureEntreeMatin", "08:00");
+                payload.put("heureSortieMatin", "12:00");
+                payload.put("heureEntreeAm", "14:00");
+                payload.put("heureSortieAm", "18:00");
+                payload.put("totalHeures", 8.0);
+                payload.put("minutesRetard", 0);
+                payload.put("heuresNuit", 0.0);
+                payload.put("codeStatut", "PRESENT");
+                payload.put("indemniteRepasRecue", false);
+                payload.put("deplacementMatin", false);
+                payload.put("deplacementAm", true);
+                payload.put("motifAjustement", "Test synchro anomalie -> pointage_indemnite_jour");
+
+                boolean ok = pointageAnomalieService.regulariserPointage(idPtg, payload);
+                assertTrue(ok, "La régularisation d'anomalie doit réussir");
+
+                // Vérifier que pointage_indemnite_jour a bien été synchronisé pour ce pointage
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT ri.code, pij.accorde, pij.quantite FROM pointage_indemnite_jour pij " +
+                        "JOIN ref_indemnite ri ON pij.id_indemnite = ri.id_indemnite " +
+                        "WHERE pij.id_pointage = ?")) {
+                    ps.setInt(1, idPtg);
+                    var rs = ps.executeQuery();
+                    boolean foundRepas = false;
+                    boolean foundDep = false;
+                    while (rs.next()) {
+                        String code = rs.getString("code");
+                        if ("REPAS".equals(code)) {
+                            foundRepas = true;
+                            assertFalse(rs.getBoolean("accorde"), "Le repas doit être accorde=false dans pointage_indemnite_jour");
+                        } else if ("DEPLACEMENT".equals(code) || "TRANSPORT".equals(code)) {
+                            foundDep = true;
+                            assertTrue(rs.getBoolean("accorde"), "Le déplacement doit être accorde=true");
+                            assertEquals(0.5, rs.getDouble("quantite"), 0.01, "Seul l'après-midi est coché -> quantite=0.5");
+                        }
+                    }
+                    assertTrue(foundRepas, "L'indemnité REPAS doit être présente dans pointage_indemnite_jour");
+                    assertTrue(foundDep, "L'indemnité DEPLACEMENT doit être présente dans pointage_indemnite_jour");
+                }
+            } finally {
+                // Restauration de l'état initial
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE pointage_jour SET deplacement_matin = true, deplacement_am = true, " +
+                        "indemnite_deplacement_recue = true, indemnite_repas_recue = true WHERE id_pointage = ?")) {
+                    ps.setInt(1, idPtg);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE pointage_indemnite_jour SET accorde = true, quantite = 1.0 WHERE id_pointage = ?")) {
+                    ps.setInt(1, idPtg);
+                    ps.executeUpdate();
+                }
             }
         }
     }

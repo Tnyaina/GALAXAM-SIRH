@@ -814,6 +814,14 @@ public class PointageSaisieService {
         LocalTime debutNuit = LocalTime.parse(debutNuitStr.length() == 5 ? debutNuitStr : debutNuitStr.substring(0, 5));
         LocalTime finNuit = LocalTime.parse(finNuitStr.length() == 5 ? finNuitStr : finNuitStr.substring(0, 5));
 
+        Map<String, Integer> idIndemniteByCode = new HashMap<>();
+        try (PreparedStatement psRI = c.prepareStatement("SELECT id_indemnite, code FROM ref_indemnite");
+             ResultSet rsRI = psRI.executeQuery()) {
+            while (rsRI.next()) {
+                idIndemniteByCode.put(rsRI.getString("code"), rsRI.getInt("id_indemnite"));
+            }
+        }
+
         String sqlFindPer = "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
         String sqlCheckPer = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ? FOR SHARE";
         String sqlCheckRow = "SELECT id_pointage, COALESCE(version, 1) AS version FROM pointage_jour WHERE id_employe = ? AND date_pointage = ?";
@@ -1091,6 +1099,29 @@ public class PointageSaisieService {
                         }
                         throw eIns;
                     }
+                }
+
+                // Synchronisation systématique dans la table dynamique pointage_indemnite_jour
+                Integer idIndRepas = idIndemniteByCode.get("REPAS");
+                if (idIndRepas != null) {
+                    psDyn.setInt(1, idPtg);
+                    psDyn.setInt(2, idIndRepas);
+                    psDyn.setDouble(3, 1.0);
+                    psDyn.setDouble(4, mntRepasJour);
+                    psDyn.setBoolean(5, dto.isIndemniteRepasRecue());
+                    psDyn.executeUpdate();
+                }
+
+                Integer idIndDep = idIndemniteByCode.get("DEPLACEMENT");
+                if (idIndDep == null) idIndDep = idIndemniteByCode.get("TRANSPORT");
+                if (idIndDep != null) {
+                    double qteDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
+                    psDyn.setInt(1, idPtg);
+                    psDyn.setInt(2, idIndDep);
+                    psDyn.setDouble(3, qteDep);
+                    psDyn.setDouble(4, 0.0);
+                    psDyn.setBoolean(5, depRecue);
+                    psDyn.executeUpdate();
                 }
 
                 if (dto.getDynamicIndemnites() != null) {

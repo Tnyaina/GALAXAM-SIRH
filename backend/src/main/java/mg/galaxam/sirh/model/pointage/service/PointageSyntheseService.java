@@ -216,11 +216,18 @@ public class PointageSyntheseService {
         dto.setNbJoursOuvrables(nbJoursOuvrablesPeriode);
 
         // Charger tous les pointages quotidiens de cet employé sur [dateDebut, dateFin]
-        String sqlPtg = "SELECT p.date_pointage, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
+        // en priorisant les indemnités dynamiques depuis pointage_indemnite_jour
+        String sqlPtg = "SELECT p.id_pointage, p.date_pointage, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
                         "p.deplacement_matin, p.deplacement_am, p.indemnite_deplacement_recue, " +
-                        "p.indemnite_repas_recue, p.montant_repas, st.code AS statut_code " +
+                        "p.indemnite_repas_recue, p.montant_repas, st.code AS statut_code, " +
+                        "pij_repas.accorde AS dyn_repas_accorde, pij_repas.montant_calcule AS dyn_repas_montant, " +
+                        "pij_dep.accorde AS dyn_dep_accorde, pij_dep.quantite AS dyn_dep_quantite " +
                         "FROM pointage_jour p " +
                         "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
+                        "LEFT JOIN pointage_indemnite_jour pij_repas ON p.id_pointage = pij_repas.id_pointage " +
+                        "    AND pij_repas.id_indemnite = (SELECT id_indemnite FROM ref_indemnite WHERE code = 'REPAS' LIMIT 1) " +
+                        "LEFT JOIN pointage_indemnite_jour pij_dep ON p.id_pointage = pij_dep.id_pointage " +
+                        "    AND pij_dep.id_indemnite IN (SELECT id_indemnite FROM ref_indemnite WHERE code IN ('DEPLACEMENT', 'TRANSPORT') LIMIT 1) " +
                         "WHERE p.id_employe = ? AND p.date_pointage BETWEEN ? AND ? " +
                         "ORDER BY p.date_pointage";
 
@@ -270,7 +277,6 @@ public class PointageSyntheseService {
                     boolean depM = rsPtg.getBoolean("deplacement_matin");
                     boolean depA = rsPtg.getBoolean("deplacement_am");
                     boolean repas = rsPtg.getBoolean("indemnite_repas_recue");
-                    double mntRepas = rsPtg.getDouble("montant_repas");
                     Time saTime = rsPtg.getTime("heure_sortie_am");
                     LocalTime sa = saTime != null ? saTime.toLocalTime() : null;
 
@@ -298,9 +304,13 @@ public class PointageSyntheseService {
                     cumulHeuresNuit += hn;
                     totalMinsRetard += (estAutonome ? 0 : ret);
 
-                    // Saisie quotidienne est la vérité finale : si la case repas est cochée (ou autonome présent) -> calcul dynamique complet
+                    // Saisie quotidienne est la vérité finale :
+                    // Priorité à pointage_indemnite_jour, avec fallback sur les colonnes historiques
+                    Object dynRepasObj = rsPtg.getObject("dyn_repas_accorde");
+                    boolean repasEffectif = (dynRepasObj != null) ? rsPtg.getBoolean("dyn_repas_accorde") : repas;
+
                     boolean estPresentAutonome = estAutonome && !isWeekend && !isAbsenceOuConge && !"REPOS".equals(stCode);
-                    if (repas || estPresentAutonome) {
+                    if (repasEffectif || estPresentAutonome) {
                         repasCount++;
                         montantRepasTotal += calculateurEngine.calculerTotalRepasJour(
                                 true, montantRepasMidiDefaut, sa,
@@ -308,8 +318,16 @@ public class PointageSyntheseService {
                         );
                     }
 
-                    if (depM || estPresentAutonome) totalTrajets += 0.5;
-                    if (depA || estPresentAutonome) totalTrajets += 0.5;
+                    // Détermination du déplacement : priorité à pointage_indemnite_jour, avec fallback sur les colonnes historiques
+                    Object dynDepQteObj = rsPtg.getObject("dyn_dep_quantite");
+                    if (dynDepQteObj != null) {
+                        if (rsPtg.getBoolean("dyn_dep_accorde") || estPresentAutonome) {
+                            totalTrajets += rsPtg.getDouble("dyn_dep_quantite");
+                        }
+                    } else {
+                        if (depM || estPresentAutonome) totalTrajets += 0.5;
+                        if (depA || estPresentAutonome) totalTrajets += 0.5;
+                    }
 
                     LocalDate lundiSemaine = dPointage.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
                     parSemaine.computeIfAbsent(lundiSemaine, k -> new ArrayList<>());
@@ -601,6 +619,21 @@ public class PointageSyntheseService {
             }
             ps.executeBatch();
         }
+
+        // Archiver également toutes les indemnités dynamiques consolidées
+        String sqlCumulInd = "INSERT INTO pointage_cumul_indemnite (id_periode_paie, id_employe, id_indemnite, quantite_totale, montant_total) " +
+                "SELECT pj.id_periode_paie, pj.id_employe, pij.id_indemnite, SUM(pij.quantite), SUM(pij.montant_calcule) " +
+                "FROM pointage_indemnite_jour pij " +
+                "JOIN pointage_jour pj ON pij.id_pointage = pj.id_pointage " +
+                "WHERE pj.id_periode_paie = ? AND pij.accorde = true " +
+                "GROUP BY pj.id_periode_paie, pj.id_employe, pij.id_indemnite " +
+                "ON CONFLICT (id_periode_paie, id_employe, id_indemnite) DO UPDATE SET " +
+                "quantite_totale = EXCLUDED.quantite_totale, montant_total = EXCLUDED.montant_total, gele_at = CURRENT_TIMESTAMP";
+        try (PreparedStatement psInd = c.prepareStatement(sqlCumulInd)) {
+            psInd.setInt(1, idPeriode);
+            psInd.executeUpdate();
+        } catch (Exception ignored) {
+        }
     }
 
     /**
@@ -613,6 +646,11 @@ public class PointageSyntheseService {
             ps.executeUpdate();
             psSem.setInt(1, idPeriode);
             psSem.executeUpdate();
+        }
+        try (PreparedStatement psInd = c.prepareStatement("DELETE FROM pointage_cumul_indemnite WHERE id_periode_paie = ?")) {
+            psInd.setInt(1, idPeriode);
+            psInd.executeUpdate();
+        } catch (Exception ignored) {
         }
     }
 

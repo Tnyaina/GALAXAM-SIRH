@@ -351,7 +351,7 @@ public class PointageAnomalieService {
                     "indemnite_deplacement_recue, indemnite_repas_recue, version, created_at, updated_at " +
                     ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
                     "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                    "?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+                    "?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id_pointage";
                 try (PreparedStatement psIns = c.prepareStatement(sqlInsert)) {
                     psIns.setInt(1, idEmp);
                     psIns.setObject(2, idPer);
@@ -372,7 +372,14 @@ public class PointageAnomalieService {
                     psIns.setBoolean(17, depA);
                     psIns.setBoolean(18, depM || depA);
                     psIns.setBoolean(19, repas);
-                    return psIns.executeUpdate() > 0;
+                    try (ResultSet rsIns = psIns.executeQuery()) {
+                        if (rsIns.next()) {
+                            int newId = rsIns.getInt(1);
+                            syncIndemniteJour(c, newId, repas, depM, depA);
+                            return true;
+                        }
+                    }
+                    return false;
                 } catch (SQLException eIns) {
                     if (eIns.getMessage() != null && (eIns.getMessage().toLowerCase().contains("duplicate") || eIns.getMessage().toLowerCase().contains("unique"))) {
                         throw new IllegalStateException("Conflit de modification concurrente : le pointage existe déjà.");
@@ -419,9 +426,37 @@ public class PointageAnomalieService {
                     if (rows == 0) {
                         throw new IllegalStateException("Conflit de modification concurrente sur le pointage ID " + idPointage + ". La ligne a été modifiée par un tiers.");
                     }
+                    syncIndemniteJour(c, idPointage, repas, depM, depA);
                     return rows > 0;
                 }
             }
+        }
+    }
+
+    private void syncIndemniteJour(Connection c, int idPointage, boolean repas, boolean depM, boolean depA) {
+        String sqlDyn = "INSERT INTO pointage_indemnite_jour (id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde, updated_at) " +
+                "VALUES (?, (SELECT id_indemnite FROM ref_indemnite WHERE code = ? LIMIT 1), 'JOUR_ENTIER', ?, ?, ?, CURRENT_TIMESTAMP) " +
+                "ON CONFLICT (id_pointage, id_indemnite, fraction) DO UPDATE SET " +
+                "quantite = EXCLUDED.quantite, montant_calcule = EXCLUDED.montant_calcule, accorde = EXCLUDED.accorde, updated_at = CURRENT_TIMESTAMP";
+
+        try (PreparedStatement psDyn = c.prepareStatement(sqlDyn)) {
+            // REPAS
+            psDyn.setInt(1, idPointage);
+            psDyn.setString(2, "REPAS");
+            psDyn.setDouble(3, 1.0);
+            psDyn.setDouble(4, repas ? 2000.0 : 0.0);
+            psDyn.setBoolean(5, repas);
+            psDyn.executeUpdate();
+
+            // DEPLACEMENT
+            double qteDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
+            psDyn.setInt(1, idPointage);
+            psDyn.setString(2, "DEPLACEMENT");
+            psDyn.setDouble(3, qteDep);
+            psDyn.setDouble(4, 0.0);
+            psDyn.setBoolean(5, depM || depA);
+            psDyn.executeUpdate();
+        } catch (Exception ignored) {
         }
     }
 }
