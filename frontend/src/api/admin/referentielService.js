@@ -1,12 +1,34 @@
 // referentielService.js
 import apiClient from '@/api/apiClient';
+import { notifyMenuChanged } from '@/utils/menuEvents';
+
+// Cache mémoire pour les référentiels peu susceptibles de changer fréquemment
+const cache = {
+    modules: null,
+    roles: null,
+    menusFlat: null,
+    menusTree: null,
+};
+
+/**
+ * Invalide manuellement une ou plusieurs clés de cache.
+ */
+export const invalidateReferentielCache = (keys = ['modules', 'roles', 'menusFlat', 'menusTree']) => {
+    keys.forEach(k => {
+        cache[k] = null;
+    });
+};
 
 const referentielService = {
     // ----------------------------------------------------
     // RÔLES
     // ----------------------------------------------------
-    getRoles: async () => {
+    getRoles: async (forceRefresh = false) => {
+        if (!forceRefresh && cache.roles) {
+            return cache.roles;
+        }
         const response = await apiClient.get('/referentiel/roles');
+        cache.roles = response.data;
         return response.data;
     },
 
@@ -17,57 +39,83 @@ const referentielService = {
 
     createRole: async (data) => {
         const response = await apiClient.post('/referentiel/roles', data);
+        invalidateReferentielCache(['roles']);
+        notifyMenuChanged();
         return response.data;
     },
 
     updateRole: async (id, data) => {
         const response = await apiClient.put(`/referentiel/roles/${id}`, data);
+        invalidateReferentielCache(['roles']);
+        notifyMenuChanged();
         return response.data;
     },
 
     deactivateRole: async (id) => {
         const response = await apiClient.put(`/referentiel/roles/${id}/desactiver`);
+        invalidateReferentielCache(['roles']);
+        notifyMenuChanged();
         return response.data;
     },
 
     activateRole: async (id) => {
         const response = await apiClient.put(`/referentiel/roles/${id}/activer`);
+        invalidateReferentielCache(['roles']);
+        notifyMenuChanged();
         return response.data;
     },
 
     // ----------------------------------------------------
     // MODULES
     // ----------------------------------------------------
-    getModules: async () => {
+    getModules: async (forceRefresh = false) => {
+        if (!forceRefresh && cache.modules) {
+            return cache.modules;
+        }
         const response = await apiClient.get('/referentiel/modules');
+        cache.modules = response.data;
         return response.data;
     },
 
     // ----------------------------------------------------
     // MENUS
     // ----------------------------------------------------
-    getMenusTree: async () => {
+    getMenusTree: async (forceRefresh = false) => {
+        if (!forceRefresh && cache.menusTree) {
+            return cache.menusTree;
+        }
         const response = await apiClient.get('/referentiel/menus');
+        cache.menusTree = response.data;
         return response.data;
     },
 
-    getMenusFlat: async () => {
+    getMenusFlat: async (forceRefresh = false) => {
+        if (!forceRefresh && cache.menusFlat) {
+            return cache.menusFlat;
+        }
         const response = await apiClient.get('/referentiel/menus/flat');
+        cache.menusFlat = response.data;
         return response.data;
     },
 
     createMenu: async (data) => {
         const response = await apiClient.post('/referentiel/menus', data);
+        invalidateReferentielCache(['menusFlat', 'menusTree']);
+        notifyMenuChanged();
         return response.data;
     },
 
     updateMenu: async (id, data) => {
         const response = await apiClient.put(`/referentiel/menus/${id}`, data);
+        invalidateReferentielCache(['menusFlat', 'menusTree']);
+        notifyMenuChanged();
         return response.data;
     },
 
     deleteMenu: async (id) => {
         const response = await apiClient.delete(`/referentiel/menus/${id}`);
+        invalidateReferentielCache(['menusFlat', 'menusTree']);
+        notifyMenuChanged();
         return response.data;
     },
 
@@ -81,6 +129,7 @@ const referentielService = {
 
     updateRolePermissions: async (idRole, permissions) => {
         const response = await apiClient.post(`/referentiel/roles/${idRole}/permissions`, { permissions });
+        notifyMenuChanged();
         return response.data;
     },
 
@@ -91,6 +140,8 @@ const referentielService = {
 
     updateRoleMenus: async (idRole, idMenus) => {
         const response = await apiClient.post(`/referentiel/roles/${idRole}/menus`, { idMenus });
+        invalidateReferentielCache(['menusTree', 'menusFlat']);
+        notifyMenuChanged();
         return response.data;
     },
 
@@ -114,6 +165,7 @@ const referentielService = {
 
     updateUser: async (id, data) => {
         const response = await apiClient.put(`/securite/utilisateurs/${id}`, data);
+        notifyMenuChanged();
         return response.data;
     },
 

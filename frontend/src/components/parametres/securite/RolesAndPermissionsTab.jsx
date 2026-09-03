@@ -7,6 +7,7 @@ import { SkeletonCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useToast } from '@/components/ui/feedback/Toast';
+import { useMenu } from '@/hooks/useMenu';
 
 import RolesList from './roles/RolesList';
 import RoleFormModal from './roles/RoleFormModal';
@@ -14,6 +15,7 @@ import RolePermissionsMatrix from './roles/RolePermissionsMatrix';
 import RoleMenusTree from './roles/RoleMenusTree';
 
 export default function RolesAndPermissionsTab() {
+    const { refreshMenu } = useMenu();
     const [searchParams, setSearchParams] = useSearchParams();
     const rightTab = searchParams.get('subtab') || 'permissions'; // 'permissions' | 'menus'
 
@@ -170,6 +172,7 @@ export default function RolesAndPermissionsTab() {
                     }
                     setRoles(prev => prev.map(r => r.idRole === role.idRole ? { ...r, estActif: !r.estActif } : r));
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    refreshMenu?.();
                 } catch (err) {
                     setError("Erreur lors du changement de statut du rôle.");
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
@@ -306,6 +309,7 @@ export default function RolesAndPermissionsTab() {
             await referentielService.updateRoleMenus(selectedRole.idRole, selectedMenuIds);
             toast({ title: 'Succès', message: "Accès aux menus enregistré.", type: 'success' });
             loadRoleConfiguration(selectedRole.idRole);
+            refreshMenu?.();
         } catch {
             setError("Erreur lors de la mise à jour de l'accès aux menus.");
         }

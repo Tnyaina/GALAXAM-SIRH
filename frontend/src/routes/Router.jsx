@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import { AuthProvider } from "@/context/AuthContext";
+import { MenuProvider } from "@/context/MenuContext";
 import Layout from "@/components/layout/Layout";
 import Loading from "@/components/ui/feedback/Loading";
 
@@ -46,9 +47,10 @@ const NoConnection = lazy(() => import("@/pages/systeme/NoConnection"));
 export default function Router() {
     return (
         <AuthProvider>
-            {/* Fallback de chargement global pendant le téléchargement des chunks JS */}
-            <Suspense fallback={<Loading display="fullscreen" size="lg" label="Chargement de la page..." />}>
-                <Routes>
+            <MenuProvider>
+                {/* Fallback de chargement global pendant le téléchargement des chunks JS */}
+                <Suspense fallback={<Loading display="fullscreen" size="lg" label="Chargement de la page..." />}>
+                    <Routes>
                     {/* ---------------------------------------------------- */}
                     {/* Routes Publiques / Hors Session                      */}
                     {/* ---------------------------------------------------- */}
@@ -122,6 +124,7 @@ export default function Router() {
                     />
                 </Routes>
             </Suspense>
+            </MenuProvider>
         </AuthProvider>
     );
 }   

@@ -1,7 +1,8 @@
-import { useState, useEffect, createElement } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
 import { getMenuIcon } from '@/utils/iconRegistry';
+import IconPicker from '@/components/ui/forms/IconPicker';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Input, { Select } from '@/components/ui/forms/Input';
@@ -12,14 +13,10 @@ import Alert from '@/components/ui/feedback/Alert';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useToast } from '@/components/ui/feedback/Toast';
-
-const AVAILABLE_ICONS = [
-    'Circle', 'LayoutDashboard', 'Users', 'Clock', 'UserCheck',
-    'Truck', 'Package', 'Boxes', 'Shield', 'Settings',
-    'Menu', 'Home', 'Wrench', 'Info', 'WifiOff'
-];
+import { useMenu } from '@/hooks/useMenu';
 
 export default function MenuManagementTab() {
+    const { refreshMenu } = useMenu();
     const [menus, setMenus] = useState([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
@@ -148,6 +145,7 @@ export default function MenuManagementTab() {
             }
             setShowMenuModal(false);
             loadData();
+            refreshMenu?.();
         } catch (err) {
             setModalError(err.response?.data || "Une erreur est survenue lors de l'enregistrement.");
         } finally {
@@ -163,6 +161,7 @@ export default function MenuManagementTab() {
             toast({ title: 'Succès', message: `Le menu "${confirmDelete.menu.libelle}" a été supprimé.`, type: 'success' });
             setConfirmDelete({ isOpen: false, menu: null, loading: false });
             loadData();
+            refreshMenu?.();
         } catch (err) {
             setError(err.response?.data || "Erreur lors de la suppression du menu.");
             setConfirmDelete(prev => ({ ...prev, loading: false, isOpen: false }));
@@ -393,27 +392,11 @@ export default function MenuManagementTab() {
                         onChange={(e) => setFormData({ ...formData, href: e.target.value })}
                         placeholder="Ex: /conges ou /admin/config"
                     />
-                    <div className="space-y-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                            Icône Graphique
-                        </label>
-                        <div className="flex gap-3 items-center">
-                            <select
-                                value={formData.icone}
-                                onChange={(e) => setFormData({ ...formData, icone: e.target.value })}
-                                className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none text-sm text-[var(--color-fg)] px-3 py-2 outline-none focus:border-[var(--color-brand-500)] cursor-pointer"
-                            >
-                                {AVAILABLE_ICONS.map((ico) => (
-                                    <option key={ico} value={ico}>
-                                        {ico}
-                                    </option>
-                                ))}
-                            </select>
-                            <div className="w-9 h-9 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-center rounded-none shrink-0">
-                                {createElement(getMenuIcon(formData.icone), { size: 18, className: "text-[var(--color-brand-500)]" })}
-                            </div>
-                        </div>
-                    </div>
+                    <IconPicker
+                        label="Icône Graphique"
+                        value={formData.icone}
+                        onChange={(ico) => setFormData({ ...formData, icone: ico })}
+                    />
                 </form>
             </Modal>
 
