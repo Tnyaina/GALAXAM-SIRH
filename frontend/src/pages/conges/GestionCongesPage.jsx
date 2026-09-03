@@ -109,6 +109,7 @@ export default function GestionCongesPage() {
               loading={loading}
               error={error}
               demandesGlobales={demandesGlobales}
+              referentiels={referentiels}
               onReload={loadGlobalData}
             />
           )}

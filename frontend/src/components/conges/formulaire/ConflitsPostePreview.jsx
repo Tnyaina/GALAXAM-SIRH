@@ -1,0 +1,325 @@
+import { Users, AlertTriangle, CheckCircle2, Calendar, Clock, AlertCircle } from 'lucide-react';
+import Badge from '@/components/ui/data-display/Badge';
+
+const formatDateFr = (val) => {
+  if (!val) return '';
+  const d = new Date(val);
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+};
+
+export default function ConflitsPostePreview({
+  conflitReport,
+  checkingConflits,
+  dateDebut,
+  dateFin,
+  estDemiJournee,
+  momentDemiJournee,
+  derogationContinuiteService,
+  setDerogationContinuiteService
+}) {
+  const hasDates = Boolean(dateDebut && dateFin);
+
+  // Construction de la fenêtre temporelle pour le mini-Gantt (autour de dateDebut et dateFin)
+  let timelineDays = [];
+  if (hasDates) {
+    const dStart = new Date(dateDebut);
+    const dEnd = new Date(dateFin);
+
+    // Marge de 3 jours avant et 4 jours après pour donner du contexte visuel
+    const winStart = new Date(dStart);
+    winStart.setDate(winStart.getDate() - 3);
+
+    const winEnd = new Date(dEnd);
+    winEnd.setDate(winEnd.getDate() + 4);
+
+    let cur = new Date(winStart);
+    while (cur <= winEnd) {
+      const dateStr = cur.toISOString().slice(0, 10);
+      const isWeekend = cur.getDay() === 0 || cur.getDay() === 6;
+      const dayNum = cur.getDate();
+      const dayLabel = cur.toLocaleDateString('fr-FR', { weekday: 'short' });
+      const isInSelectedRange = dateStr >= dateDebut && dateStr <= (estDemiJournee ? dateDebut : dateFin);
+      timelineDays.push({
+        dateStr,
+        dayNum,
+        dayLabel,
+        isWeekend,
+        isInSelectedRange
+      });
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+
+  const totalTimelineCols = timelineDays.length || 1;
+
+  const calculateBarPosition = (startStr, endStr) => {
+    if (!timelineDays.length) return { left: 0, width: 0 };
+    const winFirst = timelineDays[0].dateStr;
+    const winLast = timelineDays[timelineDays.length - 1].dateStr;
+
+    const effStart = startStr < winFirst ? winFirst : startStr;
+    const effEnd = endStr > winLast ? winLast : endStr;
+
+    if (effEnd < winFirst || effStart > winLast) return { left: 0, width: 0, visible: false };
+
+    const startIdx = timelineDays.findIndex((d) => d.dateStr === effStart);
+    const endIdx = timelineDays.findIndex((d) => d.dateStr === effEnd);
+
+    const safeStartIdx = startIdx === -1 ? 0 : startIdx;
+    const safeEndIdx = endIdx === -1 ? timelineDays.length - 1 : endIdx;
+
+    const span = safeEndIdx - safeStartIdx + 1;
+    const leftPercent = (safeStartIdx / totalTimelineCols) * 100;
+    const widthPercent = (span / totalTimelineCols) * 100;
+
+    return { left: leftPercent, width: widthPercent, visible: true };
+  };
+
+  return (
+    <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-4 flex flex-col h-full space-y-4">
+      {/* En-tête du panneau */}
+      <div className="border-b border-[var(--color-border-subtle)] pb-2.5">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
+          <Users className="w-4 h-4 text-brand-600" />
+          Aperçu Gantt & Continuité de Service
+        </h4>
+        <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+          Superposition en temps réel avec le planning des collaborateurs du même poste
+        </p>
+      </div>
+
+      {/* Chargement */}
+      {checkingConflits && (
+        <div className="flex items-center gap-2 p-3 bg-brand-500/10 border border-brand-500/20 text-brand-700 dark:text-brand-300 text-xs animate-pulse">
+          <Clock className="w-3.5 h-3.5 animate-spin" />
+          <span>Analyse du planning d'équipe et des quorums…</span>
+        </div>
+      )}
+
+      {/* Si aucune date */}
+      {!hasDates && !checkingConflits && (
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-[var(--color-fg-subtle)] space-y-2">
+          <Calendar className="w-8 h-8 opacity-40" />
+          <p className="text-xs font-semibold">Sélectionnez les dates pour afficher le comparatif d'équipe</p>
+          <span className="text-[11px] opacity-75">
+            Le planning du demandeur et des collègues du même poste s'affichera sous forme de frise chronologique.
+          </span>
+        </div>
+      )}
+
+      {/* Contenu actif */}
+      {hasDates && !checkingConflits && (
+        <div className="space-y-4 flex-1 flex flex-col">
+          {/* Frise chronologique / Mini-Gantt comparatif fluide */}
+          <div className="border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xs w-full overflow-hidden">
+            <div className="w-full">
+              {/* En-tête des jours */}
+              <div className="flex bg-[var(--color-bg-subtle)] border-b border-[var(--color-border)] text-center select-none">
+                <div className="w-28 shrink-0 p-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] border-r border-[var(--color-border)] flex items-center">
+                  Ressource
+                </div>
+                <div className="flex-1 flex min-w-0">
+                  {timelineDays.map((td, i) => (
+                    <div
+                      key={i}
+                      className={`flex-1 min-w-0 py-1 border-r border-[var(--color-border-subtle)] last:border-0 text-[10px] font-mono ${
+                        td.isInSelectedRange
+                          ? 'bg-brand-500/15 font-bold text-brand-800 dark:text-brand-200 border-b-2 border-b-brand-600'
+                          : td.isWeekend
+                            ? 'bg-[var(--color-bg-subtle)]/80 text-[var(--color-fg-subtle)]'
+                            : 'text-[var(--color-fg)]'
+                      }`}
+                      title={td.dateStr}
+                    >
+                      <div className="text-[9px] uppercase opacity-75">{td.dayLabel.charAt(0)}</div>
+                      <div className="text-[10px]">{td.dayNum}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ligne 1 : Nouvelle demande (Demandeur) */}
+              <div className="flex items-center border-b border-[var(--color-border-subtle)] relative h-9 hover:bg-[var(--color-surface-hover)]">
+                <div className="w-28 shrink-0 px-2 text-[11px] font-bold text-[var(--color-fg)] truncate border-r border-[var(--color-border)] flex items-center justify-between">
+                  <span className="truncate">Demandeur</span>
+                  <span className="text-[9px] font-mono bg-brand-500/20 text-brand-800 dark:text-brand-300 px-1 py-0.2">
+                    Nouveau
+                  </span>
+                </div>
+                <div className="flex-1 relative h-full flex items-center">
+                  {/* Grille de fond */}
+                  <div className="absolute inset-0 flex pointer-events-none">
+                    {timelineDays.map((td, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex-1 border-r border-[var(--color-border-subtle)]/30 last:border-0 ${
+                          td.isWeekend ? 'bg-[var(--color-bg-subtle)]/30' : ''
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Barre de la demande en cours */}
+                  {(() => {
+                    const pos = calculateBarPosition(dateDebut, estDemiJournee ? dateDebut : dateFin);
+                    if (!pos.visible) return null;
+                    return (
+                      <div
+                        className="absolute h-6 bg-[var(--color-brand-600)] text-white text-[10px] font-bold px-1.5 flex items-center truncate shadow-2xs z-10 border border-[var(--color-brand-700)]"
+                        style={{ left: `${pos.left}%`, width: `${Math.max(pos.width, 3)}%` }}
+                        title={`Période demandée : ${formatDateFr(dateDebut)} au ${formatDateFr(dateFin)}`}
+                      >
+                        <span className="truncate">
+                          Sélection ({conflitReport?.nbJoursDecomptes ?? 1}j{estDemiJournee && momentDemiJournee ? ` - ${momentDemiJournee}` : ''})
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Lignes 2..N : Collègues du même poste */}
+              {conflitReport?.colleguesAbsents && conflitReport.colleguesAbsents.length > 0 ? (
+                conflitReport.colleguesAbsents.map((col, cIdx) => (
+                  <div
+                    key={cIdx}
+                    className="flex items-center border-b border-[var(--color-border-subtle)] last:border-0 relative h-9 hover:bg-[var(--color-surface-hover)]"
+                  >
+                    <div className="w-28 shrink-0 px-2 text-[11px] text-[var(--color-fg)] truncate border-r border-[var(--color-border)] flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-900 dark:text-amber-200 text-[9px] font-bold flex items-center justify-center shrink-0">
+                        {col.prenom?.[0] || 'C'}
+                      </span>
+                      <span className="truncate font-medium">{col.prenom} {col.nom}</span>
+                    </div>
+
+                    <div className="flex-1 relative h-full flex items-center">
+                      <div className="absolute inset-0 flex pointer-events-none">
+                        {timelineDays.map((td, idx) => (
+                          <div
+                            key={idx}
+                            className={`flex-1 border-r border-[var(--color-border-subtle)]/30 last:border-0 ${
+                              td.isWeekend ? 'bg-[var(--color-bg-subtle)]/30' : ''
+                            }`}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Barre du congé collègue */}
+                      {(() => {
+                        const sStr = typeof col.dateDebut === 'string' ? col.dateDebut.substring(0, 10) : new Date(col.dateDebut).toISOString().slice(0, 10);
+                        const eStr = typeof col.dateFin === 'string' ? col.dateFin.substring(0, 10) : new Date(col.dateFin).toISOString().slice(0, 10);
+                        const pos = calculateBarPosition(sStr, eStr);
+                        if (!pos.visible) return null;
+                        return (
+                          <div
+                            className="absolute h-6 bg-[var(--color-warning-500)] text-white text-[10px] font-semibold px-1.5 flex items-center truncate shadow-2xs z-10 border border-[var(--color-warning-600)]"
+                            style={{ left: `${pos.left}%`, width: `${Math.max(pos.width, 3)}%` }}
+                            title={`${col.prenom} ${col.nom} : ${col.typeConge || 'Congé'} du ${formatDateFr(col.dateDebut)} au ${formatDateFr(col.dateFin)}`}
+                          >
+                            <span className="truncate">
+                              {col.typeConge || 'Congé'}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-3 text-center text-xs text-[var(--color-fg-muted)] bg-[var(--color-bg-subtle)]/30">
+                  Aucun autre collaborateur au même poste n'est planifié absent sur cette fenêtre.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Alertes et Quorum */}
+          {conflitReport?.collisionPersonnelle && (
+            <div className="p-3 bg-danger-500/10 border border-danger-500/30 text-danger-800 dark:text-danger-300 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-xs">
+                <AlertCircle className="w-4 h-4 text-danger-600 shrink-0" />
+                <span>Chevauchement avec un autre congé personnel</span>
+              </div>
+              <p className="text-[11px] leading-relaxed">
+                Ce collaborateur a déjà une demande enregistrée sur ces dates :
+              </p>
+              {conflitReport.collisionsPersonnelles?.map((c, i) => (
+                <div key={i} className="text-[11px] font-medium flex items-center justify-between bg-[var(--color-surface)] px-2 py-1 border border-danger-500/20">
+                  <span>{c.typeConge}</span>
+                  <span className="font-mono">{formatDateFr(c.dateDebut)} → {formatDateFr(c.dateFin)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {conflitReport?.conflitPoste ? (
+            <div className="p-3 bg-amber-500/10 border border-amber-500/40 text-amber-950 dark:text-amber-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-bold text-xs">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Collision de poste détectée</span>
+                </div>
+                {conflitReport.nomFonction && (
+                  <Badge variant="warning" size="xs" className="font-bold uppercase tracking-wider">
+                    {conflitReport.nomFonction}
+                  </Badge>
+                )}
+              </div>
+
+              <p className="text-[11px] leading-relaxed">
+                {conflitReport.colleguesAbsents?.length || 1} collaborateur(s) du même poste sont simultanément absents.
+              </p>
+
+              <label className="flex items-start gap-2.5 pt-1 mt-1 border-t border-amber-500/30 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={derogationContinuiteService}
+                  onChange={(e) => setDerogationContinuiteService(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-[var(--color-brand-600)] cursor-pointer shrink-0"
+                />
+                <span className="text-[11.5px] font-bold text-[var(--color-fg)]">
+                  Accorder une dérogation exceptionnelle de continuité de service
+                  <span className="block text-[10.5px] font-normal text-[var(--color-fg-muted)]">
+                    Confirme que l'impact d'absence simultanée a été instruit et validé par les RH.
+                  </span>
+                </span>
+              </label>
+            </div>
+          ) : (
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 space-y-1">
+              <div className="flex items-center gap-2 font-bold text-xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Continuité de service assurée</span>
+              </div>
+              <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
+                Aucun autre collaborateur au poste {conflitReport?.nomFonction ? `« ${conflitReport.nomFonction} »` : 'associé'} n'est absent sur ces dates.
+              </p>
+            </div>
+          )}
+
+          {/* Décompte légal détaillé */}
+          <div className="grid grid-cols-3 gap-2 mt-auto">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2 text-center">
+              <span className="block text-[10px] uppercase font-bold text-[var(--color-fg-muted)]">Ouvrés</span>
+              <span className="text-sm font-bold text-[var(--color-fg)] font-mono">
+                {conflitReport?.nbJoursOuvres ?? 0}j
+              </span>
+            </div>
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2 text-center">
+              <span className="block text-[10px] uppercase font-bold text-[var(--color-fg-muted)]">Week-ends</span>
+              <span className="text-sm font-bold text-[var(--color-fg-muted)] font-mono">
+                {conflitReport?.nbJoursWeekEnd ?? 0}j
+              </span>
+            </div>
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2 text-center">
+              <span className="block text-[10px] uppercase font-bold text-[var(--color-fg-muted)]">Fériés</span>
+              <span className="text-sm font-bold text-warning-600 font-mono">
+                {conflitReport?.nbJoursFeries ?? 0}j
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

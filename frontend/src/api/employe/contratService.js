@@ -281,6 +281,15 @@ const contratService = {
         const response = await apiClient.get('/workflows', { params });
         return response.data;
     },
+
+    /**
+     * Déclenchement manuel ou explicite du rattrapage quotidien des mouvements RH et alertes.
+     * POST /workflows-rh/rattrapage
+     */
+    forcerRattrapage: async () => {
+        const response = await apiClient.post('/workflows-rh/rattrapage');
+        return response.data;
+    },
 };
 
 export default contratService;

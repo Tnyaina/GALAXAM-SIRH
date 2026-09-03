@@ -3,7 +3,8 @@ import { ShieldAlert, ChevronDown } from 'lucide-react';
 export default function OptionsRHSection({
   showOptionsAvancees, setShowOptionsAvancees,
   derogationSoldeNegatif, setDerogationSoldeNegatif,
-  derogationDelaiPreavis, setDerogationDelaiPreavis
+  derogationDelaiPreavis, setDerogationDelaiPreavis,
+  derogationContinuiteService, setDerogationContinuiteService
 }) {
   return (
     <div className="border border-[var(--color-border-subtle)] mt-4">
@@ -46,6 +47,20 @@ export default function OptionsRHSection({
               Ignorer le délai de préavis
               <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">
                 Permet de soumettre la demande même si le préavis réglementaire n'est pas respecté.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={derogationContinuiteService}
+              onChange={(e) => setDerogationContinuiteService(e.target.checked)}
+              className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
+            />
+            <span className="text-sm text-[var(--color-fg)]">
+              Dérogation de continuité de service (Poste commun)
+              <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">
+                Autorise l'absence même si un ou plusieurs collaborateurs du même poste sont déjà absents sur cette période.
               </span>
             </span>
           </label>

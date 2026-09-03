@@ -161,6 +161,20 @@ Le système couvre le cycle de vie complet du collaborateur :
 2. **Domain Engines (Moteurs Métier Stateless)** : Les calculs de congés, de pointages, de cotisations et d'IRSA sont découplés de la base de données dans des classes `*Engine` pures, facilitant les tests unitaires isolés.
 3. **Double Token JWT (Access Token Mémoire + Refresh Token Cookie HTTP-Only)** : Haute sécurité XSS/CSRF : le token court (2h30) réside uniquement dans la mémoire JavaScript du Frontend, tandis que le token de rafraîchissement (7 jours) est stocké dans un cookie sécurisé inaccessible au JavaScript.
 4. **Vues SQL Complémentaires (Pattern *CPL)** : Pour les requêtes de lecture complexes ou enrichies, l'application utilise des vues PostgreSQL dédiées (`v_employe_cpl`, `v_workflow_rh_cpl`, `v_demande_conge_cpl`, `v_pointage_synthese_mensuelle_cpl`) hydratées dans des classes Java correspondantes sans surcharger les entités d'écriture.
+5. **Modèle Découplé & Synchronisé des Indemnités de Pointage** : Architecture relationnelle dissociant les présences (`pointage_jour` : heures, retards, statuts) du détail des indemnités (`pointage_indemnite_jour` : table dynamique stockant pour chaque pointage et indemnité repas/déplacement le statut d'octroi et les montants proratisés). Synchronisation transactionnelle stricte (`syncIndemniteJour`) lors de la saisie quotidienne par lot et de la régularisation des anomalies RH.
+6. **Planification & Anti-Collision Métier Backend-Driven (Congés)** :
+   * Anti-collision multi-sites ciblée sur le couple `(id_fonction, id_site)` pour éviter le blocage de collaborateurs de même métier affectés sur des sites distincts.
+   * Tolérance des demi-journées complémentaires (`MATIN` vs `APRES_MIDI`) assurant la continuité de service sans faux positif.
+   * Contrôle d'ancienneté légale 12 mois (Art. 85 du Code du Travail Malagasy) sur `contrat_travail.date_debut` avec dérogation solde négatif explicite.
+   * Moteur de planning collaborateur entièrement paginé et filtré côté SQL (`LIMIT ? OFFSET ?`, `search`, `filterMode`) via CTE `base_emp`.
+7. **Standard de Résilience UI & Performance Runtime (`runtime.md`)** :
+   * Temporisation systématique `useDebounce(..., 350)` sur l'ensemble des champs de recherche pour préserver la réactivité du thread de rendu et éliminer les requêtes intempestives.
+   * Annulation systématique par `AbortController` sur les requêtes réseau en vol, éliminant définitivement les courses critiques (race conditions) entre frappes successives.
+   * Charte graphique et typographique stricte : zéro emoji, zéro style italique, interface dense et responsive.
+8. **Guard de Rattrapage Quotidien Autonome (`RattrapageAutomatiqueService`)** :
+   * Découplage de la dépendance exclusive aux heures fixes nocturnes (`00:10:00`) grâce à un battement de cœur régulier (`fixedDelay = 15 min`). Au réveil d'une machine mise en veille (ordinateur portable Mac / développeur), le planificateur s'exécute automatiquement dans les secondes post-réveil sans nécessiter de redémarrage serveur ni d'action manuelle.
+   * Filet de sécurité paresseux (Lazy Catch-up) : interception asynchrone sur requêtes HTTP authentifiées (`JwtAuthenticationFilter`, `POST /auth/refresh`, `POST /auth/login`) exécutant les traitements échus dès le premier signe de vie de la journée.
+   * Résilience du pool JDBC HikariCP face aux coupures de sockets consécutives aux mises en veille (`keepalive-time=30000`, `max-lifetime=600000`).
 
 ---
 
@@ -238,7 +252,7 @@ classDiagram
 
 ---
 
-## 8. Inventaire Exhaustif des 39 Contrôleurs REST & 213 Endpoints
+## 8. Inventaire Exhaustif des 39 Contrôleurs REST & 216 Endpoints
 
 Le tableau suivant répertorie l'intégralité des 39 contrôleurs du système avec leur préfixe d'URI et leur responsabilité :
 
@@ -255,14 +269,14 @@ Le tableau suivant répertorie l'intégralité des 39 contrôleurs du système a
 | **RefTypeDocumentController**   | [`RefTypeDocumentController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/employe/RefTypeDocumentController.java)      | `/ref-types-documents`                         |     4     | Référentiel des types de pièces (CIN, Diplôme, Contrat)                         |
 | **ContratGlobalController**     | [`ContratGlobalController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/ContratGlobalController.java)          | `/contrats`                                    |     4     | Vue globale unifiée des contrats, alertes échéances et export CSV                |
 | **ContratTravailController**    | [`ContratTravailController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/ContratTravailController.java)        | `/employes/{id}/contrats`                      |     3     | Contrats actifs et historique contractuel par collaborateur                         |
-| **WorkflowRhController**        | [`WorkflowRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/WorkflowRhController.java)                | `/workflows-rh` & `/employes/{id}/carrieres` |     8     | Supervision des carrières, création/validation/rejet de brouillons de mouvements  |
+| **WorkflowRhController**        | [`WorkflowRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/WorkflowRhController.java)                | `/workflows-rh` & `/employes/{id}/carrieres` |     9     | Supervision des carrières, mouvements RH et forçage manuel du rattrapage          |
 | **RefCarriereController**       | [`RefCarriereController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/RefCarriereController.java)              | `/ref-carriere`                                |    17    | Référentiels des catégories pro, modes de paie, statuts RH, types d'événements |
-| **DemandeCongeController**      | [`DemandeCongeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/DemandeCongeController.java)              | `/conges/demandes`                             |    10    | Soumission, simulation, validation, refus et annulation des demandes de congés     |
-| **CongeSoldeController**        | [`CongeSoldeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/CongeSoldeController.java)                  | `/conges/solde`                                |     5     | Consultation des soldes, mouvements de solde, consommation des pools et purges      |
+| **DemandeCongeController**      | [`DemandeCongeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/DemandeCongeController.java)              | `/conges/demandes`                             |    11    | Soumission, simulation, vérification des conflits d'équipe, validation, refus     |
+| **CongeSoldeController**        | [`CongeSoldeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/CongeSoldeController.java)                  | `/conges/solde` & `/conges/planning`          |     6     | Soldes, mouvements FIFO, planning Gantt paginé et filtré SQL, purges            |
 | **CongeRefController**          | [`CongeRefController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/CongeRefController.java)                      | `/conges/referentiels`                         |    11    | Référentiels types de congé, motifs familiaux, statuts et pools                  |
 | **PeriodePaieController**       | [`PeriodePaieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PeriodePaieController.java)             | `/periodes`                                    |     5     | Création de période, simulation ouvrables, transition de statut, gel/dégel       |
-| **PointageSaisieController**    | [`PointageSaisieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageSaisieController.java)       | `/pointages/saisie`                            |     2     | Grille quotidienne des présences, badgeages et batch save                          |
-| **PointageAnomalieController**  | [`PointageAnomalieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageAnomalieController.java)   | `/pointages/anomalies`                         |     2     | Détection automatique des retards/absences et régularisation RH                   |
+| **PointageSaisieController**    | [`PointageSaisieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageSaisieController.java)       | `/pointages/saisie`                            |     2     | Grille journalière, badgeages et batch save synchronisé avec pointage_indemnite_jour |
+| **PointageAnomalieController**  | [`PointageAnomalieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageAnomalieController.java)   | `/pointages/anomalies`                         |     2     | Détection retards/absences et régularisation synchronisée pointage_indemnite_jour |
 | **PointageSyntheseController**  | [`PointageSyntheseController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageSyntheseController.java)   | `/pointages/synthese`                          |     5     | Synthèse mensuelle et hebdomadaire, validation/dévalidation de tronçon           |
 | **PointageEmployeController**   | [`PointageEmployeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageEmployeController.java)     | `/pointages/employes`                          |     1     | Fiche mensuelle individuelle de pointage et calculs détaillés                     |
 | **PointageParametreController** | [`PointageParametreController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageParametreController.java) | `/pointages/parametres`                        |     6     | Tolérances d'arrivée par site et dérogations d'indemnités repas/déplacement    |
@@ -319,14 +333,15 @@ Le tableau ci-dessous cartographie les 45 entités Active Record et les vues Pos
 | `ContratTravail`             | `contrat_travail`              | `id_contrat`          | `v_contrat_cpl`                     | Données contractuelles, dates, essais  |
 | `EmployeAffectationCarriere` | `employe_affectation_carriere` | `id_affectation`      | `v_affectation_active`              | Poste, salaire de base, manager         |
 | `WorkflowRh`                 | `workflow_rh`                  | `id_workflow`         | `v_workflow_rh_cpl`                 | Mouvements RH (brouillon/validé)       |
-| `DemandeConge`               | `demande_conge`                | `id_demande`          | `v_demande_conge_cpl`               | Demandes de congés et absences         |
+| `DemandeConge`               | `demande_conge`                | `id_demande_conge`    | `v_demande_conge_cpl`               | Demandes de congés et absences         |
 | `MouvementSoldeConge`        | `mouvement_solde_conge`        | `id_mouvement`        | `v_solde_conge_employe`             | Ledger FIFO d'acquisition/déduction    |
 | `RefPoolCongeAnnuel`         | `ref_pool_conge_annuel`        | `id_pool`             | `v_pool_conge_annuel_consommation`  | Pools d'acquisition annuelle            |
 | `PeriodePaie`                | `periode_paie`                 | `id_periode_paie`     | -                                     | Périodes de paie mensuelles            |
-| `PointageJournalier`         | `pointage_journalier`          | `id_pointage`         | `v_pointage_journalier_cpl`         | Badgeages et repas quotidiens           |
+| `PointageJour`               | `pointage_jour`                | `id_pointage`         | `v_pointage_journalier_cpl`         | Badgeages, heures et statuts quotidiens |
+| `PointageIndemniteJour`       | `pointage_indemnite_jour`       | `id_pointage_indemnite` | -                                   | Détail relationnel des repas et transport |
 | `PointageTronconSemaine`     | `pointage_troncon_semaine`     | `id_troncon`          | -                                     | Agrégation hebdomadaire 40h            |
 | `PointageSyntheseMensuelle`  | `pointage_synthese_mensuelle`  | `id_synthese`         | `v_pointage_synthese_mensuelle_cpl` | Synthèse mensuelle pour paie           |
-| `PointageAnomalie`           | `pointage_anomalie`            | `id_anomalie`         | -                                     | Retards excessifs et absences           |
+| `PointageAnomalie`           | `pointage_jour`                | `id_pointage`         | -                                     | Retards et absences (statut ANOMALIE)   |
 | `PaieConfigLegale`           | `paie_config_legale`           | `id_config`           | -                                     | Paramètres CNaPS / SMIG légal         |
 | `BaremeIrsa`                 | `bareme_irsa`                  | `id_tranche`          | -                                     | Tranches progressives IRSA              |
 | `RefCalendrierFerie`         | `ref_calendrier_ferie`         | `id_ferie`            | -                                     | Fériés nationaux et locaux            |
@@ -438,17 +453,17 @@ Le composant [`Router.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GAL
 | **`useCarriereModals`**       | `useCarriereModals.js`                                                                                                 | Gestion d'ouverture/fermeture des modales d'embauche, transition et rupture.        |
 | **`useTransitionForm`**       | `useTransitionForm.js`                                                                                                 | État local et validation des formulaires de transition de poste et salaire.        |
 | **`usePointageSaisie`**       | `usePointageSaisie.js`                                                                                                 | Grille de saisie quotidienne des badgeages, calcul des totaux en temps réel.       |
-| **`usePointageAnomalies`**    | `usePointageAnomalies.js`                                                                                              | Récupération des anomalies de présence et déclenchement de la régularisation.  |
+| **`usePointageAnomalies`**    | `usePointageAnomalies.js`                                                                                              | Récupération debouncée (350ms) et annulable (AbortController) des anomalies de présence. |
 | **`usePointageSynthese`**     | `usePointageSynthese.js`                                                                                               | Synthèse mensuelle, détail des semaines 40h, verrouillage/déverrouillage.        |
 | **`usePeriodePaie`**          | `usePeriodePaie.js`                                                                                                    | Cycle de vie des périodes de paie (création, clôture, gel DAF).                  |
 | **`useToleranceArrivee`**     | `useToleranceArrivee.js`                                                                                               | Paramétrage des seuils de tolérance par site.                                     |
 | **`useDerogationIndemnites`** | `useDerogationIndemnites.js`                                                                                           | Dérogations d'indemnités repas et déplacement.                                   |
-| **`useSoldesOverview`**       | `useSoldesOverview.js`                                                                                                 | Consultation et filtrage des soldes de congés et pools annuels.                    |
+| **`useSoldesOverview`**       | `useSoldesOverview.js`                                                                                                 | Consultation et filtrage des soldes, pools FIFO et planning Gantt backend-driven.   |
 | **`useDemandesValidation`**   | `useDemandesValidation.js`                                                                                             | Traitement des demandes de congés en attente d'approbation.                        |
 | **`useDemandeCongeForm`**     | `useDemandeCongeForm.js`                                                                                               | Simulation dynamique du nombre de jours ouvrables et soumission.                    |
 | **`useDashboard`**            | [`useDashboard.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/hooks/useDashboard.js)   | KPIs globaux, alertes d'échéances et compteurs en temps réel.                    |
 | **`useMenu`**                 | [`useMenu.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/hooks/useMenu.js)             | Arborescence filtrée des menus selon les autorisations de l'utilisateur.           |
-| **`useDebounce`**             | `useDebounce.js`                                                                                                       | Temporisation des saisies pour les barres de recherche.                             |
+| **`useDebounce`**             | [`useDebounce.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/hooks/useDebounce.js)     | Temporisation des saisies (350ms) généralisée à tous les modules (runtime.md §4).   |
 
 ---
 
@@ -516,10 +531,9 @@ Le client HTTP [`apiClient.js`](file:///Users/andriamalalatojo/Documents/GALAXAM
 
 ### B. Divergences de Contrat Détectées
 
-1. **Téléchargement Document RH** :
+1. **Téléchargement Document RH (Résolu)** :
    * **Front ([`documentRhService.js:L52`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/api/employe/documentRhService.js#L52))** : Appelle `GET /documents-rh/${idDocument}/download`.
-   * **Backend ([`DocumentRhController.java:L167`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/employe/DocumentRhController.java#L167))** : Écoute sur `GET /documents-rh/{idDocument}/telecharger`.
-   * *Impact* : Erreur HTTP 404 lors du téléchargement direct de document.
+   * **Backend ([`DocumentRhController.java:L167`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/employe/DocumentRhController.java#L167))** : Supporte à présent les deux alias `@GetMapping({"/documents-rh/{idDocument}/telecharger", "/documents-rh/{idDocument}/download"})` garantissant l'interopérabilité sans rupture.
 2. **Localisation du Service Période de Paie** :
    * [`periodePaieService.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/services/periodePaieService.js) est situé dans `src/services/` alors que l'ensemble des 13 autres clients API sont sous `src/api/`.
 
@@ -699,7 +713,7 @@ Modéliser le parcours professionnel et contractuel des collaborateurs via un mo
 ### 4. Backend
 
 * **Controllers** : [`ContratGlobalController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/ContratGlobalController.java), [`ContratTravailController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/ContratTravailController.java), [`WorkflowRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/WorkflowRhController.java)
-* **Services & Engines** : [`WorkflowRhService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/contrat/WorkflowRhService.java), `ContratValidationEngine.java`, `MouvementRhScheduler.java`
+* **Services & Engines** : [`WorkflowRhService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/contrat/WorkflowRhService.java), `ContratValidationEngine.java`, `MouvementRhScheduler.java`, `RattrapageAutomatiqueService.java`
 * **Entities & Views** : `ContratTravail.java`, `EmployeAffectationCarriere.java`, `WorkflowRh.java`, `WorkflowRhCPL.java`, `v_workflow_rh_cpl`
 
 ### 5. Database
@@ -713,6 +727,7 @@ Modéliser le parcours professionnel et contractuel des collaborateurs via un mo
 * `POST /workflows-rh/{id}/valider` : Validation et application/planification du mouvement.
 * `POST /workflows-rh/{id}/annuler` : Rejet du brouillon.
 * `POST /workflows-rh/{id}/annuler-planification` : Annulation d'un mouvement planifié futur.
+* `POST /workflows-rh/rattrapage` : Déclenchement manuel ou forcé du rattrapage quotidien des mouvements RH, alertes et congés.
 * `GET /contrats` : Vue cockpit de tous les contrats de l'entreprise.
 
 ---
@@ -721,7 +736,7 @@ Modéliser le parcours professionnel et contractuel des collaborateurs via un mo
 
 ### 1. Objectif
 
-Assurer le suivi rigoureux des temps de présence, badgeages matin/après-midi, détection et calcul précis des retards, ventilation hebdomadaire au seuil légal de 40 heures/semaine avec compensation 1:1 retard/HS, majorations pour heures supplémentaires (130%, 150%), heures de nuit, dimanches et jours fériés, indemnités de repas et transport avec dérogations par site, régularisation des anomalies et clôture/gel des périodes de paie pour transmission à la DAF.
+Assurer le suivi rigoureux des temps de présence, badgeages matin/après-midi, détection et calcul précis des retards, ventilation hebdomadaire au seuil légal de 40 heures/semaine avec compensation 1:1 retard/HS, majorations pour heures supplémentaires (130%, 150%), heures de nuit, dimanches et jours fériés, modèle relationnel normalisé des indemnités repas et transport (`pointage_indemnite_jour`), régularisation des anomalies avec synchronisation bidirectionnelle et clôture/gel des périodes de paie pour transmission à la DAF.
 
 ### 2. Acteurs
 
@@ -731,29 +746,29 @@ Assurer le suivi rigoureux des temps de présence, badgeages matin/après-midi, 
 ### 3. Frontend
 
 * **Pages** : [`GestionPointagesPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/pointage/GestionPointagesPage.jsx), `PointageOverviewTab.jsx`, `SaisieQuotidiennePage.jsx`, `AnomaliesPointagePage.jsx`, `SynthesePointagePage.jsx`, `PeriodePaiePage.jsx`
-* **Composants** : `PointageGridTable.jsx`, `PointageWeeklySyntheseSection.jsx`, `PointageAnomaliesSection.jsx`, `PointageTransmissionDafSection.jsx`, `PointageWorkflowNav.jsx`
-* **Hooks** : `usePointageSaisie.js`, `usePointageAnomalies.js`, `usePointageSynthese.js`, `usePeriodePaie.js`, `useToleranceArrivee.js`, `useDerogationIndemnites.js`
-* **Services** : `pointageSaisieService.js`, `pointageAnomalieService.js`, `pointageSyntheseService.js`, `pointageEmployeService.js`, `periodePaieService.js`
+* **Composants** : `PointageGridTable.jsx`, `PointageWeeklySyntheseSection.jsx`, `PointageAnomaliesSection.jsx`, `PointageTransmissionDafSection.jsx`, `PointageWorkflowNav.jsx`, `PointageGuideStepper.jsx`
+* **Hooks & Résilience** : `usePointageSaisie.js`, `usePointageAnomalies.js` (avec `useDebounce` 350ms et `AbortController`), `usePointageSynthese.js`, `usePeriodePaie.js`, `useToleranceArrivee.js`, `useDerogationIndemnites.js`, filtrages debouncés dans la grille de saisie et la synthèse
+* **Services** : `pointageSaisieService.js`, `pointageAnomalieService.js` (support signal d'annulation), `pointageSyntheseService.js`, `pointageEmployeService.js`, `periodePaieService.js`
 * **Routes** : `/pointages` (avec onglets `saisie`, `anomalies`, `synthese`, `periodes`)
 
 ### 4. Backend
 
 * **Controllers** : `PointageSaisieController.java`, `PointageAnomalieController.java`, `PointageSyntheseController.java`, `PointageEmployeController.java`, `PeriodePaieController.java`, `PointageParametreController.java`
 * **Services & Engines** : `PointageSaisieService.java`, `PointageAnomalieService.java`, `PointageSyntheseService.java`, [`PointageCalculateurEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/pointage/engine/PointageCalculateurEngine.java), `CalendrierOuvrableEngine.java`
-* **Entities & Views** : `PeriodePaie`, `PointageJournalier`, `PointageTronconSemaine`, `PointageSyntheseMensuelle`, `PointageAnomalie`, `RefToleranceArriveePointage.java`, `EmployeIndemniteDerogation.java`, `v_pointage_synthese_mensuelle_cpl`
+* **Entities & Views** : `PeriodePaie.java`, `PointageJour.java`, `PointageIndemniteJour.java`, `PointageTronconSemaine.java`, `PointageSyntheseMensuelle.java`, `RefStatutPointageJour.java`, `RefToleranceArriveePointage.java`, `EmployeIndemniteDerogation.java`, `v_pointage_synthese_mensuelle_cpl`
 
 ### 5. Database
 
-* **Tables & Vues** : `periode_paie`, `pointage_journalier`, `pointage_troncon_semaine`, `pointage_synthese_mensuelle`, `pointage_anomalie`, `ref_tolerance_arrivee_pointage`, `employe_indemnite_derogation`, `ref_statut_periode_paie`, `v_pointage_journalier_cpl`, `v_pointage_synthese_mensuelle_cpl`
+* **Tables & Vues** : `periode_paie`, `pointage_jour`, `pointage_indemnite_jour`, `pointage_troncon_semaine`, `pointage_synthese_mensuelle`, `ref_statut_pointage_jour`, `ref_tolerance_arrivee_pointage`, `site_indemnite_config`, `employe_indemnite_derogation`, `ref_statut_periode_paie`, `v_pointage_journalier_cpl`, `v_pointage_synthese_mensuelle_cpl`
 
 ### 6. API
 
-* `GET /pointages/saisie` : Données de la grille quotidienne.
-* `POST /pointages/saisie/batch` : Sauvegarde par lot des badgeages et recalcul temps réel.
-* `GET /pointages/anomalies` : Liste des anomalies détectées.
-* `PUT /pointages/anomalies/{idPointage}/regulariser` : Régularisation d'une anomalie.
-* `GET /pointages/synthese` : Synthèse globale du mois.
-* `GET /pointages/synthese/semaines` : Découpage par tronçons de semaine (40h).
+* `GET /pointages/saisie` : Données de la grille quotidienne incluant les paramètres d'horaires et indemnités du site.
+* `POST /pointages/saisie/batch` : Sauvegarde par lot des badgeages et écriture synchronisée dans `pointage_jour` et `pointage_indemnite_jour`.
+* `GET /pointages/anomalies` : Liste filtrée des anomalies (incomplets, retards non justifiés, absences non justifiées).
+* `PUT /pointages/anomalies/{idPointage}/regulariser` : Régularisation d'une anomalie avec synchronisation transactionnelle obligatoire dans `pointage_indemnite_jour` (`syncIndemniteJour`).
+* `GET /pointages/synthese` : Synthèse globale du mois par collaborateur.
+* `GET /pointages/synthese/semaines` : Découpage par tronçons de semaine (40h) et ventilation des majorations.
 * `POST /pointages/synthese/semaines/valider` : Verrouillage d'une semaine.
 * `GET|POST /periodes` : Consultation et ouverture de période de paie.
 * `PUT /periodes/{id}/statut` : Transition de statut (ex: `A_VALIDER`, `VALIDEE` -> Gel automatique).
@@ -764,27 +779,27 @@ Assurer le suivi rigoureux des temps de présence, badgeages matin/après-midi, 
 
 ### 1. Objectif
 
-Gérer les demandes d'absences et de congés payés, le suivi des droits acquis (2.5 jours/mois), la consommation par imputation stricte FIFO sur les pools d'années de référence, le calcul automatique des jours ouvrables/fériés décomptés, la bascule automatique des arrêts maladie longue durée > 30 jours (Art. 13 Code du Travail) et les purges annuelles.
+Gérer les demandes d'absences et de congés payés, le suivi des droits acquis (2.5 jours/mois), la consommation par imputation stricte FIFO sur les pools d'années de référence, le calcul automatique des jours ouvrables/fériés décomptés, la planification d'équipe via calendrier Gantt interactif fluide (mode mois/semaine, sélection directe par glisser-déposer), l'anti-collision organisationnelle multi-sites `(id_fonction, id_site)` avec tolérance des demi-journées complémentaires, le contrôle d'ancienneté légale 12 mois (Art. 85 Code du Travail Malagasy), la bascule automatique des arrêts maladie longue durée > 30 jours (Art. 13) et les purges annuelles.
 
 ### 2. Acteurs
 
-* **Employé / Demandeur** : Demande de congé, simulation du nombre de jours.
-* **Manager / DRH** : Validation, refus ou annulation de la demande.
+* **Employé / Demandeur** : Demande de congé, simulation du nombre de jours, sélection d'intervalle sur planning.
+* **Manager / DRH** : Validation, contrôle des conflits d'équipe sur même poste et site, accord de dérogation de solde négatif, refus ou annulation de la demande.
 
 ### 3. Frontend
 
 * **Pages** : [`GestionCongesPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/conges/GestionCongesPage.jsx)
-* **Composants** : `SoldesOverviewTab.jsx`, `DemandesValidationTab.jsx`, `DemandeCongeModal.jsx`, `SimulationCongeModal.jsx`, `DemandeCongeDetailsModal.jsx`, `HistoriqueMouvementsModal.jsx`, `AjustementSoldeModal.jsx`
-* **Hooks** : `useSoldesOverview.js`, `useDemandesValidation.js`, `useDemandeCongeForm.js`
-* **Services** : [`congeService.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/api/congeService.js)
+* **Composants** : `SoldesOverviewTab.jsx`, `SoldesGantt.jsx` (Gantt interactif responsive, pagination SQL serveur, recherche debouncée, indicateur discret de synchronisation), `SoldesKpiBar.jsx`, `SoldesTable.jsx`, `ConflitsPostePreview.jsx` (mini-planning de collision fluide sans scrollbar horizontale), `DemandeCongeModal.jsx` (modale grand format 1380px sans scrollbar parasite), `DemandesValidationTab.jsx`, `SimulationCongeModal.jsx`, `DemandeCongeDetailsModal.jsx`, `HistoriqueMouvementsModal.jsx`, `AjustementSoldeModal.jsx`
+* **Hooks & Résilience** : `useSoldesOverview.js` (intégrant `useDebounce` 350ms, `AbortController` et pagination serveur SQL), `useDemandesValidation.js` (debouncé 350ms), `useDemandeCongeForm.js`
+* **Services** : [`congeService.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/api/congeService.js) (support du paramètre `signal` pour l'annulation réseau)
 * **Routes** : `/conges`
 
 ### 4. Backend
 
-* **Controllers** : [`DemandeCongeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/DemandeCongeController.java), `CongeSoldeController.java`, `CongeRefController.java`
-* **Services & Engines** : [`CongeService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/conge/service/CongeService.java), `CongeCalculateurEngine.java`, `PurgeFifoEngine.java`
+* **Controllers** : [`DemandeCongeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/DemandeCongeController.java), [`CongeSoldeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/CongeSoldeController.java), `CongeRefController.java`
+* **Services & Engines** : [`CongeService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/conge/service/CongeService.java) (`getPlanningCollaborateurs` paginé SQL avec CTE `base_emp`, `verifierConflitsDemande`), `CongeCalculateurEngine.java`, `PurgeFifoEngine.java`
 * **Schedulers** : `AcquisitionCongeScheduler.java`, `PurgeCongeScheduler.java`
-* **Entities & Views** : `DemandeConge.java`, `MouvementSoldeConge.java`, `RefPoolCongeAnnuel.java`, `RefTypeConge.java`, `RefStatutDemandeConge.java`, `RefMotifEvenementFamilial.java`, `VSoldeCongeEmploye.java`, `VDemandeCongeCpl.java`, `VPoolCongeAnnuelConsommation.java`
+* **Entities & Views** : [`DemandeConge.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/conge/DemandeConge.java) (contrôle Art. 85 ancienneté 12 mois, anti-collision même poste et site avec tolérance demi-journée), `MouvementSoldeConge.java`, `RefPoolCongeAnnuel.java`, `RefTypeConge.java`, `RefStatutDemandeConge.java`, `RefMotifEvenementFamilial.java`, `VSoldeCongeEmploye.java`, `VDemandeCongeCpl.java`, `VPoolCongeAnnuelConsommation.java`
 
 ### 5. Database
 
@@ -792,12 +807,16 @@ Gérer les demandes d'absences et de congés payés, le suivi des droits acquis 
 
 ### 6. API
 
+* `GET /conges/planning` : Planning global Gantt paginé et filtré SQL (`search`, `filterMode`, `page`, `size`, `idSite`, `idDepartement`).
+* `POST /conges/demandes/verifier-conflits` : Contrôle temps réel des collisions de poste sur le site, tolérance des demi-journées et décompte des jours fériés/ouvrables.
 * `POST /conges/demandes/simuler` : Simulation serveur du décompte de jours ouvrables.
-* `POST /conges/demandes` : Création de la demande avec détection de scission maladie.
+* `POST /conges/demandes` : Création de la demande avec contrôle d'ancienneté 12 mois, vérification anti-collision et détection de scission maladie.
+* `PUT /conges/demandes/{id}` : Modification d'une demande avec réévaluation des contrôles métier.
 * `POST /conges/demandes/{id}/valider` : Validation et écriture des mouvements FIFO dans le ledger.
 * `POST /conges/demandes/{id}/refuser` : Rejet avec motif.
+* `POST /conges/demandes/{id}/annuler` : Annulation et purge des écritures ledger.
 * `GET /conges/solde/employe/{idEmploye}` : Consultation du solde disponible.
-* `GET /conges/pool-consommation/employe/{idEmploye}` : Détail des pools annuels N-1, N, etc.
+* `GET /conges/solde/pool-consommation/{idEmploye}` : Détail des pools annuels N-1, N, etc.
 
 ---
 
@@ -900,10 +919,18 @@ Prise d'effet Immédiate :                       Prise d'effet Différée :
 
 ```text
                Collaborateur / RH saisit la Demande
+               (ou sélectionne un créneau sur le Planning Gantt)
                                 │
                                 ▼
+                    Contrôles Préalables Temps Réel
+               (POST /conges/demandes/verifier-conflits)
+     ├── Ancienneté < 12 mois (Art. 85) & non dérogé ──► Blocage immédiat
+     ├── Collision même poste & même site ──────────────► Alerte bloquante RH
+     │   (Tolérance : demi-journées MATIN vs APM)         (Dérogation requise)
+     │
+                                ▼
                     CongeCalculateurEngine
-          (Décompte jours ouvrables hors fériés/chômés)
+          (Décompte jours ouvrables hors fériés et chômés)
                                 │
                                 ▼
                    Type de congé = 'MALADIE' ?
@@ -938,23 +965,29 @@ Scission Automatique Art. 13 :                 Demande standard :
 
 ```text
                Saisie Quotidienne des Badgeages (Site)
+               (POST /pointages/saisie/batch)
                                 │
                                 ▼
                     PointageCalculateurEngine
           • Détection des retards (tolérance par site)
           • Décompte des heures de nuit (> 22h00)
-          • Indemnités repas (> 19h30 / > 21h00)
+          • Indemnités repas et transport avec prorata ouvrables
+                                │
+                                ▼
+            Écriture Transactionnelle Synchronisée
+          • pointage_jour (heures, statuts, totaux)
+          • pointage_indemnite_jour (détail relationnel des primes)
                                 │
                                 ▼
                  Contrôle du Tableau des Anomalies
                                 │
          ┌──────────────────────┴──────────────────────┐
-         │ Anomalies bloquantes non traitées           │ Toutes anomalies régularisées
+         │ Anomalies détectées (Incomplets/Retards)    │ Toutes anomalies régularisées
          ▼                                             ▼
-  Transmission DAF bloquée                   PointageSyntheseService
-                                             • Consolidation des 40h/semaine
-                                             • Compensation 1:1 retard / surplus
-                                             • Ventilation HS 130% et HS 150%
+  Régularisation RH par PointageAnomalieService   PointageSyntheseService
+  • syncIndemniteJour() met à jour la table        • Consolidation des 40h/semaine
+    relationnelle pointage_indemnite_jour          • Compensation 1:1 retard / surplus
+  • Recalcul immédiat du statut                    • Ventilation HS 130% et HS 150%
                                                         │
                                                         ▼
                                              Agent transmet la période
@@ -1102,13 +1135,14 @@ Le tableau central ci-dessous constitue l'index technique absolu du projet GALAX
 | **Liste des Employés**           | Employé   | [`EmployeList.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/employe/EmployeList.jsx)                                       | `employeService.js`          | [`EmployeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/employe/EmployeController.java)                      | `EmployeService.java`                                                                                                                                                                       | `employe`, `v_employe_cpl`             |
 | **Création / Edit Employé**     | Employé   | `EmployeFormModal.jsx`                                                                                                                                             | `employeService.js`          | `EmployeController.java`                                                                                                                                                                          | `EmployeValidationEngine` / `MatriculeEngine`                                                                                                                                             | `employe`, `employe_enfant`...         |
 | **GED Documents RH**              | Employé   | `EmployeDocumentsTab.jsx`                                                                                                                                          | `documentRhService.js`       | [`DocumentRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/employe/DocumentRhController.java)                | `DocumentRh.java`                                                                                                                                                                           | `document_rh`, `v_document_rh_cpl`     |
-| **Cockpit des Carrières**        | Contrat    | [`CarrieresSupervisionPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/employe/CarrieresSupervisionPage.jsx)             | `contratService.js`          | [`WorkflowRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/WorkflowRhController.java)                | [`WorkflowRhService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/contrat/WorkflowRhService.java)                         | `workflow_rh`, `v_workflow_rh_cpl`     |
+| **Cockpit des Carrières**        | Contrat    | [`CarrieresSupervisionPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/employe/CarrieresSupervisionPage.jsx)             | `contratService.js`          | [`WorkflowRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/WorkflowRhController.java)                | [`WorkflowRhService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/contrat/WorkflowRhService.java) / `RattrapageService`   | `workflow_rh`, `v_workflow_rh_cpl`     |
 | **Embauche & Transitions**        | Contrat    | `EmbaucheModal.jsx`                                                                                                                                                | `contratService.js`          | `WorkflowRhController.java`                                                                                                                                                                       | `WorkflowRhService.java` / `ContratEngine`                                                                                                                                                | `contrat_travail`, `workflow_rh`       |
 | **Vue Globale Contrats**          | Contrat    | `ContratsAlertsWidget.jsx`                                                                                                                                         | `contratService.js`          | [`ContratGlobalController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/ContratGlobalController.java)          | `ContratTravail.java`                                                                                                                                                                       | `contrat_travail`, `v_contrat_cpl`     |
 | **Demande de Congé**             | Congé     | [`GestionCongesPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/conges/GestionCongesPage.jsx)                            | `congeService.js`            | [`DemandeCongeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/DemandeCongeController.java)              | [`CongeService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/conge/service/CongeService.java) / `CongeEngine`           | `demande_conge`, `v_demande_conge_cpl` |
 | **Soldes & Consommation FIFO**    | Congé     | `SoldesOverviewTab.jsx`                                                                                                                                            | `congeService.js`            | [`CongeSoldeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/CongeSoldeController.java)                  | `PurgeFifoEngine.java`                                                                                                                                                                      | `mouvement_solde_conge`, `v_solde...`  |
-| **Grille Pointage Journalier**    | Pointage   | `SaisieQuotidiennePage.jsx`                                                                                                                                        | `pointageSaisieService.js`   | [`PointageSaisieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageSaisieController.java)       | `PointageSaisieService.java`                                                                                                                                                                | `pointage_journalier`                    |
-| **Anomalies de Pointage**         | Pointage   | `AnomaliesPointagePage.jsx`                                                                                                                                        | `pointageAnomalieService.js` | [`PointageAnomalieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageAnomalieController.java)   | `PointageAnomalieService.java`                                                                                                                                                              | `pointage_anomalie`                      |
+| **Planning Collaborateurs (Gantt)**| Congé    | `SoldesGantt.jsx`                                                                                                                                                  | `congeService.js`            | `CongeSoldeController.java`                                                                                                                                                                        | `CongeService.java` (CTE `base_emp` SQL)                                                                                                                                                    | `employe`, `demande_conge`, `contrat`  |
+| **Grille Pointage Journalier**    | Pointage   | `SaisieQuotidiennePage.jsx`                                                                                                                                        | `pointageSaisieService.js`   | [`PointageSaisieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageSaisieController.java)       | `PointageSaisieService.java`                                                                                                                                                                | `pointage_jour`, `pointage_indemnite`  |
+| **Anomalies de Pointage**         | Pointage   | `AnomaliesPointagePage.jsx`                                                                                                                                        | `pointageAnomalieService.js` | [`PointageAnomalieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageAnomalieController.java)   | `PointageAnomalieService.java` (`syncIndemniteJour`)                                                                                                                                        | `pointage_jour`, `pointage_indemnite`  |
 | **Synthèse Hebdo (40h & HS)**    | Pointage   | `SynthesePointagePage.jsx`                                                                                                                                         | `pointageSyntheseService.js` | [`PointageSyntheseController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PointageSyntheseController.java)   | [`PointageCalculateurEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/pointage/engine/PointageCalculateurEngine.java) | `pointage_troncon_semaine`, `v_syn...` |
 | **Périodes de Paie & Gel DAF**   | Pointage   | `PeriodePaiePage.jsx`                                                                                                                                              | `periodePaieService.js`      | [`PeriodePaieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PeriodePaieController.java)             | `PointageSyntheseService.java`                                                                                                                                                              | `periode_paie`                           |
 | **Barème IRSA & Fiscalité**     | Paie       | [`ParametresModulesPanel.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/parametres/modules/ParametresModulesPanel.jsx)      | `paieConfigService.js`       | [`IrsaController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/paieconfig/IrsaController.java)                         | [`CalculateurPaieEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/paieconfig/engine/CalculateurPaieEngine.java)       | `bareme_irsa`                            |
@@ -1119,4 +1153,4 @@ Le tableau central ci-dessous constitue l'index technique absolu du projet GALAX
 
 ---
 
-*Ce document d'architecture est généré automatiquement comme artefact de référence pérenne pour le projet GALAXAM-SIRH.*
+Ce document d'architecture est généré automatiquement comme artefact de référence pérenne pour le projet GALAXAM-SIRH.

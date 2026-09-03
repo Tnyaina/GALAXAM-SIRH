@@ -40,6 +40,10 @@ public class AuthController {
     @Autowired
     private CustomUserDetailsService customUserDetailsService;
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private mg.galaxam.sirh.cron.RattrapageAutomatiqueService rattrapageAutomatiqueService;
+
     private ResponseCookie createRefreshCookie(String token, boolean isSecure, long maxAgeSeconds) {
         return ResponseCookie.from("refreshToken", token)
                 .httpOnly(true)
@@ -103,6 +107,10 @@ public class AuthController {
                                 .findFirst()
                                 .orElse("ROLE_USER"));
 
+                        if (rattrapageAutomatiqueService != null) {
+                            rattrapageAutomatiqueService.verifierEtExecuterRattrapageAsync();
+                        }
+
                         return ResponseEntity.ok()
                                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                                 .body(responseBody);
@@ -161,6 +169,10 @@ public class AuthController {
 
                 Map<String, Object> responseBody = new HashMap<>();
                 responseBody.put("accessToken", newAccessToken);
+
+                if (rattrapageAutomatiqueService != null) {
+                    rattrapageAutomatiqueService.verifierEtExecuterRattrapageAsync();
+                }
 
                 return ResponseEntity.ok()
                         .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())

@@ -4,9 +4,9 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, RotateCcw } from '
 /**
  * PeriodNavigator — Composant professionnel de navigation temporelle.
  * Adapte automatiquement son affichage selon le mode sélectionné :
- * - Jour : "< 30 août 2026 📅 >"
- * - Semaine : "< Semaine du 24 au 30 août 2026 📅 >"
- * - Mois : "< Août 2026 📅 >"
+ * - Jour : "< 30 août 2026 >"
+ * - Semaine : "< Semaine du 24 au 30 août 2026 >"
+ * - Mois : "< Août 2026 >"
  */
 export default function PeriodNavigator({
     viewPeriod = 'jour', // 'jour' | 'semaine' | 'mois'
@@ -84,7 +84,7 @@ export default function PeriodNavigator({
                 </button>
             )}
 
-            {/* Boîtier de navigation exact : < | date 📅 | > */}
+            {/* Boîtier de navigation exact : < | date | > */}
             <div className="inline-flex items-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
                 {/* Flèche Précédent */}
                 <button

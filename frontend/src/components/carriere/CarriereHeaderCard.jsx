@@ -98,7 +98,7 @@ export default function CarriereHeaderCard({
                 </div>
             </div>
 
-            {/* ⚠️ BANNIÈRE PÉRIODE D'ESSAI EN COURS */}
+            {/* BANNIERE PERIODE D'ESSAI EN COURS */}
             {(etatEssai?.aPeriodeEssai || etatEssai?.isEssaiActif) && (etatEssai?.dateFinEssai || etatEssai?.dateFinEssaiStr) && (
                 <div className={`p-4 rounded-none border flex flex-col md:flex-row md:items-center justify-between gap-4 ${etatEssai.isEssaiEchu
                     ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
@@ -158,7 +158,7 @@ export default function CarriereHeaderCard({
                 </div>
             )}
 
-            {/* 🔔 BANNIÈRE ÉCHÉANCE CONTRAT EN COURS */}
+            {/* BANNIERE ECHEANCE CONTRAT EN COURS */}
             {contratActif?.dateFin && (contratActif?.isFinProche || contratActif?.isFinEchue || (contratActif?.joursRestantsFin !== null && contratActif?.joursRestantsFin <= 60)) && (
                 <div className={`p-4 rounded-none border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                     contratActif.isFinEchue || (contratActif.joursRestantsFin !== null && contratActif.joursRestantsFin <= 7)

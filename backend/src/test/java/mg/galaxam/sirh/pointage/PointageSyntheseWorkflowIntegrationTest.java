@@ -47,6 +47,7 @@ public class PointageSyntheseWorkflowIntegrationTest {
                     "gele_at              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
                     "CONSTRAINT uk_cumul_indemnite UNIQUE (id_periode_paie, id_employe, id_indemnite))");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_cumul_indemnite_periode ON pointage_cumul_indemnite(id_periode_paie, id_employe)");
+            stmt.execute("ALTER TABLE demande_conge ADD COLUMN IF NOT EXISTS derogation_continuite_service BOOLEAN DEFAULT FALSE");
         }
     }
 

@@ -39,7 +39,7 @@ export default function ContratActifSection({
         const hasHistory = Array.isArray(contratsList) && contratsList.length > 0;
 
         return (
-            /* ⚪ EMPTY STATE : PAS DE CONTRAT ACTIF */
+            /* EMPTY STATE : PAS DE CONTRAT ACTIF */
             <div className={`p-8 text-center bg-[var(--color-surface)] border rounded-none space-y-4 ${hasHistory ? 'border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/[0.02]' : 'border-dashed border-[var(--color-border)]'}`}>
                 <div className={`w-14 h-14 rounded-none flex items-center justify-center mx-auto ${hasHistory ? 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)]' : 'bg-brand-500/10 text-brand-500'}`}>
                     <Briefcase size={28} />

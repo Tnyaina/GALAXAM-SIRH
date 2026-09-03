@@ -15,7 +15,7 @@ const formatDateForInput = (val) => {
   return `${year}-${month}-${day}`;
 };
 
-export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiels, isOpen, onClose, onSuccess }) {
+export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDateDebut, initialDateFin, referentiels, isOpen, onClose, onSuccess }) {
   const [selectedEmployeId, setSelectedEmployeId] = useState('');
   const [idTypeConge, setIdTypeConge] = useState('');
   const [idMotifEvenementFamilial, setIdMotifEvenementFamilial] = useState('');
@@ -31,8 +31,13 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
   // Dérogations RH
   const [derogationSoldeNegatif, setDerogationSoldeNegatif] = useState(false);
   const [derogationDelaiPreavis, setDerogationDelaiPreavis] = useState(false);
+  const [derogationContinuiteService, setDerogationContinuiteService] = useState(false);
   const [extensionPathologiqueMaternite, setExtensionPathologiqueMaternite] = useState(false);
   const [showOptionsAvancees, setShowOptionsAvancees] = useState(false);
+
+  // Simulation, Conflits de poste & Continuité de service
+  const [conflitReport, setConflitReport] = useState(null);
+  const [checkingConflits, setCheckingConflits] = useState(false);
 
   // Simulation & State
   const [nbJoursDecomptes, setNbJoursDecomptes] = useState(0);
@@ -85,8 +90,9 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
         setMomentDemiJournee(initialDemande.momentDemiJournee || 'MATIN');
         setDerogationSoldeNegatif(!!initialDemande.derogationSoldeNegatif);
         setDerogationDelaiPreavis(!!initialDemande.derogationDelaiPreavis);
+        setDerogationContinuiteService(!!initialDemande.derogationContinuiteService);
         setExtensionPathologiqueMaternite(!!initialDemande.extensionPathologiqueMaternite);
-        if (initialDemande.derogationSoldeNegatif || initialDemande.derogationDelaiPreavis || initialDemande.extensionPathologiqueMaternite) {
+        if (initialDemande.derogationSoldeNegatif || initialDemande.derogationDelaiPreavis || initialDemande.derogationContinuiteService || initialDemande.extensionPathologiqueMaternite) {
           setShowOptionsAvancees(true);
         } else {
           setShowOptionsAvancees(false);
@@ -95,21 +101,23 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
         setSelectedEmployeId(idEmployeProp ? String(idEmployeProp) : '');
         setIdTypeConge('');
         setIdMotifEvenementFamilial('');
-        setDateDebut('');
-        setDateFin('');
+        setDateDebut(initialDateDebut ? formatDateForInput(initialDateDebut) : '');
+        setDateFin(initialDateFin ? formatDateForInput(initialDateFin) : (initialDateDebut ? formatDateForInput(initialDateDebut) : ''));
         setCommentaire('');
         setJustificatifFourni(false);
         setEstDemiJournee(false);
         setMomentDemiJournee('MATIN');
         setDerogationSoldeNegatif(false);
         setDerogationDelaiPreavis(false);
+        setDerogationContinuiteService(false);
         setExtensionPathologiqueMaternite(false);
         setShowOptionsAvancees(false);
       }
+      setConflitReport(null);
       setError(null);
       setFieldErrors({});
     }
-  }, [isOpen, idEmployeProp, initialDemande]);
+  }, [isOpen, idEmployeProp, initialDemande, initialDateDebut, initialDateFin]);
 
   // Si demi-journée activée, la date de fin doit égaler la date de début
   useEffect(() => {
@@ -145,7 +153,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idTypeConge, idMotifEvenementFamilial, dateDebut, extensionPathologiqueMaternite, estDemiJournee]);
 
-  // Simulation serveur des jours décomptés (backend-driven avec prise en compte des fériés et ouvrables réels)
+  // Analyse serveur de continuité de service & simulation des jours (backend-driven)
   useEffect(() => {
     let isMounted = true;
     if (estDemiJournee) {
@@ -159,7 +167,6 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
         setNbJoursWeekEnd(0);
         setNbJoursOuvres(0);
       }
-      return;
     }
 
     if (dateDebut && dateFin) {
@@ -167,22 +174,23 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
       const dFin = new Date(dateFin);
       if (dFin >= dDebut) {
         setFieldErrors((prev) => ({ ...prev, dateFin: null }));
+        setCheckingConflits(true);
 
         const timer = setTimeout(async () => {
           try {
-            const sim = await congeService.simulerDemande(dateDebut, dateFin, false);
-            if (isMounted && sim) {
-              const nb = Number(sim.nbJoursDecomptes || 0);
-              setNbJoursDecomptes(nb);
-              let countWeekends = 0;
-              let currentDate = new Date(dDebut);
-              while (currentDate <= dFin) {
-                const day = currentDate.getDay();
-                if (day === 0 || day === 6) countWeekends++;
-                currentDate.setDate(currentDate.getDate() + 1);
-              }
-              setNbJoursWeekEnd(countWeekends);
-              setNbJoursOuvres(Math.max(0, nb - countWeekends));
+            const report = await congeService.verifierConflitsDemande({
+              idEmploye: selectedEmployeId ? Number(selectedEmployeId) : null,
+              dateDebut,
+              dateFin: estDemiJournee ? dateDebut : dateFin,
+              estDemiJournee,
+              momentDemiJournee: estDemiJournee ? momentDemiJournee : null,
+              idDemandeConge: initialDemande?.idDemandeConge || null
+            });
+            if (isMounted && report) {
+              setConflitReport(report);
+              setNbJoursDecomptes(Number(report.nbJoursDecomptes || 0));
+              setNbJoursOuvres(Number(report.nbJoursOuvres || 0));
+              setNbJoursWeekEnd(Number(report.nbJoursWeekEnd || 0));
             }
           } catch {
             if (isMounted) {
@@ -190,8 +198,10 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
               const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24)) + 1;
               setNbJoursDecomptes(diffDays);
             }
+          } finally {
+            if (isMounted) setCheckingConflits(false);
           }
-        }, 150);
+        }, 180);
 
         return () => {
           isMounted = false;
@@ -201,14 +211,18 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
         setNbJoursDecomptes(0);
         setNbJoursWeekEnd(0);
         setNbJoursOuvres(0);
+        setConflitReport(null);
+        setCheckingConflits(false);
         setFieldErrors((prev) => ({ ...prev, dateFin: 'La date de fin doit être postérieure ou égale à la date de début.' }));
       }
     } else {
       setNbJoursDecomptes(0);
       setNbJoursWeekEnd(0);
       setNbJoursOuvres(0);
+      setConflitReport(null);
+      setCheckingConflits(false);
     }
-  }, [dateDebut, dateFin, estDemiJournee]);
+  }, [dateDebut, dateFin, estDemiJournee, momentDemiJournee, selectedEmployeId, initialDemande?.idDemandeConge]);
 
   const handleSubmit = async (e, showToast) => {
     e.preventDefault();
@@ -249,6 +263,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
         justificatifFourni: Boolean(justificatifFourni),
         derogationSoldeNegatif: Boolean(derogationSoldeNegatif),
         derogationDelaiPreavis: Boolean(derogationDelaiPreavis),
+        derogationContinuiteService: Boolean(derogationContinuiteService),
         extensionPathologiqueMaternite: Boolean(extensionPathologiqueMaternite),
       };
 
@@ -295,11 +310,13 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, referentiel
 
     derogationSoldeNegatif, setDerogationSoldeNegatif,
     derogationDelaiPreavis, setDerogationDelaiPreavis,
+    derogationContinuiteService, setDerogationContinuiteService,
     extensionPathologiqueMaternite, setExtensionPathologiqueMaternite,
     showOptionsAvancees, setShowOptionsAvancees,
     preavisInfo,
 
     nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres,
+    conflitReport, checkingConflits,
     loading, error, fieldErrors, setFieldErrors,
 
     typesConge, motifsFamiliaux, selectedType,

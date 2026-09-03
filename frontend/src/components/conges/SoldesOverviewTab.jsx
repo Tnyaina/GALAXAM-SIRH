@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { SkeletonCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 // Hook Logique
@@ -7,10 +8,25 @@ import { useSoldesOverview } from '@/hooks/conges/useSoldesOverview';
 import SoldesKpiBar from './soldes/SoldesKpiBar';
 import SoldesGantt from './soldes/SoldesGantt';
 import SoldesTable from './soldes/SoldesTable';
+import DemandeCongeModal from './DemandeCongeModal';
 
-export default function SoldesOverviewTab({ loading, demandesGlobales = [], onReload }) {
+export default function SoldesOverviewTab({ loading, demandesGlobales = [], referentiels, onReload }) {
+  // Modal de création directe au clic sur le planning
+  const [demandeModalState, setDemandeModalState] = useState({
+    isOpen: false,
+    idEmploye: null,
+    dateDebut: null,
+    dateFin: null
+  });
+
   const {
-    // Current Month State
+    // Mode et Filtres
+    viewMode,
+    setViewMode,
+    filterMode,
+    setFilterMode,
+
+    // Navigation Mois
     currentMonth,
     setCurrentMonth,
     year,
@@ -22,7 +38,17 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
     handleNextMonth,
     handleToday,
 
+    // Navigation Semaine
+    weekDaysArray,
+    weekStartStr,
+    weekEndStr,
+    isSemaineActuelle,
+    handlePrevWeek,
+    handleNextWeek,
+    handleTodayWeek,
+
     // Gantt Data & State
+    planningLoading,
     ganttData,
     ganttRows,
     filteredGanttRows,
@@ -36,6 +62,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
     ganttPageSize,
     setGanttPageSize,
     LANE_HEIGHT,
+    loadPlanning,
 
     // Table Data & State
     paginatedTableData,
@@ -56,7 +83,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
   } = useSoldesOverview(demandesGlobales);
 
   // État de chargement initial (Skeletons)
-  if (loading) {
+  if (loading && !planningLoading) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -71,6 +98,20 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
     );
   }
 
+  const handleCellClick = (idEmploye, dateDebut, dateFin) => {
+    setDemandeModalState({
+      isOpen: true,
+      idEmploye: idEmploye ? Number(idEmploye) : null,
+      dateDebut: dateDebut,
+      dateFin: dateFin || dateDebut
+    });
+  };
+
+  const handleModalSuccess = () => {
+    loadPlanning();
+    if (onReload) onReload();
+  };
+
   return (
     <div className="space-y-6">
       {/* Barre de KPIs */}
@@ -81,8 +122,12 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
         kpiTotalDemandes={kpiTotalDemandes}
       />
 
-      {/* Planning Gantt */}
+      {/* Planning Gantt Interactif */}
       <SoldesGantt
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        filterMode={filterMode}
+        setFilterMode={setFilterMode}
         ganttData={ganttData}
         ganttRows={ganttRows}
         filteredGanttRows={filteredGanttRows}
@@ -106,7 +151,19 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
         handlePrevMonth={handlePrevMonth}
         handleNextMonth={handleNextMonth}
         handleToday={handleToday}
-        onReload={onReload}
+        weekDaysArray={weekDaysArray}
+        weekStartStr={weekStartStr}
+        weekEndStr={weekEndStr}
+        isSemaineActuelle={isSemaineActuelle}
+        handlePrevWeek={handlePrevWeek}
+        handleNextWeek={handleNextWeek}
+        handleTodayWeek={handleTodayWeek}
+        onReload={() => {
+          loadPlanning();
+          if (onReload) onReload();
+        }}
+        planningLoading={planningLoading}
+        onCellClick={handleCellClick}
       />
 
       {/* Tableau Récapitulatif */}
@@ -122,6 +179,21 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], onRe
         tablePageSize={tablePageSize}
         setTablePageSize={setTablePageSize}
       />
+
+      {/* Modale de demande au clic sur une cellule */}
+      {demandeModalState.isOpen && (
+        <DemandeCongeModal
+          isOpen={demandeModalState.isOpen}
+          onClose={() =>
+            setDemandeModalState({ isOpen: false, idEmploye: null, dateDebut: null, dateFin: null })
+          }
+          idEmploye={demandeModalState.idEmploye}
+          initialDateDebut={demandeModalState.dateDebut}
+          initialDateFin={demandeModalState.dateFin}
+          referentiels={referentiels}
+          onSuccess={handleModalSuccess}
+        />
+      )}
     </div>
   );
 }

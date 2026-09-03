@@ -12,6 +12,7 @@ import periodePaieService from '@/services/periodePaieService';
 import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 import SEO from '@/components/system/SEO';
 import usePointageSynthese from '@/hooks/pointage/usePointageSynthese';
+import useDebounce from '@/hooks/useDebounce';
 import { Tabs } from '@/components/ui/navigation/Tabs';
 import Badge from '@/components/ui/data-display/Badge';
 import { useAuth } from '@/context/AuthContext';
@@ -22,6 +23,7 @@ export default function SynthesePointagePage() {
     const [sites, setSites] = useState([]);
     const [periodes, setPeriodes] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearch = useDebounce(searchTerm, 350);
     
     const activeTab = searchParams.get('subTab') || 'hebdo';
     const setActiveTab = (tab) => {
@@ -293,24 +295,24 @@ export default function SynthesePointagePage() {
     ];
 
     const filteredData = useMemo(() => {
-        if (!searchTerm.trim()) return syntheseData;
-        const term = searchTerm.toLowerCase().trim();
+        if (!debouncedSearch.trim()) return syntheseData;
+        const term = debouncedSearch.toLowerCase().trim();
         return syntheseData.filter(r =>
             (r.nom && r.nom.toLowerCase().includes(term)) ||
             (r.prenom && r.prenom.toLowerCase().includes(term)) ||
             (r.matricule && r.matricule.toLowerCase().includes(term))
         );
-    }, [syntheseData, searchTerm]);
+    }, [syntheseData, debouncedSearch]);
 
     const filteredSemaineDetail = useMemo(() => {
-        if (!searchTerm.trim()) return semaineDetail;
-        const term = searchTerm.toLowerCase().trim();
+        if (!debouncedSearch.trim()) return semaineDetail;
+        const term = debouncedSearch.toLowerCase().trim();
         return semaineDetail.filter(r =>
             (r.nom && r.nom.toLowerCase().includes(term)) ||
             (r.prenom && r.prenom.toLowerCase().includes(term)) ||
             (r.matricule && r.matricule.toLowerCase().includes(term))
         );
-    }, [semaineDetail, searchTerm]);
+    }, [semaineDetail, debouncedSearch]);
 
     const fmtMoney = (val) => {
         if (!val || isNaN(val)) return '0 Ar';

@@ -606,7 +606,7 @@ export default function PointageTab({ idEmploye }) {
                                         )}
 
                                         {recap.deplacementFormule && (
-                                            <p className="text-[10px] text-[var(--color-fg-muted)] pl-3 italic">
+                                            <p className="text-[10px] text-[var(--color-fg-muted)] pl-3">
                                                 {recap.deplacementFormule}
                                             </p>
                                         )}

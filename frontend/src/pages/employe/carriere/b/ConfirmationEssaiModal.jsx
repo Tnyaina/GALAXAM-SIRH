@@ -128,7 +128,7 @@ export default function ConfirmationEssaiModal({
                 idCategorieProfessionnelle: affectationActive?.idCategorieProfessionnelle || initialData?.idCategorieProfessionnelle || null,
                 idModeCalculPaie: affectationActive?.idModeCalculPaie || initialData?.idModeCalculPaie || null,
                 salaireBase: affectationActive?.salaireBase || initialData?.salaireBase || null,
-                dateEffet: dateEffet ? dateEffet : null, // 🔒 Sécurité chaîne vide -> null
+                dateEffet: dateEffet ? dateEffet : null, // Securite chaine vide -> null
                 motif: 'Confirmation définitive de la période d\'essai',
                 commentaire: commentaire ? commentaire.trim() : null,
             };

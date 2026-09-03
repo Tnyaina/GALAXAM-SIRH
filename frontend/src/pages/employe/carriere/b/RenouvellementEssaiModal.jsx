@@ -166,7 +166,7 @@ export default function RenouvellementEssaiModal({
                 idTypeContrat: contratActif?.idTypeContrat || initialData?.idTypeContrat || null,
                 idTypeIntervenant: contratActif?.idTypeIntervenant || initialData?.idTypeIntervenant || null,
                 dureeEssaiMois: dureeProlongationMois ? Number(dureeProlongationMois) : null,
-                dateFinEssai: nouvelleDateFin ? nouvelleDateFin : null, // 🔒 Sécurité chaîne vide -> null
+                dateFinEssai: nouvelleDateFin ? nouvelleDateFin : null, // Securite chaine vide -> null
                 idSite: affectationActive?.idSite || initialData?.idSite || null,
                 idDepartement: affectationActive?.idDepartement || initialData?.idDepartement || null,
                 idService: affectationActive?.idService || initialData?.idService || null,
@@ -175,7 +175,7 @@ export default function RenouvellementEssaiModal({
                 idCategorieProfessionnelle: affectationActive?.idCategorieProfessionnelle || initialData?.idCategorieProfessionnelle || null,
                 idModeCalculPaie: affectationActive?.idModeCalculPaie || initialData?.idModeCalculPaie || null,
                 salaireBase: affectationActive?.salaireBase || initialData?.salaireBase || null,
-                dateEffet: dateEffet ? dateEffet : null, // 🔒 Sécurité chaîne vide -> null
+                dateEffet: dateEffet ? dateEffet : null, // Securite chaine vide -> null
                 motif: motif ? motif.trim() : null,
                 commentaire: commentaire ? commentaire.trim() : null,
             };

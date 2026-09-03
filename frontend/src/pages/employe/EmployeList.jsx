@@ -9,6 +9,7 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { useContractReferentiels } from '@/hooks/useContractReferentiels';
+import useDebounce from '@/hooks/useDebounce';
 
 import EmployeStatsCards from '@/components/employe/EmployeStatsCards';
 import EmployeFilterBar from '@/components/employe/EmployeFilterBar';
@@ -34,6 +35,7 @@ export default function EmployeList() {
 
     // Filtres synchronisés avec l'URL
     const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+    const debouncedSearch = useDebounce(searchQuery, 350);
     const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL'); // 'ALL', 'ACTIVE', 'INACTIVE'
     const [siteFilter, setSiteFilter] = useState(searchParams.get('site') || '');
     const [departementFilter, setDepartementFilter] = useState(searchParams.get('dept') || '');
@@ -90,17 +92,17 @@ export default function EmployeList() {
         loadEmployes();
     }, [loadEmployes]);
 
-    // Synchronisation de l'état avec l'URL
+    // Synchronisation de l'état avec l'URL (débouncée)
     useEffect(() => {
         const params = {};
-        if (searchQuery.trim()) params.q = searchQuery.trim();
+        if (debouncedSearch.trim()) params.q = debouncedSearch.trim();
         if (statusFilter && statusFilter !== 'ALL') params.status = statusFilter;
         if (siteFilter) params.site = siteFilter;
         if (departementFilter) params.dept = departementFilter;
         if (serviceFilter) params.service = serviceFilter;
         if (currentPage > 1) params.page = String(currentPage);
         setSearchParams(params, { replace: true });
-    }, [searchQuery, statusFilter, siteFilter, departementFilter, serviceFilter, currentPage, setSearchParams]);
+    }, [debouncedSearch, statusFilter, siteFilter, departementFilter, serviceFilter, currentPage, setSearchParams]);
 
     const isFirstMount = useRef(true);
 
@@ -111,14 +113,14 @@ export default function EmployeList() {
             return;
         }
         setCurrentPage(1);
-    }, [searchQuery, statusFilter, siteFilter, departementFilter, serviceFilter]);
+    }, [debouncedSearch, statusFilter, siteFilter, departementFilter, serviceFilter]);
 
-    // 1. Filtrage combiné en mémoire
+    // 1. Filtrage combiné en mémoire (stabilisé par debounce)
     const filteredEmployes = useMemo(() => {
         return rawEmployes.filter((emp) => {
             // Recherche texte
-            if (searchQuery.trim()) {
-                const q = searchQuery.trim().toLowerCase();
+            if (debouncedSearch.trim()) {
+                const q = debouncedSearch.trim().toLowerCase();
                 const fullName = (emp.nomComplet || `${emp.prenom || ''} ${emp.nom || ''}`).toLowerCase();
                 const matricule = (emp.matricule || '').toLowerCase();
                 const cin = (emp.cinNumero || '').toLowerCase();
@@ -152,7 +154,7 @@ export default function EmployeList() {
 
             return true;
         });
-    }, [rawEmployes, searchQuery, statusFilter, siteFilter, departementFilter, serviceFilter]);
+    }, [rawEmployes, debouncedSearch, statusFilter, siteFilter, departementFilter, serviceFilter]);
 
     // 2. Multi-Tri Logique et Hiérarchique
     const sortedEmployes = useMemo(() => {

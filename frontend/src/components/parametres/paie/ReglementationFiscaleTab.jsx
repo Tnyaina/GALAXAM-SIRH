@@ -380,7 +380,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 hint="Valorisation: Brut ÷ 30 (calendaire)"
                             />
                         </div>
-                        <p className="text-[11px] text-[var(--color-fg-muted)] italic pt-1">
+                        <p className="text-[11px] text-[var(--color-fg-muted)] pt-1">
                             À Madagascar, le décompte calendaire de 30 jours par an s'applique avec une valorisation calculée sur la base du salaire brut divisé par 30.
                         </p>
                     </div>

@@ -241,6 +241,26 @@ const congeService = {
     const response = await apiClient.get('/conges/referentiels/all');
     return response.data;
   },
+
+  /**
+   * Vérifie les conflits de continuité de service (collègues même poste), 
+   * les chevauchements personnels et fournit le décompte calendaire détaillé.
+   */
+  verifierConflitsDemande: async (data) => {
+    const response = await apiClient.post('/conges/demandes/verifier-conflits', data);
+    return response.data;
+  },
+
+  /**
+   * Récupère la matrice planning de tous les collaborateurs actifs avec leurs congés
+   */
+  getPlanningCollaborateurs: async (params = {}, options = {}) => {
+    const response = await apiClient.get('/conges/planning', {
+      params,
+      signal: options?.signal,
+    });
+    return response.data;
+  },
 };
 
 export default congeService;

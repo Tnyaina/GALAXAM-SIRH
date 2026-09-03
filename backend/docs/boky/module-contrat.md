@@ -360,6 +360,10 @@ public void effectuerBasculementMouvementsPlanifies() {
 
 **Garanties :**
 - Exécuté en premier (avant le scheduler de notifications à 00h05).
+- Rattrapage autonome périodique (`fixedDelay = 15 min`) via `RattrapageAutomatiqueService` dès la sortie de veille de la machine, sans nécessiter d'action utilisateur ni de redémarrage serveur.
+- Filet de sécurité paresseux (Lazy Catch-up) : déclenchement asynchrone sur requêtes HTTP (`JwtAuthenticationFilter`, `POST /auth/refresh`, `POST /auth/login`).
+- Endpoint explicite de déclenchement manuel : `POST /workflows-rh/rattrapage`.
+- Rattrapage initial au démarrage physique du serveur (`ApplicationReadyEvent`).
 - Traitement atomique par workflow (chaque workflow est une transaction indépendante).
 - Journalisation des erreurs en cas d'échec (log système).
 

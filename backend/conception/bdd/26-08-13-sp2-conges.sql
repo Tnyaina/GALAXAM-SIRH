@@ -116,6 +116,7 @@ CREATE TABLE demande_conge (
     -- que bloquées silencieusement ou validées sans trace.
     derogation_solde_negatif BOOLEAN DEFAULT FALSE,   -- validé malgré solde insuffisant (anticipation)
     derogation_delai_preavis BOOLEAN DEFAULT FALSE,   -- validé malgré préavis non respecté
+    derogation_continuite_service BOOLEAN DEFAULT FALSE, -- validé malgré collision de poste (continuité de service)
 
     -- Extension maternité pour état pathologique (Art. 6 CNaPS) : porte le
     -- plafond de 98j à 119j (98 + 21j max). Applicable uniquement si

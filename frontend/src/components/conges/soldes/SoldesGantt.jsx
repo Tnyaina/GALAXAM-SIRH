@@ -1,5 +1,9 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, X, CalendarDays, ChevronLeft, ChevronRight, RefreshCw, Calendar } from 'lucide-react';
+import { 
+  Search, X, CalendarDays, ChevronLeft, ChevronRight, RefreshCw, 
+  Calendar as CalendarIcon, Users, UserCheck, Plus 
+} from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -7,63 +11,228 @@ import Pagination from '@/components/ui/navigation/Pagination';
 import { useAuth } from '@/context/AuthContext';
 
 const formatDate = (timestamp) => {
-  if (!timestamp) return '—';
+  if (!timestamp) return '';
   const date = new Date(timestamp);
   return date.toLocaleDateString('fr-FR');
 };
 
 export default function SoldesGantt({
-  ganttData,
-  ganttRows,
-  filteredGanttRows,
-  paginatedGanttRows,
-  totalGanttItems,
-  nbEmployesConcernes,
-  ganttSearch,
+  viewMode = 'MOIS',
+  setViewMode,
+  filterMode = 'TOUS',
+  setFilterMode,
+  ganttRows = [],
+  filteredGanttRows = [],
+  paginatedGanttRows = [],
+  totalGanttItems = 0,
+  nbEmployesConcernes: _nbEmployesConcernes = 0,
+  ganttSearch = '',
   setGanttSearch,
-  ganttPage,
+  ganttPage = 1,
   setGanttPage,
-  ganttPageSize,
+  ganttPageSize = 10,
   setGanttPageSize,
-  LANE_HEIGHT,
-  currentMonth: _currentMonth,
-  setCurrentMonth: _setCurrentMonth,
+  LANE_HEIGHT = 36,
   year,
   month,
-  daysInMonth,
-  daysArray,
+  daysArray = [],
   isMoisActuel,
   handlePrevMonth,
   handleNextMonth,
   handleToday,
-  onReload
+  weekDaysArray = [],
+  weekStartStr,
+  weekEndStr,
+  isSemaineActuelle,
+  handlePrevWeek,
+  handleNextWeek,
+  handleTodayWeek,
+  onReload,
+  onCellClick,
+  planningLoading = false
 }) {
   const { hasPermission } = useAuth();
   const canViewEmploye = hasPermission('EMPLOYE_READ');
 
-  // Libellé du mois en français (ex: "Octobre 2026")
-  const monthName = new Date(year, month - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  // État de glisser-déposer (drag-to-select) pour choisir directement un intervalle
+  const [dragState, setDragState] = useState({
+    isDragging: false,
+    idEmploye: null,
+    startIndex: null,
+    currentIndex: null,
+    startDate: null,
+    currentDate: null
+  });
+
+  // Gestion du relâchement de la souris n'importe où sur l'écran
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (dragState.isDragging) {
+        if (dragState.idEmploye && dragState.startDate && dragState.currentDate) {
+          const d1 = dragState.startDate;
+          const d2 = dragState.currentDate;
+          const minDate = d1 <= d2 ? d1 : d2;
+          const maxDate = d1 <= d2 ? d2 : d1;
+          if (onCellClick) {
+            onCellClick(dragState.idEmploye, minDate, maxDate);
+          }
+        }
+        setDragState({
+          isDragging: false,
+          idEmploye: null,
+          startIndex: null,
+          currentIndex: null,
+          startDate: null,
+          currentDate: null
+        });
+      }
+    };
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [dragState, onCellClick]);
+
+  const handleCellMouseDown = (idEmploye, index, dateStr, e) => {
+    if (e.button !== 0) return; // Uniquement clic gauche
+    e.preventDefault();
+    setDragState({
+      isDragging: true,
+      idEmploye,
+      startIndex: index,
+      currentIndex: index,
+      startDate: dateStr,
+      currentDate: dateStr
+    });
+  };
+
+  const handleCellMouseEnter = (idEmploye, index, dateStr) => {
+    if (dragState.isDragging && dragState.idEmploye === idEmploye) {
+      setDragState((prev) => ({
+        ...prev,
+        currentIndex: index,
+        currentDate: dateStr
+      }));
+    }
+  };
+
+  const handleCellMouseUp = (idEmploye, _index, dateStr, e) => {
+    if (e.button !== 0) return;
+    if (dragState.isDragging && dragState.idEmploye === idEmploye) {
+      e.stopPropagation();
+      const d1 = dragState.startDate;
+      const d2 = dateStr || dragState.currentDate;
+      const minDate = d1 <= d2 ? d1 : d2;
+      const maxDate = d1 <= d2 ? d2 : d1;
+      setDragState({
+        isDragging: false,
+        idEmploye: null,
+        startIndex: null,
+        currentIndex: null,
+        startDate: null,
+        currentDate: null
+      });
+      if (onCellClick) {
+        onCellClick(idEmploye, minDate, maxDate);
+      }
+    }
+  };
+
+  // Libellé du mois en français
+  const monthName = new Date(year, (month || 1) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
   const formattedMonthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
+  // Libellé de la semaine en français
+  const formattedWeekLabel = weekStartStr && weekEndStr ? (() => {
+    const d1 = new Date(weekStartStr);
+    const d2 = new Date(weekEndStr);
+    const j1 = d1.getDate();
+    const m1 = d1.toLocaleDateString('fr-FR', { month: 'short' });
+    const j2 = d2.getDate();
+    const m2 = d2.toLocaleDateString('fr-FR', { month: 'short' });
+    const y = d2.getFullYear();
+    return `${j1} ${m1} — ${j2} ${m2} ${y}`;
+  })() : '';
+
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4">
-      {/* En-tête du Planning */}
-      <div className="flex flex-col gap-3 pb-3 border-b border-[var(--color-border-subtle)]">
+    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4 select-none">
+      {/* ── En-tête & Barre d'outils du Planning ── */}
+      <div className="flex flex-col gap-4 pb-4 border-b border-[var(--color-border-subtle)]">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2.5">
+          {/* Titre et Toggles de Vues (Sans emoji) */}
+          <div className="flex items-center gap-3 flex-wrap">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
-              <CalendarDays size={15} className="text-brand-500" />
-              Planning Mensuel des Absences
+              <CalendarDays className="w-4 h-4 text-brand-600" />
+              Planning des Collaborateurs
             </h3>
-            {ganttRows.length > 0 && (
+
+            {/* Toggle Vue : Mois vs Semaine */}
+            <div className="inline-flex items-center bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode('MOIS')}
+                className={`px-2.5 py-1 font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  viewMode === 'MOIS'
+                    ? 'bg-brand-600 text-white shadow-xs'
+                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                }`}
+              >
+                <CalendarIcon className="w-3.5 h-3.5" />
+                <span>Vue Mois</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('SEMAINE')}
+                className={`px-2.5 py-1 font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  viewMode === 'SEMAINE'
+                    ? 'bg-brand-600 text-white shadow-xs'
+                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                }`}
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span>Vue Semaine</span>
+              </button>
+            </div>
+
+            {/* Toggle Filtre : Tous vs Absents */}
+            <div className="inline-flex items-center bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setFilterMode('TOUS')}
+                className={`px-2.5 py-1 font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  filterMode === 'TOUS'
+                    ? 'bg-[var(--color-surface)] text-[var(--color-fg)] border border-[var(--color-border-subtle)] shadow-xs'
+                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                }`}
+                title="Afficher tous les collaborateurs actifs même sans congé"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Tous</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode('ABSENTS')}
+                className={`px-2.5 py-1 font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  filterMode === 'ABSENTS'
+                    ? 'bg-[var(--color-surface)] text-[var(--color-fg)] border border-[var(--color-border-subtle)] shadow-xs'
+                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                }`}
+                title="Afficher uniquement les collaborateurs ayant au moins une absence"
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>Absents</span>
+              </button>
+            </div>
+
+            {totalGanttItems > 0 && (
               <Badge variant="default" size="xs" className="font-bold">
-                {nbEmployesConcernes} collaborateur{nbEmployesConcernes > 1 ? 's' : ''}
+                {totalGanttItems} collaborateur{totalGanttItems > 1 ? 's' : ''}
               </Badge>
             )}
           </div>
 
+          {/* Outils : Recherche + Navigateur temporel */}
           <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Barre de recherche d'employé dans le Gantt */}
+            {/* Barre de recherche */}
             <div className="relative flex items-center">
               <Search className="w-3.5 h-3.5 absolute left-2.5 text-[var(--color-fg-subtle)] pointer-events-none" />
               <input
@@ -73,7 +242,7 @@ export default function SoldesGantt({
                   setGanttSearch(e.target.value);
                   setGanttPage(1);
                 }}
-                placeholder="Filtrer par collaborateur…"
+                placeholder="Filtrer par nom, poste, dept…"
                 className="pl-8 pr-7 py-1 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-xs text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] outline-none focus:border-brand-500 h-8 w-44 sm:w-56 transition-colors"
               />
               {ganttSearch && (
@@ -84,43 +253,74 @@ export default function SoldesGantt({
                     setGanttPage(1);
                   }}
                   className="absolute right-2 text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)] p-0.5 cursor-pointer"
-                  title="Effacer la recherche"
+                  title="Effacer"
                 >
                   <X size={13} />
                 </button>
               )}
             </div>
 
-            {/* Sélecteur de mois compact unifié */}
-            <div className="inline-flex items-center border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] h-8 text-xs">
-              <button
-                type="button"
-                onClick={handlePrevMonth}
-                className="px-2 h-full hover:bg-[var(--color-surface-hover)] transition-colors text-[var(--color-fg-muted)] cursor-pointer"
-                title="Mois précédent"
-                aria-label="Mois précédent"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="px-3 font-bold text-[var(--color-fg)] min-w-[120px] text-center select-none">
-                {formattedMonthLabel}
-              </span>
-              <button
-                type="button"
-                onClick={handleNextMonth}
-                className="px-2 h-full hover:bg-[var(--color-surface-hover)] transition-colors text-[var(--color-fg-muted)] cursor-pointer"
-                title="Mois suivant"
-                aria-label="Mois suivant"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
+            {planningLoading && (
+              <RefreshCw className="w-3.5 h-3.5 text-brand-600 animate-spin shrink-0" title="Chargement du planning…" />
+            )}
 
-            {!isMoisActuel && (
+            {/* Navigateur Temporel (Mois ou Semaine) */}
+            {viewMode === 'MOIS' ? (
+              <div className="inline-flex items-center border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] h-8 text-xs">
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  className="px-2 h-full hover:bg-[var(--color-surface-hover)] transition-colors text-[var(--color-fg-muted)] cursor-pointer"
+                  title="Mois précédent"
+                  aria-label="Mois précédent"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="px-3 font-bold text-[var(--color-fg)] min-w-[125px] text-center select-none">
+                  {formattedMonthLabel}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  className="px-2 h-full hover:bg-[var(--color-surface-hover)] transition-colors text-[var(--color-fg-muted)] cursor-pointer"
+                  title="Mois suivant"
+                  aria-label="Mois suivant"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="inline-flex items-center border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] h-8 text-xs">
+                <button
+                  type="button"
+                  onClick={handlePrevWeek}
+                  className="px-2 h-full hover:bg-[var(--color-surface-hover)] transition-colors text-[var(--color-fg-muted)] cursor-pointer"
+                  title="Semaine précédente"
+                  aria-label="Semaine précédente"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="px-3 font-bold text-[var(--color-fg)] min-w-[155px] text-center select-none font-mono text-[11px]">
+                  {formattedWeekLabel}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleNextWeek}
+                  className="px-2 h-full hover:bg-[var(--color-surface-hover)] transition-colors text-[var(--color-fg-muted)] cursor-pointer"
+                  title="Semaine suivante"
+                  aria-label="Semaine suivante"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* Bouton Aujourd'hui */}
+            {((viewMode === 'MOIS' && !isMoisActuel) || (viewMode === 'SEMAINE' && !isSemaineActuelle)) && (
               <Button
                 variant="outline"
                 size="xs"
-                onClick={handleToday}
+                onClick={viewMode === 'MOIS' ? handleToday : handleTodayWeek}
                 className="h-8 text-xs font-semibold"
               >
                 Aujourd'hui
@@ -133,22 +333,31 @@ export default function SoldesGantt({
               iconLeft={<RefreshCw size={13} />}
               onClick={onReload}
               className="h-8 text-xs font-semibold"
+              title="Actualiser le planning"
             >
               Actualiser
             </Button>
           </div>
         </div>
 
-        {/* Légende douce et compacte */}
-        {ganttData.length > 0 && (
-          <div className="flex items-center flex-wrap gap-x-5 gap-y-1.5 text-[11px] text-[var(--color-fg-muted)] pt-0.5">
-            <span className="flex items-center gap-1.5 font-medium">
-              <span className="inline-block w-2.5 h-2.5 bg-brand-600 rounded-xs shadow-2xs" />
+        {/* Légende fidèle à index.css & Indication de Drag */}
+        <div className="flex items-center justify-between flex-wrap gap-y-2 text-[11px] text-[var(--color-fg-muted)] pt-0.5 border-t border-[var(--color-border-subtle)]/50">
+          <div className="flex items-center flex-wrap gap-x-4 gap-y-1">
+            <span className="flex items-center gap-1.5 font-semibold text-[var(--color-fg)]">
+              <span className="inline-block w-2.5 h-2.5 bg-[var(--color-brand-600)] border border-[var(--color-brand-700)] shadow-2xs" />
               Congé validé
             </span>
-            <span className="flex items-center gap-1.5 font-medium">
-              <span className="inline-block w-2.5 h-2.5 bg-[var(--color-warning-500)] rounded-xs shadow-2xs" />
-              En attente de validation
+            <span className="flex items-center gap-1.5 font-semibold text-[var(--color-fg)]">
+              <span className="inline-block w-2.5 h-2.5 bg-[var(--color-warning-500)] border border-[var(--color-warning-600)] shadow-2xs" />
+              En attente
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-2.5 h-2.5 bg-[var(--color-danger-600)] shadow-2xs" />
+              Maladie
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-2.5 h-2.5 bg-[var(--color-orange-500)] shadow-2xs" />
+              Exceptionnel
             </span>
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-2.5 h-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]" />
@@ -159,17 +368,24 @@ export default function SoldesGantt({
               Aujourd'hui
             </span>
           </div>
-        )}
+
+          <div className="text-[11px] text-brand-700 dark:text-brand-300 font-medium flex items-center gap-1 bg-brand-500/10 px-2 py-0.5 border border-brand-500/20">
+            <Plus className="w-3 h-3 text-brand-600" />
+            <span>Astuce : Glissez sur plusieurs cases ou cliquez pour poser un congé directement.</span>
+          </div>
+        </div>
       </div>
 
-      {/* Grille Gantt */}
+      {/* ── Grille Calendaire / Gantt ── */}
       <div className="overflow-x-auto border border-[var(--color-border)] shadow-2xs">
-        {ganttData.length === 0 ? (
+        {ganttRows.length === 0 ? (
           <div className="p-8">
             <EmptyState
-              icon={Calendar}
-              title="Aucun congé prévu"
-              description="Il n'y a aucune absence enregistrée sur ce mois."
+              icon={CalendarIcon}
+              title="Aucun résultat"
+              description={filterMode === 'ABSENTS' 
+                ? "Aucune absence enregistrée sur cette période. Basculez sur 'Tous' pour voir les effectifs."
+                : "Aucun collaborateur éligible trouvé pour cette période."}
             />
           </div>
         ) : filteredGanttRows.length === 0 ? (
@@ -181,59 +397,91 @@ export default function SoldesGantt({
             />
           </div>
         ) : (
-          <div className="min-w-[850px]">
-            {/* Header de la grille : Jours du mois */}
+          <div className={viewMode === 'MOIS' ? "min-w-[920px]" : "min-w-[850px]"}>
+            {/* Header de la grille */}
             <div className="flex bg-[var(--color-bg-subtle)] border-b border-[var(--color-border)] select-none">
-              <div className="w-56 shrink-0 p-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] border-r border-[var(--color-border)] flex items-center">
-                Collaborateur
+              <div className="w-60 shrink-0 p-2.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] border-r border-[var(--color-border)] flex items-center justify-between">
+                <span>Collaborateur</span>
+                <span className="font-normal opacity-70">Poste & Dépt</span>
               </div>
-              <div className="flex-1 flex">
-                {daysArray.map((day) => {
-                  const dateObj = new Date(year, month - 1, day);
-                  const dayOfWeek = dateObj.toLocaleDateString('fr-FR', { weekday: 'short' }).charAt(0).toUpperCase();
-                  const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
-                  const isToday = dateObj.toDateString() === new Date().toDateString();
 
-                  return (
+              {viewMode === 'MOIS' ? (
+                // Colonnes Jours du Mois
+                <div className="flex-1 flex">
+                  {daysArray.map((day) => {
+                    const dateObj = new Date(year, (month || 1) - 1, day);
+                    const dayOfWeek = dateObj.toLocaleDateString('fr-FR', { weekday: 'short' }).charAt(0).toUpperCase();
+                    const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+                    const isToday = dateObj.toDateString() === new Date().toDateString();
+
+                    return (
+                      <div
+                        key={day}
+                        title={dateObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        className={`flex-1 min-w-[24px] text-center py-1 text-xs font-data border-r border-[var(--color-border-subtle)] last:border-0 ${
+                          isToday
+                            ? 'bg-brand-500/15 text-brand-800 dark:text-brand-200 font-bold border-b-2 border-b-brand-600'
+                            : isWeekend
+                              ? 'bg-[var(--color-bg-subtle)]/80 text-[var(--color-fg-subtle)]'
+                              : 'text-[var(--color-fg)]'
+                        }`}
+                      >
+                        <div className={`text-[9.5px] ${isToday ? 'font-bold' : 'opacity-60'}`}>{dayOfWeek}</div>
+                        <div className="text-[11px] leading-tight font-medium">{day}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                // Colonnes 7 Jours de la Semaine
+                <div className="flex-1 flex">
+                  {weekDaysArray.map((dayObj, idx) => (
                     <div
-                      key={day}
-                      title={dateObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-                      className={`flex-1 min-w-[24px] text-center py-1 text-xs font-data border-r border-[var(--color-border-subtle)] last:border-0 ${
-                        isToday
-                          ? 'bg-brand-500/15 text-brand-700 dark:text-brand-300 font-bold border-b-2 border-b-brand-600'
-                          : isWeekend
+                      key={idx}
+                      className={`flex-1 min-w-[90px] text-center py-2 px-1 border-r border-[var(--color-border-subtle)] last:border-0 ${
+                        dayObj.isToday
+                          ? 'bg-brand-500/15 text-brand-800 dark:text-brand-200 font-bold border-b-2 border-b-brand-600'
+                          : dayObj.isWeekend
                             ? 'bg-[var(--color-bg-subtle)]/80 text-[var(--color-fg-subtle)]'
                             : 'text-[var(--color-fg)]'
                       }`}
                     >
-                      <div className={`text-[9.5px] ${isToday ? 'font-bold' : 'opacity-60'}`}>{dayOfWeek}</div>
-                      <div className="text-[11px] leading-tight font-medium">{day}</div>
+                      <div className="text-[10px] uppercase font-bold tracking-wide opacity-75">
+                        {dayObj.dayOfWeek}
+                      </div>
+                      <div className="text-xs font-mono font-bold mt-0.5">
+                        {dayObj.dayNumber} {dayObj.dateObj.toLocaleDateString('fr-FR', { month: 'short' })}
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Corps du Gantt */}
+            {/* Corps du Gantt (Lignes Collaborateurs) */}
             <div className="divide-y divide-[var(--color-border-subtle)] bg-[var(--color-surface)]">
               {paginatedGanttRows.map((row) => {
-                const totalLanes = row.lanes?.length || 1;
+                const totalLanes = row.laneCount || 1;
                 const rowHeight = Math.max(LANE_HEIGHT, totalLanes * LANE_HEIGHT + 6);
+
+                const isRowBeingDragged = dragState.isDragging && dragState.idEmploye === row.idEmploye;
+                const minDragIdx = isRowBeingDragged ? Math.min(dragState.startIndex, dragState.currentIndex) : -1;
+                const maxDragIdx = isRowBeingDragged ? Math.max(dragState.startIndex, dragState.currentIndex) : -1;
 
                 return (
                   <div
                     key={row.idEmploye}
-                    className="flex hover:bg-[var(--color-surface-hover)] transition-colors group"
+                    className="flex hover:bg-[var(--color-surface-hover)]/60 transition-colors group"
                     style={{ minHeight: `${rowHeight}px` }}
                   >
-                    {/* Colonne Employé */}
-                    <div className="w-56 shrink-0 px-2.5 py-1.5 border-r border-[var(--color-border)] flex items-center justify-between gap-2">
+                    {/* Colonne Collaborateur */}
+                    <div className="w-60 shrink-0 px-3 py-1.5 border-r border-[var(--color-border)] flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         {canViewEmploye ? (
                           <Link
                             to={`/employes/${row.idEmploye}?tab=conges`}
                             className="font-bold text-xs text-[var(--color-fg)] hover:text-brand-600 truncate block transition-colors leading-snug"
-                            title={`Consulter le dossier congé de ${row.employe}`}
+                            title={`Dossier de ${row.employe}`}
                           >
                             {row.employe}
                           </Link>
@@ -242,63 +490,117 @@ export default function SoldesGantt({
                             {row.employe}
                           </span>
                         )}
-                        <span className="text-[10px] text-[var(--color-fg-subtle)] font-mono block truncate">
-                          {row.departement}
+                        <span className="text-[10px] text-[var(--color-fg-subtle)] truncate block mt-0.5">
+                          {row.fonction ? <span className="font-semibold text-[var(--color-fg-muted)]">{row.fonction}</span> : 'Sans poste'}
+                          {row.departement ? ` • ${row.departement}` : ''}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono font-bold bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] px-1.5 py-0.5 shrink-0 border border-[var(--color-border-subtle)]">
+
+                      {/* Badge total pris */}
+                      <span className="text-[10px] font-mono font-bold bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] px-1.5 py-0.5 shrink-0 border border-[var(--color-border-subtle)]" title="Total congés sur la période">
                         {row.totalPrisMois}j
                       </span>
                     </div>
 
-                    {/* Grille Jours + Barres */}
+                    {/* Grille Jours + Support Glisser (Drag-to-select) + Barres */}
                     <div className="flex-1 relative flex">
-                      {daysArray.map((day) => {
-                        const dateObj = new Date(year, month - 1, day);
-                        const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
-                        const isToday = dateObj.toDateString() === new Date().toDateString();
+                      {viewMode === 'MOIS' ? (
+                        // Grille Mois avec sélection par glisser
+                        daysArray.map((day, idx) => {
+                          const dateObj = new Date(year, (month || 1) - 1, day);
+                          const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+                          const isToday = dateObj.toDateString() === new Date().toDateString();
+                          const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                          const isCellInDrag = isRowBeingDragged && idx >= minDragIdx && idx <= maxDragIdx;
 
-                        return (
-                          <div
-                            key={day}
-                            className={`flex-1 min-w-[24px] border-r border-[var(--color-border-subtle)]/40 last:border-0 ${
-                              isWeekend ? 'bg-[var(--color-bg-subtle)]/40' : ''
-                            } ${isToday ? 'bg-brand-500/5' : ''}`}
-                          />
-                        );
-                      })}
+                          return (
+                            <div
+                              key={day}
+                              onMouseDown={(e) => handleCellMouseDown(row.idEmploye, idx, dateStr, e)}
+                              onMouseEnter={() => handleCellMouseEnter(row.idEmploye, idx, dateStr)}
+                              onMouseUp={(e) => handleCellMouseUp(row.idEmploye, idx, dateStr, e)}
+                              className={`flex-1 min-w-[24px] border-r border-[var(--color-border-subtle)]/40 last:border-0 relative cursor-pointer group/cell transition-colors ${
+                                isCellInDrag
+                                  ? 'bg-brand-500/30 border-y-2 border-brand-600 z-10'
+                                  : isWeekend
+                                    ? 'bg-[var(--color-bg-subtle)]/30 hover:bg-brand-500/15'
+                                    : isToday
+                                      ? 'bg-brand-500/5 hover:bg-brand-500/20'
+                                      : 'hover:bg-brand-500/15'
+                              }`}
+                              title={`Cliquer ou glisser pour poser un congé pour ${row.employe}`}
+                            >
+                              {!isCellInDrag && (
+                                <span className="hidden group-hover/cell:flex absolute inset-0 items-center justify-center text-[10px] text-brand-600 font-bold">
+                                  +
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        // Grille Semaine avec sélection par glisser
+                        weekDaysArray.map((dayObj, idx) => {
+                          const isCellInDrag = isRowBeingDragged && idx >= minDragIdx && idx <= maxDragIdx;
 
-                      {row.items.map((item) => {
-                        const isDemi = !!item.estDemiJournee;
+                          return (
+                            <div
+                              key={idx}
+                              onMouseDown={(e) => handleCellMouseDown(row.idEmploye, idx, dayObj.date, e)}
+                              onMouseEnter={() => handleCellMouseEnter(row.idEmploye, idx, dayObj.date)}
+                              onMouseUp={(e) => handleCellMouseUp(row.idEmploye, idx, dayObj.date, e)}
+                              className={`flex-1 min-w-[90px] border-r border-[var(--color-border-subtle)]/40 last:border-0 relative cursor-pointer group/cell transition-colors flex flex-col justify-end p-1.5 ${
+                                isCellInDrag
+                                  ? 'bg-brand-500/30 border-y-2 border-brand-600 z-10'
+                                  : dayObj.isWeekend
+                                    ? 'bg-[var(--color-bg-subtle)]/30 hover:bg-brand-500/15'
+                                    : dayObj.isToday
+                                      ? 'bg-brand-500/5 hover:bg-brand-500/20'
+                                      : 'hover:bg-brand-500/15'
+                              }`}
+                              title={`Cliquer ou glisser pour poser un congé pour ${row.employe}`}
+                            >
+                              {!isCellInDrag && (
+                                <span className="hidden group-hover/cell:flex items-center justify-center gap-1 text-[10px] text-brand-700 font-semibold bg-white dark:bg-black/60 py-0.5 border border-brand-300 shadow-2xs">
+                                  <Plus className="w-3 h-3 text-brand-600" /> Poser
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+
+                      {/* Barres de congés conformes à index.css (aucun bleu vif) */}
+                      {row.items?.map((item) => {
+                        const isDemi = Boolean(item.estDemiJournee);
                         const isMatin = item.momentDemiJournee === 'MATIN';
-                        const daySpan = isDemi ? 0.5 : (item.endDay - item.startDay + 1);
-                        const leftOffset = isDemi && !isMatin ? (item.startDay - 1 + 0.5) : (item.startDay - 1);
                         const dureeLabel = isDemi
-                          ? (isMatin ? '0.5j Matin' : '0.5j Après-midi')
-                          : `${item.calcJours || item.dureeJours || (item.endDay - item.startDay + 1)}j`;
+                          ? (isMatin ? '0.5j Matin' : '0.5j A-M')
+                          : `${item.dureeJours}j`;
+
+                        const isEnAttente = item.statut === 'EN_ATTENTE' || item.statut === 'SOUMIS';
 
                         return (
                           <div
                             key={item.id}
                             role="img"
-                            aria-label={`${row.employe} — ${item.type}, ${item.statut === 'EN_ATTENTE' ? 'en attente' : 'validé'}, ${dureeLabel}`}
-                            className={`absolute flex items-center overflow-hidden rounded-xs border shadow-xs cursor-help transition-transform hover:scale-[1.01] ${
-                              daySpan >= 2 ? 'px-2' : 'px-1 justify-center'
-                            } ${
-                              item.statut === 'EN_ATTENTE'
-                                ? 'bg-[var(--color-warning-500)] border-[var(--color-warning-500)] text-white font-semibold'
-                                : 'bg-brand-600 border-brand-700 text-white font-semibold'
+                            aria-label={`${row.employe} — ${item.type}, ${isEnAttente ? 'en attente' : 'validé'}, ${dureeLabel}`}
+                            className={`absolute flex items-center overflow-hidden rounded-none border shadow-xs transition-transform hover:scale-[1.01] z-10 px-2 select-none pointer-events-none ${
+                              isEnAttente
+                                ? 'bg-[var(--color-warning-500)] border-[var(--color-warning-600)] text-white font-semibold'
+                                : 'bg-[var(--color-brand-600)] border-[var(--color-brand-700)] text-white font-semibold'
                             }`}
                             style={{
-                              left: `${(leftOffset / daysInMonth) * 100}%`,
-                              width: `${(daySpan / daysInMonth) * 100}%`,
-                              top: `${3 + item.laneIndex * LANE_HEIGHT}px`,
-                              height: `${LANE_HEIGHT - 6}px`,
+                              left: `${item.leftPercent}%`,
+                              width: `${Math.max(item.widthPercent, 2)}%`,
+                              top: `${4 + item.laneIndex * LANE_HEIGHT}px`,
+                              height: `${LANE_HEIGHT - 8}px`,
+                              backgroundColor: !isEnAttente && item.couleur ? item.couleur : undefined
                             }}
-                            title={`${item.type} — ${item.statut === 'EN_ATTENTE' ? 'En attente de validation' : 'Validé'} (${dureeLabel}) du ${formatDate(item.originalStart)} au ${formatDate(item.originalEnd)}`}
+                            title={`${item.typeLibelle || item.type} (${dureeLabel}) — ${isEnAttente ? 'En attente de validation' : 'Validé'} du ${formatDate(item.originalStart)} au ${formatDate(item.originalEnd)}`}
                           >
-                            <span className="text-[10.5px] truncate tracking-tight font-medium flex items-center gap-1">
-                              <span>{item.type}</span>
+                            <span className="text-[11px] truncate tracking-tight font-medium flex items-center gap-1">
+                              <span>{item.typeLibelle || item.type}</span>
                               <span className="font-mono text-[9.5px] opacity-90 font-bold">({dureeLabel})</span>
                             </span>
                           </div>

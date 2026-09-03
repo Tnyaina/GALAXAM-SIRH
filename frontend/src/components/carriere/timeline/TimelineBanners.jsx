@@ -12,7 +12,7 @@ export default function TimelineBanners({
 }) {
     return (
         <>
-            {/* 🟡 BANNIÈRE : BROUILLON D'EMBAUCHE / TRANSITION EN COURS */}
+            {/* BANNIERE : BROUILLON D'EMBAUCHE / TRANSITION EN COURS */}
             {brouillonWf && Boolean(brouillonWf.isBrouillon ?? true) && (
                 <div className="bg-warning-500/10 border border-warning-500/30 p-5 rounded-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div className="flex items-start gap-3">
@@ -70,7 +70,7 @@ export default function TimelineBanners({
                 </div>
             )}
 
-            {/* 🔵 BANNIÈRE : MOUVEMENT RH PLANIFIÉ À DATE ULTÉRIEURE */}
+            {/* BANNIERE : MOUVEMENT RH PLANIFIE A DATE ULTERIEURE */}
             {workflowPlanifieFutur && (
                 <div className="bg-brand-500/10 border border-brand-500/30 p-5 rounded-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div className="flex items-start gap-3">

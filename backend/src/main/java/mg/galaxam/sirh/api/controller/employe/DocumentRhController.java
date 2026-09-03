@@ -164,7 +164,7 @@ public class DocumentRhController {
     /**
      * Téléchargement / Visualisation d'un document RH par son ID.
      */
-    @GetMapping("/documents-rh/{idDocument}/telecharger")
+    @GetMapping({"/documents-rh/{idDocument}/telecharger", "/documents-rh/{idDocument}/download"})
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> downloadDocument(@PathVariable int idDocument) {
         try (Connection c = dataSource.getConnection()) {

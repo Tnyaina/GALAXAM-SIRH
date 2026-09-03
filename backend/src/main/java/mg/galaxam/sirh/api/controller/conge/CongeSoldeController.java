@@ -33,6 +33,32 @@ public class CongeSoldeController {
     @Autowired
     private mg.galaxam.sirh.cron.PurgeCongeScheduler purgeCongeScheduler;
 
+    @Autowired
+    private mg.galaxam.sirh.model.conge.service.CongeService congeService;
+
+    @GetMapping("/planning")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getPlanning(
+            @RequestParam(required = false) Integer annee,
+            @RequestParam(required = false) Integer mois,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateDebut,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFin,
+            @RequestParam(required = false) Integer idSite,
+            @RequestParam(required = false) Integer idDepartement,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "TOUS") String filterMode,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size) {
+        try (Connection c = dataSource.getConnection()) {
+            Map<String, Object> planning = congeService.getPlanningCollaborateurs(
+                    annee, mois, dateDebut, dateFin, idSite, idDepartement,
+                    search, filterMode, page, size, c);
+            return ResponseEntity.ok(planning);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur chargement planning : " + e.getMessage());
+        }
+    }
+
     @PostMapping("/purge-expiration")
     @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> declencherPurgeManuelle() {

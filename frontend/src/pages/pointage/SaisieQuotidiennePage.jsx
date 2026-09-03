@@ -12,6 +12,7 @@ import PointageToolbar from '@/components/pointage/PointageToolbar';
 import PointageGridTable from '@/components/pointage/PointageGridTable';
 import PointageRecapModal from '@/components/pointage/PointageRecapModal';
 import usePointageSaisie from '@/hooks/pointage/usePointageSaisie';
+import useDebounce from '@/hooks/useDebounce';
 
 export default function SaisieQuotidiennePage() {
     const { toast } = useToast();
@@ -57,6 +58,7 @@ export default function SaisieQuotidiennePage() {
     } = usePointageSaisie(1, new Date().toISOString().split('T')[0]);
 
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearch = useDebounce(searchTerm, 350);
     const [statutFilter, setStatutFilter] = useState('ALL');
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
@@ -194,14 +196,14 @@ export default function SaisieQuotidiennePage() {
             list = list.filter(r => r.retard || (r.minutesRetard && r.minutesRetard > 0));
         }
 
-        if (!searchTerm.trim()) return list;
-        const term = searchTerm.toLowerCase().trim();
+        if (!debouncedSearch.trim()) return list;
+        const term = debouncedSearch.toLowerCase().trim();
         return list.filter(row =>
             (row.nom && row.nom.toLowerCase().includes(term)) ||
             (row.prenom && row.prenom.toLowerCase().includes(term)) ||
             (row.matricule && row.matricule.toLowerCase().includes(term))
         );
-    }, [grilleData, statutFilter, searchTerm]);
+    }, [grilleData, statutFilter, debouncedSearch]);
 
     const isReadOnly = useMemo(() => {
         if (!canWrite) return true;

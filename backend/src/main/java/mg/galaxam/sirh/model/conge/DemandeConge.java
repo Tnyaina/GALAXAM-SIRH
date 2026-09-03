@@ -35,6 +35,7 @@ public class DemandeConge extends ClassMere {
 
     private boolean derogationSoldeNegatif = false;
     private boolean derogationDelaiPreavis = false;
+    private boolean derogationContinuiteService = false;
     private boolean extensionPathologiqueMaternite = false;
 
     private boolean estDemiJournee = false;
@@ -198,6 +199,29 @@ public class DemandeConge extends ClassMere {
             }
         }
 
+        // 5bis. Contrôle de l'ancienneté minimale (Art. 85 du Code du Travail : 12 mois de service effectif)
+        if ("ANNUEL".equals(typeConge.getCode()) && !derogationSoldeNegatif) {
+            String sqlEmbauche = "SELECT MIN(date_debut) AS date_embauche FROM contrat_travail WHERE id_employe = ?";
+            try (PreparedStatement psEmb = c.prepareStatement(sqlEmbauche)) {
+                psEmb.setInt(1, idEmploye);
+                try (ResultSet rsEmb = psEmb.executeQuery()) {
+                    if (rsEmb.next()) {
+                        Date dEmb = rsEmb.getDate("date_embauche");
+                        if (dEmb != null) {
+                            LocalDate hireDate = dEmb.toLocalDate();
+                            LocalDate startDate = dateDebut.toLocalDate();
+                            long moisService = ChronoUnit.MONTHS.between(hireDate, startDate);
+                            if (moisService < 12) {
+                                throw new IllegalArgumentException("L'employé ne justifie que de " + moisService +
+                                        " mois de service effectif (12 mois requis par l'Art. 85 du Code du Travail). " +
+                                        "Une dérogation RH pour prise par anticipation est requise.");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // 6. Contrôle Maternité (98 jours standard, ou 119 jours si extension
         // pathologique)
         if ("MATERNITE".equals(typeConge.getCode())) {
@@ -235,8 +259,7 @@ public class DemandeConge extends ClassMere {
             }
         }
 
-        // 8. Contrôle de non-chevauchement des dates avec une autre demande active du
-        // même salarié
+        // 8. Contrôle de non-chevauchement des dates avec une autre demande active du même salarié
         String sqlOverlap = "SELECT dc.id_demande_conge, dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.moment_demi_journee, "
                 +
                 "tc.libelle AS libelle_conge, sc.code AS code_statut " +
@@ -247,30 +270,104 @@ public class DemandeConge extends ClassMere {
                 "AND dc.id_demande_conge != COALESCE(?, -1) " +
                 "AND sc.code NOT IN ('REFUSE', 'ANNULE', 'REJETE') " +
                 "AND dc.date_debut <= ? AND dc.date_fin >= ?";
-        try (PreparedStatement psOverlap = c.prepareStatement(sqlOverlap)) {
-            psOverlap.setInt(1, idEmploye);
-            psOverlap.setObject(2, idDemandeConge != null ? idDemandeConge : -1);
-            psOverlap.setDate(3, dateFin);
-            psOverlap.setDate(4, dateDebut);
-            try (ResultSet rsOverlap = psOverlap.executeQuery()) {
+        try (PreparedStatement psO = c.prepareStatement(sqlOverlap)) {
+            psO.setInt(1, idEmploye);
+            psO.setObject(2, idDemandeConge != null ? idDemandeConge : -1);
+            psO.setDate(3, dateFin);
+            psO.setDate(4, dateDebut);
+            try (ResultSet rsOverlap = psO.executeQuery()) {
                 while (rsOverlap.next()) {
                     boolean otherDemi = rsOverlap.getBoolean("est_demi_journee");
                     String otherMoment = rsOverlap.getString("moment_demi_journee");
-                    // S'il s'agit de demi-journées complémentaires le même jour (ex: MATIN vs
-                    // APRES_MIDI), on autorise
-                    if (this.estDemiJournee && otherDemi &&
-                            this.dateDebut.equals(this.dateFin) &&
-                            rsOverlap.getDate("date_debut").equals(this.dateDebut) &&
-                            this.momentDemiJournee != null && otherMoment != null &&
-                            !this.momentDemiJournee.equalsIgnoreCase(otherMoment)) {
+                    if (estDemiJournee && otherDemi && dateDebut.equals(dateFin) &&
+                            rsOverlap.getDate("date_debut").equals(dateDebut) &&
+                            momentDemiJournee != null && otherMoment != null &&
+                            !momentDemiJournee.equalsIgnoreCase(otherMoment)) {
                         continue;
                     }
-
                     throw new IllegalArgumentException("Chevauchement détecté : l'employé a déjà une demande de congé ("
                             +
                             rsOverlap.getString("libelle_conge") + " du " + rsOverlap.getDate("date_debut") + " au " +
                             rsOverlap.getDate("date_fin") + " - Statut: " + rsOverlap.getString("code_statut") +
                             ") couvrant cette période.");
+                }
+            }
+        }
+
+        // 9. Contrôle de Continuité de Service (anti-collision de poste sur le même site d'affectation)
+        String sqlPoste = "SELECT a.id_fonction, a.id_site, f.libelle AS nom_fonction, s.libelle AS nom_site " +
+                "FROM employe_affectation_carriere a " +
+                "JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
+                "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
+                "WHERE a.id_employe = ? AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
+                "ORDER BY a.date_debut DESC LIMIT 1";
+        Integer idFonction = null;
+        Integer idSite = null;
+        String nomFonction = null;
+        String nomSite = null;
+        try (PreparedStatement psP = c.prepareStatement(sqlPoste)) {
+            psP.setInt(1, idEmploye);
+            psP.setDate(2, dateFin);
+            psP.setDate(3, dateDebut);
+            try (ResultSet rsP = psP.executeQuery()) {
+                if (rsP.next()) {
+                    idFonction = rsP.getInt("id_fonction");
+                    idSite = rsP.getInt("id_site");
+                    nomFonction = rsP.getString("nom_fonction");
+                    nomSite = rsP.getString("nom_site");
+                }
+            }
+        }
+
+        if (idFonction != null) {
+            String sqlCollegues = "SELECT e.nom, e.prenom, dc.date_debut, dc.date_fin, " +
+                    "dc.est_demi_journee, dc.moment_demi_journee, sc.code AS code_statut " +
+                    "FROM demande_conge dc " +
+                    "JOIN employe e ON dc.id_employe = e.id_employe " +
+                    "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
+                    "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
+                    "WHERE a.id_fonction = ? " +
+                    (idSite != null && idSite > 0 ? "AND a.id_site = ? " : "") +
+                    "AND dc.id_employe != ? " +
+                    "AND dc.id_demande_conge != COALESCE(?, -1) " +
+                    "AND sc.code NOT IN ('REFUSE', 'ANNULE', 'REJETE') " +
+                    "AND dc.date_debut <= ? AND dc.date_fin >= ? " +
+                    "AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?)";
+            try (PreparedStatement psC = c.prepareStatement(sqlCollegues)) {
+                int pIdx = 1;
+                psC.setInt(pIdx++, idFonction);
+                if (idSite != null && idSite > 0) {
+                    psC.setInt(pIdx++, idSite);
+                }
+                psC.setInt(pIdx++, idEmploye);
+                psC.setObject(pIdx++, idDemandeConge != null ? idDemandeConge : -1);
+                psC.setDate(pIdx++, dateFin);
+                psC.setDate(pIdx++, dateDebut);
+                psC.setDate(pIdx++, dateFin);
+                psC.setDate(pIdx++, dateDebut);
+                try (ResultSet rsC = psC.executeQuery()) {
+                    while (rsC.next()) {
+                        boolean cDemi = rsC.getBoolean("est_demi_journee");
+                        String cMoment = rsC.getString("moment_demi_journee");
+                        Date cDeb = rsC.getDate("date_debut");
+                        Date cFin = rsC.getDate("date_fin");
+
+                        // Exclusion : demi-journées complémentaires sur la même date
+                        if (this.estDemiJournee && cDemi && dateDebut.equals(dateFin) && cDeb.equals(cFin) && dateDebut.equals(cDeb)) {
+                            if (this.momentDemiJournee != null && cMoment != null &&
+                                    !this.momentDemiJournee.equalsIgnoreCase(cMoment)) {
+                                continue;
+                            }
+                        }
+
+                        if (!this.derogationContinuiteService) {
+                            String collegueNom = rsC.getString("prenom") + " " + rsC.getString("nom");
+                            String siteInfo = (nomSite != null && !nomSite.isEmpty()) ? " sur le site " + nomSite : "";
+                            throw new IllegalArgumentException("Conflit de continuité de service détecté : " +
+                                    collegueNom + " (même poste : " + nomFonction + siteInfo + ") est déjà en congé du " +
+                                    cDeb + " au " + cFin + ". Une dérogation expresse de continuité de service est requise.");
+                        }
+                    }
                 }
             }
         }
@@ -511,10 +608,10 @@ public class DemandeConge extends ClassMere {
         String sql = "INSERT INTO demande_conge (" +
                 "id_employe, id_type_conge, id_statut_demande_conge, id_motif_evenement_familial, " +
                 "date_debut, date_fin, date_demande, nb_jours_decomptes, " +
-                "derogation_solde_negatif, derogation_delai_preavis, extension_pathologique_maternite, " +
+                "derogation_solde_negatif, derogation_delai_preavis, derogation_continuite_service, extension_pathologique_maternite, " +
                 "est_demi_journee, moment_demi_journee, " +
                 "justificatif_fourni, commentaire, saisi_par" +
-                ") VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE), ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                ") VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             int i = 1;
@@ -528,6 +625,7 @@ public class DemandeConge extends ClassMere {
             ps.setBigDecimal(i++, nbJoursDecomptes);
             ps.setBoolean(i++, derogationSoldeNegatif);
             ps.setBoolean(i++, derogationDelaiPreavis);
+            ps.setBoolean(i++, derogationContinuiteService);
             ps.setBoolean(i++, extensionPathologiqueMaternite);
             ps.setBoolean(i++, estDemiJournee);
             setNullableString(ps, i++, momentDemiJournee);
@@ -550,7 +648,7 @@ public class DemandeConge extends ClassMere {
         String sql = "UPDATE demande_conge SET " +
                 "id_type_conge = ?, id_statut_demande_conge = ?, id_motif_evenement_familial = ?, " +
                 "date_debut = ?, date_fin = ?, date_demande = ?, nb_jours_decomptes = ?, " +
-                "derogation_solde_negatif = ?, derogation_delai_preavis = ?, extension_pathologique_maternite = ?, " +
+                "derogation_solde_negatif = ?, derogation_delai_preavis = ?, derogation_continuite_service = ?, extension_pathologique_maternite = ?, " +
                 "est_demi_journee = ?, moment_demi_journee = ?, " +
                 "justificatif_fourni = ?, commentaire = ?, valide_par = ?, date_validation = ?, motif_refus = ?, " +
                 "updated_at = CURRENT_TIMESTAMP " +
@@ -567,6 +665,7 @@ public class DemandeConge extends ClassMere {
             ps.setBigDecimal(i++, nbJoursDecomptes);
             ps.setBoolean(i++, derogationSoldeNegatif);
             ps.setBoolean(i++, derogationDelaiPreavis);
+            ps.setBoolean(i++, derogationContinuiteService);
             ps.setBoolean(i++, extensionPathologiqueMaternite);
             ps.setBoolean(i++, estDemiJournee);
             setNullableString(ps, i++, momentDemiJournee);
@@ -641,6 +740,9 @@ public class DemandeConge extends ClassMere {
         obj.setNbJoursDecomptes(rs.getBigDecimal("nb_jours_decomptes"));
         obj.setDerogationSoldeNegatif(rs.getBoolean("derogation_solde_negatif"));
         obj.setDerogationDelaiPreavis(rs.getBoolean("derogation_delai_preavis"));
+        try {
+            obj.setDerogationContinuiteService(rs.getBoolean("derogation_continuite_service"));
+        } catch (Exception ignored) {}
         obj.setExtensionPathologiqueMaternite(rs.getBoolean("extension_pathologique_maternite"));
         obj.setEstDemiJournee(rs.getBoolean("est_demi_journee"));
         obj.setMomentDemiJournee(rs.getString("moment_demi_journee"));
@@ -768,6 +870,14 @@ public class DemandeConge extends ClassMere {
 
     public void setDerogationDelaiPreavis(boolean derogationDelaiPreavis) {
         this.derogationDelaiPreavis = derogationDelaiPreavis;
+    }
+
+    public boolean isDerogationContinuiteService() {
+        return derogationContinuiteService;
+    }
+
+    public void setDerogationContinuiteService(boolean derogationContinuiteService) {
+        this.derogationContinuiteService = derogationContinuiteService;
     }
 
     public boolean isExtensionPathologiqueMaternite() {

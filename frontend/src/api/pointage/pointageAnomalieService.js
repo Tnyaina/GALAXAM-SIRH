@@ -1,8 +1,11 @@
 import apiClient from '../apiClient';
 
 export const pointageAnomalieService = {
-    getAnomalies: async (params) => {
-        const response = await apiClient.get('/pointages/anomalies', { params });
+    getAnomalies: async (params, options = {}) => {
+        const response = await apiClient.get('/pointages/anomalies', {
+            params,
+            signal: options?.signal
+        });
         return response.data;
     },
 

@@ -69,6 +69,32 @@ public class DemandeCongeController {
         }
     }
 
+    @PostMapping("/verifier-conflits")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> verifierConflits(@RequestBody Map<String, Object> req) {
+        if (!req.containsKey("dateDebut") || !req.containsKey("dateFin") || req.get("dateDebut") == null || req.get("dateFin") == null) {
+            return ResponseEntity.badRequest().body("Les dates dateDebut et dateFin sont requises.");
+        }
+
+        try (Connection c = dataSource.getConnection()) {
+            Date dateDebut = Date.valueOf(req.get("dateDebut").toString());
+            Date dateFin = Date.valueOf(req.get("dateFin").toString());
+            boolean estDemiJournee = req.containsKey("estDemiJournee") && Boolean.parseBoolean(req.get("estDemiJournee").toString());
+            String momentDemiJournee = req.get("momentDemiJournee") != null ? req.get("momentDemiJournee").toString() : null;
+            Integer idEmploye = req.get("idEmploye") != null && !req.get("idEmploye").toString().isBlank() 
+                    ? Integer.parseInt(req.get("idEmploye").toString()) : null;
+            Integer idDemandeExclue = req.get("idDemandeConge") != null && !req.get("idDemandeConge").toString().isBlank()
+                    ? Integer.parseInt(req.get("idDemandeConge").toString()) : null;
+
+            Map<String, Object> result = congeService.verifierConflitsDemande(
+                    idEmploye, dateDebut, dateFin, estDemiJournee, momentDemiJournee, idDemandeExclue, c);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.warn("Erreur vérification conflits congés : {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Erreur vérification conflits : " + e.getMessage());
+        }
+    }
+
     @PostMapping
     @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> creerDemande(@RequestBody Map<String, Object> req) {
@@ -109,6 +135,9 @@ public class DemandeCongeController {
                 }
                 if (req.get("derogationDelaiPreavis") != null) {
                     d.setDerogationDelaiPreavis(Boolean.parseBoolean(req.get("derogationDelaiPreavis").toString()));
+                }
+                if (req.get("derogationContinuiteService") != null) {
+                    d.setDerogationContinuiteService(Boolean.parseBoolean(req.get("derogationContinuiteService").toString()));
                 }
                 if (req.get("extensionPathologiqueMaternite") != null) {
                     d.setExtensionPathologiqueMaternite(
@@ -167,7 +196,7 @@ public class DemandeCongeController {
                 if (d == null)
                     return ResponseEntity.notFound().build();
 
-                d.setIdDemandeConge(id); // 🔒 Garantie d'exclusion de son propre ID pour l'anti-overlap
+                d.setIdDemandeConge(id); // Garantie d'exclusion de son propre ID pour l'anti-overlap
 
                 if (req.containsKey("idTypeConge"))
                     d.setIdTypeConge(Integer.parseInt(req.get("idTypeConge").toString()));
@@ -193,6 +222,8 @@ public class DemandeCongeController {
                     d.setDerogationSoldeNegatif(Boolean.parseBoolean(req.get("derogationSoldeNegatif").toString()));
                 if (req.containsKey("derogationDelaiPreavis"))
                     d.setDerogationDelaiPreavis(Boolean.parseBoolean(req.get("derogationDelaiPreavis").toString()));
+                if (req.containsKey("derogationContinuiteService"))
+                    d.setDerogationContinuiteService(Boolean.parseBoolean(req.get("derogationContinuiteService").toString()));
                 if (req.containsKey("extensionPathologiqueMaternite"))
                     d.setExtensionPathologiqueMaternite(
                             Boolean.parseBoolean(req.get("extensionPathologiqueMaternite").toString()));

@@ -32,6 +32,10 @@ public class WorkflowRhController {
     @Autowired
     private WorkflowRhService workflowRhService;
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private mg.galaxam.sirh.cron.RattrapageAutomatiqueService rattrapageAutomatiqueService;
+
     // =========================================================================
     // EMBAUCHE INITIALE
     // =========================================================================
@@ -275,6 +279,26 @@ public class WorkflowRhController {
 
     public static void autoAppliquerMouvementsEchus(Connection c) {
         WorkflowRhService.autoAppliquerMouvementsEchus(c);
+    }
+
+    /**
+     * Déclenchement manuel ou explicite du rattrapage quotidien des mouvements RH et alertes.
+     */
+    @PostMapping("/workflows-rh/rattrapage")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> forcerRattrapage() {
+        try {
+            if (rattrapageAutomatiqueService != null) {
+                rattrapageAutomatiqueService.verifierEtExecuterRattrapage(true);
+            }
+            return ResponseEntity.ok(java.util.Map.of(
+                    "success", true,
+                    "message", "Rattrapage quotidien des mouvements RH, alertes et congés exécuté avec succès."
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors du rattrapage : " + e.getMessage());
+        }
     }
 
     // =========================================================================

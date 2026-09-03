@@ -1,4 +1,4 @@
-import { Calendar, AlertTriangle } from 'lucide-react';
+import { Calendar, AlertTriangle, Check } from 'lucide-react';
 
 export default function PointageGuideStepper({
     periodeInfo = null,
@@ -82,7 +82,7 @@ export default function PointageGuideStepper({
                                     }
                                 `}
                             >
-                                {isDone ? '✓' : stepNum}
+                                {isDone ? <Check size={12} strokeWidth={3} /> : stepNum}
                             </div>
                             <span className={`text-[9.5px] font-semibold hidden lg:inline ${isActive ? 'text-brand-600' : 'text-[var(--color-fg-muted)] opacity-60'}`}>
                                 {label}

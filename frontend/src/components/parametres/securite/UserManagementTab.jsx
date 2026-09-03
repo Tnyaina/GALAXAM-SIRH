@@ -11,11 +11,13 @@ import Alert from '@/components/ui/feedback/Alert';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useToast } from '@/components/ui/feedback/Toast';
+import useDebounce from '@/hooks/useDebounce';
 
 export default function UserManagementTab() {
     const [users, setUsers] = useState([]);
     const [roles, setRoles] = useState([]);
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebounce(search, 350);
     const [showInactive, setShowInactive] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -215,8 +217,8 @@ export default function UserManagementTab() {
     const safeUsersList = Array.isArray(users) ? users : (users?.items || users?.content || []);
     const filteredUsers = safeUsersList.filter(u =>
         (showInactive || u.estActif !== false) &&
-        (u.identifiant?.toLowerCase().includes(search.toLowerCase()) ||
-        (u.roleLibelle && u.roleLibelle.toLowerCase().includes(search.toLowerCase())))
+        (u.identifiant?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (u.roleLibelle && u.roleLibelle.toLowerCase().includes(debouncedSearch.toLowerCase())))
     );
 
     if (loading && users.length === 0) {
