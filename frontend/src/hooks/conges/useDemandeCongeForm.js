@@ -1,19 +1,12 @@
 import { useState, useEffect } from 'react';
 import congeService from '@/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
-
-const formatDateForInput = (val) => {
-  if (!val) return '';
-  if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
-    return val.substring(0, 10);
-  }
-  const d = new Date(val);
-  if (isNaN(d.getTime())) return '';
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import { 
+  formatDateForInput, 
+  isDateAnterieure, 
+  evaluerPreavis, 
+  calculerDateFinAutomatique 
+} from '@/utils/congeBusinessRules';
 
 export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDateDebut, initialDateFin, referentiels, isOpen, onClose, onSuccess }) {
   const [selectedEmployeId, setSelectedEmployeId] = useState('');
@@ -55,26 +48,8 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   const isExceptionnel = selectedType && selectedType.code === 'EXCEPTIONNEL';
   const isMaternite = selectedType && selectedType.code === 'MATERNITE';
 
-  const preavisInfo = (() => {
-    if (!dateDebut) return { isDepasse: false, preavisRequis: 0, joursConstates: 0, isRetroactif: false };
-    const dDebut = new Date(dateDebut);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const joursConstates = Math.ceil((dDebut.getTime() - today.getTime()) / (1000 * 3600 * 24));
-    
-    if (joursConstates < 0) {
-      return { isDepasse: true, preavisRequis: 0, joursConstates, isRetroactif: true };
-    }
-
-    if (selectedType?.soumisDelaiPreavis) {
-      const seuilLong = 3;
-      const preavisRequis = (nbJoursDecomptes > seuilLong) ? 15 : 2;
-      if (joursConstates < preavisRequis) {
-        return { isDepasse: true, preavisRequis, joursConstates, isRetroactif: false };
-      }
-    }
-    return { isDepasse: false, preavisRequis: 0, joursConstates, isRetroactif: false };
-  })();
+  // Évaluation du préavis via l'utilitaire métier
+  const preavisInfo = evaluerPreavis(dateDebut, nbJoursDecomptes, selectedType);
 
   useEffect(() => {
     if (isOpen) {
@@ -137,12 +112,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
 
   // Dérogation de préavis automatique si la date de début est antérieure à aujourd'hui (oubli, saisie rétroactive)
   useEffect(() => {
-    if (!dateDebut) return;
-    const [y, m, d] = dateDebut.split('-').map(Number);
-    const dDebut = (y && m && d) ? new Date(y, m - 1, d, 0, 0, 0, 0) : new Date(dateDebut);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (dDebut < today) {
+    if (isDateAnterieure(dateDebut)) {
       setDerogationDelaiPreavis(true);
     }
   }, [dateDebut]);
@@ -158,25 +128,19 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   useEffect(() => {
     if (estDemiJournee) return;
 
-    let nbJoursFixes = null;
+    const motif = isExceptionnel && idMotifEvenementFamilial
+      ? motifsFamiliaux.find((m) => String(m.idMotif) === String(idMotifEvenementFamilial))
+      : null;
 
-    if (selectedType && selectedType.dureeFixeJours) {
-      nbJoursFixes = Number(selectedType.dureeFixeJours);
-      if (isMaternite && extensionPathologiqueMaternite) {
-        nbJoursFixes = 119;
-      }
-    } else if (isExceptionnel && idMotifEvenementFamilial) {
-      const motif = motifsFamiliaux.find((m) => String(m.idMotif) === String(idMotifEvenementFamilial));
-      if (motif && motif.nbJoursAutorises) {
-        nbJoursFixes = Number(motif.nbJoursAutorises);
-      }
-    }
+    const dFinCalculee = calculerDateFinAutomatique(
+      dateDebut,
+      selectedType,
+      motif,
+      extensionPathologiqueMaternite
+    );
 
-    if (nbJoursFixes && dateDebut) {
-      const dDebut = new Date(dateDebut);
-      const dFin = new Date(dDebut);
-      dFin.setDate(dFin.getDate() + nbJoursFixes - 1);
-      setDateFin(dFin.toISOString().split('T')[0]);
+    if (dFinCalculee) {
+      setDateFin(dFinCalculee);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idTypeConge, idMotifEvenementFamilial, dateDebut, extensionPathologiqueMaternite, estDemiJournee]);

@@ -1,5 +1,6 @@
 import { AlertTriangle, Info, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
+import { evaluerSuffisanceSolde } from '@/utils/congeBusinessRules';
 
 export default function DatesCongeSection({
   dateDebut, setDateDebut,
@@ -19,6 +20,12 @@ export default function DatesCongeSection({
   setShowOptionsAvancees,
   fieldErrors, setFieldErrors
 }) {
+  const { isSoldeInsuffisant, soldeNum } = evaluerSuffisanceSolde(
+    conflitReport?.soldeDisponible,
+    nbJoursDecomptes,
+    selectedType?.decompteSoldeAcquis
+  );
+
   return (
     <>
       {/* ── Section 2 : Dates ────────────────────────────────────── */}
@@ -220,7 +227,7 @@ export default function DatesCongeSection({
         {/* ── Contrôle Solde Disponible en Temps Réel ──────────────────── */}
         {selectedType?.decompteSoldeAcquis && conflitReport?.soldeDisponible !== undefined && (
           <div className={`mt-3 p-3 border ${
-            nbJoursDecomptes > Number(conflitReport.soldeDisponible)
+            isSoldeInsuffisant
               ? 'border-warning-500/40 bg-warning-500/10'
               : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'
           }`}>
@@ -229,20 +236,20 @@ export default function DatesCongeSection({
                 Solde actuel disponible :
               </span>
               <span className={`font-data font-bold ${
-                nbJoursDecomptes > Number(conflitReport.soldeDisponible)
+                isSoldeInsuffisant
                   ? 'text-warning-600 dark:text-warning-400'
                   : 'text-success-600 dark:text-success-400'
               }`}>
-                {Number(conflitReport.soldeDisponible).toFixed(2)} jour(s)
+                {soldeNum.toFixed(2)} jour(s)
               </span>
             </div>
 
-            {nbJoursDecomptes > Number(conflitReport.soldeDisponible) && (
+            {isSoldeInsuffisant && (
               <div className="mt-2 pt-2 border-t border-warning-500/20 space-y-2">
                 <div className="flex items-start gap-1.5 text-xs text-warning-700 dark:text-warning-300 font-medium">
                   <AlertTriangle className="w-4 h-4 text-warning-500 shrink-0 mt-0.5" />
                   <span>
-                    Solde insuffisant pour couvrir cette demande ({Number(conflitReport.soldeDisponible).toFixed(2)} j disponibles pour {nbJoursDecomptes} j demandés).
+                    Solde insuffisant pour couvrir cette demande ({soldeNum.toFixed(2)} j disponibles pour {nbJoursDecomptes} j demandés).
                   </span>
                 </div>
                 {derogationSoldeNegatif ? (

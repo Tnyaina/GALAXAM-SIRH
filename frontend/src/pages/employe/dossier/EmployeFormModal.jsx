@@ -13,6 +13,7 @@ import CoordonneesPhotoStep from '@/components/employe/form/CoordonneesPhotoStep
 import FamilleFormStep from '@/components/employe/form/FamilleFormStep';
 import UrgenceFormStep from '@/components/employe/form/UrgenceFormStep';
 import CnapsBanqueStep from '@/components/employe/form/CnapsBanqueStep';
+import { formaterDateEmploye, validerEtapeEmploye, validerToutesEtapesEmploye } from '@/utils/employeFormValidation';
 
 const STEPS = [
     { id: 'civilite', label: 'Identité', icon: User, required: true },
@@ -38,6 +39,9 @@ const EMPTY_FORM = {
     compteBanquePrincipal: { idBanque: '', agence: '', numCompteRib: '', titulaireCompte: '' }
 };
 
+// Formatage de date délégué à l'utilitaire pur (défini au niveau module pour la stabilité des hooks)
+const fmtDate = formaterDateEmploye;
+
 export default function EmployeFormModal({ isOpen, onClose, onSave, employeData, isSubmitting }) {
     const [activeStep, setActiveStep] = useState(0);
     const [banques, setBanques] = useState([]);
@@ -50,32 +54,6 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
     const [matriculeError, setMatriculeError] = useState('');
 
     const [formData, setFormData] = useState({ ...EMPTY_FORM });
-
-    const fmtDate = (d) => {
-        if (!d) return '';
-        if (d instanceof Date) {
-            if (isNaN(d.getTime())) return '';
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;
-        }
-        if (typeof d === 'string') {
-            const s = d.trim();
-            if (s.includes('T')) return s.split('T')[0];
-            if (s.includes(' ')) return s.split(' ')[0];
-            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-            const parsed = new Date(s);
-            if (!isNaN(parsed.getTime())) {
-                const yyyy = parsed.getFullYear();
-                const mm = String(parsed.getMonth() + 1).padStart(2, '0');
-                const dd = String(parsed.getDate()).padStart(2, '0');
-                return `${yyyy}-${mm}-${dd}`;
-            }
-            return s.substring(0, 10);
-        }
-        return '';
-    };
 
     const loadBanques = async () => { 
         try { 
@@ -298,29 +276,11 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
 
     const validateStep = (stepIdx) => {
         setErrorMsg('');
-        const step = STEPS[stepIdx].id;
-
-        if (step === 'civilite') {
-            if (!formData.matricule || !formData.nom || !formData.prenom || !formData.dateNaissance) {
-                setErrorMsg("Veuillez renseigner tous les champs obligatoires (Matricule, Nom, Prénom, Date de Naissance).");
-                return false;
-            }
-            if (matriculeError) {
-                setErrorMsg(matriculeError);
-                return false;
-            }
-        }
-        if (step === 'cin') {
-            if (!formData.cinNumero || !formData.cinDateDelivrance || !formData.cinLieuDelivrance) {
-                setErrorMsg("Le numéro, la date et le lieu de délivrance du CIN sont obligatoires.");
-                return false;
-            }
-        }
-        if (step === 'coordonnees') {
-            if (!formData.adresse || !formData.telephone) {
-                setErrorMsg("L'adresse et le téléphone sont obligatoires.");
-                return false;
-            }
+        const stepId = STEPS[stepIdx].id;
+        const err = validerEtapeEmploye(stepId, formData, matriculeError, { customNationalite, isCustomNat });
+        if (err) {
+            setErrorMsg(err);
+            return false;
         }
         return true;
     };
@@ -340,22 +300,30 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
     const handleSave = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
         
-        // Sécurité absolue : si on n'est pas sur le dernier onglet (CNaPS & Banque), "Entrée" avance seulement à la suivante
-        if (activeStep < STEPS.length - 1) {
+        // En création, la touche Entrée avant le dernier onglet avance simplement d'une étape
+        if (!employeData && activeStep < STEPS.length - 1) {
             handleNext();
             return;
         }
 
         if (isSubmitting) return;
-        if (!validateStep(activeStep)) return;
+
+        // Validation intégrale et exhaustive de l'ensemble des étapes
+        const validationResult = validerToutesEtapesEmploye(
+            STEPS,
+            formData,
+            matriculeError,
+            { customNationalite, isCustomNat }
+        );
+
+        if (validationResult) {
+            setActiveStep(validationResult.stepIndex);
+            setErrorMsg(validationResult.error);
+            return;
+        }
         
         setErrorMsg('');
         const finalNat = isCustomNat ? customNationalite : formData.nationalite;
-
-        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            setErrorMsg("L'adresse email saisie est invalide.");
-            return;
-        }
 
         try {
             await onSave({
@@ -397,6 +365,24 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                                 disabled={isSubmitting}
                             >
                                 {STEPS[activeStep - 1]?.label}
+                            </Button>
+                        )}
+                        {/* Bouton de sauvegarde directe en mode modification */}
+                        {employeData && activeStep < STEPS.length - 1 && (
+                            <Button 
+                                key="wizard-quick-save-btn"
+                                type="button" 
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleSave(e);
+                                }} 
+                                variant="outline" 
+                                size="sm" 
+                                loading={isSubmitting}
+                                iconLeft={<Check size={14} />}
+                            >
+                                Enregistrer
                             </Button>
                         )}
                         {activeStep < STEPS.length - 1 ? (

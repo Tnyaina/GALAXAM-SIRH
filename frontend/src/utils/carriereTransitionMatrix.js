@@ -142,6 +142,86 @@ export const EVENT_TARGET_CONFIG = {
 };
 
 /**
+ * Codes d'événements RH exclus des formulaires de transition courante
+ * (gérés par des modales dédiées ou réservés à des ruptures/embauches initiales).
+ */
+export const EXCLUDED_EVENT_CODES = [
+    'EMBAUCHE_INITIALE', 'RUPTURE_CONTRAT', 'DEMISSION', 'LICENCIEMENT',
+    'RETRAITE', 'FIN_CONTRAT', 'CONFIRMATION_ESSAI', 'RENOUVELLEMENT_ESSAI',
+    'DECES', 'ABANDON_POSTE', 'RUPTURE_NEGOCIEE', 'LICENCIEMENT_FAUTE',
+    'LICENCIEMENT_ECONOMIQUE', 'FIN_PERIODE_ESSAI', 'DEPART_RETRAITE'
+];
+
+export const DEFAULT_RELEVANT_EVENTS = [
+    { code: 'MUTATION', libelle: 'Changement de site ou de service' },
+    { code: 'PROMOTION', libelle: 'Promotion ou changement de fonction' },
+    { code: 'REVALORISATION', libelle: 'Revalorisation salariale' },
+    { code: 'TRANSFORMATION_CDI', libelle: 'Passage CDD vers CDI' },
+    { code: 'RENOUVELLEMENT_CDD', libelle: 'Renouvellement de CDD' },
+    { code: 'EMBAUCHE_APRES_STAGE', libelle: 'Passage Stage vers CDD/CDI' },
+    { code: 'REPRISE_CONSULTANT', libelle: 'Embauche d un retraité comme consultant' },
+    { code: 'REPRISE_ANCIENNETE', libelle: 'Réintégration / Reprise d ancienneté' },
+    { code: 'REORGANISATION', libelle: 'Réorganisation Interne' },
+];
+
+/**
+ * Détecte le type de contrat source normalisé (CDI, CDD, STAGE, PRESTATION, TEMPORAIRE).
+ * 
+ * @param {object|null} contratActif
+ * @param {Array<object>} typesContrat
+ * @returns {string} Code normalisé
+ */
+export function detectSourceContractCode(contratActif, typesContrat = []) {
+    if (!contratActif) return 'CDI';
+    if (contratActif.codeTypeContrat) return String(contratActif.codeTypeContrat).toUpperCase();
+    const found = typesContrat.find(tc => String(tc.idTypeContrat) === String(contratActif.idTypeContrat));
+    if (found?.code) return String(found.code).toUpperCase();
+    const lib = (contratActif.libelleTypeContrat || '').toUpperCase();
+    if (lib.includes('STAGE')) return 'STAGE';
+    if (lib.includes('CDD') || lib.includes('DÉTERMINÉE') || lib.includes('DETERMINEE')) return 'CDD';
+    if (lib.includes('PRESTATION') || lib.includes('CONSULTANT')) return 'PRESTATION';
+    if (lib.includes('TEMPORAIRE')) return 'TEMPORAIRE';
+    return 'CDI';
+}
+
+/**
+ * Retourne la liste des types d'événements pertinents avec leur statut d'éligibilité.
+ * 
+ * @param {Array<object>} typesEvenementList
+ * @param {string} sourceContractCode
+ * @returns {Array<object>}
+ */
+export function getRelevantEventTypes(typesEvenementList = [], sourceContractCode = 'CDI') {
+    const available = typesEvenementList.filter(ev => {
+        const code = (ev.code || '').toUpperCase();
+        if (code === 'EMBAUCHE_APRES_STAGE' || code === 'REPRISE_ANCIENNETE') return true;
+        if (EXCLUDED_EVENT_CODES.includes(code)) return false;
+        if (
+            code.startsWith('RUPTURE') ||
+            code.startsWith('ESSAI') ||
+            code.startsWith('FIN_') ||
+            (code.startsWith('EMBAUCHE') && code !== 'EMBAUCHE_APRES_STAGE') ||
+            code.startsWith('DEMISSION') ||
+            code.startsWith('LICENCIEMENT')
+        ) {
+            return false;
+        }
+        return true;
+    });
+
+    const list = available.length > 0 ? available : DEFAULT_RELEVANT_EVENTS;
+
+    return list.map(ev => {
+        const { isEligible, disabledReason } = getEventEligibility(ev.code, sourceContractCode);
+        return {
+            ...ev,
+            isEligible,
+            disabledReason
+        };
+    });
+}
+
+/**
  * Retourne l'éligibilité d'un événement selon le code de contrat source
  */
 export function getEventEligibility(eventCode, sourceContractCode) {
@@ -153,3 +233,4 @@ export function getEventEligibility(eventCode, sourceContractCode) {
 
     return { isEligible, disabledReason };
 }
+

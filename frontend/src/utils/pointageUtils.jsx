@@ -121,3 +121,30 @@ export const formatDate = (dateStr) => {
     }
 };
 
+/**
+ * Filtre les anomalies de pointage selon la catégorie d'incident (Incomplet, Retard, Absence).
+ * 
+ * @param {Array<object>} anomalies Liste brute des anomalies
+ * @param {string} typeFilter 'ALL' | 'INCOMPLET' | 'RETARD' | 'ABSENCE'
+ * @returns {Array<object>} Liste filtrée
+ */
+export const filtrerAnomaliesParType = (anomalies = [], typeFilter = 'ALL') => {
+    return anomalies.filter((anom) => {
+        if (typeFilter === 'ALL') return true;
+        if (typeFilter === 'INCOMPLET') {
+            return anom.typeAnomalie === 'INCOMPLET' || anom.statutCode === 'ANOMALIE_SAISIE';
+        }
+        if (typeFilter === 'RETARD') {
+            return anom.typeAnomalie === 'RETARD' || (
+                Number(anom.minutesRetard) > 0 &&
+                anom.statutCode !== 'ANOMALIE_SAISIE' &&
+                anom.statutCode !== 'ABSENCE_NON_JUSTIFIEE'
+            );
+        }
+        if (typeFilter === 'ABSENCE') {
+            return anom.typeAnomalie === 'ABSENCE' || anom.statutCode === 'ABSENCE_NON_JUSTIFIEE';
+        }
+        return true;
+    });
+};
+

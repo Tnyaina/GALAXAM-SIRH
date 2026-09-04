@@ -2,26 +2,11 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import contratService from '@/api/employe/contratService';
 import { useContractReferentiels } from '@/hooks/useContractReferentiels';
 import { fmtDateInput } from '@/utils/carriereUtils';
-import { EVENT_TARGET_CONFIG, getEventEligibility } from '@/utils/carriereTransitionMatrix';
-
-const EXCLUDED_CODES = [
-    'EMBAUCHE_INITIALE', 'RUPTURE_CONTRAT', 'DEMISSION', 'LICENCIEMENT',
-    'RETRAITE', 'FIN_CONTRAT', 'CONFIRMATION_ESSAI', 'RENOUVELLEMENT_ESSAI',
-    'DECES', 'ABANDON_POSTE', 'RUPTURE_NEGOCIEE', 'LICENCIEMENT_FAUTE',
-    'LICENCIEMENT_ECONOMIQUE', 'FIN_PERIODE_ESSAI', 'DEPART_RETRAITE'
-];
-
-const DEFAULT_RELEVANT_EVENTS = [
-    { code: 'MUTATION', libelle: 'Changement de site ou de service' },
-    { code: 'PROMOTION', libelle: 'Promotion ou changement de fonction' },
-    { code: 'REVALORISATION', libelle: 'Revalorisation salariale' },
-    { code: 'TRANSFORMATION_CDI', libelle: 'Passage CDD vers CDI' },
-    { code: 'RENOUVELLEMENT_CDD', libelle: 'Renouvellement de CDD' },
-    { code: 'EMBAUCHE_APRES_STAGE', libelle: 'Passage Stage vers CDD/CDI' },
-    { code: 'REPRISE_CONSULTANT', libelle: 'Embauche d un retraité comme consultant' },
-    { code: 'REPRISE_ANCIENNETE', libelle: 'Réintégration / Reprise d ancienneté' },
-    { code: 'REORGANISATION', libelle: 'Réorganisation Interne' },
-];
+import { 
+    EVENT_TARGET_CONFIG, 
+    detectSourceContractCode, 
+    getRelevantEventTypes 
+} from '@/utils/carriereTransitionMatrix';
 
 export function useTransitionForm({
     isOpen,
@@ -67,42 +52,14 @@ export function useTransitionForm({
         }
     }, [isOpen]);
 
-    // 1. Détecter le code du contrat source (STAGE, CDD, CDI, etc.)
+    // 1. Détecter le code du contrat source (STAGE, CDD, CDI, etc.) délégué à l'utilitaire
     const sourceContractCode = useMemo(() => {
-        if (!contratActif) return 'CDI';
-        if (contratActif.codeTypeContrat) return String(contratActif.codeTypeContrat).toUpperCase();
-        const found = typesContrat.find(tc => String(tc.idTypeContrat) === String(contratActif.idTypeContrat));
-        if (found?.code) return String(found.code).toUpperCase();
-        const lib = (contratActif.libelleTypeContrat || '').toUpperCase();
-        if (lib.includes('STAGE')) return 'STAGE';
-        if (lib.includes('CDD') || lib.includes('DÉTERMINÉE') || lib.includes('DETERMINEE')) return 'CDD';
-        if (lib.includes('PRESTATION') || lib.includes('CONSULTANT')) return 'PRESTATION';
-        if (lib.includes('TEMPORAIRE')) return 'TEMPORAIRE';
-        return 'CDI';
+        return detectSourceContractCode(contratActif, typesContrat);
     }, [contratActif, typesContrat]);
 
-    // 2. Filtrer et annoter la liste des événements pertinents avec leur éligibilité
+    // 2. Filtrer et annoter la liste des événements pertinents délégué à la matrice
     const relevantEvTypes = useMemo(() => {
-        const available = typesEvenementList.filter(ev => {
-            const code = (ev.code || '').toUpperCase();
-            if (code === 'EMBAUCHE_APRES_STAGE' || code === 'REPRISE_ANCIENNETE') return true;
-            if (EXCLUDED_CODES.includes(code)) return false;
-            if (code.startsWith('RUPTURE') || code.startsWith('ESSAI') || code.startsWith('FIN_') || (code.startsWith('EMBAUCHE') && code !== 'EMBAUCHE_APRES_STAGE') || code.startsWith('DEMISSION') || code.startsWith('LICENCIEMENT')) {
-                return false;
-            }
-            return true;
-        });
-
-        const list = available.length > 0 ? available : DEFAULT_RELEVANT_EVENTS;
-
-        return list.map(ev => {
-            const { isEligible, disabledReason } = getEventEligibility(ev.code, sourceContractCode);
-            return {
-                ...ev,
-                isEligible,
-                disabledReason
-            };
-        });
+        return getRelevantEventTypes(typesEvenementList, sourceContractCode);
     }, [typesEvenementList, sourceContractCode]);
 
     // 3. Helper pour appliquer l'auto-sélection de la matrice

@@ -17,6 +17,8 @@ import { Tabs } from '@/components/ui/navigation/Tabs';
 import Badge from '@/components/ui/data-display/Badge';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
+import { formatMonnaie } from '@/utils/pointageUtils';
+import { calculerKpisSemaine, evaluerConsolidationStatus } from '@/utils/pointageSyntheseUtils';
 
 export default function SynthesePointagePage() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -421,47 +423,17 @@ export default function SynthesePointagePage() {
         );
     }, [semaineDetail, debouncedSearch]);
 
-    const fmtMoney = (val) => {
-        if (!val || isNaN(val)) return '0 Ar';
-        return new Intl.NumberFormat('fr-FR').format(Math.round(val)) + ' Ar';
-    };
+    // Utilitaire de formatage monétaire partagé
+    const fmtMoney = formatMonnaie;
 
-    // KPIs agrégés de la semaine sélectionnée
+    // KPIs agrégés de la semaine sélectionnée délégués à l'utilitaire pur
     const semKpis = useMemo(() => {
-        const totalH = filteredSemaineDetail.reduce((acc, r) => acc + (r.totalHeuresTravaillees || 0), 0);
-        const totalHs30 = filteredSemaineDetail.reduce((acc, r) => acc + (r.heuresHs30 || 0), 0);
-        const totalHs50 = filteredSemaineDetail.reduce((acc, r) => acc + (r.heuresHs50 || 0), 0);
-        const totalRetenues = filteredSemaineDetail.reduce((acc, r) => acc + (r.heuresAbsenceRetenues || 0), 0);
-        return {
-            totalH: Math.round(totalH * 100) / 100,
-            totalHs: Math.round((totalHs30 + totalHs50) * 100) / 100,
-            totalHs30: Math.round(totalHs30 * 100) / 100,
-            totalHs50: Math.round(totalHs50 * 100) / 100,
-            totalRetenues: Math.round(totalRetenues * 100) / 100,
-            nbSalaries: filteredSemaineDetail.length
-        };
+        return calculerKpisSemaine(filteredSemaineDetail);
     }, [filteredSemaineDetail]);
 
-    // Préréquis et contrôle de cohérence pour la Consolidation Mensuelle
+    // Préréquis et contrôle de cohérence pour la Consolidation Mensuelle délégués à l'utilitaire pur
     const consolidationStatus = useMemo(() => {
-        const totalSemaines = semaines.length;
-        const semainesValideesCount = semaines.filter(s => s.estValidee).length;
-        const totalAnomalies = semaines.reduce((acc, s) => acc + (s.nbAnomalies || 0), 0);
-        const allValidees = totalSemaines > 0 && semainesValideesCount === totalSemaines;
-        const currentPeriodeObj = periodes.find(p => p.idPeriodePaie === selectedPeriode);
-
-        const st = currentPeriodeObj?.statutCode;
-        return {
-            totalSemaines,
-            semainesValideesCount,
-            totalAnomalies,
-            allValidees,
-            currentPeriodeObj,
-            isEnCours: st === 'EN_COURS' || !st,
-            isAValider: st === 'A_VALIDER' || st === 'TRANSMIS_DAF',
-            isValidee: st === 'VALIDEE',
-            isCloturee: st === 'CLOTUREE'
-        };
+        return evaluerConsolidationStatus(semaines, periodes, selectedPeriode);
     }, [semaines, periodes, selectedPeriode]);
 
     return (

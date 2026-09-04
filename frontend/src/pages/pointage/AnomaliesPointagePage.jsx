@@ -16,6 +16,7 @@ import { Avatar } from '@/components/ui/data-display/Avatar';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
 import { useAuth } from '@/context/AuthContext';
 import usePointageAnomalies from '@/hooks/pointage/usePointageAnomalies';
+import { filtrerAnomaliesParType } from '@/utils/pointageUtils';
 
 export default function AnomaliesPointagePage() {
     const { toast } = useToast();
@@ -131,20 +132,8 @@ export default function AnomaliesPointagePage() {
         label: `${p.code || p.libelle} (${p.dateDebut} au ${p.dateFin})`
     }));
 
-    // Filtrage par type d'incident (Incomplet, Retard, Absence)
-    const filteredAnomalies = (anomalies || []).filter(anom => {
-        if (typeFilter === 'ALL') return true;
-        if (typeFilter === 'INCOMPLET') {
-            return anom.typeAnomalie === 'INCOMPLET' || anom.statutCode === 'ANOMALIE_SAISIE';
-        }
-        if (typeFilter === 'RETARD') {
-            return anom.typeAnomalie === 'RETARD' || (anom.minutesRetard > 0 && anom.statutCode !== 'ANOMALIE_SAISIE' && anom.statutCode !== 'ABSENCE_NON_JUSTIFIEE');
-        }
-        if (typeFilter === 'ABSENCE') {
-            return anom.typeAnomalie === 'ABSENCE' || anom.statutCode === 'ABSENCE_NON_JUSTIFIEE';
-        }
-        return true;
-    });
+    // Filtrage par type d'incident délégué à l'utilitaire pur
+    const filteredAnomalies = filtrerAnomaliesParType(anomalies, typeFilter);
 
     return (
         <>

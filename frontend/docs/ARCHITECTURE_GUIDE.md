@@ -1,29 +1,34 @@
 # Guide d'Architecture Front-End : GALAXAM SIRH
 
-Ce document explique la nouvelle architecture en 3 couches (Pages / Hooks / Components) mise en place pour résoudre le problème des "composants monolithiques". Il vous guidera pas à pas si vous souhaitez apporter des modifications (ex: ajouter un filtre, modifier un appel API, changer l'affichage).
+Ce document explique l'architecture en 4 couches (Pages / Hooks / Utilitaires Métier / Composants UI) mise en place pour résoudre le problème des "composants monolithiques" et découpler hermétiquement les algorithmes de calculs légaux du rendu graphique.
 
 ---
 
-## 1. Schéma Visuel de l'Architecture
+## 1. Schéma Visuel de l'Architecture (4 Couches)
 
-Voici comment les fichiers communiquent entre eux. Le flux de données est **unidirectionnel** : la logique descend vers l'affichage.
+Voici comment les fichiers communiquent entre eux. Le flux de données est **unidirectionnel** : la logique descend vers l'affichage, tandis que les algorithmes purs sont isolés dans des utilitaires sans état.
 
 ```mermaid
 graph TD
+    %% Couche 0 : Utilitaires & Calculs Purs
+    U[Utilitaires Métier Purs <br/> ex: congeBusinessRules.js / pointageCalculations.js / carriereTransitionMatrix.js]:::util
+
     %% Couche 1 : Conteneur (Chef d'orchestre)
-    A[Page / Onglet <br/> ex: DemandesValidationTab.jsx / SynthesePointagePage.jsx]:::page
+    A[Page / Onglet Conteneur <br/> ex: DemandesValidationTab.jsx / SynthesePointagePage.jsx]:::page
   
-    %% Couche 2 : Logique (Cerveau)
-    B[(Hook Logique <br/> ex: useDemandesValidation.js / usePointageSynthese.js)]:::hook
+    %% Couche 2 : Logique Réactive & État
+    B[(Hook Logique & API <br/> ex: useDemandesValidation.js / usePointageSynthese.js)]:::hook
   
-    %% Couche 3 : Interface Visuelle (Membres)
+    %% Couche 3 : Interface Visuelle (Membres purs)
     C[Filtres <br/> ex: ValidationFilters.jsx]:::ui
     D[Tableau/Grille <br/> ex: ValidationTable.jsx]:::ui
     E[Modales <br/> ex: ValidationModals.jsx]:::ui
 
     %% Relations
+    B -- "Délègue calculs math/légaux" --> U
+    A -- "Délègue calculs affichage temps réel" --> U
     A -- "1. Appelle le Hook" --> B
-    B -. "2. Retourne (données, fonctions)" .-> A
+    B -. "2. Retourne (données, états, mutations)" .-> A
   
     A -- "3. Passe les données (Props)" --> C
     A -- "3. Passe les données (Props)" --> D
@@ -32,6 +37,7 @@ graph TD
     C -- "4. Déclenche une action (onClick)" --> A
     A -- "5. Exécute la fonction du Hook" --> B
 
+    classDef util fill:#8E44AD,stroke:#5B2C6F,stroke-width:2px,color:#fff,font-weight:bold
     classDef page fill:#2E86C1,stroke:#1B4F72,stroke-width:2px,color:#fff,font-weight:bold
     classDef hook fill:#28B463,stroke:#186A3B,stroke-width:2px,color:#fff,font-weight:bold
     classDef ui fill:#E67E22,stroke:#873600,stroke-width:2px,color:#fff,font-weight:bold
@@ -39,33 +45,43 @@ graph TD
 
 ---
 
-## 2. Qui fait quoi ? (Les 3 Couches)
+## 2. Qui fait quoi ? (Les 4 Couches)
 
-### 1. Le Hook Logique (`src/hooks/...`)
+### 1. Les Utilitaires Métier Purs (`src/utils/...`)
 
-**C'est le cerveau.** Il ne contient aucun code HTML/JSX.
+**C'est le moteur mathématique et réglementaire.** Fonctions pures, déterministes, sans aucun état React ni effet de bord (`useState`, `useEffect` proscrits ici).
 
-- Il stocke les états (`useState`) : page actuelle, termes de recherche, filtres actifs.
-- Il fait les appels à l'API (`axios`, `congeService.js`, `pointageSyntheseService.js`).
-- Il prépare et trie les données (`useMemo`).
-- **Ce qu'il exporte** : Les données prêtes à l'emploi et les fonctions pour agir dessus.
+- **`congeBusinessRules.js`** : Délais de préavis (RG-CON-06), détection des demandes rétroactives, calcul des dates de fin de congés à durée fixe (maternité 98j/119j, événements familiaux), évaluation de suffisance de solde.
+- **`pointageCalculations.js`** : Parsing d'heures sécurisé, calcul d'heures effectives matin/après-midi, pause automatique, retards cumulés, détection d'incohérences chronologiques et attribution des codes statuts.
+- **`pointageSyntheseUtils.js`** : Agrégations KPIs de semaine, consolidation mensuelle et statut de transmission DAF.
+- **`carriereTransitionMatrix.js`** : Détection du contrat source normalisé, matrice d'éligibilité des mouvements RH, verrouillage automatique des types de contrat et statuts.
+- **`employeFormValidation.js`** : Validation par étapes du dossier collaborateur, regex emails, formatage ISO strict.
 
-### 2. Le Conteneur (`src/components/...` ou `src/pages/...`)
+### 2. Le Hook Logique (`src/hooks/...`)
+
+**C'est le cerveau réactif.** Il ne contient aucun code HTML/JSX.
+
+- Il stocke les états réactifs (`useState`) : page actuelle, termes de recherche, filtres actifs.
+- Il gère le cycle de vie asynchrone (`axios`, requêtes annulables avec `AbortController`, debouncing 350ms).
+- Il consomme les utilitaires purs pour transformer et consolider les données (`useMemo`).
+- **Ce qu'il exporte** : Les données prêtes à l'emploi et les fonctions de mutation pour agir dessus.
+
+### 3. Le Conteneur (`src/components/...` ou `src/pages/...`)
 
 **C'est le chef d'orchestre.**
 
-- Il appelle le Hook pour récupérer le cerveau.
+- Il instancie le Hook pour connecter le cerveau et l'API.
 - Il assemble les briques visuelles (les sous-composants).
-- Il passe les données du Hook aux briques visuelles via des `props`.
+- Il passe les données prêtes du Hook aux briques visuelles via des `props`.
 
-### 3. Les Sous-Composants UI (`src/components/.../sous-dossier/`)
+### 4. Les Sous-Composants UI (`src/components/.../sous-dossier/`)
 
 **Ce sont les membres (les bras, les jambes).** Ils sont purs (Pure Components).
 
-- Ils ne font aucun appel API.
+- Ils ne font aucun calcul mathématique complexe ni appel API direct.
 - Ils ne contiennent que du rendu visuel (JSX, Tailwind).
 - Ils reçoivent les données (ex: `demandes={demandes}`) et les affichent.
-- Ils préviennent le chef d'orchestre quand l'utilisateur clique sur un bouton (via `onClick={onRefresh}`).
+- Ils préviennent le chef d'orchestre lors des interactions utilisateur (via `onClick`, `onChange`).
 
 ---
 
