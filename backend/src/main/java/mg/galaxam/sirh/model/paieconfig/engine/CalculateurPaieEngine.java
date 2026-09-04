@@ -66,7 +66,7 @@ public class CalculateurPaieEngine {
                     BigDecimal maxTranche = t.seuilMax() != null ? t.seuilMax() : baseImposable;
                     BigDecimal taxableDansTranche = baseImposable.min(maxTranche).subtract(t.seuilMin());
                     if (taxableDansTranche.compareTo(BigDecimal.ZERO) > 0) {
-                        double tauxEffectif = t.taux() > 1.0 ? t.taux() / 100.0 : t.taux();
+                        double tauxEffectif = t.taux() >= 1.0 ? t.taux() / 100.0 : t.taux();
                         impotBrut = impotBrut.add(taxableDansTranche.multiply(BigDecimal.valueOf(tauxEffectif)));
                     }
                 }

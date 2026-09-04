@@ -127,5 +127,15 @@ class CalculateurPaieEngineTest {
             // (450000-350000) * 20% = 20000 > minimum => 20000
             assertEquals(0, new BigDecimal("20000.00").compareTo(irsa));
         }
+
+        @Test @DisplayName("Taux à 1% (1.0) : calculé à 0.01 et non 1.0 (100%)")
+        void tauxUnPourcent() {
+            var tranchesUnPct = List.of(
+                new CalculateurPaieEngine.TrancheIrsa(BigDecimal.ZERO, null, 1.0)
+            );
+            // Sur 1 000 000 Ar à 1%, l'impôt brut est 10 000 Ar
+            BigDecimal irsa = engine.calculerIrsa(new BigDecimal("1000000"), tranchesUnPct, 0);
+            assertEquals(0, new BigDecimal("10000.00").compareTo(irsa));
+        }
     }
 }

@@ -42,7 +42,8 @@ public class SecurityConfig {
                 .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000))
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/login", "/auth/register", "/auth/refresh", "/auth/logout", "/uploads/photos/**", "/error").permitAll()
+                .requestMatchers("/auth/login", "/auth/refresh", "/auth/logout", "/uploads/photos/**", "/error").permitAll()
+                .requestMatchers("/auth/register").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/uploads/documents/**").authenticated()
                 .requestMatchers("/admin/**", "/securite/**").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/pointages/**", "/pointage/**", "/periodes/**").authenticated()

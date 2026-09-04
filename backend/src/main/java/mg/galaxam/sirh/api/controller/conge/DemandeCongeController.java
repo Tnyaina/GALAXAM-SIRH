@@ -130,15 +130,10 @@ public class DemandeCongeController {
                     d.setMomentDemiJournee(req.get("momentDemiJournee").toString());
                 }
 
-                if (req.get("derogationSoldeNegatif") != null) {
-                    d.setDerogationSoldeNegatif(Boolean.parseBoolean(req.get("derogationSoldeNegatif").toString()));
-                }
-                if (req.get("derogationDelaiPreavis") != null) {
-                    d.setDerogationDelaiPreavis(Boolean.parseBoolean(req.get("derogationDelaiPreavis").toString()));
-                }
-                if (req.get("derogationContinuiteService") != null) {
-                    d.setDerogationContinuiteService(Boolean.parseBoolean(req.get("derogationContinuiteService").toString()));
-                }
+                // Sécurisation : Les dérogations RH ne peuvent JAMAIS être auto-octroyées par le demandeur
+                d.setDerogationSoldeNegatif(false);
+                d.setDerogationDelaiPreavis(false);
+                d.setDerogationContinuiteService(false);
                 if (req.get("extensionPathologiqueMaternite") != null) {
                     d.setExtensionPathologiqueMaternite(
                             Boolean.parseBoolean(req.get("extensionPathologiqueMaternite").toString()));
@@ -221,12 +216,18 @@ public class DemandeCongeController {
                     d.setMomentDemiJournee(mom != null && !mom.toString().isBlank() ? mom.toString() : null);
                 }
 
-                if (req.containsKey("derogationSoldeNegatif"))
-                    d.setDerogationSoldeNegatif(Boolean.parseBoolean(req.get("derogationSoldeNegatif").toString()));
-                if (req.containsKey("derogationDelaiPreavis"))
-                    d.setDerogationDelaiPreavis(Boolean.parseBoolean(req.get("derogationDelaiPreavis").toString()));
-                if (req.containsKey("derogationContinuiteService"))
-                    d.setDerogationContinuiteService(Boolean.parseBoolean(req.get("derogationContinuiteService").toString()));
+                Authentication authModif = SecurityContextHolder.getContext().getAuthentication();
+                boolean canManageDerogations = authModif != null && authModif.getAuthorities().stream()
+                        .anyMatch(a -> "CONGE_VALIDATE".equals(a.getAuthority()) || "ROLE_ADMIN".equals(a.getAuthority()));
+
+                if (canManageDerogations) {
+                    if (req.containsKey("derogationSoldeNegatif"))
+                        d.setDerogationSoldeNegatif(Boolean.parseBoolean(req.get("derogationSoldeNegatif").toString()));
+                    if (req.containsKey("derogationDelaiPreavis"))
+                        d.setDerogationDelaiPreavis(Boolean.parseBoolean(req.get("derogationDelaiPreavis").toString()));
+                    if (req.containsKey("derogationContinuiteService"))
+                        d.setDerogationContinuiteService(Boolean.parseBoolean(req.get("derogationContinuiteService").toString()));
+                }
                 if (req.containsKey("extensionPathologiqueMaternite"))
                     d.setExtensionPathologiqueMaternite(
                             Boolean.parseBoolean(req.get("extensionPathologiqueMaternite").toString()));

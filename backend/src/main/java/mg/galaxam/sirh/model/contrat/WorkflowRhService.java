@@ -6,6 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.List;
 import mg.galaxam.sirh.api.dto.contrat.EmbaucheInitialeRequest;
 import mg.galaxam.sirh.api.dto.contrat.TransitionCarriereRequest;
@@ -139,15 +140,31 @@ public class WorkflowRhService {
      */
     public WorkflowRhCPL validerWorkflow(Integer idWorkflow, ValiderWorkflowRequest req, Integer currentUserId,
             Connection c) throws Exception {
+        if (idWorkflow == null) {
+            throw new IllegalArgumentException("ID du workflow obligatoire pour la validation.");
+        }
+
+        // 1. Verrouillage pessimiste strict du workflow pour sérialiser les validations concurrentes
+        String sqlLock = "SELECT w.id_statut_rh, s.code FROM workflow_rh w " +
+                         "JOIN ref_statut_rh s ON w.id_statut_rh = s.id_statut_rh " +
+                         "WHERE w.id_workflow = ? FOR UPDATE";
+        try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
+            psLock.setInt(1, idWorkflow);
+            try (ResultSet rsLock = psLock.executeQuery()) {
+                if (!rsLock.next()) {
+                    throw new IllegalArgumentException("Workflow introuvable (id=" + idWorkflow + ").");
+                }
+                String statutCourant = rsLock.getString("code");
+                if (!"BROUILLON".equals(statutCourant)) {
+                    throw new IllegalArgumentException("Ce workflow est déjà en statut '" + statutCourant
+                            + "'. Seul un workflow BROUILLON peut être validé.");
+                }
+            }
+        }
+
         WorkflowRh workflow = new WorkflowRh().rechercherParId(idWorkflow, c);
         if (workflow == null) {
             throw new IllegalArgumentException("Workflow introuvable (id=" + idWorkflow + ").");
-        }
-
-        String statutCode = resolveCodeStatutWorkflow(workflow.getIdStatutRh(), c);
-        if (!"BROUILLON".equals(statutCode)) {
-            throw new IllegalArgumentException("Ce workflow est déjà en statut '" + statutCode
-                    + "'. Seul un workflow BROUILLON peut être validé.");
         }
 
         String typeEvenementCode = resolveCodeTypeEvenement(workflow.getIdTypeEvenementRh(), c);
@@ -1267,82 +1284,86 @@ public class WorkflowRhService {
                     "       WHERE id_statut_rh != (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')" +
                     "   ))" +
                     ")";
+            List<WorkflowRh> workflowsAAppliquer = new ArrayList<>();
             try (var ps = c.prepareStatement(sql); var rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    c.setAutoCommit(false);
-                    try {
-                        WorkflowRh wf = new WorkflowRh();
-                        wf.setIdWorkflow(rs.getInt("id_workflow"));
-                        wf.setIdEmploye(rs.getInt("id_employe"));
-                        wf.setIdTypeEvenementRh(rs.getInt("id_type_evenement_rh"));
-                        wf.setIdContratSource(
-                                rs.getObject("id_contrat_source") != null ? rs.getInt("id_contrat_source") : null);
-                        wf.setIdContratCible(
-                                rs.getObject("id_contrat_cible") != null ? rs.getInt("id_contrat_cible") : null);
-                        wf.setIdAffectationSource(
-                                rs.getObject("id_affectation_source") != null ? rs.getInt("id_affectation_source")
-                                        : null);
-                        wf.setIdAffectationCible(
-                                rs.getObject("id_affectation_cible") != null ? rs.getInt("id_affectation_cible")
-                                        : null);
-                        wf.setDateEffet(rs.getDate("date_effet"));
-                        wf.setMotif(rs.getString("motif"));
+                    WorkflowRh wf = new WorkflowRh();
+                    wf.setIdWorkflow(rs.getInt("id_workflow"));
+                    wf.setIdEmploye(rs.getInt("id_employe"));
+                    wf.setIdTypeEvenementRh(rs.getInt("id_type_evenement_rh"));
+                    wf.setIdContratSource(
+                            rs.getObject("id_contrat_source") != null ? rs.getInt("id_contrat_source") : null);
+                    wf.setIdContratCible(
+                            rs.getObject("id_contrat_cible") != null ? rs.getInt("id_contrat_cible") : null);
+                    wf.setIdAffectationSource(
+                            rs.getObject("id_affectation_source") != null ? rs.getInt("id_affectation_source")
+                                    : null);
+                    wf.setIdAffectationCible(
+                            rs.getObject("id_affectation_cible") != null ? rs.getInt("id_affectation_cible")
+                                    : null);
+                    wf.setDateEffet(rs.getDate("date_effet"));
+                    wf.setMotif(rs.getString("motif"));
+                    workflowsAAppliquer.add(wf);
+                }
+            }
 
-                        Date dateEffet = wf.getDateEffet();
+            for (WorkflowRh wf : workflowsAAppliquer) {
+                c.setAutoCommit(false);
+                try {
+                    Date dateEffet = wf.getDateEffet();
 
-                        // 1. Appliquer l'effet réel du workflow
-                        appliquerWorkflowEvenement(wf, c);
+                    // 1. Appliquer l'effet réel du workflow
+                    appliquerWorkflowEvenement(wf, c);
 
-                        // 2. Mettre à jour le statut du workflow_rh vers ACTIF
-                        Integer idStatutActif = resolveStatut("ACTIF", c);
-                        try (PreparedStatement psUpWf = c.prepareStatement(
-                                "UPDATE workflow_rh SET id_statut_rh = ?, updated_at = CURRENT_TIMESTAMP WHERE id_workflow = ?")) {
-                            psUpWf.setInt(1, idStatutActif);
-                            psUpWf.setInt(2, wf.getIdWorkflow());
-                            psUpWf.executeUpdate();
-                        }
+                    // 2. Mettre à jour le statut du workflow_rh vers ACTIF
+                    Integer idStatutActif = resolveStatut("ACTIF", c);
+                    try (PreparedStatement psUpWf = c.prepareStatement(
+                            "UPDATE workflow_rh SET id_statut_rh = ?, updated_at = CURRENT_TIMESTAMP WHERE id_workflow = ?")) {
+                        psUpWf.setInt(1, idStatutActif);
+                        psUpWf.setInt(2, wf.getIdWorkflow());
+                        psUpWf.executeUpdate();
+                    }
 
-                        // 3. Historiser tout ancien workflow actif pour cet employé
-                        try (PreparedStatement psCloseOldWf = c.prepareStatement(
-                                "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
-                            psCloseOldWf.setInt(1, wf.getIdEmploye());
-                            psCloseOldWf.setInt(2, wf.getIdWorkflow());
-                            psCloseOldWf.executeUpdate();
-                        }
+                    // 3. Historiser tout ancien workflow actif pour cet employé
+                    try (PreparedStatement psCloseOldWf = c.prepareStatement(
+                            "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
+                        psCloseOldWf.setInt(1, wf.getIdEmploye());
+                        psCloseOldWf.setInt(2, wf.getIdWorkflow());
+                        psCloseOldWf.executeUpdate();
+                    }
 
-                        String nomPrenom = "";
-                        String typeEv = "Mouvement RH";
-                        try (var ps2 = c.prepareStatement(
-                                "SELECT e.nom || ' ' || e.prenom AS np, t.libelle AS ev " +
-                                        "FROM employe e " +
-                                        "JOIN workflow_rh w ON w.id_employe = e.id_employe " +
-                                        "JOIN ref_type_evenement_rh t ON w.id_type_evenement_rh = t.id_type_evenement_rh "
-                                        +
-                                        "WHERE w.id_workflow = ?")) {
-                            ps2.setInt(1, wf.getIdWorkflow());
-                            try (var rs2 = ps2.executeQuery()) {
-                                if (rs2.next()) {
-                                    nomPrenom = rs2.getString("np");
-                                    typeEv = rs2.getString("ev");
-                                }
+                    String nomPrenom = "";
+                    String typeEv = "Mouvement RH";
+                    try (var ps2 = c.prepareStatement(
+                            "SELECT e.nom || ' ' || e.prenom AS np, t.libelle AS ev " +
+                                    "FROM employe e " +
+                                    "JOIN workflow_rh w ON w.id_employe = e.id_employe " +
+                                    "JOIN ref_type_evenement_rh t ON w.id_type_evenement_rh = t.id_type_evenement_rh "
+                                    +
+                                    "WHERE w.id_workflow = ?")) {
+                        ps2.setInt(1, wf.getIdWorkflow());
+                        try (var rs2 = ps2.executeQuery()) {
+                            if (rs2.next()) {
+                                nomPrenom = rs2.getString("np");
+                                typeEv = rs2.getString("ev");
                             }
                         }
-
-                        creerNotif(c, null, "MOUVEMENT_APPLIQUE", "NORMALE",
-                                "Prise d'effet - " + typeEv + " - " + nomPrenom,
-                                "Le mouvement RH de type " + typeEv + " pour " + nomPrenom
-                                        + " est désormais actif (sa date d'effet au "
-                                        + (dateEffet != null ? dateEffet.toString() : "") + " a ete atteinte).",
-                                "/employes/" + wf.getIdEmploye() + "?tab=carriere", wf.getIdEmploye());
-
-                        c.commit();
-                    } catch (Exception exWf) {
-                        c.rollback();
-                        System.err.println("Erreur autoAppliquerMouvement (id=" + rs.getInt("id_workflow") + ") : "
-                                + exWf.getMessage());
-                    } finally {
-                        c.setAutoCommit(initialAutoCommit);
                     }
+
+                    creerNotif(c, null, "MOUVEMENT_APPLIQUE", "NORMALE",
+                            "Prise d'effet - " + typeEv + " - " + nomPrenom,
+                            "Le mouvement RH de type " + typeEv + " pour " + nomPrenom
+                                    + " est désormais actif (sa date d'effet au "
+                                    + (dateEffet != null ? dateEffet.toString() : "") + " a ete atteinte).",
+                            "/employes/" + wf.getIdEmploye() + "?tab=carriere", wf.getIdEmploye());
+
+                    c.commit();
+                } catch (Exception exWf) {
+                    c.rollback();
+                    System.err.println("Erreur autoAppliquerMouvement (id=" + wf.getIdWorkflow() + ") : "
+                            + exWf.getMessage());
+                } finally {
+                    c.setAutoCommit(initialAutoCommit);
                 }
             }
 

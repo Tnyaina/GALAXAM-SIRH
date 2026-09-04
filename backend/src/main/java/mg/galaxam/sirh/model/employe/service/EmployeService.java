@@ -63,10 +63,12 @@ public class EmployeService {
     }
 
     public PageDTO<EmployeCPL> getEmployes(String q, Boolean actif, int page, int size, Connection c) throws Exception {
-        int offset = (page - 1) * size;
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, size);
+        int offset = (safePage - 1) * safeSize;
         long totalElements = EmployeCPL.compterEmployes(c, q, actif);
-        List<EmployeCPL> content = EmployeCPL.rechercherEmployes(c, q, actif, size, offset);
-        return new PageDTO<>(content, totalElements, page, size);
+        List<EmployeCPL> content = EmployeCPL.rechercherEmployes(c, q, actif, safeSize, offset);
+        return new PageDTO<>(content, totalElements, safePage, safeSize);
     }
 
     public EmployeFicheDetailDTO getFicheDetail(int id) throws Exception {
@@ -312,7 +314,7 @@ public class EmployeService {
 
                 // Compte bancaire principal
                 if (req.getCompteBanquePrincipal() != null && req.getCompteBanquePrincipal().getIdBanque() != null) {
-                    EmployeCompteBanque.deleteByEmployeId(id, c);
+                    EmployeCompteBanque.deletePrincipalByEmployeId(id, c);
                     EmployeCompteBanque cb = new EmployeCompteBanque();
                     cb.setIdEmploye(id);
                     cb.setIdBanque(req.getCompteBanquePrincipal().getIdBanque());

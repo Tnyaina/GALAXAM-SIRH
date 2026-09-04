@@ -140,7 +140,9 @@ public class ContratGlobalController {
                 }
             }
 
-            int offset = (page - 1) * size;
+            int safePage = Math.max(1, page);
+            int safeSize = Math.max(1, size);
+            int offset = (safePage - 1) * safeSize;
             String querySql = "SELECT ct.id_contrat, ct.id_employe, ct.numero_contrat, ct.date_debut, ct.date_fin, ct.date_fin_essai, "
                     +
                     "e.matricule, e.nom, e.prenom, e.photo_url, " +
@@ -172,7 +174,7 @@ public class ContratGlobalController {
                 for (Object param : params) {
                     ps.setObject(paramIdx++, param);
                 }
-                ps.setInt(paramIdx++, size);
+                ps.setInt(paramIdx++, safeSize);
                 ps.setInt(paramIdx, offset);
 
                 try (ResultSet rs = ps.executeQuery()) {
@@ -214,7 +216,7 @@ public class ContratGlobalController {
                 }
             }
 
-            PageDTO<ContratTravailGlobalDTO> pageDto = new PageDTO<>(list, totalElements, page, size);
+            PageDTO<ContratTravailGlobalDTO> pageDto = new PageDTO<>(list, totalElements, safePage, safeSize);
             return ResponseEntity.ok(pageDto);
 
         } catch (Exception e) {

@@ -114,6 +114,14 @@ public class EmployeCompteBanque extends ClassMere {
         }
     }
 
+    public static void deletePrincipalByEmployeId(Integer idEmploye, Connection c) throws Exception {
+        String sql = "DELETE FROM employe_compte_banque WHERE id_employe = ? AND est_principal = TRUE";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            ps.executeUpdate();
+        }
+    }
+
     private static void resetPrincipal(Integer idEmploye, Connection c) throws Exception {
         String sql = "UPDATE employe_compte_banque SET est_principal = FALSE WHERE id_employe = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {

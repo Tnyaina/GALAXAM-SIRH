@@ -224,31 +224,44 @@ classDiagram
     class MatriculeGeneratorEngine {
         +extraireSequence(matricule) Long
         +genererMatriculeParDefaut(seq) String
+        +genererMatriculePrefixe(annee, seq) String
     }
     class EmployeValidationEngine {
         +validerEmploye(req)
+        +validerAgeLegal(naiss, ref, ageMin, errs)
+        +validerCinFormatEtDate(cin, dateCin, dateNaiss, errs)
+        +validerCompteBancaire(cb, errs)
         +validerDesactivation(req)
     }
     class ContratValidationEngine {
-        +validerEmbauche(req)
-        +validerTransition(req)
+        +validerDatesContrat(type, debut, fin, essai)
+        +calculerFinPeriodeEssai(debut, mois) LocalDate
+        +validerTransitionCarriere(evt, hasActif, motif)
+        +estTransitionStatutAutorisee(cur, target) boolean
+    }
+    class AncienneteEngine {
+        +evaluerAnciennete(contrats, idCible, refDate) AncienneteBilan
     }
     class CongeCalculateurEngine {
         +calculerNombreJours(debut, fin, demiJournee) BigDecimal
+        +calculerAcquisitionMensuelle(mois) BigDecimal
+        +calculerBonificationAnciennete(annees) int
         +doitScinderArretMaladie(totalJours) boolean
+        +verifierEligibilitePoolFamilial(conso, demande) boolean
     }
     class PurgeFifoEngine {
-        +consommerSoldeFifo(idEmploye, jours, c)
-        +purgerDroitsEchus(idEmploye, c)
+        +calculerJoursAExpier(acquisAnciens, pris, dejaExpire) double
     }
     class PointageCalculateurEngine {
         +calculerMinutesRetard(arrivee, debut, tolerance) int
         +calculerHeuresNuit(sortie, debutNuit, finNuit) double
-        +calculerTroncon(debut, joursOuvres, heures, retards, isCadre) BilanTronconHebdo
+        +calculerTotalRepasJour(...) double
+        +calculerDeplacementJour(...) double
+        +calculerTroncon(...) BilanTronconHebdo
     }
     class CalendrierOuvrableEngine {
-        +compterJoursOuvrables(debut, fin, site, c) int
-        +compterJoursCalendaires(debut, fin) int
+        +getDatesFeriesEtChomees(debut, fin, idSite, c) Set~LocalDate~
+        +isWeekend(date) boolean
     }
     class CalculateurPaieEngine {
         +calculerCnaps(brut, smig, tSal, tPat) CotisationResult
@@ -256,6 +269,35 @@ classDiagram
         +calculerIrsa(base, tranches, nbEnfants) BigDecimal
     }
 ```
+
+### Table des Moteurs, Méthodes Clés, Appelants et Règles Associées
+
+> **Référence Complète :** Pour le détail des 36 règles et de leur guide de modification, consulter [GUIDE_REGLES_METIER_ET_MODIFICATIONS.md](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/docs/GUIDE_REGLES_METIER_ET_MODIFICATIONS.md).
+
+| Moteur Métier (`engine/`) | Méthode Clé | Classes / Services Appelants | Règle de Gestion | Test Associé |
+| :--- | :--- | :--- | :--- | :--- |
+| **`EmployeValidationEngine`** | `validerAgeLegal(...)` | `EmployeService.creerEmploye`, `EmployeService.modifierEmploye` | **RG-EMP-01** (Âge min 16 ans) | `EmployeValidationEngineTest` |
+| | `validerCinFormatEtDate(...)` | `EmployeService.java` | **RG-EMP-02** (CIN 12 chiffres) | `EmployeValidationEngineTest` |
+| | `validerCompteBancaire(...)` | `EmployeService.java` | **RG-EMP-05** (Banque et RIB) | `EmployeValidationEngineTest` |
+| | `validerDesactivation(...)` | `EmployeService.desactiverEmploye` | **RG-EMP-06** (Motif départ) | `EmployeValidationEngineTest` |
+| **`MatriculeGeneratorEngine`** | `genererMatriculeSequentiel(...)` | `EmployeService.genererNouveauMatricule` | **RG-EMP-04** (Nomenclature `EMP%04d`) | `MatriculeGeneratorEngineTest` |
+| **`ContratValidationEngine`** | `validerDatesContrat(...)` | `WorkflowRhService.enregistrerMouvement` | **RG-CTR-01 / 02** (Fin CDD, Essai <= 6m) | `ContratCarriereWorkflowIntegrationTest` |
+| | `calculerFinPeriodeEssai(...)` | `WorkflowRhService.java` | **RG-CTR-03** (Échéance essai) | `ContratCarriereWorkflowIntegrationTest` |
+| | `validerTransitionCarriere(...)`| `WorkflowRhService.validerWorkflow` | **RG-CTR-04 / 05** (Contrat actif, Motif) | `ContratCarriereWorkflowIntegrationTest` |
+| **`AncienneteEngine`** | `evaluerAnciennete(...)` | `WorkflowRhService.getAncienneteDetaillee` | **RG-CTR-07** (Chaîne continue en mémoire) | `AncienneteEngineTest` |
+| **`PointageCalculateurEngine`**| `calculerMinutesRetard(...)` | `PointageSaisieService.sauvegarderSemaine` | **RG-PTG-01** (Détection retard) | `PointageCalculateurEngineTest` |
+| | `calculerHeuresNuit(...)` | `PointageSaisieService.calcHeuresNuit` | **RG-PTG-02** (Plage 22h-05h +30%) | `PointageCalculateurEngineTest` |
+| | `calculerTotalRepasJour(...)` | `PointageSaisieService.calculerIndemnites` | **RG-PTG-03** (Midi & sorties tardives) | `PointageCalculateurEngineTest` |
+| | `calculerDeplacementJour(...)` | `PointageSaisieService.calculerIndemnites` | **RG-PTG-04** (Transport & déduction) | `PointageCalculateurEngineTest` |
+| | `calculerTroncon(...)` | `PointageSyntheseService.calculerSynthese` | **RG-PTG-05 / 06 / 07** (40h, comp. 1:1, HS) | `PointageCalculateurEngineTest` |
+| **`CalendrierOuvrableEngine`** | `getDatesFeriesEtChomees(...)`| `PointageSaisieService.chargerGrilleHebdo` | **RG-PTG-08 / 09** (Jours ouvrés réels) | `CalendrierOuvrableEngineTest` |
+| **`CongeCalculateurEngine`** | `calculerNombreJours(...)` | `CongeService.creerDemande` | **RG-CNG-02** (Décompte calendaire) | `CongeCalculateurEngineTest` |
+| | `calculerAcquisitionMensuelle` | `RattrapageAutomatiqueService` (Cron) | **RG-CNG-01** (2.5 j/mois) | `CongeCalculateurEngineTest` |
+| | `doitScinderArretMaladie(...)` | `CongeService.creerDemande` | **RG-CNG-04** (Art. 13 : scission > 30j) | `CongeCalculateurEngineTest` |
+| **`PurgeFifoEngine`** | `calculerJoursAExpier(...)` | `RattrapageAutomatiqueService` (Cron) | **RG-CNG-06** (Purge FIFO triennale) | `PurgeFifoEngineTest` |
+| **`CalculateurPaieEngine`** | `calculerCnaps(...)` | `PointageSyntheseService`, `PaieConfig` | **RG-PAIE-01** (Plafond 8xSMIG) | `CalculateurPaieEngineTest` |
+| | `calculerSante(...)` | `PointageSyntheseService`, `PaieConfig` | **RG-PAIE-02** (OSTIE/AMIT) | `CalculateurPaieEngineTest` |
+| | `calculerIrsa(...)` | `IrsaController.calculerSimulation` | **RG-PAIE-03 / 04 / 05** (Tranches, enf, min)| `CalculateurPaieEngineTest` |
 
 ---
 
@@ -1119,11 +1161,13 @@ Database (PostgreSQL)
 
 ## 26. Guide de Modification par Scénario Métier
 
+> **Manuel Complet & Fiches Détaillées :** Un guide opérationnel exhaustif regroupant les 36 règles de gestion et 17 scénarios pas-à-pas est disponible dans [`docs/GUIDE_REGLES_METIER_ET_MODIFICATIONS.md`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/docs/GUIDE_REGLES_METIER_ET_MODIFICATIONS.md).
+
 ### Scénario 1 : "Je veux modifier une règle de calcul des heures supplémentaires ou de retard"
 
 1. **Backend Engine** : Modifier [`PointageCalculateurEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/pointage/engine/PointageCalculateurEngine.java) (méthodes `calculerTroncon` ou `calculerMinutesRetard`).
 2. **Paramétrage BDD** : Vérifier les constantes dans la table `parametre_global` (`SEUIL_HEURES_JOUR`, `SEUIL_HS_TRANCHE_1`).
-3. **Tests Unitaires** : Exécuter et ajuster [`PointageSyntheseWorkflowIntegrationTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/pointage/PointageSyntheseWorkflowIntegrationTest.java).
+3. **Tests Unitaires** : Exécuter et ajuster [`PointageCalculateurEngineTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/pointage/engine/PointageCalculateurEngineTest.java) et [`PointageSyntheseWorkflowIntegrationTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/pointage/PointageSyntheseWorkflowIntegrationTest.java).
 4. **Frontend UI** : Aucun changement requis sauf si le format de restitution des DTO change.
 
 ### Scénario 2 : "Je veux ajouter un nouveau champ sur la fiche employé (ex: Groupe Sanguin)"
@@ -1139,9 +1183,24 @@ Database (PostgreSQL)
 1. **Backend Engine** : Vérifier la logique de progressivité dans [`CalculateurPaieEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/paieconfig/engine/CalculateurPaieEngine.java).
 2. **Administration Frontend** : Modifier directement les tranches via l'interface `/admin/parametres` (Onglet IRSA) qui persiste dans la table `bareme_irsa`.
 
-### Scénario 4 : "Je veux corriger le téléchargement d'un document RH"
+### Scénario 4 : "Je veux modifier l'âge minimum d'embauche ou la validation du CIN"
 
-1. **Frontend API Client** : Modifier [`documentRhService.js:L52`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/api/employe/documentRhService.js#L52) pour appeler `/documents-rh/${idDocument}/telecharger` au lieu de `/download`.
+1. **Backend Engine** : Modifier [`EmployeValidationEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/employe/engine/EmployeValidationEngine.java) (`AGE_MINIMUM_LEGAL`, `validerCinFormatEtDate`).
+2. **Frontend Validation** : Mettre à jour `frontend/src/utils/employeFormValidation.js`.
+3. **Tests Unitaires** : Exécuter `mvn test -Dtest=EmployeValidationEngineTest`.
+
+### Scénario 5 : "Je veux modifier la scission d'arrêt maladie (Code du Travail Art. 13)"
+
+1. **Backend Engine** : Modifier [`CongeCalculateurEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/conge/engine/CongeCalculateurEngine.java) (`PLAFOND_MALADIE_MAINTIEN_JOURS = 30`).
+2. **Backend Service** : Vérifier `CongeService.creerDemande`.
+3. **Frontend Message** : Mettre à jour `DemandeCongeFormModal.jsx`.
+4. **Tests Unitaires** : Exécuter `mvn test -Dtest=CongeCalculateurEngineTest`.
+
+### Scénario 6 : "Je veux modifier les extensions autorisées de téléversement GED"
+
+1. **Base de Données** : Mettre à jour `extension_autorisee` dans `ref_type_document`.
+2. **Backend Contrôleur** : [`DocumentRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/employe/DocumentRhController.java) applique la validation dynamique.
+3. **Frontend Formulaire** : Modifier l'attribut `accept` dans `UploadDocModal.jsx`.
 
 ---
 
