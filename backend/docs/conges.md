@@ -105,9 +105,17 @@ Pour éviter les litiges et garantir l'équité de la paie, la valorisation du t
   - Demande courte (\<= 3 jours) : Préavis minimal de **2 jours**.  
   - Demande longue (\> 3 jours) : Préavis minimal de **15 jours**.  
   - **Exceptions** : Non applicable aux événements imprévisibles (`MALADIE`, `MATERNITE`, `PATERNITE`, `EXCEPTIONNEL`).  
-- **Fractionnement Obligatoire (Art. 85\)** :  
-  - Au moins une tranche d'au moins **12 jours consécutifs** doit être posée au cours de l'exercice pour le congé annuel.  
-  - Le système lève une alerte `FRACTIONNEMENT_NON_RESPECTE` si la fin d'exercice approche sans cette grande tranche.
+- **Contrôle Préventif du Solde Disponible (Saisie de la demande)** :
+  - L'endpoint `/api/conges/demandes/verifier-conflits` retourne en temps réel le `soldeDisponible`.
+  - Lors de la création (`POST /api/conges/demandes`), si le type de congé impute le solde (`isDecompteSoldeAcquis`) et que `nb_jours_decomptes > soldeDisponible`, la soumission est bloquée avec une alerte explicite invitant le demandeur à réduire la durée ou solliciter une `derogation_solde_negatif`.
+- **Validation avec Dérogation Solde Négatif Accordée par le Valideur** :
+  - Si un congé dépasse le solde disponible au moment de la validation, le système bloque la transaction.
+  - Le valideur RH/Manager dispose d'un toggle d'accord exceptionnel (`derogationSoldeNegatif = true`) directement dans la modale de confirmation pour lever le blocage.
+- **Annulation Post-Validation & Restitution FIFO** :
+  - L'annulation d'un congé (`POST /api/conges/demandes/{id}/annuler`) est possible que la demande soit `EN_ATTENTE` ou déjà `VALIDE`.
+  - Un **motif explicite est obligatoirement exigé** (`{ "motif": "..." }`) et sauvegardé dans `motif_refus`.
+  - Si la demande était `VALIDE`, un mouvement créditeur compensatoire de type `ANNULATION` est automatiquement enregistré dans `mouvement_solde_conge` (`nb_jours` positif égal aux jours décomptés), restituant instantanément les droits au salarié.
+  - Une notification RH automatique est générée pour prévenir les parties prenantes.
 
 ---
 

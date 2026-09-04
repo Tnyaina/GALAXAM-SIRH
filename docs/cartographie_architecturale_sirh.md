@@ -278,7 +278,7 @@ Le tableau suivant répertorie l'intégralité des 39 contrôleurs du système a
 | **ContratTravailController**    | [`ContratTravailController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/ContratTravailController.java)        | `/employes/{id}/contrats`                      |     3     | Contrats actifs et historique contractuel par collaborateur                         |
 | **WorkflowRhController**        | [`WorkflowRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/WorkflowRhController.java)                | `/workflows-rh` & `/employes/{id}/carrieres` |     9     | Supervision des carrières, mouvements RH et forçage manuel du rattrapage          |
 | **RefCarriereController**       | [`RefCarriereController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/RefCarriereController.java)              | `/ref-carriere`                                |    17    | Référentiels des catégories pro, modes de paie, statuts RH, types d'événements |
-| **DemandeCongeController**      | [`DemandeCongeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/DemandeCongeController.java)              | `/conges/demandes`                             |    11    | Soumission, simulation, vérification des conflits d'équipe, validation, refus     |
+| **DemandeCongeController**      | [`DemandeCongeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/DemandeCongeController.java)              | `/conges/demandes`                             |    11    | Soumission avec contrôle de solde temps réel, simulation, vérification conflits, validation avec dérogation, refus et annulation avec motif obligatoire et restitution ledger |
 | **CongeSoldeController**        | [`CongeSoldeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/CongeSoldeController.java)                  | `/conges/solde` & `/conges/planning`          |     6     | Soldes, mouvements FIFO, planning Gantt paginé et filtré SQL, purges            |
 | **CongeRefController**          | [`CongeRefController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/CongeRefController.java)                      | `/conges/referentiels`                         |    11    | Référentiels types de congé, motifs familiaux, statuts et pools                  |
 | **PeriodePaieController**       | [`PeriodePaieController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/pointage/PeriodePaieController.java)             | `/periodes`                                    |     5     | Création de période, simulation ouvrables, transition de statut, gel/dégel       |
@@ -713,6 +713,7 @@ Modéliser le parcours professionnel et contractuel des collaborateurs via un mo
 
 * **Pages** : [`CarrieresSupervisionPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/employe/CarrieresSupervisionPage.jsx), [`CarriereTab.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/employe/carriere/CarriereTab.jsx)
 * **Composants** : `CarriereSupervisionList.jsx`, `CarriereBrouillonDetailModal.jsx`, `CarriereTransitionModal.jsx`, `EmbaucheModal.jsx`, `TransitionModal.jsx`, `ConfirmationEssaiModal.jsx`, `RenouvellementEssaiModal.jsx`, `RuptureContratModal.jsx`, `AttestationTravailModal.jsx`, `CertificatTravailModal.jsx`
+* **Matrice Métier & Utils** : [`carriereTransitionMatrix.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/employe/carriere/carriereTransitionMatrix.js) (matrice de transitions d'états contractuels : filtrage contextuel des actions selon le statut du contrat ACTIF, EN_COURS_DE_RUPTURE, TERMINE, CLOTURE, et anticipation de réintégration/nouveau contrat sans blocage sur contrat inactif)
 * **Hooks** : [`useCarriere.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/hooks/useCarriere.js), `useCarriereModals.js`, `useTransitionForm.js`
 * **Services** : [`contratService.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/api/employe/contratService.js)
 * **Routes** : `/carrieres`, `/employes/:id?tab=carriere`
@@ -720,7 +721,7 @@ Modéliser le parcours professionnel et contractuel des collaborateurs via un mo
 ### 4. Backend
 
 * **Controllers** : [`ContratGlobalController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/ContratGlobalController.java), [`ContratTravailController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/ContratTravailController.java), [`WorkflowRhController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/contrat/WorkflowRhController.java)
-* **Services & Engines** : [`WorkflowRhService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/contrat/WorkflowRhService.java), `ContratValidationEngine.java`, `MouvementRhScheduler.java`, `RattrapageAutomatiqueService.java`
+* **Services & Engines** : [`WorkflowRhService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/contrat/WorkflowRhService.java) (application immédiate si date antérieure/du jour ou planification si future, clôture temporelle J-1, réactivation automatique du collaborateur lors d'une réintégration), `ContratValidationEngine.java`, `MouvementRhScheduler.java`, `RattrapageAutomatiqueService.java`
 * **Entities & Views** : `ContratTravail.java`, `EmployeAffectationCarriere.java`, `WorkflowRh.java`, `WorkflowRhCPL.java`, `v_workflow_rh_cpl`
 
 ### 5. Database
@@ -730,8 +731,8 @@ Modéliser le parcours professionnel et contractuel des collaborateurs via un mo
 ### 6. API
 
 * `POST /workflows-rh/embauche` : Création brouillon embauche.
-* `POST /workflows-rh/transition` : Création brouillon transition de carrière.
-* `POST /workflows-rh/{id}/valider` : Validation et application/planification du mouvement.
+* `POST /workflows-rh/transition` : Création brouillon transition de carrière (promotion, mutation, réintégration, nouveau contrat après fin de contrat).
+* `POST /workflows-rh/{id}/valider` : Validation et application/planification du mouvement (fermeture de l'ancien contrat, activation ou planification du nouveau).
 * `POST /workflows-rh/{id}/annuler` : Rejet du brouillon.
 * `POST /workflows-rh/{id}/annuler-planification` : Annulation d'un mouvement planifié futur.
 * `POST /workflows-rh/rattrapage` : Déclenchement manuel ou forcé du rattrapage quotidien des mouvements RH, alertes et congés.
@@ -800,17 +801,17 @@ Gérer les demandes d'absences et de congés payés, le suivi des droits acquis 
 ### 3. Frontend
 
 * **Pages** : [`GestionCongesPage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/conges/GestionCongesPage.jsx)
-* **Composants** : `SoldesOverviewTab.jsx`, `SoldesGantt.jsx` (Gantt interactif responsive, pagination SQL serveur, recherche debouncée, indicateur discret de synchronisation), `SoldesKpiBar.jsx`, `SoldesTable.jsx`, `ConflitsPostePreview.jsx` (mini-planning de collision fluide sans scrollbar horizontale), `DemandeCongeModal.jsx` (modale grand format 1380px sans scrollbar parasite), `DemandesValidationTab.jsx`, `SimulationCongeModal.jsx`, `DemandeCongeDetailsModal.jsx`, `HistoriqueMouvementsModal.jsx`, `AjustementSoldeModal.jsx`
-* **Hooks & Résilience** : `useSoldesOverview.js` (intégrant `useDebounce` 350ms, `AbortController` et pagination serveur SQL), `useDemandesValidation.js` (debouncé 350ms), `useDemandeCongeForm.js`
-* **Services** : [`congeService.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/api/congeService.js) (support du paramètre `signal` pour l'annulation réseau)
+* **Composants** : `SoldesOverviewTab.jsx`, `SoldesGantt.jsx` (Gantt interactif responsive : pagination SQL serveur, recherche debouncée, indicateur discret de synchronisation, tooltip enrichi sur les barres occupées, cellules occupées non-glissables pour éviter les manipulations accidentelles, clic sur la barre déclenchant la modale complète de détails), `SoldesKpiBar.jsx`, `SoldesTable.jsx`, `ConflitsPostePreview.jsx` (mini-planning de collision fluide sans scrollbar horizontale), `DemandeCongeModal.jsx` (modale grand format 1380px avec affichage du solde disponible en temps réel et toggle dérogation solde négatif), `DemandesValidationTab.jsx` (avec modales contextuelles : validation avec dérogation solde négatif intégrée, refus avec motif, annulation post-validation avec motif obligatoire), `SimulationCongeModal.jsx`, `DemandeCongeDetailsModal.jsx` (actions dynamiques selon l'état : Valider/Refuser/Modifier pour `EN_ATTENTE`, Annuler avec motif pour `VALIDE`), `HistoriqueMouvementsModal.jsx`, `AjustementSoldeModal.jsx`
+* **Hooks & Résilience** : `useSoldesOverview.js` (intégrant `useDebounce` 350ms, `AbortController` et pagination serveur SQL), `useDemandesValidation.js` (debouncé 350ms, gestion centralisée des erreurs de validation et dérogations), `useDemandeCongeForm.js` (synchronisation temps réel solde disponible vs jours décomptés)
+* **Services** : [`congeService.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/api/congeService.js) (support du paramètre `signal`, vérification conflits avec retour du solde disponible, annulation avec motif)
 * **Routes** : `/conges`
 
 ### 4. Backend
 
 * **Controllers** : [`DemandeCongeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/DemandeCongeController.java), [`CongeSoldeController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/api/controller/conge/CongeSoldeController.java), `CongeRefController.java`
-* **Services & Engines** : [`CongeService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/conge/service/CongeService.java) (`getPlanningCollaborateurs` paginé SQL avec CTE `base_emp`, `verifierConflitsDemande`), `CongeCalculateurEngine.java`, `PurgeFifoEngine.java`
+* **Services & Engines** : [`CongeService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/conge/service/CongeService.java) (`getPlanningCollaborateurs` paginé SQL avec CTE `base_emp`, `verifierConflitsDemande` avec solde disponible, `annulerDemande` avec recrédit FIFO), `CongeCalculateurEngine.java`, `PurgeFifoEngine.java`
 * **Schedulers** : `AcquisitionCongeScheduler.java`, `PurgeCongeScheduler.java`
-* **Entities & Views** : [`DemandeConge.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/conge/DemandeConge.java) (contrôle Art. 85 ancienneté 12 mois, anti-collision même poste et site avec tolérance demi-journée), `MouvementSoldeConge.java`, `RefPoolCongeAnnuel.java`, `RefTypeConge.java`, `RefStatutDemandeConge.java`, `RefMotifEvenementFamilial.java`, `VSoldeCongeEmploye.java`, `VDemandeCongeCpl.java`, `VPoolCongeAnnuelConsommation.java`
+* **Entities & Views** : [`DemandeConge.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/conge/DemandeConge.java) (contrôle Art. 85 ancienneté 12 mois, contrôle solde disponible bloquant à la saisie pour types à décompte sauf dérogation, anti-collision même poste et site avec tolérance demi-journée, annulation post-validation avec traçabilité motif et recrédit), `MouvementSoldeConge.java` (types `ACQUISITION`, `PRISE`, `ANNULATION`, `EXPIRATION`, `BONIFICATION`, `AJUSTEMENT`), `RefPoolCongeAnnuel.java`, `RefTypeConge.java`, `RefStatutDemandeConge.java`, `RefMotifEvenementFamilial.java`, `VSoldeCongeEmploye.java`, `VDemandeCongeCpl.java`, `VPoolCongeAnnuelConsommation.java`
 
 ### 5. Database
 
@@ -819,13 +820,13 @@ Gérer les demandes d'absences et de congés payés, le suivi des droits acquis 
 ### 6. API
 
 * `GET /conges/planning` : Planning global Gantt paginé et filtré SQL (`search`, `filterMode`, `page`, `size`, `idSite`, `idDepartement`).
-* `POST /conges/demandes/verifier-conflits` : Contrôle temps réel des collisions de poste sur le site, tolérance des demi-journées et décompte des jours fériés/ouvrables.
+* `POST /conges/demandes/verifier-conflits` : Contrôle temps réel des collisions de poste sur le site, tolérance des demi-journées, décompte des jours ouvrables et renvoi du solde disponible (`soldeDisponible`).
 * `POST /conges/demandes/simuler` : Simulation serveur du décompte de jours ouvrables.
-* `POST /conges/demandes` : Création de la demande avec contrôle d'ancienneté 12 mois, vérification anti-collision et détection de scission maladie.
+* `POST /conges/demandes` : Création de la demande avec contrôle d'ancienneté 12 mois, vérification anti-collision, contrôle bloquant du solde disponible (si congé à décompte sans dérogation), et détection de scission maladie.
 * `PUT /conges/demandes/{id}` : Modification d'une demande avec réévaluation des contrôles métier.
-* `POST /conges/demandes/{id}/valider` : Validation et écriture des mouvements FIFO dans le ledger.
-* `POST /conges/demandes/{id}/refuser` : Rejet avec motif.
-* `POST /conges/demandes/{id}/annuler` : Annulation et purge des écritures ledger.
+* `POST /conges/demandes/{id}/valider` : Validation et écriture des mouvements FIFO dans le ledger, avec support de `derogationSoldeNegatif` (booléen) pour accord immédiat par le valideur.
+* `POST /conges/demandes/{id}/refuser` : Rejet avec motif obligatoire (`{ "motif": "..." }`).
+* `POST /conges/demandes/{id}/annuler` : Annulation d'une demande en attente ou déjà validée avec motif obligatoire (`{ "motif": "..." }`), historisation dans `motif_refus`, recrédit du solde dans le ledger FIFO (`mouvement_solde_conge` type `ANNULATION`) et notification RH.
 * `GET /conges/solde/employe/{idEmploye}` : Consultation du solde disponible.
 * `GET /conges/solde/pool-consommation/{idEmploye}` : Détail des pools annuels N-1, N, etc.
 
@@ -926,7 +927,7 @@ Prise d'effet Immédiate :                       Prise d'effet Différée :
 
 ---
 
-## 20. Workflow 2 : Congé Payé & Scission Maladie (Art. 13)
+## 20. Workflow 2 : Congé Payé, Contrôle de Solde & Scission Maladie (Art. 13)
 
 ```text
                Collaborateur / RH saisit la Demande
@@ -938,6 +939,8 @@ Prise d'effet Immédiate :                       Prise d'effet Différée :
      ├── Ancienneté < 12 mois (Art. 85) & non dérogé ──► Blocage immédiat
      ├── Collision même poste & même site ──────────────► Alerte bloquante RH
      │   (Tolérance : demi-journées MATIN vs APM)         (Dérogation requise)
+     ├── Décompte solde acquis vs jours demandés ───────► Alerte solde insuffisant
+     │   (Renvoi temps réel de 'soldeDisponible')         (Dérogation requise à la saisie)
      │
                                 ▼
                     CongeCalculateurEngine
@@ -951,7 +954,7 @@ Prise d'effet Immédiate :                       Prise d'effet Différée :
          ▼                                             ▼
 Scission Automatique Art. 13 :                 Demande standard :
 • Demande 1 (Jours 1 à 30) :                   • Demande unique (Statut: EN_ATTENTE)
-  Maladie Ordinaire (Maintien de salaire)      • Notification envoyée au Manager
+  Maladie Ordinaire (Maintien de salaire)      • Notification envoyée au Manager / RH
 • Demande 2 (Jours 31 à Fin) :
   Maladie Sans Solde (Prise en charge CNaPS)
 • Statuts: EN_ATTENTE
@@ -960,13 +963,22 @@ Scission Automatique Art. 13 :                 Demande standard :
                                 ▼
                      Décision du Valideur
                                 │
-         ┌──────────────────────┴──────────────────────┐
-         │ VALIDATION                                  │ REFUS
-         ▼                                             ▼
-• Statut -> VALIDE                             • Statut -> REFUSE
-• PurgeFifoEngine impute les jours             • Motif obligatoire renseigné
-  sur le pool annuel le plus ancien (N-1)      • Aucun impact sur le solde
-• Si pool épuisé -> bascule sur pool N         • Notification au demandeur
+         ┌──────────────────────┼──────────────────────────────┐
+         ▼                      ▼                              ▼
+    VALIDATION                REFUS                        ANNULATION
+         │                      │                   (EN_ATTENTE ou VALIDE)
+         ├──────────────────┐   │                              │
+  Solde suffisant   Solde insuffisant                          ▼
+         │          (Alerte validation)          • Motif obligatoire saisi
+         │                  │                    • Statut -> ANNULE
+         │          Valideur coche               • Historisation dans motif_refus
+         │          'Dérogation Solde'           • Si la demande était VALIDE :
+         │                  │                      - PurgeFifoEngine recrédite
+         ▼                  ▼                        le solde débité (mouvement
+• Statut -> VALIDE                                   'ANNULATION' au ledger)
+• PurgeFifoEngine impute les jours               • Notification d'annulation
+  sur le pool annuel le plus ancien (N-1)          émise aux responsables RH
+• Bascule sur pool N si N-1 épuisé
 • Notification de confirmation
 ```
 

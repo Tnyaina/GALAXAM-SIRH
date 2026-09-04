@@ -286,6 +286,17 @@ La catégorie professionnelle (`A` ou `C`) a un impact direct sur la **gestion d
 | **Agent** | `A` | ✅ OUI | Ouvriers, employés, techniciens. Les HS sont calculées et payées. |
 | **Cadre** | `C` | ❌ NON | Cadres dirigeants. Les HS sont forcées à 0 dans la synthèse mensuelle, quelle que soit la réalité du pointage. |
 
+### RG-CON-07 : Matrice Dynamique des Transitions de Carrière & Réintégration
+
+Afin d'éviter toute incohérence d'état contractuel, le système s'appuie sur une matrice de transitions d'états (`carriereTransitionMatrix.js`) :
+
+1. **Filtrage contextuel des événements** :
+   - Sur contrat **ACTIF** : Seules les actions cohérentes sont débloquées (Confirmation d'essai, Renouvellement d'essai, Mutation, Promotion, Changement de contrat CDD→CDI, Rupture).
+   - Sur contrat **EN_COURS_DE_RUPTURE** / **TERMINE** : Le système autorise l'anticipation d'une fin de contrat en proposant directement la **Réintégration** ou la signature d'un nouveau contrat successif.
+2. **Anticipation et Réactivation Automatique** :
+   - Lors de la création d'un mouvement pour un salarié en fin de contrat ou inactif, le formulaire pré-remplit le contrat précédent et adapte les champs requis.
+   - À la date d'effet (ou immédiatement si date antérieure/du jour), le service backend `WorkflowRhService` réactive automatiquement le collaborateur (`est_actif = true`), historise le contrat échu et initialise le nouveau contrat actif.
+
 ---
 
 ## 4. Workflow & Circuit d'Approbation
