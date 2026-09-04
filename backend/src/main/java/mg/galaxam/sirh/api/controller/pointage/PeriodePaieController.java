@@ -236,27 +236,40 @@ public class PeriodePaieController {
         Timestamp dateValidation = isValidee ? new Timestamp(System.currentTimeMillis()) : null;
         Integer valideurId = isValidee ? currentUserId : null;
 
-        String motifRejet = body.containsKey("motifRejet") && body.get("motifRejet") != null ? ((String) body.get("motifRejet")).trim() : null;
+        String rawMotifRejet = body.containsKey("motifRejet") && body.get("motifRejet") != null ? ((String) body.get("motifRejet")).trim() : null;
 
-        String sql = "UPDATE periode_paie " +
-                     "SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?), " +
-                     "date_validation = ?, " +
-                     "valide_par = ?, " +
-                     "motif_rejet = CASE WHEN ? = 'VALIDEE' THEN NULL WHEN ? IS NOT NULL THEN ? ELSE motif_rejet END " +
-                     "WHERE id_periode_paie = ?";
+        // Décision métier Java sur la mise à jour du motif de rejet
+        String sql;
+        if (isValidee) {
+            sql = "UPDATE periode_paie " +
+                  "SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?), " +
+                  "date_validation = ?, valide_par = ?, motif_rejet = NULL " +
+                  "WHERE id_periode_paie = ?";
+        } else if (rawMotifRejet != null) {
+            sql = "UPDATE periode_paie " +
+                  "SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?), " +
+                  "date_validation = ?, valide_par = ?, motif_rejet = ? " +
+                  "WHERE id_periode_paie = ?";
+        } else {
+            sql = "UPDATE periode_paie " +
+                  "SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?), " +
+                  "date_validation = ?, valide_par = ? " +
+                  "WHERE id_periode_paie = ?";
+        }
 
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
                 int rows;
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setString(1, newStatutCode);
-                    if (dateValidation != null) ps.setTimestamp(2, dateValidation); else ps.setNull(2, java.sql.Types.TIMESTAMP);
-                    if (valideurId != null) ps.setInt(3, valideurId); else ps.setNull(3, java.sql.Types.INTEGER);
-                    ps.setString(4, newStatutCode);
-                    if (motifRejet != null) ps.setString(5, motifRejet); else ps.setNull(5, java.sql.Types.VARCHAR);
-                    if (motifRejet != null) ps.setString(6, motifRejet); else ps.setNull(6, java.sql.Types.VARCHAR);
-                    ps.setInt(7, id);
+                    int pIdx = 1;
+                    ps.setString(pIdx++, newStatutCode);
+                    if (dateValidation != null) ps.setTimestamp(pIdx++, dateValidation); else ps.setNull(pIdx++, java.sql.Types.TIMESTAMP);
+                    if (valideurId != null) ps.setInt(pIdx++, valideurId); else ps.setNull(pIdx++, java.sql.Types.INTEGER);
+                    if (!isValidee && rawMotifRejet != null) {
+                        ps.setString(pIdx++, rawMotifRejet);
+                    }
+                    ps.setInt(pIdx++, id);
                     rows = ps.executeUpdate();
                 }
 

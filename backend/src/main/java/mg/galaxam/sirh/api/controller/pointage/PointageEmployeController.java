@@ -36,6 +36,8 @@ public class PointageEmployeController {
 
     private final DataSource dataSource;
     private final mg.galaxam.sirh.model.pointage.service.PointageSyntheseService syntheseService;
+    private static final mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine CALCULATEUR_ENGINE =
+            new mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine();
 
     public PointageEmployeController(DataSource dataSource, mg.galaxam.sirh.model.pointage.service.PointageSyntheseService syntheseService) {
         this.dataSource = dataSource;
@@ -414,32 +416,26 @@ public class PointageEmployeController {
                 double mntRepasJour = 0.0;
 
                 if (aDroitRepas) {
-                    nbRepasJour = 1;
-                    total1erRepasCount++;
-                    double baseStd = tarifRepasDefaut;
-                    double extraSoir = 0.0;
-
                     LocalTime sa = rec.sortieAm != null ? rec.sortieAm.toLocalTime() : null;
-                    if (sa != null) {
-                        if (!sa.isBefore(seuil2eRepas2)) {
-                            nbRepasJour = 2;
-                            total2eRepasCount++;
-                            extraSoir = montant2eRepas2;
-                            total2eRepasMontant += montant2eRepas2;
-                        } else if (!sa.isBefore(seuil2eRepas1)) {
-                            nbRepasJour = 2;
-                            total2eRepasCount++;
-                            extraSoir = montant2eRepas1;
-                            total2eRepasMontant += montant2eRepas1;
-                        }
-                    } else if (rec.heuresNuit >= 4.0 || totalH >= 11.0) {
-                        nbRepasJour = 2;
-                        total2eRepasCount++;
-                        extraSoir = montant2eRepas1;
-                        total2eRepasMontant += montant2eRepas1;
+                    mntRepasJour = CALCULATEUR_ENGINE.calculerTotalRepasJour(
+                            true,
+                            tarifRepasDefaut,
+                            sa,
+                            seuil2eRepas1,
+                            montant2eRepas1,
+                            seuil2eRepas2,
+                            montant2eRepas2
+                    );
+                    if (sa == null && (rec.heuresNuit >= 4.0 || totalH >= 11.0)) {
+                        mntRepasJour += montant2eRepas1;
                     }
 
-                    mntRepasJour = baseStd + extraSoir;
+                    nbRepasJour = mntRepasJour > tarifRepasDefaut ? 2 : 1;
+                    total1erRepasCount++;
+                    if (nbRepasJour == 2) {
+                        total2eRepasCount++;
+                        total2eRepasMontant += (mntRepasJour - tarifRepasDefaut);
+                    }
                     totalRepasMontant += mntRepasJour;
                 }
 

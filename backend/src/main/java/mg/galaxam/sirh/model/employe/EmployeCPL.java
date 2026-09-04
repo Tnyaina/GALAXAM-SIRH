@@ -168,7 +168,7 @@ public class EmployeCPL extends ClassMere {
                 if (rs.next()) {
                     EmployeCPL emp = mapResultSet(rs);
                     if (emp.getIdContratActif() != null && emp.getIdContratActif() > 0) {
-                        Map<String, Object> anc = mg.galaxam.sirh.model.contrat.ContratTravail.calculerAncienneteDetaillee(emp.getIdContratActif(), c);
+                        var anc = mg.galaxam.sirh.model.contrat.ContratTravail.calculerAncienneteDetaillee(emp.getIdContratActif(), c);
                         emp.setAncienneteEffectiveTexte((String) anc.get("ancienneteEffectiveTexte"));
                         emp.setAncienneteContratTexte((String) anc.get("ancienneteContratTexte"));
                         if (anc.get("ancienneteEffectiveAnnees") instanceof Number) {

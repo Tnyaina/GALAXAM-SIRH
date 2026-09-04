@@ -74,11 +74,12 @@ PERIODE_PAIE (nouveau, réutilisable par le futur module Paie)
     │
     └── (N) POINTAGE_JOUR (verrouillage par id_statut_periode)
 
-VUES (agrégats en lecture seule)
-    ├── v_pointage_jour_cpl            -- Pointage enrichi des libellés
-    ├── v_pointage_semaine             -- Agrégat hebdomadaire (retard vs HS, 40h)
-    └── v_synthese_pointage_mensuelle  -- Colonnes prêtes pour la Paie (NBABS, HS, DEPLACEMENT, REPAS...)
+VUES (agrégats - OBSOLÈTES / REMPLACÉES PAR JAVA)
+    ├── v_pointage_jour_cpl            -- (Obsolète) Remplacé par PointageSaisieService
+    ├── v_pointage_semaine             -- (Obsolète) Remplacé par PointageCalculateurEngine.calculerTroncon
+    └── v_synthese_pointage_mensuelle  -- (Obsolète) Remplacé par PointageSyntheseService + PointageCalculateurEngine
 ```
+
 
 ### 2.2 Table `periode_paie`
 
