@@ -174,8 +174,11 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
                 const dStr = selectedDate;
                 let isWeekend = false;
                 if (dStr) {
-                    const dObj = new Date(dStr);
-                    isWeekend = (dObj.getDay() === 0 || dObj.getDay() === 6);
+                    const parts = dStr.split('-');
+                    if (parts.length === 3) {
+                        const dObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                        isWeekend = (dObj.getDay() === 0 || dObj.getDay() === 6);
+                    }
                 }
                 if (isWeekend) {
                     payload = grilleData.filter(r => {

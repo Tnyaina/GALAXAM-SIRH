@@ -133,14 +133,16 @@ CREATE TABLE pointage_jour (
     minutes_retard INTEGER DEFAULT 0,
     minutes_depart_anticipe INTEGER DEFAULT 0,
 
-    -- Indemnités (Niveau 3 de la cascade — ajustement du jour)
+    -- [DÉPRÉCIÉ - MIROIR DE LECTURE / SHADOW COLUMNS]
+    -- Ces colonnes sont maintenues en Dual-Write pour la rétro-compatibilité et le cache de saisie.
+    -- La SOURCE UNIQUE DE VÉRITÉ prioritaire et officielle est la table relationnelle pointage_indemnite_jour.
     indemnite_deplacement_recue BOOLEAN DEFAULT TRUE,
     deplacement_matin BOOLEAN DEFAULT TRUE,
     deplacement_am BOOLEAN DEFAULT TRUE,
     montant_deplacement_jour DECIMAL(10,2),
     indemnite_repas_recue BOOLEAN DEFAULT FALSE,
     montant_repas DECIMAL(10,2) DEFAULT 0,
-    utilise_vehicule_fonction_jour BOOLEAN DEFAULT FALSE,
+    utilise_vehicule_fonction_jour BOOLEAN DEFAULT FALSE, -- Retrait ponctuel des 2 trajets si véhiculé par l'entreprise le jour J
     horaire_continu_jour BOOLEAN,
 
     motif_ajustement TEXT,

@@ -18,7 +18,25 @@ export default function PeriodNavigator({
 }) {
     const dateInputRef = useRef(null);
 
-    const currDate = new Date(selectedDate || new Date());
+    const parseDate = (dStr) => {
+        if (!dStr) return new Date();
+        if (typeof dStr === 'string' && dStr.includes('-')) {
+            const parts = dStr.split('-');
+            if (parts.length === 3) {
+                return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            }
+        }
+        return new Date(dStr);
+    };
+
+    const formatDateToISO = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    const currDate = parseDate(selectedDate);
 
     // Navigation précédent / suivant selon la granularité
     const handleNavigate = (delta) => {
@@ -30,11 +48,11 @@ export default function PeriodNavigator({
         } else if (viewPeriod === 'mois') {
             d.setMonth(d.getMonth() + delta);
         }
-        onDateChange(d.toISOString().substring(0, 10));
+        onDateChange(formatDateToISO(d));
     };
 
     const handleToday = () => {
-        onDateChange(new Date().toISOString().substring(0, 10));
+        onDateChange(formatDateToISO(new Date()));
     };
 
     // Formater l'étiquette affichée
@@ -42,12 +60,14 @@ export default function PeriodNavigator({
         if (isNaN(currDate.getTime())) return selectedDate;
 
         if (viewPeriod === 'jour') {
+            const rawWeekday = currDate.toLocaleDateString('fr-FR', { weekday: 'short' });
+            const weekday = rawWeekday ? (rawWeekday.charAt(0).toUpperCase() + rawWeekday.slice(1)) : '';
             const dayStr = currDate.toLocaleDateString('fr-FR', {
                 day: 'numeric',
                 month: 'long',
                 year: 'numeric'
             }).replace(/\s+/g, ' ');
-            return dayStr;
+            return `${weekday} ${dayStr}`;
         }
 
         if (viewPeriod === 'semaine') {

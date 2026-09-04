@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -166,11 +167,11 @@ public class PointageSaisieService {
 
         // 4. Aucun horaire saisi
         if (!aSaisiDesHeures) {
-            if (isAutonome) return "DISPENSE_POINTAGE";
-            // Un week-end sans heures saisies n'est JAMAIS une absence : c'est un repos légal !
-            if (CalendrierOuvrableEngine.isWeekend(date)) {
+            // Un week-end sans heures saisies n'est JAMAIS une absence : c'est un repos légal (même pour un cadre autonome) !
+            if (date != null && CalendrierOuvrableEngine.isWeekend(date)) {
                 return "REPOS";
             }
+            if (isAutonome) return "DISPENSE_POINTAGE";
             return "ABSENCE_NON_JUSTIFIEE";
         }
 
@@ -419,51 +420,195 @@ public class PointageSaisieService {
             siteParams.put("montantDeplacementJour", montantDeplacementJour);
             siteParams.put("montantDeplacementTrajet", Math.round((montantDeplacementJour / 2.0) * 100.0) / 100.0);
             siteParams.put("montantRepasJour", siteRepasInclusParDefaut ? montantRepasSite : mntRepasMidiGlobal);
+            siteParams.put("montantRepasGlobal", mntRepasMidiGlobal);
             siteParams.put("siteRepasInclusParDefaut", siteRepasInclusParDefaut);
             result.put("siteParams", siteParams);
-            result.put("siteParams", siteParams);
 
-            // 5. Employés Affectés au Site avec Contrat ACTIF couvrant la date
-            String sqlEmp = "SELECT DISTINCT e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
-                            "COALESCE(f.dispense_pointage, FALSE) AS est_autonome " +
-                            "FROM employe e " +
-                            "JOIN contrat_travail ct ON e.id_employe = ct.id_employe " +
-                            "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                            "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe AND a.id_contrat = ct.id_contrat " +
-                            "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh " +
-                            "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
-                            "WHERE e.est_actif = TRUE " +
-                            "  AND rsc.code = 'ACTIF' " +
-                            "  AND ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?) " +
-                            "  AND rsa.code = 'ACTIF' " +
-                            "  AND a.id_site = ? AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
-                            "ORDER BY e.nom, e.prenom";
+            // 5. Salariés rattachés au site pour la date demandée (Logique métier en code Java)
+            LocalDate targetDate = date.toLocalDate();
+
+            // A. Salariés ayant déjà un pointage sur ce site pour cette date
+            Set<Integer> existingPtgEmpIds = new HashSet<>();
+            String sqlPtgIds = "SELECT DISTINCT id_employe FROM pointage_jour WHERE id_site = ? AND date_pointage = ?";
+            try (PreparedStatement psPtgIds = c.prepareStatement(sqlPtgIds)) {
+                psPtgIds.setInt(1, idSite);
+                psPtgIds.setDate(2, date);
+                try (ResultSet rsPtgIds = psPtgIds.executeQuery()) {
+                    while (rsPtgIds.next()) {
+                        existingPtgEmpIds.add(rsPtgIds.getInt("id_employe"));
+                    }
+                }
+            }
+
+            // B. Dates d'embauche et de fin de contrat de tous les salariés
+            Map<Integer, LocalDate> embaucheMap = new HashMap<>();
+            Map<Integer, LocalDate> departMap = new HashMap<>();
+            Map<Integer, Boolean> contratOuvertMap = new HashMap<>();
+            String sqlCtAll = "SELECT ct.id_employe, ct.date_debut, ct.date_fin, rsc.code AS code_statut " +
+                              "FROM contrat_travail ct " +
+                              "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                              "ORDER BY ct.date_debut ASC";
+            try (PreparedStatement psCtAll = c.prepareStatement(sqlCtAll);
+                 ResultSet rsCtAll = psCtAll.executeQuery()) {
+                while (rsCtAll.next()) {
+                    int empId = rsCtAll.getInt("id_employe");
+                    Date dDeb = rsCtAll.getDate("date_debut");
+                    Date dFin = rsCtAll.getDate("date_fin");
+                    String st = rsCtAll.getString("code_statut");
+
+                    if (dDeb != null) {
+                        LocalDate ldDeb = dDeb.toLocalDate();
+                        LocalDate currentMin = embaucheMap.get(empId);
+                        if (currentMin == null || ldDeb.isBefore(currentMin)) {
+                            embaucheMap.put(empId, ldDeb);
+                        }
+                    }
+                    if (dFin == null || "ACTIF".equalsIgnoreCase(st)) {
+                        contratOuvertMap.put(empId, true);
+                    } else {
+                        LocalDate ldFin = dFin.toLocalDate();
+                        LocalDate currentMax = departMap.get(empId);
+                        if (currentMax == null || ldFin.isAfter(currentMax)) {
+                            departMap.put(empId, ldFin);
+                        }
+                    }
+                }
+            }
+
+            // C. Salariés actifs et leurs affectations de carrière
+            Map<Integer, EmployeCandidatSite> empInfoMap = new LinkedHashMap<>();
+            Map<Integer, List<AffCandidat>> affMap = new HashMap<>();
+
+            String sqlEmpAff = "SELECT e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
+                               "a.id_site, a.date_debut AS aff_debut, a.date_fin AS aff_fin, " +
+                               "rsa.code AS code_statut_aff, " +
+                               "COALESCE(f.dispense_pointage, FALSE) AS dispense_pointage " +
+                               "FROM employe e " +
+                               "LEFT JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
+                               "LEFT JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh " +
+                               "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
+                               "WHERE e.est_actif = TRUE " +
+                               "ORDER BY e.nom, e.prenom, (a.date_fin IS NULL) DESC, a.date_debut DESC";
+
+            try (PreparedStatement psEA = c.prepareStatement(sqlEmpAff);
+                 ResultSet rsEA = psEA.executeQuery()) {
+                while (rsEA.next()) {
+                    int idEmp = rsEA.getInt("id_employe");
+                    if (!empInfoMap.containsKey(idEmp)) {
+                        EmployeCandidatSite cnd = new EmployeCandidatSite();
+                        cnd.idEmploye = idEmp;
+                        cnd.matricule = rsEA.getString("matricule");
+                        cnd.nom = rsEA.getString("nom");
+                        cnd.prenom = rsEA.getString("prenom");
+                        cnd.photoUrl = rsEA.getString("photo_url");
+                        empInfoMap.put(idEmp, cnd);
+                    }
+
+                    int affSite = rsEA.getInt("id_site");
+                    if (affSite > 0) {
+                        AffCandidat aff = new AffCandidat();
+                        aff.idSite = affSite;
+                        Date ad = rsEA.getDate("aff_debut");
+                        Date af = rsEA.getDate("aff_fin");
+                        aff.dateDebut = ad != null ? ad.toLocalDate() : null;
+                        aff.dateFin = af != null ? af.toLocalDate() : null;
+                        aff.codeStatut = rsEA.getString("code_statut_aff");
+                        aff.dispensePointage = rsEA.getBoolean("dispense_pointage");
+                        affMap.computeIfAbsent(idEmp, k -> new ArrayList<>()).add(aff);
+                    }
+                }
+            }
+
+            // D. Filtrage métier en Java des salariés retenus sur ce site
+            List<EmployeCandidatSite> eligibleEmployees = new ArrayList<>();
+
+            for (EmployeCandidatSite emp : empInfoMap.values()) {
+                int idEmp = emp.idEmploye;
+                boolean hasPtg = existingPtgEmpIds.contains(idEmp);
+                List<AffCandidat> affs = affMap.getOrDefault(idEmp, Collections.emptyList());
+
+                // 1. Filtrage sur date d'embauche et départ en Java
+                LocalDate dateEmb = embaucheMap.get(idEmp);
+                if (dateEmb == null && !affs.isEmpty()) {
+                    for (AffCandidat a : affs) {
+                        if (a.dateDebut != null && (dateEmb == null || a.dateDebut.isBefore(dateEmb))) {
+                            dateEmb = a.dateDebut;
+                        }
+                    }
+                }
+
+                if (!hasPtg) {
+                    if (dateEmb != null && targetDate.isBefore(dateEmb)) {
+                        continue; // Salarié pas encore embauché à cette date
+                    }
+                    boolean isOpen = contratOuvertMap.getOrDefault(idEmp, false);
+                    LocalDate dateDep = departMap.get(idEmp);
+                    if (!isOpen && dateDep != null && targetDate.isAfter(dateDep)) {
+                        continue; // Salarié ayant déjà quitté l'entreprise
+                    }
+                }
+
+                // 2. Vérification du rattachement au site en Java
+                boolean rattachAuSite = false;
+                boolean isAutonome = false;
+
+                // Chercher d'abord si une affectation sur ce site couvre précisément la date
+                for (AffCandidat a : affs) {
+                    if (a.idSite == idSite) {
+                        boolean covers = (a.dateDebut == null || !targetDate.isBefore(a.dateDebut)) &&
+                                         (a.dateFin == null || !targetDate.isAfter(a.dateFin));
+                        if (covers) {
+                            rattachAuSite = true;
+                            isAutonome = a.dispensePointage;
+                            break;
+                        }
+                    }
+                }
+
+                // Si pas de couverture stricte, vérifier si l'affectation active est sur ce site
+                if (!rattachAuSite) {
+                    for (AffCandidat a : affs) {
+                        if (a.idSite == idSite && (a.dateFin == null || "ACTIF".equalsIgnoreCase(a.codeStatut))) {
+                            rattachAuSite = true;
+                            isAutonome = a.dispensePointage;
+                            break;
+                        }
+                    }
+                }
+
+                // Ou si un pointage existe déjà pour ce salarié sur ce site
+                if (hasPtg) {
+                    rattachAuSite = true;
+                    if (!affs.isEmpty()) {
+                        isAutonome = affs.get(0).dispensePointage;
+                    }
+                }
+
+                if (!rattachAuSite) {
+                    continue; // Non éligible sur ce site pour ce jour
+                }
+
+                emp.isAutonome = isAutonome;
+                eligibleEmployees.add(emp);
+            }
 
             List<SaisiePointageJourDTO> grille = new ArrayList<>();
-            try (PreparedStatement psE = c.prepareStatement(sqlEmp)) {
-                psE.setDate(1, date);
-                psE.setDate(2, date);
-                psE.setInt(3, idSite);
-                psE.setDate(4, date);
-                psE.setDate(5, date);
+            for (EmployeCandidatSite empCand : eligibleEmployees) {
+                int idEmp = empCand.idEmploye;
+                boolean isAutonome = empCand.isAutonome;
 
-                try (ResultSet rsE = psE.executeQuery()) {
-                    while (rsE.next()) {
-                        int idEmp = rsE.getInt("id_employe");
-                        boolean isAutonome = rsE.getBoolean("est_autonome");
-
-                        SaisiePointageJourDTO dto = new SaisiePointageJourDTO();
-                        dto.setIdEmploye(idEmp);
-                        dto.setMatricule(rsE.getString("matricule"));
-                        dto.setNom(rsE.getString("nom"));
-                        dto.setPrenom(rsE.getString("prenom"));
-                        dto.setPhotoUrl(rsE.getString("photo_url"));
-                        dto.setDatePointage(dateStr);
-                        dto.setIdSite(idSite);
-                        dto.setIdPeriodePaie(idPeriode);
-                        dto.setEstAutonome(isAutonome);
-                        dto.setFerieJour(isFerie);
-                        dto.setLibelleFerie(libelleFerie);
+                SaisiePointageJourDTO dto = new SaisiePointageJourDTO();
+                dto.setIdEmploye(idEmp);
+                dto.setMatricule(empCand.matricule);
+                dto.setNom(empCand.nom);
+                dto.setPrenom(empCand.prenom);
+                dto.setPhotoUrl(empCand.photoUrl);
+                dto.setDatePointage(dateStr);
+                dto.setIdSite(idSite);
+                dto.setIdPeriodePaie(idPeriode);
+                dto.setEstAutonome(isAutonome);
+                dto.setFerieJour(isFerie);
+                dto.setLibelleFerie(libelleFerie);
 
                         // Congé approuvé ce jour
                         String sqlConge = "SELECT tc.libelle, tc.code AS type_code, COALESCE(dc.est_remunere, tc.est_paye) AS est_paye, " +
@@ -596,6 +741,19 @@ public class PointageSaisieService {
                                 dto.setDeplacementMatin(true);
                                 dto.setDeplacementAm(false);
                                 dto.setIndemniteRepasRecue(siteRepasInclusParDefaut);
+                            } else if (CalendrierOuvrableEngine.isWeekend(targetDate)) {
+                                // Week-end sans pointage existant : repos de fin de semaine par défaut pour tous (y compris cadre autonome)
+                                dto.setHeureEntreeMatin("");
+                                dto.setHeureSortieMatin("");
+                                dto.setHeureEntreeAm("");
+                                dto.setHeureSortieAm("");
+                                dto.setTotalHeures(0.0);
+                                dto.setMinutesRetard(0);
+                                dto.setCodeStatut("REPOS");
+                                dto.setLibelleStatut("Repos de fin de semaine");
+                                dto.setDeplacementMatin(false);
+                                dto.setDeplacementAm(false);
+                                dto.setIndemniteRepasRecue(false);
                             } else if (isAutonome) {
                                 dto.setHeureEntreeMatin((String) siteParams.get("heureDebutMatin"));
                                 dto.setHeureSortieMatin((String) siteParams.get("heureFinMatin"));
@@ -721,8 +879,6 @@ public class PointageSaisieService {
                         dto.setDynamicIndemnites(dynMap);
 
                         grille.add(dto);
-                    }
-                }
             }
             result.put("grilleData", grille);
 
@@ -774,33 +930,87 @@ public class PointageSaisieService {
      * Doit être appelé sur TOUS les chemins d'écriture de pointage.
      */
     public void verifierEligibilitePointage(Connection c, int idEmploye, int idSite, Date datePointage) throws SQLException {
-        String sql = "SELECT e.id_employe " +
-                "FROM employe e " +
-                "JOIN contrat_travail ct ON e.id_employe = ct.id_employe " +
-                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe AND ct.id_contrat = a.id_contrat " +
-                "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh " +
-                "WHERE e.id_employe = ? " +
-                "  AND e.est_actif = TRUE " +
-                "  AND rsc.code = 'ACTIF' " +
-                "  AND ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?) " +
-                "  AND rsa.code = 'ACTIF' " +
-                "  AND a.id_site = ? " +
-                "  AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
-                "LIMIT 1";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
+        // 1. Vérifier existence et statut actif
+        String sqlEmp = "SELECT est_actif FROM employe WHERE id_employe = ?";
+        boolean estActif = false;
+        try (PreparedStatement ps = c.prepareStatement(sqlEmp)) {
             ps.setInt(1, idEmploye);
-            ps.setDate(2, datePointage);
-            ps.setDate(3, datePointage);
-            ps.setInt(4, idSite);
-            ps.setDate(5, datePointage);
-            ps.setDate(6, datePointage);
             try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) {
-                    throw new IllegalStateException("L'employé ID " + idEmploye + " n'est pas éligible au pointage pour la date du "
-                            + datePointage + " sur le site ID " + idSite + " (absence d'employé actif, de contrat ACTIF couvrant la date, ou d'affectation ACTIVE sur ce site).");
+                if (rs.next()) {
+                    estActif = rs.getBoolean("est_actif");
+                } else {
+                    throw new IllegalStateException("L'employé ID " + idEmploye + " est introuvable.");
                 }
             }
+        }
+        if (!estActif) {
+            throw new IllegalStateException("L'employé ID " + idEmploye + " est inactif.");
+        }
+
+        LocalDate dtPtg = datePointage.toLocalDate();
+
+        // 2. Vérifier date d'embauche en Java
+        String sqlCt = "SELECT MIN(date_debut) AS date_embauche FROM contrat_travail WHERE id_employe = ?";
+        try (PreparedStatement ps = c.prepareStatement(sqlCt)) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getDate("date_embauche") != null) {
+                    LocalDate dEmb = rs.getDate("date_embauche").toLocalDate();
+                    if (dtPtg.isBefore(dEmb)) {
+                        throw new IllegalStateException("L'employé ID " + idEmploye + " n'était pas encore embauché le " + datePointage + " (embauche : " + dEmb + ").");
+                    }
+                }
+            }
+        }
+
+        // 3. Vérifier affectation au site en Java
+        String sqlAff = "SELECT a.date_debut, a.date_fin, a.id_site, rsa.code AS statut_code " +
+                        "FROM employe_affectation_carriere a " +
+                        "LEFT JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh " +
+                        "WHERE a.id_employe = ?";
+        boolean rattacheAuSite = false;
+        try (PreparedStatement ps = c.prepareStatement(sqlAff)) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int sId = rs.getInt("id_site");
+                    if (sId != idSite) continue;
+
+                    Date dDeb = rs.getDate("date_debut");
+                    Date dFin = rs.getDate("date_fin");
+                    LocalDate ldDeb = dDeb != null ? dDeb.toLocalDate() : null;
+                    LocalDate ldFin = dFin != null ? dFin.toLocalDate() : null;
+                    String st = rs.getString("statut_code");
+
+                    // Affectation couvrant la date
+                    if ((ldDeb == null || !dtPtg.isBefore(ldDeb)) && (ldFin == null || !dtPtg.isAfter(ldFin))) {
+                        rattacheAuSite = true;
+                        break;
+                    }
+                    // Ou affectation active sur ce site
+                    if (ldFin == null || "ACTIF".equalsIgnoreCase(st)) {
+                        rattacheAuSite = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!rattacheAuSite) {
+            // Vérifier si un pointage existe déjà pour ce salarié sur ce site à cette date
+            String sqlPtgEx = "SELECT 1 FROM pointage_jour WHERE id_employe = ? AND date_pointage = ? AND id_site = ?";
+            try (PreparedStatement ps = c.prepareStatement(sqlPtgEx)) {
+                ps.setInt(1, idEmploye);
+                ps.setDate(2, datePointage);
+                ps.setInt(3, idSite);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) rattacheAuSite = true;
+                }
+            }
+        }
+
+        if (!rattacheAuSite) {
+            throw new IllegalStateException("L'employé ID " + idEmploye + " n'est pas rattaché au site ID " + idSite + " pour la date du " + datePointage + ".");
         }
     }
 
@@ -978,12 +1188,19 @@ public class PointageSaisieService {
                 boolean isExemptRetard = dto.isFerieJour() || "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour()) || dto.isEstAutonome();
                 int retMins = isExemptRetard ? 0 : (retMatin + retAm);
 
+                LocalDate datePtg = null;
+                try {
+                    if (dto.getDatePointage() != null) datePtg = LocalDate.parse(dto.getDatePointage());
+                } catch (Exception ignored) {}
+
+                boolean isWeekendPtg = (datePtg != null && CalendrierOuvrableEngine.isWeekend(datePtg));
+
                 if ("FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) {
                     totalH = 0.0;
                 } else if (dto.isFerieJour() && em == null && sm == null && ea == null && sa == null) {
                     totalH = 0.0;
                 } else if (dto.isEstAutonome() && em == null && sm == null && ea == null && sa == null) {
-                    totalH = 8.0;
+                    totalH = isWeekendPtg ? 0.0 : 8.0;
                 }
 
                 // Calcul dynamique du montant repas (déjeuner + extra soirée) via moteur
@@ -1003,11 +1220,6 @@ public class PointageSaisieService {
                 boolean depM = dto.isDeplacementMatin();
                 boolean depA = dto.isDeplacementAm();
                 boolean depRecue = depM || depA;
-
-                LocalDate datePtg = null;
-                try {
-                    if (dto.getDatePointage() != null) datePtg = LocalDate.parse(dto.getDatePointage());
-                } catch (Exception ignored) {}
 
                 String codeStatut = dto.getCodeStatut();
                 if (codeStatut == null || codeStatut.isEmpty() || "NON_SAISI".equals(codeStatut)) {
@@ -1078,6 +1290,14 @@ public class PointageSaisieService {
                         }
                     }
                 } else {
+                    // En week-end, on n'insère QUE les salariés réellement pointés (avec heures) ou ayant un congé approuvé
+                    // Évite que les autres salariés soient insérés à 0h et marqués absents
+                    boolean sansHeures = (em == null && sm == null && ea == null && sa == null && totalH <= 0.0);
+                    boolean sansConge = (dto.getTypeCongeJour() == null || dto.getTypeCongeJour().isEmpty());
+                    if (isWeekendPtg && sansHeures && sansConge) {
+                        continue;
+                    }
+
                     psIns.setInt(1, dto.getIdEmploye());
                     psIns.setDate(2, Date.valueOf(dto.getDatePointage()));
                     psIns.setObject(3, idPer);
@@ -1158,5 +1378,22 @@ public class PointageSaisieService {
         result.put("success", true);
         result.put("message", "Pointages enregistrés avec succès.");
         return result;
+    }
+
+    private static class EmployeCandidatSite {
+        int idEmploye;
+        String matricule;
+        String nom;
+        String prenom;
+        String photoUrl;
+        boolean isAutonome;
+    }
+
+    private static class AffCandidat {
+        int idSite;
+        LocalDate dateDebut;
+        LocalDate dateFin;
+        String codeStatut;
+        boolean dispensePointage;
     }
 }

@@ -161,55 +161,77 @@ public class PointageEmployeController {
         regles.put("plafondArrivee", hPlafondTolerance.toString().substring(0, 5));
         regles.put("toleranceRetard", "0 min");
 
-        // 1. Récupération des infos salarié (date embauche / fin de contrat robuste & statut autonome)
+        // 1. Récupération des infos salarié (date embauche / fin de contrat robuste & statut autonome en code Java)
         LocalDate dateEmbauche = null;
         LocalDate dateDepart = null;
         boolean isAutonome = false;
 
-        String sqlEmpInfo = "SELECT " +
-                            "  (SELECT MIN(date_debut) FROM contrat_travail WHERE id_employe = ?) AS date_embauche, " +
-                            "  (CASE WHEN EXISTS (SELECT 1 FROM contrat_travail WHERE id_employe = ? AND (date_fin IS NULL OR statut = 'ACTIF')) THEN NULL " +
-                            "        ELSE (SELECT MAX(date_fin) FROM contrat_travail WHERE id_employe = ?) END) AS date_depart, " +
-                            "  (SELECT COALESCE(f.dispense_pointage, FALSE) FROM employe_affectation_carriere a " +
-                            "   LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
-                            "   WHERE a.id_employe = ? AND a.date_fin IS NULL LIMIT 1) AS est_autonome";
-        try (Connection c = dataSource.getConnection();
-             PreparedStatement psEmp = c.prepareStatement(sqlEmpInfo)) {
-            psEmp.setInt(1, idEmploye);
-            psEmp.setInt(2, idEmploye);
-            psEmp.setInt(3, idEmploye);
-            psEmp.setInt(4, idEmploye);
-            try (ResultSet rsEmp = psEmp.executeQuery()) {
-                if (rsEmp.next()) {
-                    if (rsEmp.getDate("date_embauche") != null) dateEmbauche = rsEmp.getDate("date_embauche").toLocalDate();
-                    if (rsEmp.getDate("date_depart") != null) dateDepart = rsEmp.getDate("date_depart").toLocalDate();
-                    isAutonome = rsEmp.getBoolean("est_autonome");
-                }
-            }
-        } catch (Exception e) {
-            // Ignorer si contrat_travail non disponible
-        }
+        // A. Contrats du salarié : date d'embauche et date de départ
+        String sqlContrats = "SELECT ct.date_debut, ct.date_fin, rsc.code AS code_statut " +
+                             "FROM contrat_travail ct " +
+                             "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                             "WHERE ct.id_employe = ? ORDER BY ct.date_debut ASC";
+        boolean hasContratActif = false;
+        LocalDate maxDateFin = null;
 
-        if (dateEmbauche == null) {
-            String sqlAff = "SELECT " +
-                            "  (SELECT MIN(date_debut) FROM employe_affectation_carriere WHERE id_employe = ?) AS date_embauche, " +
-                            "  (CASE WHEN EXISTS (SELECT 1 FROM employe_affectation_carriere WHERE id_employe = ? AND date_fin IS NULL) THEN NULL " +
-                            "        ELSE (SELECT MAX(date_fin) FROM employe_affectation_carriere WHERE id_employe = ?) END) AS date_depart";
-            try (Connection c = dataSource.getConnection();
-                 PreparedStatement psAff = c.prepareStatement(sqlAff)) {
-                psAff.setInt(1, idEmploye);
-                psAff.setInt(2, idEmploye);
-                psAff.setInt(3, idEmploye);
-                try (ResultSet rsAff = psAff.executeQuery()) {
-                    if (rsAff.next()) {
-                        if (rsAff.getDate("date_embauche") != null) dateEmbauche = rsAff.getDate("date_embauche").toLocalDate();
-                        if (rsAff.getDate("date_depart") != null) dateDepart = rsAff.getDate("date_depart").toLocalDate();
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement psC = c.prepareStatement(sqlContrats)) {
+            psC.setInt(1, idEmploye);
+            try (ResultSet rsC = psC.executeQuery()) {
+                while (rsC.next()) {
+                    Date dDeb = rsC.getDate("date_debut");
+                    Date dFin = rsC.getDate("date_fin");
+                    String st = rsC.getString("code_statut");
+
+                    if (dDeb != null) {
+                        LocalDate ldDeb = dDeb.toLocalDate();
+                        if (dateEmbauche == null || ldDeb.isBefore(dateEmbauche)) {
+                            dateEmbauche = ldDeb;
+                        }
+                    }
+                    if (dFin == null || "ACTIF".equalsIgnoreCase(st)) {
+                        hasContratActif = true;
+                    } else {
+                        LocalDate ldFin = dFin.toLocalDate();
+                        if (maxDateFin == null || ldFin.isAfter(maxDateFin)) {
+                            maxDateFin = ldFin;
+                        }
                     }
                 }
-            } catch (Exception e) {
-                // Ignorer
             }
+        } catch (Exception ignored) {}
+
+        if (!hasContratActif && maxDateFin != null) {
+            dateDepart = maxDateFin;
         }
+
+        // B. Affectations & Fonction : Détection de la dispense de pointage (Cadre autonome)
+        String sqlAffs = "SELECT a.date_debut, a.date_fin, " +
+                         "COALESCE(f.dispense_pointage, FALSE) AS dispense_pointage " +
+                         "FROM employe_affectation_carriere a " +
+                         "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
+                         "WHERE a.id_employe = ? " +
+                         "ORDER BY (a.date_fin IS NULL) DESC, a.date_debut DESC";
+
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement psA = c.prepareStatement(sqlAffs)) {
+            psA.setInt(1, idEmploye);
+            try (ResultSet rsA = psA.executeQuery()) {
+                boolean first = true;
+                while (rsA.next()) {
+                    Date dDeb = rsA.getDate("date_debut");
+                    boolean disp = rsA.getBoolean("dispense_pointage");
+
+                    if (dateEmbauche == null && dDeb != null) {
+                        dateEmbauche = dDeb.toLocalDate();
+                    }
+                    if (first) {
+                        isAutonome = disp;
+                        first = false;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
 
         // 1.5 Récupération des jours fériés sur la période
         Map<LocalDate, String> ferieMap = new HashMap<>();
@@ -541,21 +563,31 @@ public class PointageEmployeController {
             String sqlCarriere = "SELECT e.matricule, e.nom, e.prenom, e.photo_url, " +
                                  "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, " +
                                  "COALESCE(cp.code, '') AS code_categorie, " +
-                                 "COALESCE(f.dispense_pointage, FALSE) AS est_autonome " +
+                                 "COALESCE(f.dispense_pointage, FALSE) AS est_autonome, " +
+                                 "a.date_debut, a.date_fin " +
                                  "FROM employe e " +
                                  "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
-                                 "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
                                  "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
                                  "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
                                  "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
-                                 "WHERE e.id_employe = ? ORDER BY a.date_debut DESC LIMIT 1";
+                                 "WHERE e.id_employe = ? " +
+                                 "ORDER BY (a.date_fin IS NULL) DESC, a.date_debut DESC";
 
             try (PreparedStatement psCar = c.prepareStatement(sqlCarriere)) {
-                psCar.setDate(1, java.sql.Date.valueOf(endDate));
-                psCar.setDate(2, java.sql.Date.valueOf(startDate));
-                psCar.setInt(3, idEmploye);
+                psCar.setInt(1, idEmploye);
                 try (ResultSet rsCar = psCar.executeQuery()) {
-                    if (rsCar.next()) {
+                    boolean foundCovering = false;
+                    while (rsCar.next()) {
+                        Date dDeb = rsCar.getDate("date_debut");
+                        Date dFin = rsCar.getDate("date_fin");
+                        LocalDate ldDeb = dDeb != null ? dDeb.toLocalDate() : null;
+                        LocalDate ldFin = dFin != null ? dFin.toLocalDate() : null;
+
+                        boolean covers = (ldDeb == null || !ldDeb.isAfter(endDate)) && (ldFin == null || !ldFin.isBefore(startDate));
+                        if (synDto != null && !covers) {
+                            continue;
+                        }
+
                         String codeCat = rsCar.getString("code_categorie");
                         boolean isCadre = rsCar.getBoolean("est_autonome") || "C".equalsIgnoreCase(codeCat) || "HC".equalsIgnoreCase(codeCat);
 
@@ -582,6 +614,10 @@ public class PointageEmployeController {
                                 pMap,
                                 c
                         );
+
+                        if (covers) {
+                            break;
+                        }
                     }
                 }
             }
