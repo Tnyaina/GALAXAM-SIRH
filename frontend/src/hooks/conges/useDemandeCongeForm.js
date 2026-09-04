@@ -117,7 +117,14 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         setMomentDemiJournee('MATIN');
         setDerogationSoldeNegatif(false);
         setEstRemunere(true);
-        setDerogationDelaiPreavis(false);
+        const isPastInit = initialDateDebut && (() => {
+          const [y, m, d] = String(initialDateDebut).split('T')[0].split('-').map(Number);
+          const t = (y && m && d) ? new Date(y, m - 1, d, 0, 0, 0, 0) : new Date(initialDateDebut);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          return t < today;
+        })();
+        setDerogationDelaiPreavis(Boolean(isPastInit));
         setDerogationContinuiteService(false);
         setExtensionPathologiqueMaternite(false);
         setShowOptionsAvancees(false);
@@ -127,6 +134,18 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
       setFieldErrors({});
     }
   }, [isOpen, idEmployeProp, initialDemande, initialDateDebut, initialDateFin]);
+
+  // Dérogation de préavis automatique si la date de début est antérieure à aujourd'hui (oubli, saisie rétroactive)
+  useEffect(() => {
+    if (!dateDebut) return;
+    const [y, m, d] = dateDebut.split('-').map(Number);
+    const dDebut = (y && m && d) ? new Date(y, m - 1, d, 0, 0, 0, 0) : new Date(dateDebut);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (dDebut < today) {
+      setDerogationDelaiPreavis(true);
+    }
+  }, [dateDebut]);
 
   // Si demi-journée activée, la date de fin doit égaler la date de début
   useEffect(() => {

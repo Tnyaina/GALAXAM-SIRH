@@ -154,8 +154,15 @@ public class WorkflowRhService {
 
         switch (typeEvenementCode) {
             case "EMBAUCHE_INITIALE" -> validerEmbaucheInitiale(workflow, req, currentUserId, c);
+            case "REPRISE_ANCIENNETE" -> {
+                if (workflow.getIdContratSource() != null) {
+                    validerTransition(workflow, req, currentUserId, c);
+                } else {
+                    validerEmbaucheInitiale(workflow, req, currentUserId, c);
+                }
+            }
             case "RENOUVELLEMENT_CDD", "TRANSFORMATION_CDI", "EMBAUCHE_APRES_STAGE", "MUTATION", "PROMOTION",
-                    "REVALORISATION", "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI", "REPRISE_CONSULTANT" ->
+                    "REVALORISATION", "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI", "REPRISE_CONSULTANT", "REORGANISATION" ->
                 validerTransition(workflow, req, currentUserId, c);
             case "FIN_CONTRAT", "RUPTURE_ESSAI", "DEMISSION", "LICENCIEMENT", "RUPTURE_CONVENTIONNELLE",
                     "DEPART_RETRAITE" ->
@@ -288,9 +295,54 @@ public class WorkflowRhService {
 
         Integer idTypeEvenement = resolveTypeEvenement(req.getCodeTypeEvenement(), c);
 
+        // ── Résolution du contrat source ──────────────────────────────────────────
+        ContratTravail sourceContrat = null;
+        if (req.getIdContratSource() != null) {
+            sourceContrat = new ContratTravail().rechercherParId(req.getIdContratSource(), c);
+        }
+        if (sourceContrat == null) {
+            sourceContrat = contratActif;
+        }
+
+        String sourceCodeContrat = "";
+        if (sourceContrat != null && sourceContrat.getIdTypeContrat() != null) {
+            try (var psSrc = c.prepareStatement("SELECT code FROM ref_type_contrat WHERE id_type_contrat = ?")) {
+                psSrc.setInt(1, sourceContrat.getIdTypeContrat());
+                try (var rsSrc = psSrc.executeQuery()) {
+                    if (rsSrc.next()) {
+                        sourceCodeContrat = rsSrc.getString("code");
+                    }
+                }
+            }
+        }
+
         boolean exigeNouveauContrat = List
-                .of("TRANSFORMATION_CDI", "RENOUVELLEMENT_CDD", "EMBAUCHE_APRES_STAGE", "REPRISE_CONSULTANT")
+                .of("TRANSFORMATION_CDI", "RENOUVELLEMENT_CDD", "EMBAUCHE_APRES_STAGE", "REPRISE_CONSULTANT", "REPRISE_ANCIENNETE")
                 .contains(req.getCodeTypeEvenement());
+
+        // ── Garde-fous d'éligibilité du contrat source ────────────────────────────
+        if ("EMBAUCHE_APRES_STAGE".equals(req.getCodeTypeEvenement())) {
+            if (!"STAGE".equals(sourceCodeContrat)) {
+                throw new IllegalArgumentException(
+                        "L'événement 'Passage Stage vers CDD/CDI' n'est applicable qu'à un collaborateur sous convention de Stage.");
+            }
+        }
+        if ("TRANSFORMATION_CDI".equals(req.getCodeTypeEvenement())) {
+            if (!"CDD".equals(sourceCodeContrat) && !"TEMPORAIRE".equals(sourceCodeContrat)) {
+                throw new IllegalArgumentException(
+                        "La transformation en CDI requiert un contrat source de type CDD ou Temporaire.");
+            }
+        }
+        if ("RENOUVELLEMENT_CDD".equals(req.getCodeTypeEvenement())) {
+            if (!"CDD".equals(sourceCodeContrat)) {
+                throw new IllegalArgumentException(
+                        "Le renouvellement de CDD requiert un contrat source de type CDD.");
+            }
+        }
+        if (!exigeNouveauContrat && "STAGE".equals(sourceCodeContrat)) {
+            throw new IllegalArgumentException(
+                    "Un collaborateur sous convention de Stage ne peut pas faire l'objet d'un avenant interne (mutation/promotion/salaire). Veuillez procéder à un 'Passage Stage vers CDD/CDI'.");
+        }
 
         if (exigeNouveauContrat) {
             if (req.getIdTypeContrat() == null) {
@@ -325,6 +377,30 @@ public class WorkflowRhService {
             }
             if (!"STAGIAIRE".equals(codeTypeIntervenant) && "STAGE".equals(codeTypeContrat)) {
                 throw new IllegalArgumentException("Le contrat de Stage est réservé aux stagiaires.");
+            }
+
+            // ── Règles Spécifiques : EMBAUCHE_APRES_STAGE ────────────────────────
+            if ("EMBAUCHE_APRES_STAGE".equals(req.getCodeTypeEvenement())) {
+                if ("STAGE".equals(codeTypeContrat)) {
+                    throw new IllegalArgumentException(
+                            "L'embauche après stage doit aboutir à un contrat de travail (CDD ou CDI), et non à un nouveau contrat de stage.");
+                }
+                if (!"PERMANENT".equals(codeTypeIntervenant)) {
+                    throw new IllegalArgumentException(
+                            "Le type d'intervenant pour une embauche post-stage doit être Salarié Permanent.");
+                }
+            }
+
+            // ── Règles Spécifiques : TRANSFORMATION_CDI ──────────────────────────
+            if ("TRANSFORMATION_CDI".equals(req.getCodeTypeEvenement())) {
+                if (!"CDI".equals(codeTypeContrat)) {
+                    throw new IllegalArgumentException(
+                            "L'événement 'Passage CDD vers CDI' requiert obligatoirement un contrat cible de type CDI.");
+                }
+                if (!"PERMANENT".equals(codeTypeIntervenant)) {
+                    throw new IllegalArgumentException(
+                            "Le type d'intervenant pour un CDI doit être Salarié Permanent.");
+                }
             }
 
             // ── Règles Spécifiques : RENOUVELLEMENT_CDD ──────────────────────────
@@ -363,6 +439,22 @@ public class WorkflowRhService {
                             + maxMoisCumule + " mois (2 ans). Le contrat doit être requalifié en CDI.");
                 }
             }
+
+            // ── Règles Spécifiques : REPRISE_ANCIENNETE ──────────────────────────
+            if ("REPRISE_ANCIENNETE".equals(req.getCodeTypeEvenement())) {
+                if ("STAGE".equals(sourceCodeContrat)) {
+                    throw new IllegalArgumentException(
+                            "La réintégration avec reprise d'ancienneté n'est pas applicable à un stagiaire (veuillez utiliser 'Passage Stage vers CDD/CDI').");
+                }
+                if ("STAGE".equals(codeTypeContrat)) {
+                    throw new IllegalArgumentException(
+                            "Une réintégration avec reprise d'ancienneté doit aboutir à un contrat de travail (CDD ou CDI), et non à un stage.");
+                }
+                if (!"PERMANENT".equals(codeTypeIntervenant)) {
+                    throw new IllegalArgumentException(
+                            "Le type d'intervenant pour une réintégration avec reprise d'ancienneté doit être Salarié Permanent.");
+                }
+            }
         }
 
         Integer idStatutBrouillon = resolveStatut("BROUILLON", c);
@@ -372,7 +464,8 @@ public class WorkflowRhService {
             case "PROMOTION" -> "PROMOTION";
             case "MUTATION" -> "MUTATION";
             case "REVALORISATION" -> "REVALORISATION";
-            case "RENOUVELLEMENT_CDD", "TRANSFORMATION_CDI", "EMBAUCHE_APRES_STAGE", "REPRISE_CONSULTANT" -> "AVENANT";
+            case "REORGANISATION" -> "REORGANISATION";
+            case "RENOUVELLEMENT_CDD", "TRANSFORMATION_CDI", "EMBAUCHE_APRES_STAGE", "REPRISE_CONSULTANT", "REPRISE_ANCIENNETE" -> "AVENANT";
             default -> "AUTRE";
         };
         Integer idMotifMouvement = resolveMotifMouvement(codeMotif, c);

@@ -40,6 +40,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
     handleRefresh,
     handleValider,
     handleRefuser,
+    handleAnnuler,
     loadData
   } = useDemandesValidation({ onReload: parentReload });
 
@@ -49,28 +50,33 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showValiderModal, setShowValiderModal] = useState(false);
   const [showRefusModal, setShowRefusModal] = useState(false);
+  const [showAnnulerModal, setShowAnnulerModal] = useState(false);
   const [motifRefus, setMotifRefus] = useState('');
+  const [motifAnnulation, setMotifAnnulation] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState(null);
 
   // Handlers pour les modales
   const openValider = (d) => { setSelectedDemande(d); setActionError(null); setShowValiderModal(true); };
   const openRefus = (d) => { setSelectedDemande(d); setActionError(null); setMotifRefus(''); setShowRefusModal(true); };
+  const openAnnuler = (d) => { setSelectedDemande(d); setActionError(null); setMotifAnnulation(''); setShowAnnulerModal(true); };
   const openDetail = (d) => { setSelectedDemande(d); setShowDetailModal(true); };
   const openModifier = (d) => { setSelectedDemande(d); setShowDemandeModal(true); };
   const closeDetail = () => { setShowDetailModal(false); setSelectedDemande(null); };
 
-  const onConfirmValider = async (justificatifFourni, estRemunere) => {
+  const onConfirmValider = async (justificatifFourni, estRemunere, derogationSoldeNegatif) => {
     if (!selectedDemande) return;
     try {
       setActionLoading(true);
       setActionError(null);
-      await handleValider(selectedDemande.idDemandeConge, { justificatifFourni, estRemunere });
+      await handleValider(selectedDemande.idDemandeConge, { justificatifFourni, estRemunere, derogationSoldeNegatif });
       toast({ title: 'Demande validée', message: `La demande #${selectedDemande.idDemandeConge} a été validée.`, type: 'success', duration: 3000 });
       setShowValiderModal(false);
       setSelectedDemande(null);
     } catch (err) {
-      setActionError(getErrorMessage(err, 'Erreur lors de la validation de la demande.'));
+      const msg = getErrorMessage(err, 'Erreur lors de la validation de la demande.');
+      setActionError(msg);
+      toast({ title: 'Validation impossible', message: msg, type: 'error', duration: 6000 });
     } finally {
       setActionLoading(false);
     }
@@ -88,6 +94,27 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
       setMotifRefus('');
     } catch (err) {
       setActionError(getErrorMessage(err, 'Erreur lors du refus de la demande.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const onConfirmAnnuler = async () => {
+    if (!selectedDemande) return;
+    if (!motifAnnulation.trim()) {
+      setActionError("Le motif d'annulation est obligatoire.");
+      return;
+    }
+    try {
+      setActionLoading(true);
+      setActionError(null);
+      await handleAnnuler(selectedDemande.idDemandeConge, motifAnnulation.trim());
+      toast({ title: 'Congé annulé', message: `La demande #${selectedDemande.idDemandeConge} a été annulée.`, type: 'success', duration: 3000 });
+      setShowAnnulerModal(false);
+      setSelectedDemande(null);
+      setMotifAnnulation('');
+    } catch (err) {
+      setActionError(getErrorMessage(err, "Erreur lors de l'annulation de la demande."));
     } finally {
       setActionLoading(false);
     }
@@ -147,6 +174,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
         onOpenValider={openValider}
         onOpenRefus={openRefus}
         onOpenModifier={openModifier}
+        onOpenAnnuler={openAnnuler}
 
         showValiderModal={showValiderModal}
         onCloseValider={() => { setShowValiderModal(false); setSelectedDemande(null); }}
@@ -157,6 +185,12 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
         onConfirmRefus={onConfirmRefus}
         motifRefus={motifRefus}
         setMotifRefus={setMotifRefus}
+
+        showAnnulerModal={showAnnulerModal}
+        onCloseAnnuler={() => { setShowAnnulerModal(false); setSelectedDemande(null); setMotifAnnulation(''); }}
+        onConfirmAnnuler={onConfirmAnnuler}
+        motifAnnulation={motifAnnulation}
+        setMotifAnnulation={setMotifAnnulation}
 
         actionLoading={actionLoading}
         actionError={actionError}

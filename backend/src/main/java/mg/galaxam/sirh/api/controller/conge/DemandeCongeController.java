@@ -329,7 +329,8 @@ public class DemandeCongeController {
     @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> validerDemande(@PathVariable Integer id,
             @RequestParam(required = false, defaultValue = "false") boolean justificatifFourni,
-            @RequestParam(required = false) Boolean estRemunere) {
+            @RequestParam(required = false) Boolean estRemunere,
+            @RequestParam(required = false, defaultValue = "false") boolean derogationSoldeNegatif) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -342,6 +343,9 @@ public class DemandeCongeController {
                 }
                 if (estRemunere != null) {
                     d.setEstRemunere(estRemunere);
+                }
+                if (derogationSoldeNegatif) {
+                    d.setDerogationSoldeNegatif(true);
                 }
                 d.update(c);
 
@@ -433,7 +437,9 @@ public class DemandeCongeController {
 
     @PostMapping("/{id}/annuler")
     @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> annulerDemande(@PathVariable Integer id) {
+    public ResponseEntity<?> annulerDemande(
+            @PathVariable Integer id,
+            @RequestBody(required = false) Map<String, String> payload) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -441,17 +447,26 @@ public class DemandeCongeController {
                 if (d == null)
                     return ResponseEntity.notFound().build();
 
+                String motif = payload != null ? payload.get("motif") : null;
+                if (motif == null || motif.trim().isEmpty()) {
+                    motif = payload != null ? payload.get("motifRefus") : null;
+                }
+
                 String ancienStatut = d.getStatutCode(c);
                 Integer currentUserId = getCurrentUserId();
-                congeService.annulerDemande(id, currentUserId, "Annulation", c);
+                congeService.annulerDemande(id, currentUserId, motif, c);
 
                 if ("VALIDE".equals(ancienStatut)) {
+                    String descNotif = "Une demande de congé (ID: " + id + ") qui était déjà validée vient d'être annulée.";
+                    if (motif != null && !motif.trim().isEmpty()) {
+                        descNotif += " Motif : " + motif.trim();
+                    }
                     NotificationRhService.creer(
                             c,
                             "ALERTE_ECHEANCE",
                             "HAUTE",
                             "Annulation d'un congé validé",
-                            "Une demande de congé (ID: " + id + ") qui était déjà validée vient d'être annulée.",
+                            descNotif,
                             "/conges",
                             null); // Destiné aux RH/Admins
                 }

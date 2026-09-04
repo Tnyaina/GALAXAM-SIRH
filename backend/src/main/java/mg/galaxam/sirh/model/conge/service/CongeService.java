@@ -8,6 +8,7 @@ import java.sql.ResultSet;
 import mg.galaxam.sirh.model.conge.DemandeConge;
 import mg.galaxam.sirh.model.conge.RefStatutDemandeConge;
 import mg.galaxam.sirh.model.conge.RefTypeConge;
+import mg.galaxam.sirh.model.conge.VSoldeCongeEmploye;
 import mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine;
 import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
 import org.springframework.stereotype.Service;
@@ -130,7 +131,7 @@ public class CongeService {
             throw new IllegalArgumentException("Demande de congé introuvable (ID: " + idDemande + ").");
         }
 
-        d.annuler(currentUserId, c);
+        d.annuler(currentUserId, motifAnnulation, c);
         return d;
     }
 
@@ -356,6 +357,13 @@ public class CongeService {
         } else {
             res.put("messageAvertissement", null);
         }
+
+        // 6. Solde actuel de congés du collaborateur
+        VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
+        BigDecimal soldeDisponible = (solde != null && solde.getSoldeActuel() != null)
+                ? solde.getSoldeActuel()
+                : BigDecimal.ZERO;
+        res.put("soldeDisponible", soldeDisponible);
 
         return res;
     }

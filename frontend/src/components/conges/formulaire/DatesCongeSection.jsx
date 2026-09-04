@@ -1,4 +1,4 @@
-import { AlertTriangle, Info, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Info, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
 
 export default function DatesCongeSection({
@@ -13,6 +13,9 @@ export default function DatesCongeSection({
   preavisInfo,
   derogationDelaiPreavis,
   setDerogationDelaiPreavis,
+  conflitReport,
+  derogationSoldeNegatif,
+  setDerogationSoldeNegatif,
   setShowOptionsAvancees,
   fieldErrors, setFieldErrors
 }) {
@@ -155,7 +158,23 @@ export default function DatesCongeSection({
                 <>Le préavis standard pour ce type de congé est de <strong>{preavisInfo.preavisRequis} jours</strong> ({preavisInfo.joursConstates} jours constatés entre aujourd'hui et le début du congé). Une dérogation RH est requise pour autoriser cette soumission.</>
               )}
             </p>
-            {!derogationDelaiPreavis && (
+            {derogationDelaiPreavis ? (
+              <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[var(--color-warning-500)]/20">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-success-600 dark:text-success-400">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>Dérogation de préavis RH activée {preavisInfo.isRetroactif ? '(saisie rétroactive / régularisation)' : ''}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (setDerogationDelaiPreavis) setDerogationDelaiPreavis(false);
+                  }}
+                  className="text-[11px] text-[var(--color-fg-muted)] hover:text-danger-500 underline cursor-pointer"
+                >
+                  Désactiver
+                </button>
+              </div>
+            ) : (
               <button
                 type="button"
                 onClick={() => {
@@ -195,6 +214,65 @@ export default function DatesCongeSection({
               <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-info-500" />
               Tous les jours de l'intervalle, y compris samedis, dimanches et jours fériés chômés, sont intégralement déduits du solde.
             </p>
+          </div>
+        )}
+
+        {/* ── Contrôle Solde Disponible en Temps Réel ──────────────────── */}
+        {selectedType?.decompteSoldeAcquis && conflitReport?.soldeDisponible !== undefined && (
+          <div className={`mt-3 p-3 border ${
+            nbJoursDecomptes > Number(conflitReport.soldeDisponible)
+              ? 'border-warning-500/40 bg-warning-500/10'
+              : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'
+          }`}>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[var(--color-fg-muted)] font-medium">
+                Solde actuel disponible :
+              </span>
+              <span className={`font-data font-bold ${
+                nbJoursDecomptes > Number(conflitReport.soldeDisponible)
+                  ? 'text-warning-600 dark:text-warning-400'
+                  : 'text-success-600 dark:text-success-400'
+              }`}>
+                {Number(conflitReport.soldeDisponible).toFixed(2)} jour(s)
+              </span>
+            </div>
+
+            {nbJoursDecomptes > Number(conflitReport.soldeDisponible) && (
+              <div className="mt-2 pt-2 border-t border-warning-500/20 space-y-2">
+                <div className="flex items-start gap-1.5 text-xs text-warning-700 dark:text-warning-300 font-medium">
+                  <AlertTriangle className="w-4 h-4 text-warning-500 shrink-0 mt-0.5" />
+                  <span>
+                    Solde insuffisant pour couvrir cette demande ({Number(conflitReport.soldeDisponible).toFixed(2)} j disponibles pour {nbJoursDecomptes} j demandés).
+                  </span>
+                </div>
+                {derogationSoldeNegatif ? (
+                  <div className="flex items-center justify-between text-xs text-success-600 dark:text-success-400 font-semibold bg-success-500/10 p-2 border border-success-500/20">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>Dérogation RH solde négatif (prise par anticipation) activée</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDerogationSoldeNegatif && setDerogationSoldeNegatif(false)}
+                      className="text-[11px] text-[var(--color-fg-muted)] hover:text-danger-500 underline cursor-pointer"
+                    >
+                      Désactiver
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (setDerogationSoldeNegatif) setDerogationSoldeNegatif(true);
+                      if (setShowOptionsAvancees) setShowOptionsAvancees(true);
+                    }}
+                    className="text-xs font-bold underline text-[var(--color-warning-500)] hover:text-[var(--color-warning-700)] cursor-pointer block"
+                  >
+                    Activer la dérogation RH de solde négatif
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

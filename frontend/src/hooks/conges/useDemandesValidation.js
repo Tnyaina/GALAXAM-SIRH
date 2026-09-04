@@ -78,6 +78,12 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
     await loadData();
   };
 
+  const handleAnnuler = async (idDemandeConge, motif) => {
+    await congeService.annulerDemande(idDemandeConge, motif);
+    if (parentReload) parentReload();
+    await loadData();
+  };
+
   return {
     // Data
     demandes,
@@ -103,6 +109,7 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
     loadData,
     handleRefresh,
     handleValider,
-    handleRefuser
+    handleRefuser,
+    handleAnnuler
   };
 }

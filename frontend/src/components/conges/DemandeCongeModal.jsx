@@ -161,6 +161,9 @@ export default function DemandeCongeModal({
               preavisInfo={preavisInfo}
               derogationDelaiPreavis={derogationDelaiPreavis}
               setDerogationDelaiPreavis={setDerogationDelaiPreavis}
+              conflitReport={conflitReport}
+              derogationSoldeNegatif={derogationSoldeNegatif}
+              setDerogationSoldeNegatif={setDerogationSoldeNegatif}
               setShowOptionsAvancees={setShowOptionsAvancees}
               fieldErrors={fieldErrors}
               setFieldErrors={setFieldErrors}

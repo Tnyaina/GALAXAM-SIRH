@@ -39,7 +39,8 @@ export default function TransitionModal({
         avantResponsable, apresResponsable, avantModePaie, apresModePaie,
         avantSalaire,
         filiales, typesContrat, typesIntervenant, sites, departements,
-        services, fonctions, categoriesPro, modesPaie, responsables
+        services, fonctions, categoriesPro, modesPaie, responsables,
+        lockTypeContrat, lockTypeIntervenant
     } = useTransitionForm({
         isOpen, onClose, idEmploye, typeEvenement,
         affectationActive, contratActif, initialData, onSuccess
@@ -141,6 +142,8 @@ export default function TransitionModal({
                                             filiales={filiales}
                                             typesContrat={typesContrat}
                                             typesIntervenant={typesIntervenant}
+                                            lockTypeContrat={lockTypeContrat}
+                                            lockTypeIntervenant={lockTypeIntervenant}
                                         />
 
                                         {autorisePeriodeEssai ? (

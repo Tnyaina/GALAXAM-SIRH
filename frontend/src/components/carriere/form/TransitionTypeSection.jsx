@@ -1,9 +1,9 @@
-import { RefreshCw, ArrowRight, FileSignature, Building2, CheckCircle2 } from 'lucide-react';
+import { RefreshCw, ArrowRight, FileSignature, Building2, CheckCircle2, Lock } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
 import FormSectionHeader from './FormSectionHeader';
 
 export default function TransitionTypeSection({ relevantEvTypes = [], formData, setField }) {
-    const CONTRACTUAL_CODES = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT'];
+    const CONTRACTUAL_CODES = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT', 'REPRISE_ANCIENNETE'];
     
     const contractualEvents = relevantEvTypes.filter(t => CONTRACTUAL_CODES.includes(t.code));
     const internalEvents = relevantEvTypes.filter(t => !CONTRACTUAL_CODES.includes(t.code));
@@ -16,12 +16,34 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
         RENOUVELLEMENT_CDD: 'Avenant de prolongation du CDD',
         EMBAUCHE_APRES_STAGE: 'Transformation de stage vers CDD/CDI',
         REPRISE_CONSULTANT: 'Bascule vers un contrat de prestation / consultant',
+        REPRISE_ANCIENNETE: 'Nouveau contrat avec continuité de l\'ancienneté acquise',
         REORGANISATION: 'Réorganisation interne / restructuration',
     };
 
     const renderEventCard = (t) => {
+        const isEligible = t.isEligible !== false;
         const displayDesc = t.description || descMap[t.code] || 'Mouvement de carrière RH';
         const isSelected = formData.codeTypeEvenement === t.code;
+
+        if (!isEligible) {
+            return (
+                <div
+                    key={t.code}
+                    className="p-3.5 border border-dashed border-ink-200 dark:border-ink-800 bg-ink-50/50 dark:bg-ink-950/20 opacity-55 cursor-not-allowed flex flex-col justify-between select-none"
+                    title={t.disabledReason || 'Action non disponible pour la situation contractuelle actuelle'}
+                >
+                    <div>
+                        <p className="font-bold text-xs flex items-center justify-between gap-1.5 text-ink-400 dark:text-ink-500">
+                            <span className="truncate">{t.libelle}</span>
+                            <Lock size={12} className="text-ink-400 shrink-0" />
+                        </p>
+                        <p className="text-[10px] mt-1 text-danger-500/90 dark:text-danger-400/90 font-medium">
+                            {t.disabledReason || 'Non éligible'}
+                        </p>
+                    </div>
+                </div>
+            );
+        }
 
         return (
             <div

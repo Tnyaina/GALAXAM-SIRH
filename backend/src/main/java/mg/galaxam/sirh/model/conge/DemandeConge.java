@@ -127,7 +127,21 @@ public class DemandeConge extends ClassMere {
             throw new IllegalArgumentException("Le type de congé spécifié n'existe pas.");
         }
 
-        // 2.bis Contrôle de l'existence d'un contrat de travail actif couvrant toute la période de congé
+        // 2.bis Contrôle du solde disponible pour les types de congés entamant le solde acquis (ex: ANNUEL)
+        if (typeConge.isDecompteSoldeAcquis() && !derogationSoldeNegatif) {
+            VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
+            BigDecimal soldeDisponible = (solde != null && solde.getSoldeActuel() != null)
+                    ? solde.getSoldeActuel()
+                    : BigDecimal.ZERO;
+            BigDecimal nouveauSolde = soldeDisponible.subtract(nbJoursDecomptes);
+            if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException(
+                        "Solde de congé insuffisant (" + soldeDisponible + "j disponibles pour " + nbJoursDecomptes
+                                + "j demandés). Une dérogation RH de solde négatif / anticipation est requise.");
+            }
+        }
+
+        // 2.ter Contrôle de l'existence d'un contrat de travail actif couvrant toute la période de congé
         String sqlContrat = "SELECT ct.id_contrat FROM contrat_travail ct " +
                 "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "WHERE ct.id_employe = ? AND rsc.code = 'ACTIF' " +
@@ -539,6 +553,10 @@ public class DemandeConge extends ClassMere {
      * génère le mouvement ANNULATION (crédit).
      */
     public DemandeConge annuler(Integer idUtilisateur, Connection c) throws Exception {
+        return annuler(idUtilisateur, null, c);
+    }
+
+    public DemandeConge annuler(Integer idUtilisateur, String motifAnnulation, Connection c) throws Exception {
         if (this.idDemandeConge == null) {
             throw new IllegalArgumentException("ID de demande de congé obligatoire pour l'annulation.");
         }
@@ -563,6 +581,8 @@ public class DemandeConge extends ClassMere {
 
         RefTypeConge typeConge = RefTypeConge.rechercherParId(idTypeConge, c);
 
+        String cleanMotif = (motifAnnulation != null && !motifAnnulation.trim().isEmpty()) ? motifAnnulation.trim() : null;
+
         // Si la demande était VALIDÉE et imputait le solde acquis, générer un mouvement
         // de restitution (ANNULATION)
         if ("VALIDE".equals(statutCourant) && typeConge != null && typeConge.isDecompteSoldeAcquis()) {
@@ -571,7 +591,11 @@ public class DemandeConge extends ClassMere {
             annulation.setTypeMouvement("ANNULATION");
             annulation.setNbJours(nbJoursDecomptes); // Restitution créditeur (+)
             annulation.setIdDemandeConge(idDemandeConge);
-            annulation.setCommentaire("Restitution suite à l'annulation de la demande #" + idDemandeConge);
+            String commentaireRestitution = "Restitution suite à l'annulation de la demande #" + idDemandeConge;
+            if (cleanMotif != null) {
+                commentaireRestitution += " : " + cleanMotif;
+            }
+            annulation.setCommentaire(commentaireRestitution);
             annulation.setCreatedBy(idUtilisateur);
             annulation.save(c);
         }
@@ -581,6 +605,9 @@ public class DemandeConge extends ClassMere {
             throw new IllegalStateException("Statut ANNULE non trouvé dans le référentiel.");
         }
         this.idStatutDemandeConge = statutAnnule.getIdStatutDemandeConge();
+        if (cleanMotif != null) {
+            this.motifRefus = cleanMotif;
+        }
 
         return (DemandeConge) this.update(c);
     }

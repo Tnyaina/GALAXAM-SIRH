@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, X, FileText, XSquare, Pencil } from 'lucide-react';
+import { Check, X, FileText, XSquare, Pencil, AlertTriangle } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import Button from '@/components/ui/forms/Button';
@@ -32,11 +32,19 @@ export default function ValidationModals({
   motifRefus,
   setMotifRefus,
 
+  showAnnulerModal,
+  onCloseAnnuler,
+  onOpenAnnuler,
+  onConfirmAnnuler,
+  motifAnnulation,
+  setMotifAnnulation,
+
   actionLoading,
   actionError
 }) {
   const [justificatifFourni, setJustificatifFourni] = useState(false);
   const [estRemunere, setEstRemunere] = useState(true);
+  const [derogationSoldeNegatif, setDerogationSoldeNegatif] = useState(false);
 
   useEffect(() => {
     if (showValiderModal && selectedDemande) {
@@ -44,6 +52,7 @@ export default function ValidationModals({
       setEstRemunere(selectedDemande.estRemunere !== undefined && selectedDemande.estRemunere !== null
         ? Boolean(selectedDemande.estRemunere)
         : Boolean(selectedDemande.estPaye));
+      setDerogationSoldeNegatif(Boolean(selectedDemande.derogationSoldeNegatif));
     }
   }, [showValiderModal, selectedDemande]);
 
@@ -53,45 +62,66 @@ export default function ValidationModals({
       <Modal
         isOpen={showDetailModal && !!selectedDemande}
         onClose={onCloseDetail}
-        title={selectedDemande ? `Détail de la demande #${selectedDemande.idDemandeConge}` : 'Détail de la demande'}
-        icon={<FileText size={16} />}
-        size="lg"
+        title={`Détail de la demande #${selectedDemande?.idDemandeConge || ''}`}
+        icon={<FileText size={20} />}
+        size="xl"
         footer={
-          (selectedDemande?.isEnAttente ?? (selectedDemande?.codeStatutDemande === 'EN_ATTENTE')) ? (
-            <div className="flex items-center justify-end gap-2 w-full">
-              <Button
-                variant="outline"
-                size="sm"
-                iconLeft={<Pencil size={14} />}
-                onClick={() => {
-                  onCloseDetail();
-                  if (onOpenModifier) onOpenModifier(selectedDemande);
-                }}
-              >
-                Modifier
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                iconLeft={<X size={14} />}
-                onClick={() => {
-                  onCloseDetail();
-                  onOpenRefus(selectedDemande);
-                }}
-              >
-                Refuser
-              </Button>
-              <Button
-                variant="success"
-                size="sm"
-                iconLeft={<Check size={14} />}
-                onClick={() => {
-                  onCloseDetail();
-                  onOpenValider(selectedDemande);
-                }}
-              >
-                Valider
-              </Button>
+          selectedDemande ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+              <div>
+                {selectedDemande.codeStatutDemande === 'VALIDE' && onOpenAnnuler && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    iconLeft={<X size={14} />}
+                    onClick={() => {
+                      onCloseDetail();
+                      onOpenAnnuler(selectedDemande);
+                    }}
+                  >
+                    Annuler ce congé
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {(selectedDemande?.isEnAttente ?? (selectedDemande?.codeStatutDemande === 'EN_ATTENTE')) && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      iconLeft={<Pencil size={14} />}
+                      onClick={() => {
+                        onCloseDetail();
+                        if (onOpenModifier) onOpenModifier(selectedDemande);
+                      }}
+                    >
+                      Modifier
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      iconLeft={<X size={14} />}
+                      onClick={() => {
+                        onCloseDetail();
+                        if (onOpenRefus) onOpenRefus(selectedDemande);
+                      }}
+                    >
+                      Refuser
+                    </Button>
+                    <Button
+                      variant="success"
+                      size="sm"
+                      iconLeft={<Check size={14} />}
+                      onClick={() => {
+                        onCloseDetail();
+                        if (onOpenValider) onOpenValider(selectedDemande);
+                      }}
+                    >
+                      Valider
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           ) : null
         }
@@ -172,11 +202,17 @@ export default function ValidationModals({
         message={`Valider la demande de ${selectedDemande?.prenom || ''} ${selectedDemande?.nom || ''} (${selectedDemande?.estDemiJournee ? `0,5 jour ${selectedDemande?.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}` : `${selectedDemande?.nbJoursDecomptes} jours`} de ${selectedDemande?.codeTypeConge}) ?`}
         confirmLabel="Valider la demande"
         confirmVariant="success"
-        onConfirm={() => onConfirmValider(justificatifFourni, estRemunere)}
+        onConfirm={() => onConfirmValider(justificatifFourni, estRemunere, derogationSoldeNegatif)}
         onClose={onCloseValider}
         loading={actionLoading}
       >
         <div className="mt-4 pt-4 border-t border-[var(--color-border-subtle)] space-y-3">
+          {actionError && (
+            <Alert
+              type="error"
+              message={typeof actionError === 'string' ? actionError : JSON.stringify(actionError)}
+            />
+          )}
           <label className="flex items-start gap-3 cursor-pointer p-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
             <input
               type="checkbox"
@@ -190,6 +226,20 @@ export default function ValidationModals({
                 {estRemunere
                   ? 'Rémunération maintenue : 100% du salaire préservé lors du calcul de paie.'
                   : 'Non rémunéré (sans solde) : déduction proportionnelle au temps de travail sur le bulletin.'}
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3 cursor-pointer p-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+            <input
+              type="checkbox"
+              checked={derogationSoldeNegatif}
+              onChange={(e) => setDerogationSoldeNegatif(e.target.checked)}
+              className="w-4 h-4 mt-0.5 accent-warning-500 cursor-pointer shrink-0"
+            />
+            <span className="text-sm font-medium text-[var(--color-fg)]">
+              Accorder la dérogation RH : Solde négatif / Anticipation
+              <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5 font-normal">
+                Permet d'autoriser la validation même si le solde acquis du collaborateur est inférieur aux jours demandés.
               </span>
             </span>
           </label>
@@ -233,6 +283,97 @@ export default function ValidationModals({
               rows={4}
               disabled={actionLoading}
             />
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Modal : Annulation d'un congé avec motif obligatoire ─ */}
+      <Modal
+        isOpen={Boolean(showAnnulerModal && selectedDemande)}
+        onClose={onCloseAnnuler}
+        title={
+          selectedDemande?.codeStatutDemande === 'VALIDE'
+            ? `Annulation du congé validé #${selectedDemande?.idDemandeConge}`
+            : `Annulation de la demande #${selectedDemande?.idDemandeConge}`
+        }
+        icon={<AlertTriangle size={20} className="text-danger-500" />}
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={onCloseAnnuler} disabled={actionLoading}>
+              Conserver le congé
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => onConfirmAnnuler(motifAnnulation)}
+              loading={actionLoading}
+              disabled={!motifAnnulation?.trim()}
+            >
+              Confirmer l'annulation
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {actionError && <Alert type="error" message={typeof actionError === 'string' ? actionError : JSON.stringify(actionError)} />}
+
+          {selectedDemande?.codeStatutDemande === 'VALIDE' ? (
+            <Alert
+              type="warning"
+              message={`Ce congé est validé. L'annulation va ré-incrémenter automatiquement ${selectedDemande.nbJoursDecomptes || selectedDemande.dureeJours || 0} jour(s) sur le solde acquis de ${selectedDemande.prenom || ''} ${selectedDemande.nom || ''}. Un motif justificatif est obligatoire pour la traçabilité RH.`}
+            />
+          ) : (
+            <Alert
+              type="info"
+              message="Veuillez renseigner la raison de l'annulation de cette demande de congé pour l'historique RH."
+            />
+          )}
+
+          {/* Raccourcis de motifs fréquents */}
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+              Motifs fréquents
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                'Impératif opérationnel / rappel en service',
+                'Demande du collaborateur (report)',
+                'Arrêt maladie survenu avant les congés',
+                'Erreur de saisie de dates',
+                'Accord mutuel employeur / salarié'
+              ].map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => setMotifAnnulation && setMotifAnnulation(suggestion)}
+                  className={`text-[11px] px-2.5 py-1 border transition-colors cursor-pointer text-left ${
+                    motifAnnulation === suggestion
+                      ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400 font-semibold'
+                      : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:border-[var(--color-border)] hover:text-[var(--color-fg)]'
+                  }`}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+              Motif de l'annulation *
+            </label>
+            <Textarea
+              value={motifAnnulation || ''}
+              onChange={(e) => setMotifAnnulation && setMotifAnnulation(e.target.value)}
+              placeholder="Explicitez la raison de l'annulation (ex: Report convenu avec le collaborateur, impératif de planning...)"
+              rows={3}
+              disabled={actionLoading}
+            />
+            {!motifAnnulation?.trim() && (
+              <p className="text-[11px] text-danger-500">
+                La saisie du motif est obligatoire pour valider l'annulation.
+              </p>
+            )}
           </div>
         </div>
       </Modal>

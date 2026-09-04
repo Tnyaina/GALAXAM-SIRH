@@ -214,6 +214,9 @@ const congeService = {
     if (options.estRemunere !== undefined && options.estRemunere !== null) {
       params.append('estRemunere', String(options.estRemunere));
     }
+    if (options.derogationSoldeNegatif) {
+      params.append('derogationSoldeNegatif', 'true');
+    }
     const queryString = params.toString();
     const url = `/conges/demandes/${id}/valider${queryString ? `?${queryString}` : ''}`;
     const response = await apiClient.post(url);
@@ -231,8 +234,9 @@ const congeService = {
   /**
    * Annule une demande de congé (si validée, génère le crédit ANNULATION dans le ledger)
    */
-  annulerDemande: async (id) => {
-    const response = await apiClient.post(`/conges/demandes/${id}/annuler`);
+  annulerDemande: async (id, motif) => {
+    const payload = typeof motif === 'string' ? { motif } : (motif || {});
+    const response = await apiClient.post(`/conges/demandes/${id}/annuler`, payload);
     return response.data;
   },
 

@@ -142,7 +142,9 @@ export function useCarriereModals({
     const handleOpenEditModal = (data) => {
         setEditInitialData(data);
         const code = data?.codeTypeEvenement;
-        if (isEmbaucheEvent(code)) {
+        if (data?.idContratSource || data?.workflow?.idContratSource) {
+            setIsTransitionModalOpen(true);
+        } else if (isEmbaucheEvent(code)) {
             setIsEmbaucheModalOpen(true);
         } else if (isRuptureEvent(code)) {
             setIsRuptureModalOpen(true);

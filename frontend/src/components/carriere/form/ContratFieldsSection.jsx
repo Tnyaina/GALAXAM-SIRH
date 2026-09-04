@@ -6,6 +6,8 @@ export default function ContratFieldsSection({
     filiales = [],
     typesContrat = [],
     typesIntervenant = [],
+    lockTypeContrat = false,
+    lockTypeIntervenant = false,
 }) {
     const selectedType = typesContrat.find(
         (tc) => String(tc.idTypeContrat) === String(formData.idTypeContrat)
@@ -13,7 +15,7 @@ export default function ContratFieldsSection({
     const exigeDateFin = selectedType?.exigeDateFin ?? false;
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 font-sans">
             <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-1 border-b border-ink-150 dark:border-ink-700">
                 1. Contrat de Travail
             </h3>
@@ -36,10 +38,12 @@ export default function ContratFieldsSection({
                 </Select>
 
                 <Select
-                    label="Type de Contrat"
+                    label={lockTypeContrat ? "Type de Contrat (Imposé)" : "Type de Contrat"}
                     required
+                    disabled={lockTypeContrat}
                     value={formData.idTypeContrat}
                     onChange={(e) => setField('idTypeContrat', e.target.value)}
+                    hint={lockTypeContrat ? "Verrouillé automatiquement selon l'événement choisi" : undefined}
                 >
                     <option value="">-- Sélectionner un type --</option>
                     {typesContrat.map((tc, idx) => {
@@ -53,10 +57,12 @@ export default function ContratFieldsSection({
                 </Select>
 
                 <Select
-                    label="Type d'Intervenant"
+                    label={lockTypeIntervenant ? "Type d'Intervenant (Imposé)" : "Type d'Intervenant"}
                     required
+                    disabled={lockTypeIntervenant}
                     value={formData.idTypeIntervenant}
                     onChange={(e) => setField('idTypeIntervenant', e.target.value)}
+                    hint={lockTypeIntervenant ? "Verrouillé automatiquement selon l'événement choisi" : undefined}
                 >
                     <option value="">-- Sélectionner --</option>
                     {typesIntervenant.map((ti, idx) => {
@@ -89,10 +95,11 @@ export default function ContratFieldsSection({
                     label="Date de Fin"
                     type="date"
                     required={exigeDateFin}
+                    disabled={!exigeDateFin}
                     min={formData.dateDebut || undefined}
-                    value={formData.dateFin}
+                    value={exigeDateFin ? formData.dateFin : ''}
                     onChange={(e) => setField('dateFin', e.target.value)}
-                    hint={exigeDateFin ? "Obligatoire pour ce type de contrat" : "Optionnel si CDI"}
+                    hint={exigeDateFin ? "Obligatoire pour ce type de contrat" : "Non applicable pour un contrat à durée indéterminée"}
                 />
 
                 <Input

@@ -16,6 +16,14 @@ const formatDate = (timestamp) => {
   return date.toLocaleDateString('fr-FR');
 };
 
+const getLeaveTooltip = (employeNom, item) => {
+  const isDemi = Boolean(item.estDemiJournee);
+  const isMatin = item.momentDemiJournee === 'MATIN';
+  const dureeLabel = isDemi ? (isMatin ? '0.5j Matin' : '0.5j A-M') : `${item.dureeJours}j`;
+  const isEnAttente = item.statut === 'EN_ATTENTE' || item.statut === 'SOUMIS';
+  return `${employeNom} — ${item.typeLibelle || item.type} (${dureeLabel})\nStatut : ${isEnAttente ? 'En attente de validation' : 'Validé'}\nPériode : du ${formatDate(item.originalStart)} au ${formatDate(item.originalEnd)}`;
+};
+
 export default function SoldesGantt({
   viewMode = 'MOIS',
   setViewMode,
@@ -49,6 +57,7 @@ export default function SoldesGantt({
   handleTodayWeek,
   onReload,
   onCellClick,
+  onLeaveClick,
   planningLoading = false
 }) {
   const { hasPermission } = useAuth();
@@ -513,13 +522,32 @@ export default function SoldesGantt({
                           const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                           const isCellInDrag = isRowBeingDragged && idx >= minDragIdx && idx <= maxDragIdx;
 
+                          // Détection des congés sur cette case
+                          const leavesOnDay = row.items?.filter((item) => day >= item.startCol && day <= item.endCol) || [];
+                          const hasLeave = leavesOnDay.length > 0;
+                          const cellTitle = hasLeave
+                            ? leavesOnDay.map((item) => getLeaveTooltip(row.employe, item)).join('\n\n')
+                            : `Cliquer ou glisser pour poser un congé pour ${row.employe}`;
+
                           return (
                             <div
                               key={day}
-                              onMouseDown={(e) => handleCellMouseDown(row.idEmploye, idx, dateStr, e)}
+                              onMouseDown={(e) => {
+                                if (hasLeave) {
+                                  e.stopPropagation();
+                                  return;
+                                }
+                                handleCellMouseDown(row.idEmploye, idx, dateStr, e);
+                              }}
                               onMouseEnter={() => handleCellMouseEnter(row.idEmploye, idx, dateStr)}
-                              onMouseUp={(e) => handleCellMouseUp(row.idEmploye, idx, dateStr, e)}
-                              className={`flex-1 min-w-[24px] border-r border-[var(--color-border-subtle)]/40 last:border-0 relative cursor-pointer group/cell transition-colors ${
+                              onMouseUp={(e) => {
+                                if (hasLeave && !dragState.isDragging) {
+                                  e.stopPropagation();
+                                  return;
+                                }
+                                handleCellMouseUp(row.idEmploye, idx, dateStr, e);
+                              }}
+                              className={`flex-1 min-w-[24px] border-r border-[var(--color-border-subtle)]/40 last:border-0 relative ${hasLeave ? 'cursor-default' : 'cursor-pointer'} group/cell transition-colors ${
                                 isCellInDrag
                                   ? 'bg-brand-500/30 border-y-2 border-brand-600 z-10'
                                   : isWeekend
@@ -528,9 +556,9 @@ export default function SoldesGantt({
                                       ? 'bg-brand-500/5 hover:bg-brand-500/20'
                                       : 'hover:bg-brand-500/15'
                               }`}
-                              title={`Cliquer ou glisser pour poser un congé pour ${row.employe}`}
+                              title={cellTitle}
                             >
-                              {!isCellInDrag && (
+                              {!hasLeave && !isCellInDrag && (
                                 <span className="hidden group-hover/cell:flex absolute inset-0 items-center justify-center text-[10px] text-brand-600 font-bold">
                                   +
                                 </span>
@@ -543,13 +571,32 @@ export default function SoldesGantt({
                         weekDaysArray.map((dayObj, idx) => {
                           const isCellInDrag = isRowBeingDragged && idx >= minDragIdx && idx <= maxDragIdx;
 
+                          // Détection des congés sur cette case en vue semaine
+                          const leavesOnDay = row.items?.filter((item) => (idx + 1) >= item.startCol && (idx + 1) <= item.endCol) || [];
+                          const hasLeave = leavesOnDay.length > 0;
+                          const cellTitle = hasLeave
+                            ? leavesOnDay.map((item) => getLeaveTooltip(row.employe, item)).join('\n\n')
+                            : `Cliquer ou glisser pour poser un congé pour ${row.employe}`;
+
                           return (
                             <div
                               key={idx}
-                              onMouseDown={(e) => handleCellMouseDown(row.idEmploye, idx, dayObj.date, e)}
+                              onMouseDown={(e) => {
+                                if (hasLeave) {
+                                  e.stopPropagation();
+                                  return;
+                                }
+                                handleCellMouseDown(row.idEmploye, idx, dayObj.date, e);
+                              }}
                               onMouseEnter={() => handleCellMouseEnter(row.idEmploye, idx, dayObj.date)}
-                              onMouseUp={(e) => handleCellMouseUp(row.idEmploye, idx, dayObj.date, e)}
-                              className={`flex-1 min-w-[90px] border-r border-[var(--color-border-subtle)]/40 last:border-0 relative cursor-pointer group/cell transition-colors flex flex-col justify-end p-1.5 ${
+                              onMouseUp={(e) => {
+                                if (hasLeave && !dragState.isDragging) {
+                                  e.stopPropagation();
+                                  return;
+                                }
+                                handleCellMouseUp(row.idEmploye, idx, dayObj.date, e);
+                              }}
+                              className={`flex-1 min-w-[90px] border-r border-[var(--color-border-subtle)]/40 last:border-0 relative ${hasLeave ? 'cursor-default' : 'cursor-pointer'} group/cell transition-colors flex flex-col justify-end p-1.5 ${
                                 isCellInDrag
                                   ? 'bg-brand-500/30 border-y-2 border-brand-600 z-10'
                                   : dayObj.isWeekend
@@ -558,9 +605,9 @@ export default function SoldesGantt({
                                       ? 'bg-brand-500/5 hover:bg-brand-500/20'
                                       : 'hover:bg-brand-500/15'
                               }`}
-                              title={`Cliquer ou glisser pour poser un congé pour ${row.employe}`}
+                              title={cellTitle}
                             >
-                              {!isCellInDrag && (
+                              {!hasLeave && !isCellInDrag && (
                                 <span className="hidden group-hover/cell:flex items-center justify-center gap-1 text-[10px] text-brand-700 font-semibold bg-white dark:bg-black/60 py-0.5 border border-brand-300 shadow-2xs">
                                   <Plus className="w-3 h-3 text-brand-600" /> Poser
                                 </span>
@@ -585,7 +632,13 @@ export default function SoldesGantt({
                             key={item.id}
                             role="img"
                             aria-label={`${row.employe} — ${item.type}, ${isEnAttente ? 'en attente' : 'validé'}, ${dureeLabel}`}
-                            className={`absolute flex items-center overflow-hidden rounded-none border shadow-xs transition-transform hover:scale-[1.01] z-10 px-2 select-none pointer-events-none ${
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onMouseUp={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onLeaveClick) onLeaveClick(item, row);
+                            }}
+                            className={`absolute flex items-center overflow-hidden rounded-none border shadow-xs transition-transform hover:scale-[1.01] hover:brightness-105 z-20 px-2 select-none pointer-events-auto cursor-pointer ${
                               isEnAttente
                                 ? 'bg-[var(--color-warning-500)] border-[var(--color-warning-600)] text-white font-semibold'
                                 : 'bg-[var(--color-brand-600)] border-[var(--color-brand-700)] text-white font-semibold'
@@ -597,7 +650,7 @@ export default function SoldesGantt({
                               height: `${LANE_HEIGHT - 8}px`,
                               backgroundColor: !isEnAttente && item.couleur ? item.couleur : undefined
                             }}
-                            title={`${item.typeLibelle || item.type} (${dureeLabel}) — ${isEnAttente ? 'En attente de validation' : 'Validé'} du ${formatDate(item.originalStart)} au ${formatDate(item.originalEnd)}`}
+                            title={getLeaveTooltip(row.employe, item)}
                           >
                             <span className="text-[11px] truncate tracking-tight font-medium flex items-center gap-1">
                               <span>{item.typeLibelle || item.type}</span>
