@@ -6,26 +6,26 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import { fmtDate } from '../DashboardUtils';
 import SkeletonListRows from './SkeletonListRows';
 
-export default function BrouillonsEnAttenteWidget({ loading, brouillons = [] }) {
+export default function BrouillonsEnAttenteWidget({ loading, brouillons = [], className = '' }) {
     return (
-        <Card>
-            <CardHeader>
+        <Card className={`flex flex-col ${className}`}>
+            <CardHeader className="min-h-[56px] flex items-center">
                 <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
-                        <FileText size={16} className="text-warning-500" />
+                        <FileText size={16} className="text-warning-500 shrink-0" />
                         <CardTitle>Brouillons en attente de validation DAF</CardTitle>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                         <Badge variant={brouillons.length > 0 ? 'warning' : 'default'} size="sm">
                             {loading ? '…' : brouillons.length} en attente
                         </Badge>
                     </div>
                 </div>
             </CardHeader>
-            <CardBody>
+            <CardBody className="flex-1 flex flex-col justify-center">
                 {loading && <SkeletonListRows count={3} />}
                 {!loading && brouillons.length === 0 && (
-                    <EmptyState description="Aucun brouillon de contrat ou d'avenant en attente." />
+                    <EmptyState compact description="Aucun brouillon de contrat ou d'avenant en attente." />
                 )}
                 {!loading && brouillons.length > 0 && (
                     <div className="divide-y divide-[var(--color-border-subtle)]">

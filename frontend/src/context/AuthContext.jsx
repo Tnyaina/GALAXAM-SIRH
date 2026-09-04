@@ -142,19 +142,33 @@ export const AuthProvider = ({ children }) => {
             handleTokenUpdate(accessToken);
             return { success: true };
         } catch (error) {
-            const message = error.response?.data || "Une erreur est survenue lors de la connexion.";
+            let message = "Identifiant ou mot de passe incorrect. Veuillez vérifier votre saisie.";
+            if (error.response) {
+                if (typeof error.response.data === 'string' && error.response.data.trim() !== '') {
+                    message = error.response.data;
+                } else if (error.response.data?.message) {
+                    message = error.response.data.message;
+                } else if (error.response.status === 401) {
+                    message = "Identifiant ou mot de passe incorrect. Veuillez vérifier votre saisie.";
+                } else if (error.response.status === 403) {
+                    message = "Votre compte utilisateur est désactivé. Veuillez contacter le service RH.";
+                } else if (error.response.status >= 500) {
+                    message = "Le serveur est temporairement inaccessible. Veuillez réessayer dans un instant.";
+                }
+            } else if (error.request) {
+                message = "Impossible de contacter le serveur. Veuillez vérifier votre connexion réseau.";
+            }
             return { success: false, message };
         }
     };
 
     // Déconnexion utilisateur
     const logout = async () => {
+        handleTokenUpdate(null);
         try {
             await apiClient.post('/auth/logout');
         } catch (error) {
             console.error("Erreur lors de la déconnexion sur le serveur", error);
-        } finally {
-            handleTokenUpdate(null);
         }
     };
 

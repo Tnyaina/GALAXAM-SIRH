@@ -17,6 +17,7 @@ DROP VIEW IF EXISTS v_pointage_jour_cpl CASCADE;
 
 DROP TABLE IF EXISTS pointage_cumul_periode CASCADE;
 DROP TABLE IF EXISTS pointage_semaine_calcule CASCADE;
+DROP TABLE IF EXISTS pointage_indemnite_jour CASCADE;
 DROP TABLE IF EXISTS pointage_jour CASCADE;
 DROP TABLE IF EXISTS employe_indemnite_derogation CASCADE;
 DROP TABLE IF EXISTS ref_tolerance_arrivee_pointage CASCADE;
@@ -24,8 +25,6 @@ DROP TABLE IF EXISTS ref_statut_pointage_jour CASCADE;
 DROP TABLE IF EXISTS periode_paie CASCADE;
 DROP TABLE IF EXISTS ref_statut_periode_paie CASCADE;
 
--- Ajout de la colonne "dispense_pointage" sur ref_fonction (poste autonome)
-ALTER TABLE ref_fonction ADD COLUMN IF NOT EXISTS dispense_pointage BOOLEAN DEFAULT FALSE;
 
 -- ============================================================
 -- 1. RÉFÉRENTIELS
@@ -41,6 +40,7 @@ INSERT INTO ref_statut_periode_paie (code, libelle) VALUES
     ('BROUILLON', 'Période créée, non ouverte'),
     ('EN_COURS', 'Saisie en cours'),
     ('A_VALIDER', 'Terminée, en attente de validation DAF'),
+    ('TRANSMIS_DAF', 'Transmise à la DAF'),
     ('VALIDEE', 'Validée — verrouillée pour saisie'),
     ('CLOTUREE', 'Clôturée — consommée par la Paie, immuable');
 
@@ -53,6 +53,7 @@ CREATE TABLE periode_paie (
     id_statut_periode INTEGER NOT NULL REFERENCES ref_statut_periode_paie(id_statut_periode),
     date_validation TIMESTAMP,
     valide_par INTEGER REFERENCES utilisateur(id_utilisateur),
+    motif_rejet TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_periode_dates CHECK (date_fin > date_debut)
@@ -85,9 +86,10 @@ CREATE TABLE ref_tolerance_arrivee_pointage (
     heure_plafond TIME NOT NULL   -- ex 07:30 : toute arrivée avant cette heure compte comme 07:30
 );
 
--- Exemple de seed pour TNR (id_site = 1) : théorique 08:00, plafond 07:30
+-- Seed tolérance d'arrivée anticipée (TNR et TMM à 07:30)
 INSERT INTO ref_tolerance_arrivee_pointage (id_site, heure_plafond) VALUES
-    (1, '07:30');
+    (1, '07:30'),
+    (2, '07:30');
 
 -- Dérogation individuelle d'indemnité (Niveau 2 de la cascade — module-structure.md §4.1)
 CREATE TABLE employe_indemnite_derogation (
@@ -131,12 +133,16 @@ CREATE TABLE pointage_jour (
     minutes_retard INTEGER DEFAULT 0,
     minutes_depart_anticipe INTEGER DEFAULT 0,
 
-    -- Indemnités (Niveau 3 de la cascade — ajustement du jour)
+    -- [DÉPRÉCIÉ - MIROIR DE LECTURE / SHADOW COLUMNS]
+    -- Ces colonnes sont maintenues en Dual-Write pour la rétro-compatibilité et le cache de saisie.
+    -- La SOURCE UNIQUE DE VÉRITÉ prioritaire et officielle est la table relationnelle pointage_indemnite_jour.
     indemnite_deplacement_recue BOOLEAN DEFAULT TRUE,
+    deplacement_matin BOOLEAN DEFAULT TRUE,
+    deplacement_am BOOLEAN DEFAULT TRUE,
     montant_deplacement_jour DECIMAL(10,2),
     indemnite_repas_recue BOOLEAN DEFAULT FALSE,
     montant_repas DECIMAL(10,2) DEFAULT 0,
-    utilise_vehicule_fonction_jour BOOLEAN DEFAULT FALSE,
+    utilise_vehicule_fonction_jour BOOLEAN DEFAULT FALSE, -- Retrait ponctuel des 2 trajets si véhiculé par l'entreprise le jour J
     horaire_continu_jour BOOLEAN,
 
     motif_ajustement TEXT,
@@ -146,6 +152,7 @@ CREATE TABLE pointage_jour (
     id_demande_conge INTEGER REFERENCES demande_conge(id_demande_conge),
     genere_automatiquement BOOLEAN NOT NULL DEFAULT FALSE,
 
+    version INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -158,6 +165,40 @@ CREATE INDEX idx_pointage_employe ON pointage_jour(id_employe);
 CREATE INDEX idx_pointage_periode ON pointage_jour(id_periode_paie);
 CREATE INDEX idx_pointage_date ON pointage_jour(date_pointage);
 CREATE INDEX idx_pointage_statut ON pointage_jour(id_statut_jour);
+
+-- Table universelle des indemnités journalières (Source unique de vérité des primes et indemnités)
+CREATE TABLE IF NOT EXISTS pointage_indemnite_jour (
+    id_pointage_indemnite SERIAL PRIMARY KEY,
+    id_pointage INT NOT NULL REFERENCES pointage_jour(id_pointage) ON DELETE CASCADE,
+    id_indemnite INT NOT NULL REFERENCES ref_indemnite(id_indemnite),
+    fraction VARCHAR(20) NOT NULL DEFAULT 'JOUR_ENTIER', -- 'MATIN', 'APRES_MIDI', 'JOUR_ENTIER'
+    quantite NUMERIC(4,2) NOT NULL DEFAULT 1.0,          -- 0.5, 1.0, 2.0
+    montant_calcule NUMERIC(12,2) DEFAULT 0,
+    accorde BOOLEAN NOT NULL DEFAULT TRUE,
+    motif_ajustement TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_pointage_indemnite_fraction UNIQUE (id_pointage, id_indemnite, fraction)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pointage_indemnite_ptg ON pointage_indemnite_jour(id_pointage);
+CREATE INDEX IF NOT EXISTS idx_pointage_indemnite_ref ON pointage_indemnite_jour(id_indemnite);
+
+-- Vue unifiée des indemnités par pointage pour faciliter les requêtes de synthèse
+CREATE OR REPLACE VIEW v_pointage_indemnites AS
+SELECT 
+    pij.id_pointage_indemnite,
+    pij.id_pointage,
+    pij.id_indemnite,
+    ri.code AS code_indemnite,
+    ri.libelle AS libelle_indemnite,
+    pij.fraction,
+    pij.quantite,
+    pij.montant_calcule,
+    pij.accorde,
+    pij.motif_ajustement
+FROM pointage_indemnite_jour pij
+JOIN ref_indemnite ri ON pij.id_indemnite = ri.id_indemnite;
 
 -- ============================================================
 -- 3. FONCTION : JOURS OUVRABLES DU MOIS (pour prorata des indemnités)
@@ -185,7 +226,8 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 -- 4. VUES (temps réel — affichage avant clôture)
 -- ============================================================
 
-CREATE OR REPLACE VIEW v_pointage_jour_cpl AS
+DROP VIEW IF EXISTS v_pointage_jour_cpl CASCADE;
+CREATE VIEW v_pointage_jour_cpl AS
 SELECT
     p.id_pointage,
     p.id_employe,
@@ -201,7 +243,7 @@ SELECT
     st.code AS code_statut, st.libelle AS libelle_statut,
     p.heures_matin, p.heures_am, p.total_heures, p.heures_nuit,
     p.minutes_retard, p.minutes_depart_anticipe,
-    p.indemnite_deplacement_recue, p.montant_deplacement_jour,
+    p.indemnite_deplacement_recue, p.deplacement_matin, p.deplacement_am, p.montant_deplacement_jour,
     p.indemnite_repas_recue, p.montant_repas,
     p.utilise_vehicule_fonction_jour, p.horaire_continu_jour,
     p.motif_ajustement, p.saisi_par, p.created_at, p.updated_at
@@ -214,7 +256,8 @@ JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour;
 -- Vue hebdomadaire avec proratisation du seuil par tronçon
 -- Partition par id_periode_paie : une semaine à cheval génère 2 lignes distinctes (une par période)
 -- Seuil proratisé : 8h × nb_jours_ouvrés_du_tronçon (pas un seuil fixe de 40h)
-CREATE OR REPLACE VIEW v_pointage_semaine AS
+DROP VIEW IF EXISTS v_pointage_semaine CASCADE;
+CREATE VIEW v_pointage_semaine AS
 SELECT
     p.id_employe,
     p.id_periode_paie,
@@ -233,7 +276,8 @@ WHERE s.code IN ('PRESENT', 'FERIE_TRAVAILLE', 'SAMEDI_TRAVAILLE', 'DIMANCHE_TRA
 GROUP BY p.id_employe, p.id_periode_paie, date_trunc('week', p.date_pointage);
 
 -- Vue mensuelle temps réel (affichage saisie). Remplacée par pointage_cumul_periode à la clôture.
-CREATE OR REPLACE VIEW v_synthese_pointage_mensuelle AS
+DROP VIEW IF EXISTS v_synthese_pointage_mensuelle CASCADE;
+CREATE VIEW v_synthese_pointage_mensuelle AS
 SELECT
     p.id_employe,
     p.id_periode_paie,
@@ -243,15 +287,28 @@ SELECT
     COUNT(*) FILTER (WHERE s.code = 'DIMANCHE_TRAVAILLE')           AS nb_jours_dimanche_travaille,
     COALESCE(SUM(p.total_heures) FILTER (WHERE s.decompte_absence = FALSE), 0) AS total_heures_travaillees,
     COALESCE(SUM(p.heures_nuit), 0)                                 AS heures_nuit_total,
-    COUNT(*) FILTER (WHERE p.indemnite_deplacement_recue)           AS nb_jours_deplacement,
-    COUNT(*) FILTER (WHERE p.indemnite_repas_recue)                 AS nb_jours_repas,
-    COALESCE(SUM(p.montant_repas), 0)                               AS montant_repas_total
+    COALESCE(SUM(
+        CASE 
+            WHEN pij_dep.quantite IS NOT NULL THEN (CASE WHEN pij_dep.accorde THEN pij_dep.quantite ELSE 0.0 END)
+            WHEN p.deplacement_matin IS NOT NULL AND p.deplacement_am IS NOT NULL 
+                THEN (CASE WHEN p.deplacement_matin = TRUE THEN 0.5 ELSE 0.0 END + CASE WHEN p.deplacement_am = TRUE THEN 0.5 ELSE 0.0 END)
+            WHEN p.indemnite_deplacement_recue = TRUE THEN 1.0
+            ELSE 0.0 
+        END
+    ), 0) AS nb_jours_deplacement,
+    COUNT(*) FILTER (WHERE COALESCE(pij_repas.accorde, p.indemnite_repas_recue)) AS nb_jours_repas,
+    COALESCE(SUM(COALESCE(pij_repas.montant_calcule, p.montant_repas)), 0)       AS montant_repas_total
 FROM pointage_jour p
 JOIN ref_statut_pointage_jour s ON p.id_statut_jour = s.id_statut_jour
+LEFT JOIN pointage_indemnite_jour pij_repas ON p.id_pointage = pij_repas.id_pointage 
+    AND pij_repas.id_indemnite = (SELECT id_indemnite FROM ref_indemnite WHERE code = 'REPAS' LIMIT 1)
+LEFT JOIN pointage_indemnite_jour pij_dep ON p.id_pointage = pij_dep.id_pointage 
+    AND pij_dep.id_indemnite IN (SELECT id_indemnite FROM ref_indemnite WHERE code IN ('DEPLACEMENT', 'TRANSPORT') LIMIT 1)
 GROUP BY p.id_employe, p.id_periode_paie;
 
 -- Agrégat des HS brutes mensuelle depuis les tronçons hebdomadaires
-CREATE OR REPLACE VIEW v_hs_mensuelle AS
+DROP VIEW IF EXISTS v_hs_mensuelle CASCADE;
+CREATE VIEW v_hs_mensuelle AS
 SELECT
     w.id_periode_paie,
     w.id_employe,
@@ -310,7 +367,7 @@ CREATE TABLE pointage_cumul_periode (
     heures_hs_50             DECIMAL(6,2) NOT NULL DEFAULT 0,
     heures_nuit_total        DECIMAL(6,2) NOT NULL DEFAULT 0,
     heures_absence_retenues  DECIMAL(6,2) NOT NULL DEFAULT 0,  -- retards nets non compensés → déduction paie
-    nb_jours_deplacement     INTEGER NOT NULL DEFAULT 0,
+    nb_jours_deplacement     DECIMAL(5,2) NOT NULL DEFAULT 0,
     montant_deplacement      DECIMAL(10,2) NOT NULL DEFAULT 0,
     nb_jours_repas           INTEGER NOT NULL DEFAULT 0,
     montant_repas            DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -322,68 +379,25 @@ CREATE TABLE pointage_cumul_periode (
 CREATE INDEX idx_cumul_periode_employe
     ON pointage_cumul_periode(id_employe, id_periode_paie);
 
+-- Cumul mensuel dynamique des indemnités figé à la clôture (extensibilité totale pour toutes indemnités)
+CREATE TABLE IF NOT EXISTS pointage_cumul_indemnite (
+    id_cumul_indemnite   SERIAL PRIMARY KEY,
+    id_periode_paie      INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie) ON DELETE CASCADE,
+    id_employe           INTEGER NOT NULL REFERENCES employe(id_employe) ON DELETE CASCADE,
+    id_indemnite         INTEGER NOT NULL REFERENCES ref_indemnite(id_indemnite),
+    quantite_totale      DECIMAL(6,2) NOT NULL DEFAULT 0,
+    montant_total        DECIMAL(12,2) NOT NULL DEFAULT 0,
+    gele_at              TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_cumul_indemnite UNIQUE (id_periode_paie, id_employe, id_indemnite)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cumul_indemnite_periode
+    ON pointage_cumul_indemnite(id_periode_paie, id_employe);
+
 -- ============================================================
 -- 6. EXTENSION DE notification_rh (nouveaux types d'alerte pointage)
 -- ============================================================
+-- NOTE : La contrainte chk_notif_type est définie de façon exhaustive
+-- dans 26-08-10-sp2-notifications.sql. Aucune modification nécessaire ici.
 
-ALTER TABLE notification_rh DROP CONSTRAINT IF EXISTS chk_notif_type;
-ALTER TABLE notification_rh ADD CONSTRAINT chk_notif_type CHECK (type_alerte IN (
-    'CONTRAT_EXPIRE_J', 'CONTRAT_EXPIRE_7J', 'CONTRAT_EXPIRE_30J',
-    'ESSAI_EXPIRE_J', 'ESSAI_EXPIRE_7J', 'ESSAI_EXPIRE_15J', 'ESSAI_EXPIRE_30J',
-    'BROUILLON_EN_ATTENTE', 'MOUVEMENT_APPLIQUE',
-    'DOCUMENTS_MANQUANTS', 'EMPLOYE_CREE', 'BROUILLON_CREE',
-    'CONGE_EN_ATTENTE', 'DEMANDE_CONGE_EN_ATTENTE', 'CONGE_VALIDE', 'CONGE_REFUSE', 'CONGE_ANNULE',
-    'SOLDE_CONGE_FAIBLE', 'SOLDE_CONGE_NEGATIF',
-    'RETOUR_CONGE_J', 'FRACTIONNEMENT_NON_RESPECTE',
-    'MALADIE_PLAFOND_EPISODE_ATTEINT', 'CONGE_EXPIRATION_PROCHE',
-    'POOL_EXCEPTIONNEL_EPUISE', 'BONIFICATION_ANCIENNETE_APPLIQUEE',
-    -- Nouveaux types Pointage
-    'POINTAGE_MANQUANT', 'PERIODE_POINTAGE_A_VALIDER',
-    'PERIODE_POINTAGE_VALIDEE', 'RETARD_RECURRENT'
-));
 
--- ============================================================
--- 7. MENUS RBAC NAVIGATION POINTAGE
--- 6 menus distincts selon profil utilisateur (agent vs admin/DAF)
--- Justification : séparation saisie / anomalies / synthèse / clôture / dérogations
--- ============================================================
-INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-    ('POINTAGE_JOURNALIER',  'Saisie & Pointage Quotidien', 'ClockCheck',    '/pointages/saisie',       1, 2, 'POINTAGE'),
-    ('POINTAGE_ANOMALIES',   'Gestion des Anomalies',       'AlertTriangle', '/pointages/anomalies',    2, 2, 'POINTAGE'),
-    ('POINTAGE_SYNTHESE',    'Synthèse Hebdo & Mensuelle',  'BarChart2',     '/pointages/synthese',     3, 2, 'POINTAGE'),
-    ('POINTAGE_PERIODES',    'Périodes de Paie',            'CalendarRange', '/pointages/periodes',     4, 2, 'POINTAGE'),
-    ('POINTAGE_CLOTURE',     'Validation & Clôture',        'Lock',          '/pointages/cloture',      5, 2, 'POINTAGE'),
-    ('POINTAGE_DEROGATIONS', 'Dérogations d''Indemnités',   'UserMinus',     '/pointages/derogations',  6, 2, 'POINTAGE')
-ON CONFLICT (id_menu) DO NOTHING;
-
--- id_role 1 = ROLE_ADMIN (accès complet), id_role 2 = ROLE_AGENT_POINTAGE (saisie + anomalies)
-INSERT INTO role_menu (id_role, id_menu) VALUES
-    (1, 'POINTAGE_JOURNALIER'),
-    (1, 'POINTAGE_ANOMALIES'),
-    (1, 'POINTAGE_SYNTHESE'),
-    (1, 'POINTAGE_PERIODES'),
-    (1, 'POINTAGE_CLOTURE'),
-    (1, 'POINTAGE_DEROGATIONS'),
-    (2, 'POINTAGE_JOURNALIER'),
-    (2, 'POINTAGE_ANOMALIES')
-ON CONFLICT DO NOTHING;
-
--- ============================================================
--- 8. AJOUT DU MODULE POINTAGE AU RBAC (si non présent)
--- ============================================================
--- Rappel : ref_module contient déjà EMPLOYE, CONGE, POINTAGE, PAIE (26-07-29_init.sql)
--- La matrice role_permission pour ROLE_AGENT_POINTAGE (lecture+écriture, sans validation)
--- et ROLE_ADMIN (accès total) est déjà en place — aucune action requise ici.
-
--- ============================================================
--- 7. SEED DE DÉMARRAGE
--- ============================================================
-
-INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode)
-VALUES ('2026-01', 'Décembre 2025 -> Janvier 2026', '2025-11-26', '2025-12-25',
-        (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'EN_COURS'));
-
--- Exemple de dérogation permanente (véhicule de fonction) — à adapter aux 4 employés réels
--- INSERT INTO employe_indemnite_derogation (id_employe, id_indemnite, beneficie, motif, date_debut)
--- VALUES (<id_employe>, (SELECT id_indemnite FROM ref_indemnite WHERE code='DEPLACEMENT'), FALSE,
---         'Véhicule de fonction', '2026-01-01');

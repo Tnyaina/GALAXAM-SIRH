@@ -12,7 +12,9 @@ import java.sql.Types;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Représente la relation juridique/contractuelle entre un employé et la société.
@@ -20,6 +22,7 @@ import java.util.List;
  * (Stage → CDD/CDI, CDD → CDI, Retraite → Consultant).
  *
  * Statuts : BROUILLON → A_SIGNER → ACTIF → (SUSPENDU | CLOTURE | ROMPU)
+ * Utilise la table unifiée ref_statut_rh.
  */
 public class ContratTravail extends ClassMere {
 
@@ -28,7 +31,7 @@ public class ContratTravail extends ClassMere {
     private Integer idFiliale;
     private Integer idTypeContrat;
     private Integer idTypeIntervenant;
-    private Integer idStatutContrat;
+    private Integer idStatutRh;
     private Integer idTypeEvenementInitial;
     private Integer idContratPrecedent;
 
@@ -64,7 +67,7 @@ public class ContratTravail extends ClassMere {
         if (idFiliale == null) throw new IllegalArgumentException("La filiale est obligatoire.");
         if (idTypeContrat == null) throw new IllegalArgumentException("Le type de contrat est obligatoire.");
         if (idTypeIntervenant == null) throw new IllegalArgumentException("Le type d'intervenant est obligatoire.");
-        if (idStatutContrat == null) throw new IllegalArgumentException("Le statut du contrat est obligatoire.");
+        if (idStatutRh == null) throw new IllegalArgumentException("Le statut du contrat est obligatoire.");
         if (dateDebut == null) throw new IllegalArgumentException("La date de début est obligatoire.");
 
         // Vérification cohérence des dates
@@ -81,7 +84,7 @@ public class ContratTravail extends ClassMere {
         }
 
         String sql = "INSERT INTO contrat_travail (" +
-                "id_employe, id_filiale, id_type_contrat, id_type_intervenant, id_statut_contrat, " +
+                "id_employe, id_filiale, id_type_contrat, id_type_intervenant, id_statut_rh, " +
                 "id_type_evenement_initial, id_contrat_precedent, " +
                 "numero_contrat, date_signature, date_debut, date_fin, duree_essai_mois, date_fin_essai, " +
                 "comptabilise_effectif, id_motif_sortie, description, commentaire" +
@@ -93,7 +96,7 @@ public class ContratTravail extends ClassMere {
             ps.setInt(i++, idFiliale);
             ps.setInt(i++, idTypeContrat);
             ps.setInt(i++, idTypeIntervenant);
-            ps.setInt(i++, idStatutContrat);
+            ps.setInt(i++, idStatutRh);
             setNullableInt(ps, i++, idTypeEvenementInitial);
             setNullableInt(ps, i++, idContratPrecedent);
             ps.setString(i++, numeroContrat);
@@ -118,7 +121,7 @@ public class ContratTravail extends ClassMere {
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
         String sql = "UPDATE contrat_travail SET " +
-                "id_filiale = ?, id_type_contrat = ?, id_type_intervenant = ?, id_statut_contrat = ?, " +
+                "id_filiale = ?, id_type_contrat = ?, id_type_intervenant = ?, id_statut_rh = ?, " +
                 "id_type_evenement_initial = ?, id_contrat_precedent = ?, " +
                 "numero_contrat = ?, date_signature = ?, date_debut = ?, date_fin = ?, " +
                 "duree_essai_mois = ?, date_fin_essai = ?, " +
@@ -131,7 +134,7 @@ public class ContratTravail extends ClassMere {
             ps.setInt(i++, idFiliale);
             ps.setInt(i++, idTypeContrat);
             ps.setInt(i++, idTypeIntervenant);
-            ps.setInt(i++, idStatutContrat);
+            ps.setInt(i++, idStatutRh);
             setNullableInt(ps, i++, idTypeEvenementInitial);
             setNullableInt(ps, i++, idContratPrecedent);
             ps.setString(i++, numeroContrat);
@@ -166,7 +169,7 @@ public class ContratTravail extends ClassMere {
      */
     public void activer(Connection c) throws Exception {
         String sql = "UPDATE contrat_travail SET " +
-                "id_statut_contrat = (SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'ACTIF'), " +
+                "id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF'), " +
                 "updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_contrat = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -185,7 +188,7 @@ public class ContratTravail extends ClassMere {
      */
     public void cloturerContrat(Date dateFermeture, Integer idMotif, String commentaireFin, Connection c) throws Exception {
         String sql = "UPDATE contrat_travail SET " +
-                "id_statut_contrat = COALESCE((SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'CLOTURE'), id_statut_contrat), " +
+                "id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'CLOTURE'), id_statut_rh), " +
                 "date_fin = ?, " +
                 "id_motif_sortie = ?, " +
                 "commentaire = COALESCE(commentaire || ' | ' || ?, ?), " +
@@ -207,7 +210,7 @@ public class ContratTravail extends ClassMere {
      */
     public void rompreContrat(Date dateRupture, Integer idMotif, String commentaireRupture, Connection c) throws Exception {
         String sql = "UPDATE contrat_travail SET " +
-                "id_statut_contrat = COALESCE((SELECT id_statut_contrat FROM ref_statut_contrat WHERE code = 'ROMPU'), id_statut_contrat), " +
+                "id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ROMPU'), id_statut_rh), " +
                 "date_fin = ?, " +
                 "id_motif_sortie = ?, " +
                 "commentaire = COALESCE(commentaire || ' | ' || ?, ?), " +
@@ -245,7 +248,7 @@ public class ContratTravail extends ClassMere {
      */
     public static ContratTravail rechercherActifParEmploye(Integer idEmploye, Connection c) throws Exception {
         String sql = "SELECT ct.* FROM contrat_travail ct " +
-                "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "WHERE ct.id_employe = ? AND rsc.code = 'ACTIF'";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
@@ -262,7 +265,7 @@ public class ContratTravail extends ClassMere {
     public static List<ContratTravail> listerParEmploye(Integer idEmploye, Connection c) throws Exception {
         List<ContratTravail> list = new ArrayList<>();
         String sql = "SELECT ct.* FROM contrat_travail ct " +
-                     "LEFT JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
+                     "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                      "WHERE ct.id_employe = ? AND (rsc.code IS NULL OR rsc.code != 'BROUILLON') " +
                      "ORDER BY ct.date_debut DESC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -299,7 +302,7 @@ public class ContratTravail extends ClassMere {
         ct.setIdFiliale(rs.getInt("id_filiale"));
         ct.setIdTypeContrat(rs.getInt("id_type_contrat"));
         ct.setIdTypeIntervenant(rs.getInt("id_type_intervenant"));
-        ct.setIdStatutContrat(rs.getInt("id_statut_contrat"));
+        ct.setIdStatutRh(rs.getInt("id_statut_rh"));
 
         int idTypeEvt = rs.getInt("id_type_evenement_initial");
         ct.setIdTypeEvenementInitial(rs.wasNull() ? null : idTypeEvt);
@@ -376,8 +379,8 @@ public class ContratTravail extends ClassMere {
     public Integer getIdTypeIntervenant() { return idTypeIntervenant; }
     public void setIdTypeIntervenant(Integer idTypeIntervenant) { this.idTypeIntervenant = idTypeIntervenant; }
 
-    public Integer getIdStatutContrat() { return idStatutContrat; }
-    public void setIdStatutContrat(Integer idStatutContrat) { this.idStatutContrat = idStatutContrat; }
+    public Integer getIdStatutRh() { return idStatutRh; }
+    public void setIdStatutRh(Integer idStatutRh) { this.idStatutRh = idStatutRh; }
 
     public Integer getIdTypeEvenementInitial() { return idTypeEvenementInitial; }
     public void setIdTypeEvenementInitial(Integer idTypeEvenementInitial) { this.idTypeEvenementInitial = idTypeEvenementInitial; }
@@ -420,4 +423,40 @@ public class ContratTravail extends ClassMere {
 
     public Timestamp getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Timestamp updatedAt) { this.updatedAt = updatedAt; }
+
+    private static final mg.galaxam.sirh.model.contrat.engine.AncienneteEngine ANCIENNETE_ENGINE =
+            new mg.galaxam.sirh.model.contrat.engine.AncienneteEngine();
+
+    /**
+     * Calcule l'ancienneté effective totale en années en déléguant au moteur centralisé AncienneteEngine.
+     */
+    public static double calculerAncienneteEffectiveAnnees(Integer idContratActuel, Connection c) {
+        if (idContratActuel == null) return 0.0;
+        var bilan = ANCIENNETE_ENGINE.calculerAnciennete(idContratActuel, c);
+        return bilan.anneesEffectives();
+    }
+
+    /**
+     * Calcule l'ensemble des métriques d'ancienneté via AncienneteEngine (source de vérité unique, sans N+1).
+     */
+    public static Map<String, Object> calculerAncienneteDetaillee(Integer idContrat, Connection c) {
+        Map<String, Object> res = new HashMap<>();
+        if (idContrat == null) {
+            res.put("ancienneteEffectiveTexte", "—");
+            res.put("ancienneteEffectiveAnnees", 0.0);
+            res.put("ancienneteEffectiveMois", 0);
+            res.put("ancienneteContratTexte", "—");
+            res.put("nombreContratsChaine", 0);
+            return res;
+        }
+
+        var bilan = ANCIENNETE_ENGINE.calculerAnciennete(idContrat, c);
+        res.put("ancienneteEffectiveTexte", bilan.ancienneteEffectiveTexte());
+        res.put("ancienneteEffectiveAnnees", bilan.anneesEffectives());
+        res.put("ancienneteEffectiveMois", bilan.moisEffectifs());
+        res.put("ancienneteContratTexte", bilan.ancienneteContratTexte());
+        res.put("nombreContratsChaine", bilan.nombreContratsChaine());
+
+        return res;
+    }
 }

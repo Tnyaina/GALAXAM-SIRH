@@ -1,28 +1,61 @@
 import Input, { Select, AutocompleteInput } from '@/components/ui/forms/Input';
+import Button from '@/components/ui/forms/Button';
+import { Wand2 } from 'lucide-react';
 
 export default function CiviliteStep({
     formData,
     set,
     villesStandards,
     nationalitesStandards,
+    _isCustomNat,
+    _customNationalite,
+    _setCustomNationalite,
+    _handleNationaliteChange,
+    onGenerateMatricule,
+    onBlurMatricule,
+    matriculeError,
+    generatingMatricule
 }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input 
-                label="Matricule" 
-                required 
-                value={formData.matricule} 
-                onChange={e => set('matricule', e.target.value)} 
-                placeholder="Ex: 101, 1002 ou EMP-001" 
-                hint="Saisie libre (code unique du dossier personnel)"
-            />
+            <div className="flex gap-2 items-end">
+                <Input 
+                    label="Matricule" 
+                    required 
+                    value={formData.matricule} 
+                    onChange={e => set('matricule', e.target.value)} 
+                    onBlur={onBlurMatricule}
+                    error={!!matriculeError}
+                    placeholder="Ex: 0001" 
+                    hint={matriculeError || "Saisie libre ou générée"}
+                    containerClassName="flex-1"
+                />
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={onGenerateMatricule}
+                    loading={generatingMatricule}
+                    className="mb-[22px] px-3 shrink-0"
+                    title="Générer automatiquement"
+                >
+                    <Wand2 size={16} />
+                </Button>
+            </div>
             <Select label="Sexe" required value={formData.sexe} onChange={e => set('sexe', e.target.value)}>
                 <option value="M">Masculin (M)</option>
                 <option value="F">Féminin (F)</option>
             </Select>
             <Input label="Nom" required value={formData.nom} onChange={e => set('nom', e.target.value)} placeholder="Nom de famille" />
             <Input label="Prénom(s)" required value={formData.prenom} onChange={e => set('prenom', e.target.value)} placeholder="Prénoms" />
-            <Input label="Date de Naissance" required type="date" value={formData.dateNaissance} onChange={e => set('dateNaissance', e.target.value)} />
+            <Input 
+                label="Date de Naissance" 
+                required 
+                type="date" 
+                max={new Date(new Date().setFullYear(new Date().getFullYear() - 16)).toISOString().split('T')[0]}
+                value={formData.dateNaissance} 
+                onChange={e => set('dateNaissance', e.target.value)} 
+                hint="Âge légal minimum : 16 ans"
+            />
             
             <AutocompleteInput 
                 label="Lieu de Naissance" 

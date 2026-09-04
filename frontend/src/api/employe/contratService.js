@@ -57,7 +57,7 @@ const contratService = {
 
     /**
      * ÉTAPE 1 — Créer un brouillon d'embauche initiale pour un employé.
-     * Crée atomiquement : contrat (BROUILLON) + affectation (PLANIFIEE) + workflow (BROUILLON).
+     * Crée atomiquement : contrat (BROUILLON) + affectation (PLANIFIE) + workflow (BROUILLON).
      * Retourne le WorkflowRhCPL (vue enrichie) pour la page de récapitulatif DAF.
      *
      * POST /employes/{idEmploye}/workflows/embauche-initiale
@@ -85,16 +85,6 @@ const contratService = {
     modifierBrouillonWorkflow: async (idWorkflow, data) => {
         const response = await apiClient.put(`/workflows/${idWorkflow}`, data);
         window.dispatchEvent(new Event('refresh-notifications'));
-        return response.data;
-    },
-
-    initierTransition: async (idEmploye, data) => {
-        const response = await apiClient.post(`/employes/${idEmploye}/workflows/transition`, data);
-        return response.data;
-    },
-
-    initierRupture: async (idEmploye, data) => {
-        const response = await apiClient.post(`/employes/${idEmploye}/workflows/transition`, data);
         return response.data;
     },
 
@@ -252,6 +242,52 @@ const contratService = {
      */
     getEtatEssai: async (idEmploye) => {
         const response = await apiClient.get(`/employes/${idEmploye}/essai/etat`);
+        return response.data;
+    },
+
+    // =========================================================================
+    // SUPERVISION GLOBALE DES CONTRATS & CARRIÈRES
+    // =========================================================================
+
+    /**
+     * Recherche paginée de tous les contrats.
+     */
+    getContratsGlobal: async (params = {}) => {
+        const response = await apiClient.get('/contrats', { params });
+        return response.data;
+    },
+
+    /**
+     * Statistiques consolidées des contrats (KPIs).
+     */
+    getStatsSupervision: async () => {
+        const response = await apiClient.get('/contrats/stats');
+        return response.data;
+    },
+
+    /**
+     * Alertes prioritaires pour la supervision des contrats.
+     */
+    getAlertesPrioritaires: async () => {
+        const response = await apiClient.get('/contrats/alertes-prioritaires');
+        return response.data;
+    },
+
+    /**
+     * Recherche paginée globale de tous les mouvements et évolutions de carrière.
+     * GET /workflows
+     */
+    getWorkflowsGlobal: async (params = {}) => {
+        const response = await apiClient.get('/workflows', { params });
+        return response.data;
+    },
+
+    /**
+     * Déclenchement manuel ou explicite du rattrapage quotidien des mouvements RH et alertes.
+     * POST /workflows-rh/rattrapage
+     */
+    forcerRattrapage: async () => {
+        const response = await apiClient.post('/workflows-rh/rattrapage');
         return response.data;
     },
 };

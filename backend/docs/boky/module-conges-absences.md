@@ -354,6 +354,17 @@ Pour le congé annuel, la loi (Art. 85) impose qu'au moins une tranche de **12 j
 
 Le scheduler de notifications détecte en novembre-décembre les employés n'ayant pas respecté cette obligation et génère l'alerte `FRACTIONNEMENT_NON_RESPECTE`.
 
+### RG-CON-11 : Annulation Post-Validation & Restitution de Solde (Ledger FIFO)
+
+L'annulation d'une demande de congé (`POST /demandes/{id}/annuler`) obéit à des règles strictes d'audit et de traçabilité financière :
+
+1. **Motif obligatoire** : Tout rejet ou annulation exige un **motif textuel explicite** (`{ "motif": "..." }`). Ce motif est consigné dans la colonne `motif_refus` de la table `demande_conge` et transmis dans les alertes RH.
+2. **Restitution intégrale du solde** : Si la demande annulée était au statut `VALIDE` et que son type imputait le solde (`decompte_solde_acquis = TRUE`, ex: Congé Annuel) :
+   - Un mouvement compensatoire de type `ANNULATION` est automatiquement inséré dans `mouvement_solde_conge`.
+   - La valeur `nb_jours` est égale au montant positif des jours initialement prélevés (`+nb_jours_decomptes`).
+   - Le solde disponible du collaborateur est immédiatement recrédité.
+3. **Notification RH** : Une alerte automatique `DEMANDE_CONGE_ANNULEE` est diffusée aux gestionnaires RH avec l'identité du collaborateur, la période restituée et le motif invoqué.
+
 ---
 
 ## 4. Typologies de Congés
@@ -409,18 +420,28 @@ Le scheduler de notifications détecte en novembre-décembre les employés n'aya
 | Annuler une demande | DRH, DAF, ou l'employé (si encore EN_ATTENTE) |
 | Accorder une dérogation solde/préavis | DRH uniquement |
 
-### 5.3 Contrôles à la Validation
+### 5.3 Contrôles à la Validation & Dérogation Valideur
 
 Lors de la transition `EN_ATTENTE → VALIDE`, le système effectue dans l'ordre :
 
 1. ✅ Vérification du justificatif obligatoire (si requis par le type)
-2. ✅ Vérification de l'ancienneté minimale
-3. ✅ Vérification du délai de préavis
-4. ✅ Vérification du plafond maternité
+2. ✅ Vérification de l'ancienneté minimale (12 mois selon Art. 85 sauf dérogation)
+3. ✅ Vérification du délai de préavis (court 2j, long 15j sauf dérogation)
+4. ✅ Vérification du plafond maternité (98j ou 119j pathologique)
 5. ✅ Vérification du pool annuel Art.88 (si EXCEPTIONNEL/PATERNITE)
-6. ✅ Vérification du solde disponible (si ANNUEL)
-7. ✅ **Génération du mouvement PRISE** (débit du solde si ANNUEL)
+6. ✅ **Vérification du solde disponible (si type à décompte, ex: ANNUEL)** :
+   - Si `soldeDisponible < nbJoursDecomptes`, le système bloque la validation avec une erreur explicite signalant le reliquat manquant.
+   - Le valideur (DRH/Manager) peut lever ce blocage en cochant la case **"Accorder une dérogation de solde négatif"** (`derogationSoldeNegatif = true`) directement dans la modale de validation.
+7. ✅ **Génération du mouvement PRISE** (débit du solde au ledger FIFO)
 8. ✅ Génération des notifications (solde faible, pool épuisé)
+
+### 5.4 Annulation d'une Demande Validée (Offboarding de Congé)
+
+Lorsqu'une demande déjà validée doit être annulée :
+- Un motif d'annulation est **strictement obligatoire** (`{ "motif": "..." }`).
+- L'état de la demande passe à `ANNULE` et le motif est stocké dans `motif_refus`.
+- Le moteur génère immédiatement un mouvement inverse `ANNULATION` qui restitue les jours au solde disponible.
+- Une alerte prioritaire est notifiée aux RH.
 
 ---
 
@@ -582,6 +603,16 @@ public class DemandeConge extends ClassMere {
 }
 ```
 
+### 9.4 Standardisation des Statuts : Booléens Sérialisés (Pattern Backend-Driven)
+Pour éliminer les comparaisons de chaînes en dur (`=== 'EN_ATTENTE'`, `=== 'VALIDE'`) dans les interfaces React, les modèles (`VDemandeCongeCpl`, `RefStatutDemandeConge`) exposent directement des propriétés booléennes sérialisées par Jackson :
+- `isEnAttente` : Vrai si statut `EN_ATTENTE`
+- `isValide` : Vrai si statut `VALIDE`
+- `isRefuse` : Vrai si statut `REFUSE`
+- `isAnnule` : Vrai si statut `ANNULE`
+- `isModifiable` : Vrai si la demande peut être éditée (`isEnAttente`)
+- `isAnnulable` : Vrai si la demande peut être annulée (`isEnAttente` ou `isValide`)
+- `canValidate` / `canRefuse` : Drapeaux de droit d'action pour les valideurs RH
+
 ---
 
 ## 10. API REST — Endpoints
@@ -590,16 +621,19 @@ Base URL : `/api/conges`
 
 | Méthode | URL | Description |
 |---|---|---|
-| `GET` | `/demandes` | Liste toutes les demandes (filtres disponibles) |
-| `GET` | `/demandes/{id}` | Détail d'une demande |
-| `POST` | `/demandes` | Créer une nouvelle demande |
-| `PUT` | `/demandes/{id}` | Modifier une demande (BROUILLON seulement) |
-| `PUT` | `/demandes/{id}/soumettre` | Passer EN_ATTENTE |
-| `PUT` | `/demandes/{id}/valider` | Valider une demande |
-| `PUT` | `/demandes/{id}/refuser` | Refuser une demande (motif requis) |
-| `PUT` | `/demandes/{id}/annuler` | Annuler une demande |
-| `GET` | `/soldes/{idEmploye}` | Solde actuel d'un employé |
-| `GET` | `/soldes/{idEmploye}/mouvements` | Historique complet des mouvements |
+| `GET` | `/demandes` | Liste paginée de toutes les demandes avec filtres |
+| `GET` | `/demandes/{id}` | Détail complet d'une demande avec drapeaux booléens de statut |
+| `POST` | `/demandes/verifier-conflits` | Vérification temps réel des collisions de poste et renvoi du solde disponible (`soldeDisponible`) |
+| `POST` | `/demandes/simuler` | Simulation du décompte des jours ouvrables |
+| `POST` | `/demandes` | Créer une nouvelle demande (contrôle bloquant du solde si congé à décompte, sauf dérogation) |
+| `PUT` | `/demandes/{id}` | Modifier une demande existante avec réévaluation des règles métier |
+| `POST` | `/demandes/{id}/valider` | Valider une demande (avec support du paramètre `derogationSoldeNegatif: true` si solde négatif) |
+| `POST` | `/demandes/{id}/refuser` | Refuser une demande (exige `{ "motif": "..." }`) |
+| `POST` | `/demandes/{id}/annuler` | Annuler une demande en attente ou validée (exige `{ "motif": "..." }`, recrédit du solde au ledger si validée) |
+| `GET` | `/solde/employe/{idEmploye}` | Solde actuel d'un employé |
+| `GET` | `/solde/mouvements/{idEmploye}` | Historique complet des mouvements FIFO |
+| `GET` | `/solde/pool-consommation/{idEmploye}` | Détail de la consommation des pools annuels |
+| `GET` | `/planning` | Planning global interactif Gantt paginé et filtré SQL |
 | `GET` | `/referentiels/types` | Liste des types de congés |
 | `GET` | `/referentiels/statuts` | Liste des statuts de demande |
 | `GET` | `/referentiels/motifs-familiaux` | Liste des motifs exceptionnels |

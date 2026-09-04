@@ -42,10 +42,11 @@ public class SecurityConfig {
                 .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000))
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/login", "/auth/register", "/auth/refresh", "/auth/logout", "/uploads/photos/**", "/error").permitAll()
+                .requestMatchers("/auth/login", "/auth/refresh", "/auth/logout", "/uploads/photos/**", "/error").permitAll()
+                .requestMatchers("/auth/register").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/uploads/documents/**").authenticated()
-                .requestMatchers("/admin/**").hasAuthority("ROLE_ADMIN")
-                .requestMatchers("/pointage/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_AGENT_POINTAGE")
+                .requestMatchers("/admin/**", "/securite/**").hasAuthority("ROLE_ADMIN")
+                .requestMatchers("/pointages/**", "/pointage/**", "/periodes/**").authenticated()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

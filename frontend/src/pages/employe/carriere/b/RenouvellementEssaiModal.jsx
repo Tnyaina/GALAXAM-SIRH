@@ -75,11 +75,13 @@ export default function RenouvellementEssaiModal({
     nomEmploye,
     contratActif,
     affectationActive,
+    etatEssai = null,
     initialData = null,
     onSuccess,
 }) {
     const isEditMode = !!initialData;
     const wfId = initialData?.idWorkflow || initialData?.workflow?.idWorkflow;
+    const isActionAllowed = isEditMode || etatEssai?.canRenew !== false;
 
     const [dureeProlongationMois, setDureeProlongationMois] = useState('2');
     const [dateFinInitiale, setDateFinInitiale] = useState('');
@@ -135,6 +137,15 @@ export default function RenouvellementEssaiModal({
         }
     }, [dateFinInitiale, dureeProlongationMois, initialData]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     const handleSubmit = async (e) => {
@@ -154,19 +165,19 @@ export default function RenouvellementEssaiModal({
                 idFiliale: contratActif?.idFiliale || initialData?.idFiliale || null,
                 idTypeContrat: contratActif?.idTypeContrat || initialData?.idTypeContrat || null,
                 idTypeIntervenant: contratActif?.idTypeIntervenant || initialData?.idTypeIntervenant || null,
-                dureeEssaiMois: Number(dureeProlongationMois),
-                dateFinEssai: nouvelleDateFin,
-                idSite: affectationActive?.idSite || initialData?.idSite,
-                idDepartement: affectationActive?.idDepartement || initialData?.idDepartement,
-                idService: affectationActive?.idService || initialData?.idService,
-                idFonction: affectationActive?.idFonction || initialData?.idFonction,
+                dureeEssaiMois: dureeProlongationMois ? Number(dureeProlongationMois) : null,
+                dateFinEssai: nouvelleDateFin ? nouvelleDateFin : null, // Securite chaine vide -> null
+                idSite: affectationActive?.idSite || initialData?.idSite || null,
+                idDepartement: affectationActive?.idDepartement || initialData?.idDepartement || null,
+                idService: affectationActive?.idService || initialData?.idService || null,
+                idFonction: affectationActive?.idFonction || initialData?.idFonction || null,
                 idResponsableHierarchique: affectationActive?.idResponsableHierarchique || initialData?.idResponsableHierarchique || null,
-                idCategorieProfessionnelle: affectationActive?.idCategorieProfessionnelle || initialData?.idCategorieProfessionnelle,
-                idModeCalculPaie: affectationActive?.idModeCalculPaie || initialData?.idModeCalculPaie,
-                salaireBase: affectationActive?.salaireBase || initialData?.salaireBase,
-                dateEffet: dateEffet,
-                motif: motif,
-                commentaire: commentaire,
+                idCategorieProfessionnelle: affectationActive?.idCategorieProfessionnelle || initialData?.idCategorieProfessionnelle || null,
+                idModeCalculPaie: affectationActive?.idModeCalculPaie || initialData?.idModeCalculPaie || null,
+                salaireBase: affectationActive?.salaireBase || initialData?.salaireBase || null,
+                dateEffet: dateEffet ? dateEffet : null, // Securite chaine vide -> null
+                motif: motif ? motif.trim() : null,
+                commentaire: commentaire ? commentaire.trim() : null,
             };
 
             let res;
@@ -239,11 +250,11 @@ export default function RenouvellementEssaiModal({
 
                 {/* Corps : Split Screen 50 / 50 */}
                 <div className="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
-                    
+
                     {/* COLONNE GAUCHE (50%) : Formulaire */}
-                    <form onSubmit={handleSubmit} className="w-full lg:w-1/2 min-w-0 overflow-y-auto p-6 space-y-6 border-b lg:border-b-0 lg:border-r border-ink-150 dark:border-ink-700">
+                    <form onSubmit={handleSubmit} className="w-full lg:w-1/2 min-w-0 overflow-y-auto p-4 sm:p-5 space-y-4 border-b lg:border-b-0 lg:border-r border-ink-150 dark:border-ink-700">
                         {errorMsg && (
-                            <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-4 rounded-none text-xs font-semibold flex items-center gap-2">
+                            <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-3 rounded-none text-xs font-semibold flex items-center gap-2">
                                 <ShieldAlert size={16} className="flex-shrink-0" />
                                 <span>{errorMsg}</span>
                             </div>
@@ -314,7 +325,7 @@ export default function RenouvellementEssaiModal({
                     </form>
 
                     {/* COLONNE DROITE (50%) : Aperçu Avenant */}
-                    <div className="hidden lg:block w-1/2 flex-shrink-0 bg-ink-50/60 dark:bg-ink-950/40 overflow-y-auto p-6 flex flex-col items-center">
+                    <div className="hidden lg:block w-1/2 flex-shrink-0 bg-ink-50/60 dark:bg-ink-950/40 overflow-y-auto p-4 sm:p-5 flex flex-col items-center">
                         <div className="w-full max-w-[560px]">
                             <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-wider text-ink-400">
                                 <FileSignature size={14} /> Aperçu de l'avenant en temps réel
@@ -339,6 +350,7 @@ export default function RenouvellementEssaiModal({
                             variant="success"
                             size="md"
                             loading={submitting}
+                            disabled={!isActionAllowed || submitting}
                             iconLeft={<RefreshCw size={16} />}
                         >
                             Valider le Renouvellement

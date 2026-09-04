@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 const ToastContext = createContext(null);
@@ -20,11 +20,24 @@ const borders = {
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
-  const toast = useCallback(({ title, message, type = 'info', duration = 4000 }) => {
+  const toastFn = useCallback(({ title, message, type = 'info', duration = 4000 }) => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, title, message, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
   }, []);
+
+  const toast = useMemo(() => {
+    return Object.assign(
+      (args) => toastFn(args),
+      {
+        toast: (args) => toastFn(args),
+        success: (msg, title) => toastFn({ type: 'success', message: typeof msg === 'string' ? msg : msg?.message, title: title || (typeof msg === 'object' ? msg?.title : undefined) }),
+        error: (msg, title) => toastFn({ type: 'error', message: typeof msg === 'string' ? msg : msg?.message, title: title || (typeof msg === 'object' ? msg?.title : undefined) }),
+        warning: (msg, title) => toastFn({ type: 'warning', message: typeof msg === 'string' ? msg : msg?.message, title: title || (typeof msg === 'object' ? msg?.title : undefined) }),
+        info: (msg, title) => toastFn({ type: 'info', message: typeof msg === 'string' ? msg : msg?.message, title: title || (typeof msg === 'object' ? msg?.title : undefined) })
+      }
+    );
+  }, [toastFn]);
 
   const remove = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 

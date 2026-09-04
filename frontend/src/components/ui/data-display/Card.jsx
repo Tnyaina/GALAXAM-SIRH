@@ -26,7 +26,7 @@ export function Card({
         bordered ? 'border border-[var(--color-border-subtle)]' : '',
         shadows[shadow] ?? shadows.sm,
         hover ? '  hover:border-[var(--color-brand-500)] cursor-pointer' : '',
-        padding ? 'p-6' : '',
+        padding ? 'p-4 sm:p-5' : '',
         className,
       ]
         .filter(Boolean)
@@ -46,7 +46,7 @@ export function CardHeader({
   return (
     <div
       className={[
-        'px-6 py-4',
+        'px-4 py-3',
         divided ? 'border-b border-[var(--color-border-subtle)]' : '',
         className,
       ]
@@ -65,10 +65,10 @@ export function CardTitle({
   muted = false,
 }) {
   const sizes = {
-    sm: 'text-sm',
-    base: 'text-base',
-    lg: 'text-lg',
-    xl: 'text-xl',
+    sm: 'text-xs sm:text-sm',
+    base: 'text-sm sm:text-base',
+    lg: 'text-base sm:text-lg',
+    xl: 'text-lg sm:text-xl',
   };
 
   return (
@@ -99,7 +99,7 @@ export function CardBody({
   flush = false,
 }) {
   return (
-    <div className={[flush ? '' : 'px-6 py-4', className].filter(Boolean).join(' ')}>
+    <div className={[flush ? '' : 'px-4 py-3 sm:px-5 sm:py-3.5', className].filter(Boolean).join(' ')}>
       {children}
     </div>
   );
@@ -114,7 +114,7 @@ export function CardFooter({
   return (
     <div
       className={[
-        'px-6 py-3',
+        'px-4 py-2.5',
         divided ? 'border-t border-[var(--color-border-subtle)]' : '',
         tinted ? 'bg-[var(--color-bg-subtle)]' : '',
         className,

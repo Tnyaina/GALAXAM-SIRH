@@ -16,7 +16,8 @@ import java.util.List;
  * Représente l'état organisationnel et financier d'un employé à un instant T.
  * L'historique est préservé par fermeture de date (date_fin) et changement de statut.
  *
- * Statuts : PLANIFIEE → ACTIVE → HISTORISEE (ou ANNULEE)
+ * Statuts : PLANIFIE → ACTIF → HISTORISE (ou ANNULE)
+ * Utilise la table unifiée ref_statut_rh.
  *
  * NOTE : Plus de id_workflow_origine (dépendance circulaire éliminée).
  * Pour retrouver le workflow d'une affectation : SELECT * FROM workflow_rh WHERE id_affectation_cible = :id
@@ -26,7 +27,7 @@ public class EmployeAffectationCarriere extends ClassMere {
     private Integer idAffectation;
     private Integer idEmploye;
     private Integer idContrat;
-    private Integer idStatutAffectation;
+    private Integer idStatutRh;
     private Integer idMotifMouvement;
 
     private Integer idSite;
@@ -62,7 +63,7 @@ public class EmployeAffectationCarriere extends ClassMere {
     public void controler(Connection c) throws Exception {
         if (idEmploye == null) throw new IllegalArgumentException("L'employé est obligatoire.");
         if (idContrat == null) throw new IllegalArgumentException("Le contrat est obligatoire.");
-        if (idStatutAffectation == null) throw new IllegalArgumentException("Le statut d'affectation est obligatoire.");
+        if (idStatutRh == null) throw new IllegalArgumentException("Le statut d'affectation est obligatoire.");
         if (idMotifMouvement == null) throw new IllegalArgumentException("Le motif de mouvement est obligatoire.");
         if (idSite == null) throw new IllegalArgumentException("Le site est obligatoire.");
         if (idDepartement == null) throw new IllegalArgumentException("Le département est obligatoire.");
@@ -82,7 +83,7 @@ public class EmployeAffectationCarriere extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO employe_affectation_carriere (" +
-                "id_employe, id_contrat, id_statut_affectation, id_motif_mouvement, " +
+                "id_employe, id_contrat, id_statut_rh, id_motif_mouvement, " +
                 "id_site, id_departement, id_service, id_fonction, id_responsable_hierarchique, " +
                 "id_categorie_professionnelle, id_mode_calcul_paie, salaire_base, " +
                 "date_debut, date_fin, description, commentaire" +
@@ -92,7 +93,7 @@ public class EmployeAffectationCarriere extends ClassMere {
             int i = 1;
             ps.setInt(i++, idEmploye);
             ps.setInt(i++, idContrat);
-            ps.setInt(i++, idStatutAffectation);
+            ps.setInt(i++, idStatutRh);
             ps.setInt(i++, idMotifMouvement);
             ps.setInt(i++, idSite);
             ps.setInt(i++, idDepartement);
@@ -118,7 +119,7 @@ public class EmployeAffectationCarriere extends ClassMere {
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
         String sql = "UPDATE employe_affectation_carriere SET " +
-                "id_statut_affectation = ?, id_motif_mouvement = ?, " +
+                "id_statut_rh = ?, id_motif_mouvement = ?, " +
                 "id_site = ?, id_departement = ?, id_service = ?, id_fonction = ?, id_responsable_hierarchique = ?, " +
                 "id_categorie_professionnelle = ?, id_mode_calcul_paie = ?, salaire_base = ?, " +
                 "date_debut = ?, date_fin = ?, description = ?, commentaire = ?, " +
@@ -127,7 +128,7 @@ public class EmployeAffectationCarriere extends ClassMere {
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             int i = 1;
-            ps.setInt(i++, idStatutAffectation);
+            ps.setInt(i++, idStatutRh);
             ps.setInt(i++, idMotifMouvement);
             ps.setInt(i++, idSite);
             ps.setInt(i++, idDepartement);
@@ -157,12 +158,12 @@ public class EmployeAffectationCarriere extends ClassMere {
     }
 
     /**
-     * Active une affectation PLANIFIEE → ACTIVE.
+     * Active une affectation PLANIFIE → ACTIF.
      * Appelé lors de la validation DAF.
      */
     public void activer(Connection c) throws Exception {
         String sql = "UPDATE employe_affectation_carriere SET " +
-                "id_statut_affectation = (SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ACTIVE'), " +
+                "id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF'), " +
                 "updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_affectation = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -172,7 +173,7 @@ public class EmployeAffectationCarriere extends ClassMere {
     }
 
     /**
-     * Ferme l'affectation courante en la passant en HISTORISEE avec une date de fin.
+     * Ferme l'affectation courante en la passant en HISTORISE avec une date de fin.
      * Utilisé lors des transitions : mutation, promotion, changement de contrat, etc.
      * La date de fin est conventionnellement J-1 par rapport à la nouvelle affectation.
      *
@@ -180,7 +181,7 @@ public class EmployeAffectationCarriere extends ClassMere {
      */
     public void fermer(Date dateFermeture, Connection c) throws Exception {
         String sql = "UPDATE employe_affectation_carriere SET " +
-                "id_statut_affectation = COALESCE((SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'HISTORISEE'), id_statut_affectation), " +
+                "id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), id_statut_rh), " +
                 "date_fin = ?, " +
                 "updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_affectation = ?";
@@ -213,8 +214,8 @@ public class EmployeAffectationCarriere extends ClassMere {
      */
     public static EmployeAffectationCarriere rechercherActiveParEmploye(Integer idEmploye, Connection c) throws Exception {
         String sql = "SELECT eac.* FROM employe_affectation_carriere eac " +
-                "JOIN ref_statut_affectation rsa ON eac.id_statut_affectation = rsa.id_statut_affectation " +
-                "WHERE eac.id_employe = ? AND rsa.code = 'ACTIVE'";
+                "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh " +
+                "WHERE eac.id_employe = ? AND rsa.code = 'ACTIF'";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
@@ -226,12 +227,12 @@ public class EmployeAffectationCarriere extends ClassMere {
 
     /**
      * Retourne l'affectation associée à un contrat donné, quel que soit son statut
-     * (ACTIVE, HISTORISEE, PLANIFIEE, ANNULEE...).
+     * (ACTIF, HISTORISE, PLANIFIE, ANNULE...).
      *
      * Indispensable pour reconstituer les données (fonction, site, département,
      * catégorie professionnelle) d'un contrat qui n'est plus actif — par exemple
      * pour générer le certificat de travail d'un contrat terminé, où l'affectation
-     * liée est nécessairement passée en HISTORISEE et n'apparaît donc jamais dans
+     * liée est nécessairement passée en HISTORISE et n'apparaît donc jamais dans
      * rechercherActiveParEmploye().
      *
      * S'il existe plusieurs affectations pour un même contrat (cas rare), on retient
@@ -249,12 +250,12 @@ public class EmployeAffectationCarriere extends ClassMere {
     }
 
     /**
-     * Retourne l'affectation PLANIFIEE d'un employé (créée mais pas encore validée).
+     * Retourne l'affectation PLANIFIE d'un employé (créée mais pas encore validée).
      */
     public static EmployeAffectationCarriere rechercherPlanifieeParEmploye(Integer idEmploye, Connection c) throws Exception {
         String sql = "SELECT eac.* FROM employe_affectation_carriere eac " +
-                "JOIN ref_statut_affectation rsa ON eac.id_statut_affectation = rsa.id_statut_affectation " +
-                "WHERE eac.id_employe = ? AND rsa.code = 'PLANIFIEE' " +
+                "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh " +
+                "WHERE eac.id_employe = ? AND rsa.code = 'PLANIFIE' " +
                 "ORDER BY eac.created_at DESC LIMIT 1";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
@@ -285,7 +286,7 @@ public class EmployeAffectationCarriere extends ClassMere {
         a.setIdAffectation(rs.getInt("id_affectation"));
         a.setIdEmploye(rs.getInt("id_employe"));
         a.setIdContrat(rs.getInt("id_contrat"));
-        a.setIdStatutAffectation(rs.getInt("id_statut_affectation"));
+        a.setIdStatutRh(rs.getInt("id_statut_rh"));
         a.setIdMotifMouvement(rs.getInt("id_motif_mouvement"));
         a.setIdSite(rs.getInt("id_site"));
         a.setIdDepartement(rs.getInt("id_departement"));
@@ -335,8 +336,8 @@ public class EmployeAffectationCarriere extends ClassMere {
     public Integer getIdContrat() { return idContrat; }
     public void setIdContrat(Integer idContrat) { this.idContrat = idContrat; }
 
-    public Integer getIdStatutAffectation() { return idStatutAffectation; }
-    public void setIdStatutAffectation(Integer idStatutAffectation) { this.idStatutAffectation = idStatutAffectation; }
+    public Integer getIdStatutRh() { return idStatutRh; }
+    public void setIdStatutRh(Integer idStatutRh) { this.idStatutRh = idStatutRh; }
 
     public Integer getIdMotifMouvement() { return idMotifMouvement; }
     public void setIdMotifMouvement(Integer idMotifMouvement) { this.idMotifMouvement = idMotifMouvement; }

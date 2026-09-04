@@ -4,7 +4,6 @@ import Button from '@/components/ui/forms/Button';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
 import Loading from '@/components/ui/feedback/Loading';
 import contratService from '@/api/employe/contratService';
-import referentielService from '@/api/admin/referentielService';
 import {
     DocumentFrame, DocumentHeader, Clause, ArticleBlock, DocumentFooter
 } from '@/components/carriere/ContractDocument';
@@ -91,8 +90,8 @@ export default function RuptureContratModal({
         codeTypeEvenement: 'DEMISSION',
         dateNotification: fmtDateInput(new Date()),
         dateEffet: fmtDateInput(new Date()),
-        dureePreavis: '1 Mois',
-        preavisEffectue: true,
+        dureePreavis: '',
+        preavisEffectue: false,
         motif: 'Démission du salarié pour convenances personnelles',
         commentaire: '',
     });
@@ -100,9 +99,10 @@ export default function RuptureContratModal({
     const loadReferentiels = useCallback(async () => {
         setLoadingRef(true);
         try {
-            const tevRes = await referentielService.getTypesEvenementRh();
-            const ruptures = (tevRes || []).filter(t =>
-                ['DEMISSION', 'LICENCIEMENT', 'RUPTURE_CONVENTIONNELLE', 'FIN_CONTRAT', 'RUPTURE_ESSAI', 'DEPART_RETRAITE'].includes(t.code)
+            const tevRes = await contratService.getTypesEvenementRh();
+            const list = Array.isArray(tevRes) ? tevRes : (tevRes?.items || tevRes?.content || []);
+            const ruptures = list.filter(t =>
+                t && ['DEMISSION', 'LICENCIEMENT', 'RUPTURE_CONVENTIONNELLE', 'FIN_CONTRAT', 'RUPTURE_ESSAI', 'DEPART_RETRAITE'].includes(t.code)
             );
             setTypesEvenement(ruptures.length > 0 ? ruptures : [
                 { code: 'DEMISSION', libelle: 'Démission du salarié' },
@@ -129,7 +129,7 @@ export default function RuptureContratModal({
     useEffect(() => {
         if (isOpen) {
             loadReferentiels();
-            const targetData = initialData || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif : null);
+            const targetData = initialData || (workflowActif?.isBrouillon ? workflowActif : null);
             if (targetData) {
                 setFormData({
                     codeTypeEvenement: targetData.codeTypeEvenement || 'DEMISSION',
@@ -148,6 +148,15 @@ export default function RuptureContratModal({
         setShowPreviewMobile(false);
     }, [isOpen, loadReferentiels, initialData, workflowActif]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({
@@ -164,7 +173,7 @@ export default function RuptureContratModal({
         if (submitting) return;
         setErrorMsg('');
 
-        const contratSourceId = contratActif?.idContrat || initialData?.idContratSource || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif.idContratSource : null);
+        const contratSourceId = contratActif?.idContrat || initialData?.idContratSource || (workflowActif?.isBrouillon ? workflowActif.idContratSource : null);
 
         if (!formData.dateEffet) return setErrorMsg('La date de prise d\'effet de la rupture est obligatoire.');
         if (!contratSourceId) return setErrorMsg('Impossible de rompre : aucun contrat source trouvé pour cet employé.');
@@ -174,20 +183,20 @@ export default function RuptureContratModal({
             const payload = {
                 codeTypeEvenement: formData.codeTypeEvenement,
                 idContratSource: contratSourceId,
-                idAffectationSource: affectationActive?.idAffectation || initialData?.idAffectationSource || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif.idAffectationSource : null),
+                idAffectationSource: affectationActive?.idAffectation || initialData?.idAffectationSource || (workflowActif?.isBrouillon ? workflowActif.idAffectationSource : null),
                 dateEffet: formData.dateEffet,
                 motif: `[${libTypeRupture}] ${formData.motif || ''}`.trim(),
                 commentaireAffectation: formData.commentaire || null,
                 descriptionContrat: `Préavis : ${formData.dureePreavis} (${formData.preavisEffectue ? 'Effectué' : 'Dispense payée'})`,
             };
 
-            const wfId = initialData?.idWorkflow || (workflowActif?.codeStatutWorkflow === 'BROUILLON' ? workflowActif.idWorkflow : null);
+            const wfId = initialData?.idWorkflow || (workflowActif?.isBrouillon ? workflowActif.idWorkflow : null);
             let res;
             if (wfId) {
                 res = await contratService.modifierBrouillonWorkflow(wfId, payload);
                 if (onSuccess) onSuccess('Brouillon de rupture de contrat modifié avec succès !', res);
             } else {
-                res = await contratService.initierTransition(idEmploye, payload);
+                res = await contratService.creerBrouillonTransition(idEmploye, payload);
                 if (onSuccess) onSuccess('Brouillon de rupture de contrat créé avec succès !', res);
             }
             onClose();
@@ -250,7 +259,7 @@ export default function RuptureContratModal({
                 <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-ink-150 dark:divide-ink-700">
 
                     {/* COLONNE GAUCHE (6/12) : Formulaire */}
-                    <form onSubmit={handleSubmit} className={`p-7 space-y-6 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
+                    <form onSubmit={handleSubmit} className={`p-4 sm:p-5 space-y-4 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
                         {errorMsg && (
                             <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-4 rounded-none text-xs font-semibold flex items-center gap-2">
                                 <ShieldAlert size={16} className="flex-shrink-0" />
@@ -278,9 +287,11 @@ export default function RuptureContratModal({
                                         value={formData.codeTypeEvenement}
                                         onChange={handleChange}
                                     >
-                                        {typesEvenement.map(t => (
-                                            <option key={t.code} value={t.code}>{t.libelle}</option>
-                                        ))}
+                                        {typesEvenement
+                                            .filter(t => t.estActif !== false && t.actif !== false || String(t.code) === String(formData.codeTypeEvenement))
+                                            .map(t => (
+                                                <option key={t.code} value={t.code}>{t.libelle}</option>
+                                            ))}
                                     </Select>
                                 </div>
 
@@ -372,9 +383,6 @@ export default function RuptureContratModal({
                                 <FileSignature size={14} className="text-danger-500" />
                                 Aperçu du document de rupture
                             </h3>
-                            <span className="text-[10px] font-mono font-bold text-danger-500 uppercase tracking-widest bg-danger-500/10 px-2 py-0.5 rounded-none">
-                                Temps Réel
-                            </span>
                         </div>
                         <RupturePreview {...previewProps} />
                     </div>

@@ -4,8 +4,9 @@ const organisationService = {
     // ----------------------------------------------------
     // FILIALES
     // ----------------------------------------------------
-    getFiliales: async () => {
-        const response = await apiClient.get('/referentiel/filiales');
+    getFiliales: async (params) => {
+        const queryParams = typeof params === 'boolean' ? { actifUniquement: params } : params;
+        const response = await apiClient.get('/referentiel/filiales', { params: queryParams });
         return response.data;
     },
     createFiliale: async (data) => {
@@ -28,8 +29,9 @@ const organisationService = {
     // ----------------------------------------------------
     // SITES
     // ----------------------------------------------------
-    getSites: async () => {
-        const response = await apiClient.get('/referentiel/sites');
+    getSites: async (params) => {
+        const queryParams = typeof params === 'boolean' ? { actifUniquement: params } : params;
+        const response = await apiClient.get('/referentiel/sites', { params: queryParams });
         return response.data;
     },
     createSite: async (data) => {
@@ -52,8 +54,9 @@ const organisationService = {
     // ----------------------------------------------------
     // DÉPARTEMENTS
     // ----------------------------------------------------
-    getDepartements: async () => {
-        const response = await apiClient.get('/referentiel/departements');
+    getDepartements: async (params) => {
+        const queryParams = typeof params === 'boolean' ? { actifUniquement: params } : params;
+        const response = await apiClient.get('/referentiel/departements', { params: queryParams });
         return response.data;
     },
     createDepartement: async (data) => {
@@ -76,9 +79,16 @@ const organisationService = {
     // ----------------------------------------------------
     // SERVICES
     // ----------------------------------------------------
-    getServices: async (idDepartement) => {
-        const url = idDepartement ? `/referentiel/services?idDepartement=${idDepartement}` : '/referentiel/services';
-        const response = await apiClient.get(url);
+    getServices: async (arg) => {
+        let params = {};
+        if (typeof arg === 'number' || (typeof arg === 'string' && /^\d+$/.test(arg))) {
+            params = { idDepartement: arg };
+        } else if (typeof arg === 'boolean') {
+            params = { actifUniquement: arg };
+        } else if (arg && typeof arg === 'object') {
+            params = arg;
+        }
+        const response = await apiClient.get('/referentiel/services', { params });
         return response.data;
     },
     createService: async (data) => {
@@ -101,8 +111,9 @@ const organisationService = {
     // ----------------------------------------------------
     // FONCTIONS / POSTES
     // ----------------------------------------------------
-    getFonctions: async () => {
-        const response = await apiClient.get('/referentiel/fonctions');
+    getFonctions: async (params) => {
+        const queryParams = typeof params === 'boolean' ? { actifUniquement: params } : params;
+        const response = await apiClient.get('/referentiel/fonctions', { params: queryParams });
         return response.data;
     },
     createFonction: async (data) => {
@@ -125,8 +136,9 @@ const organisationService = {
     // ----------------------------------------------------
     // TYPES CONTRAT
     // ----------------------------------------------------
-    getTypesContrat: async () => {
-        const response = await apiClient.get('/referentiel/types-contrat');
+    getTypesContrat: async (params) => {
+        const queryParams = typeof params === 'boolean' ? { actifUniquement: params } : params;
+        const response = await apiClient.get('/referentiel/types-contrat', { params: queryParams });
         return response.data;
     },
     createTypeContrat: async (data) => {
@@ -149,8 +161,9 @@ const organisationService = {
     // ----------------------------------------------------
     // TYPES INTERVENANT
     // ----------------------------------------------------
-    getTypesIntervenant: async () => {
-        const response = await apiClient.get('/referentiel/types-intervenant');
+    getTypesIntervenant: async (params) => {
+        const queryParams = typeof params === 'boolean' ? { actifUniquement: params } : params;
+        const response = await apiClient.get('/referentiel/types-intervenant', { params: queryParams });
         return response.data;
     },
     createTypeIntervenant: async (data) => {
@@ -173,8 +186,9 @@ const organisationService = {
     // ----------------------------------------------------
     // BANQUES
     // ----------------------------------------------------
-    getBanques: async () => {
-        const response = await apiClient.get('/referentiel/banques');
+    getBanques: async (params) => {
+        const queryParams = typeof params === 'boolean' ? { actifUniquement: params } : params;
+        const response = await apiClient.get('/referentiel/banques', { params: queryParams });
         return response.data;
     },
     createBanque: async (data) => {

@@ -33,8 +33,81 @@ public class BaremeIrsa extends ClassMere {
         return "id_tranche";
     }
 
+    public void valider() {
+        if (numeroTranche == null || numeroTranche < 1) {
+            throw new IllegalArgumentException("Le numéro de tranche doit être supérieur ou égal à 1.");
+        }
+        if (trancheMin == null || trancheMin.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Le montant minimum de la tranche ne peut pas être négatif.");
+        }
+        if (trancheMax != null && trancheMax.compareTo(trancheMin) <= 0) {
+            throw new IllegalArgumentException("Le montant maximum (" + trancheMax + " Ar) doit être strictement supérieur au montant minimum (" + trancheMin + " Ar).");
+        }
+        if (taux == null || taux.compareTo(BigDecimal.ZERO) < 0 || taux.compareTo(new BigDecimal("100")) > 0) {
+            throw new IllegalArgumentException("Le taux IRSA doit être compris entre 0% et 100% (valeur fournie : " + taux + "%).");
+        }
+        if (dateDebut == null) {
+            throw new IllegalArgumentException("La date de début d'application est obligatoire.");
+        }
+        if (dateFin != null && dateFin.before(dateDebut)) {
+            throw new IllegalArgumentException("La date de fin (" + dateFin + ") ne peut pas être antérieure à la date de début (" + dateDebut + ").");
+        }
+    }
+
+    public void validerContinuite(Connection c) throws Exception {
+        valider();
+        if (c == null) return;
+        List<BaremeIrsa> existingList = listAll(c);
+        for (BaremeIrsa other : existingList) {
+            if (this.idTranche != null && this.idTranche.equals(other.getIdTranche())) {
+                continue; // Skip self when modifying
+            }
+
+            // Check duplicate numeroTranche
+            if (this.numeroTranche.equals(other.getNumeroTranche())) {
+                throw new IllegalArgumentException("Une tranche avec le numéro " + this.numeroTranche + " existe déjà.");
+            }
+
+            // Check overlap between intervals [trancheMin, trancheMax]
+            BigDecimal minA = this.trancheMin;
+            BigDecimal maxA = this.trancheMax;
+            BigDecimal minB = other.getTrancheMin();
+            BigDecimal maxB = other.getTrancheMax();
+
+            boolean overlaps = false;
+            if (maxA == null && maxB == null) {
+                overlaps = true; // Deux tranches ouvertes vers l'infini
+            } else if (maxA == null) {
+                // A va vers l'infini -> chevauchement si minA <= maxB
+                if (minA.compareTo(maxB) <= 0) {
+                    overlaps = true;
+                }
+            } else if (maxB == null) {
+                // B va vers l'infini -> chevauchement si minB <= maxA
+                if (minB.compareTo(maxA) <= 0) {
+                    overlaps = true;
+                }
+            } else {
+                // Intervalles bornés : chevauchement si max(minA, minB) <= min(maxA, maxB)
+                BigDecimal startMax = minA.max(minB);
+                BigDecimal endMin = maxA.min(maxB);
+                if (startMax.compareTo(endMin) <= 0) {
+                    overlaps = true;
+                }
+            }
+
+            if (overlaps) {
+                throw new IllegalArgumentException("Chevauchement de barème détecté : l'intervalle [" +
+                        minA.toPlainString() + " Ar - " + (maxA != null ? maxA.toPlainString() + " Ar" : "Illimité") +
+                        "] chevauche la tranche existante #" + other.getNumeroTranche() + " [" +
+                        minB.toPlainString() + " Ar - " + (maxB != null ? maxB.toPlainString() + " Ar" : "Illimité") + "].");
+            }
+        }
+    }
+
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
+        validerContinuite(c);
         String sql = "INSERT INTO bareme_irsa (numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin) " +
                      "VALUES (?, ?, ?, ?, ?, ?) RETURNING id_tranche";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -56,6 +129,7 @@ public class BaremeIrsa extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
+        validerContinuite(c);
         String sql = "UPDATE bareme_irsa SET numero_tranche = ?, tranche_min = ?, tranche_max = ?, taux = ?, " +
                      "date_debut = ?, date_fin = ? WHERE id_tranche = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {

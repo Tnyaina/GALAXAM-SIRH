@@ -19,6 +19,7 @@ public class RefTypeDocumentController {
     private DataSource dataSource;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getAllTypesDocument(@RequestParam(value = "actifUniquement", required = false, defaultValue = "false") Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
             List<RefTypeDocument> list = RefTypeDocument.listAll(c, actifUniquement);
@@ -31,7 +32,7 @@ public class RefTypeDocumentController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ADMIN_ACCESS') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createTypeDocument(@RequestBody RefTypeDocument typeDoc) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -52,7 +53,7 @@ public class RefTypeDocumentController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ADMIN_ACCESS') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateTypeDocument(@PathVariable int id, @RequestBody RefTypeDocument typeDoc) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -85,7 +86,7 @@ public class RefTypeDocumentController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('ADMIN_ACCESS') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deleteTypeDocument(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

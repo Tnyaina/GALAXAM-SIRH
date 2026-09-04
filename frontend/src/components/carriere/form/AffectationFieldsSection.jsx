@@ -99,8 +99,8 @@ export default function AffectationFieldsSection({
                     onChange={(e) => setField('idCategorieProfessionnelle', e.target.value)}
                 >
                     <option value="">-- Sélectionner une catégorie --</option>
-                    {categoriesPro.map((c, idx) => {
-                        const idCat = c.idCategorieProfessionnelle ?? c.idCategorie ?? idx;
+                    {categoriesPro.map((c) => {
+                        const idCat = c.idCategorieProfessionnelle ?? c.idCategorie;
                         return (
                             <option key={idCat} value={idCat}>
                                 {c.code} — {c.libelle}
@@ -116,8 +116,8 @@ export default function AffectationFieldsSection({
                     onChange={(e) => setField('idModeCalculPaie', e.target.value)}
                 >
                     <option value="">-- Sélectionner --</option>
-                    {modesPaie.map((m, idx) => {
-                        const idMode = m.idModeCalculPaie ?? m.idModeCalcul ?? idx;
+                    {modesPaie.map((m) => {
+                        const idMode = m.idModeCalculPaie ?? m.idModeCalcul;
                         return (
                             <option key={idMode} value={idMode}>
                                 {m.code} — {m.libelle}
@@ -129,6 +129,8 @@ export default function AffectationFieldsSection({
                 <Input
                     label="Salaire de Base (Ar)"
                     type="number"
+                    min="0"
+                    step="1000"
                     required
                     value={formData.salaireBase}
                     onChange={(e) => setField('salaireBase', e.target.value)}

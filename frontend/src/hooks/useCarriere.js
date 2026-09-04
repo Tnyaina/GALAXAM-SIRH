@@ -21,9 +21,15 @@ export function useCarriere(idEmploye) {
         estConfirme: false,
         estRenouvele: false,
         dateFinEssaiStr: null,
+        dateFinEssai: null,        // alias de dateFinEssaiStr (cohérence frontend)
         dureeEssaiMois: null,
         canConfirm: false,
-        canRenew: false
+        canRenew: false,
+        // Champs enrichis retournés par le backend
+        aPeriodeEssai: false,      // true si une PE est EN_COURS sur ce contrat
+        periodeActuelle: 0,        // numéro de la période active (1 = initiale, 2+ = renouvelée)
+        nombreRenouvellements: 0,  // nombre de renouvellements déjà effectués
+        maxRenouvellements: 1,     // valeur de MAX_RENOUVELLEMENTS_ESSAI (configurable)
     });
 
     const loadCarriereData = useCallback(async (opts = {}) => {
@@ -49,7 +55,7 @@ export function useCarriere(idEmploye) {
             ]);
 
             const brouillonData = brouillonRes.status === 'fulfilled' ? brouillonRes.value : null;
-            setBrouillonWf(brouillonData && brouillonData.codeStatutWorkflow === 'BROUILLON' ? brouillonData : null);
+            setBrouillonWf(brouillonData && (brouillonData.isBrouillon ?? (brouillonData.codeStatutWorkflow === 'BROUILLON')) ? brouillonData : null);
             setContratActif(actifContratRes.status === 'fulfilled' ? actifContratRes.value : null);
             setAffectationActive(activeAffRes.status === 'fulfilled' ? activeAffRes.value : null);
             setContratsList(contratsRes.status === 'fulfilled' ? (contratsRes.value || []) : []);

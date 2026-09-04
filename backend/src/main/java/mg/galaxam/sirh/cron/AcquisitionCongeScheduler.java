@@ -1,9 +1,17 @@
 package mg.galaxam.sirh.cron;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.time.LocalDate;
+import java.time.Period;
+import java.util.ArrayList;
+import java.util.List;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -12,129 +20,151 @@ import org.springframework.stereotype.Component;
 
 /**
  * Scheduler pour l'acquisition mensuelle des droits aux congés.
- * S'exécute chaque nuit à 01:00:00 pour créditer les employés 
- * dont c'est la date d'anniversaire de contrat.
+ * 100% de la logique d'éligibilité temporelle, d'acquisition et de bonification est en Java.
  */
 @Component
 public class AcquisitionCongeScheduler {
 
+    private static final Logger log = LoggerFactory.getLogger(AcquisitionCongeScheduler.class);
+
     @Autowired
     private DataSource dataSource;
 
-    /**
-     * Exécuté chaque jour à 01h00.
-     * Pour chaque employé actif dont la date anniversaire d'embauche (date_debut du contrat)
-     * correspond à la date du jour (gestion des 31/février incluse), on ajoute 2.5 jours.
-     */
+    @Autowired
+    private CongeCalculateurEngine congeCalculateurEngine;
+
+    public static class ContratActifInfo {
+        int idEmploye;
+        int idContrat;
+        LocalDate dateDebut;
+
+        public ContratActifInfo(int idEmploye, int idContrat, LocalDate dateDebut) {
+            this.idEmploye = idEmploye;
+            this.idContrat = idContrat;
+            this.dateDebut = dateDebut;
+        }
+    }
+
+    public static class MouvementInfo {
+        String typeMouvement;
+        LocalDate dateMouvement;
+
+        public MouvementInfo(String typeMouvement, LocalDate dateMouvement) {
+            this.typeMouvement = typeMouvement;
+            this.dateMouvement = dateMouvement;
+        }
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
     @Scheduled(cron = "0 0 1 * * ?")
     public void acquerirCongesMensuels() {
+        log.info("[AcquisitionCongeScheduler] Vérification de l'acquisition mensuelle des congés (Moteur Java)...");
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                // 1. Récupérer les employés éligibles (anniversaire mensuel d'embauche aujourd'hui)
-                String sql = "SELECT ct.id_employe, ct.date_debut " +
-                             "FROM contrat_travail ct " +
-                             "JOIN ref_statut_contrat rsc ON ct.id_statut_contrat = rsc.id_statut_contrat " +
-                             "WHERE rsc.code = 'ACTIF' " +
-                             "AND (" +
-                             "    EXTRACT(DAY FROM ct.date_debut) = EXTRACT(DAY FROM CURRENT_DATE) " +
-                             "    OR (" +
-                             "        EXTRACT(MONTH FROM CURRENT_DATE + INTERVAL '1 day') != EXTRACT(MONTH FROM CURRENT_DATE) " +
-                             "        AND EXTRACT(DAY FROM ct.date_debut) > EXTRACT(DAY FROM CURRENT_DATE)" +
-                             "    )" +
-                             ")";
-                
-                try (PreparedStatement ps = c.prepareStatement(sql);
+                LocalDate today = LocalDate.now();
+                boolean isDernierJourMois = today.plusDays(1).getMonth() != today.getMonth();
+
+                // 1. Extraction brute des contrats actifs
+                String sqlContrats = "SELECT ct.id_employe, ct.id_contrat, ct.date_debut " +
+                                     "FROM contrat_travail ct " +
+                                     "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                                     "WHERE rsc.code = 'ACTIF'";
+
+                List<ContratActifInfo> contrats = new ArrayList<>();
+                try (PreparedStatement ps = c.prepareStatement(sqlContrats);
                      ResultSet rs = ps.executeQuery()) {
-                    
-                    String checkMouvement = "SELECT COUNT(*) FROM mouvement_solde_conge WHERE id_employe = ? AND type_mouvement = ? AND date_mouvement = CURRENT_DATE";
-                    String insertMouvement = "INSERT INTO mouvement_solde_conge " +
-                                             "(id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
-                                             "VALUES (?, ?, ?, CURRENT_DATE, ?)";
-                                             
-                    String insertNotif = "INSERT INTO notification_rh " +
-                                         "(type_alerte, priorite, titre, message, lien, id_employe_concerne) " +
-                                         "VALUES ('BONIFICATION_ANCIENNETE_APPLIQUEE', 'BASSE', ?, ?, ?, ?)";
-                    
-                    try (PreparedStatement psCheck = c.prepareStatement(checkMouvement);
-                         PreparedStatement psIn = c.prepareStatement(insertMouvement);
-                         PreparedStatement psNotif = c.prepareStatement(insertNotif)) {
-                        
-                        java.time.LocalDate today = java.time.LocalDate.now();
-                        
-                        while (rs.next()) {
-                            int idEmploye = rs.getInt("id_employe");
-                            java.sql.Date dateDebutSql = rs.getDate("date_debut");
-                            
-                            // Vérifier si l'acquisition a déjà été faite aujourd'hui
-                            psCheck.setInt(1, idEmploye);
-                            psCheck.setString(2, "ACQUISITION");
-                            boolean dejaAcquis = false;
-                            try (ResultSet rsChk = psCheck.executeQuery()) {
-                                if (rsChk.next() && rsChk.getInt(1) > 0) dejaAcquis = true;
-                            }
+                    while (rs.next()) {
+                        Date dDebut = rs.getDate("date_debut");
+                        if (dDebut != null) {
+                            contrats.add(new ContratActifInfo(
+                                rs.getInt("id_employe"),
+                                rs.getInt("id_contrat"),
+                                dDebut.toLocalDate()
+                            ));
+                        }
+                    }
+                }
 
-                            if (!dejaAcquis) {
-                                // Log Mouvement Acquisition (2.5j)
-                                psIn.setInt(1, idEmploye);
-                                psIn.setString(2, "ACQUISITION");
-                                psIn.setDouble(3, 2.5);
-                                psIn.setString(4, "Acquisition mensuelle légale (2.5j)");
-                                psIn.executeUpdate();
-                            }
-                            
-                            // Vérification Bonification d'Ancienneté (Option A)
-                            if (dateDebutSql != null) {
-                                java.time.LocalDate dateDebut = dateDebutSql.toLocalDate();
-                                // Si c'est le mois anniversaire
-                                if (dateDebut.getMonthValue() == today.getMonthValue()) {
-                                    int anneesAnciennete = today.getYear() - dateDebut.getYear();
-                                    
-                                    // Règle: à partir de 3 ans, bonus = annees / 5
-                                    if (anneesAnciennete >= 3) {
-                                        int bonus = anneesAnciennete / 5;
-                                        if (bonus > 0) {
-                                            psCheck.setInt(1, idEmploye);
-                                            psCheck.setString(2, "BONIFICATION");
-                                            boolean dejaBonifie = false;
-                                            try (ResultSet rsChk = psCheck.executeQuery()) {
-                                                if (rsChk.next() && rsChk.getInt(1) > 0) dejaBonifie = true;
-                                            }
+                String sqlMouvements = "SELECT type_mouvement, date_mouvement FROM mouvement_solde_conge WHERE id_employe = ?";
+                String insertMouvement = "INSERT INTO mouvement_solde_conge " +
+                                         "(id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
+                                         "VALUES (?, ?, ?, CURRENT_DATE, ?)";
 
-                                            if (!dejaBonifie) {
-                                                // 1. Mouvement BONIFICATION
-                                                psIn.setInt(1, idEmploye);
-                                                psIn.setString(2, "BONIFICATION");
-                                                psIn.setDouble(3, bonus);
-                                                psIn.setString(4, "Bonification d'ancienneté annuelle (" + anneesAnciennete + " ans = +" + bonus + "j)");
-                                                psIn.executeUpdate();
-                                                
-                                                // 3. Notification RH
-                                                psNotif.setString(1, "Bonification acquise - " + anneesAnciennete + " ans");
-                                                psNotif.setString(2, "Félicitations, vous avez reçu " + bonus + " jour(s) de bonification pour vos " + anneesAnciennete + " ans d'ancienneté.");
-                                                psNotif.setString(3, "/employes/" + idEmploye + "?tab=conges");
-                                                psNotif.setInt(4, idEmploye);
-                                                psNotif.executeUpdate();
-                                                
-                                                System.out.println("[AcquisitionCongeScheduler] Bonification accordée : Employé " + idEmploye + " -> +" + bonus + " jours.");
-                                            }
-                                        }
-                                    }
+                try (PreparedStatement psMvt = c.prepareStatement(sqlMouvements);
+                     PreparedStatement psIn = c.prepareStatement(insertMouvement)) {
+
+                    for (ContratActifInfo ct : contrats) {
+                        // 2. Éligibilité temporelle calculée en mémoire Java
+                        boolean eligible1Mois = !ct.dateDebut.isAfter(today.minusMonths(1));
+                        boolean jourAtteint = today.getDayOfMonth() >= ct.dateDebut.getDayOfMonth() ||
+                                             (isDernierJourMois && ct.dateDebut.getDayOfMonth() > today.getDayOfMonth());
+
+                        if (!eligible1Mois || !jourAtteint) {
+                            continue;
+                        }
+
+                        // 3. Récupération des mouvements existants
+                        psMvt.setInt(1, ct.idEmploye);
+                        List<MouvementInfo> mvts = new ArrayList<>();
+                        try (ResultSet rsMvt = psMvt.executeQuery()) {
+                            while (rsMvt.next()) {
+                                Date dMvt = rsMvt.getDate("date_mouvement");
+                                if (dMvt != null) {
+                                    mvts.add(new MouvementInfo(rsMvt.getString("type_mouvement"), dMvt.toLocalDate()));
                                 }
+                            }
+                        }
+
+                        boolean dejaAcquisCeMois = mvts.stream().anyMatch(m ->
+                            "ACQUISITION".equals(m.typeMouvement) &&
+                            m.dateMouvement.getYear() == today.getYear() &&
+                            m.dateMouvement.getMonth() == today.getMonth()
+                        );
+
+                        // 4. Crédit de l'acquisition mensuelle standard (2.5 jours)
+                        if (!dejaAcquisCeMois) {
+                            psIn.setInt(1, ct.idEmploye);
+                            psIn.setString(2, "ACQUISITION");
+                            psIn.setDouble(3, CongeCalculateurEngine.TAUX_ACQUISITION_MENSUEL.doubleValue());
+                            psIn.setString(4, "Acquisition mensuelle légale (2.5j)");
+                            psIn.executeUpdate();
+
+                            log.info("[AcquisitionCongeScheduler] +2.5j acquis pour employé ID {}", ct.idEmploye);
+                        }
+
+                        // 5. Calcul de bonification d'ancienneté (+1j par 5 ans) si anniversaire d'embauche échu dans l'année
+                        int ancienneteAns = Period.between(ct.dateDebut, today).getYears();
+                        int joursBonus = congeCalculateurEngine.calculerBonificationAnciennete(ancienneteAns);
+                        boolean anniversaireEchuOuActuel = today.getMonthValue() >= ct.dateDebut.getMonthValue();
+
+                        if (joursBonus > 0 && anniversaireEchuOuActuel) {
+                            boolean dejaBonifieCetteAnnee = mvts.stream().anyMatch(m ->
+                                "BONIFICATION".equals(m.typeMouvement) &&
+                                m.dateMouvement.getYear() == today.getYear()
+                            );
+
+                            if (!dejaBonifieCetteAnnee) {
+                                psIn.setInt(1, ct.idEmploye);
+                                psIn.setString(2, "BONIFICATION");
+                                psIn.setDouble(3, (double) joursBonus);
+                                psIn.setString(4, "Bonification d'ancienneté (" + ancienneteAns + " ans d'ancienneté : +" + joursBonus + "j)");
+                                psIn.executeUpdate();
+
+                                log.info("[AcquisitionCongeScheduler] +{}j de bonification d'ancienneté pour employé ID {}", joursBonus, ct.idEmploye);
                             }
                         }
                     }
                 }
-                
+
                 c.commit();
-                System.out.println("[AcquisitionCongeScheduler] Acquisition mensuelle des congés effectuée avec succès.");
+                log.info("[AcquisitionCongeScheduler] Traitement d'acquisition terminé avec succès.");
             } catch (Exception e) {
                 c.rollback();
-                System.err.println("[AcquisitionCongeScheduler] Erreur lors de l'acquisition des congés : " + e.getMessage());
-                e.printStackTrace();
+                log.error("[AcquisitionCongeScheduler] Erreur lors de l'acquisition des congés : {}", e.getMessage(), e);
             }
         } catch (Exception e) {
-            System.err.println("[AcquisitionCongeScheduler] Erreur connexion BDD : " + e.getMessage());
+            log.error("[AcquisitionCongeScheduler] Erreur connexion BDD : {}", e.getMessage(), e);
         }
     }
 }

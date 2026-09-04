@@ -12,29 +12,29 @@ export default function Topbar({ onMenuClick, title}) {
     const navigate = useNavigate();
     const [showDropdown, setShowDropdown] = useState(false);
 
-    const handleLogout = () => {
-        logout();
-        navigate('/');
+    const handleLogout = async () => {
+        await logout();
+        navigate('/', { replace: true });
     };
 
     return (
-        <header className="h-16 shrink-0 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] flex items-center gap-4 px-6">
+        <header className="h-12 shrink-0 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] flex items-center gap-3 px-4">
             <Button
                 variant="ghost"
                 size="xs"
                 onClick={onMenuClick}
-                className="lg:hidden -ml-2 !p-2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+                className="lg:hidden -ml-1.5 !p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
                 aria-label="Ouvrir le menu"
-                iconLeft={<Menu size={20} />}
+                iconLeft={<Menu size={18} />}
             />
 
             <div className="flex-1 min-w-0">
-                <h1 className="text-lg font-bold text-[var(--color-fg)] truncate">
+                <h1 className="text-sm sm:text-base font-bold text-[var(--color-fg)] truncate">
                     {title}
                 </h1>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
                 {/* Cloche notifications */}
                 {hasPermission('EMPLOYE_READ') && <NotificationBell />}
 
@@ -42,12 +42,12 @@ export default function Topbar({ onMenuClick, title}) {
                 <div className="relative">
                     <button
                         onClick={() => setShowDropdown((v) => !v)}
-                        className="min-h-[44px] px-2 flex items-center gap-2.5 hover:opacity-80  cursor-pointer"
+                        className="h-8 px-2 flex items-center gap-2 hover:opacity-80 rounded-none hover:bg-[var(--color-bg-subtle)] cursor-pointer"
                         aria-label="Menu profil utilisateur"
                         aria-expanded={showDropdown}
                     >
-                        <Avatar name={user?.identifiant || 'Utilisateur'} size="sm" shape="square" status="online" />
-                        <span className="text-sm font-medium hidden sm:block text-[var(--color-fg)]">
+                        <Avatar name={user?.identifiant || 'Utilisateur'} size="xs" shape="square" status="online" />
+                        <span className="text-xs font-semibold hidden sm:block text-[var(--color-fg)]">
                             {user?.identifiant}
                         </span>
                     </button>

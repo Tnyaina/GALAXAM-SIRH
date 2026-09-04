@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,10 +14,12 @@ import mg.galaxam.sirh.model.conge.DemandeConge;
 import mg.galaxam.sirh.model.conge.RefStatutDemandeConge;
 import mg.galaxam.sirh.model.conge.RefTypeConge;
 import mg.galaxam.sirh.model.conge.VDemandeCongeCpl;
+import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,10 +35,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/conges/demandes")
 public class DemandeCongeController {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DemandeCongeController.class);
+
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private mg.galaxam.sirh.model.conge.service.CongeService congeService;
+
     @PostMapping("/simuler")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> simulerDemande(@RequestBody Map<String, String> req) {
         if (!req.containsKey("dateDebut") || !req.containsKey("dateFin")) {
             return ResponseEntity.badRequest().body("Les dates dateDebut et dateFin sont requises pour la simulation.");
@@ -44,8 +53,9 @@ public class DemandeCongeController {
         try {
             Date dateDebut = Date.valueOf(req.get("dateDebut"));
             Date dateFin = Date.valueOf(req.get("dateFin"));
-            boolean estDemiJournee = req.containsKey("estDemiJournee") && Boolean.parseBoolean(req.get("estDemiJournee").toString());
-            BigDecimal nbJours = DemandeConge.calculerNombreJoursDecomptes(dateDebut, dateFin, estDemiJournee);
+            boolean estDemiJournee = req.containsKey("estDemiJournee")
+                    && Boolean.parseBoolean(req.get("estDemiJournee").toString());
+            BigDecimal nbJours = congeService.simulerNombreJours(dateDebut, dateFin, estDemiJournee);
 
             Map<String, Object> resp = new HashMap<>();
             resp.put("dateDebut", dateDebut);
@@ -54,14 +64,48 @@ public class DemandeCongeController {
             resp.put("nbJoursDecomptes", nbJours);
             return ResponseEntity.ok(resp);
         } catch (Exception e) {
+            log.warn("Erreur simulation congé : {}", e.getMessage());
             return ResponseEntity.badRequest().body("Erreur lors de la simulation : " + e.getMessage());
         }
     }
 
+    @PostMapping("/verifier-conflits")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> verifierConflits(@RequestBody Map<String, Object> req) {
+        if (!req.containsKey("dateDebut") || !req.containsKey("dateFin") || req.get("dateDebut") == null || req.get("dateFin") == null) {
+            return ResponseEntity.badRequest().body("Les dates dateDebut et dateFin sont requises.");
+        }
+
+        try (Connection c = dataSource.getConnection()) {
+            Date dateDebut = Date.valueOf(req.get("dateDebut").toString());
+            Date dateFin = Date.valueOf(req.get("dateFin").toString());
+            boolean estDemiJournee = req.containsKey("estDemiJournee") && Boolean.parseBoolean(req.get("estDemiJournee").toString());
+            String momentDemiJournee = req.get("momentDemiJournee") != null ? req.get("momentDemiJournee").toString() : null;
+            Integer idEmploye = req.get("idEmploye") != null && !req.get("idEmploye").toString().isBlank() 
+                    ? Integer.parseInt(req.get("idEmploye").toString()) : null;
+            Integer idDemandeExclue = req.get("idDemandeConge") != null && !req.get("idDemandeConge").toString().isBlank()
+                    ? Integer.parseInt(req.get("idDemandeConge").toString()) : null;
+
+            Map<String, Object> result = congeService.verifierConflitsDemande(
+                    idEmploye, dateDebut, dateFin, estDemiJournee, momentDemiJournee, idDemandeExclue, c);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.warn("Erreur vérification conflits congés : {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Erreur vérification conflits : " + e.getMessage());
+        }
+    }
+
     @PostMapping
+    @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> creerDemande(@RequestBody Map<String, Object> req) {
-        if (!req.containsKey("idEmploye") || !req.containsKey("idTypeConge") || !req.containsKey("dateDebut") || !req.containsKey("dateFin")) {
-            return ResponseEntity.badRequest().body("L'idEmploye, l'idTypeConge, la dateDebut et la dateFin sont obligatoires.");
+        if (!req.containsKey("idEmploye") || req.get("idEmploye") == null
+                || req.get("idEmploye").toString().isBlank()) {
+            return ResponseEntity.badRequest().body("L'employé (idEmploye) est obligatoirement requis.");
+        }
+        if (!req.containsKey("idTypeConge") || req.get("idTypeConge") == null ||
+                !req.containsKey("dateDebut") || req.get("dateDebut") == null ||
+                !req.containsKey("dateFin") || req.get("dateFin") == null) {
+            return ResponseEntity.badRequest().body("Le type de congé, la dateDebut et la dateFin sont obligatoires.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -71,95 +115,40 @@ public class DemandeCongeController {
                 d.setIdEmploye(Integer.parseInt(req.get("idEmploye").toString()));
                 d.setIdTypeConge(Integer.parseInt(req.get("idTypeConge").toString()));
 
-                if (req.containsKey("idMotifEvenementFamilial") && req.get("idMotifEvenementFamilial") != null) {
+                if (req.get("idMotifEvenementFamilial") != null
+                        && !req.get("idMotifEvenementFamilial").toString().isBlank()) {
                     d.setIdMotifEvenementFamilial(Integer.parseInt(req.get("idMotifEvenementFamilial").toString()));
                 }
 
                 d.setDateDebut(Date.valueOf(req.get("dateDebut").toString()));
                 d.setDateFin(Date.valueOf(req.get("dateFin").toString()));
 
-                if (req.containsKey("estDemiJournee")) {
+                if (req.get("estDemiJournee") != null) {
                     d.setEstDemiJournee(Boolean.parseBoolean(req.get("estDemiJournee").toString()));
                 }
-                if (req.containsKey("momentDemiJournee") && req.get("momentDemiJournee") != null) {
+                if (req.get("momentDemiJournee") != null && !req.get("momentDemiJournee").toString().isBlank()) {
                     d.setMomentDemiJournee(req.get("momentDemiJournee").toString());
                 }
 
-                if (req.containsKey("derogationSoldeNegatif")) {
-                    d.setDerogationSoldeNegatif(Boolean.parseBoolean(req.get("derogationSoldeNegatif").toString()));
+                // Sécurisation : Les dérogations RH ne peuvent JAMAIS être auto-octroyées par le demandeur
+                d.setDerogationSoldeNegatif(false);
+                d.setDerogationDelaiPreavis(false);
+                d.setDerogationContinuiteService(false);
+                if (req.get("extensionPathologiqueMaternite") != null) {
+                    d.setExtensionPathologiqueMaternite(
+                            Boolean.parseBoolean(req.get("extensionPathologiqueMaternite").toString()));
                 }
-                if (req.containsKey("derogationDelaiPreavis")) {
-                    d.setDerogationDelaiPreavis(Boolean.parseBoolean(req.get("derogationDelaiPreavis").toString()));
+                if (req.get("estRemunere") != null && !req.get("estRemunere").toString().isBlank()) {
+                    d.setEstRemunere(Boolean.parseBoolean(req.get("estRemunere").toString()));
                 }
-                if (req.containsKey("extensionPathologiqueMaternite")) {
-                    d.setExtensionPathologiqueMaternite(Boolean.parseBoolean(req.get("extensionPathologiqueMaternite").toString()));
-                }
-                if (req.containsKey("justificatifFourni")) {
+                if (req.get("justificatifFourni") != null) {
                     d.setJustificatifFourni(Boolean.parseBoolean(req.get("justificatifFourni").toString()));
                 }
-                if (req.containsKey("commentaire")) {
-                    d.setCommentaire(req.get("commentaire").toString());
+                if (req.get("commentaire") != null && !req.get("commentaire").toString().isBlank()) {
+                    d.setCommentaire(req.get("commentaire").toString().trim());
                 }
 
-                // Résolution statut par défaut: EN_ATTENTE
-                RefStatutDemandeConge enAttente = RefStatutDemandeConge.rechercherParCode("EN_ATTENTE", c);
-                if (enAttente == null) {
-                    throw new IllegalStateException("Statut EN_ATTENTE non trouvé dans le référentiel.");
-                }
-                d.setIdStatutDemandeConge(enAttente.getIdStatutDemandeConge());
-                d.setSaisiPar(getCurrentUserId());
-
-                // ── Bascule Automatique Arrêt Maladie (Art. 13 : > 30 jours par épisode) ──
-                RefTypeConge typeConge = RefTypeConge.rechercherParId(d.getIdTypeConge(), c);
-                Date originalDateFin = d.getDateFin();
-                BigDecimal totalJoursOrigine = DemandeConge.calculerNombreJoursDecomptes(d.getDateDebut(), originalDateFin);
-
-                if (typeConge != null && "MALADIE".equals(typeConge.getCode()) && totalJoursOrigine.compareTo(BigDecimal.valueOf(30)) > 0) {
-                    // Tranche 1 : 30 premiers jours en MALADIE
-                    Date dateFinT1 = Date.valueOf(d.getDateDebut().toLocalDate().plusDays(29));
-                    d.setDateFin(dateFinT1);
-                    d.save(c);
-
-                    // Tranche 2 : du 31ème jour jusqu'à la fin en MALADIE_SANS_SOLDE
-                    if (typeConge.getIdTypeCongeBascule() != null) {
-                        DemandeConge d2 = new DemandeConge();
-                        d2.setIdEmploye(d.getIdEmploye());
-                        d2.setIdTypeConge(typeConge.getIdTypeCongeBascule());
-                        d2.setIdStatutDemandeConge(enAttente.getIdStatutDemandeConge());
-                        d2.setDateDebut(Date.valueOf(dateFinT1.toLocalDate().plusDays(1)));
-                        d2.setDateFin(originalDateFin);
-                        d2.setJustificatifFourni(d.isJustificatifFourni());
-                        d2.setCommentaire("(Bascule automatique Art. 13) " + (d.getCommentaire() != null ? d.getCommentaire() : ""));
-                        d2.setSaisiPar(d.getSaisiPar());
-                        d2.save(c);
-                    }
-
-                    // Génération d'une alerte RH
-                    DemandeConge.creerNotificationRh(
-                        "MALADIE_PLAFOND_EPISODE_ATTEINT",
-                        "HAUTE",
-                        "Bascule Automatique Arrêt Maladie (> 30j)",
-                        "L'arrêt maladie continu (" + totalJoursOrigine + "j) a été automatiquement scindé : 30 jours en maintien de salaire et la suite en Maladie Sans Solde (CNaPS).",
-                        "/conges/demandes/employe/" + d.getIdEmploye(),
-                        d.getIdEmploye(),
-                        c
-                    );
-                } else {
-                    // Traitement standard
-                    d.save(c);
-
-                    // Génération systématique de la notification RH pour la nouvelle demande
-                    DemandeConge.creerNotificationRh(
-                        "CONGE_EN_ATTENTE",
-                        "NORMALE",
-                        "Nouvelle demande de congé",
-                        "Une nouvelle demande de congé (" + (typeConge != null ? typeConge.getLibelle() : "Absence") + ") a été enregistrée et est en attente de validation.",
-                        "/conges",
-                        d.getIdEmploye(),
-                        c
-                    );
-                }
-
+                congeService.creerDemande(d, getCurrentUserId(), c);
                 c.commit();
 
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(d.getIdDemandeConge(), c);
@@ -169,74 +158,110 @@ public class DemandeCongeController {
                 throw e;
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erreur lors de la création de la demande : " + e.getMessage());
+            log.error("Erreur création demande congé : {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Erreur lors de la création de la demande : " + e.getMessage());
         }
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> modifierDemande(@PathVariable Integer id, @RequestBody Map<String, Object> req) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                DemandeConge d = DemandeConge.rechercherParId(id, c);
-                if (d == null) return ResponseEntity.notFound().build();
+                // Verrouillage pessimiste strict de la demande pour éviter toute course avec une validation/annulation concurrente
+                String sqlLock = "SELECT s.code, dc.id_statut_demande_conge FROM demande_conge dc " +
+                                 "JOIN ref_statut_demande_conge s ON dc.id_statut_demande_conge = s.id_statut_demande_conge " +
+                                 "WHERE dc.id_demande_conge = ? FOR UPDATE";
+                String statutCode;
+                try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
+                    psLock.setInt(1, id);
+                    try (ResultSet rsLock = psLock.executeQuery()) {
+                        if (!rsLock.next()) {
+                            return ResponseEntity.notFound().build();
+                        }
+                        statutCode = rsLock.getString("code");
+                    }
+                }
 
-                String statutCode = d.getStatutCode(c);
                 if (!"EN_ATTENTE".equals(statutCode) && !"BROUILLON".equals(statutCode)) {
-                    return ResponseEntity.badRequest().body("Seules les demandes en attente ou en brouillon peuvent être modifiées.");
+                    return ResponseEntity.badRequest()
+                            .body("Seules les demandes en attente ou en brouillon peuvent être modifiées.");
                 }
 
-                if (req.containsKey("idTypeConge")) d.setIdTypeConge(Integer.parseInt(req.get("idTypeConge").toString()));
-                if (req.containsKey("idMotifEvenementFamilial") && req.get("idMotifEvenementFamilial") != null) {
-                    d.setIdMotifEvenementFamilial(Integer.parseInt(req.get("idMotifEvenementFamilial").toString()));
-                } else if (req.containsKey("idMotifEvenementFamilial")) {
-                    d.setIdMotifEvenementFamilial(null);
+                DemandeConge d = DemandeConge.rechercherParId(id, c);
+                if (d == null)
+                    return ResponseEntity.notFound().build();
+
+                d.setIdDemandeConge(id); // Garantie d'exclusion de son propre ID pour l'anti-overlap
+
+                if (req.containsKey("idTypeConge"))
+                    d.setIdTypeConge(Integer.parseInt(req.get("idTypeConge").toString()));
+                if (req.containsKey("idMotifEvenementFamilial")) {
+                    Object val = req.get("idMotifEvenementFamilial");
+                    d.setIdMotifEvenementFamilial(
+                            val != null && !val.toString().isBlank() ? Integer.parseInt(val.toString()) : null);
                 }
 
-                if (req.containsKey("dateDebut")) d.setDateDebut(Date.valueOf(req.get("dateDebut").toString()));
-                if (req.containsKey("dateFin")) d.setDateFin(Date.valueOf(req.get("dateFin").toString()));
-                
-                if (req.containsKey("estDemiJournee")) d.setEstDemiJournee(Boolean.parseBoolean(req.get("estDemiJournee").toString()));
-                if (req.containsKey("momentDemiJournee") && req.get("momentDemiJournee") != null) {
-                    d.setMomentDemiJournee(req.get("momentDemiJournee").toString());
-                } else if (req.containsKey("momentDemiJournee")) {
-                    d.setMomentDemiJournee(null);
-                }
-                
-                if (req.containsKey("derogationSoldeNegatif")) d.setDerogationSoldeNegatif(Boolean.parseBoolean(req.get("derogationSoldeNegatif").toString()));
-                if (req.containsKey("derogationDelaiPreavis")) d.setDerogationDelaiPreavis(Boolean.parseBoolean(req.get("derogationDelaiPreavis").toString()));
-                if (req.containsKey("extensionPathologiqueMaternite")) d.setExtensionPathologiqueMaternite(Boolean.parseBoolean(req.get("extensionPathologiqueMaternite").toString()));
-                if (req.containsKey("justificatifFourni")) d.setJustificatifFourni(Boolean.parseBoolean(req.get("justificatifFourni").toString()));
-                if (req.containsKey("commentaire")) d.setCommentaire(req.get("commentaire") != null ? req.get("commentaire").toString() : null);
+                if (req.containsKey("dateDebut"))
+                    d.setDateDebut(Date.valueOf(req.get("dateDebut").toString()));
+                if (req.containsKey("dateFin"))
+                    d.setDateFin(Date.valueOf(req.get("dateFin").toString()));
 
-                d.controler(c); // Recalcule les jours décomptés et revérifie les règles
+                if (req.containsKey("estDemiJournee"))
+                    d.setEstDemiJournee(Boolean.parseBoolean(req.get("estDemiJournee").toString()));
+                if (req.containsKey("momentDemiJournee")) {
+                    Object mom = req.get("momentDemiJournee");
+                    d.setMomentDemiJournee(mom != null && !mom.toString().isBlank() ? mom.toString() : null);
+                }
+
+                Authentication authModif = SecurityContextHolder.getContext().getAuthentication();
+                boolean canManageDerogations = authModif != null && authModif.getAuthorities().stream()
+                        .anyMatch(a -> "CONGE_VALIDATE".equals(a.getAuthority()) || "ROLE_ADMIN".equals(a.getAuthority()));
+
+                if (canManageDerogations) {
+                    if (req.containsKey("derogationSoldeNegatif"))
+                        d.setDerogationSoldeNegatif(Boolean.parseBoolean(req.get("derogationSoldeNegatif").toString()));
+                    if (req.containsKey("derogationDelaiPreavis"))
+                        d.setDerogationDelaiPreavis(Boolean.parseBoolean(req.get("derogationDelaiPreavis").toString()));
+                    if (req.containsKey("derogationContinuiteService"))
+                        d.setDerogationContinuiteService(Boolean.parseBoolean(req.get("derogationContinuiteService").toString()));
+                }
+                if (req.containsKey("extensionPathologiqueMaternite"))
+                    d.setExtensionPathologiqueMaternite(
+                            Boolean.parseBoolean(req.get("extensionPathologiqueMaternite").toString()));
+                if (req.containsKey("justificatifFourni"))
+                    d.setJustificatifFourni(Boolean.parseBoolean(req.get("justificatifFourni").toString()));
+                if (req.containsKey("commentaire"))
+                    d.setCommentaire(req.get("commentaire") != null ? req.get("commentaire").toString() : null);
+
+                d.controler(c);
                 d.update(c);
-                
+
                 c.commit();
-                
+
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(d.getIdDemandeConge(), c);
                 return ResponseEntity.ok(cpl);
             } catch (Exception e) {
                 c.rollback();
-                e.printStackTrace();
                 return ResponseEntity.badRequest().body(e.getMessage());
             }
         } catch (Exception e) {
-            e.printStackTrace();
             return ResponseEntity.status(500).body("Erreur serveur : " + e.getMessage());
         }
     }
 
     @GetMapping("/employe/{idEmploye}")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getDemandesEmploye(@PathVariable Integer idEmploye,
-                                                @RequestParam(defaultValue = "1") int page,
-                                                @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
         try (Connection c = dataSource.getConnection()) {
             int offset = (page - 1) * size;
             long total = VDemandeCongeCpl.countParEmploye(idEmploye, c);
             List<VDemandeCongeCpl> list = VDemandeCongeCpl.listParEmploye(idEmploye, c, size, offset);
-            
+
             PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
             return ResponseEntity.ok(pageDto);
         } catch (Exception e) {
@@ -247,10 +272,12 @@ public class DemandeCongeController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getDemandeParId(@PathVariable Integer id) {
         try (Connection c = dataSource.getConnection()) {
             VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
-            if (cpl == null) return ResponseEntity.notFound().build();
+            if (cpl == null)
+                return ResponseEntity.notFound().build();
             return ResponseEntity.ok(cpl);
         } catch (Exception e) {
             e.printStackTrace();
@@ -260,14 +287,15 @@ public class DemandeCongeController {
     }
 
     @GetMapping("/validation")
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getDemandesAValider(@RequestParam(required = false) String q,
-                                                 @RequestParam(defaultValue = "1") int page,
-                                                 @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
         try (Connection c = dataSource.getConnection()) {
             int offset = (page - 1) * size;
             long total = VDemandeCongeCpl.countAll(c, "EN_ATTENTE", q);
             List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, "EN_ATTENTE", q, size, offset);
-            
+
             PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
             return ResponseEntity.ok(pageDto);
         } catch (Exception e) {
@@ -278,15 +306,17 @@ public class DemandeCongeController {
     }
 
     @GetMapping("/all")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllDemandes(@RequestParam(required = false) String q,
-                                            @RequestParam(required = false) String statut,
-                                            @RequestParam(defaultValue = "1") int page,
-                                            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(required = false) String statut,
+            @RequestParam(required = false) Integer idTypeConge,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
         try (Connection c = dataSource.getConnection()) {
             int offset = (page - 1) * size;
-            long total = VDemandeCongeCpl.countAll(c, statut, q);
-            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, statut, q, size, offset);
-            
+            long total = VDemandeCongeCpl.countAll(c, statut, q, idTypeConge);
+            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, statut, q, idTypeConge, size, offset);
+
             PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
             return ResponseEntity.ok(pageDto);
         } catch (Exception e) {
@@ -297,38 +327,49 @@ public class DemandeCongeController {
     }
 
     @PostMapping("/{id}/valider")
-    public ResponseEntity<?> validerDemande(@PathVariable Integer id, @RequestParam(required = false, defaultValue = "false") boolean justificatifFourni) {
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> validerDemande(@PathVariable Integer id,
+            @RequestParam(required = false, defaultValue = "false") boolean justificatifFourni,
+            @RequestParam(required = false) Boolean estRemunere,
+            @RequestParam(required = false, defaultValue = "false") boolean derogationSoldeNegatif) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
                 DemandeConge d = DemandeConge.rechercherParId(id, c);
-                if (d == null) return ResponseEntity.notFound().build();
+                if (d == null)
+                    return ResponseEntity.notFound().build();
 
                 if (justificatifFourni) {
                     d.setJustificatifFourni(true);
                 }
+                if (estRemunere != null) {
+                    d.setEstRemunere(estRemunere);
+                }
+                if (derogationSoldeNegatif) {
+                    d.setDerogationSoldeNegatif(true);
+                }
+                d.update(c);
 
                 Integer currentUserId = getCurrentUserId();
-                d.valider(currentUserId, c);
+                congeService.validerDemande(id, currentUserId, null, c);
 
                 // Marquage de l'alerte en attente comme lue
                 try (PreparedStatement psNotif = c.prepareStatement(
                         "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
-                        "WHERE id_employe_concerne = ? AND type_alerte = 'CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
+                                "WHERE id_employe_concerne = ? AND type_alerte = 'CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
                     psNotif.setInt(1, d.getIdEmploye());
                     psNotif.executeUpdate();
                 }
 
                 // Création d'une notification de confirmation de la décision
-                DemandeConge.creerNotificationRh(
-                    "MOUVEMENT_APPLIQUE",
-                    "NORMALE",
-                    "Demande de congé validée",
-                    "La demande de congé (#" + id + ") a été validée avec succès.",
-                    "/conges",
-                    d.getIdEmploye(),
-                    c
-                );
+                NotificationRhService.creer(
+                        c,
+                        "MOUVEMENT_APPLIQUE",
+                        "NORMALE",
+                        "Demande de congé validée",
+                        "La demande de congé (#" + id + ") a été validée avec succès.",
+                        "/conges",
+                        d.getIdEmploye());
 
                 c.commit();
 
@@ -339,13 +380,14 @@ public class DemandeCongeController {
                 throw e;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Erreur validation demande congé : {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body("Erreur lors de la validation de la demande : " + e.getMessage());
         }
     }
 
     @PostMapping("/{id}/refuser")
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> refuserDemande(@PathVariable Integer id, @RequestBody Map<String, String> req) {
         if (!req.containsKey("motifRefus") || req.get("motifRefus").isBlank()) {
             return ResponseEntity.badRequest().body("Le motif de refus est obligatoire.");
@@ -355,29 +397,29 @@ public class DemandeCongeController {
             c.setAutoCommit(false);
             try {
                 DemandeConge d = DemandeConge.rechercherParId(id, c);
-                if (d == null) return ResponseEntity.notFound().build();
+                if (d == null)
+                    return ResponseEntity.notFound().build();
 
                 Integer currentUserId = getCurrentUserId();
-                d.refuser(currentUserId, req.get("motifRefus"), c);
+                congeService.refuserDemande(id, currentUserId, req.get("motifRefus"), c);
 
                 // Marquage de l'alerte en attente comme lue
                 try (PreparedStatement psNotif = c.prepareStatement(
                         "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
-                        "WHERE id_employe_concerne = ? AND type_alerte = 'CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
+                                "WHERE id_employe_concerne = ? AND type_alerte = 'CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
                     psNotif.setInt(1, d.getIdEmploye());
                     psNotif.executeUpdate();
                 }
 
                 // Création d'une notification d'information du refus avec le motif
-                DemandeConge.creerNotificationRh(
-                    "MOUVEMENT_APPLIQUE",
-                    "HAUTE",
-                    "Demande de congé refusée",
-                    "La demande de congé (#" + id + ") a été refusée. Motif : " + req.get("motifRefus"),
-                    "/conges",
-                    d.getIdEmploye(),
-                    c
-                );
+                NotificationRhService.creer(
+                        c,
+                        "MOUVEMENT_APPLIQUE",
+                        "HAUTE",
+                        "Demande de congé refusée",
+                        "La demande de congé (#" + id + ") a été refusée. Motif : " + req.get("motifRefus"),
+                        "/conges",
+                        d.getIdEmploye());
 
                 c.commit();
 
@@ -388,41 +430,65 @@ public class DemandeCongeController {
                 throw e;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Erreur refus demande congé : {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body("Erreur lors du refus de la demande : " + e.getMessage());
         }
     }
 
     @PostMapping("/{id}/annuler")
-    public ResponseEntity<?> annulerDemande(@PathVariable Integer id) {
+    @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> annulerDemande(
+            @PathVariable Integer id,
+            @RequestBody(required = false) Map<String, String> payload) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
                 DemandeConge d = DemandeConge.rechercherParId(id, c);
-                if (d == null) return ResponseEntity.notFound().build();
+                if (d == null)
+                    return ResponseEntity.notFound().build();
 
+                String motif = payload != null ? payload.get("motif") : null;
+                if (motif == null || motif.trim().isEmpty()) {
+                    motif = payload != null ? payload.get("motifRefus") : null;
+                }
+
+                String ancienStatut = d.getStatutCode(c);
                 Integer currentUserId = getCurrentUserId();
-                d.annuler(currentUserId, c);
+                congeService.annulerDemande(id, currentUserId, motif, c);
+
+                if ("VALIDE".equals(ancienStatut)) {
+                    String descNotif = "Une demande de congé (ID: " + id + ") qui était déjà validée vient d'être annulée.";
+                    if (motif != null && !motif.trim().isEmpty()) {
+                        descNotif += " Motif : " + motif.trim();
+                    }
+                    NotificationRhService.creer(
+                            c,
+                            "ALERTE_ECHEANCE",
+                            "HAUTE",
+                            "Annulation d'un congé validé",
+                            descNotif,
+                            "/conges",
+                            null); // Destiné aux RH/Admins
+                }
 
                 // Marquage de l'alerte en attente comme lue
                 try (PreparedStatement psNotif = c.prepareStatement(
                         "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
-                        "WHERE id_employe_concerne = ? AND type_alerte = 'CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
+                                "WHERE id_employe_concerne = ? AND type_alerte = 'CONGE_EN_ATTENTE' AND est_lue = FALSE")) {
                     psNotif.setInt(1, d.getIdEmploye());
                     psNotif.executeUpdate();
                 }
 
                 // Création d'une notification de confirmation de l'annulation
-                DemandeConge.creerNotificationRh(
-                    "MOUVEMENT_APPLIQUE",
-                    "NORMALE",
-                    "Demande de congé annulée",
-                    "La demande de congé (#" + id + ") a été annulée.",
-                    "/conges",
-                    d.getIdEmploye(),
-                    c
-                );
+                NotificationRhService.creer(
+                        c,
+                        "MOUVEMENT_APPLIQUE",
+                        "NORMALE",
+                        "Demande de congé annulée",
+                        "La demande de congé (#" + id + ") a été annulée.",
+                        "/conges",
+                        d.getIdEmploye());
 
                 c.commit();
 
@@ -433,7 +499,7 @@ public class DemandeCongeController {
                 throw e;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Erreur annulation demande congé : {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body("Erreur lors de l'annulation de la demande : " + e.getMessage());
         }

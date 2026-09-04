@@ -126,6 +126,14 @@ const congeService = {
     return response.data;
   },
 
+  /**
+   * Déclenche la purge légale triennale des congés prescrits (+36 mois)
+   */
+  declencherPurgeExpiration: async () => {
+    const response = await apiClient.post('/conges/purge-expiration');
+    return response.data;
+  },
+
   // =========================================================================
   // DEMANDES DE CONGÉS & SIMULATION
   // =========================================================================
@@ -133,8 +141,13 @@ const congeService = {
   /**
    * Simule le décompte continu en jours calendaires stricts (date_fin - date_debut + 1)
    */
-  simulerDemande: async (dateDebut, dateFin) => {
-    const response = await apiClient.post('/conges/demandes/simuler', { dateDebut, dateFin });
+  // Dans congeService.js
+  simulerDemande: async (dateDebut, dateFin, estDemiJournee = false) => {
+    const response = await apiClient.post('/conges/demandes/simuler', {
+      dateDebut,
+      dateFin,
+      estDemiJournee: Boolean(estDemiJournee),
+    });
     return response.data;
   },
 
@@ -194,10 +207,18 @@ const congeService = {
    * Valide une demande de congé (génère automatiquement le débit PRISE dans le ledger)
    */
   validerDemande: async (id, options = {}) => {
-    let url = `/conges/demandes/${id}/valider`;
+    const params = new URLSearchParams();
     if (options.justificatifFourni) {
-      url += `?justificatifFourni=true`;
+      params.append('justificatifFourni', 'true');
     }
+    if (options.estRemunere !== undefined && options.estRemunere !== null) {
+      params.append('estRemunere', String(options.estRemunere));
+    }
+    if (options.derogationSoldeNegatif) {
+      params.append('derogationSoldeNegatif', 'true');
+    }
+    const queryString = params.toString();
+    const url = `/conges/demandes/${id}/valider${queryString ? `?${queryString}` : ''}`;
     const response = await apiClient.post(url);
     return response.data;
   },
@@ -213,8 +234,40 @@ const congeService = {
   /**
    * Annule une demande de congé (si validée, génère le crédit ANNULATION dans le ledger)
    */
-  annulerDemande: async (id) => {
-    const response = await apiClient.post(`/conges/demandes/${id}/annuler`);
+  annulerDemande: async (id, motif) => {
+    const payload = typeof motif === 'string' ? { motif } : (motif || {});
+    const response = await apiClient.post(`/conges/demandes/${id}/annuler`, payload);
+    return response.data;
+  },
+
+  // Alias rétrocompatibilité
+  getAllDemandesGlobales: async (params = {}) => {
+    const response = await apiClient.get('/conges/demandes/all', { params });
+    return response.data;
+  },
+
+  getReferentielsConge: async () => {
+    const response = await apiClient.get('/conges/referentiels/all');
+    return response.data;
+  },
+
+  /**
+   * Vérifie les conflits de continuité de service (collègues même poste), 
+   * les chevauchements personnels et fournit le décompte calendaire détaillé.
+   */
+  verifierConflitsDemande: async (data) => {
+    const response = await apiClient.post('/conges/demandes/verifier-conflits', data);
+    return response.data;
+  },
+
+  /**
+   * Récupère la matrice planning de tous les collaborateurs actifs avec leurs congés
+   */
+  getPlanningCollaborateurs: async (params = {}, options = {}) => {
+    const response = await apiClient.get('/conges/planning', {
+      params,
+      signal: options?.signal,
+    });
     return response.data;
   },
 };

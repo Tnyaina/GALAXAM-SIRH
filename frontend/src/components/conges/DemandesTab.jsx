@@ -3,6 +3,7 @@ import { Search, Filter, Plus, Calendar, FileText } from 'lucide-react';
 import { Card, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Badge from '@/components/ui/data-display/Badge';
+import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -14,16 +15,6 @@ const formatDate = (timestamp) => {
   if (!timestamp) return '-';
   const date = new Date(timestamp);
   return date.toLocaleDateString('fr-FR');
-};
-
-const getStatusBadgeVariant = (statut) => {
-  switch (statut) {
-    case 'VALIDE': return 'success';
-    case 'REFUSE': return 'danger';
-    case 'EN_ATTENTE': return 'warning';
-    case 'ANNULE': return 'info';
-    default: return 'brand';
-  }
 };
 
 export default function DemandesTab({ 
@@ -122,7 +113,13 @@ export default function DemandesTab({
                           `${demande.nbJoursDecomptes} j`
                         )}
                       </Td>
-                      <Td><Badge variant={getStatusBadgeVariant(demande.codeStatutDemande)} dot>{demande.codeStatutDemande}</Badge></Td>
+                      <Td>
+                        <StatusBadge
+                          status={demande.codeStatutDemande}
+                          label={demande.libelleStatutDemande}
+                          size="xs"
+                        />
+                      </Td>
                       <Td className="text-right">
                         <Button 
                           variant="ghost" 
@@ -161,11 +158,13 @@ export default function DemandesTab({
                 <h3 className="text-lg font-bold text-[var(--color-fg)]">
                   {`${selectedDemande.prenom || ''} ${selectedDemande.nom || ''}`.trim() || `Employé ${selectedDemande.idEmploye}`}
                 </h3>
-                <p className="text-sm text-[var(--color-fg-muted)]">Type: {selectedDemande.codeTypeConge || 'ANNUEL'}</p>
+                <p className="text-sm text-[var(--color-fg-muted)]">Type: {selectedDemande.libelleTypeConge || selectedDemande.codeTypeConge}</p>
               </div>
-              <Badge variant={getStatusBadgeVariant(selectedDemande.codeStatutDemande)} dot>
-                {selectedDemande.codeStatutDemande}
-              </Badge>
+              <StatusBadge
+                status={selectedDemande.codeStatutDemande}
+                label={selectedDemande.libelleStatutDemande}
+                size="md"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

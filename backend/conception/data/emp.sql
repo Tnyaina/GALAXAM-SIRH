@@ -41,7 +41,7 @@ INSERT INTO employe (
 ('225', 'RAKOTOHARIMANANA', 'Naly Ny Aina', 'M', '1988-12-21', 'Antananarivo', 'Malgache', '117031023421', '2009-01-09', 'Antananarivo', 'Lot B 15 Talatamaty, Antananarivo', '0322238478', '010908004062', TRUE),
 
 -- =====================================================================
--- 2. GALAXAM LOGISTICS - PROJET LMD
+-- 2. GALAXAM LOGISTICS -  LMD
 -- =====================================================================
 ('316', 'RAKOTONIRINA', 'Aina Jeremie', 'M', '1993-08-01', 'Antananarivo', 'Malgache', 'TEMP_316', '2011-09-25', 'Antananarivo', 'Lot TD 12 Mahamasina, Antananarivo', '0323381665', NULL, TRUE),
 ('317', 'RAFARASON', 'Andry Niriana Onja Toky Nantenaina', 'M', '1985-05-18', 'Antananarivo', 'Malgache', 'TEMP_317', '2006-03-24', 'Antananarivo', 'Lot II M 35 Bis Andravoahangy, Antananarivo', '0342371900', NULL, TRUE),

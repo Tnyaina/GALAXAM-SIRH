@@ -4,6 +4,7 @@ import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Textarea } from '@/components/ui/forms/Input';
+import Modal from '@/components/ui/overlays/Modal';
 
 // Hooks
 import { useDemandeCongeForm } from '@/hooks/conges/useDemandeCongeForm';
@@ -12,8 +13,18 @@ import { useDemandeCongeForm } from '@/hooks/conges/useDemandeCongeForm';
 import TypeCongeSection from './formulaire/TypeCongeSection';
 import DatesCongeSection from './formulaire/DatesCongeSection';
 import OptionsRHSection from './formulaire/OptionsRHSection';
+import ConflitsPostePreview from './formulaire/ConflitsPostePreview';
 
-export default function DemandeCongeModal({ idEmploye: idEmployeProp, initialDemande, referentiels, isOpen, onClose, onSuccess }) {
+export default function DemandeCongeModal({ 
+  idEmploye: idEmployeProp, 
+  initialDemande, 
+  initialDateDebut, 
+  initialDateFin, 
+  referentiels, 
+  isOpen, 
+  onClose, 
+  onSuccess 
+}) {
   const toast = useToast();
 
   const {
@@ -30,11 +41,15 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, initialDem
     
     derogationSoldeNegatif, setDerogationSoldeNegatif,
     derogationDelaiPreavis, setDerogationDelaiPreavis,
+    derogationContinuiteService, setDerogationContinuiteService,
     extensionPathologiqueMaternite, setExtensionPathologiqueMaternite,
+    estRemunere, setEstRemunere,
     showOptionsAvancees, setShowOptionsAvancees,
+    preavisInfo,
 
-    // Variables calculées
+    // Variables calculées & Conflits
     nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres,
+    conflitReport, checkingConflits,
     loading, error, fieldErrors, setFieldErrors,
     
     typesConge, motifsFamiliaux, selectedType,
@@ -42,38 +57,63 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, initialDem
     
     // Méthodes
     handleSubmit, inputErrorClass
-  } = useDemandeCongeForm({ idEmployeProp, initialDemande, referentiels, isOpen, onClose, onSuccess });
+  } = useDemandeCongeForm({ 
+    idEmployeProp, 
+    initialDemande, 
+    initialDateDebut, 
+    initialDateFin, 
+    referentiels, 
+    isOpen, 
+    onClose, 
+    onSuccess 
+  });
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-[var(--color-brand-900)]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col font-sans">
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border-subtle)] shrink-0">
-          <h3 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-[var(--color-brand-500)]" />
-            {initialDemande?.idDemandeConge ? `Modifier la demande #${initialDemande.idDemandeConge}` : 'Nouvelle demande de congé / absence'}
-          </h3>
-          <button
-            onClick={onClose}
-            aria-label="Fermer"
-            className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] text-xl leading-none w-8 h-8 flex items-center justify-center cursor-pointer"
-          >
-            ×
-          </button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={initialDemande?.idDemandeConge ? `Modifier la demande #${initialDemande.idDemandeConge}` : "Nouvelle demande de congé ou d'absence"}
+      icon={<Calendar className="w-5 h-5 text-brand-500" />}
+      size="full"
+      className="max-w-[1380px] w-[95vw]"
+      footer={
+        <div className="flex items-center justify-between w-full">
+          <span className="text-xs text-[var(--color-fg-subtle)]">
+            <span className="text-danger-500">*</span> Champs obligatoires
+          </span>
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="ghost" size="sm" onClick={onClose} className="rounded-none">
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              loading={loading}
+              onClick={(e) => handleSubmit(e, toast)}
+              className="rounded-none font-bold"
+            >
+              {loading ? 'Enregistrement…' : initialDemande?.idDemandeConge ? 'Enregistrer les modifications' : 'Soumettre la demande'}
+            </Button>
+          </div>
         </div>
+      }
+    >
+      <form onSubmit={(e) => handleSubmit(e, toast)} className="text-sm">
+        {/* Message d'erreur global */}
+        {error && (
+          <div className="mb-4">
+            <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />
+          </div>
+        )}
 
-        <form onSubmit={(e) => handleSubmit(e, toast)} className="flex flex-col overflow-hidden flex-1">
-          <div className="px-6 py-5 space-y-6 overflow-y-auto text-sm">
-
-            {/* Message d'erreur global */}
-            {error && (
-              <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />
-            )}
-
-            {/* ── Section 0 : Employé concerné ────────────────────── */}
+        {/* Layout 2 Colonnes : Formulaire ciblé (5 cols) et Grand Aperçu Gantt (7 cols) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Colonne Gauche (Formulaire de saisie) */}
+          <div className="lg:col-span-5 space-y-4">
+            {/* Section 0 : Employé concerné */}
             {!idEmployeProp && (
               <EmployeSearchSelect
                 label="Employé concerné"
@@ -87,7 +127,7 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, initialDem
               />
             )}
 
-            {/* ── Section 1 : Type de congé ────────────────────────────── */}
+            {/* Section 1 : Type de congé */}
             <TypeCongeSection
               idTypeConge={idTypeConge}
               setIdTypeConge={setIdTypeConge}
@@ -101,7 +141,7 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, initialDem
               inputErrorClass={inputErrorClass}
             />
 
-            {/* ── Section 2 : Dates ────────────────────────────────────── */}
+            {/* Section 2 : Dates */}
             <DatesCongeSection
               dateDebut={dateDebut}
               setDateDebut={setDateDebut}
@@ -118,18 +158,24 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, initialDem
               isMaternite={isMaternite}
               extensionPathologiqueMaternite={extensionPathologiqueMaternite}
               setExtensionPathologiqueMaternite={setExtensionPathologiqueMaternite}
+              preavisInfo={preavisInfo}
+              derogationDelaiPreavis={derogationDelaiPreavis}
+              setDerogationDelaiPreavis={setDerogationDelaiPreavis}
+              conflitReport={conflitReport}
+              derogationSoldeNegatif={derogationSoldeNegatif}
+              setDerogationSoldeNegatif={setDerogationSoldeNegatif}
+              setShowOptionsAvancees={setShowOptionsAvancees}
               fieldErrors={fieldErrors}
               setFieldErrors={setFieldErrors}
             />
 
-            {/* ── Section 3 : Justificatif & commentaire ─────────────────── */}
+            {/* Section 3 : Justificatif & commentaire */}
             <div className="space-y-4 pt-1 border-t border-[var(--color-border-subtle)] mt-4">
-              
               {selectedType?.exigeJustificatif && (
                 <Alert type="warning" message="Un justificatif est requis pour ce type de congé (peut être fourni au retour si imprévu)." />
               )}
 
-              <label className="flex items-start gap-3 pt-4 cursor-pointer">
+              <label className="flex items-start gap-3 pt-2 cursor-pointer">
                 <input
                   type="checkbox"
                   id="justificatifFourni"
@@ -158,7 +204,7 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, initialDem
               </div>
             </div>
 
-            {/* ── Section 4 : Options avancées RH ─────────────────────────── */}
+            {/* Section 4 : Options avancées RH */}
             <OptionsRHSection
               showOptionsAvancees={showOptionsAvancees}
               setShowOptionsAvancees={setShowOptionsAvancees}
@@ -166,31 +212,28 @@ export default function DemandeCongeModal({ idEmploye: idEmployeProp, initialDem
               setDerogationSoldeNegatif={setDerogationSoldeNegatif}
               derogationDelaiPreavis={derogationDelaiPreavis}
               setDerogationDelaiPreavis={setDerogationDelaiPreavis}
+              derogationContinuiteService={derogationContinuiteService}
+              setDerogationContinuiteService={setDerogationContinuiteService}
+              estRemunere={estRemunere}
+              setEstRemunere={setEstRemunere}
             />
           </div>
 
-          {/* Actions — fixées en bas, toujours visibles */}
-          <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-[var(--color-border-subtle)] shrink-0 bg-[var(--color-surface)]">
-            <span className="text-xs text-[var(--color-fg-subtle)]">
-              <span className="text-danger-500">*</span> Champs obligatoires
-            </span>
-            <div className="flex items-center gap-3">
-              <Button type="button" variant="ghost" size="sm" onClick={onClose} className="rounded-none">
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                size="sm"
-                loading={loading}
-                className="rounded-none font-bold"
-              >
-                {loading ? 'Enregistrement…' : initialDemande?.idDemandeConge ? 'Enregistrer les modifications' : 'Soumettre la demande'}
-              </Button>
-            </div>
+          {/* Colonne Droite (Grand Aperçu Gantt & Continuité de Service) */}
+          <div className="lg:col-span-7 sticky top-2">
+            <ConflitsPostePreview
+              conflitReport={conflitReport}
+              checkingConflits={checkingConflits}
+              dateDebut={dateDebut}
+              dateFin={dateFin}
+              estDemiJournee={estDemiJournee}
+              momentDemiJournee={momentDemiJournee}
+              derogationContinuiteService={derogationContinuiteService}
+              setDerogationContinuiteService={setDerogationContinuiteService}
+            />
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </Modal>
   );
 }

@@ -1,7 +1,8 @@
-import { useState, useEffect, createElement } from 'react';
-import { Search, Plus, Edit2, Trash2, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
 import { getMenuIcon } from '@/utils/iconRegistry';
+import IconPicker from '@/components/ui/forms/IconPicker';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Input, { Select } from '@/components/ui/forms/Input';
@@ -9,25 +10,31 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
-
-const AVAILABLE_ICONS = [
-    'Circle', 'LayoutDashboard', 'Users', 'Clock', 'UserCheck',
-    'Truck', 'Package', 'Boxes', 'Shield', 'Settings',
-    'Menu', 'Home', 'Wrench', 'Info', 'WifiOff'
-];
+import Modal from '@/components/ui/overlays/Modal';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import { useToast } from '@/components/ui/feedback/Toast';
+import { useMenu } from '@/hooks/useMenu';
 
 export default function MenuManagementTab() {
+    const { refreshMenu } = useMenu();
     const [menus, setMenus] = useState([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
+    const [modalError, setModalError] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const toast = useToast();
 
     // États pour les modales
     const [showMenuModal, setShowMenuModal] = useState(false);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [selectedMenu, setSelectedMenu] = useState(null);
+
+    // Confirmation dialog pour suppression
+    const [confirmDelete, setConfirmDelete] = useState({
+        isOpen: false,
+        menu: null,
+        loading: false
+    });
 
     // Formulaire de menu
     const [formData, setFormData] = useState({
@@ -69,7 +76,7 @@ export default function MenuManagementTab() {
             niveau: 1,
             idPere: ''
         });
-        setActionError(null);
+        setModalError(null);
         setShowMenuModal(true);
     };
 
@@ -84,27 +91,29 @@ export default function MenuManagementTab() {
             niveau: menu.niveau || 1,
             idPere: menu.idPere || ''
         });
-        setActionError(null);
+        setModalError(null);
         setShowMenuModal(true);
     };
 
     const handleOpenDeleteModal = (menu) => {
-        setSelectedMenu(menu);
-        setActionError(null);
-        setShowDeleteModal(true);
+        setConfirmDelete({
+            isOpen: true,
+            menu,
+            loading: false
+        });
     };
 
     const handleSaveMenu = async (e) => {
         e.preventDefault();
-        setActionError(null);
-        setActionSuccess(null);
+        if (submitting) return;
+        setModalError(null);
 
         if (!formData.idMenu.trim()) {
-            setActionError("L'identifiant du menu (Code) est obligatoire.");
+            setModalError("L'identifiant du menu (Code) est obligatoire.");
             return;
         }
         if (!formData.libelle.trim()) {
-            setActionError("Le libellé du menu est obligatoire.");
+            setModalError("Le libellé du menu est obligatoire.");
             return;
         }
 
@@ -121,35 +130,41 @@ export default function MenuManagementTab() {
         if (payload.niveau === 1) {
             payload.idPere = null;
         } else if (payload.niveau > 1 && !payload.idPere) {
-            setActionError("Un menu de sous-niveau doit obligatoirement avoir un menu père assigné.");
+            setModalError("Un menu de sous-niveau doit obligatoirement avoir un menu père assigné.");
             return;
         }
 
+        setSubmitting(true);
         try {
             if (selectedMenu) {
                 await referentielService.updateMenu(selectedMenu.idMenu, payload);
-                setActionSuccess(`Le menu "${payload.libelle}" a été modifié.`);
+                toast({ title: 'Succès', message: `Le menu "${payload.libelle}" a été modifié.`, type: 'success' });
             } else {
                 await referentielService.createMenu(payload);
-                setActionSuccess(`Le menu "${payload.libelle}" a été créé.`);
+                toast({ title: 'Succès', message: `Le menu "${payload.libelle}" a été créé.`, type: 'success' });
             }
             setShowMenuModal(false);
             loadData();
+            refreshMenu?.();
         } catch (err) {
-            setActionError(err.response?.data || "Une erreur est survenue lors de l'enregistrement.");
+            setModalError(err.response?.data || "Une erreur est survenue lors de l'enregistrement.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
     const handleDeleteMenu = async () => {
-        setActionError(null);
-        setActionSuccess(null);
+        if (!confirmDelete.menu || confirmDelete.loading) return;
+        setConfirmDelete(prev => ({ ...prev, loading: true }));
         try {
-            await referentielService.deleteMenu(selectedMenu.idMenu);
-            setActionSuccess(`Le menu "${selectedMenu.libelle}" et tous ses sous-menus associés ont été supprimés.`);
-            setShowDeleteModal(false);
+            await referentielService.deleteMenu(confirmDelete.menu.idMenu);
+            toast({ title: 'Succès', message: `Le menu "${confirmDelete.menu.libelle}" a été supprimé.`, type: 'success' });
+            setConfirmDelete({ isOpen: false, menu: null, loading: false });
             loadData();
+            refreshMenu?.();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur lors de la suppression.");
+            setError(err.response?.data || "Erreur lors de la suppression du menu.");
+            setConfirmDelete(prev => ({ ...prev, loading: false, isOpen: false }));
         }
     };
 
@@ -190,7 +205,6 @@ export default function MenuManagementTab() {
     return (
         <div className="space-y-6">
             {/* Notifications */}
-            {actionSuccess && <Alert type="success" message={actionSuccess} />}
             {error && <Alert type="error" message={error} />}
 
             {/* Barre d'outils */}
@@ -266,20 +280,22 @@ export default function MenuManagementTab() {
                                         )}
                                     </Td>
                                     <Td className="text-right">
-                                        <div className="flex justify-end gap-2">
+                                        <div className="flex justify-end gap-1.5">
                                             <button
                                                 onClick={() => handleOpenEditModal(menu)}
-                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
-                                                title="Modifier"
+                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                                title="Modifier le menu"
+                                                aria-label={`Modifier ${menu.libelle}`}
                                             >
-                                                <Edit2 size={16} />
+                                                <Edit2 size={15} />
                                             </button>
                                             <button
                                                 onClick={() => handleOpenDeleteModal(menu)}
-                                                className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none  cursor-pointer"
-                                                title="Supprimer"
+                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
+                                                title="Supprimer le menu"
+                                                aria-label={`Supprimer ${menu.libelle}`}
                                             >
-                                                <Trash2 size={16} />
+                                                <Trash2 size={15} />
                                             </button>
                                         </div>
                                     </Td>
@@ -289,7 +305,13 @@ export default function MenuManagementTab() {
                     ) : (
                         <Tr>
                             <Td colSpan={7} className="p-0">
-                                <EmptyState title="Aucun menu" description="Aucun menu configuré en base de données." />
+                                <EmptyState
+                                    icon={Plus}
+                                    title="Aucun menu configuré"
+                                    description="Aucun menu ne correspond à votre recherche."
+                                    actionLabel="Créer un menu"
+                                    onAction={handleOpenCreateModal}
+                                />
                             </Td>
                         </Tr>
                     )}
@@ -297,141 +319,98 @@ export default function MenuManagementTab() {
             </Table>
 
             {/* Modale d'ajout/modification menu */}
-            {showMenuModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                            <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                <Plus size={18} className="text-[var(--color-brand-500)]" />
-                                {selectedMenu ? "Modifier le Menu" : "Créer un nouveau Menu"}
-                            </h3>
-                            <button onClick={() => setShowMenuModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSaveMenu} className="p-6 space-y-4 max-h-[500px] overflow-y-auto">
-                            {actionError && <Alert type="error" message={actionError} />}
-                            <Input
-                                label="Code Identifiant (Unique)"
-                                required
-                                disabled={!!selectedMenu}
-                                value={formData.idMenu}
-                                onChange={(e) => setFormData({ ...formData, idMenu: e.target.value.toUpperCase() })}
-                                placeholder="Ex: EMPLOYES, CONGES_LIST"
-                            />
-                            <Input
-                                label="Libellé"
-                                required
-                                value={formData.libelle}
-                                onChange={(e) => setFormData({ ...formData, libelle: e.target.value })}
-                                placeholder="Ex: Gestion des congés"
-                            />
-                            <div className="grid grid-cols-2 gap-4">
-                                <Select
-                                    label="Niveau"
-                                    required
-                                    value={formData.niveau}
-                                    onChange={(e) => setFormData({ ...formData, niveau: parseInt(e.target.value) })}
-                                >
-                                    <option value={1}>1 (Racine)</option>
-                                    <option value={2}>2 (Sous-menu)</option>
-                                </Select>
-                                <Input
-                                    label="Rang (Ordre)"
-                                    type="number"
-                                    required
-                                    value={formData.rang}
-                                    onChange={(e) => setFormData({ ...formData, rang: parseInt(e.target.value) || 1 })}
-                                />
-                            </div>
-                            {formData.niveau > 1 && (
-                                <Select
-                                    label="Menu Père"
-                                    required
-                                    value={formData.idPere}
-                                    onChange={(e) => setFormData({ ...formData, idPere: e.target.value })}
-                                >
-                                    <option value="">-- Sélectionner un menu parent --</option>
-                                    {potentialParents.map((parent) => (
-                                        <option key={parent.idMenu} value={parent.idMenu}>
-                                            {parent.libelle} ({parent.idMenu})
-                                        </option>
-                                    ))}
-                                </Select>
-                            )}
-                            <Input
-                                label="Chemin (Route Href)"
-                                value={formData.href}
-                                onChange={(e) => setFormData({ ...formData, href: e.target.value })}
-                                placeholder="Ex: /conges ou /admin/config"
-                            />
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
-                                    Icône Lucide
-                                </label>
-                                <div className="flex gap-3 items-center">
-                                    <select
-                                        value={formData.icone}
-                                        onChange={(e) => setFormData({ ...formData, icone: e.target.value })}
-                                        className="w-full bg-[var(--color-surface)] border-2 border-[var(--color-border)] rounded-none text-sm text-[var(--color-fg)] px-4 py-2.5 outline-none focus:border-[var(--color-brand-500)] cursor-pointer"
-                                    >
-                                        {AVAILABLE_ICONS.map((ico) => (
-                                            <option key={ico} value={ico}>
-                                                {ico}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <div className="w-10 h-10 border-2 border-[var(--color-border)] bg-[var(--color-bg-subtle)] flex items-center justify-center rounded-none shrink-0">
-                                        {createElement(getMenuIcon(formData.icone), { size: 20, className: "text-[var(--color-brand-500)]" })}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
-                                <Button type="button" onClick={() => setShowMenuModal(false)} variant="ghost" size="sm">
-                                    Annuler
-                                </Button>
-                                <Button type="submit" variant="primary" size="sm">
-                                    Enregistrer
-                                </Button>
-                            </div>
-                        </form>
+            <Modal
+                isOpen={showMenuModal}
+                onClose={() => setShowMenuModal(false)}
+                title={selectedMenu ? "Modifier le Menu" : "Créer un nouveau Menu"}
+                icon={<Plus size={18} />}
+                size="md"
+                footer={
+                    <>
+                        <Button type="button" onClick={() => setShowMenuModal(false)} variant="ghost" size="sm" disabled={submitting}>
+                            Annuler
+                        </Button>
+                        <Button type="submit" form="menu-form" variant="primary" size="sm" loading={submitting}>
+                            {selectedMenu ? "Enregistrer" : "Créer le menu"}
+                        </Button>
+                    </>
+                }
+            >
+                <form id="menu-form" onSubmit={handleSaveMenu} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                    {modalError && <Alert type="error" message={modalError} />}
+                    <Input
+                        label="Code Identifiant (Unique)"
+                        required
+                        disabled={!!selectedMenu}
+                        value={formData.idMenu}
+                        onChange={(e) => setFormData({ ...formData, idMenu: e.target.value.toUpperCase() })}
+                        placeholder="Ex: EMPLOYES, CONGES_LIST"
+                    />
+                    <Input
+                        label="Libellé"
+                        required
+                        value={formData.libelle}
+                        onChange={(e) => setFormData({ ...formData, libelle: e.target.value })}
+                        placeholder="Ex: Gestion des congés"
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                        <Select
+                            label="Niveau"
+                            required
+                            value={formData.niveau}
+                            onChange={(e) => setFormData({ ...formData, niveau: parseInt(e.target.value) })}
+                        >
+                            <option value={1}>1 (Racine)</option>
+                            <option value={2}>2 (Sous-menu)</option>
+                        </Select>
+                        <Input
+                            label="Rang (Ordre)"
+                            type="number"
+                            required
+                            value={formData.rang}
+                            onChange={(e) => setFormData({ ...formData, rang: parseInt(e.target.value) || 1 })}
+                        />
                     </div>
-                </div>
-            )}
+                    {formData.niveau > 1 && (
+                        <Select
+                            label="Menu Père"
+                            required
+                            value={formData.idPere}
+                            onChange={(e) => setFormData({ ...formData, idPere: e.target.value })}
+                        >
+                            <option value="">-- Sélectionner un menu parent --</option>
+                            {potentialParents.map((parent) => (
+                                <option key={parent.idMenu} value={parent.idMenu}>
+                                    {parent.libelle} ({parent.idMenu})
+                                </option>
+                            ))}
+                        </Select>
+                    )}
+                    <Input
+                        label="Chemin (Route Href)"
+                        value={formData.href}
+                        onChange={(e) => setFormData({ ...formData, href: e.target.value })}
+                        placeholder="Ex: /conges ou /admin/config"
+                    />
+                    <IconPicker
+                        label="Icône Graphique"
+                        value={formData.icone}
+                        onChange={(ico) => setFormData({ ...formData, icone: ico })}
+                    />
+                </form>
+            </Modal>
 
-            {/* Modale de suppression cascade */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                            <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                <Trash2 size={18} className="text-[var(--color-danger-500)]" />
-                                Confirmer la suppression
-                            </h3>
-                            <button onClick={() => setShowDeleteModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-3">
-                            {actionError && <Alert type="error" message={actionError} />}
-                            <p className="text-sm text-[var(--color-fg-muted)]">
-                                Êtes-vous sûr de vouloir supprimer définitivement le menu <strong className="text-[var(--color-fg)]">{selectedMenu?.libelle}</strong> ?
-                            </p>
-                            <p className="text-xs text-[var(--color-danger-500)] font-semibold bg-[var(--color-danger-500)]/10 p-3 rounded-none border border-[var(--color-danger-500)]/20">
-                                ⚠️ ATTENTION : Si ce menu possède des sous-menus associés ou s'il est configuré pour des rôles, la suppression s'effectuera EN CASCADE.
-                            </p>
-                        </div>
-                        <div className="px-6 py-4 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex justify-end gap-3">
-                            <Button onClick={() => setShowDeleteModal(false)} variant="ghost" size="sm">
-                                Annuler
-                            </Button>
-                            <Button onClick={handleDeleteMenu} variant="danger" size="sm">
-                                Supprimer définitivement
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Dialogue de confirmation de suppression */}
+            <ConfirmDialog
+                isOpen={confirmDelete.isOpen}
+                onClose={() => setConfirmDelete({ isOpen: false, menu: null, loading: false })}
+                onConfirm={handleDeleteMenu}
+                title={`Supprimer définitivement le menu "${confirmDelete.menu?.libelle}" ?`}
+                message={`ATTENTION : Si ce menu possède des sous-menus associés ou s'il est configuré pour des rôles, la suppression s'effectuera EN CASCADE.`}
+                confirmLabel="Supprimer définitivement"
+                variant="danger"
+                loading={confirmDelete.loading}
+            />
         </div>
     );
 }

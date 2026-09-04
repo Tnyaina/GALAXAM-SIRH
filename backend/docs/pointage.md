@@ -1,4 +1,5 @@
 # Module Pointage & Présence — Documentation Technique & Fonctionnelle
+
 ## GALAXAM SIRH — Mémoire de Fin d'Études
 
 > **Module** : Saisie quotidienne des présences, heures supplémentaires, indemnités liées à la présence (Déplacement, Repas), synthèse mensuelle vers la Paie
@@ -16,13 +17,13 @@
 2. [Modèle de Données](#2-modèle-de-données)
 3. [Règles de Gestion](#3-règles-de-gestion)
 4. [Statuts de la Journée de Pointage](#4-statuts-de-la-journée-de-pointage)
-5. [Workflow & Circuit de Validation](#5-workflow--circuit-de-validation)
-6. [Automatisations & Schedulers](#6-automatisations--schedulers)
+5. [Workflow &amp; Circuit de Validation](#5-workflow--circuit-de-validation)
+6. [Automatisations &amp; Schedulers](#6-automatisations--schedulers)
 7. [Notifications](#7-notifications)
 8. [Sortie vers la Paie](#8-sortie-vers-la-paie)
 9. [Architecture Technique](#9-architecture-technique)
 10. [API REST — Endpoints](#10-api-rest--endpoints)
-11. [Points Tranchés & Décisions de Conception](#11-points-tranchés--décisions-de-conception)
+11. [Points Tranchés &amp; Décisions de Conception](#11-points-tranchés--décisions-de-conception)
 
 ---
 
@@ -73,11 +74,12 @@ PERIODE_PAIE (nouveau, réutilisable par le futur module Paie)
     │
     └── (N) POINTAGE_JOUR (verrouillage par id_statut_periode)
 
-VUES (agrégats en lecture seule)
-    ├── v_pointage_jour_cpl            -- Pointage enrichi des libellés
-    ├── v_pointage_semaine             -- Agrégat hebdomadaire (retard vs HS, 40h)
-    └── v_synthese_pointage_mensuelle  -- Colonnes prêtes pour la Paie (NBABS, HS, DEPLACEMENT, REPAS...)
+VUES (agrégats - OBSOLÈTES / REMPLACÉES PAR JAVA)
+    ├── v_pointage_jour_cpl            -- (Obsolète) Remplacé par PointageSaisieService
+    ├── v_pointage_semaine             -- (Obsolète) Remplacé par PointageCalculateurEngine.calculerTroncon
+    └── v_synthese_pointage_mensuelle  -- (Obsolète) Remplacé par PointageSyntheseService + PointageCalculateurEngine
 ```
+
 
 ### 2.2 Table `periode_paie`
 
@@ -99,9 +101,11 @@ Table periode_paie {
 ```
 
 **Cycle de vie** (aligné sur le style `workflow_rh` / `demande_conge`) :
+
 ```
 BROUILLON → EN_COURS → A_VALIDER → VALIDEE → CLOTUREE
 ```
+
 - `BROUILLON` / `EN_COURS` : saisie libre par l'agent de pointage.
 - `A_VALIDER` : période terminée (date_fin dépassée), en attente de contrôle DAF.
 - `VALIDEE` : verrouillée pour saisie, prête à être consommée par la Paie.
@@ -132,6 +136,7 @@ Table ref_statut_pointage_jour {
   necessite_saisie BOOLEAN   -- attend-on des heures d'entrée/sortie pour ce statut ?
 }
 ```
+
 Codes : `PRESENT`, `ABSENCE_NON_JUSTIFIEE`, `CONGE` (miroir du module Congés), `FERIE_TRAVAILLE`, `FERIE_CHOME`, `DISPENSE_POINTAGE` (poste autonome), `MISSION_EXTERIEURE`.
 
 ### 2.5 Table `employe_indemnite_derogation`
@@ -151,6 +156,7 @@ Table employe_indemnite_derogation {
   created_at      TIMESTAMP
 }
 ```
+
 Usage : les 4 personnes disposant d'un véhicule de fonction ont une ligne `id_indemnite = DEPLACEMENT`, `beneficie = FALSE`, permanente (pas de `date_fin`). Si la liste s'allonge, c'est une décision de gestion de flotte — pas une règle système, donc simple ajout de ligne.
 
 ### 2.6 Table `pointage_jour`
@@ -308,7 +314,8 @@ CREATE TABLE pointage_cumul_periode (
 
 ### RG-PTG-01 : Saisie Quotidienne à 4 Créneaux avec Valeurs par Défaut de Pause
 
-Si l'employé ne pointe pas sa sortie matin / entrée après-midi (pause), le système reconstitue la pause manquante à partir de `ref_site.heure_fin_matin` et de la durée minimale de pause déduite de `ref_site.horaire_continu` — **pas de valeur hardcodée par site nommé** :
+* [ ] Si l'employé ne pointe pas sa sortie matin / entrée après-midi (pause), le système reconstitue la pause manquante à partir de `ref_site.heure_fin_matin` et de la durée minimale de pause déduite de `ref_site.horaire_continu` — **pas de valeur hardcodée par site nommé** :
+
 - `horaire_continu = TRUE` → pause minimale **1h** (sortie matin = `heure_fin_matin`, entrée après-midi = `heure_fin_matin + 1h`).
 - `horaire_continu = FALSE` → pause minimale **2h** (sortie matin = `heure_fin_matin`, entrée après-midi = `heure_fin_matin + 2h`).
 
@@ -340,6 +347,7 @@ minutes_depart_anticipe = MAX(0, heure_theorique_fin_site - heure_sortie_am)
 ### RG-PTG-05 : Cadres et Heures Supplémentaires
 
 Aligné avec `ref_categorie_professionnelle.code = 'C'` (déjà défini dans le module Contrat) :
+
 - La HS **payée** est toujours forcée à 0 pour un Cadre, quel que soit le total réel.
 - Le surplus d'heures reste utilisé en interne (dans `v_pointage_semaine`) pour compenser un déficit du même tronçon — seul l'excédent au-delà de la compensation est ignoré (non payé, non reporté).
 - Dans `pointage_semaine_calcule` : `heures_hs_nettes = 0` systématiquement pour tout employé Cadre.
@@ -367,6 +375,7 @@ Aligné avec `ref_categorie_professionnelle.code = 'C'` (déjà défini dans le 
 ### RG-PTG-09 : Indemnité Repas
 
 Cascade à 3 niveaux (site → dérogation individuelle → ajustement du jour), conforme à `module-structure.md` §4.1 :
+
 - **TNR** : indemnité repas par défaut (site continu, pause repas officielle).
 - **TMM** : pas d'indemnité repas par défaut (site non continu) — **sauf** si l'employé ne rentre pas le midi (les 2 pointages AM/PM sont contigus sans pause réelle) : il reçoit alors le repas, **mais perd 1 000 Ar sur l'indemnité déplacement** ce jour-là (compensation logique : pas de trajet retour midi).
 - **2ᵉ repas du soir** : si l'heure de sortie réelle est entre 19:30 et 21:00 → 2 000 Ar ; au-delà de 21:00 → 4 000 Ar (seuils dans `parametre_global.SEUIL_SECOND_REPAS`, à étendre avec un 2ᵉ paramètre pour le seuil 21h et les montants).
@@ -408,14 +417,14 @@ Cela suit le même principe que `mouvement_solde_conge` dans le module Congés :
 
 ## 4. Statuts de la Journée de Pointage
 
-| Code | Nécessite saisie d'heures | Génère une absence | Origine |
-|---|---|---|---|
-| `PRESENT` | Oui | Non | Saisie manuelle |
-| `ABSENCE_NON_JUSTIFIEE` | Non | Oui | Saisie manuelle ou déduit d'un oubli non régularisé |
-| `CONGE` | Non | Non | **Matérialisé automatiquement** à la validation d'une `demande_conge` (voir §2.6 bis) |
-| `FERIE_TRAVAILLE` | Oui | Non | Saisie manuelle sur un jour de `ref_calendrier_ferie` |
-| `FERIE_CHOME` | Non | Non | Matérialisé automatiquement depuis `ref_calendrier_ferie` |
-| `DISPENSE_POINTAGE` | Non | Non | Auto, pour `ref_fonction.dispense_pointage = TRUE` |
+| Code                      | Nécessite saisie d'heures | Génère une absence | Origine                                                                                           |
+| ------------------------- | -------------------------- | -------------------- | ------------------------------------------------------------------------------------------------- |
+| `PRESENT`               | Oui                        | Non                  | Saisie manuelle                                                                                   |
+| `ABSENCE_NON_JUSTIFIEE` | Non                        | Oui                  | Saisie manuelle ou déduit d'un oubli non régularisé                                            |
+| `CONGE`                 | Non                        | Non                  | **Matérialisé automatiquement** à la validation d'une `demande_conge` (voir §2.6 bis) |
+| `FERIE_TRAVAILLE`       | Oui                        | Non                  | Saisie manuelle sur un jour de`ref_calendrier_ferie`                                            |
+| `FERIE_CHOME`           | Non                        | Non                  | Matérialisé automatiquement depuis`ref_calendrier_ferie`                                      |
+| `DISPENSE_POINTAGE`     | Non                        | Non                  | Auto, pour`ref_fonction.dispense_pointage = TRUE`                                               |
 
 > `MISSION_EXTERIEURE` retiré — n'existe pas dans le contexte GALAXAM actuel.
 
@@ -424,10 +433,12 @@ Cela suit le même principe que `mouvement_solde_conge` dans le module Congés :
 Contrairement à un simple calcul dynamique, on **matérialise** une ligne `pointage_jour` par jour de congé, comme pour les jours fériés — pour homogénéité de traitement (les deux passent par la même synthèse mensuelle sans requête spéciale).
 
 Pour éviter toute incohérence si le congé est ensuite modifié/annulé, deux colonnes de traçabilité sont ajoutées à `pointage_jour` (voir §2.6) :
+
 - `id_demande_conge` : lien vers la demande source (NULL si ligne saisie normalement).
 - `genere_automatiquement` : `TRUE` pour les lignes créées par le système (congé ou férié), `FALSE` pour une saisie humaine.
 
 **Synchronisation** :
+
 1. `demande_conge` passe à `VALIDE` → le système crée une ligne `pointage_jour` (`statut = CONGE`, `genere_automatiquement = TRUE`, `id_demande_conge = ...`) pour chaque jour de la période, **sauf** si une ligne existe déjà pour ce jour (conflit à signaler, ne jamais écraser une saisie humaine).
 2. `demande_conge` passe à `ANNULE` (après validation) → le système supprime uniquement les lignes `pointage_jour` liées à cette demande **et** encore marquées `genere_automatiquement = TRUE` (si un agent les a modifiées entre-temps, elles ne sont plus touchées automatiquement — alerte manuelle à la place).
 
@@ -436,40 +447,60 @@ Pour éviter toute incohérence si le congé est ensuite modifié/annulé, deux 
 ## 5. Workflow & Circuit de Validation
 
 ```
-PERIODE_PAIE : BROUILLON → EN_COURS → A_VALIDER → VALIDEE → CLOTUREE
-                  │            │           │          │
-                  │            │           │          └── Consommée par la Paie (verrou définitif)
-                  │            │           └── Contrôle DAF (RBAC : droit_validation sur module POINTAGE)
-                  │            └── Saisie quotidienne par l'agent de pointage (droit_ecriture, pas de droit_validation — cf RBAC déjà en place)
-                  └── Ouverture de la période (auto ou manuelle par Admin)
+PERIODE_PAIE : BROUILLON -> EN_COURS <------------------------> A_VALIDER -> VALIDEE -> CLOTUREE
+                  |            |        (Rejet DAF avec           |           |          |
+                  |            |         motif obligatoire)       |           |          └── Consommée par la Paie (verrou définitif)
+                  |            |                                  |           └── Contrôle & Validation finale DAF (gel pointage_cumul_periode)
+                  |            |                                  └── Contrôle DAF (verrou d'écriture pour l'agent)
+                  |            └── Saisie quotidienne, résolution anomalies et calcul global 1-clic
+                  └── Ouverture de la période (automatique ou manuelle par Admin)
 ```
 
-Ceci correspond exactement à la matrice RBAC déjà définie dans `26-07-29_init.sql` : `ROLE_AGENT_POINTAGE` a `droit_lecture`/`droit_ecriture` sur `POINTAGE` mais **pas** `droit_validation` — seul `ROLE_ADMIN` peut faire passer la période en `VALIDEE`/`CLOTUREE`.
+Le workflow modernisé supprime le cloisonnement séquentiel contraignant semaine par semaine au profit d'une fluidité opérationnelle contrôlée :
+
+1. Phase de Saisie & Consultation Libre (statut EN_COURS) :
+   - L'agent de pointage saisit les présences et traite les anomalies quotidiennes.
+   - En fin de mois, l'agent déclenche la consolidation globale en un clic (endpoint POST /pointages/synthese/calculer-tout). Toutes les semaines sont calculées sans verrouiller la grille. L'agent peut librement consulter, comparer et ajuster les pointages si nécessaire.
+
+2. Phase de Transmission Sécurisée à la DAF (statut A_VALIDER) :
+   - L'agent clique sur "Transmettre à la DAF" (endpoint POST /pointages/synthese/transmettre-daf).
+   - Le système vérifie de manière bloquante qu'aucune anomalie non résolue ne subsiste sur l'ensemble des sites de l'entreprise.
+   - Le système recalcule l'intégralité des tronçons et passe la période en statut A_VALIDER avec verrouillage pessimiste PostgreSQL (FOR UPDATE).
+   - La saisie quotidienne et la régularisation des anomalies sont strictement bloquées en lecture seule pour les agents de site (contrôle au niveau de PointageSaisieService et PointageAnomalieService).
+   - Une notification ciblée est adressée exclusivement aux administrateurs DAF (cible_role = 'ROLE_ADMIN').
+
+3. Phase d'Arbitrage DAF :
+   - Option A - Validation (POST /pointages/synthese/valider-daf) : la DAF valide la synthèse. Les cumuls sont figés de manière immuable dans pointage_cumul_periode et pointage_cumul_indemnite. La période passe en VALIDEE. Une notification de confirmation est envoyée aux agents (cible_role = 'ROLE_AGENT_POINTAGE').
+   - Option B - Rejet pour correction (POST /pointages/synthese/rejeter-daf) : la DAF renvoie la période avec un motif de rejet obligatoire (motif_rejet). La période repasse en EN_COURS, déverrouillant la saisie pour l'agent. Une alerte prioritaire est notifiée aux agents (cible_role = 'ROLE_AGENT_POINTAGE') et un bandeau d'alerte jaune s'affiche sur la page de synthèse avec le motif explicatif.
+
+4. Clôture Définitive (statut CLOTUREE) :
+   - Une fois la paie exécutée, la période est clôturée. Toute modification ultérieure est strictement interdite.
 
 ---
 
 ## 6. Automatisations & Schedulers
 
-Aligné sur les schedulers existants (`00:00`, `00:05`, `01:00`, `02:00`) :
+Aligné sur les schedulers existants (00:00, 00:05, 01:00, 02:00) :
 
 | Heure | Scheduler | Fréquence | Action |
-|---|---|---|---|
-| `00:10:00` | `PointageRappelScheduler` | Quotidien | Détecte les employés sans `pointage_jour` la veille (hors `DISPENSE_POINTAGE`, `CONGE`, `FERIE_CHOME`), génère `POINTAGE_MANQUANT` |
-| `00:15:00` | `PeriodePaieScheduler` | Quotidien | Fait passer `periode_paie` de `EN_COURS` à `A_VALIDER` quand `date_fin` est dépassée, notifie le DAF |
-| `00:20:00` | `FerieChomeScheduler` | Quotidien | Pré-crée les lignes `pointage_jour` en statut `FERIE_CHOME` pour les jours fériés à venir (basé sur `site_calendrier_ferie`) |
+| :--- | :--- | :--- | :--- |
+| 00:10:00 | PointageRappelScheduler | Quotidien | Détecte les employés sans pointage_jour la veille (hors DISPENSE_POINTAGE, CONGE, FERIE_CHOME), génère POINTAGE_MANQUANT pour ROLE_AGENT_POINTAGE |
+| 00:15:00 | PeriodePaieScheduler | Quotidien | Rappel des périodes arrivées à échéance |
+| 00:20:00 | FerieChomeScheduler | Quotidien | Pré-crée les lignes pointage_jour en statut FERIE_CHOME pour les jours fériés à venir |
 
 ---
 
-## 7. Notifications
+## 7. Notifications & Cloisonnement RBAC
 
-Nouveaux types à ajouter à `notification_rh.type_alerte` (extension de la contrainte `chk_notif_type` existante) :
+Les notifications RH sont partitionnées par rôle via la colonne cible_role de la table notification_rh :
 
-| Type d'Alerte | Priorité | Déclencheur |
-|---|---|---|
-| `POINTAGE_MANQUANT` | 🟠 HAUTE | Aucune saisie la veille pour un employé actif non dispensé |
-| `PERIODE_POINTAGE_A_VALIDER` | 🟠 HAUTE | `periode_paie` passe en `A_VALIDER` |
-| `PERIODE_POINTAGE_VALIDEE` | 🔵 INFO | Confirmation au DAF/agent après validation |
-| `RETARD_RECURRENT` | 🟡 NORMALE | ≥ 3 retards non compensés dans la semaine pour un même employé (optionnel, alerte managériale) |
+| Type d'Alerte | Destinataire Cible (cible_role) | Priorité | Déclencheur |
+| :--- | :--- | :--- | :--- |
+| POINTAGE_MANQUANT | ROLE_AGENT_POINTAGE | HAUTE | Aucune saisie la veille pour un employé actif non dispensé |
+| PERIODE_POINTAGE_A_VALIDER | ROLE_ADMIN | HAUTE | Transmission de la période par l'agent à la DAF |
+| PERIODE_POINTAGE_VALIDEE | ROLE_AGENT_POINTAGE | INFO | Confirmation de validation de la période par la DAF |
+| PERIODE_POINTAGE_REJETEE | ROLE_AGENT_POINTAGE | HAUTE | Renvoi de la période par la DAF avec motif explicatif obligatoire |
+| RETARD_RECURRENT | ROLE_AGENT_POINTAGE | NORMALE | Plus de 3 retards non compensés dans la semaine pour un employé |
 
 ---
 
@@ -477,13 +508,13 @@ Nouveaux types à ajouter à `notification_rh.type_alerte` (extension de la cont
 
 Le module Pointage **ne calcule pas de brut/net**. Il fournit à la Paie, via `v_synthese_pointage_mensuelle` (par employé × période de paie) :
 
-| Colonne fournie | Équivalent dans tes fichiers Excel |
-|---|---|
-| `nb_jours_absence` | `NBABS` |
-| `total_heures_travaillees` / `heures_hs_mensuelles` | Base du calcul `ABSENCES` et `HS` |
-| `nb_jours_deplacement` × montant journalier proratisé | `DEPLACEMENT` |
-| `montant_repas_total` | `REPAS` |
-| (via module Congés) `NBCONGE` / `TCONGE` | Restent portés par `demande_conge` / `mouvement_solde_conge`, pas dupliqués ici |
+| Colonne fournie                                           | Équivalent dans tes fichiers Excel                                                  |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `nb_jours_absence`                                      | `NBABS`                                                                            |
+| `total_heures_travaillees` / `heures_hs_mensuelles`   | Base du calcul`ABSENCES` et `HS`                                                 |
+| `nb_jours_deplacement` × montant journalier proratisé | `DEPLACEMENT`                                                                      |
+| `montant_repas_total`                                   | `REPAS`                                                                            |
+| (via module Congés)`NBCONGE` / `TCONGE`              | Restent portés par`demande_conge` / `mouvement_solde_conge`, pas dupliqués ici |
 
 La Paie devra encore : appliquer les taux de majoration HS (`ref_taux_majoration`), calculer `BRUTE`, `CNAPS/OSTIE/OMSI`, `IRSA`, `RED ENFT`, `AVANCE`, etc. — c'est un module à part entière, non couvert ici.
 
@@ -493,21 +524,21 @@ La Paie devra encore : appliquer les taux de majoration HS (`ref_taux_majoration
 
 ### 9.1 Classes Java Principales (convention `ClassMere` / `controler()`)
 
-| Classe | Table / Vue | Rôle |
-|---|---|---|
-| `PointageJour.java` | `pointage_jour` | Entité + calculs RG-PTG-01 à 04 dans `controler()` avant `save()` |
-| `PeriodePaie.java` | `periode_paie` | Cycle de vie BROUILLON→CLOTUREE + gel physique des données |
-| `EmployeIndemniteDerogation.java` | `employe_indemnite_derogation` | CRUD dérogations niveau 2 (cascade indemnités) |
-| `RefToleranceArriveePointage.java` | `ref_tolerance_arrivee_pointage` | Plafond arrivée anticipée par site |
-| `RefStatutPointageJour.java` | `ref_statut_pointage_jour` | Référentiel des statuts de journée |
-| `RefStatutPeriodePaie.java` | `ref_statut_periode_paie` | Référentiel des statuts de période |
-| `PointageSemaineCalcule.java` | `pointage_semaine_calcule` | Données hebdo gelées — INSERT à la validation |
-| `PointageCumulPeriode.java` | `pointage_cumul_periode` | Données mensuelles gelées — sortie Paie immuable |
-| `VPointageSemaine.java` | `v_pointage_semaine` | Vue temps réel (affichage avant validation) |
-| `VSynthesePointageMensuelle.java` | `v_synthese_pointage_mensuelle` | Vue temps réel (affichage avant validation) |
-| `PointageRappelScheduler.java` | — | Scheduler d'alerte oubli de saisie (00:10) |
-| `PeriodePaieScheduler.java` | — | Transition automatique statuts de période (00:15) |
-| `FerieChomeScheduler.java` | — | Pré-crée lignes FERIE_CHOME (00:20) |
+| Classe                               | Table / Vue                        | Rôle                                                                  |
+| ------------------------------------ | ---------------------------------- | ---------------------------------------------------------------------- |
+| `PointageJour.java`                | `pointage_jour`                  | Entité + calculs RG-PTG-01 à 04 dans`controler()` avant `save()` |
+| `PeriodePaie.java`                 | `periode_paie`                   | Cycle de vie BROUILLON→CLOTUREE + gel physique des données           |
+| `EmployeIndemniteDerogation.java`  | `employe_indemnite_derogation`   | CRUD dérogations niveau 2 (cascade indemnités)                       |
+| `RefToleranceArriveePointage.java` | `ref_tolerance_arrivee_pointage` | Plafond arrivée anticipée par site                                   |
+| `RefStatutPointageJour.java`       | `ref_statut_pointage_jour`       | Référentiel des statuts de journée                                  |
+| `RefStatutPeriodePaie.java`        | `ref_statut_periode_paie`        | Référentiel des statuts de période                                  |
+| `PointageSemaineCalcule.java`      | `pointage_semaine_calcule`       | Données hebdo gelées — INSERT à la validation                      |
+| `PointageCumulPeriode.java`        | `pointage_cumul_periode`         | Données mensuelles gelées — sortie Paie immuable                    |
+| `VPointageSemaine.java`            | `v_pointage_semaine`             | Vue temps réel (affichage avant validation)                           |
+| `VSynthesePointageMensuelle.java`  | `v_synthese_pointage_mensuelle`  | Vue temps réel (affichage avant validation)                           |
+| `PointageRappelScheduler.java`     | —                                 | Scheduler d'alerte oubli de saisie (00:10)                             |
+| `PeriodePaieScheduler.java`        | —                                 | Transition automatique statuts de période (00:15)                     |
+| `FerieChomeScheduler.java`         | —                                 | Pré-crée lignes FERIE_CHOME (00:20)                                  |
 
 ### 9.2 Fonction SQL Réutilisable
 
@@ -533,11 +564,11 @@ $$ LANGUAGE plpgsql;
 
 ### 9.3 Contrôleurs REST
 
-| Contrôleur | URL de Base | Rôle |
-|---|---|---|
-| `PointageJourController` | `/api/pointage/jours` | CRUD saisie quotidienne |
-| `PeriodePaieController` | `/api/pointage/periodes` | Cycle de vie des périodes |
-| `PointageSyntheseController` | `/api/pointage/synthese` | Vues agrégées (semaine, mois) |
+| Contrôleur                       | URL de Base                   | Rôle                                  |
+| --------------------------------- | ----------------------------- | -------------------------------------- |
+| `PointageJourController`        | `/api/pointage/jours`       | CRUD saisie quotidienne                |
+| `PeriodePaieController`         | `/api/pointage/periodes`    | Cycle de vie des périodes             |
+| `PointageSyntheseController`    | `/api/pointage/synthese`    | Vues agrégées (semaine, mois)        |
 | `IndemniteDerogationController` | `/api/pointage/derogations` | Gestion des dérogations individuelles |
 
 ---
@@ -547,61 +578,65 @@ $$ LANGUAGE plpgsql;
 Base URL : `/api/pointage`
 
 ### Saisie Quotidienne
-| Méthode | URL | Rôle requis | Description |
-|---|---|---|---|
-| `GET` | `/jours` | AGENT_POINTAGE, ADMIN | Liste des pointages (filtres : employé/site/période/statut) |
-| `GET` | `/jours/{id}` | AGENT_POINTAGE, ADMIN | Détail d'un pointage |
-| `POST` | `/jours` | AGENT_POINTAGE, ADMIN | Créer/saisir un pointage du jour |
-| `PUT` | `/jours/{id}` | AGENT_POINTAGE, ADMIN | Corriger un pointage (si période non verrouillée) |
-| `GET` | `/jours/manquants` | AGENT_POINTAGE, ADMIN | Liste employés sans saisie sur une date donnée |
+
+| Méthode | URL                  | Rôle requis          | Description                                                   |
+| -------- | -------------------- | --------------------- | ------------------------------------------------------------- |
+| `GET`  | `/jours`           | AGENT_POINTAGE, ADMIN | Liste des pointages (filtres : employé/site/période/statut) |
+| `GET`  | `/jours/{id}`      | AGENT_POINTAGE, ADMIN | Détail d'un pointage                                         |
+| `POST` | `/jours`           | AGENT_POINTAGE, ADMIN | Créer/saisir un pointage du jour                             |
+| `PUT`  | `/jours/{id}`      | AGENT_POINTAGE, ADMIN | Corriger un pointage (si période non verrouillée)           |
+| `GET`  | `/jours/manquants` | AGENT_POINTAGE, ADMIN | Liste employés sans saisie sur une date donnée              |
 
 ### Gestion des Périodes
-| Méthode | URL | Rôle requis | Description |
-|---|---|---|---|
-| `GET` | `/periodes` | AGENT_POINTAGE, ADMIN | Liste des périodes de paie |
-| `POST` | `/periodes` | ADMIN | Créer une nouvelle période |
-| `PUT` | `/periodes/{id}/valider` | ADMIN | → VALIDEE (gèle `pointage_semaine_calcule` + `pointage_cumul_periode`) |
-| `PUT` | `/periodes/{id}/cloturer` | ADMIN | → CLOTUREE (immuable, consommée par Paie) |
-| `PUT` | `/periodes/{id}/rouvrir` | ADMIN | VALIDEE → EN_COURS (tracé `audit_log`, interdit si CLOTUREE) |
+
+| Méthode | URL                         | Rôle requis          | Description                                                                 |
+| -------- | --------------------------- | --------------------- | --------------------------------------------------------------------------- |
+| `GET`  | `/periodes`               | AGENT_POINTAGE, ADMIN | Liste des périodes de paie                                                 |
+| `POST` | `/periodes`               | ADMIN                 | Créer une nouvelle période                                                |
+| `PUT`  | `/periodes/{id}/valider`  | ADMIN                 | → VALIDEE (gèle`pointage_semaine_calcule` + `pointage_cumul_periode`) |
+| `PUT`  | `/periodes/{id}/cloturer` | ADMIN                 | → CLOTUREE (immuable, consommée par Paie)                                 |
+| `PUT`  | `/periodes/{id}/rouvrir`  | ADMIN                 | VALIDEE → EN_COURS (tracé`audit_log`, interdit si CLOTUREE)             |
 
 ### Synthèses & Vues
-| Méthode | URL | Rôle requis | Description |
-|---|---|---|---|
-| `GET` | `/synthese/semaine` | AGENT_POINTAGE, ADMIN | `v_pointage_semaine` temps réel |
-| `GET` | `/synthese/mensuelle` | AGENT_POINTAGE, ADMIN | `v_synthese_pointage_mensuelle` temps réel |
-| `GET` | `/synthese/gele/{idPeriode}` | ADMIN | `pointage_cumul_periode` figé (données officielles Paie) |
+
+| Méthode | URL                            | Rôle requis          | Description                                                  |
+| -------- | ------------------------------ | --------------------- | ------------------------------------------------------------ |
+| `GET`  | `/synthese/semaine`          | AGENT_POINTAGE, ADMIN | `v_pointage_semaine` temps réel                           |
+| `GET`  | `/synthese/mensuelle`        | AGENT_POINTAGE, ADMIN | `v_synthese_pointage_mensuelle` temps réel                |
+| `GET`  | `/synthese/gele/{idPeriode}` | ADMIN                 | `pointage_cumul_periode` figé (données officielles Paie) |
 
 ### Dérogations d'Indemnités
-| Méthode | URL | Rôle requis | Description |
-|---|---|---|---|
-| `GET` | `/derogations` | ADMIN | Liste des dérogations d'indemnité individuelles |
-| `POST` | `/derogations` | ADMIN | Créer une dérogation (véhicule fonction, exclusion indemnité…) |
-| `PUT` | `/derogations/{id}/fermer` | ADMIN | Clôturer une dérogation (date_fin = aujourd'hui) |
+
+| Méthode | URL                          | Rôle requis | Description                                                         |
+| -------- | ---------------------------- | ------------ | ------------------------------------------------------------------- |
+| `GET`  | `/derogations`             | ADMIN        | Liste des dérogations d'indemnité individuelles                   |
+| `POST` | `/derogations`             | ADMIN        | Créer une dérogation (véhicule fonction, exclusion indemnité…) |
+| `PUT`  | `/derogations/{id}/fermer` | ADMIN        | Clôturer une dérogation (date_fin = aujourd'hui)                  |
 
 ---
 
 ## 11. Points Tranchés & Décisions de Conception
 
-### ✅ Décisions validées (historique)
+### Decisions validees (historique)
 
-| Point | Décision retenue |
-|---|---|
-| Architecture BDD | **Option A** : 1 table `pointage_jour` unifiée (+ tables de synthèse gelées). Pas de séparation `pointage_brut` / `pointage_journalier_calcule`. |
-| Compensation | **Hebdomadaire** par tronçon proratisé (`seuil = nb_jours_ouvrés × 8h`), pas mensuelle. |
-| Semaine à cheval | **Coupure ferme au 25 du mois**. Chaque journée est rattachée à sa période calendaire réelle. `id_periode_paie` dans le `GROUP BY` de `v_pointage_semaine` gère ça automatiquement. |
-| Gel des données | **Oui** : `pointage_semaine_calcule` + `pointage_cumul_periode` physiquement insérés à la validation. Les vues restent pour l'affichage temps réel uniquement. |
-| Postes autonomes | Journées toujours comptabilisées **8h forfaitaires**. Peuvent pointer volontairement pour capter des indemnités. Les indemnités sont calculées sur le pointage réel, les heures restent forfait. |
-| Dérogations indemnités | Deux mécanismes indépendants : ponctuel (`utilise_vehicule_fonction_jour`) + permanent (`employe_indemnite_derogation`). |
-| `MISSION_EXTERIEURE` | **Supprimé** — non utilisé chez GALAXAM. |
-| Ligne CONGE matérialisée | **Oui**, avec `id_demande_conge` + `genere_automatiquement = TRUE`. Synchronisation bidirectionnelle (validation congé → création ; annulation congé → suppression lignes auto seulement). |
-| Demi-journée congé | **Déjà implémenté** dans le module Congés (`est_demi_journee` sur `demande_conge`). La demi-journée travaillée reste soumise à pointage normal. |
-| 2ᵉ repas | Basé sur l'heure de sortie réelle : > 19h30 → +2 000 Ar ; > 21h00 → +4 000 Ar. Seuils dans `parametre_global`. |
-| Pause non saisie | Reconstituée depuis `ref_site.horaire_continu` : continu → 1h ; discontinu → 2h. |
-| Plafond arrivée anticipée | 1 seule règle par site (`ref_tolerance_arrivee_pointage.heure_plafond`), pas de paliers en escalier. |
-| Verrouillage CLOTUREE | **Strict et définitif** — aucune modification possible, quel que soit le rôle. |
-| Paramètres | Dates de période de paie paramétrables (`periode_paie`). Montants indemnités, seuils HS, diviseur horaire dans `parametre_global` et `site_indemnite_config`. |
+| Point                       | Décision retenue                                                                                                                                                                                           |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Architecture BDD            | **Option A** : 1 table `pointage_jour` unifiée (+ tables de synthèse gelées). Pas de séparation `pointage_brut` / `pointage_journalier_calcule`.                                            |
+| Compensation                | **Hebdomadaire** par tronçon proratisé (`seuil = nb_jours_ouvrés × 8h`), pas mensuelle.                                                                                                         |
+| Semaine à cheval           | **Coupure ferme au 25 du mois**. Chaque journée est rattachée à sa période calendaire réelle. `id_periode_paie` dans le `GROUP BY` de `v_pointage_semaine` gère ça automatiquement.      |
+| Gel des données            | **Oui** : `pointage_semaine_calcule` + `pointage_cumul_periode` physiquement insérés à la validation. Les vues restent pour l'affichage temps réel uniquement.                                |
+| Postes autonomes            | Journées toujours comptabilisées**8h forfaitaires**. Peuvent pointer volontairement pour capter des indemnités. Les indemnités sont calculées sur le pointage réel, les heures restent forfait. |
+| Dérogations indemnités    | Deux mécanismes indépendants : ponctuel (`utilise_vehicule_fonction_jour`) + permanent (`employe_indemnite_derogation`).                                                                              |
+| `MISSION_EXTERIEURE`      | **Supprimé** — non utilisé chez GALAXAM.                                                                                                                                                           |
+| Ligne CONGE matérialisée  | **Oui**, avec `id_demande_conge` + `genere_automatiquement = TRUE`. Synchronisation bidirectionnelle (validation congé → création ; annulation congé → suppression lignes auto seulement).   |
+| Demi-journée congé        | **Déjà implémenté** dans le module Congés (`est_demi_journee` sur `demande_conge`). La demi-journée travaillée reste soumise à pointage normal.                                           |
+| 2ᵉ repas                   | Basé sur l'heure de sortie réelle : > 19h30 → +2 000 Ar ; > 21h00 → +4 000 Ar. Seuils dans`parametre_global`.                                                                                         |
+| Pause non saisie            | Reconstituée depuis`ref_site.horaire_continu` : continu → 1h ; discontinu → 2h.                                                                                                                        |
+| Plafond arrivée anticipée | 1 seule règle par site (`ref_tolerance_arrivee_pointage.heure_plafond`), pas de paliers en escalier.                                                                                                     |
+| Verrouillage CLOTUREE       | **Strict et définitif** — aucune modification possible, quel que soit le rôle.                                                                                                                     |
+| Paramètres                 | Dates de période de paie paramétrables (`periode_paie`). Montants indemnités, seuils HS, diviseur horaire dans `parametre_global` et `site_indemnite_config`.                                      |
 
-### 📋 Point encore ouvert
+### Point encore ouvert
 
 1. **Menus RBAC navigation** (recommandation ci-dessous) : à valider.
 
@@ -609,14 +644,14 @@ Base URL : `/api/pointage`
 
 ## 12. Menus RBAC — Navigation Frontend (Recommandation)
 
-| `id_menu` | Libellé | Icône | Route | Niveau accès |
-|---|---|---|---|---|
-| `POINTAGE_JOURNALIER` | Saisie & Pointage Quotidien | `ClockCheck` | `/pointages/saisie` | AGENT_POINTAGE + ADMIN |
-| `POINTAGE_ANOMALIES` | Gestion des Anomalies | `AlertTriangle` | `/pointages/anomalies` | AGENT_POINTAGE + ADMIN |
-| `POINTAGE_SYNTHESE` | Synthèse Hebdo & Mensuelle | `BarChart2` | `/pointages/synthese` | ADMIN |
-| `POINTAGE_PERIODES` | Périodes de Paie | `CalendarRange` | `/pointages/periodes` | ADMIN |
-| `POINTAGE_CLOTURE` | Validation & Clôture | `Lock` | `/pointages/cloture` | ADMIN |
-| `POINTAGE_DEROGATIONS` | Dérogations d'Indemnités | `UserMinus` | `/pointages/derogations` | ADMIN |
+| `id_menu`              | Libellé                    | Icône            | Route                      | Niveau accès          |
+| ------------------------ | --------------------------- | ----------------- | -------------------------- | ---------------------- |
+| `POINTAGE_JOURNALIER`  | Saisie & Pointage Quotidien | `ClockCheck`    | `/pointages/saisie`      | AGENT_POINTAGE + ADMIN |
+| `POINTAGE_ANOMALIES`   | Gestion des Anomalies       | `AlertTriangle` | `/pointages/anomalies`   | AGENT_POINTAGE + ADMIN |
+| `POINTAGE_SYNTHESE`    | Synthèse Hebdo & Mensuelle | `BarChart2`     | `/pointages/synthese`    | ADMIN                  |
+| `POINTAGE_PERIODES`    | Périodes de Paie           | `CalendarRange` | `/pointages/periodes`    | ADMIN                  |
+| `POINTAGE_CLOTURE`     | Validation & Clôture       | `Lock`          | `/pointages/cloture`     | ADMIN                  |
+| `POINTAGE_DEROGATIONS` | Dérogations d'Indemnités  | `UserMinus`     | `/pointages/derogations` | ADMIN                  |
 
 > **Justification** : 6 menus plutôt que 3, car Synthèse (lecture DAF), Périodes (gestion du cycle) et Dérogations (configuration rare mais critique) ont des profils d'utilisateurs et des fréquences d'usage distincts. Un agent de pointage ne voit que `POINTAGE_JOURNALIER` + `POINTAGE_ANOMALIES`.
 
@@ -624,12 +659,12 @@ Base URL : `/api/pointage`
 
 *Document mis à jour le 20 août 2026 — GALAXAM SIRH — Version 1.1.0*
 
-
 ---
 
 # 13. Annexes : Mises à jour de Conception (Session Août 2026)
 
 # Journal des Modifications — Module Pointage & Présence
+
 ## Session 20–21 Août 2026
 
 > Ce document trace toutes les décisions et modifications de conception arrêtées lors de la session de revue du module Pointage. Il sert de référence avant l'implémentation.
@@ -641,35 +676,46 @@ Base URL : `/api/pointage`
 ### 1.1 `26-08-05-sp0-ref.sql`
 
 #### `ref_fonction` — Colonne ajoutée
+
 ```sql
 -- Ajouté
 dispense_pointage BOOLEAN NOT NULL DEFAULT FALSE
 -- TRUE = poste autonome → présomption de présence 8h/j, pas d'alerte manquant
 ```
 
-#### `parametre_global` — Réorganisé par catégorie
-**Ancienne entrée supprimée** : `SEUIL_SECOND_REPAS` (remplacée par les deux tranches ci-dessous)
+#### `parametre_global` — 13 Paramètres Dynamiques (RH_GENERAL & POINTAGE)
 
-**Ajoutés (catégorie POINTAGE)** :
+Tous les calculs métier (durée légale, plafonds, tranches HS, heures de nuit, déjeuners, extras de soirée, déduction transport TMM) sont **100% dynamiques** et chargés en mémoire via `ParametreGlobal.loadActiveMap(Connection c)` (aucune valeur en dur dans le code Java ou React).
 
-| Code | Valeur | Rôle |
-|---|---|---|
-| `SEUIL_NUIT_DEBUT` | `22:00` | Début travail de nuit (Art. 83 Code Travail MG) |
-| `SEUIL_NUIT_FIN` | `05:00` | Fin travail de nuit |
-| `SEUIL_2ND_REPAS_1` | `19:30` | Seuil min sortie pour 2ᵉ repas tranche 1 |
-| `MONTANT_2ND_REPAS_1` | `2000` | Montant 2ᵉ repas tranche 1 (19h30–21h00) |
-| `SEUIL_2ND_REPAS_2` | `21:00` | Seuil min sortie pour 2ᵉ repas tranche 2 |
-| `MONTANT_2ND_REPAS_2` | `4000` | Montant 2ᵉ repas tranche 2 (> 21h00) |
-| `SEUIL_PAUSE_MIDI_MIN` | `60` | Pause midi min en minutes (détection TMM) |
-| `REDUCTION_DEPLACT_REPAS_MIDI` | `1000` | Déduction déplacement si repas midi reçu (TMM) |
+**Catégorie `RH_GENERAL` (4 paramètres)** :
 
-**Ajouté (catégorie RH_GENERAL)** :
+| Code | Valeur BDD | Rôle & Utilisation Métier |
+| :--- | :---: | :--- |
+| `SEUIL_HEURES_JOUR` | `8` | Base normale quotidienne par jour ouvré ($N \times 8\text{h}$ par tronçon). |
+| `SEUIL_HEURES_SEMAINE` | `40` | Seuil pivot hebdomadaire de déclenchement des heures supplémentaires. |
+| `SEUIL_HS_TRANCHE_1` | `8` | Seuil maximal de la tranche 1 d'HS majorée à **+30%** (au-delà, passage à +50%). |
+| `PLAFOND_HEURES_SUPP_SEMAINE` | `20` | Plafond légal maximal d'heures supplémentaires autorisées par semaine (Décret 2007-563). |
 
-| Code | Valeur | Rôle |
-|---|---|---|
-| `SEUIL_HS_TRANCHE_1` | `8` | Premières Xh HS au taux 30% par tronçon |
+**Catégorie `POINTAGE` (9 paramètres)** :
 
-**Convention** : Les paramètres `PAIE` sont stockés mais ne seront lus que par le module Paie (futur).
+| Code | Valeur BDD | Rôle & Utilisation Métier |
+| :--- | :---: | :--- |
+| `SEUIL_NUIT_DEBUT` | `22:00` | Début du travail de nuit (Art. 83 Code Travail Malgache) $\rightarrow$ calcul automatique dans `PointageSaisieService`. |
+| `SEUIL_NUIT_FIN` | `05:00` | Fin de la tranche nocturne matinale. |
+| `MONTANT_REPAS_MIDI` | `2000` (Ar) | Montant standard du déjeuner journalier si non surchargé par site (`site_indemnite_config`). |
+| `SEUIL_2ND_REPAS_1` | `19:30` | Heure minimale de sortie soirée pour déclencher le 1er extra repas soir. |
+| `MONTANT_2ND_REPAS_1` | `2000` (Ar) | Montant alloué pour sortie entre `19h30` et `21h00`. |
+| `SEUIL_2ND_REPAS_2` | `21:00` | Heure minimale de sortie soirée pour déclencher le 2e extra repas majoré. |
+| `MONTANT_2ND_REPAS_2` | `4000` (Ar) | Montant alloué pour sortie au-delà de `21h00`. |
+| `SEUIL_PAUSE_MIDI_MIN` | `60` (min) | Seuil de détection de pause midi continue (salarié restant déjeuner sur site). |
+| `REDUCTION_DEPLACT_REPAS_MIDI` | `1000` (Ar) | Déduction quotidienne sur l'indemnité déplacement à Tamatave (TMM) quand le repas est pris sur site (2 trajets au lieu de 4). |
+
+#### Architecture des Services Dédiés :
+- `mg.galaxam.sirh.model.paieconfig.ParametreGlobal` : Modèle central et chargeur universel `loadActiveMap(c)` avec accesseurs typés.
+- `mg.galaxam.sirh.model.pointage.service.PointageSaisieService` : Saisie quotidienne, heures de nuit, 0 tolérance aux retards, reconstitution des pauses.
+- `mg.galaxam.sirh.model.pointage.service.PointageAnomalieService` : Détection, classification et régularisation des anomalies.
+- `mg.galaxam.sirh.model.pointage.service.PointageSyntheseService` : Compensation hebdomadaire par tronçon, application de la déduction TMM et synthèse paie consolidée.
+- `mg.galaxam.sirh.model.dashboard.service.DashboardService` : Agrégation des KPIs et alertes RH.
 
 ---
 
@@ -678,22 +724,25 @@ dispense_pointage BOOLEAN NOT NULL DEFAULT FALSE
 #### À faire (prochaine mise à jour SQL)
 
 **`ref_categorie_professionnelle`** — Colonne à ajouter :
+
 ```sql
 est_eligible_hs BOOLEAN NOT NULL DEFAULT TRUE
 -- Seed : UPDATE ref_categorie_professionnelle SET est_eligible_hs = FALSE WHERE code = 'C';
 ```
+
 > Décision : c'est la catégorie (Cadre/Agent), pas la fonction, qui détermine l'éligibilité HS.
 
 **`ref_statut_pointage_jour`** — Nouveaux codes à ajouter :
 
-| Code | decompte_absence | Saisie heures | Origine |
-|---|:---:|:---:|---|
-| `ANOMALIE_SAISIE` | FALSE | Partielle | Scheduler J-1 si pointage incomplet |
-| `ABSENCE_JUSTIFIEE` | TRUE | Non | Saisie manuelle DAF/Agent |
-| `SAMEDI_TRAVAILLE` | FALSE | Oui | Saisie manuelle — mécaniquement = PRESENT |
-| `DIMANCHE_TRAVAILLE` | FALSE | Oui | Saisie manuelle — taux DIMANCHE appliqué |
+| Code                   | decompte_absence | Saisie heures | Origine                                     |
+| ---------------------- | :--------------: | :-----------: | ------------------------------------------- |
+| `ANOMALIE_SAISIE`    |      FALSE      |   Partielle   | Scheduler J-1 si pointage incomplet         |
+| `ABSENCE_JUSTIFIEE`  |       TRUE       |      Non      | Saisie manuelle DAF/Agent                   |
+| `SAMEDI_TRAVAILLE`   |      FALSE      |      Oui      | Saisie manuelle — mécaniquement = PRESENT |
+| `DIMANCHE_TRAVAILLE` |      FALSE      |      Oui      | Saisie manuelle — taux DIMANCHE appliqué  |
 
 **`pointage_jour`** — Colonnes à ajouter :
+
 ```sql
 heures_nuit              DECIMAL(4,2) NOT NULL DEFAULT 0,  -- calculé auto si sortie > SEUIL_NUIT_DEBUT
 montant_deplacement_jour DECIMAL(10,2),  -- NULL = cascade standard L1→L2, valeur = override ponctuel
@@ -701,6 +750,7 @@ horaire_continu_jour     BOOLEAN,        -- NULL = valeur du site, TRUE/FALSE = 
 ```
 
 **`pointage_semaine_calcule`** — Colonnes taux gelés à ajouter :
+
 ```sql
 taux_hs_30_applique    DECIMAL(5,2) NOT NULL DEFAULT 0,
 taux_hs_50_applique    DECIMAL(5,2) NOT NULL DEFAULT 0,
@@ -712,6 +762,7 @@ heures_hs_50           DECIMAL(5,2) NOT NULL DEFAULT 0,   -- MAX(hs_nettes - SEU
 ```
 
 **`pointage_cumul_periode`** — Colonne à ajouter :
+
 ```sql
 heures_nuit_total DECIMAL(6,2) NOT NULL DEFAULT 0,
 ```
@@ -721,15 +772,18 @@ heures_nuit_total DECIMAL(6,2) NOT NULL DEFAULT 0,
 ## 2. Nouvelles Règles de Gestion
 
 ### RG-IND-01 — Cascade Indemnités (4 niveaux, L3 gagne)
+
 ```
 L0  ref_indemnite              existence et activation de l'indemnité
 L1  site_indemnite_config      montant de référence par site
 L2  employe_indemnite_derogation  override individuel permanent
 L3  pointage_jour              override ponctuel du jour (le plus spécifique, gagne toujours)
 ```
+
 L'interface **pré-remplit** les valeurs L1/L2 comme aide à la saisie. L'agent peut toujours modifier L3 pour le jour en cours.
 
 ### RG-PTG-09 bis — Détection "Ne Rentre Pas Midi" (TMM)
+
 ```
 Si ref_site.horaire_continu = FALSE ET
    (heure_entree_am - heure_sortie_matin) < SEUIL_PAUSE_MIDI_MIN (60 min)
@@ -737,9 +791,11 @@ Si ref_site.horaire_continu = FALSE ET
 →  indemnite_repas_recue = TRUE (même si site TMM = 0 par défaut)
 →  montant_deplacement_jour = montant_standard - REDUCTION_DEPLACT_REPAS_MIDI
 ```
+
 L'agent peut aussi cocher manuellement "Horaire continu ce jour" dans l'interface.
 
 ### RG-PTG-15 — Heures de Nuit (22h00–05h00)
+
 ```
 Si heure_sortie_am > SEUIL_NUIT_DEBUT (22:00)
 →  heures_nuit = heure_sortie_am - 22:00
@@ -748,6 +804,7 @@ Si heure_sortie_am > SEUIL_NUIT_DEBUT (22:00)
 ```
 
 ### RG-PTG-16 — Samedi/Dimanche Travaillé
+
 ```
 Samedi :
   → statut SAMEDI_TRAVAILLE
@@ -761,6 +818,7 @@ Dimanche :
 ```
 
 ### RG-AUT-01 — Postes Autonomes (Présomption de Présence)
+
 ```
 ref_fonction.dispense_pointage = TRUE :
   → Compté 8h/jour forfait sur jours ouvrés de la période (présomption présence)
@@ -771,6 +829,7 @@ ref_fonction.dispense_pointage = TRUE :
 ```
 
 ### RG-PTG-04 bis — Ventilation HS_30/HS_50 (complément)
+
 ```
 Par tronçon, après calcul heures_hs_nettes :
   hs_30 = MIN(heures_hs_nettes, SEUIL_HS_TRANCHE_1)   -- parametre_global
@@ -784,6 +843,7 @@ Sommés dans pointage_cumul_periode pour la Paie.
 ## 3. Décisions de Workflow & Rôles
 
 ### Circuit de validation (révisé)
+
 ```
 Agent de Pointage :  saisie quotidienne + corrections + régularisations des oublis
                      (premier responsable de l'exactitude des données)
@@ -796,6 +856,7 @@ Admin :  peut rouvrir une période VALIDEE si erreur (retour EN_COURS + audit_lo
 ```
 
 ### Traçabilité des corrections
+
 `audit_log` existant avec `anciennes_valeurs JSONB` + `nouvelles_valeurs JSONB` — **suffisant**, pas de table dédiée supplémentaire. La logique Java écrit dans `audit_log` à chaque PUT.
 
 ---
@@ -803,6 +864,7 @@ Admin :  peut rouvrir une période VALIDEE si erreur (retour EN_COURS + audit_lo
 ## 4. Spécification UI/UX — Module Pointage
 
 ### Principe KISS (Keep It Simple and Smart)
+
 > Une seule vue principale par onglet, un seul panneau de saisie, des actions contextuelles. L'interface guide l'agent sans le noyer.
 
 ---
@@ -810,6 +872,7 @@ Admin :  peut rouvrir une période VALIDEE si erreur (retour EN_COURS + audit_lo
 ### 4.1 Vue Hebdomadaire — Recommandation
 
 **Pourquoi par semaine (et non jour ou mois) :**
+
 - La logique métier est hebdomadaire (compensation tronçon, HS) → cohérence vue/données
 - 5 à 7 colonnes = lisible même avec 30 employés
 - Le mois entier (26 colonnes) est trop dense pour la saisie — utile seulement en aperçu lecture
@@ -821,7 +884,7 @@ Admin :  peut rouvrir une période VALIDEE si erreur (retour EN_COURS + audit_lo
   └── Vue principale : Grille hebdomadaire (par défaut)
       Navigation : < Semaine précédente | Sem. 26 Nov – 2 Déc | Semaine suivante >
       Filtres : [Site ▼]  [Période ▼]  [Afficher : Tous / Anomalies seulement]
-      
+    
   └── Vue secondaire : Aperçu mensuel (Gantt compact, lecture seule)
       Accessible via onglet "Aperçu période"
 ```
@@ -835,11 +898,11 @@ Site: TNR   Semaine: 26–30 Nov 2025   Période: Déc 2025
 ─────────────────────────────────────────────────────────────────────────
 Employé          │ Lun 26 │ Mar 27 │ Mer 28 │ Jeu 29 │ Ven 30 │ Total
 ─────────────────────────────────────────────────────────────────────────
-RAKETAKA         │  ✅ 8h  │ ⚠️ 7h  │  ✅ 8h  │  🔴 —  │  ✅ 8h  │ 31h
-RASOA            │  ✅ 8h  │  ✅ 8h  │  🟦 C  │  🟦 C  │  ✅ 8h  │ 16h
-RAKOTO [auto]    │  ▪️ 8h  │  ▪️ 8h  │  ▪️ 8h  │  ▪️ 8h  │  ▪️ 8h  │ 40h
+RAKETAKA         │ [P] 8h │ [!] 7h │ [P] 8h │ [A] —  │ [P] 8h │ 31h
+RASOA            │ [P] 8h │ [P] 8h │ [C] —  │ [C] —  │ [P] 8h │ 16h
+RAKOTO [auto]    │ [X] 8h │ [X] 8h │ [X] 8h │ [X] 8h │ [X] 8h │ 40h
 ─────────────────────────────────────────────────────────────────────────
-Légende : ✅ Présent  ⚠️ Anomalie/Retard  🔴 Absent  🟦 Congé  ▪️ Autonome
+Légende : [P] Présent  [!] Retard/Anomalie  [A] Absent  [C] Congé  [X] Autonome
 ```
 
 - **Hover sur cellule** → tooltip : heures + retard + HS + indemnités
@@ -855,7 +918,7 @@ Légende : ✅ Présent  ⚠️ Anomalie/Retard  🔴 Absent  🟦 Congé  ▪�
 ```
 ┌─ SAISIE — RAKETAKA  Mer 28 Nov 2025 ──────────────────────────┐
 │                                                                 │
-│  ▌ POINTAGES (logique métier)                                  │
+│  POINTAGES (logique métier)                                     │
 │  Matin    Entrée [08:12]  Sortie [12:03]                        │
 │  Après-midi Entrée [13:05]  Sortie [17:08]                      │
 │  [ ] Horaire continu ce jour (ne rentre pas le midi)            │
@@ -864,27 +927,28 @@ Légende : ✅ Présent  ⚠️ Anomalie/Retard  🔴 Absent  🟦 Congé  ▪�
 │  → Total : 7h 51min                                             │
 │  → Seuil tronçon : 40h | Cumul semaine : 31h/40h               │
 │                                                                 │
-│  ▌ INDEMNITÉS (ajustables par l'agent)                         │
-│  [☑] Déplacement    pré-coché (L1: TNR standard)               │
-│  [☑] Repas midi     pré-coché (L1: TNR horaire continu)        │
+│  INDEMNITÉS (ajustables par l'agent)                            │
+│  [X] Déplacement    pré-coché (L1: TNR standard)                │
+│  [X] Repas midi     pré-coché (L1: TNR horaire continu)         │
 │  [--] 2ᵉ repas soir  ⟵ automatique si sortie > 19h30          │
 │       Sortie à 17h08 → Non applicable                           │
 │                                                                 │
 │  Statut jour : [PRESENT ▼]                                      │
 │  Motif (si ajustement) : [________________________]             │
 │                                                                 │
-│  [✓ Enregistrer]  [✗ Marquer Absent]  [⚠ Signaler Anomalie]   │
+│  [Enregistrer]  [Marquer Absent]  [Signaler Anomalie]           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **Distinction logique métier / UX :**
-| Élément | Qui décide | Comment affiché |
-|---|---|---|
-| 2ᵉ repas soir | **Backend** (calcul auto heure sortie) | Ligne informative, lecture seule |
-| Repas midi TMM (ne rentre pas) | **Backend** (détection pause < 60 min) OU agent coche | Checkbox + indicateur auto |
-| Déplacement | **Cascade L1→L2** (pré-rempli) | Checkbox modifiable par agent |
-| Heures retard/HS | **Backend** | Affichage calculé, non modifiable |
-| Statut (PRESENT/ABSENT…) | **Agent** | Dropdown |
+
+| Élément                      | Qui décide                                                  | Comment affiché                   |
+| ------------------------------ | ------------------------------------------------------------ | ---------------------------------- |
+| 2ᵉ repas soir                 | **Backend** (calcul auto heure sortie)                 | Ligne informative, lecture seule   |
+| Repas midi TMM (ne rentre pas) | **Backend** (détection pause < 60 min) OU agent coche | Checkbox + indicateur auto         |
+| Déplacement                   | **Cascade L1→L2** (pré-rempli)                       | Checkbox modifiable par agent      |
+| Heures retard/HS               | **Backend**                                            | Affichage calculé, non modifiable |
+| Statut (PRESENT/ABSENT…)      | **Agent**                                              | Dropdown                           |
 
 ---
 
@@ -892,9 +956,9 @@ Légende : ✅ Présent  ⚠️ Anomalie/Retard  🔴 Absent  🟦 Congé  ▪�
 
 ```
 En-tête de la grille :
-  [📋 Appliquer horaires théoriques à tous]  →  pré-remplit les heures théoriques du site
-  [⚠️ Voir anomalies seulement]              →  filtre les lignes avec ANOMALIE_SAISIE
-  [📤 Exporter semaine]                      →  CSV / PDF de la semaine affichée
+  [Appliquer horaires théoriques à tous]  →  pré-remplit les heures théoriques du site
+  [Voir anomalies seulement]              →  filtre les lignes avec ANOMALIE_SAISIE
+  [Exporter semaine]                      →  CSV / PDF de la semaine affichée
 ```
 
 ---
@@ -914,19 +978,19 @@ Clic → bascule en vue hebdomadaire sur la semaine correspondante
 
 ### Ce que le Pointage lui fournit (via `pointage_cumul_periode` gelé)
 
-| Colonne | Description |
-|---|---|
-| `nb_jours_presents` | Jours PRESENT + FERIE_TRAVAILLE + SAMEDI_TRAVAILLE + DIMANCHE_TRAVAILLE |
-| `nb_jours_absence` | Jours ABSENCE_NON_JUSTIFIEE + ABSENCE_JUSTIFIEE |
-| `nb_jours_conge` | Jours CONGE |
-| `nb_jours_ferie_chome` | Jours FERIE_CHOME |
-| `total_heures_travaillees` | Total heures réelles pointées |
-| `heures_hs_30` | HS tranche 30% (somme des tronçons) |
-| `heures_hs_50` | HS tranche 50% |
-| `heures_nuit_total` | Heures de nuit (22h–5h) |
-| `heures_absence_retenues` | Retards nets non compensés → déduction paie |
-| `montant_deplacement` | Total Ar déplacement sur la période |
-| `montant_repas` | Total Ar repas sur la période |
+| Colonne                      | Description                                                             |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| `nb_jours_presents`        | Jours PRESENT + FERIE_TRAVAILLE + SAMEDI_TRAVAILLE + DIMANCHE_TRAVAILLE |
+| `nb_jours_absence`         | Jours ABSENCE_NON_JUSTIFIEE + ABSENCE_JUSTIFIEE                         |
+| `nb_jours_conge`           | Jours CONGE                                                             |
+| `nb_jours_ferie_chome`     | Jours FERIE_CHOME                                                       |
+| `total_heures_travaillees` | Total heures réelles pointées                                         |
+| `heures_hs_30`             | HS tranche 30% (somme des tronçons)                                    |
+| `heures_hs_50`             | HS tranche 50%                                                          |
+| `heures_nuit_total`        | Heures de nuit (22h–5h)                                                |
+| `heures_absence_retenues`  | Retards nets non compensés → déduction paie                          |
+| `montant_deplacement`      | Total Ar déplacement sur la période                                   |
+| `montant_repas`            | Total Ar repas sur la période                                          |
 
 ### Ce que la Paie doit faire (hors périmètre Pointage)
 
@@ -954,10 +1018,10 @@ NETI = BRUTE − CNAPS − OSTIE − IRSA
 
 *Document créé le 21 août 2026 — GALAXAM SIRH — À archiver dans `backend/docs/boky/`*
 
-
-
 ### 13.1 Application stricte de l'éligibilité aux HS (Cadres)
+
 **Précision d'implémentation (Côté Backend Java)** :
+
 - Lors du gel d'une semaine (insertion dans `pointage_semaine_calcule`), le backend DOIT vérifier l'attribut `est_eligible_hs` de la catégorie professionnelle de l'employé.
 - Si `FALSE` (ex: CADRE), les valeurs `heures_hs_nettes`, `heures_hs_30`, et `heures_hs_50` sont **impérativement forcées à 0**.
 - Le déficit (`heures_deficit`), en revanche, continue d'être tracé pour compenser d'éventuels retards sur d'autres semaines. (On ne cherche donc pas à biaiser le calcul amont, on applique la règle au moment du gel).

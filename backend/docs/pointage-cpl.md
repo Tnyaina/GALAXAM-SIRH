@@ -6,6 +6,7 @@
 > - Architecture BDD : **1 table `pointage_jour`** unifiée + 2 tables gelées (`pointage_semaine_calcule`, `pointage_cumul_periode`) — les 3 tables séparées (`pointage_brut`, `pointage_journalier_calcule`, `pointage_cumul_periode`) sont **abandonnées**.
 > - Compensation : **hebdomadaire par tronçon proratisé** (`seuil = 8h × jours ouvrés du tronçon`) — la procédure `sp_calcul_compensation_mensuelle` est **remplacée** par la vue `v_pointage_semaine` + gel dans `pointage_semaine_calcule`.
 > - Semaine à cheval : **coupure ferme au 25 du mois**, pas de report de période.
+> - **Standardisation DTO (Backend-Driven Booleans)** : 0 comparaison de chaînes de statut en dur côté React. `PointageJourDTO` (`isPresent`, `isRetard`, `isAbsent`, `isConge`, `isRepos`, `isEnCours`, `isAnomalie`), `PointageAnomalieDTO` (`isIncomplet`, `isRetard`, `isAbsence`, `isPeriodeCloturee`), `PointageSyntheseMensuelleDTO` (`isPeriodeOuverte`, `isPeriodeCloturee`, `hasAnomalies`).
 > **Éléments à conserver de ce document** : ratios indemnités par site (§Ratios), algorithme calcul dérives horaires, fonctions SQL utilitaires, matrice des statuts quotidiens.
 
 ---
@@ -389,7 +390,7 @@ Le schéma relationnel PostgreSQL s'intègre aux structures existantes du SIRH (
 > c.statut_cloture  
 > FROM pointage_cumul_periode c  
 > JOIN employe e ON c.id_employe = e.id_employe  
-> LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_affectation = 2  
+> LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_rh = 2  
 > LEFT JOIN ref_categorie_professionnelle rcp ON eac.id_categorie_professionnelle = rcp.id_categorie_professionnelle;
 
 ## Procédures Stockées et Fonctions PostgreSQL Métier
@@ -485,7 +486,7 @@ Le schéma relationnel PostgreSQL s'intègre aux structures existantes du SIRH (
 > SELECT rcp.code INTO v_code_categorie  
 > FROM employe_affectation_carriere eac  
 > JOIN ref_categorie_professionnelle rcp ON eac.id_categorie_professionnelle = rcp.id_categorie_professionnelle  
-> WHERE eac.id_employe = p_id_employe AND eac.id_statut_affectation = 2  
+> WHERE eac.id_employe = p_id_employe AND eac.id_statut_rh = 2  
 > LIMIT 1;  
 >   
 > -- 2. Cumul des retards et des HS brutes de la période  
@@ -572,13 +573,18 @@ En cas de détection d'anomalies non résolues (ANOMALIE_INCOMPLET), le système
 
 ### Endpoints RESTful (API Spring Boot)
 
-| **Méthode HTTP** | **Endpoint API**                       | **Rôle Requis**                 | **Description et Usage**                                                         |
-|------------------|----------------------------------------|---------------------------------|----------------------------------------------------------------------------------|
-| GET              | /api/v1/pointages/quotidien            | ROLE_ADMIN, ROLE_AGENT_POINTAGE | Consultation de la grille des pointages journaliers<sup>1</sup>.                 |
-| POST             | /api/v1/pointages/brut                 | ROLE_AGENT_POINTAGE, ROLE_ADMIN | Saisie manuelle ou chargement des pointages Clocker<sup>1</sup>.                 |
-| PUT              | /api/v1/pointages/calcule/{id}/ajuster | ROLE_AGENT_POINTAGE, ROLE_ADMIN | Correction d'une anomalie ou ajustement d'horodatage<sup>1</sup>.                |
-| POST             | /api/v1/pointages/periode/calculer     | ROLE_ADMIN                      | Exécution du moteur de compensation bilatérale (Cadre / Non-Cadre)<sup>1</sup>.  |
-| POST             | /api/v1/pointages/periode/cloturer     | ROLE_ADMIN                      | Verrouillage final de la période et export vers le bulletin de paie<sup>1</sup>. |
+| Méthode HTTP | Endpoint API | Rôle Requis | Description et Usage |
+| :--- | :--- | :--- | :--- |
+| GET | /api/pointages/saisie | ROLE_ADMIN, ROLE_AGENT_POINTAGE | Consultation de la grille journalière avec tolérances et indemnités de site |
+| POST | /api/pointages/saisie/batch | ROLE_AGENT_POINTAGE, ROLE_ADMIN | Sauvegarde par lot, synchronisation pointage_jour et pointage_indemnite_jour |
+| GET | /api/pointages/anomalies | ROLE_ADMIN, ROLE_AGENT_POINTAGE | Détection et filtrage des anomalies, retards et absences |
+| PUT | /api/pointages/anomalies/{idPointage}/regulariser | ROLE_AGENT_POINTAGE, ROLE_ADMIN | Régularisation d'anomalie avec synchronisation stricte pointage_indemnite_jour |
+| GET | /api/pointages/synthese | ROLE_ADMIN, ROLE_AGENT_POINTAGE | Synthèse globale de période et totaux par collaborateur |
+| GET | /api/pointages/synthese/semaines | ROLE_ADMIN, ROLE_AGENT_POINTAGE | Découpage des tronçons hebdomadaires (40h et majorations) |
+| POST | /api/pointages/synthese/calculer-tout | ROLE_AGENT_POINTAGE, ROLE_ADMIN | Consolidation globale 1-clic de toutes les semaines (période EN_COURS) |
+| POST | /api/pointages/synthese/transmettre-daf | ROLE_AGENT_POINTAGE, ROLE_ADMIN | Transmission DAF avec vérification 0 anomalie entreprise et verrou A_VALIDER |
+| POST | /api/pointages/synthese/valider-daf | ROLE_ADMIN | Validation finale DAF, figeage dans pointage_cumul_periode et passage VALIDEE |
+| POST | /api/pointages/synthese/rejeter-daf | ROLE_ADMIN | Rejet DAF avec motif obligatoire et réouverture en EN_COURS |
 
 ## Feuille de Route d'Implémentation
 

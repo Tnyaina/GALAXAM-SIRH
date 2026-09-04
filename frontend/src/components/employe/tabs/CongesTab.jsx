@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Plus, RefreshCw } from 'lucide-react';
+import { Calendar, Plus, RefreshCw, CalendarDays } from 'lucide-react';
 import congeService from '@/api/congeService';
+import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import Alert from '@/components/ui/feedback/Alert';
 import Loading from '@/components/ui/feedback/Loading';
-import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
@@ -16,11 +17,11 @@ import MouvementsSoldeTable from '@/components/conges/MouvementsSoldeTable';
 import DemandeCongeModal from '@/components/conges/DemandeCongeModal';
 
 const formatDateOnly = (dateString) => {
-  if (!dateString) return '';
+  if (!dateString) return '—';
   return new Date(dateString).toLocaleDateString('fr-FR');
 };
 
-export default function CongesTab({ idEmploye, canWrite = false }) {
+export default function CongesTab({ idEmploye, employe, canWrite = false }) {
   const [soldeEmploye, setSoldeEmploye] = useState(null);
   const [mouvements, setMouvements] = useState([]);
   const [demandesEmploye, setDemandesEmploye] = useState([]);
@@ -70,7 +71,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
       setConsommationPool(poolRes || []);
       setReferentiels(refRes);
     } catch (err) {
-      setError(err?.response?.data || err.message || 'Erreur chargement congés de l\'employé.');
+      setError(getErrorMessage(err, 'Erreur chargement congés de l\'employé.'));
     } finally {
       setLoading(false);
     }
@@ -81,7 +82,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
       if (currentPage === 1) {
           loadData();
       } else {
-          setCurrentPage(1); // will trigger the other effect if it was not 1
+          setCurrentPage(1);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,7 +101,7 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
         await congeService.annulerDemande(confirmAnnulerState.idDemande);
         loadData();
       } catch (err) {
-        setError(err?.response?.data || err.message || 'Erreur lors de l\'annulation.');
+        setError(getErrorMessage(err, 'Erreur lors de l\'annulation.'));
       } finally {
         setConfirmAnnulerState({ isOpen: false, idDemande: null });
       }
@@ -110,20 +111,23 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
   if (loading && !soldeEmploye) {
     return (
       <div className="p-8 flex justify-center">
-        <Loading size="md" label="Chargement des congés de l'employé..." />
+        <Loading size="md" label="Chargement des congés du collaborateur..." />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-5 font-sans">
       {/* En-tête de l'onglet avec CTA Soumettre Congé */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 rounded-none">
+      <div className="bg-[var(--color-surface)] dark:bg-[var(--color-surface)] border border-[var(--color-border-subtle)] dark:border-[var(--color-border)] shadow-xs p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[var(--color-brand-500)]" />
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] dark:text-white flex items-center gap-2">
+            <CalendarDays size={15} className="text-brand-500" />
             Situation Individuelle des Congés & Absences
           </h3>
+          <p className="text-xs text-[var(--color-fg-subtle)] mt-0.5">
+            Suivi des droits légaux, compteurs et historique des demandes
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -132,16 +136,18 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
             size="xs"
             onClick={loadData}
             loading={loading}
-            iconLeft={<RefreshCw size={14} />}
-            className="rounded-none text-[var(--color-fg-muted)]"
-          />
+            iconLeft={<RefreshCw size={13} />}
+            className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+          >
+            Actualiser
+          </Button>
           {canWrite && (
             <Button
               variant="primary"
-              size="sm"
+              size="xs"
               onClick={() => { setSelectedDemande(null); setShowDemandeModal(true); }}
-              iconLeft={<Plus size={16} />}
-              className="rounded-none font-bold uppercase"
+              iconLeft={<Plus size={14} />}
+              className="font-bold text-xs"
             >
               Poser un Congé
             </Button>
@@ -151,172 +157,164 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
 
       {error && <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />}
 
-      {/* Widget Synthese Solde */}
-      <SoldeCongeWidget soldeData={soldeEmploye} consommationPool={consommationPool} />
+      {/* Synthèse des Soldes */}
+      <SoldeCongeWidget soldeData={soldeEmploye} consommationPool={consommationPool} employe={employe} />
 
-      {/* Navigation Sous-onglets */}
-      <div className="flex border-b border-[var(--color-border-subtle)] mt-2">
+      {/* Navigation Sous-onglets sobre */}
+      <div className="flex border-b border-[var(--color-border-subtle)] dark:border-[var(--color-border-subtle)] gap-6 text-xs font-bold uppercase tracking-wider">
         <button
+          type="button"
           onClick={() => setActiveSubTab('demandes')}
-          className={`px-4 py-3 text-xs font-bold uppercase tracking-wider  ${
+          className={`pb-3 transition-colors cursor-pointer ${
             activeSubTab === 'demandes'
-              ? 'border-b-2 border-[var(--color-brand-500)] text-[var(--color-brand-500)]'
-              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+              ? 'border-b-2 border-brand-500 text-brand-600 font-extrabold'
+              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] dark:hover:text-white border-b-2 border-transparent'
           }`}
         >
-          Demandes de Congé
+          Demandes de Congé ({totalDemandes})
         </button>
         <button
+          type="button"
           onClick={() => setActiveSubTab('registre')}
-          className={`px-4 py-3 text-xs font-bold uppercase tracking-wider  ${
+          className={`pb-3 transition-colors cursor-pointer ${
             activeSubTab === 'registre'
-              ? 'border-b-2 border-[var(--color-brand-500)] text-[var(--color-brand-500)]'
-              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+              ? 'border-b-2 border-brand-500 text-brand-600 font-extrabold'
+              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] dark:hover:text-white border-b-2 border-transparent'
           }`}
         >
-          Historique Solde
+          Registre des Mouvements de Solde
         </button>
       </div>
 
       {activeSubTab === 'demandes' && (
-        <Card className="rounded-none border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-sm ">
-          <CardHeader>
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[var(--color-brand-500)]" />
-                <CardTitle>Historique des Demandes</CardTitle>
+        <div className="bg-[var(--color-surface)] dark:bg-[var(--color-surface)] border border-[var(--color-border-subtle)] dark:border-[var(--color-border)] shadow-xs p-5 sm:p-6 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[var(--color-border-subtle)] dark:border-[var(--color-border-subtle)]">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] dark:text-white flex items-center gap-2">
+              <Calendar size={14} className="text-brand-500" />
+              Historique des Demandes de Congé
+            </h4>
+            <span className="text-xs text-[var(--color-fg-subtle)] font-mono">
+              {totalDemandes} demande{totalDemandes > 1 ? 's' : ''} enregistrée{totalDemandes > 1 ? 's' : ''}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            {demandesEmploye.length === 0 ? (
+              <div className="p-8">
+                <EmptyState
+                  icon={Calendar}
+                  title="Aucune demande de congé"
+                  description="Aucune demande de congé n'a encore été enregistrée pour ce collaborateur."
+                />
               </div>
-              <span className="text-xs font-data text-[var(--color-fg-muted)]">
-                {totalDemandes} demande{totalDemandes > 1 ? 's' : ''}
-              </span>
-            </div>
-          </CardHeader>
-          <CardBody>
-            <div className="overflow-x-auto">
-              {demandesEmploye.length === 0 ? (
-                <div className="p-8 border-t border-[var(--color-border-subtle)]">
-                    <EmptyState
-                        icon={Calendar}
-                        title="Aucune demande de congé"
-                        description="Aucune demande de congé n'est enregistrée pour cet employé."
-                    />
-                </div>
-              ) : (
+            ) : (
               <Table>
                 <Thead>
                   <Tr>
-                    <Th>Type</Th>
+                    <Th>Type d'Absence</Th>
                     <Th>Statut</Th>
                     <Th>Période</Th>
-                    <Th className="text-center">Décompte</Th>
-                    <Th>Dérogations</Th>
-                    <Th className="text-right">Actions</Th>
+                    <Th className="text-center">Jours Décomptés</Th>
+                    <Th>Particularités RH</Th>
+                    <Th align="right">Actions</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
-                    {demandesEmploye.map((d) => (
-                      <Tr key={d.idDemandeConge}>
-                        <Td>
-                          <div className="font-bold text-[var(--color-fg)]">{d.libelleTypeConge}</div>
-                          {d.libelleMotifEvenement && (
-                            <div className="text-[11px] text-warning-500">{d.libelleMotifEvenement}</div>
-                          )}
-                        </Td>
-                        <Td>
-                          <Badge
-                            variant={
-                              d.codeStatutDemande === 'VALIDE'
-                                ? 'success'
-                                : d.codeStatutDemande === 'REFUSE'
-                                ? 'danger'
-                                : d.codeStatutDemande === 'ANNULE'
-                                ? 'default'
-                                : 'warning'
-                            }
-                            size="sm"
-                          >
-                            {d.libelleStatutDemande}
-                          </Badge>
-                          {d.codeStatutDemande === 'REFUSE' && d.motifRefus && (
-                            <div className="text-[11px] text-danger-500 font-medium mt-1 max-w-xs leading-tight" title={d.motifRefus}>
-                              Motif : {d.motifRefus}
-                            </div>
-                          )}
-                        </Td>
-                        <Td className="font-data text-xs">
-                          Du {formatDateOnly(d.dateDebut)} au {formatDateOnly(d.dateFin)}
-                        </Td>
-                        <Td className="text-center font-data font-extrabold text-[var(--color-brand-500)] text-xs">
-                          {d.nbJoursDecomptes}j
-                        </Td>
-                        <Td className="space-y-1">
-                          {d.extensionPathologiqueMaternite && (
-                            <Badge variant="danger" size="sm">Ext. Pathologique</Badge>
-                          )}
-                          {d.suspendAcquisitionSolde && (
-                            <Badge variant="warning" size="sm">Sans Solde</Badge>
-                          )}
-                          {d.derogationSoldeNegatif && (
-                            <Badge variant="warning" size="sm">Solde Négatif</Badge>
-                          )}
-                          {d.commentaire && (
-                            <div className="text-[11px] text-[var(--color-fg-muted)] max-w-xs truncate" title={d.commentaire}>
-                              {d.commentaire}
-                            </div>
-                          )}
-                        </Td>
-                        <Td className="text-right">
-                          {canWrite && (d.codeStatutDemande === 'EN_ATTENTE' || d.codeStatutDemande === 'BROUILLON') && (
+                  {demandesEmploye.map((d) => (
+                    <Tr key={d.idDemandeConge} className="hover:bg-[var(--color-bg-subtle)]/60 dark:hover:bg-ink-800/30 transition-colors">
+                      <Td>
+                        <Badge variant="default" size="xs" className="font-semibold">
+                          {d.libelleTypeConge || d.codeTypeConge}
+                        </Badge>
+                        {d.libelleMotifEvenement && (
+                          <div className="text-[11px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-medium mt-0.5">{d.libelleMotifEvenement}</div>
+                        )}
+                      </Td>
+                      <Td>
+                        <StatusBadge
+                          status={d.codeStatutDemande}
+                          label={d.libelleStatutDemande}
+                          size="xs"
+                        />
+                        {(d.isRefuse || d.codeStatutDemande === 'REFUSE') && d.motifRefus && (
+                          <div className="text-[10px] text-[var(--color-danger-500)] font-medium mt-1 max-w-xs leading-tight" title={d.motifRefus}>
+                            Motif : {d.motifRefus}
+                          </div>
+                        )}
+                      </Td>
+                      <Td className="font-mono text-xs text-[var(--color-fg)] dark:text-[var(--color-fg)]">
+                        {formatDateOnly(d.dateDebut)} <span className="text-[var(--color-fg-subtle)]">→</span> {formatDateOnly(d.dateFin)}
+                      </Td>
+                      <Td className="text-center font-mono font-bold text-[var(--color-fg)] dark:text-white text-xs">
+                        {d.nbJoursDecomptes} j
+                      </Td>
+                      <Td className="space-y-1">
+                        {d.extensionPathologiqueMaternite && (
+                          <Badge variant="danger" size="xs">Ext. Pathologique</Badge>
+                        )}
+                        {d.suspendAcquisitionSolde && (
+                          <Badge variant="warning" size="xs">Sans Solde</Badge>
+                        )}
+                        {d.derogationSoldeNegatif && (
+                          <Badge variant="warning" size="xs">Solde Négatif</Badge>
+                        )}
+                        {d.commentaire && (
+                          <div className="text-[11px] text-[var(--color-fg-subtle)] max-w-xs truncate" title={d.commentaire}>
+                            {d.commentaire}
+                          </div>
+                        )}
+                      </Td>
+                      <Td align="right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {canWrite && Boolean(d.isModifiable ?? (d.codeStatutDemande === 'EN_ATTENTE' || d.codeStatutDemande === 'BROUILLON')) && (
                             <Button
                               variant="ghost"
                               size="xs"
                               onClick={() => { setSelectedDemande(d); setShowDemandeModal(true); }}
-                              className="rounded-none mr-2 text-brand-500 hover:text-brand-600"
+                              className="text-brand-600 hover:text-brand-700"
                             >
                               Modifier
                             </Button>
                           )}
-                          {canWrite && (d.codeStatutDemande === 'EN_ATTENTE' || d.codeStatutDemande === 'BROUILLON') && (
+                          {canWrite && Boolean(d.isAnnulable ?? (d.codeStatutDemande === 'EN_ATTENTE' || d.codeStatutDemande === 'BROUILLON')) && (
                             <Button
                               variant="ghost"
                               size="xs"
                               onClick={() => setConfirmAnnulerState({ isOpen: true, idDemande: d.idDemandeConge })}
-                              className="rounded-none text-danger-500 hover:text-danger-600"
+                              className="text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)]"
                             >
                               Annuler
                             </Button>
                           )}
-                        </Td>
-                      </Tr>
-                    ))}
+                        </div>
+                      </Td>
+                    </Tr>
+                  ))}
                 </Tbody>
               </Table>
-              )}
-            </div>
-            
-            {/* Pagination */}
-            {totalDemandes > 0 && (
-              <Pagination
-                currentPage={currentPage}
-                totalItems={totalDemandes}
-                pageSize={pageSize}
-                onPageChange={setCurrentPage}
-                onPageSizeChange={setPageSize}
-                className="bg-transparent border-t-0"
-              />
             )}
-          </CardBody>
-        </Card>
+          </div>
+          
+          {/* Pagination */}
+          {totalDemandes > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalItems={totalDemandes}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              className="bg-transparent border-t-0 pt-1"
+            />
+          )}
+        </div>
       )}
 
       {activeSubTab === 'registre' && (
-        <div className="">
-          <MouvementsSoldeTable
-            idEmploye={idEmploye}
-            mouvements={mouvements}
-            onAjustementSuccess={loadData}
-          />
-        </div>
+        <MouvementsSoldeTable
+          idEmploye={idEmploye}
+          mouvements={mouvements}
+          onAjustementSuccess={loadData}
+        />
       )}
 
       {/* Modal création/modification demande */}
@@ -329,15 +327,15 @@ export default function CongesTab({ idEmploye, canWrite = false }) {
         onSuccess={() => { setShowDemandeModal(false); setSelectedDemande(null); loadData(); }}
       />
 
+      {/* Modal confirmation annulation */}
       <ConfirmDialog
         isOpen={confirmAnnulerState.isOpen}
-        title="Annuler la demande"
-        message={`Voulez-vous vraiment annuler la demande #${confirmAnnulerState.idDemande} ?`}
-        confirmLabel="Annuler la demande"
-        cancelLabel="Fermer"
-        variant="danger"
+        title="Annuler la demande de congé"
+        message="Êtes-vous sûr de vouloir annuler cette demande ? Cette action est irréversible."
+        confirmVariant="danger"
+        confirmText="Confirmer l'annulation"
         onConfirm={handleAnnulerConfirm}
-        onClose={() => setConfirmAnnulerState({ isOpen: false, idDemande: null })}
+        onCancel={() => setConfirmAnnulerState({ isOpen: false, idDemande: null })}
       />
     </div>
   );

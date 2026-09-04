@@ -1,9 +1,19 @@
 package mg.galaxam.sirh.cron;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.model.conge.engine.PurgeFifoEngine;
+import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -11,71 +21,102 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Scheduler nocturne pour la purge triennale des droits aux congés.
- * S'exécute chaque nuit à 02:00:00 pour purger au jour le jour les droits ayant atteint 36 mois.
+ * Scheduler nocturne pour la purge triennale des droits aux congés selon la règle FIFO stricte.
+ * 100% de la logique d'agrégation et de calcul FIFO est exécutée en mémoire Java.
  */
 @Component
 public class PurgeCongeScheduler {
 
+    private static final Logger log = LoggerFactory.getLogger(PurgeCongeScheduler.class);
+
     @Autowired
     private DataSource dataSource;
 
-    /**
-     * Exécuté chaque nuit à 02h00.
-     * Calcule au jour le jour pour chaque employé s'il lui reste des jours de congés acquis il y a plus de 36 mois
-     * qui n'ont pas encore été consommés (règle FIFO).
-     * Si oui, génère un mouvement d'EXPIRATION.
-     */
+    @Autowired
+    private PurgeFifoEngine purgeFifoEngine;
+
+    @Autowired
+    private NotificationRhService notificationService;
+
+    public static class EmployeSoldeAccumulateur {
+        public double acquisAnciens = 0.0;
+        public double totalPris = 0.0;
+        public double totalDejaExpire = 0.0;
+    }
+
     @Scheduled(cron = "0 0 2 * * ?")
+    @EventListener(ApplicationReadyEvent.class)
     public void purgerCongesExpires() {
+        log.info("[PurgeCongeScheduler] Lancement de la purge triennale FIFO (Moteur Java)...");
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                // Requête FIFO : Jours Acquis il y a +36 mois VS Jours Consommés au total
-                // Si la différence est positive, ces jours sont périmés.
-                String sql = "SELECT id_employe, " +
-                             "COALESCE(SUM(nb_jours) FILTER (WHERE type_mouvement IN ('ACQUISITION', 'BONIFICATION') " +
-                             "                               AND date_mouvement < CURRENT_DATE - INTERVAL '36 months'), 0) AS total_acquis_anciens, " +
-                             "COALESCE(SUM(-nb_jours) FILTER (WHERE nb_jours < 0), 0) AS total_consomme " +
-                             "FROM mouvement_solde_conge " +
-                             "GROUP BY id_employe " +
-                             "HAVING COALESCE(SUM(nb_jours) FILTER (WHERE type_mouvement IN ('ACQUISITION', 'BONIFICATION') " +
-                             "                                       AND date_mouvement < CURRENT_DATE - INTERVAL '36 months'), 0) " +
-                             "       - COALESCE(SUM(-nb_jours) FILTER (WHERE nb_jours < 0), 0) > 0";
+                // 1. Calcul de la date seuil des 36 mois en Java pur
+                LocalDate seuilPrescription = LocalDate.now().minusMonths(36);
+
+                // 2. Extraction brute des mouvements sans logique complexe en SQL
+                String sql = "SELECT id_employe, type_mouvement, nb_jours, date_mouvement FROM mouvement_solde_conge";
+                Map<Integer, EmployeSoldeAccumulateur> soldesMap = new HashMap<>();
 
                 try (PreparedStatement ps = c.prepareStatement(sql);
                      ResultSet rs = ps.executeQuery()) {
-                    
-                    String insertMouvement = "INSERT INTO mouvement_solde_conge " +
-                                             "(id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
-                                             "VALUES (?, 'EXPIRATION', ?, CURRENT_DATE, 'Purge légale triennale (droits prescrits de +36 mois)')";
-                    
-                    try (PreparedStatement psIn = c.prepareStatement(insertMouvement)) {
-                        while (rs.next()) {
-                            int idEmploye = rs.getInt("id_employe");
-                            double acquisAnciens = rs.getDouble("total_acquis_anciens");
-                            double consomme = rs.getDouble("total_consomme");
-                            double joursAExpirer = acquisAnciens - consomme;
-                            
-                            if (joursAExpirer > 0) {
-                                psIn.setInt(1, idEmploye);
-                                psIn.setDouble(2, -joursAExpirer); // Négatif car c'est un débit
-                                psIn.executeUpdate();
-                                System.out.println("[PurgeCongeScheduler] Employé ID " + idEmploye + " : " + joursAExpirer + " jours expirés purgés.");
-                            }
+                    while (rs.next()) {
+                        int idEmploye = rs.getInt("id_employe");
+                        String typeMouvement = rs.getString("type_mouvement");
+                        double nbJours = rs.getDouble("nb_jours");
+                        Date dateMvtSql = rs.getDate("date_mouvement");
+                        LocalDate dateMvt = dateMvtSql != null ? dateMvtSql.toLocalDate() : LocalDate.now();
+
+                        EmployeSoldeAccumulateur acc = soldesMap.computeIfAbsent(idEmploye, k -> new EmployeSoldeAccumulateur());
+
+                        if (("ACQUISITION".equals(typeMouvement) || "BONIFICATION".equals(typeMouvement)) && dateMvt.isBefore(seuilPrescription)) {
+                            acc.acquisAnciens += nbJours;
+                        } else if ("PRISE".equals(typeMouvement) || ("AJUSTEMENT".equals(typeMouvement) && nbJours < 0)) {
+                            acc.totalPris += (-nbJours);
+                        } else if ("EXPIRATION".equals(typeMouvement)) {
+                            acc.totalDejaExpire += (-nbJours);
                         }
                     }
                 }
-                
+
+                // 3. Application du Domain Engine FIFO et persistance des expirations
+                String insertMouvement = "INSERT INTO mouvement_solde_conge " +
+                                         "(id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
+                                         "VALUES (?, 'EXPIRATION', ?, CURRENT_DATE, 'Purge légale triennale FIFO (droits de +36 mois prescrits)')";
+
+                try (PreparedStatement psIn = c.prepareStatement(insertMouvement)) {
+
+                    for (Map.Entry<Integer, EmployeSoldeAccumulateur> entry : soldesMap.entrySet()) {
+                        int idEmploye = entry.getKey();
+                        EmployeSoldeAccumulateur acc = entry.getValue();
+
+                        double joursAExpirer = purgeFifoEngine.calculerJoursAExpier(acc.acquisAnciens, acc.totalPris, acc.totalDejaExpire);
+
+                        if (joursAExpirer > 0.001) {
+                            psIn.setInt(1, idEmploye);
+                            psIn.setDouble(2, -joursAExpirer);
+                            psIn.executeUpdate();
+
+                            notificationService.creer(c, "ALERTE_ECHEANCE", "HAUTE",
+                                "Congés expirés purgés (FIFO)",
+                                "Attention, " + String.format("%.2f", joursAExpirer)
+                                    + " jours de congés acquis il y a plus de 3 ans ont atteint leur limite d'utilisation et ont été expirés.",
+                                "/employes/" + idEmploye + "?tab=conges",
+                                idEmploye);
+
+                            log.info("[PurgeCongeScheduler] Employé ID {} : {} jours expirés purgés selon FIFO.", idEmploye, joursAExpirer);
+                        }
+                    }
+                }
+
                 c.commit();
-                System.out.println("[PurgeCongeScheduler] Purge triennale FIFO effectuée avec succès.");
+                log.info("[PurgeCongeScheduler] Purge triennale FIFO effectuée avec succès.");
             } catch (Exception e) {
                 c.rollback();
-                System.err.println("[PurgeCongeScheduler] Erreur lors de la purge des congés : " + e.getMessage());
-                e.printStackTrace();
+                log.error("[PurgeCongeScheduler] Erreur lors de la purge des congés : {}", e.getMessage(), e);
             }
         } catch (Exception e) {
-            System.err.println("[PurgeCongeScheduler] Erreur connexion BDD : " + e.getMessage());
+            log.error("[PurgeCongeScheduler] Erreur connexion BDD : {}", e.getMessage(), e);
         }
     }
 }

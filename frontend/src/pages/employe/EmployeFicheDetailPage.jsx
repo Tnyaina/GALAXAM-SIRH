@@ -1,16 +1,19 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
-    ArrowLeft, User, Users, Briefcase, FileText, XCircle, Folder,
-    Power, AlertTriangle, Calendar
+    ArrowLeft, User, Users, Briefcase, XCircle, Folder,
+    AlertTriangle, Calendar, Clock, ArrowRight, Compass
 } from 'lucide-react';
 import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
 import EmployeHeaderCard from '@/components/employe/EmployeHeaderCard';
+import EmployeSideSummaryPanel from '@/components/employe/EmployeSideSummaryPanel';
 import Button from '@/components/ui/forms/Button';
+import { Select } from '@/components/ui/forms/Input';
 import Loading from '@/components/ui/feedback/Loading';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
+import Breadcrumb from '@/components/ui/navigation/Breadcrumb';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 
@@ -20,12 +23,11 @@ const CarriereTab = lazy(() => import('./carriere/CarriereTab'));
 const FichePersonnelleTab = lazy(() => import('@/components/employe/tabs/FichePersonnelleTab'));
 const DocumentsRhTab = lazy(() => import('@/components/employe/tabs/DocumentsRhTab'));
 const FamilleContactsTab = lazy(() => import('@/components/employe/tabs/FamilleContactsTab'));
-const HistoriqueStatutTab = lazy(() => import('@/components/employe/tabs/HistoriqueStatutTab'));
 const CongesTab = lazy(() => import('@/components/employe/tabs/CongesTab'));
+const PointageTab = lazy(() => import('@/components/employe/tabs/PointageTab'));
 const UploadDocumentModal = lazy(() => import('@/components/employe/tabs/UploadDocumentModal'));
 import SEO from '@/components/system/SEO';
-
-const VALID_TABS = ['personnel','documents', 'famille', 'carriere','conges'];
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 
 const TabLoader = () => (
     <div className="p-6">
@@ -38,6 +40,9 @@ export default function EmployeFicheDetailPage() {
     const navigate = useNavigate();
     const { hasPermission } = useAuth();
     const canWrite = hasPermission('EMPLOYE_WRITE');
+    const canValidate = hasPermission('EMPLOYE_VALIDATE');
+    const canReadConges = hasPermission('CONGE_READ');
+    const canReadPointages = hasPermission('POINTAGE_READ');
 
     const [detailData, setDetailData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -46,7 +51,6 @@ export default function EmployeFicheDetailPage() {
 
     const [searchParams, setSearchParams] = useSearchParams();
     const tabFromUrl = searchParams.get('tab');
-    const activeTab = VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'personnel';
 
     const handleTabChange = (tabId) => {
         setSearchParams(prev => {
@@ -56,10 +60,30 @@ export default function EmployeFicheDetailPage() {
         });
     };
 
-    // État Documents RH
     const [documentsData, setDocumentsData] = useState({ documents: [], obligatoiresManquants: [] });
     const [loadingDocs, setLoadingDocs] = useState(false);
     const [typesDoc, setTypesDoc] = useState([]);
+
+    const mainTabs = useMemo(() => {
+        const tabs = [
+            { id: 'personnel', label: 'Fiche Personnelle', icon: <User size={16} /> },
+            { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: <Folder size={16} /> },
+            { id: 'famille', label: 'Famille & Contacts', icon: <Users size={16} /> },
+            { id: 'carriere', label: 'Carrière & Affectation', icon: <Briefcase size={16} /> },
+        ];
+        if (canReadConges) {
+            tabs.push({ id: 'conges', label: 'Congés & Absences', icon: <Calendar size={16} /> });
+        }
+        if (canReadPointages) {
+            tabs.push({ id: 'pointage', label: 'Pointages & Présence', icon: <Clock size={16} /> });
+        }
+        return tabs;
+    }, [documentsData.documents.length, canReadConges, canReadPointages]);
+
+    const activeTab = useMemo(() => {
+        const allowedTabIds = mainTabs.map(t => t.id);
+        return allowedTabIds.includes(tabFromUrl) ? tabFromUrl : 'personnel';
+    }, [mainTabs, tabFromUrl]);
 
     // Modale Téléversement Document
     const [isUploadDocModalOpen, setIsUploadDocModalOpen] = useState(false);
@@ -70,9 +94,13 @@ export default function EmployeFicheDetailPage() {
     const [uploadingDoc, setUploadingDoc] = useState(false);
     const [docErrorMsg, setDocErrorMsg] = useState('');
 
-    // Modale Édition Employé & Désactivation
+    // Modale Suppression Document RH
+    const [docToDelete, setDocToDelete] = useState(null);
+
+    // Modale Édition Employé, Désactivation & Réactivation
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDesactivationModalOpen, setIsDesactivationModalOpen] = useState(false);
+    const [isReactiverModalOpen, setIsReactiverModalOpen] = useState(false);
     const [motifDesactivation, setMotifDesactivation] = useState('Demission');
     const [submitting, setSubmitting] = useState(false);
 
@@ -123,6 +151,7 @@ export default function EmployeFicheDetailPage() {
     }, [id, loadEmployeDetail, loadDocuments, loadTypesDoc]);
 
     const handleSaveForm = async (formData) => {
+        if (submitting) return;
         setSubmitting(true);
         try {
             await employeService.updateEmploye(id, formData);
@@ -131,15 +160,16 @@ export default function EmployeFicheDetailPage() {
             loadEmployeDetail();
         } catch (err) {
             console.error('Erreur modification employé:', err);
-            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Erreur lors de l'enregistrement de la fiche.");
+            throw err;
         } finally {
             setSubmitting(false);
         }
     };
 
-    const handleDesactiverConfirm = async (e) => {
-        e.preventDefault();
+    const handleDesactiverConfirm = async () => {
+        if (submitting) return;
         setError('');
+        setSubmitting(true);
         try {
             await employeService.desactiverEmploye(id, motifDesactivation);
             setIsDesactivationModalOpen(false);
@@ -148,6 +178,25 @@ export default function EmployeFicheDetailPage() {
         } catch (err) {
             console.error('Erreur désactivation:', err);
             setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la désactivation.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleReactiverConfirm = async () => {
+        if (submitting) return;
+        setError('');
+        setSubmitting(true);
+        try {
+            await employeService.reactiverEmploye(id);
+            setIsReactiverModalOpen(false);
+            toast({ title: 'Succès', message: 'Employé réactivé avec succès.', type: 'success' });
+            loadEmployeDetail();
+        } catch (err) {
+            console.error('Erreur réactivation:', err);
+            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la réactivation.');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -163,6 +212,7 @@ export default function EmployeFicheDetailPage() {
 
     const handleUploadDocSubmit = async (e) => {
         e.preventDefault();
+        if (uploadingDoc) return;
         setDocErrorMsg('');
 
         if (!selectedTypeId) {
@@ -188,15 +238,23 @@ export default function EmployeFicheDetailPage() {
         }
     };
 
-    const handleDeleteDoc = async (idDoc, nomDoc) => {
-        if (!window.confirm(`Voulez-vous vraiment supprimer le document "${nomDoc}" ?`)) return;
+    const handleDeleteDoc = (idDoc, nomDoc) => {
+        setDocToDelete({ idDoc, nomDoc });
+    };
+
+    const handleConfirmDeleteDoc = async () => {
+        if (!docToDelete || submitting) return;
+        setSubmitting(true);
         try {
-            await documentRhService.deleteDocument(idDoc);
-            toast({ title: 'Succès', message: `Document "${nomDoc}" supprimé.`, type: 'success' });
+            await documentRhService.deleteDocument(docToDelete.idDoc);
+            toast({ title: 'Succès', message: `Document "${docToDelete.nomDoc}" supprimé.`, type: 'success' });
             loadDocuments();
         } catch (err) {
             console.error('Erreur suppression document:', err);
             setError('Erreur lors de la suppression du document.');
+        } finally {
+            setSubmitting(false);
+            setDocToDelete(null);
         }
     };
 
@@ -239,109 +297,153 @@ export default function EmployeFicheDetailPage() {
     const contactsUrgence = detailData.contactsUrgence || [];
     const comptes = detailData.comptesBancaires || [];
 
-    const mainTabs = [
-        { id: 'personnel', label: 'Fiche Personnelle', icon: <User size={16} /> },
-        { id: 'conges', label: 'Congés & Absences', icon: <Calendar size={16} /> },
-        { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: <Folder size={16} /> },
-        { id: 'famille', label: 'Famille & Contacts', icon: <Users size={16} /> },
-        { id: 'carriere', label: 'Carrière & Affectation', icon: <Briefcase size={16} /> },
-        { id: 'historique', label: 'Historique & Statut', icon: <FileText size={16} /> }
-    ];
+    const hasNoActiveContract = !emp?.idContratActif && !emp?.dateEmbauche && !emp?.nomFonction && (!emp?.statutContrat || emp?.statutContrat === 'Aucun contrat' || emp?.statutContrat === 'BROUILLON');
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO 
                 title={`Fiche de ${emp?.nom} ${emp?.prenom}`} 
                 description={`Fiche individuelle de ${emp?.nom} ${emp?.prenom} (${emp?.matricule})`} 
             />
-            {/* Lien retour */}
-            <Link to="/employes" className="inline-flex items-center gap-2 text-sm text-brand-500 hover:underline font-semibold ">
-                <ArrowLeft size={16} />
-                Retour au Répertoire du personnel
-            </Link>
+            {/* Fil d'Ariane */}
+            <Breadcrumb items={[
+                { label: 'Tableau de bord', href: '/dashboard' },
+                { label: 'Collaborateurs', href: '/employes' },
+                { label: `${emp?.nomComplet || `${emp?.nom || ''} ${emp?.prenom || ''}`.trim() || 'Fiche Collaborateur'}${emp?.matricule ? ` (${emp.matricule})` : ''}` }
+            ]} />
 
             {/* En-tête Profil Employé */}
             <EmployeHeaderCard
                 emp={emp}
                 canWrite={canWrite}
+                canValidate={canValidate}
                 onEdit={() => setIsFormOpen(true)}
                 onDesactiver={() => setIsDesactivationModalOpen(true)}
+                onReactiver={() => setIsReactiverModalOpen(true)}
             />
 
-            {/* Navigation par Onglets Structurés */}
-            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-sm overflow-hidden">
-                <Tabs 
-                    tabs={mainTabs} 
-                    activeTab={activeTab} 
-                    onChange={handleTabChange} 
-                    variant="underline" 
-                />
-
-                {/* Contenu de l'onglet actif (Chargement lazy) */}
-                <div className="p-6">
-
-                    {/* Onglet 1: Fiche Personnelle */}
-                    {activeTab === 'personnel' && (
-                        <Suspense fallback={<TabLoader label="Chargement de la fiche personnelle..." />}>
-                            <FichePersonnelleTab emp={emp} comptes={comptes} />
-                        </Suspense>
-                    )}
-
-                    {/* Onglet 2: Congés & Absences */}
-                    {activeTab === 'conges' && (
-                        <Suspense fallback={<TabLoader label="Chargement des congés de l'employé..." />}>
-                            <CongesTab idEmploye={id} canWrite={canWrite} />
-                        </Suspense>
-                    )}
-
-                    {/* Onglet 2: Documents RH */}
-                    {activeTab === 'documents' && (
-                        <Suspense fallback={<TabLoader label="Chargement des documents RH..." />}>
-                            <DocumentsRhTab
-                                documentsData={documentsData}
-                                loadingDocs={loadingDocs}
-                                canWrite={canWrite}
-                                onOpenUploadModal={handleOpenUploadModal}
-                                onDownloadDoc={handleDownloadDoc}
-                                onDeleteDoc={handleDeleteDoc}
-                            />
-                        </Suspense>
-                    )}
-
-                    {/* Onglet 3: Famille & Contacts */}
-                    {activeTab === 'famille' && (
-                        <Suspense fallback={<TabLoader label="Chargement des contacts familiaux..." />}>
-                            <FamilleContactsTab
-                                conjoint={conjoint}
-                                enfants={enfants}
-                                contactsUrgence={contactsUrgence}
-                            />
-                        </Suspense>
-                    )}
-
-                    {/* Onglet 4: Carrière & Affectation */}
-                    {activeTab === 'carriere' && (
-                        <Suspense fallback={<TabLoader label="Chargement du dossier carrière..." />}>
-                            <CarriereTab
-                                idEmploye={id}
-                                employe={emp}
-                                nomEmploye={`${emp.nom || ''} ${emp.prenom || ''}`}
-                                matriculeEmploye={emp.matricule}
-                                canWrite={canWrite}
-                                autoOpenWorkflowId={searchParams.get('wf')}
-                                onEmployeUpdated={loadEmployeDetail}
-                            />
-                        </Suspense>
-                    )}
-
-                    {/* Onglet 5: Historique & Statut */}
-                    {activeTab === 'historique' && (
-                        <Suspense fallback={<TabLoader label="Chargement de l'historique du dossier..." />}>
-                            <HistoriqueStatutTab emp={emp} />
-                        </Suspense>
-                    )}
-
+            {/* Bandeau d'orientation post-création si pas de contrat actif */}
+            {hasNoActiveContract && canWrite && (
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] border-l-4 border-l-[var(--color-brand-500)] p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs rounded-none">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 flex items-center justify-center bg-[var(--color-bg-subtle)] text-[var(--color-brand-500)] shrink-0 border border-[var(--color-border-subtle)]">
+                            <Compass size={16} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-xs sm:text-sm font-bold text-[var(--color-fg)]">Étape suivante recommandée : Contrat & Affectation</p>
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/20">
+                                    Nouveau collaborateur
+                                </span>
+                            </div>
+                            <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                Cet employé n'a pas encore de contrat actif. Configurez son contrat initial pour l'intégrer aux plannings, feuilles de pointage et gestion des congés.
+                            </p>
+                        </div>
+                    </div>
+                    <Button 
+                        size="xs" 
+                        variant="primary" 
+                        onClick={() => handleTabChange('carriere')}
+                        className="shrink-0"
+                        iconRight={<ArrowRight size={13} />}
+                    >
+                        Configurer le contrat
+                    </Button>
                 </div>
+            )}
+
+            {/* Grille Master-Detail : Contenu Principal (élargi) + Volet Contextuel (largeur compacte) */}
+            <div className="flex flex-col lg:flex-row items-start gap-3.5">
+                {/* Colonne Principale : Onglets & Contenu Métier */}
+                <div className="flex-1 min-w-0 w-full bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xs overflow-hidden">
+                    <Tabs 
+                        tabs={mainTabs} 
+                        activeTab={activeTab} 
+                        onChange={handleTabChange} 
+                        variant="underline" 
+                    />
+
+                    {/* Contenu de l'onglet actif (Chargement lazy) */}
+                    <div className="p-4 sm:p-4.5">
+
+                        {/* Onglet 1: Fiche Personnelle */}
+                        {activeTab === 'personnel' && (
+                            <Suspense fallback={<TabLoader label="Chargement de la fiche personnelle..." />}>
+                                <FichePersonnelleTab emp={emp} comptes={comptes} />
+                            </Suspense>
+                        )}
+
+                        {/* Onglet 2: Documents RH */}
+                        {activeTab === 'documents' && (
+                            <Suspense fallback={<TabLoader label="Chargement des documents RH..." />}>
+                                <DocumentsRhTab
+                                    documentsData={documentsData}
+                                    loadingDocs={loadingDocs}
+                                    canWrite={canWrite}
+                                    onOpenUploadModal={handleOpenUploadModal}
+                                    onDownloadDoc={handleDownloadDoc}
+                                    onDeleteDoc={handleDeleteDoc}
+                                />
+                            </Suspense>
+                        )}
+
+                        {/* Onglet 3: Famille & Contacts */}
+                        {activeTab === 'famille' && (
+                            <Suspense fallback={<TabLoader label="Chargement des contacts familiaux..." />}>
+                                <FamilleContactsTab
+                                    conjoint={conjoint}
+                                    enfants={enfants}
+                                    contactsUrgence={contactsUrgence}
+                                />
+                            </Suspense>
+                        )}
+
+                        {/* Onglet 4: Carrière & Affectation */}
+                        {activeTab === 'carriere' && (
+                            <Suspense fallback={<TabLoader label="Chargement du dossier carrière..." />}>
+                                <CarriereTab
+                                    idEmploye={id}
+                                    employe={emp}
+                                    nomEmploye={`${emp.nom || ''} ${emp.prenom || ''}`}
+                                    matriculeEmploye={emp.matricule}
+                                    canWrite={canWrite}
+                                    canValidate={canValidate}
+                                    autoOpenWorkflowId={searchParams.get('wf')}
+                                    onEmployeUpdated={loadEmployeDetail}
+                                />
+                            </Suspense>
+                        )}
+
+                        {/* Onglet 5: Congés & Absences */}
+                        {activeTab === 'conges' && (
+                            <Suspense fallback={<TabLoader label="Chargement des congés de l'employé..." />}>
+                                <CongesTab idEmploye={id} employe={emp} canWrite={canWrite} />
+                            </Suspense>
+                        )}
+
+                        {/* Onglet 6: Pointages & Présence */}
+                        {activeTab === 'pointage' && (
+                            <Suspense fallback={<TabLoader label="Chargement des pointages de l'employé..." />}>
+                                <PointageTab idEmploye={id} />
+                            </Suspense>
+                        )}
+
+                    </div>
+                </div>
+
+                {/* Volet Contextuel Permanent : Largeur compacte & Sticky */}
+                <aside className="w-full lg:w-64 xl:w-72 shrink-0">
+                    <div className="lg:sticky lg:top-3.5">
+                        <EmployeSideSummaryPanel
+                            emp={emp}
+                            documentsCount={documentsData.documents.length}
+                            activeTab={activeTab}
+                            onNavigateTab={handleTabChange}
+                            canWrite={canWrite}
+                        />
+                    </div>
+                </aside>
             </div>
 
             {/* Modale Téléversement Document RH (Lazy) */}
@@ -379,60 +481,64 @@ export default function EmployeFicheDetailPage() {
             )}
 
             {/* Modale de désactivation */}
-            {isDesactivationModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
-                    <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
-                            <Power size={18} className="text-danger-500" />
-                            Désactiver l'employé
-                        </div>
-                        <form onSubmit={handleDesactiverConfirm}>
-                            <div className="p-6 space-y-4">
-                                <p className="text-sm text-ink-500 dark:text-ink-400">
-                                    Spécifiez le motif de désactivation de l'employé{' '}
-                                    <strong className="text-ink-800 dark:text-white">{emp.nom} {emp.prenom}</strong>.
-                                </p>
-                                <div className="bg-warning-500/10 border border-warning-500/30 p-3 rounded-none text-xs text-warning-700 dark:text-warning-400 flex items-start gap-2">
-                                    <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
-                                    <span>
-                                        <strong>Note RH :</strong> La désactivation passe le profil de l'employé en inactif. Veillez également à clôturer son contrat ou créer le mouvement RH de fin de contrat correspondant dans l'onglet <em>Carrière & Affectation</em>.
-                                    </span>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-wider text-ink-800 dark:text-ink-50">Motif de Désactivation</label>
-                                    <select
-                                        value={motifDesactivation}
-                                        onChange={(e) => setMotifDesactivation(e.target.value)}
-                                        className="w-full px-3 py-2 border border-ink-200 dark:border-ink-700 rounded-none bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:border-brand-500"
-                                    >
-                                        <option value="Demission">Démission</option>
-                                        <option value="Licenciement">Licenciement</option>
-                                        <option value="Fin_contrat">Fin de contrat</option>
-                                        <option value="Retraite">Retraite</option>
-                                        <option value="Deces">Décès</option>
-                                        <option value="Autre">Autre</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsDesactivationModalOpen(false)}
-                                    className="px-4 py-2 text-sm font-semibold hover:bg-ink-200 dark:hover:bg-ink-850 rounded-none  cursor-pointer"
-                                >
-                                    Annuler
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 text-sm font-semibold bg-danger-500 hover:bg-danger-600 text-white rounded-none  cursor-pointer"
-                                >
-                                    Confirmer la Désactivation
-                                </button>
-                            </div>
-                        </form>
+            <ConfirmDialog
+                isOpen={isDesactivationModalOpen}
+                onClose={() => setIsDesactivationModalOpen(false)}
+                onConfirm={handleDesactiverConfirm}
+                title="Désactiver l'employé"
+                message={`Spécifiez le motif de désactivation de l'employé ${emp.nom} ${emp.prenom}.`}
+                confirmLabel="Confirmer la Désactivation"
+                cancelLabel="Annuler"
+                variant="danger"
+                loading={submitting}
+            >
+                <div className="space-y-3 pt-2">
+                    <div className="bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-2.5 rounded-none text-xs text-[var(--color-warning-700)] flex items-start gap-2">
+                        <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                        <span>
+                            <strong>Note RH :</strong> La désactivation passe le profil de l'employé en inactif. Veillez également à clôturer son contrat dans l'onglet <em>Carrière & Affectation</em>.
+                        </span>
                     </div>
+                    <Select
+                        label="Motif de Désactivation"
+                        value={motifDesactivation}
+                        onChange={(e) => setMotifDesactivation(e.target.value)}
+                    >
+                        <option value="Demission">Démission</option>
+                        <option value="Licenciement">Licenciement</option>
+                        <option value="Fin_contrat">Fin de contrat</option>
+                        <option value="Retraite">Retraite</option>
+                        <option value="Deces">Décès</option>
+                        <option value="Autre">Autre</option>
+                    </Select>
                 </div>
-            )}
+            </ConfirmDialog>
+
+            {/* Modale de réactivation */}
+            <ConfirmDialog
+                isOpen={isReactiverModalOpen}
+                onClose={() => setIsReactiverModalOpen(false)}
+                onConfirm={handleReactiverConfirm}
+                title="Réactiver l'employé"
+                message={`Êtes-vous sûr de vouloir réactiver le collaborateur "${emp.nom} ${emp.prenom}" ? Son profil repassera en statut Actif.`}
+                confirmLabel="Réactiver le profil"
+                cancelLabel="Annuler"
+                variant="primary"
+                loading={submitting}
+            />
+
+            {/* Modale de confirmation de suppression de document */}
+            <ConfirmDialog
+                isOpen={!!docToDelete}
+                onClose={() => setDocToDelete(null)}
+                onConfirm={handleConfirmDeleteDoc}
+                title="Supprimer le document RH"
+                message={`Êtes-vous sûr de vouloir supprimer définitivement le document "${docToDelete?.nomDoc}" ? Cette action est irréversible.`}
+                confirmLabel="Supprimer définitivement"
+                cancelLabel="Annuler"
+                variant="danger"
+                loading={submitting}
+            />
         </div>
     );
 }

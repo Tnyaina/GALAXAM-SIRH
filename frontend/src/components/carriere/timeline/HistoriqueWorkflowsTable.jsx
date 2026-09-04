@@ -1,94 +1,116 @@
-import { Clock, Eye } from 'lucide-react';
+import { Clock, AlertCircle, ChevronRight } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import StatusBadge from '@/components/ui/data-display/StatusBadge';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDate } from '@/utils/carriereUtils';
 
 export default function HistoriqueWorkflowsTable({ workflowsList = [], onSelectWorkflowRecap }) {
-    const getStatutBadge = (statutCode) => {
-        switch (statutCode) {
-            case 'ACTIF':
-            case 'ACTIVE':
-            case 'VALIDE':
-                return <Badge variant="success" size="sm">{statutCode}</Badge>;
-            case 'BROUILLON':
-            case 'PLANIFIEE':
-                return <Badge variant="warning" size="sm">{statutCode}</Badge>;
-            case 'ANNULE':
-            case 'ANNULEE':
-            case 'ROMPU':
-                return <Badge variant="danger" size="sm">{statutCode}</Badge>;
-            case 'CLOTURE':
-            case 'HISTORISEE':
-                return <Badge variant="default" size="sm">{statutCode}</Badge>;
-            default:
-                return <Badge variant="primary" size="sm">{statutCode}</Badge>;
-        }
-    };
+    // Tous les types de contrats ont un style neutre uniforme (pas d'arc-en-ciel)
+    const getTypeContratBadgeVariant = () => 'default';
 
     return (
         <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2 pb-2 border-b border-ink-150 dark:border-ink-700">
-                <Clock size={14} /> Historique des Événements & Workflows RH ({workflowsList.length})
-            </h3>
+            <div className="flex items-center justify-between pb-2 border-b border-ink-150 dark:border-ink-700">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2">
+                    <Clock size={14} /> Historique des Événements & Workflows RH ({workflowsList.length})
+                </h3>
+                <span className="text-[11px] text-ink-400">Cliquez sur une ligne pour afficher la fiche récapitulative</span>
+            </div>
 
             {workflowsList.length === 0 ? (
-                <p className="text-xs text-ink-400">Aucun événement RH enregistré.</p>
+                <p className="text-xs text-ink-400 p-4 border border-ink-150 dark:border-ink-700 text-center">
+                    Aucun événement RH enregistré.
+                </p>
             ) : (
-                <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-none">
-                    <table className="w-full text-xs text-left">
-                        <thead>
-                            <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 font-bold uppercase tracking-widest text-[10px]">
-                                <th className="px-4 py-3">Événement RH</th>
-                                <th className="px-4 py-3">Contrat Cible</th>
-                                <th className="px-4 py-3">Poste / Fonction</th>
-                                <th className="px-4 py-3">Date d'Effet</th>
-                                <th className="px-4 py-3">Statut Workflow</th>
-                                <th className="px-4 py-3 text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                            {workflowsList.map((wf) => (
-                                <tr key={wf.idWorkflow} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
-                                    <td className="px-4 py-3 font-semibold">
-                                        {wf.libelleTypeEvenement || wf.codeTypeEvenement}
-                                    </td>
-                                    <td className="px-4 py-3 font-mono font-bold text-brand-500">
-                                        {wf.numeroContratCible || '-'}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {wf.libelleFonction || '-'} ({wf.libelleSite || '-'})
-                                    </td>
-                                    <td className="px-4 py-3 font-mono">
+                <Table>
+                    <Thead>
+                        <Tr>
+                            <Th>Événement RH</Th>
+                            <Th>Type &amp; N° Contrat</Th>
+                            <Th>Poste / Affectation</Th>
+                            <Th>Date d'Effet</Th>
+                            <Th>Statut Workflow</Th>
+                            <Th align="right">Action</Th>
+                        </Tr>
+                    </Thead>
+                    <Tbody>
+                        {workflowsList.map((wf) => {
+                            const isBrouillon = Boolean(wf.isBrouillon);
+                            const isAnnule = Boolean(wf.isAnnule);
+                            const motifAnnulation = wf.motif || wf.commentaire;
+
+                            return (
+                                <Tr 
+                                    key={wf.idWorkflow} 
+                                    onClick={() => onSelectWorkflowRecap(wf)}
+                                    className="cursor-pointer group"
+                                    title="Cliquer pour afficher le récapitulatif détaillé"
+                                >
+                                    <Td>
+                                        <div className="font-semibold text-ink-900 dark:text-ink-100 group-hover:text-brand-500 transition-colors">
+                                            {wf.libelleTypeEvenement || wf.codeTypeEvenement}
+                                        </div>
+                                        {wf.motif && !isAnnule && (
+                                            <div className="text-[10px] text-ink-400 font-normal truncate max-w-[200px]">
+                                                {wf.motif}
+                                            </div>
+                                        )}
+                                    </Td>
+                                    <Td>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            {wf.libelleTypeContrat && (
+                                                <Badge variant={getTypeContratBadgeVariant(wf.libelleTypeContrat)} size="xs">
+                                                    {wf.libelleTypeContrat}
+                                                </Badge>
+                                            )}
+                                            <span className="font-mono font-bold text-brand-500">
+                                                {wf.numeroContratCible || wf.numeroContratSource || '-'}
+                                            </span>
+                                        </div>
+                                    </Td>
+                                    <Td>
+                                        <div className="font-medium text-ink-800 dark:text-ink-200">{wf.libelleFonction || '-'}</div>
+                                        <div className="text-[11px] text-ink-400">
+                                            {wf.libelleSite || '-'}{wf.libelleDepartement ? ` · ${wf.libelleDepartement}` : ''}
+                                        </div>
+                                    </Td>
+                                    <Td className="font-mono text-ink-600 dark:text-ink-300">
                                         {fmtDate(wf.dateEffet)}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {getStatutBadge(wf.codeStatutWorkflow)}
-                                    </td>
-                                    <td className="px-4 py-3 text-right">
-                                        {wf.codeStatutWorkflow === 'BROUILLON' ? (
+                                    </Td>
+                                    <Td>
+                                        <StatusBadge status={wf.codeStatutWorkflow} label={wf.libelleStatutWorkflow} size="sm" />
+                                        {isAnnule && motifAnnulation && (
+                                            <div className="text-[10px] text-danger-500 font-normal mt-0.5 flex items-center gap-1 max-w-[180px] truncate" title={`Motif : ${motifAnnulation}`}>
+                                                <AlertCircle size={10} className="shrink-0" />
+                                                <span className="truncate">Motif : {motifAnnulation}</span>
+                                            </div>
+                                        )}
+                                    </Td>
+                                    <Td align="right">
+                                        {isBrouillon ? (
                                             <Button
-                                                onClick={() => onSelectWorkflowRecap(wf)}
-                                                variant="ghost"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onSelectWorkflowRecap(wf);
+                                                }}
+                                                variant="outline"
                                                 size="xs"
+                                                className="border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
                                             >
                                                 Relecture
                                             </Button>
                                         ) : (
-                                            <Button
-                                                onClick={() => onSelectWorkflowRecap(wf)}
-                                                variant="ghost"
-                                                size="xs"
-                                                iconLeft={<Eye size={14} />}
-                                            >
-                                                Détails
-                                            </Button>
+                                            <span className="text-xs font-semibold text-brand-500 group-hover:text-brand-600 inline-flex items-center gap-0.5">
+                                                Détails <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                                            </span>
                                         )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                                    </Td>
+                                </Tr>
+                            );
+                        })}
+                    </Tbody>
+                </Table>
             )}
         </div>
     );

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { UserPlus, Users, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import employeService from '@/api/employe/employeService';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
@@ -9,17 +9,19 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { useContractReferentiels } from '@/hooks/useContractReferentiels';
+import useDebounce from '@/hooks/useDebounce';
 
 import EmployeStatsCards from '@/components/employe/EmployeStatsCards';
 import EmployeFilterBar from '@/components/employe/EmployeFilterBar';
 import EmployeTable from '@/components/employe/EmployeTable';
 import Pagination from '@/components/ui/navigation/Pagination';
-import SEO from '@/components/system/SEO';
+import PageHeader from '@/components/ui/navigation/PageHeader';
 
 const EmployeFormModal = lazy(() => import('./dossier/EmployeFormModal'));
 
 export default function EmployeList() {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { hasPermission } = useAuth();
     const canWrite = hasPermission('EMPLOYE_WRITE');
     const canValidate = hasPermission('EMPLOYE_VALIDATE');
@@ -31,19 +33,20 @@ export default function EmployeList() {
     const [statsCounts, setStatsCounts] = useState({ total: 0, actifs: 0, inactifs: 0 });
     const [loading, setLoading] = useState(true);
 
-    // Filtres
-    const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'ACTIVE', 'INACTIVE'
-    const [siteFilter, setSiteFilter] = useState('');
-    const [departementFilter, setDepartementFilter] = useState('');
-    const [serviceFilter, setServiceFilter] = useState('');
+    // Filtres synchronisés avec l'URL
+    const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+    const debouncedSearch = useDebounce(searchQuery, 350);
+    const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL'); // 'ALL', 'ACTIVE', 'INACTIVE'
+    const [siteFilter, setSiteFilter] = useState(searchParams.get('site') || '');
+    const [departementFilter, setDepartementFilter] = useState(searchParams.get('dept') || '');
+    const [serviceFilter, setServiceFilter] = useState(searchParams.get('service') || '');
 
     // Tri (Preset par défaut : Hiérarchique par Département -> Service -> Nom)
     const [sortPreset, setSortPreset] = useState('HIERARCHICAL');
     const [columnSortConfig, setColumnSortConfig] = useState({ key: '', direction: 'asc' });
 
     // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
+    const [currentPage, setCurrentPage] = useState(Number(searchParams.get('page')) || 1);
     const [pageSize, setPageSize] = useState(10);
 
     // Modales
@@ -54,6 +57,9 @@ export default function EmployeList() {
     const [employeToDesactiver, setEmployeToDesactiver] = useState(null);
     const [motifDesactivation, setMotifDesactivation] = useState('Demission');
 
+    const [isReactiverModalOpen, setIsReactiverModalOpen] = useState(false);
+    const [employeToReactiver, setEmployeToReactiver] = useState(null);
+
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const toast = useToast();
@@ -61,10 +67,10 @@ export default function EmployeList() {
     const loadEmployes = useCallback(async () => {
         setLoading(true);
         try {
-            // Charger la liste globale pour permettre le multi-filtrage et multi-tri
+            // Charger la liste globale pour permettre le multi-filtrage et multi-tri instantané
             const [data, stats] = await Promise.all([
                 employeService.getEmployes({ size: 1000 }),
-                employeService.getEmployeStats({ q: searchQuery.trim() || undefined })
+                employeService.getEmployeStats()
             ]);
 
             const list = data?.content || (Array.isArray(data) ? data : []);
@@ -80,23 +86,41 @@ export default function EmployeList() {
         } finally {
             setLoading(false);
         }
-    }, [searchQuery]);
+    }, []);
 
     useEffect(() => {
         loadEmployes();
     }, [loadEmployes]);
 
-    // Réinitialiser la pagination si les filtres changent
+    // Synchronisation de l'état avec l'URL (débouncée)
     useEffect(() => {
-        setCurrentPage(1);
-    }, [searchQuery, statusFilter, siteFilter, departementFilter, serviceFilter]);
+        const params = {};
+        if (debouncedSearch.trim()) params.q = debouncedSearch.trim();
+        if (statusFilter && statusFilter !== 'ALL') params.status = statusFilter;
+        if (siteFilter) params.site = siteFilter;
+        if (departementFilter) params.dept = departementFilter;
+        if (serviceFilter) params.service = serviceFilter;
+        if (currentPage > 1) params.page = String(currentPage);
+        setSearchParams(params, { replace: true });
+    }, [debouncedSearch, statusFilter, siteFilter, departementFilter, serviceFilter, currentPage, setSearchParams]);
 
-    // 1. Filtrage combiné en mémoire
+    const isFirstMount = useRef(true);
+
+    // Réinitialiser la pagination si les filtres changent (sauf au premier montage pour préserver ?page=X)
+    useEffect(() => {
+        if (isFirstMount.current) {
+            isFirstMount.current = false;
+            return;
+        }
+        setCurrentPage(1);
+    }, [debouncedSearch, statusFilter, siteFilter, departementFilter, serviceFilter]);
+
+    // 1. Filtrage combiné en mémoire (stabilisé par debounce)
     const filteredEmployes = useMemo(() => {
         return rawEmployes.filter((emp) => {
             // Recherche texte
-            if (searchQuery.trim()) {
-                const q = searchQuery.trim().toLowerCase();
+            if (debouncedSearch.trim()) {
+                const q = debouncedSearch.trim().toLowerCase();
                 const fullName = (emp.nomComplet || `${emp.prenom || ''} ${emp.nom || ''}`).toLowerCase();
                 const matricule = (emp.matricule || '').toLowerCase();
                 const cin = (emp.cinNumero || '').toLowerCase();
@@ -130,7 +154,7 @@ export default function EmployeList() {
 
             return true;
         });
-    }, [rawEmployes, searchQuery, statusFilter, siteFilter, departementFilter, serviceFilter]);
+    }, [rawEmployes, debouncedSearch, statusFilter, siteFilter, departementFilter, serviceFilter]);
 
     // 2. Multi-Tri Logique et Hiérarchique
     const sortedEmployes = useMemo(() => {
@@ -142,8 +166,8 @@ export default function EmployeList() {
             const factor = direction === 'asc' ? 1 : -1;
 
             return list.sort((a, b) => {
-                let valA = '';
-                let valB = '';
+                let valA;
+                let valB;
 
                 switch (key) {
                     case 'matricule':
@@ -186,7 +210,13 @@ export default function EmployeList() {
             const getSite = (emp) => emp.nomSite || emp.site || '';
             const getNom = (emp) => emp.nomComplet || `${emp.nom || ''} ${emp.prenom || ''}`;
             const getMatricule = (emp) => emp.matricule || '';
-            const getDate = (emp) => emp.dateEmbauche || emp.dateDeclaration || emp.createdAt || '';
+            const getAnc = (emp) => {
+                if (emp.ancienneteEffectiveMois !== undefined && emp.ancienneteEffectiveMois !== null) {
+                    return Number(emp.ancienneteEffectiveMois);
+                }
+                const d = emp.dateEmbauche || emp.dateDeclaration || emp.createdAt;
+                return d ? (new Date().getTime() - new Date(d).getTime()) : 0;
+            };
 
             switch (sortPreset) {
                 case 'HIERARCHICAL':
@@ -212,14 +242,23 @@ export default function EmployeList() {
                 case 'MATRICULE_DESC':
                     return getMatricule(b).localeCompare(getMatricule(a), 'fr', { numeric: true });
                 case 'ANCIENNETE_DESC':
-                    return getDate(a).localeCompare(getDate(b));
+                    return getAnc(b) - getAnc(a);
                 case 'ANCIENNETE_ASC':
-                    return getDate(b).localeCompare(getDate(a));
+                    return getAnc(a) - getAnc(b);
                 default:
                     return getNom(a).localeCompare(getNom(b), 'fr');
             }
         });
     }, [filteredEmployes, sortPreset, columnSortConfig]);
+
+    const totalPages = Math.ceil(sortedEmployes.length / pageSize) || 1;
+
+    // Sécurité ajustement : si la page courante dépasse le total de pages
+    useEffect(() => {
+        if (currentPage > totalPages && totalPages > 0) {
+            setCurrentPage(1);
+        }
+    }, [totalPages, currentPage]);
 
     // 3. Découpage pagination
     const paginatedEmployes = useMemo(() => {
@@ -274,18 +313,22 @@ export default function EmployeList() {
                 loadEmployes();
             } else {
                 const created = await employeService.createEmploye(formData);
-                toast({ title: 'Succès', message: 'Nouvel employé créé avec succès.', type: 'success' });
+                toast({ 
+                    title: 'Employé créé avec succès', 
+                    message: 'Redirection vers la fiche carrière pour configurer le contrat initial...', 
+                    type: 'success' 
+                });
                 setIsFormOpen(false);
                 const newEmpId = created?.idEmploye || created?.employe?.idEmploye;
                 if (newEmpId) {
-                    navigate(`/employes/${newEmpId}`);
+                    navigate(`/employes/${newEmpId}?tab=carriere&action=new_contract`);
                 } else {
                     loadEmployes();
                 }
             }
         } catch (err) {
             console.error('Erreur sauvegarde employé:', err);
-            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Erreur lors de l'enregistrement de l'employé.");
+            throw err;
         } finally {
             setSubmitting(false);
         }
@@ -297,7 +340,8 @@ export default function EmployeList() {
             setEmployeToDesactiver(empView);
             setIsDesactivationModalOpen(true);
         } else {
-            handleReactiver(empView.idEmploye);
+            setEmployeToReactiver(empView);
+            setIsReactiverModalOpen(true);
         }
     };
 
@@ -318,13 +362,14 @@ export default function EmployeList() {
         }
     };
 
-    const handleReactiver = async (id) => {
-        if (submitting) return;
+    const handleReactiverConfirm = async () => {
+        if (!employeToReactiver || submitting) return;
         setError('');
         setSubmitting(true);
         try {
-            await employeService.reactiverEmploye(id);
-            toast({ title: 'Succès', message: 'Employé réactivé avec succès.', type: 'success' });
+            await employeService.reactiverEmploye(employeToReactiver.idEmploye);
+            setIsReactiverModalOpen(false);
+            toast({ title: 'Succès', message: `L'employé "${employeToReactiver.nomComplet || employeToReactiver.matricule}" a été réactivé.`, type: 'success' });
             loadEmployes();
         } catch (err) {
             console.error('Erreur réactivation:', err);
@@ -338,43 +383,48 @@ export default function EmployeList() {
     const totalActifs = statsCounts.actifs;
     const totalInactifs = statsCounts.inactifs;
 
-    return (
-        <div className="space-y-6">
-            <SEO title="Fiches Employés" description="Répertoire du personnel et gestion des fiches individuelles." />
-            {/* En-tête de la page */}
-            <div className="bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-brand-500 text-white flex items-center justify-center">
-                        <Users size={24} />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-ink-900 dark:text-white">Fiches Employés</h1>
-                        <p className="text-xs text-ink-400 dark:text-ink-300">Répertoire du personnel — gestion des fiches individuelles</p>
-                    </div>
-                </div>
+    const hasActiveFilters = Boolean(
+        searchQuery.trim() ||
+        statusFilter !== 'ALL' ||
+        siteFilter ||
+        departementFilter ||
+        serviceFilter
+    );
 
-                <div className="flex items-center gap-3">
-                    <Button
-                        onClick={loadEmployes}
-                        variant="ghost"
-                        size="sm"
-                        loading={loading}
-                        iconLeft={<RefreshCw size={16} />}
-                    >
-                        Actualiser
-                    </Button>
-                    {canWrite && (
+    return (
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+            <PageHeader
+                title="Fiches Employés"
+                subtitle="Répertoire du personnel — gestion des fiches individuelles, carrières et documents"
+                icon={Users}
+                breadcrumbs={[
+                    { label: 'Tableau de bord', href: '/dashboard' },
+                    { label: 'Collaborateurs' }
+                ]}
+                actions={
+                    <>
                         <Button
-                            onClick={handleOpenCreate}
-                            variant="primary"
+                            onClick={loadEmployes}
+                            variant="ghost"
                             size="sm"
-                            iconLeft={<UserPlus size={16} />}
+                            loading={loading}
+                            iconLeft={<RefreshCw size={16} />}
                         >
-                            Nouvel Employé
+                            Actualiser
                         </Button>
-                    )}
-                </div>
-            </div>
+                        {canWrite && (
+                            <Button
+                                onClick={handleOpenCreate}
+                                variant="primary"
+                                size="sm"
+                                iconLeft={<UserPlus size={16} />}
+                            >
+                                Nouvel Employé
+                            </Button>
+                        )}
+                    </>
+                }
+            />
 
             {/* Notifications */}
             {error && (
@@ -411,20 +461,24 @@ export default function EmployeList() {
                     setColumnSortConfig({ key: '', direction: 'asc' });
                 }}
                 onResetFilters={handleResetFilters}
+                totalFound={sortedEmployes.length}
             />
 
             {/* Tableau des employés */}
-            <div className="flex flex-col border border-ink-150 dark:border-ink-700 bg-white dark:bg-ink-900 shadow-sm">
+            <div className="flex flex-col border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
                 <EmployeTable
                     employes={paginatedEmployes}
                     loading={loading}
                     canWrite={canWrite}
                     canValidate={canValidate}
+                    hasActiveFilters={hasActiveFilters}
+                    onOpenCreate={handleOpenCreate}
                     onOpenDetail={handleOpenDetail}
                     onOpenEdit={handleOpenEdit}
                     onToggleStatus={handleToggleStatus}
                     sortConfig={columnSortConfig}
                     onSortChange={handleSortChange}
+                    onResetFilters={handleResetFilters}
                 />
                 
                 {/* Pagination */}
@@ -435,7 +489,7 @@ export default function EmployeList() {
                         pageSize={pageSize}
                         onPageChange={setCurrentPage}
                         onPageSizeChange={setPageSize}
-                        className="border-none shadow-none bg-ink-50 dark:bg-ink-950"
+                        className="border-t border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-none"
                     />
                 )}
             </div>
@@ -478,6 +532,19 @@ export default function EmployeList() {
                     <option value="Autre">Autre</option>
                 </Select>
             </ConfirmDialog>
+
+            {/* Modale de réactivation */}
+            <ConfirmDialog
+                isOpen={isReactiverModalOpen}
+                onClose={() => setIsReactiverModalOpen(false)}
+                onConfirm={handleReactiverConfirm}
+                title="Réactiver le collaborateur"
+                message={`Êtes-vous sûr de vouloir réactiver la fiche de "${employeToReactiver?.nomComplet || employeToReactiver?.matricule || ''}" ? Son profil repassera en statut Actif.`}
+                confirmLabel="Réactiver le profil"
+                cancelLabel="Annuler"
+                variant="primary"
+                loading={submitting}
+            />
         </div>
     );
 }

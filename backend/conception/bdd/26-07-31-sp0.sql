@@ -61,7 +61,8 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 
 -- 2. Sous-menus de Niveau 2 - Gestion du Personnel
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-('PERS_EMPLOYES', 'Fiches Employés', 'Contact', '/employes', 1, 2, 'GESTION_PERSONNEL');
+('PERS_EMPLOYES', 'Fiches Employés', 'Contact', '/employes', 1, 2, 'GESTION_PERSONNEL'),
+('PERS_CARRIERES', 'Contrats & Carrières', 'Briefcase', '/carrieres', 2, 2, 'GESTION_PERSONNEL');
 
 -- 3. Sous-menus de Niveau 2 - Congés & Absences
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
@@ -82,6 +83,7 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'DASHBOARD'),
 (1, 'GESTION_PERSONNEL'),
 (1, 'PERS_EMPLOYES'),
+(1, 'PERS_CARRIERES'),
 (1, 'CONGES_MODULE'),
 (1, 'CONGES_GENERAL'),
 (1, 'CONGES_DEMANDES'),
@@ -96,3 +98,28 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 -- ROLE_AGENT_POINTAGE (id_role 2) : Accès au Tableau de bord et au module de Pointage
 INSERT INTO role_menu (id_role, id_menu) VALUES
 (2, 'POINTAGE');
+
+DELETE FROM ref_menu WHERE id_menu IN ('POINTAGE_CLOTURE', 'POINTAGE_DEROGATIONS');
+
+INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
+    ('POINTAGE_GENERAL',     'Vue Globale & Pilotage',     'BarChart2',     '/pointages?tab=vue-globale', 1, 2, 'POINTAGE'),
+    ('POINTAGE_JOURNALIER',  'Saisie Quotidienne',          'ClockCheck',    '/pointages?tab=saisie',      2, 2, 'POINTAGE'),
+    ('POINTAGE_ANOMALIES',   'Gestion des Anomalies',       'AlertTriangle', '/pointages?tab=anomalies',   3, 2, 'POINTAGE'),
+    ('POINTAGE_SYNTHESE',    'Synthèse Hebdo & Mensuelle',  'FileText',      '/pointages?tab=synthese',    4, 2, 'POINTAGE'),
+    ('POINTAGE_PERIODES',    'Périodes de Paie & Clôture',  'CalendarRange', '/pointages?tab=periodes',    5, 2, 'POINTAGE')
+ON CONFLICT (id_menu) DO UPDATE SET libelle = EXCLUDED.libelle, href = EXCLUDED.href, rang = EXCLUDED.rang, icone = EXCLUDED.icone;
+
+-- Attribution fine par rôle :
+-- id_role 1 = ROLE_ADMIN / DAF (accès complet : Vue Globale, Saisie, Anomalies, Synthèse, Périodes & Clôture)
+-- id_role 2 = ROLE_AGENT_POINTAGE (accès exploitation : Vue Globale, Saisie Quotidienne, Anomalies, Synthèse Hebdo)
+INSERT INTO role_menu (id_role, id_menu) VALUES
+    (1, 'POINTAGE_GENERAL'),
+    (1, 'POINTAGE_JOURNALIER'),
+    (1, 'POINTAGE_ANOMALIES'),
+    (1, 'POINTAGE_SYNTHESE'),
+    (1, 'POINTAGE_PERIODES'),
+    (2, 'POINTAGE_GENERAL'),
+    (2, 'POINTAGE_JOURNALIER'),
+    (2, 'POINTAGE_ANOMALIES'),
+    (2, 'POINTAGE_SYNTHESE')
+ON CONFLICT DO NOTHING;

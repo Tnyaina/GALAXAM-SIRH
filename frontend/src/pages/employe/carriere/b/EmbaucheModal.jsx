@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Briefcase, ShieldAlert, Save, X, FileSignature, Eye, EyeOff } from 'lucide-react';
+import { Briefcase, ShieldAlert, Save, X, FileSignature, Eye, EyeOff, UserPlus, RotateCcw, Handshake } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Textarea } from '@/components/ui/forms/Input';
 import Loading from '@/components/ui/feedback/Loading';
@@ -17,10 +17,15 @@ export default function EmbaucheModal({
     onClose,
     idEmploye,
     nomEmploye,
+    contratsList = [],
     initialData = null,
     onSuccess,
 }) {
     const isEditMode = !!initialData;
+    const hasHistory = Array.isArray(contratsList) && contratsList.length > 0;
+    const dernierContrat = hasHistory
+        ? (contratsList.find(ct => ct && ct.codeStatutContrat !== 'BROUILLON' && ct.codeStatutContrat !== 'ANNULE') || contratsList[0])
+        : null;
 
     const {
         filiales, sites, departements, services, fonctions,
@@ -29,6 +34,7 @@ export default function EmbaucheModal({
     } = useContractReferentiels(isOpen, idEmploye);
 
     const [formData, setFormData] = useState({
+        codeTypeEvenement: hasHistory ? 'REPRISE_ANCIENNETE' : 'EMBAUCHE_INITIALE',
         idFiliale: '', idTypeContrat: '', idTypeIntervenant: '', dateDebut: '', dateFin: '',
         dateSignature: '', comptabiliseEffectif: true, numeroContrat: '', description: '',
         commentaire: '', aPeriodeEssai: false, dureeEssaiMois: '3', dateFinEssai: '',
@@ -50,6 +56,15 @@ export default function EmbaucheModal({
             setMounted(false);
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -147,30 +162,36 @@ export default function EmbaucheModal({
             return;
         }
 
+        const idContratPrec = (formData.codeTypeEvenement === 'REPRISE_ANCIENNETE' || formData.codeTypeEvenement === 'REPRISE_CONSULTANT')
+            ? (dernierContrat?.idContrat || null)
+            : null;
+
         const payload = {
-            idFiliale: parseInt(formData.idFiliale),
-            idTypeContrat: parseInt(formData.idTypeContrat),
-            idTypeIntervenant: parseInt(formData.idTypeIntervenant),
-            dateDebut: formData.dateDebut,
-            dateEffet: formData.dateDebut,
-            dateFin: formData.dateFin || null,
-            dateSignature: formData.dateSignature,
+            codeTypeEvenement: formData.codeTypeEvenement || 'EMBAUCHE_INITIALE',
+            idContratPrecedent: idContratPrec,
+            idFiliale: formData.idFiliale ? parseInt(formData.idFiliale) : null,
+            idTypeContrat: formData.idTypeContrat ? parseInt(formData.idTypeContrat) : null,
+            idTypeIntervenant: formData.idTypeIntervenant ? parseInt(formData.idTypeIntervenant) : null,
+            dateDebut: formData.dateDebut || null,
+            dateEffet: formData.dateDebut || null,
+            dateFin: formData.dateFin ? formData.dateFin : null, // Sécurité : chaîne vide -> null
+            dateSignature: formData.dateSignature || null,
             comptabiliseEffectif: formData.comptabiliseEffectif,
-            numeroContrat: formData.numeroContrat || null,
-            descriptionContrat: formData.description || null,
-            commentaireContrat: formData.commentaire || null,
+            numeroContrat: formData.numeroContrat ? formData.numeroContrat.trim() : null,
+            descriptionContrat: formData.description ? formData.description.trim() : null,
+            commentaireContrat: formData.commentaire ? formData.commentaire.trim() : null,
             dureeEssaiMois: formData.aPeriodeEssai && formData.dureeEssaiMois ? parseInt(formData.dureeEssaiMois) : null,
-            dateFinEssai: formData.aPeriodeEssai && formData.dateFinEssai ? formData.dateFinEssai : null,
-            idSite: parseInt(formData.idSite),
-            idDepartement: parseInt(formData.idDepartement),
-            idService: parseInt(formData.idService),
-            idFonction: parseInt(formData.idFonction),
-            idResponsableHierarchique: formData.idResponsableHierarchique ? parseInt(formData.idResponsableHierarchique) : null,
-            idCategorieProfessionnelle: parseInt(formData.idCategorieProfessionnelle),
-            idModeCalculPaie: parseInt(formData.idModeCalculPaie),
+            dateFinEssai: formData.aPeriodeEssai && formData.dateFinEssai ? formData.dateFinEssai : null, // Sécurité : chaîne vide -> null
+            idSite: formData.idSite ? parseInt(formData.idSite) : null,
+            idDepartement: formData.idDepartement ? parseInt(formData.idDepartement) : null,
+            idService: formData.idService ? parseInt(formData.idService) : null,
+            idFonction: formData.idFonction ? parseInt(formData.idFonction) : null,
+            idResponsableHierarchique: formData.idResponsableHierarchique ? parseInt(formData.idResponsableHierarchique) : null, // Sécurité
+            idCategorieProfessionnelle: formData.idCategorieProfessionnelle ? parseInt(formData.idCategorieProfessionnelle) : null,
+            idModeCalculPaie: formData.idModeCalculPaie ? parseInt(formData.idModeCalculPaie) : null,
             salaireBase: formData.salaireBase ? parseFloat(String(formData.salaireBase).replace(/\s/g, '').replace(/,/g, '.')) : 0,
-            descriptionAffectation: formData.descriptionAffectation || null,
-            commentaireAffectation: formData.commentaireAffectation || null,
+            descriptionAffectation: formData.descriptionAffectation ? formData.descriptionAffectation.trim() : null,
+            commentaireAffectation: formData.commentaireAffectation ? formData.commentaireAffectation.trim() : null,
         };
 
         setSubmitting(true);
@@ -208,8 +229,32 @@ export default function EmbaucheModal({
     const paieObj = modesPaie.find(m => String(m.idModeCalculPaie || m.idModeCalcul) === String(formData.idModeCalculPaie));
     const respObj = responsables.find(r => String(r.idEmploye) === String(formData.idResponsableHierarchique));
 
+    const optionsNature = [
+        {
+            code: 'EMBAUCHE_INITIALE',
+            title: 'Nouvelle Embauche',
+            icon: UserPlus,
+            desc: 'Nouveau cycle indépendant. L\'ancienneté et les compteurs de congés repartent de zéro.',
+        },
+        {
+            code: 'REPRISE_ANCIENNETE',
+            title: 'Réintégration / Reprise d\'ancienneté',
+            icon: RotateCcw,
+            desc: `Raccroche ce contrat au contrat précédent (N° ${dernierContrat?.numeroContrat || 'Historique'}) pour maintenir les droits acquis.`,
+        },
+        {
+            code: 'REPRISE_CONSULTANT',
+            title: 'Consultant / Prestation',
+            icon: Handshake,
+            desc: `Maintien de l'ancienneté (N° ${dernierContrat?.numeroContrat || 'Historique'}) avec application du régime fiscal consultant / prestataire.`,
+        },
+    ];
+
     return (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto   ${mounted ? 'opacity-100' : 'opacity-0'}`}>
+        <div 
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto ${mounted ? 'opacity-100' : 'opacity-0'}`}
+        >
             <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl w-full max-w-[1440px] max-h-[95vh] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="px-7 py-4 border-b border-ink-150 dark:border-ink-700 flex items-center justify-between bg-ink-50/50 dark:bg-ink-950/40">
@@ -219,8 +264,12 @@ export default function EmbaucheModal({
                         </div>
                         <div>
                             <h2 className="font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
-                                {isEditMode ? 'Corriger le Brouillon d\'Embauche' : 'Nouvelle Embauche Initiale'}
-                                <span className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono rounded-none">
+                                {isEditMode
+                                    ? 'Corriger le Brouillon de Contrat'
+                                    : hasHistory
+                                        ? 'Contractualisation (Réembauche / Réintégration)'
+                                        : 'Nouvelle Embauche Initiale'}
+                                <span className="text-xs px-2 py-0.5 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] border border-[var(--color-warning-500)]/20 font-mono rounded-none">
                                     BROUILLON
                                 </span>
                             </h2>
@@ -247,16 +296,71 @@ export default function EmbaucheModal({
                 {/* Body split 2 colonnes 50/50 : Formulaire (6/12) - Aperçu Contrat (6/12) */}
                 <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-ink-150 dark:divide-ink-700">
                     {/* Colonne 1 : Formulaire de Saisie (6/12) */}
-                    <div className={`p-7 space-y-6 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
+                    <div className={`p-4 sm:p-5 space-y-4 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
                         {loadingRef ? (
                             <Loading display="page" label="Chargement des référentiels..." />
                         ) : (
-                            <form id="embauche-form" onSubmit={handleSubmit} className="space-y-6">
+                            <form id="embauche-form" onSubmit={handleSubmit} className="space-y-4">
                                 {errorMsg && (
                                     <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-none p-3 text-xs flex items-center gap-2">
                                         <ShieldAlert size={16} />
                                         {errorMsg}
                                     </div>
+                                )}
+
+                                {/* Nature de la contractualisation si collaborateur inactif avec historique */}
+                                {hasHistory && !isEditMode && (
+                                    <section className="space-y-3 pb-5 border-b border-ink-150 dark:border-ink-700">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                                                Nature de la Contractualisation
+                                            </span>
+                                            <span className="text-[11px] text-ink-400">
+                                                Dernier contrat : {dernierContrat?.numeroContrat || 'Clôturé'}
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-2.5">
+                                            {optionsNature.map((opt) => {
+                                                const isSel = formData.codeTypeEvenement === opt.code;
+                                                return (
+                                                    <div
+                                                        key={opt.code}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onClick={() => setField('codeTypeEvenement', opt.code)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                                e.preventDefault();
+                                                                setField('codeTypeEvenement', opt.code);
+                                                            }
+                                                        }}
+                                                        className={`p-3 border rounded-none cursor-pointer transition-all ${
+                                                            isSel
+                                                                ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500/30'
+                                                                : 'border-ink-200 dark:border-ink-800 hover:border-brand-300 bg-white dark:bg-ink-950/40'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-bold text-ink-900 dark:text-white flex items-center gap-2">
+                                                                {opt.icon && <opt.icon size={15} className={isSel ? 'text-brand-500' : 'text-ink-400'} />}
+                                                                {opt.title}
+                                                            </span>
+                                                            <input
+                                                                type="radio"
+                                                                name="codeTypeEvenement"
+                                                                checked={isSel}
+                                                                onChange={() => setField('codeTypeEvenement', opt.code)}
+                                                                className="text-brand-500 focus:ring-brand-500"
+                                                            />
+                                                        </div>
+                                                        <p className="text-[11px] text-ink-400 mt-1 leading-normal pl-6">
+                                                            {opt.desc}
+                                                        </p>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </section>
                                 )}
 
                                 {/* Section 1 : Contrat */}
@@ -308,9 +412,6 @@ export default function EmbaucheModal({
                                 <FileSignature size={14} className="text-brand-500" />
                                 Aperçu de la Convention / Contrat
                             </h3>
-                            <span className="text-[10px] font-mono font-bold text-brand-500 uppercase tracking-widest bg-brand-500/10 px-2 py-0.5 rounded-none">
-                                Temps Réel
-                            </span>
                         </div>
 
                         <ContractPreview
@@ -333,7 +434,7 @@ export default function EmbaucheModal({
                 {/* Footer Boutons */}
                 <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center">
                     <p className="text-xs text-ink-400 hidden sm:block">
-                        Le contrat et l'affectation restent au statut <strong className="text-amber-500">BROUILLON</strong> tant qu'ils ne sont pas validés.
+                        Le contrat et l'affectation restent au statut <strong className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]">BROUILLON</strong> tant qu'ils ne sont pas validés.
                     </p>
                     <div className="flex gap-3 ml-auto">
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">

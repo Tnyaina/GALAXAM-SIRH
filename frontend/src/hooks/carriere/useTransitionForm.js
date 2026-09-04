@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import contratService from '@/api/employe/contratService';
 import { useContractReferentiels } from '@/hooks/useContractReferentiels';
 import { fmtDateInput } from '@/utils/carriereUtils';
+import { 
+    EVENT_TARGET_CONFIG, 
+    detectSourceContractCode, 
+    getRelevantEventTypes 
+} from '@/utils/carriereTransitionMatrix';
 
 export function useTransitionForm({
     isOpen,
@@ -21,7 +26,7 @@ export function useTransitionForm({
         typesEvenementRh = [], loading: loadingRef,
     } = useContractReferentiels(isOpen, idEmploye);
 
-    const typesEvenementList = typesEvenementRh || [];
+    const typesEvenementList = useMemo(() => typesEvenementRh || [], [typesEvenementRh]);
 
     const [formData, setFormData] = useState({
         codeTypeEvenement: '', idFiliale: '', idTypeContrat: '', idTypeIntervenant: '',
@@ -47,61 +52,126 @@ export function useTransitionForm({
         }
     }, [isOpen]);
 
-    const exigeNouveauContrat = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT']
-        .includes(formData.codeTypeEvenement);
+    // 1. Détecter le code du contrat source (STAGE, CDD, CDI, etc.) délégué à l'utilitaire
+    const sourceContractCode = useMemo(() => {
+        return detectSourceContractCode(contratActif, typesContrat);
+    }, [contratActif, typesContrat]);
 
+    // 2. Filtrer et annoter la liste des événements pertinents délégué à la matrice
+    const relevantEvTypes = useMemo(() => {
+        return getRelevantEventTypes(typesEvenementList, sourceContractCode);
+    }, [typesEvenementList, sourceContractCode]);
+
+    // 3. Helper pour appliquer l'auto-sélection de la matrice
+    const applyTargetEventConfig = useCallback((evCode, currentFormData) => {
+        const config = EVENT_TARGET_CONFIG[evCode];
+        if (!config) return currentFormData;
+
+        const updated = { ...currentFormData };
+
+        if (config.defaultTypeContrat && typesContrat.length > 0) {
+            const tc = typesContrat.find(t => t.code === config.defaultTypeContrat);
+            if (tc) {
+                updated.idTypeContrat = String(tc.idTypeContrat);
+            }
+        }
+
+        if (config.defaultTypeIntervenant && typesIntervenant.length > 0) {
+            const ti = typesIntervenant.find(t => t.code === config.defaultTypeIntervenant);
+            if (ti) {
+                updated.idTypeIntervenant = String(ti.idTypeIntervenant);
+            }
+        }
+
+        if (config.autoCheckEssai !== undefined) {
+            updated.aPeriodeEssai = config.autoCheckEssai;
+            updated.dureeEssaiMois = config.defaultEssaiMois || '0';
+            if (!config.autoCheckEssai) {
+                updated.dateFinEssai = '';
+            }
+        }
+
+        return updated;
+    }, [typesContrat, typesIntervenant]);
+
+    const typeEvObj = typesEvenementList.find(te => te.code === formData.codeTypeEvenement) || typeEvenement;
+    const exigeNouveauContrat = typeEvObj?.exigeNouveauContrat ?? typeEvObj?.isExigeNouveauContrat ?? ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT', 'REPRISE_ANCIENNETE'].includes(formData.codeTypeEvenement);
+    const autorisePeriodeEssai = typeEvObj?.autorisePeriodeEssai ?? typeEvObj?.isAutorisePeriodeEssai ?? (exigeNouveauContrat && formData.codeTypeEvenement !== 'RENOUVELLEMENT_CDD');
+
+    // 4. Initialisation du formulaire
     useEffect(() => {
         if (!isOpen) return;
 
-        const defaultTypeEv = typeEvenement?.code || 'PROMOTION';
+        // Déterminer l'événement par défaut éligible
+        let defaultTypeEv = typeEvenement?.code;
+        if (!defaultTypeEv) {
+            const firstEligible = relevantEvTypes.find(e => e.isEligible);
+            defaultTypeEv = firstEligible ? firstEligible.code : 'PROMOTION';
+        }
+
         const today = fmtDateInput(new Date());
 
         if (initialData) {
             const c = initialData.contratCible || initialData.contratSource || initialData || contratActif || {};
             const a = initialData.affectationCible || initialData.affectationSource || initialData || affectationActive || {};
-            const w = initialData.workflow || initialData || {};
+            const wf = initialData.workflow || initialData || {};
 
-            const dureeEssai = c.dureeEssaiMois ?? initialData.dureeEssaiMois;
+            const isCddRenew = (wf.codeTypeEvenement || defaultTypeEv) === 'RENOUVELLEMENT_CDD';
+            const dureeEssai = isCddRenew ? null : (c.dureeEssaiMois ?? initialData.dureeEssaiMois);
 
             setFormData({
-                codeTypeEvenement: w.codeTypeEvenement || w.typeEvenementCode || initialData.codeTypeEvenement || defaultTypeEv,
-                idFiliale: c.idFiliale || initialData.idFiliale || filiales[0]?.idFiliale || '',
-                idTypeContrat: c.idTypeContrat || initialData.idTypeContrat || '',
-                idTypeIntervenant: c.idTypeIntervenant || initialData.idTypeIntervenant || '',
-                dateEffet: fmtDateInput(w.dateEffet || initialData.dateEffet) || today,
-                dateDebut: fmtDateInput(c.dateDebutContrat || c.dateDebut || initialData.dateDebutContrat || initialData.dateDebut) || today,
-                dateFin: fmtDateInput(c.dateFinContrat || c.dateFin || initialData.dateFinContrat || initialData.dateFin) || '',
-                dateSignature: fmtDateInput(c.dateSignature || c.dateDebutContrat || c.dateDebut || initialData.dateDebutContrat) || today,
-                comptabiliseEffectif: c.comptabiliseEffectif !== undefined ? c.comptabiliseEffectif : (initialData.comptabiliseEffectif !== undefined ? initialData.comptabiliseEffectif : true),
-                numeroContrat: c.numeroContratCible || c.numeroContratSource || c.numeroContrat || initialData.numeroContratCible || initialData.numeroContratSource || '',
-                descriptionContrat: c.descriptionContrat || c.description || initialData.descriptionContrat || initialData.description || '',
-                commentaireContrat: c.commentaireContrat || c.commentaire || initialData.commentaireContrat || initialData.commentaire || '',
-                aPeriodeEssai: dureeEssai != null && Number(dureeEssai) > 0,
-                dureeEssaiMois: dureeEssai ? String(dureeEssai) : '3',
-                dateFinEssai: fmtDateInput(c.dateFinEssai || initialData.dateFinEssai) || '',
-                idSite: a.idSite || initialData.idSite || sites[0]?.idSite || '',
-                idDepartement: a.idDepartement || initialData.idDepartement || departements[0]?.idDepartement || '',
-                idService: a.idService || initialData.idService || services[0]?.idService || '',
-                idFonction: a.idFonction || initialData.idFonction || fonctions[0]?.idFonction || '',
-                idResponsableHierarchique: a.idResponsableHierarchique || initialData.idResponsableHierarchique || '',
-                idCategorieProfessionnelle: a.idCategorieProfessionnelle || initialData.idCategorieProfessionnelle || categoriesPro[0]?.idCategorie || '',
-                idModeCalculPaie: a.idModeCalculPaie || initialData.idModeCalculPaie || modesPaie[0]?.idModeCalcul || '',
-                salaireBase: a.salaireBase ? String(a.salaireBase) : (initialData.salaireBase ? String(initialData.salaireBase) : ''),
-                descriptionAffectation: a.descriptionAffectation || a.description || initialData.descriptionAffectation || '',
-                commentaireAffectation: a.commentaireAffectation || a.commentaire || initialData.commentaireAffectation || '',
-                motif: w.motif || initialData.motif || '',
+                codeTypeEvenement: wf.codeTypeEvenement || defaultTypeEv,
+                idFiliale: c.idFiliale || filiales[0]?.idFiliale || '',
+                idTypeContrat: c.idTypeContrat || '',
+                idTypeIntervenant: c.idTypeIntervenant || '',
+                dateEffet: fmtDateInput(wf.dateEffet || wf.dateDebutAffectation) || today,
+                dateDebut: fmtDateInput(c.dateDebut) || today,
+                dateFin: fmtDateInput(c.dateFin) || '',
+                dateSignature: fmtDateInput(c.dateSignature) || today,
+                comptabiliseEffectif: c.comptabiliseEffectif ?? true,
+                numeroContrat: c.numeroContrat || '',
+                descriptionContrat: c.description || '',
+                commentaireContrat: c.commentaire || '',
+                aPeriodeEssai: !isCddRenew && Boolean(dureeEssai && parseInt(dureeEssai) > 0),
+                dureeEssaiMois: isCddRenew ? '0' : (dureeEssai ? String(dureeEssai) : '3'),
+                dateFinEssai: isCddRenew ? '' : (fmtDateInput(c.dateFinEssai) || ''),
+                idSite: a.idSite || sites[0]?.idSite || '',
+                idDepartement: a.idDepartement || departements[0]?.idDepartement || '',
+                idService: a.idService || services[0]?.idService || '',
+                idFonction: a.idFonction || fonctions[0]?.idFonction || '',
+                idResponsableHierarchique: a.idResponsableHierarchique || a.id_responsable_hierarchique || '',
+                idCategorieProfessionnelle: a.idCategorieProfessionnelle || categoriesPro[0]?.idCategorie || '',
+                idModeCalculPaie: a.idModeCalculPaie || modesPaie[0]?.idModeCalcul || '',
+                salaireBase: a.salaireBase ? String(a.salaireBase) : '',
+                descriptionAffectation: a.description || '',
+                commentaireAffectation: a.commentaire || '',
+                motif: wf.motif || typeEvenement?.libelle || '',
             });
         } else {
             const baseContrat = contratActif || {};
             const baseAff = affectationActive || {};
+            const isExigeNouveau = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT'].includes(defaultTypeEv);
 
-            setFormData({
+            let suggestedDateDebut = today;
+            if (isExigeNouveau && baseContrat.dateFin) {
+                try {
+                    const dFin = new Date(baseContrat.dateFin);
+                    dFin.setDate(dFin.getDate() + 1);
+                    suggestedDateDebut = fmtDateInput(dFin) || today;
+                } catch {
+                    suggestedDateDebut = today;
+                }
+            }
+
+            const isCddRenew = defaultTypeEv === 'RENOUVELLEMENT_CDD';
+
+            let initData = {
                 codeTypeEvenement: defaultTypeEv,
                 idFiliale: baseContrat.idFiliale || filiales[0]?.idFiliale || '',
                 idTypeContrat: baseContrat.idTypeContrat || '',
                 idTypeIntervenant: baseContrat.idTypeIntervenant || '',
-                dateEffet: today,
-                dateDebut: today,
+                dateEffet: suggestedDateDebut,
+                dateDebut: suggestedDateDebut,
                 dateFin: '',
                 dateSignature: today,
                 comptabiliseEffectif: true,
@@ -109,40 +179,78 @@ export function useTransitionForm({
                 descriptionContrat: '',
                 commentaireContrat: '',
                 aPeriodeEssai: false,
-                dureeEssaiMois: '3',
+                dureeEssaiMois: isCddRenew ? '0' : '3',
                 dateFinEssai: '',
                 idSite: baseAff.idSite || sites[0]?.idSite || '',
                 idDepartement: baseAff.idDepartement || departements[0]?.idDepartement || '',
                 idService: baseAff.idService || services[0]?.idService || '',
                 idFonction: baseAff.idFonction || fonctions[0]?.idFonction || '',
-                idResponsableHierarchique: baseAff.idResponsableHierarchique || '',
+                idResponsableHierarchique: baseAff.idResponsableHierarchique || baseAff.id_responsable_hierarchique || '',
                 idCategorieProfessionnelle: baseAff.idCategorieProfessionnelle || categoriesPro[0]?.idCategorie || '',
                 idModeCalculPaie: baseAff.idModeCalculPaie || modesPaie[0]?.idModeCalcul || '',
                 salaireBase: baseAff.salaireBase ? String(baseAff.salaireBase) : '',
                 descriptionAffectation: '',
                 commentaireAffectation: '',
                 motif: typeEvenement?.libelle || 'Changement de situation',
-            });
+            };
+
+            // Appliquer la matrice d'auto-sélection
+            initData = applyTargetEventConfig(defaultTypeEv, initData);
+            setFormData(initData);
         }
         setErrorMsg('');
-    }, [isOpen, typeEvenement, initialData, contratActif, affectationActive, filiales, sites, departements, services, fonctions, categoriesPro, modesPaie]);
+    }, [isOpen, typeEvenement, initialData, contratActif, affectationActive, filiales, sites, departements, services, fonctions, categoriesPro, modesPaie, relevantEvTypes, applyTargetEventConfig]);
 
+    // 5. Synchronisation asynchrone dès que les types de contrat ou intervenants sont reçus
+    useEffect(() => {
+        if (!isOpen || initialData || !formData.codeTypeEvenement) return;
+        const config = EVENT_TARGET_CONFIG[formData.codeTypeEvenement];
+        if (!config) return;
+
+        setFormData(prev => {
+            let changed = false;
+            const next = { ...prev };
+
+            if (config.defaultTypeContrat && (!prev.idTypeContrat || config.lockTypeContrat) && typesContrat.length > 0) {
+                const foundTc = typesContrat.find(tc => tc.code === config.defaultTypeContrat);
+                if (foundTc && String(prev.idTypeContrat) !== String(foundTc.idTypeContrat)) {
+                    next.idTypeContrat = String(foundTc.idTypeContrat);
+                    changed = true;
+                }
+            }
+
+            if (config.defaultTypeIntervenant && (!prev.idTypeIntervenant || config.lockTypeIntervenant) && typesIntervenant.length > 0) {
+                const foundTi = typesIntervenant.find(ti => ti.code === config.defaultTypeIntervenant);
+                if (foundTi && String(prev.idTypeIntervenant) !== String(foundTi.idTypeIntervenant)) {
+                    next.idTypeIntervenant = String(foundTi.idTypeIntervenant);
+                    changed = true;
+                }
+            }
+
+            return changed ? next : prev;
+        });
+    }, [isOpen, initialData, formData.codeTypeEvenement, typesContrat, typesIntervenant]);
+
+    // 6. Gestion des modifications de champs avec auto-sélections réactives
     const setField = (field, val) => {
         setFormData(prev => {
-            const updated = { ...prev, [field]: val };
-            // Quand le département change, reset le service (il peut ne pas appartenir au nouveau dept)
+            let updated = { ...prev, [field]: val };
             if (field === 'idDepartement') {
                 updated.idService = '';
+            }
+            if (field === 'codeTypeEvenement') {
+                // Déclencher l'auto-sélection selon l'événement
+                updated = applyTargetEventConfig(val, updated);
             }
             if (field === 'dateEffet' && (!prev.dateDebut || prev.dateDebut === prev.dateEffet)) {
                 updated.dateDebut = val;
             }
             if (field === 'dateDebut' || field === 'aPeriodeEssai' || field === 'dureeEssaiMois') {
-                const dateDeb = field === 'dateDebut' ? val : prev.dateDebut;
-                const aEssai = field === 'aPeriodeEssai' ? val : prev.aPeriodeEssai;
-                const dur = field === 'dureeEssaiMois' ? val : prev.dureeEssaiMois;
+                const dateDeb = field === 'dateDebut' ? val : updated.dateDebut;
+                const aEssai = field === 'aPeriodeEssai' ? val : updated.aPeriodeEssai;
+                const dur = field === 'dureeEssaiMois' ? val : updated.dureeEssaiMois;
 
-                if (aEssai && dateDeb && dur) {
+                if (aEssai && dateDeb && dur && updated.codeTypeEvenement !== 'RENOUVELLEMENT_CDD') {
                     try {
                         const d = new Date(dateDeb);
                         d.setMonth(d.getMonth() + parseInt(dur));
@@ -150,13 +258,29 @@ export function useTransitionForm({
                     } catch (err) {
                         console.warn("Erreur calcul date fin essai:", err);
                     }
-                } else if (!aEssai) {
+                } else {
                     updated.dateFinEssai = '';
                 }
             }
             return updated;
         });
     };
+
+    // 7. Filtrage et verrouillage des options de contrat et intervenant selon l'événement
+    const currentTargetConfig = EVENT_TARGET_CONFIG[formData.codeTypeEvenement];
+
+    const filteredTypesContrat = useMemo(() => {
+        if (!currentTargetConfig?.allowedTypesContrat) return typesContrat;
+        return typesContrat.filter(tc => currentTargetConfig.allowedTypesContrat.includes(tc.code));
+    }, [typesContrat, currentTargetConfig]);
+
+    const filteredTypesIntervenant = useMemo(() => {
+        if (!currentTargetConfig?.allowedTypesIntervenant) return typesIntervenant;
+        return typesIntervenant.filter(ti => currentTargetConfig.allowedTypesIntervenant.includes(ti.code));
+    }, [typesIntervenant, currentTargetConfig]);
+
+    const lockTypeContrat = Boolean(currentTargetConfig?.lockTypeContrat);
+    const lockTypeIntervenant = Boolean(currentTargetConfig?.lockTypeIntervenant);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -191,29 +315,30 @@ export function useTransitionForm({
 
         const payload = {
             codeTypeEvenement: formData.codeTypeEvenement,
-            dateEffet: formData.dateEffet,
+            dateEffet: formData.dateEffet || null,
             idContratSource: contratActif?.idContrat || initialData?.workflow?.idContratSource || null,
             idAffectationSource: affectationActive?.idAffectation || initialData?.workflow?.idAffectationSource || null,
             idFiliale: formData.idFiliale ? parseInt(formData.idFiliale) : null,
             idTypeContrat: formData.idTypeContrat ? parseInt(formData.idTypeContrat) : null,
             idTypeIntervenant: formData.idTypeIntervenant ? parseInt(formData.idTypeIntervenant) : null,
-            dateDebut: formData.dateDebut || formData.dateEffet,
+            dateDebut: formData.dateDebut || null,
             dateFin: formData.dateFin || null,
-            dateSignature: formData.dateSignature || formData.dateEffet,
-            comptabiliseEffectif: formData.comptabiliseEffectif,
+            dateSignature: formData.dateSignature || null,
+            comptabiliseEffectif: Boolean(formData.comptabiliseEffectif),
             numeroContrat: formData.numeroContrat || null,
             descriptionContrat: formData.descriptionContrat || null,
             commentaireContrat: formData.commentaireContrat || null,
-            dureeEssaiMois: formData.aPeriodeEssai && formData.dureeEssaiMois ? parseInt(formData.dureeEssaiMois) : null,
+            aPeriodeEssai: Boolean(formData.aPeriodeEssai),
+            dureeEssaiMois: formData.aPeriodeEssai && formData.dureeEssaiMois ? parseInt(formData.dureeEssaiMois) : 0,
             dateFinEssai: formData.aPeriodeEssai && formData.dateFinEssai ? formData.dateFinEssai : null,
-            idSite: parseInt(formData.idSite),
-            idDepartement: parseInt(formData.idDepartement),
-            idService: parseInt(formData.idService),
-            idFonction: parseInt(formData.idFonction),
+            idSite: formData.idSite ? parseInt(formData.idSite) : null,
+            idDepartement: formData.idDepartement ? parseInt(formData.idDepartement) : null,
+            idService: formData.idService ? parseInt(formData.idService) : null,
+            idFonction: formData.idFonction ? parseInt(formData.idFonction) : null,
             idResponsableHierarchique: formData.idResponsableHierarchique ? parseInt(formData.idResponsableHierarchique) : null,
-            idCategorieProfessionnelle: parseInt(formData.idCategorieProfessionnelle),
-            idModeCalculPaie: parseInt(formData.idModeCalculPaie),
-            salaireBase: formData.salaireBase ? parseFloat(String(formData.salaireBase).replace(/\s/g, '').replace(/,/g, '.')) : 0,
+            idCategorieProfessionnelle: formData.idCategorieProfessionnelle ? parseInt(formData.idCategorieProfessionnelle) : null,
+            idModeCalculPaie: formData.idModeCalculPaie ? parseInt(formData.idModeCalculPaie) : null,
+            salaireBase: formData.salaireBase ? parseFloat(formData.salaireBase) : null,
             descriptionAffectation: formData.descriptionAffectation || null,
             commentaireAffectation: formData.commentaireAffectation || null,
             motif: formData.motif || null,
@@ -221,56 +346,30 @@ export function useTransitionForm({
 
         setSubmitting(true);
         try {
-            if (isEditMode) {
-                const wfId = initialData.idWorkflow || initialData.workflow?.idWorkflow;
-                if (!wfId) {
-                    throw new Error("Impossible de déterminer l'identifiant du workflow (idWorkflow) à modifier.");
-                }
-                await contratService.modifierBrouillonWorkflow(wfId, payload);
+            let res;
+            if (isEditMode && initialData?.workflow?.idWorkflow) {
+                res = await contratService.modifierBrouillonWorkflow(
+                    idEmploye,
+                    initialData.workflow.idWorkflow,
+                    payload
+                );
             } else {
-                await contratService.creerBrouillonTransition(idEmploye, payload);
+                res = await contratService.creerTransitionCarriere(idEmploye, payload);
             }
-            if (onSuccess) onSuccess();
+
+            if (onSuccess) {
+                onSuccess(res);
+            }
             onClose();
         } catch (err) {
-            console.error("Erreur enregistrement :", err);
-            setErrorMsg(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || "Erreur lors de l'enregistrement de la transition.");
+            console.error('Erreur soumission transition:', err);
+            setErrorMsg(err.message || 'Erreur lors de l\'enregistrement de la transition.');
         } finally {
             setSubmitting(false);
         }
     };
 
     // Calculs de libellés pour l'aperçu
-    const EXCLUDED_CODES = [
-        'EMBAUCHE_INITIALE', 'RUPTURE_CONTRAT', 'DEMISSION', 'LICENCIEMENT',
-        'RETRAITE', 'FIN_CONTRAT', 'CONFIRMATION_ESSAI', 'RENOUVELLEMENT_ESSAI',
-        'DECES', 'ABANDON_POSTE', 'RUPTURE_NEGOCIEE', 'LICENCIEMENT_FAUTE',
-        'LICENCIEMENT_ECONOMIQUE', 'FIN_PERIODE_ESSAI', 'DEPART_RETRAITE'
-    ];
-
-    const DEFAULT_RELEVANT_EVENTS = [
-        { code: 'MUTATION', libelle: 'Mutation (Site / Dépt / Srv)' },
-        { code: 'PROMOTION', libelle: 'Promotion / Changement Poste' },
-        { code: 'REVALORISATION', libelle: 'Revalorisation Salariale' },
-        { code: 'TRANSFORMATION_CDI', libelle: 'Transformation CDD → CDI' },
-        { code: 'RENOUVELLEMENT_CDD', libelle: 'Renouvellement de CDD' },
-        { code: 'EMBAUCHE_APRES_STAGE', libelle: 'Passage Stage → CDD/CDI' },
-        { code: 'REORGANISATION', libelle: 'Réorganisation Interne' },
-    ];
-
-    const availableEvTypes = typesEvenementList.filter(ev => {
-        const code = (ev.code || '').toUpperCase();
-        if (code === 'EMBAUCHE_APRES_STAGE') return true;
-        if (EXCLUDED_CODES.includes(code)) return false;
-        if (code.startsWith('RUPTURE') || code.startsWith('ESSAI') || code.startsWith('FIN_') || (code.startsWith('EMBAUCHE') && code !== 'EMBAUCHE_APRES_STAGE') || code.startsWith('DEMISSION') || code.startsWith('LICENCIEMENT')) {
-            return false;
-        }
-        return true;
-    });
-    const relevantEvTypes = availableEvTypes.length > 0 ? availableEvTypes : DEFAULT_RELEVANT_EVENTS;
-
-    const typeEvObj = typesEvenementList.find(te => te.code === formData.codeTypeEvenement) || typeEvenement;
-
     const avantTypeContrat = contratActif ? typesContrat.find(tc => String(tc.idTypeContrat) === String(contratActif.idTypeContrat))?.libelle : null;
     const apresTypeContrat = typesContrat.find(tc => String(tc.idTypeContrat) === String(formData.idTypeContrat))?.libelle;
 
@@ -305,11 +404,11 @@ export function useTransitionForm({
         submitting, errorMsg, setErrorMsg,
         showPreviewMobile, setShowPreviewMobile,
         mounted,
-        exigeNouveauContrat, isEditMode,
+        exigeNouveauContrat, autorisePeriodeEssai, isEditMode,
         loadingRef, handleSubmit,
 
-        // Données d'aperçu
-        relevantEvTypes, typeEvObj,
+        // Données d'aperçu & matrice
+        relevantEvTypes, typeEvObj, sourceContractCode,
         avantTypeContrat, apresTypeContrat,
         avantSite, apresSite,
         avantDepartement, apresDepartement,
@@ -320,8 +419,12 @@ export function useTransitionForm({
         avantModePaie, apresModePaie,
         avantSalaire,
 
-        // Référentiels
-        filiales, typesContrat, typesIntervenant, sites, departements,
-        services, fonctions, categoriesPro, modesPaie, responsables
+        // Référentiels filtrés et verrouillages
+        filiales, sites, departements,
+        services, fonctions, categoriesPro, modesPaie, responsables,
+        typesContrat: filteredTypesContrat,
+        typesIntervenant: filteredTypesIntervenant,
+        lockTypeContrat,
+        lockTypeIntervenant
     };
 }

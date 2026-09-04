@@ -11,12 +11,15 @@ export default function DatePicker({
     required = false,
     error,
     hint,
+    helpText,
+    helperText,
     min,
     max,
     disabled = false,
     className = '',
     ...props
 }) {
+    const hintText = hint || helpText || helperText;
     return (
         <div className="flex flex-col gap-1">
             {label && (
@@ -26,8 +29,8 @@ export default function DatePicker({
                 </label>
             )}
             <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none">
-                    <CalendarIcon size={16} />
+                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none">
+                    <CalendarIcon size={15} />
                 </div>
                 <input
                     type="date"
@@ -38,8 +41,8 @@ export default function DatePicker({
                     min={fmtDateInput(min)}
                     max={fmtDateInput(max)}
                     className={`
-            w-full bg-[var(--color-surface)] border-2 rounded-none text-sm text-[var(--color-fg)] font-data
-            pl-10 pr-4 py-2 outline-none   cursor-pointer
+            w-full bg-[var(--color-surface)] border rounded-none text-xs sm:text-sm text-[var(--color-fg)] font-data
+            pl-8 pr-3 py-1.5 outline-none cursor-pointer
             focus:ring-0 focus:border-[var(--color-brand-500)]
             disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
             ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
@@ -48,8 +51,8 @@ export default function DatePicker({
                     {...props}
                 />
             </div>
-            {error && <p className="text-xs text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-            {hint && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hint}</p>}
+            {error && <p className="text-[11px] text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
+            {hintText && !error && <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
         </div>
     );
 }

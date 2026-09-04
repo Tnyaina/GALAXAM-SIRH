@@ -46,6 +46,7 @@ Ce module couvre :
 | **Atomicité transactionnelle** | Chaque validation est une transaction ACID unique (Commit / Rollback) |
 | **Cascadage automatique** | La rupture du dernier contrat bascule automatiquement l'employé en inactif |
 | **Chaînage contractuel** | Les contrats successifs sont liés par `id_contrat_precedent` pour tracer la continuité |
+| **Backend-Driven Booleans** | 0 comparaison de chaînes de statut en dur côté front. Le backend expose directement les booléens de décision (`isActif`, `isBrouillon`, `isPlanifie`, `isAnnule`, `exigeNouveauContrat`, `autorisePeriodeEssai`, etc.) |
 
 ---
 
@@ -77,7 +78,7 @@ Table contrat_travail {
   id_filiale              INTEGER FK → ref_filiale
   id_type_contrat         INTEGER FK → ref_type_contrat  -- CDI, CDD, STAGE...
   id_type_intervenant     INTEGER FK → ref_type_intervenant
-  id_statut_contrat       INTEGER FK → ref_statut_contrat
+  id_statut_rh       INTEGER FK → ref_statut_rh
   id_type_evenement_initial INTEGER FK → ref_type_evenement_rh
   id_contrat_precedent    INTEGER FK → contrat_travail  -- Chaînage historique
   
@@ -113,7 +114,7 @@ Table employe_affectation_carriere {
   id_affectation          INTEGER PK
   id_employe              INTEGER FK → employe
   id_contrat              INTEGER FK → contrat_travail
-  id_statut_affectation   INTEGER FK → ref_statut_affectation
+  id_statut_rh   INTEGER FK → ref_statut_rh
   id_motif_mouvement      INTEGER FK → ref_motif_mouvement
   
   -- Localisation
@@ -142,7 +143,7 @@ Table employe_affectation_carriere {
 
 **Cycle de vie du statut affectation** :
 ```
-PLANIFIEE → ACTIVE → HISTORISEE
+PLANIFIE → ACTIVE → HISTORISE
 ```
 
 ### 2.4 Table `workflow_rh`
@@ -154,7 +155,7 @@ Table workflow_rh {
   id_workflow             INTEGER PK
   id_employe              INTEGER FK → employe
   id_type_evenement_rh    INTEGER FK → ref_type_evenement_rh
-  id_statut_workflow      INTEGER FK → ref_statut_workflow
+  id_statut_rh      INTEGER FK → ref_statut_rh
   
   id_contrat_cible        INTEGER FK → contrat_travail  -- Contrat à activer
   id_affectation_cible    INTEGER FK → employe_affectation_carriere
@@ -178,9 +179,9 @@ Table workflow_rh {
 - `CHANGEMENT_TYPE_CONTRAT` — ex: CDD → CDI
 - `RUPTURE_CONTRAT` — Fin de la relation de travail
 
-**Statuts de workflow (`ref_statut_workflow`)** :
+**Statuts de workflow (`ref_statut_rh`)** :
 - `BROUILLON` — Saisi, non validé
-- `VALIDE` — Approuvé par DAF/DRH, pas encore appliqué
+- `PLANIFIE` — Approuvé par DAF/DRH, pas encore appliqué
 - `PLANIFIE` — Validé mais date d'effet future
 - `APPLIQUE` — Effectivement appliqué
 - `ANNULE` — Annulé sans suite
@@ -201,7 +202,7 @@ CRÉATION BROUILLON EMBAUCHE
     ├── [VÉRIF] Contrat actif existant ? → ERREUR si OUI
     ├── [VÉRIF] Workflow brouillon existant ? → ERREUR si OUI
     ├── [CREATE] ContratTravail (statut: BROUILLON)
-    ├── [CREATE] EmployeAffectationCarriere (statut: PLANIFIEE)
+    ├── [CREATE] EmployeAffectationCarriere (statut: PLANIFIE)
     └── [CREATE] WorkflowRh (statut: BROUILLON)
 ```
 
@@ -229,8 +230,8 @@ Date de fin ancienne affectation = Date d'effet du mouvement — 1 jour
 
 **3. Transitions de statut :**
 ```
-Ancienne Affectation : ACTIVE → HISTORISEE
-Nouvelle Affectation : PLANIFIEE → ACTIVE
+Ancienne Affectation : ACTIVE → HISTORISE
+Nouvelle Affectation : PLANIFIE → ACTIVE
 ```
 
 **4. Gestion des événements futurs (PLANIFIE) :**
@@ -253,10 +254,10 @@ La rupture de contrat est le point critique où le SIRH doit synchroniser le sta
 // Lors de l'application effective d'une rupture :
 1. Contrat source → statut = ROMPU (ou CLOTURE)
                     date_fin = date_effet
-2. Affectation source → statut = HISTORISEE
+2. Affectation source → statut = HISTORISE
 3. Vérifier s'il reste un autre contrat ACTIF pour cet employé :
    SELECT COUNT(*) FROM contrat_travail 
-   WHERE id_employe = ? AND id_statut_contrat = ACTIF
+   WHERE id_employe = ? AND id_statut_rh = ACTIF
    
    SI COUNT > 0 → employe.est_actif reste TRUE  (multi-contrats)
    SI COUNT = 0 → employe.est_actif = FALSE     (offboarding complet)
@@ -300,7 +301,7 @@ La catégorie professionnelle (`A` ou `C`) a un impact direct sur la **gestion d
         ├──────────────────────────┐
         ▼ (Action: VALIDER)        ▼ (Action: ANNULER)
 ┌────────────────┐         ┌────────────────┐
-│     VALIDE     │         │    ANNULE      │
+│    PLANIFIE    │         │    ANNULE      │
 └───────┬────────┘         └────────────────┘
         │
         ├──────────────────────────────────────┐
@@ -320,7 +321,7 @@ La catégorie professionnelle (`A` ou `C`) a un impact direct sur la **gestion d
 
 > **Règle d'Or (Événements Planifiés à Date Postérieure)** :
 > Lors de la validation de tout événement RH (Confirmation d'essai, Renouvellement d'essai, Mutation, Promotion, Revalorisation, Transformation CDI, Rupture de contrat) avec une **date d'effet future (`date_effet > aujourd'hui`)** :
-> 1. Le workflow est validé (`statut_workflow = 'VALIDE'`) et enregistré comme **événement planifié**.
+> 1. Le workflow est validé (`statut_rh = 'PLANIFIE'`) et enregistré comme **événement planifié**.
 > 2. **Aucune modification n'est appliquée immédiatement** sur l'état de la période d'essai (`EN_COURS`), le contrat actif ou l'affectation active.
 > 3. Lorsque la date d'effet est atteinte ou dépassée (`date_effet <= CURRENT_DATE`), le job Cron `MouvementRhScheduler` (exécuté chaque nuit à 00:00:00 et au démarrage du serveur) détecte le workflow planifié et applique les effets réels (confirmation/prolongation de l'essai, activation de la nouvelle affectation/contrat, ou clôture/rupture du contrat).
 
@@ -353,7 +354,7 @@ public void effectuerBasculementMouvementsPlanifies() {
 ```
 
 **Logique d'application automatique :**
-- Détection de tous les workflows RH au statut `VALIDE` dont `date_effet <= CURRENT_DATE` :
+- Détection de tous les workflows RH au statut `PLANIFIE` dont `date_effet <= CURRENT_DATE` :
   - **Confirmations d'essai planifiées** : passage de la période d'essai à `CONFIRMEE` (`date_fin_reelle = date_effet`) et remise à `NULL` de `date_fin_essai`.
   - **Renouvellements d'essai planifiés** : passage de la période 1 à `RENOUVELEE`, création de la période 2 (`EN_COURS`) et mise à jour de `date_fin_essai`.
   - **Ruptures de contrat planifiées** : clôture du contrat source (`ROMPU`), clôture de l'affectation et désactivation si aucun autre contrat actif.
@@ -362,7 +363,10 @@ public void effectuerBasculementMouvementsPlanifies() {
 
 **Garanties :**
 - Exécuté en premier (avant le scheduler de notifications à 00h05).
-- Rattrapage immédiat au démarrage/redémarrage du serveur (`ApplicationReadyEvent`) en cas de mise en veille ou d'arrêt à minuit.
+- Rattrapage autonome périodique (`fixedDelay = 15 min`) via `RattrapageAutomatiqueService` dès la sortie de veille d'une machine de dev (ordinateur portable / veille OS), sans nécessiter d'action utilisateur ni de redémarrage serveur.
+- Filet de sécurité paresseux (Lazy Catch-up) : déclenchement asynchrone sur les requêtes HTTP (`JwtAuthenticationFilter`, `POST /auth/refresh`, `POST /auth/login`).
+- Endpoint explicite de déclenchement manuel : `POST /workflows-rh/rattrapage`.
+- Rattrapage initial au démarrage physique du serveur (`ApplicationReadyEvent`).
 - Traitement atomique par workflow (chaque workflow est une transaction indépendante).
 - Journalisation des erreurs en cas d'échec (log système).
 
@@ -518,7 +522,7 @@ SELECT
     wf.*,
     e.nom, e.prenom, e.matricule,
     tev.libelle AS type_evenement,
-    rsw.code AS statut_workflow_code,
+    rsw.code AS code_statut_workflow,
     ct.numero_contrat, ct.date_debut, ct.date_fin,
     rtc.code AS type_contrat_code, rtc.libelle AS type_contrat_libelle,
     aff.salaire_base,

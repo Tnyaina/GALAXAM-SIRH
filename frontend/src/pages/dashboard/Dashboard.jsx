@@ -3,14 +3,19 @@ import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import KpiGrid from '@/components/dashboard/KpiGrid';
 import CongesAValiderWidget from '@/components/dashboard/widgets/CongesAValiderWidget';
 import AbsentsWidget from '@/components/dashboard/widgets/AbsentsWidget';
+import PlanningQuinzaineWidget from '@/components/dashboard/widgets/PlanningQuinzaineWidget';
 import BrouillonsEnAttenteWidget from '@/components/dashboard/widgets/BrouillonsEnAttenteWidget';
 import EcheancesWidget from '@/components/dashboard/widgets/EcheancesWidget';
 import ActiviteRhWidget from '@/components/dashboard/widgets/ActiviteRhWidget';
 import AccesRapidesWidget from '@/components/dashboard/widgets/AccesRapidesWidget';
+import { useAuth } from '@/context/AuthContext';
 import SEO from '@/components/system/SEO';
 
 export default function Dashboard() {
     const { data, loading, error, refresh, lastRefresh } = useDashboard();
+    const { hasPermission } = useAuth();
+    const canValidateConges = hasPermission('CONGE_VALIDATE');
+    const canValidateEmployes = hasPermission('EMPLOYE_VALIDATE');
 
     const kpis = data?.kpis;
     const alertesCritiques = data?.alertesCritiques || [];
@@ -19,13 +24,14 @@ export default function Dashboard() {
 
     const activite = data?.activiteRecente || [];
     const absentsAujourdhui = data?.absentsAujourdhui || [];
+    const congesQuinzaine = data?.congesQuinzaine || [];
     const demandesCongeAValider = data?.demandesCongeAValider || [];
     const brouillons = data?.brouillons || [];
 
     const totalAlertesContrats = alertesCritiques.length + alertes7j.length;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Tableau de bord" description="Vue d'ensemble et indicateurs clés RH." />
             
             <DashboardHeader 
@@ -44,38 +50,58 @@ export default function Dashboard() {
                 absentsAujourdhuiCount={absentsAujourdhui.length}
             />
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                <CongesAValiderWidget 
-                    loading={loading} 
-                    demandesCongeAValider={demandesCongeAValider} 
-                />
-                <BrouillonsEnAttenteWidget
-                    loading={loading}
-                    brouillons={brouillons}
-                />
+            {/* Layout principal équilibré : Grille 2 colonnes parfaitement alignée */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+                {/* Ligne 1 : Congés à valider (si valideur) & Salariés absents */}
+                {canValidateConges && (
+                    <CongesAValiderWidget 
+                        loading={loading} 
+                        demandesCongeAValider={demandesCongeAValider}
+                        className="h-full"
+                    />
+                )}
                 <AbsentsWidget 
                     loading={loading} 
-                    absentsAujourdhui={absentsAujourdhui} 
+                    absentsAujourdhui={absentsAujourdhui}
+                    className={`h-full ${!canValidateConges ? 'lg:col-span-2' : ''}`}
                 />
-            </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-                <div className="xl:col-span-2 space-y-5">
-                    <EcheancesWidget 
+                {/* Ligne 2 : Échéances contrats/essais & Supervision planning quinzaine */}
+                <EcheancesWidget 
+                    loading={loading}
+                    alertesCritiques={alertesCritiques}
+                    alertes7j={alertes7j}
+                    alertes30j={alertes30j}
+                    totalAlertesContrats={totalAlertesContrats}
+                    className="h-full"
+                />
+                <PlanningQuinzaineWidget 
+                    loading={loading}
+                    absences={congesQuinzaine.length > 0 ? congesQuinzaine : absentsAujourdhui}
+                    className="h-full"
+                />
+
+                {/* Ligne 3 : Brouillons en attente (si valideur) & Accès rapides */}
+                {canValidateEmployes && (
+                    <BrouillonsEnAttenteWidget
                         loading={loading}
-                        alertesCritiques={alertesCritiques}
-                        alertes7j={alertes7j}
-                        alertes30j={alertes30j}
-                        totalAlertesContrats={totalAlertesContrats}
+                        brouillons={brouillons}
+                        className="h-full"
                     />
-                </div>
-                <div className="space-y-5">
-                    <ActiviteRhWidget 
-                        loading={loading}
-                        activite={activite}
-                    />
-                    <AccesRapidesWidget />
-                </div>
+                )}
+                <AccesRapidesWidget 
+                    className={`h-full ${!canValidateEmployes ? 'lg:col-span-2' : ''}`}
+                />
+
+                {/* Activité récente (pleine largeur en bas si présente) */}
+                {activite.length > 0 && (
+                    <div className="lg:col-span-2">
+                        <ActiviteRhWidget 
+                            loading={loading}
+                            activite={activite}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );

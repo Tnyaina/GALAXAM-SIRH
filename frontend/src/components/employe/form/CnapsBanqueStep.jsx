@@ -10,24 +10,26 @@ export default function CnapsBanqueStep({
     return (
         <div className="space-y-6">
             <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-ink-400 mb-3">Sécurité Sociale</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-3">Sécurité Sociale</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input label="N° Affiliation CNaPS" value={formData.numAffiliationCnaps} onChange={e => set('numAffiliationCnaps', e.target.value)} placeholder="N° CNaPS" />
                     <Input label="Date Déclaration" type="date" value={formData.dateDeclaration} onChange={e => set('dateDeclaration', e.target.value)} />
                 </div>
             </div>
-            <div className="border-t border-ink-150 dark:border-ink-700 pt-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-ink-400 mb-3">Compte Bancaire Principal</h3>
+            <div className="border-t border-[var(--color-border-subtle)] pt-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-3">Compte Bancaire Principal</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <SearchSelect
                         label="Banque"
                         value={formData.compteBanquePrincipal.idBanque}
                         onChange={(val) => setNested('compteBanquePrincipal', 'idBanque', val)}
-                        options={banques.map((b) => ({
-                            value: b.idBanque,
-                            label: b.nomBanque,
-                            sublabel: b.codeBanque,
-                        }))}
+                        options={banques
+                            .filter(b => b.estActif !== false && b.actif !== false || String(b.idBanque) === String(formData.compteBanquePrincipal.idBanque))
+                            .map((b) => ({
+                                value: b.idBanque,
+                                label: b.nomBanque,
+                                sublabel: b.codeBanque,
+                            }))}
                         placeholder="Rechercher une banque…"
                     />
                     <Input label="Agence" value={formData.compteBanquePrincipal.agence} onChange={e => setNested('compteBanquePrincipal', 'agence', e.target.value)} placeholder="Agence" />

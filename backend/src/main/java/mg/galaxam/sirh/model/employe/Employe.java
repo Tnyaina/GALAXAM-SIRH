@@ -240,6 +240,33 @@ public class Employe extends ClassMere {
     }
 
     public void desactiver(String motif, Connection c) throws Exception {
+        // 1. Contrôle : Interdiction de désactiver directement un employé avec un contrat actif
+        String sqlContratActif = "SELECT ct.numero_contrat FROM contrat_travail ct " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                "WHERE ct.id_employe = ? AND rsc.code = 'ACTIF'";
+        try (PreparedStatement psCt = c.prepareStatement(sqlContratActif)) {
+            psCt.setInt(1, idEmploye);
+            try (ResultSet rsCt = psCt.executeQuery()) {
+                if (rsCt.next()) {
+                    throw new IllegalStateException("Impossible de désactiver directement un employé ayant un contrat de travail ACTIF (N° "
+                            + rsCt.getString("numero_contrat") + "). Veuillez utiliser le workflow RH de sortie (/workflows/transition).");
+                }
+            }
+        }
+
+        // 2. Contrôle : Interdiction de désactiver directement un employé avec une affectation active
+        String sqlAffActive = "SELECT a.id_affectation FROM employe_affectation_carriere a " +
+                "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh " +
+                "WHERE a.id_employe = ? AND rsa.code = 'ACTIF'";
+        try (PreparedStatement psAff = c.prepareStatement(sqlAffActive)) {
+            psAff.setInt(1, idEmploye);
+            try (ResultSet rsAff = psAff.executeQuery()) {
+                if (rsAff.next()) {
+                    throw new IllegalStateException("Impossible de désactiver directement un employé ayant une affectation de carrière ACTIVE. Veuillez utiliser le workflow RH de sortie (/workflows/transition).");
+                }
+            }
+        }
+
         String validMotif = (motif != null && !motif.isBlank()) ? motif : "Autre";
         String sql = "UPDATE employe SET est_actif = FALSE, date_desactivation = CURRENT_TIMESTAMP, motif_desactivation = ?::motif_desactivation_enum, updated_at = CURRENT_TIMESTAMP WHERE id_employe = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -252,6 +279,32 @@ public class Employe extends ClassMere {
     }
 
     public void reactiver(Connection c) throws Exception {
+        // 1. Contrôle : Pour être réactivé directement, l'employé doit disposer d'un contrat de travail ACTIF valide
+        String sqlContratActif = "SELECT ct.id_contrat FROM contrat_travail ct " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                "WHERE ct.id_employe = ? AND rsc.code = 'ACTIF'";
+        try (PreparedStatement psCt = c.prepareStatement(sqlContratActif)) {
+            psCt.setInt(1, idEmploye);
+            try (ResultSet rsCt = psCt.executeQuery()) {
+                if (!rsCt.next()) {
+                    throw new IllegalStateException("Impossible de réactiver directement cet employé : aucun contrat de travail ACTIF trouvé. Veuillez utiliser le workflow d'embauche ou de réintégration.");
+                }
+            }
+        }
+
+        // 2. Contrôle : L'employé doit également disposer d'une affectation de carrière ACTIVE valide
+        String sqlAffActive = "SELECT a.id_affectation FROM employe_affectation_carriere a " +
+                "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh " +
+                "WHERE a.id_employe = ? AND rsa.code = 'ACTIF'";
+        try (PreparedStatement psAff = c.prepareStatement(sqlAffActive)) {
+            psAff.setInt(1, idEmploye);
+            try (ResultSet rsAff = psAff.executeQuery()) {
+                if (!rsAff.next()) {
+                    throw new IllegalStateException("Impossible de réactiver directement cet employé : aucune affectation de carrière ACTIVE trouvée. Veuillez utiliser le workflow de transition/réintégration pour lui assigner un poste et un site.");
+                }
+            }
+        }
+
         String sql = "UPDATE employe SET est_actif = TRUE, date_desactivation = NULL, motif_desactivation = NULL, updated_at = CURRENT_TIMESTAMP WHERE id_employe = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);

@@ -6,12 +6,14 @@ import RenouvellementEssaiModal from '@/pages/employe/carriere/b/RenouvellementE
 import RuptureContratModal from '@/pages/employe/carriere/b/RuptureContratModal';
 import CertificatTravailModal from '@/pages/employe/carriere/b/CertificatTravailModal';
 import AttestationTravailModal from '@/pages/employe/carriere/b/AttestationTravailModal';
+import ContratTravailModal from '@/pages/employe/carriere/b/ContratTravailModal';
 import Loading from '@/components/ui/feedback/Loading';
 
 export default function CarriereModalsManager({
     // Données de base
     idEmploye, employe, nomEmploye, matriculeEmploye,
     contratActif, affectationActive, workflowCplActif, contratsList, brouillonWf,
+    etatEssai, canWrite = true, canValidate = false,
     
     // États et Hooks
     modalsState,
@@ -21,6 +23,7 @@ export default function CarriereModalsManager({
         isEmbaucheModalOpen, setIsEmbaucheModalOpen,
         isTransitionModalOpen, setIsTransitionModalOpen,
         isRecapModalOpen, setIsRecapModalOpen,
+        isRecapCancelMode, setIsRecapCancelMode,
         isConfirmationModalOpen, setIsConfirmationModalOpen,
         isRenouvellementModalOpen, setIsRenouvellementModalOpen,
         isRuptureModalOpen, setIsRuptureModalOpen,
@@ -28,6 +31,8 @@ export default function CarriereModalsManager({
         selectedCertificatContrat, selectedCertificatAffectation, loadingCertificatAffectation,
         isAttestationModalOpen, setIsAttestationModalOpen,
         selectedAttestationContrat, selectedAttestationAffectation, loadingAttestationAffectation,
+        isContratModalOpen, setIsContratModalOpen,
+        selectedContratDoc, selectedContratAffectation, loadingContratAffectation,
         handleSuccessAction, handleOpenEditModal
     } = modalsState;
 
@@ -39,6 +44,7 @@ export default function CarriereModalsManager({
                     onClose={() => setIsEmbaucheModalOpen(false)}
                     idEmploye={idEmploye}
                     nomEmploye={nomEmploye}
+                    contratsList={contratsList}
                     initialData={editInitialData}
                     onSuccess={(res) => handleSuccessAction('Brouillon d\'embauche enregistré avec succès !', res)}
                 />
@@ -50,8 +56,12 @@ export default function CarriereModalsManager({
                     onClose={() => {
                         setIsRecapModalOpen(false);
                         setSelectedWfModal(null);
+                        if (setIsRecapCancelMode) setIsRecapCancelMode(false);
                     }}
                     workflowCpl={selectedWfModal || brouillonWf}
+                    initialCancelMode={isRecapCancelMode}
+                    canWrite={canWrite}
+                    canValidate={canValidate}
                     onEdit={(wf) => handleOpenEditModal(wf)}
                     onActionSuccess={(msg) => handleSuccessAction(msg)}
                 />
@@ -79,6 +89,7 @@ export default function CarriereModalsManager({
                     nomEmploye={nomEmploye}
                     contratActif={contratActif}
                     affectationActive={affectationActive}
+                    etatEssai={etatEssai}
                     initialData={editInitialData}
                     onSuccess={(res) => handleSuccessAction('Brouillon de confirmation d\'essai enregistré avec succès !', res)}
                 />
@@ -92,6 +103,7 @@ export default function CarriereModalsManager({
                     nomEmploye={nomEmploye}
                     contratActif={contratActif}
                     affectationActive={affectationActive}
+                    etatEssai={etatEssai}
                     initialData={editInitialData}
                     onSuccess={(res) => handleSuccessAction('Brouillon de renouvellement d\'essai enregistré avec succès !', res)}
                 />
@@ -117,6 +129,7 @@ export default function CarriereModalsManager({
                     onClose={() => setIsCertificatModalOpen(false)}
                     employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
                     contrat={selectedCertificatContrat || contratActif || (contratsList?.length > 0 ? contratsList[0] : null)}
+                    contratsList={contratsList}
                     affectation={selectedCertificatAffectation}
                     loadingAffectation={loadingCertificatAffectation}
                     filiale={selectedCertificatContrat?.filiale || contratActif?.filiale}
@@ -134,6 +147,7 @@ export default function CarriereModalsManager({
                     onClose={() => setIsAttestationModalOpen(false)}
                     employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
                     contrat={selectedAttestationContrat || contratActif || (contratsList?.length > 0 ? contratsList[0] : null)}
+                    contratsList={contratsList}
                     affectation={selectedAttestationAffectation || affectationActive}
                     loadingAffectation={loadingAttestationAffectation}
                     filiale={selectedAttestationContrat?.filiale || contratActif?.filiale}
@@ -142,6 +156,18 @@ export default function CarriereModalsManager({
                             ? [...contratsList].sort((a, b) => new Date(a.dateDebut || 0) - new Date(b.dateDebut || 0))[0]?.dateDebut
                             : selectedAttestationContrat?.dateDebut
                     }
+                />
+            )}
+
+            {isContratModalOpen && (
+                <ContratTravailModal
+                    isOpen={isContratModalOpen}
+                    onClose={() => setIsContratModalOpen(false)}
+                    employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
+                    contrat={selectedContratDoc || contratActif || (contratsList?.length > 0 ? contratsList[0] : null)}
+                    affectation={selectedContratAffectation || affectationActive}
+                    loadingAffectation={loadingContratAffectation}
+                    filiale={selectedContratDoc?.filiale || contratActif?.filiale}
                 />
             )}
 

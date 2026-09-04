@@ -5,25 +5,6 @@ import Button from '@/components/ui/forms/Button';
 import { DocumentFrame } from '@/components/carriere/ContractDocument';
 import { fmtDateFr, fmtMoney } from '@/utils/carriereUtils';
 
-/** Calcule une ancienneté lisible ("X ans Y mois") entre deux dates. */
-function fmtAnciennete(debut, fin) {
-    if (!debut) return null;
-    const d1 = new Date(debut);
-    const d2 = fin ? new Date(fin) : new Date();
-    if (Number.isNaN(d1.getTime()) || Number.isNaN(d2.getTime())) return null;
-
-    let mois = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
-    if (d2.getDate() < d1.getDate()) mois -= 1;
-    if (mois < 0) return null;
-
-    const ans = Math.floor(mois / 12);
-    const moisRestants = mois % 12;
-    const parts = [];
-    if (ans > 0) parts.push(`${ans} an${ans > 1 ? 's' : ''}`);
-    if (moisRestants > 0 || ans === 0) parts.push(`${moisRestants} mois`);
-    return parts.join(' ');
-}
-
 export default function AttestationTravailModal({
     isOpen,
     onClose,
@@ -48,6 +29,15 @@ export default function AttestationTravailModal({
         setMounted(false);
     }, [isOpen]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     const getVal = (...keys) => {
@@ -67,11 +57,13 @@ export default function AttestationTravailModal({
     const filialeStat = filiale?.stat || contrat?.statFiliale || employe?.statFiliale || null;
 
     const dateDebutContrat = contrat?.dateDebut;
-    const dateDebutGlobale = dateDebutInitiale || employe?.dateEmbauche || employe?.dateEntree || contrat?.dateDebut;
+    const dateDebutGlobale = contrat?.dateOrigineChaine || dateDebutInitiale || employe?.dateEmbauche || employe?.dateEntree || contrat?.dateDebut;
 
     const dateDebutEffectif = typeAnciennete === 'globale' && dateDebutGlobale ? dateDebutGlobale : dateDebutContrat;
     const dateDebut = fmtDateFr(dateDebutEffectif);
-    const anciennete = fmtAnciennete(dateDebutEffectif, new Date());
+    const anciennete = typeAnciennete === 'globale'
+        ? (contrat?.ancienneteEffectiveTexte || '—')
+        : (contrat?.ancienneteContratTexte || '—');
 
     const fonction = getVal(
         affectation?.libelleFonction,
@@ -182,7 +174,7 @@ export default function AttestationTravailModal({
                                 <button
                                     type="button"
                                     onClick={() => setTypeAnciennete('contrat')}
-                                    className={`px-3 py-1 text-xs font-semibold rounded-xs  cursor-pointer ${
+                                    className={`px-3 py-1 text-xs font-semibold rounded-none  cursor-pointer ${
                                         typeAnciennete === 'contrat'
                                             ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs font-bold'
                                             : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-white'
@@ -193,7 +185,7 @@ export default function AttestationTravailModal({
                                 <button
                                     type="button"
                                     onClick={() => setTypeAnciennete('globale')}
-                                    className={`px-3 py-1 text-xs font-semibold rounded-xs  cursor-pointer ${
+                                    className={`px-3 py-1 text-xs font-semibold rounded-none  cursor-pointer ${
                                         typeAnciennete === 'globale'
                                             ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs font-bold'
                                             : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-white'

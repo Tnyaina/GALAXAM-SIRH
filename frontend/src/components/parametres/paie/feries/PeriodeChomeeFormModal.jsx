@@ -13,7 +13,8 @@ export default function PeriodeChomeeFormModal({
     formData,
     setFormData,
     sites,
-    actionError
+    actionError,
+    submitting = false
 }) {
     // Reset form when modal opens
     useEffect(() => {
@@ -36,8 +37,8 @@ export default function PeriodeChomeeFormModal({
             size="md"
             footer={
                 <>
-                    <Button variant="ghost" onClick={onClose}>Annuler</Button>
-                    <Button variant="primary" onClick={onSubmit}>Enregistrer la période</Button>
+                    <Button variant="ghost" onClick={onClose} disabled={submitting}>Annuler</Button>
+                    <Button variant="primary" onClick={onSubmit} loading={submitting}>Enregistrer la période</Button>
                 </>
             }
         >
@@ -64,6 +65,7 @@ export default function PeriodeChomeeFormModal({
                     <Input
                         label="Date de reprise (Fin)"
                         type="date"
+                        min={formData.dateDebut || undefined}
                         value={formData.dateFin}
                         onChange={(e) => handleChange('dateFin', e.target.value)}
                         helpText="Laissez vide si indéterminée"
@@ -104,9 +106,11 @@ export default function PeriodeChomeeFormModal({
                             onChange={(e) => handleChange('idSite', e.target.value)}
                         >
                             <option value="">-- Sélectionner un site --</option>
-                            {sites.map(s => (
-                                <option key={s.idSite} value={s.idSite}>{s.libelle}</option>
-                            ))}
+                            {(sites || [])
+                                .filter(s => s.estActif !== false && s.actif !== false || String(s.idSite) === String(formData.idSite))
+                                .map(s => (
+                                    <option key={s.idSite} value={s.idSite}>{s.libelle}</option>
+                                ))}
                         </Select>
                     )}
                 </div>

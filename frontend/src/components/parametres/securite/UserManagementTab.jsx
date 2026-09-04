@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, UserPlus, Edit2, ShieldAlert, X } from 'lucide-react';
+import { Search, UserPlus, Edit2, ShieldAlert, Eye, UserCheck, Power } from 'lucide-react';
 import referentielService from '@/api/admin/referentielService';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -8,21 +8,38 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
-import { fmtDate } from '@/utils/paieUtils';
+import Modal from '@/components/ui/overlays/Modal';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import { useToast } from '@/components/ui/feedback/Toast';
+import useDebounce from '@/hooks/useDebounce';
 
 export default function UserManagementTab() {
     const [users, setUsers] = useState([]);
     const [roles, setRoles] = useState([]);
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebounce(search, 350);
+    const [showInactive, setShowInactive] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [actionError, setActionError] = useState(null);
-    const [actionSuccess, setActionSuccess] = useState(null);
+    const [modalError, setModalError] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const toast = useToast();
 
     // États pour les modales
     const [showUserModal, setShowUserModal] = useState(false);
     const [showDeactivateModal, setShowDeactivateModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
+
+    // Confirmation dialog pour réactivation
+    const [confirmState, setConfirmState] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmLabel: '',
+        variant: 'primary',
+        onConfirm: null,
+        loading: false
+    });
 
     // Formulaire utilisateur
     const [formData, setFormData] = useState({
@@ -66,7 +83,7 @@ export default function UserManagementTab() {
             idRole: ''
         });
         setShowPassword(false);
-        setActionError(null);
+        setModalError(null);
         setShowUserModal(true);
     };
 
@@ -79,48 +96,49 @@ export default function UserManagementTab() {
             idRole: String(user.idRole)
         });
         setShowPassword(false);
-        setActionError(null);
+        setModalError(null);
         setShowUserModal(true);
     };
 
     const handleOpenDeactivateModal = (user) => {
         setSelectedUser(user);
         setDeactivateMotif('');
-        setActionError(null);
+        setModalError(null);
         setShowDeactivateModal(true);
     };
 
     const handleSaveUser = async (e) => {
         e.preventDefault();
-        setActionError(null);
-        setActionSuccess(null);
+        if (submitting) return;
+        setModalError(null);
 
         if (!formData.identifiant.trim()) {
-            setActionError("L'identifiant est obligatoire.");
+            setModalError("L'identifiant est obligatoire.");
             return;
         }
 
         if (!selectedUser) {
             if (!formData.motDePasse) {
-                setActionError("Le mot de passe est obligatoire pour la création.");
+                setModalError("Le mot de passe est obligatoire pour la création.");
                 return;
             }
             if (formData.motDePasse !== formData.confirmPassword) {
-                setActionError("La confirmation du mot de passe ne correspond pas.");
+                setModalError("La confirmation du mot de passe ne correspond pas.");
                 return;
             }
         } else {
             if (formData.motDePasse && formData.motDePasse !== formData.confirmPassword) {
-                setActionError("La confirmation du mot de passe ne correspond pas.");
+                setModalError("La confirmation du mot de passe ne correspond pas.");
                 return;
             }
         }
 
         if (!formData.idRole) {
-            setActionError("Veuillez sélectionner un rôle.");
+            setModalError("Veuillez sélectionner un rôle.");
             return;
         }
 
+        setSubmitting(true);
         try {
             if (selectedUser) {
                 const updatePayload = {
@@ -131,7 +149,7 @@ export default function UserManagementTab() {
                     updatePayload.motDePasse = formData.motDePasse;
                 }
                 await referentielService.updateUser(selectedUser.idUtilisateur, updatePayload);
-                setActionSuccess(`L'utilisateur "${formData.identifiant}" a été modifié avec succès.`);
+                toast({ title: 'Succès', message: `L'utilisateur "${formData.identifiant}" a été modifié.`, type: 'success' });
             } else {
                 const createPayload = {
                     identifiant: formData.identifiant,
@@ -139,50 +157,68 @@ export default function UserManagementTab() {
                     idRole: parseInt(formData.idRole)
                 };
                 await referentielService.createUser(createPayload);
-                setActionSuccess(`L'utilisateur "${formData.identifiant}" a été créé avec succès.`);
+                toast({ title: 'Succès', message: `L'utilisateur "${formData.identifiant}" a été créé.`, type: 'success' });
             }
             setShowUserModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Une erreur est survenue lors de l'enregistrement.");
+            setModalError(err.response?.data || "Une erreur est survenue lors de l'enregistrement.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
     const handleDeactivate = async (e) => {
         e.preventDefault();
-        setActionError(null);
-        setActionSuccess(null);
+        if (submitting) return;
+        setModalError(null);
 
         if (!deactivateMotif.trim()) {
-            setActionError("Le motif de désactivation est obligatoire.");
+            setModalError("Le motif de désactivation est obligatoire.");
             return;
         }
 
+        setSubmitting(true);
         try {
             await referentielService.deactivateUser(selectedUser.idUtilisateur, deactivateMotif);
-            setActionSuccess(`Le compte de "${selectedUser.identifiant}" a été désactivé.`);
+            toast({ title: 'Succès', message: `Le compte de "${selectedUser.identifiant}" a été désactivé.`, type: 'success' });
             setShowDeactivateModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Une erreur est survenue lors de la désactivation.");
+            setModalError(err.response?.data || "Une erreur est survenue lors de la désactivation.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
-    const handleActivate = async (user) => {
-        setActionError(null);
-        setActionSuccess(null);
-        try {
-            await referentielService.activateUser(user.idUtilisateur);
-            setActionSuccess(`Le compte de "${user.identifiant}" a été réactivé.`);
-            loadData();
-        } catch (err) {
-            setError(err.response?.data || "Impossible de réactiver l'utilisateur.");
-        }
+    const requestActivate = (user) => {
+        setConfirmState({
+            isOpen: true,
+            title: `Réactiver l'utilisateur "${user.identifiant}" ?`,
+            message: `Le collaborateur pourra de nouveau se connecter au portail SIRH avec ses identifiants habituels.`,
+            confirmLabel: "Réactiver le compte",
+            variant: "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    await referentielService.activateUser(user.idUtilisateur);
+                    toast({ title: 'Succès', message: `Le compte de "${user.identifiant}" a été réactivé.`, type: 'success' });
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    loadData();
+                } catch (err) {
+                    setError(err.response?.data || "Impossible de réactiver l'utilisateur.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                }
+            }
+        });
     };
 
-    const filteredUsers = users.filter(u =>
-        u.identifiant.toLowerCase().includes(search.toLowerCase()) ||
-        (u.roleLibelle && u.roleLibelle.toLowerCase().includes(search.toLowerCase()))
+    const safeUsersList = Array.isArray(users) ? users : (users?.items || users?.content || []);
+    const filteredUsers = safeUsersList.filter(u =>
+        (showInactive || u.estActif !== false) &&
+        (u.identifiant?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (u.roleLibelle && u.roleLibelle.toLowerCase().includes(debouncedSearch.toLowerCase())))
     );
 
     if (loading && users.length === 0) {
@@ -196,7 +232,6 @@ export default function UserManagementTab() {
     return (
         <div className="space-y-6">
             {/* Notifications */}
-            {actionSuccess && <Alert type="success" message={actionSuccess} />}
             {error && <Alert type="error" message={error} />}
 
             {/* Barre d'outils */}
@@ -211,14 +246,26 @@ export default function UserManagementTab() {
                         className="w-full pl-9 pr-4 py-2 border border-[var(--color-border)] rounded-none bg-[var(--color-surface)] text-sm text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
                     />
                 </div>
-                <Button
-                    onClick={handleOpenCreateModal}
-                    variant="primary"
-                    size="sm"
-                    iconLeft={<UserPlus size={16} />}
-                >
-                    Nouvel Utilisateur
-                </Button>
+                <div className="flex items-center gap-3 flex-wrap">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1.5 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap">
+                        <input
+                            type="checkbox"
+                            checked={showInactive}
+                            onChange={(e) => setShowInactive(e.target.checked)}
+                            className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
+                        />
+                        <Eye size={14} />
+                        <span>Afficher désactivés</span>
+                    </label>
+                    <Button
+                        onClick={handleOpenCreateModal}
+                        variant="primary"
+                        size="sm"
+                        iconLeft={<UserPlus size={16} />}
+                    >
+                        Nouvel Utilisateur
+                    </Button>
+                </div>
             </div>
 
             {/* Tableau des utilisateurs */}
@@ -227,7 +274,6 @@ export default function UserManagementTab() {
                     <Th>Identifiant</Th>
                     <Th>Rôle</Th>
                     <Th>Statut</Th>
-                    <Th>Dernière Désactivation</Th>
                     <Th className="text-right">Actions</Th>
                 </Thead>
                 <Tbody>
@@ -245,48 +291,42 @@ export default function UserManagementTab() {
                                         {user.estActif ? 'Actif' : 'Désactivé'}
                                     </Badge>
                                 </Td>
-                                <Td muted className="text-xs max-w-xs truncate">
-                                    {!user.estActif && user.dateDesactivation ? (
-                                        <div>
-                                            <p>{fmtDate(user.dateDesactivation)}</p>
-                                            <p className="text-[var(--color-danger-500)] font-medium">Motif : {user.motifDesactivation}</p>
-                                        </div>
-                                    ) : (
-                                        <span>-</span>
-                                    )}
-                                </Td>
                                 <Td className="text-right">
                                     <div className="flex justify-end items-center gap-2">
                                         <button
                                             onClick={() => handleOpenEditModal(user)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
-                                            title="Modifier"
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            title="Modifier l'utilisateur"
+                                            aria-label={`Modifier ${user.identifiant}`}
                                         >
-                                            <Edit2 size={16} />
+                                            <Edit2 size={15} />
                                         </button>
-                                        {user.estActif ? (
-                                            <button
-                                                onClick={() => handleOpenDeactivateModal(user)}
-                                                className="px-2 py-1 text-xs font-bold text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none  cursor-pointer uppercase"
-                                            >
-                                                Désactiver
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={() => handleActivate(user)}
-                                                className="px-2 py-1 text-xs font-bold text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10 rounded-none  cursor-pointer uppercase"
-                                            >
-                                                Activer
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => user.estActif ? handleOpenDeactivateModal(user) : requestActivate(user)}
+                                            className={`p-1.5 rounded-none cursor-pointer transition-colors ${
+                                                user.estActif
+                                                    ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
+                                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
+                                            }`}
+                                            title={user.estActif ? "Désactiver l'utilisateur" : "Réactiver l'utilisateur"}
+                                            aria-label={user.estActif ? `Désactiver ${user.identifiant}` : `Activer ${user.identifiant}`}
+                                        >
+                                            <Power size={15} />
+                                        </button>
                                     </div>
                                 </Td>
                             </Tr>
                         ))
                     ) : (
                         <Tr>
-                            <Td colSpan={5} className="p-0">
-                                <EmptyState title="Aucun utilisateur" description="Aucun utilisateur trouvé." />
+                            <Td colSpan={4} className="p-0">
+                                <EmptyState
+                                    icon={UserCheck}
+                                    title="Aucun utilisateur trouvé"
+                                    description="Aucun compte utilisateur ne correspond à votre recherche."
+                                    actionLabel="Créer un utilisateur"
+                                    onAction={handleOpenCreateModal}
+                                />
                             </Td>
                         </Tr>
                     )}
@@ -294,121 +334,125 @@ export default function UserManagementTab() {
             </Table>
 
             {/* Modale d'ajout/modification utilisateur */}
-            {showUserModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                            <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                <UserPlus size={18} className="text-[var(--color-brand-500)]" />
-                                {selectedUser ? "Modifier l'utilisateur" : "Nouvel utilisateur"}
-                            </h3>
-                            <button onClick={() => setShowUserModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSaveUser} className="p-6 space-y-4">
-                            {actionError && <Alert type="error" message={actionError} />}
-                            <Input
-                                label="Identifiant"
-                                required
-                                disabled={!!selectedUser}
-                                value={formData.identifiant}
-                                onChange={(e) => setFormData({ ...formData, identifiant: e.target.value })}
-                                placeholder="Ex: jean.dupont"
-                            />
-                            <div className="space-y-1">
-                                <Input
-                                    label={`Mot de passe ${selectedUser ? "(Laisser vide pour ne pas modifier)" : ""}`}
-                                    type={showPassword ? "text" : "password"}
-                                    required={!selectedUser}
-                                    value={formData.motDePasse}
-                                    onChange={(e) => setFormData({ ...formData, motDePasse: e.target.value })}
-                                    placeholder="Mot de passe"
-                                    iconRight={
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="text-xs font-bold text-[var(--color-brand-500)] hover:text-[var(--color-brand-600)] cursor-pointer"
-                                        >
-                                            {showPassword ? "Masquer" : "Afficher"}
-                                        </button>
-                                    }
-                                />
-                            </div>
-                            <Input
-                                label="Confirmer le mot de passe"
-                                type={showPassword ? "text" : "password"}
-                                required={!selectedUser && !!formData.motDePasse}
-                                value={formData.confirmPassword}
-                                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                placeholder="Confirmation"
-                            />
-                            <Select
-                                label="Rôle"
-                                required
-                                value={formData.idRole}
-                                onChange={(e) => setFormData({ ...formData, idRole: e.target.value })}
-                            >
-                                <option value="">-- Sélectionner un rôle --</option>
-                                {roles.map((role) => (
-                                    <option key={role.idRole} value={role.idRole}>
-                                        {role.libelle} ({role.codeRole})
-                                    </option>
-                                ))}
-                            </Select>
-
-                            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
-                                <Button type="button" onClick={() => setShowUserModal(false)} variant="ghost" size="sm">
-                                    Annuler
-                                </Button>
-                                <Button type="submit" variant="primary" size="sm">
-                                    Enregistrer
-                                </Button>
-                            </div>
-                        </form>
+            <Modal
+                isOpen={showUserModal}
+                onClose={() => setShowUserModal(false)}
+                title={selectedUser ? "Modifier l'utilisateur" : "Nouvel utilisateur"}
+                icon={<UserPlus size={18} />}
+                size="md"
+                footer={
+                    <>
+                        <Button type="button" onClick={() => setShowUserModal(false)} variant="ghost" size="sm" disabled={submitting}>
+                            Annuler
+                        </Button>
+                        <Button type="submit" form="user-form" variant="primary" size="sm" loading={submitting}>
+                            {selectedUser ? "Enregistrer" : "Créer le compte"}
+                        </Button>
+                    </>
+                }
+            >
+                <form id="user-form" onSubmit={handleSaveUser} className="space-y-4">
+                    {modalError && <Alert type="error" message={modalError} />}
+                    <Input
+                        label="Identifiant / Login"
+                        required
+                        disabled={!!selectedUser}
+                        autoComplete="username"
+                        value={formData.identifiant}
+                        onChange={(e) => setFormData({ ...formData, identifiant: e.target.value })}
+                        placeholder="Ex: prenom.nom"
+                    />
+                    <div className="space-y-1">
+                        <Input
+                            label={`Mot de passe ${selectedUser ? "(Laisser vide pour ne pas modifier)" : ""}`}
+                            type={showPassword ? "text" : "password"}
+                            autoComplete="new-password"
+                            required={!selectedUser}
+                            value={formData.motDePasse}
+                            onChange={(e) => setFormData({ ...formData, motDePasse: e.target.value })}
+                            placeholder="Mot de passe confidentiel"
+                            iconRight={
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="text-xs font-bold text-[var(--color-brand-500)] hover:text-[var(--color-brand-600)] cursor-pointer"
+                                >
+                                    {showPassword ? "Masquer" : "Afficher"}
+                                </button>
+                            }
+                        />
                     </div>
-                </div>
-            )}
+                    <Input
+                        label="Confirmer le mot de passe"
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="new-password"
+                        required={!selectedUser && !!formData.motDePasse}
+                        value={formData.confirmPassword}
+                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                        placeholder="Répétez le mot de passe"
+                    />
+                    <Select
+                        label="Rôle et Habilitations"
+                        required
+                        value={formData.idRole}
+                        onChange={(e) => setFormData({ ...formData, idRole: e.target.value })}
+                    >
+                        <option value="">-- Sélectionner un rôle --</option>
+                        {roles.map((role) => (
+                            <option key={role.idRole} value={role.idRole}>
+                                {role.libelle} ({role.codeRole})
+                            </option>
+                        ))}
+                    </Select>
+                </form>
+            </Modal>
 
-            {/* Modale de désactivation logique */}
-            {showDeactivateModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                            <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                <ShieldAlert size={18} className="text-[var(--color-danger-500)]" />
-                                Confirmer la désactivation
-                            </h3>
-                            <button onClick={() => setShowDeactivateModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <form onSubmit={handleDeactivate} className="p-6 space-y-4">
-                            {actionError && <Alert type="error" message={actionError} />}
-                            <p className="text-sm text-[var(--color-fg-muted)]">
-                                Vous vous apprêtez à désactiver le compte de <strong className="text-[var(--color-fg)]">{selectedUser?.identifiant}</strong>. 
-                                L'utilisateur ne pourra plus s'authentifier.
-                            </p>
-                            <Textarea
-                                label="Motif de la désactivation"
-                                required
-                                rows={3}
-                                value={deactivateMotif}
-                                onChange={(e) => setDeactivateMotif(e.target.value)}
-                                placeholder="Ex: Fin de contrat, Départ de l'entreprise..."
-                            />
-                            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
-                                <Button type="button" onClick={() => setShowDeactivateModal(false)} variant="ghost" size="sm">
-                                    Annuler
-                                </Button>
-                                <Button type="submit" variant="danger" size="sm">
-                                    Désactiver le compte
-                                </Button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            {/* Modale de désactivation logique avec motif */}
+            <Modal
+                isOpen={showDeactivateModal}
+                onClose={() => setShowDeactivateModal(false)}
+                title="Confirmer la désactivation"
+                icon={<ShieldAlert size={18} className="text-[var(--color-danger-500)]" />}
+                size="md"
+                footer={
+                    <>
+                        <Button type="button" onClick={() => setShowDeactivateModal(false)} variant="ghost" size="sm" disabled={submitting}>
+                            Annuler
+                        </Button>
+                        <Button type="submit" form="deactivate-form" variant="danger" size="sm" loading={submitting}>
+                            Désactiver le compte
+                        </Button>
+                    </>
+                }
+            >
+                <form id="deactivate-form" onSubmit={handleDeactivate} className="space-y-4">
+                    {modalError && <Alert type="error" message={modalError} />}
+                    <p className="text-sm text-[var(--color-fg-muted)]">
+                        Vous vous apprêtez à désactiver le compte de <strong className="text-[var(--color-fg)]">{selectedUser?.identifiant}</strong>. 
+                        L'utilisateur ne pourra plus s'authentifier sur le SIRH.
+                    </p>
+                    <Textarea
+                        label="Motif de la désactivation (Obligatoire pour audit)"
+                        required
+                        rows={3}
+                        value={deactivateMotif}
+                        onChange={(e) => setDeactivateMotif(e.target.value)}
+                        placeholder="Ex: Fin de mission, Départ de l'entreprise..."
+                    />
+                </form>
+            </Modal>
+
+            {/* Dialogue de confirmation de réactivation */}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmLabel={confirmState.confirmLabel}
+                variant={confirmState.variant}
+                loading={confirmState.loading}
+            />
         </div>
     );
 }

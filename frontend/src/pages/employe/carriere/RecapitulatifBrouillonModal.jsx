@@ -5,7 +5,9 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import { Textarea } from '@/components/ui/forms/Input';
+import { useAuth } from '@/context/AuthContext';
 import contratService from '@/api/employe/contratService';
 import {
     fmtDate, fmtMoney, getWorkflowLibellesUI,
@@ -30,11 +32,18 @@ export default function RecapitulatifBrouillonModal({
     isOpen,
     onClose,
     workflowCpl,
+    initialCancelMode = false,
+    canWrite = true,
+    canValidate = false,
     onEdit,
     onActionSuccess,
 }) {
+    const { hasPermission } = useAuth();
+    const effectiveCanValidate = canValidate || hasPermission('EMPLOYE_VALIDATE');
+    const effectiveCanWrite = canWrite || hasPermission('EMPLOYE_WRITE');
+
     const [activeWf, setActiveWf] = useState(workflowCpl);
-    const [isCancelling, setIsCancelling] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(Boolean(initialCancelMode));
     const [commentaireValidation, setCommentaireValidation] = useState('');
     const [motifAnnulation, setMotifAnnulation] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -42,11 +51,20 @@ export default function RecapitulatifBrouillonModal({
 
     useEffect(() => {
         setActiveWf(workflowCpl);
-        setIsCancelling(false);
+        setIsCancelling(Boolean(initialCancelMode));
         setErrorMsg('');
         setCommentaireValidation('');
         setMotifAnnulation('');
-    }, [workflowCpl]);
+    }, [workflowCpl, initialCancelMode]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
 
     const currentWf = activeWf || workflowCpl;
 
@@ -60,7 +78,7 @@ export default function RecapitulatifBrouillonModal({
             try {
                 freshWf = await contratService.getWorkflow(currentWf.idWorkflow);
             } catch {
-                freshWf = { ...currentWf, codeStatutWorkflow: 'VALIDE', libelleStatutWorkflow: 'VALIDE' };
+                freshWf = { ...currentWf, codeStatutWorkflow: 'ACTIF', libelleStatutWorkflow: 'ACTIF', isActif: true, isBrouillon: false };
             }
             if (freshWf) setActiveWf(freshWf);
             if (onActionSuccess) {
@@ -134,10 +152,9 @@ export default function RecapitulatifBrouillonModal({
 
     if (!isOpen || !currentWf) return null;
 
-    const isBrouillon = currentWf.codeStatutWorkflow === 'BROUILLON';
-    const isValide = currentWf.codeStatutWorkflow === 'VALIDE';
-    const todayStr = new Date().toISOString().substring(0, 10);
-    const dateEffetStr = currentWf.dateEffet ? String(currentWf.dateEffet).substring(0, 10) : '';
+    const isBrouillon = currentWf.isBrouillon ?? (currentWf.codeStatutWorkflow === 'BROUILLON');
+    const isPlanifie = currentWf.isPlanifie ?? (currentWf.codeStatutWorkflow === 'PLANIFIE');
+    const isActif = currentWf.isActif ?? (currentWf.codeStatutWorkflow === 'ACTIF' || currentWf.codeStatutWorkflow === 'VALIDE');
 
     const {
         isEmbauche, isConfirmation: isConfirmationEssai,
@@ -146,18 +163,14 @@ export default function RecapitulatifBrouillonModal({
     } = getWorkflowLibellesUI(currentWf);
 
     const getDateFinEssaiContextuelle = () => calculerDateFinEssaiContextuelle(currentWf);
-    const isPlanifieFutur = isValide && !isConfirmationEssai && !isRenouvellementEssai && dateEffetStr > todayStr;
-
-    const getStatutBadgeVariant = (code) => {
-        if (code === 'VALIDE' || code === 'ACTIF') return 'success';
-        if (code === 'ANNULE' || code === 'ROMPU') return 'danger';
-        if (code === 'BROUILLON') return 'warning';
-        return 'default';
-    };
+    const isPlanifieFutur = isPlanifie;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto">
-            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl max-w-3xl w-full my-8 overflow-hidden flex flex-col max-h-[90vh]">
+        <div 
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto"
+        >
+            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl max-w-4xl w-full my-8 overflow-hidden flex flex-col max-h-[90vh]">
 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 bg-ink-50/80 dark:bg-ink-950/60 flex items-center justify-between">
@@ -170,9 +183,11 @@ export default function RecapitulatifBrouillonModal({
                                 <h2 className="font-bold text-base text-ink-900 dark:text-white">
                                     {isBrouillon ? eventTitle : 'Détail de l\'Événement RH'}
                                 </h2>
-                                <Badge variant={getStatutBadgeVariant(currentWf.codeStatutWorkflow)} size="sm">
-                                    {currentWf.libelleStatutWorkflow || currentWf.codeStatutWorkflow || 'BROUILLON'}
-                                </Badge>
+                                <StatusBadge
+                                    status={currentWf.codeStatutWorkflow}
+                                    label={currentWf.libelleStatutWorkflow}
+                                    size="sm"
+                                />
                             </div>
                             <p className="text-xs text-ink-400">
                                 Contrat N° <span className="font-mono font-bold text-brand-500">{currentWf.numeroContratCible || currentWf.numeroContratSource || 'Nouveau'}</span> — {currentWf.nomPrenomEmploye} ({currentWf.matriculeEmploye})
@@ -193,7 +208,7 @@ export default function RecapitulatifBrouillonModal({
                 </div>
 
                 {/* Body Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
                     {errorMsg && (
                         <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 rounded-none p-4 text-xs flex items-center gap-2 font-medium">
                             <ShieldAlert size={16} className="flex-shrink-0" />
@@ -214,7 +229,19 @@ export default function RecapitulatifBrouillonModal({
                                 </p>
                             </div>
                         </div>
-                    ) : isValide ? (
+                    ) : isPlanifie ? (
+                        <div className="bg-brand-500/10 border border-brand-500/30 p-4 rounded-none flex items-start gap-3">
+                            <Clock size={18} className="text-brand-600 dark:text-brand-400 flex-shrink-0 mt-0.5" />
+                            <div className="text-xs space-y-1">
+                                <p className="font-bold text-brand-700 dark:text-brand-300">
+                                    Événement RH Planifié (Prise d'effet le {fmtDate(currentWf.dateEffet)})
+                                </p>
+                                <p className="text-ink-500 dark:text-ink-300">
+                                    Ce mouvement RH a été validé et prendra automatiquement effet le {fmtDate(currentWf.dateEffet)}.
+                                </p>
+                            </div>
+                        </div>
+                    ) : isActif ? (
                         <div className="bg-success-500/10 border border-success-500/20 p-4 rounded-none flex items-start gap-3">
                             <CheckCircle size={18} className="text-success-600 flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
@@ -227,15 +254,26 @@ export default function RecapitulatifBrouillonModal({
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-danger-500/10 border border-danger-500/20 p-4 rounded-none flex items-start gap-3">
+                        <div className="bg-danger-500/10 border border-danger-500/30 p-4 rounded-none flex items-start gap-3">
                             <XCircle size={18} className="text-danger-600 flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
                                 <p className="font-bold text-danger-700 dark:text-danger-400">
-                                    Événement RH annulé
+                                    Mouvement RH Annulé / Rejeté
                                 </p>
-                                <p className="text-ink-500 dark:text-ink-300">
-                                    Ce mouvement RH a été annulé et n'a produit aucun effet contractuel.
+                                <p className="text-ink-600 dark:text-ink-300">
+                                    {currentWf.commentaire || currentWf.motif ? (
+                                        <>
+                                            <span className="font-semibold text-danger-600 dark:text-danger-400">Motif :</span> {currentWf.commentaire || currentWf.motif}
+                                        </>
+                                    ) : (
+                                        "Ce mouvement RH a été annulé et n'a produit aucun effet contractuel."
+                                    )}
                                 </p>
+                                {currentWf.updatedAt && (
+                                    <p className="text-[11px] text-ink-400 font-mono">
+                                        Annulé le {fmtDate(currentWf.updatedAt)}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )}
@@ -272,7 +310,7 @@ export default function RecapitulatifBrouillonModal({
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
 
                         {/* Carte 1 : Contrat de Travail */}
                         <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-none space-y-3">
@@ -386,45 +424,62 @@ export default function RecapitulatifBrouillonModal({
                 {/* Footer Actions */}
                 {isBrouillon ? (
                     !isCancelling && (
-                        <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center gap-3">
-                            <Button
-                                type="button"
-                                onClick={() => setIsCancelling(true)}
-                                variant="danger"
-                                size="md"
-                                iconLeft={<XCircle size={16} />}
-                            >
-                                Annuler ce Brouillon
-                            </Button>
-
-                            <div className="flex items-center gap-3">
+                        <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex items-center justify-between gap-4">
+                            {(effectiveCanWrite || effectiveCanValidate) ? (
                                 <Button
                                     type="button"
-                                    onClick={() => { onClose(); if (onEdit) onEdit(currentWf); }}
-                                    variant="outline"
+                                    onClick={() => setIsCancelling(true)}
+                                    variant="danger"
                                     size="md"
-                                    iconLeft={<Edit2 size={16} />}
+                                    iconLeft={<XCircle size={16} />}
+                                    className="shrink-0"
                                 >
-                                    Corriger / Modifier
+                                    Annuler ce Brouillon
                                 </Button>
+                            ) : (
+                                <div />
+                            )}
 
-                                <Button
-                                    type="button"
-                                    onClick={handleValiderConfirm}
-                                    variant="success"
-                                    size="md"
-                                    iconLeft={<CheckCircle size={16} />}
-                                    loading={submitting}
-                                >
-                                    {isConfirmationEssai ? 'Valider la Confirmation d\'Essai' : isRenouvellementEssai ? 'Valider le Renouvellement d\'Essai' : isEmbauche ? 'Valider Définitivement (Activer)' : 'Valider le Mouvement RH'}
-                                </Button>
+                            <div className="flex items-center gap-3 shrink-0">
+                                {onEdit && effectiveCanWrite && (
+                                    <Button
+                                        type="button"
+                                        onClick={() => {
+                                            onClose();
+                                            onEdit(currentWf);
+                                        }}
+                                        variant="outline"
+                                        size="md"
+                                        iconLeft={<Edit2 size={16} />}
+                                    >
+                                        Corriger les données
+                                    </Button>
+                                )}
+
+                                {effectiveCanValidate ? (
+                                    <Button
+                                        type="button"
+                                        onClick={handleValiderConfirm}
+                                        variant="success"
+                                        size="md"
+                                        iconLeft={<CheckCircle size={16} />}
+                                        loading={submitting}
+                                    >
+                                        {isConfirmationEssai ? 'Valider la Confirmation d\'Essai' : isRenouvellementEssai ? 'Valider le Renouvellement d\'Essai' : isEmbauche ? 'Valider Définitivement (Activer)' : 'Valider le Mouvement RH'}
+                                    </Button>
+                                ) : (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-ink-100 dark:bg-ink-900 border border-ink-200 dark:border-ink-800 text-[11px] text-ink-500 rounded-none">
+                                        <ShieldAlert size={14} className="text-warning-500 shrink-0" />
+                                        <span>Validation réservée aux DAF / Responsables RH</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )
                 ) : (
                     !isCancelling && (
                         <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center">
-                            {isPlanifieFutur ? (
+                            {isPlanifieFutur && (effectiveCanWrite || effectiveCanValidate) ? (
                                 <Button
                                     type="button"
                                     onClick={() => setIsCancelling(true)}

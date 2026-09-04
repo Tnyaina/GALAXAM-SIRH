@@ -69,6 +69,7 @@ Toutes les routes d'authentification ont pour préfixe de base `/api` (défini p
     "motDePasse": "MotDePasse123"
   }
   ```
+- **Persistance en Base** : Le refresh token généré et sa date d'expiration exacte sont enregistrés dans les colonnes `refresh_token` et `refresh_token_expiration` de la table `utilisateur`.
 - **Réponse HTTP 200 (JSON)** :
   ```json
   {
@@ -80,18 +81,19 @@ Toutes les routes d'authentification ont pour préfixe de base `/api` (défini p
   ```
 - **En-tête de réponse** : Positionne le cookie `refreshToken=...; Path=/api/auth; Max-Age=604800; HttpOnly; Secure; SameSite=Strict`.
 
-### Rafraîchissement (`POST /api/auth/refresh`)
+### Rafraîchissement avec Rotation (`POST /api/auth/refresh`)
 - **Action** : Reçoit automatiquement le cookie contenant le refresh token.
+- **Contrôle BDD & Rotation** : Vérifie l'existence active du token en base (`rechercherParRefreshToken`), invalide l'ancien et génère un nouveau couple Access Token + Refresh Token (rotation de sécurité).
 - **Réponse HTTP 200 (JSON)** :
   ```json
   {
     "accessToken": "nouveau_jwt_token..."
   }
   ```
-- **Réponse HTTP 401** : Si le refresh token est manquant, expiré ou corrompu.
+- **Réponse HTTP 401** : Si le refresh token est absent, expiré ou révoqué en base.
 
 ### Déconnexion (`POST /api/auth/logout`)
-- **Action** : Supprime le cookie du client en renvoyant un cookie de même nom expiré (`Max-Age=0`).
+- **Action** : Révoque immédiatement le refresh token en base (`revoquerRefreshToken`) et supprime le cookie HTTP-Only (`Max-Age=0`).
 
 ---
 

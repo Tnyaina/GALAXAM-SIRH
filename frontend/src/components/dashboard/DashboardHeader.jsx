@@ -5,13 +5,13 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import Button from '@/components/ui/forms/Button';
 import { Skeleton } from '@/components/ui/feedback/Skeleton';
 
-export default function DashboardHeader({ 
-    loading, 
-    error, 
-    refresh, 
-    lastRefresh, 
-    demandesCongeAValiderCount = 0, 
-    totalAlertesContrats = 0 
+export default function DashboardHeader({
+    loading,
+    error,
+    refresh,
+    lastRefresh,
+    demandesCongeAValiderCount = 0,
+    totalAlertesContrats = 0
 }) {
     const { user } = useAuth();
     const toast = useToast();
@@ -60,22 +60,22 @@ export default function DashboardHeader({
     return (
         <>
             {/* Bannière de bienvenue */}
-            <div className="bg-[var(--color-brand-800)] text-white p-6 flex items-center justify-between gap-4 shadow-md">
+            <div className="bg-[var(--color-brand-800)] text-white p-3.5 sm:p-4 flex items-center justify-between gap-3 shadow-xs">
                 <div>
-                    <p className="text-[var(--color-brand-200)] text-xs font-medium mb-1 uppercase tracking-wider font-data">
-                        {now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    <p className="text-[var(--color-brand-200)] text-[11px] font-medium mb-0.5 uppercase tracking-wider font-data">
+                        {now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).replace(/\s+/g, ' ')}
                     </p>
-                    <h2 className="text-xl font-extrabold tracking-tight mb-1">
+                    <h2 className="text-base sm:text-lg font-extrabold tracking-tight mb-0.5">
                         {greeting}, {user?.identifiant || 'utilisateur'}
                     </h2>
                     {loading ? (
-                        <Skeleton className="h-4 w-64 bg-white/20 mt-1" />
+                        <Skeleton className="h-3.5 w-64 bg-white/20 mt-1" />
                     ) : (
                         <p className="text-[var(--color-brand-100)] text-xs">
                             {demandesCongeAValiderCount > 0
                                 ? ` ${demandesCongeAValiderCount} demande(s) de congé en attente de validation DAF/RH.`
                                 : totalAlertesContrats > 0
-                                    ? `⚠️ ${totalAlertesContrats} alerte(s) de contrat nécessitent votre attention.`
+                                    ? ` ${totalAlertesContrats} alerte(s) de contrat nécessitent votre attention.`
                                     : 'Tout est à jour dans l\'application SIRH.'}
                         </p>
                     )}

@@ -35,24 +35,24 @@ const AlerteRow = memo(function AlerteRow({ alerte }) {
     );
 });
 
-export default function EcheancesWidget({ loading, alertesCritiques = [], alertes7j = [], alertes30j = [], totalAlertesContrats = 0 }) {
+export default function EcheancesWidget({ loading, alertesCritiques = [], alertes7j = [], alertes30j = [], totalAlertesContrats = 0, className = '' }) {
     return (
-        <Card>
-            <CardHeader>
+        <Card className={`flex flex-col ${className}`}>
+            <CardHeader className="min-h-[56px] flex items-center">
                 <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
-                        <AlertTriangle size={16} className="text-danger-500" />
+                        <AlertTriangle size={16} className="text-danger-500 shrink-0" />
                         <CardTitle>Échéances de Contrats & Périodes d'Essai (7 à 30 jours)</CardTitle>
                     </div>
-                    <Badge variant={totalAlertesContrats > 0 ? 'warning' : 'default'} size="sm">
+                    <Badge variant={totalAlertesContrats > 0 ? 'warning' : 'default'} size="sm" className="shrink-0">
                         {loading ? '…' : totalAlertesContrats} alerte(s)
                     </Badge>
                 </div>
             </CardHeader>
-            <CardBody>
+            <CardBody className="flex-1 flex flex-col justify-center">
                 {loading && <SkeletonListRows count={3} />}
                 {!loading && alertesCritiques.length === 0 && alertes7j.length === 0 && alertes30j.length === 0 && (
-                    <EmptyState description="Aucun contrat ni période d'essai n'arrive à échéance dans les 30 prochains jours." />
+                    <EmptyState compact description="Aucun contrat ni période d'essai n'arrive à échéance dans les 30 prochains jours." />
                 )}
                 {!loading && (alertesCritiques.length > 0 || alertes7j.length > 0 || alertes30j.length > 0) && (
                     <ExpandableList

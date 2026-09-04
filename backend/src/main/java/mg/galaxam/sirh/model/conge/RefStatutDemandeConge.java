@@ -145,4 +145,10 @@ public class RefStatutDemandeConge extends ClassMere {
 
     public String getLibelle() { return libelle; }
     public void setLibelle(String libelle) { this.libelle = libelle; }
+
+    // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
+    public boolean isEnAttente() { return "EN_ATTENTE".equalsIgnoreCase(code); }
+    public boolean isValide()    { return "VALIDE".equalsIgnoreCase(code); }
+    public boolean isRefuse()    { return "REFUSE".equalsIgnoreCase(code); }
+    public boolean isAnnule()    { return "ANNULE".equalsIgnoreCase(code); }
 }

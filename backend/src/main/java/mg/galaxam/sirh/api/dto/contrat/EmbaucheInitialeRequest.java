@@ -165,4 +165,16 @@ public class EmbaucheInitialeRequest {
 
     public String getMotif() { return motif; }
     public void setMotif(String motif) { this.motif = motif; }
+
+    /** Code type événement (EMBAUCHE_INITIALE, REPRISE_ANCIENNETE, REPRISE_CONSULTANT). Si null, EMBAUCHE_INITIALE */
+    private String codeTypeEvenement;
+
+    /** ID du contrat précédent pour rattachement / reprise d'ancienneté */
+    private Integer idContratPrecedent;
+
+    public String getCodeTypeEvenement() { return codeTypeEvenement; }
+    public void setCodeTypeEvenement(String codeTypeEvenement) { this.codeTypeEvenement = codeTypeEvenement; }
+
+    public Integer getIdContratPrecedent() { return idContratPrecedent; }
+    public void setIdContratPrecedent(Integer idContratPrecedent) { this.idContratPrecedent = idContratPrecedent; }
 }

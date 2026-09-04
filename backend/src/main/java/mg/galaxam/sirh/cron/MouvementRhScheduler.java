@@ -2,7 +2,9 @@ package mg.galaxam.sirh.cron;
 
 import java.sql.Connection;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.api.controller.contrat.WorkflowRhController;
+import mg.galaxam.sirh.model.contrat.WorkflowRhService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class MouvementRhScheduler {
 
+    private static final Logger log = LoggerFactory.getLogger(MouvementRhScheduler.class);
+
     @Autowired
     private DataSource dataSource;
 
@@ -25,6 +29,7 @@ public class MouvementRhScheduler {
      */
     @EventListener(ApplicationReadyEvent.class)
     public void auDemarrageApplication() {
+        log.info("[SCHEDULER] Rattrapage des mouvements RH échus au démarrage...");
         effectuerBasculementMouvementsPlanifies();
     }
 
@@ -32,14 +37,13 @@ public class MouvementRhScheduler {
      * Exécution automatique chaque jour à minuit (00:00:00).
      * Vérifie et applique tous les mouvements RH validés dont la date d'effet est atteinte.
      */
-    @Scheduled(cron = "0 0 0 * * ?")
+    @Scheduled(cron = "0 10 0 * * ?")
     public void effectuerBasculementMouvementsPlanifies() {
         try (Connection c = dataSource.getConnection()) {
-            WorkflowRhController.autoAppliquerMouvementsEchus(c);
+            WorkflowRhService.autoAppliquerMouvementsEchus(c);
+            log.info("[SCHEDULER] Mouvements RH échus traités avec succès.");
         } catch (Exception e) {
-            System.err.println("Erreur lors de l'exécution du Scheduler MouvementRhScheduler : " + e.getMessage());
-            e.printStackTrace();
+            log.error("[SCHEDULER] Erreur lors de l'exécution du Scheduler MouvementRhScheduler : {}", e.getMessage(), e);
         }
     }
 }
-

@@ -1,19 +1,24 @@
 import { Link } from 'react-router-dom';
 import { Calendar, Users, Clock, ChevronRight } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
+import { useAuth } from '@/context/AuthContext';
 
-export default function AccesRapidesWidget() {
+export default function AccesRapidesWidget({ className = '' }) {
+    const { hasPermission } = useAuth();
+
+    const links = [
+        { to: '/conges', label: 'Gestion des Congés & Absences', icon: Calendar, visible: hasPermission('CONGE_READ') },
+        { to: '/employes', label: 'Gestion du Personnel & Fiches', icon: Users, visible: hasPermission('EMPLOYE_READ') },
+        { to: '/pointages/saisie', label: 'Pointage & Présence', icon: Clock, visible: hasPermission('POINTAGE_READ') },
+    ].filter(link => link.visible);
+
     return (
-        <Card>
-            <CardHeader>
+        <Card className={`flex flex-col ${className}`}>
+            <CardHeader className="min-h-[56px] flex items-center">
                 <CardTitle>Accès Rapides SIRH</CardTitle>
             </CardHeader>
-            <CardBody className="space-y-2">
-                {[
-                    { to: '/conges', label: 'Gestion des Congés & Absences', icon: Calendar },
-                    { to: '/employes', label: 'Gestion du Personnel & Fiches', icon: Users },
-                    { to: '/pointages', label: 'Pointage & Temps de travail', icon: Clock },
-                ].map(({ to, label, icon: Icon }) => (
+            <CardBody className="flex-1 flex flex-col justify-center space-y-2.5">
+                {links.map(({ to, label, icon: Icon }) => (
                     <Link
                         key={to}
                         to={to}

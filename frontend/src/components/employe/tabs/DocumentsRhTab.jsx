@@ -1,6 +1,8 @@
-import { Folder, Upload, Download, Trash2, Plus, AlertTriangle } from 'lucide-react';
+import { Folder, Upload, Download, Trash2, AlertTriangle } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 const fmtDate = (d) => {
@@ -26,43 +28,49 @@ export default function DocumentsRhTab({
 }) {
     return (
         <div className="space-y-6">
-            {/* Bannière Alerte Documents Obligatoires Manquants */}
+            {/* Bannière Conformité RH — Documents Obligatoires Manquants */}
             {canWrite && documentsData.obligatoiresManquants && documentsData.obligatoiresManquants.length > 0 && (
-                <div className="bg-warning-500/10 border border-warning-500/30 p-4 rounded-none flex items-start gap-3">
-                    <AlertTriangle size={20} className="text-warning-600 flex-shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-warning-700">
-                            Documents Obligatoires Manquants ({documentsData.obligatoiresManquants.length})
-                        </h4>
-                        <p className="text-xs text-warning-600">
-                            Veuillez verser au dossier les pièces obligatoires manquantes pour compléter la conformité RH de cet employé :
-                        </p>
-                        <div className="flex flex-wrap gap-2 pt-1">
-                            {documentsData.obligatoiresManquants.map(m => (
-                                <button
-                                    key={m.idTypeDocument}
-                                    type="button"
-                                    onClick={() => onOpenUploadModal(m.idTypeDocument)}
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-white dark:bg-ink-900 border border-warning-500/40 text-warning-700 hover:bg-warning-500/20 rounded-none  cursor-pointer"
-                                >
-                                    <Plus size={12} />
-                                    {m.libelle}
-                                </button>
-                            ))}
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] border-l-4 border-l-amber-500 p-4 rounded-none shadow-2xs space-y-2.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                            <AlertTriangle size={16} className="text-[var(--color-warning-500)] shrink-0" />
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                                Conformité RH — Pièces Obligatoires Attendues
+                            </h4>
                         </div>
+                        <Badge variant="warning" size="xs" dot>
+                            {documentsData.obligatoiresManquants.length} document{documentsData.obligatoiresManquants.length > 1 ? 's' : ''} manquant{documentsData.obligatoiresManquants.length > 1 ? 's' : ''}
+                        </Badge>
+                    </div>
+                    <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                        Pour finaliser le dossier administratif et respecter la réglementation sociale, veuillez verser les pièces justificatives suivantes :
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-0.5">
+                        {documentsData.obligatoiresManquants.map(m => (
+                            <button
+                                key={m.idTypeDocument}
+                                type="button"
+                                onClick={() => onOpenUploadModal(m.idTypeDocument)}
+                                className="group inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-[var(--color-bg-subtle)] border border-[var(--color-border)] hover:border-[var(--color-brand-500)] hover:text-[var(--color-brand-500)] text-[var(--color-fg)] transition-all rounded-none cursor-pointer shadow-2xs"
+                                title={`Verser ${m.libelle}`}
+                            >
+                                <Upload size={12} className="text-[var(--color-fg-muted)] group-hover:text-[var(--color-brand-500)] transition-colors" />
+                                <span>{m.libelle}</span>
+                            </button>
+                        ))}
                     </div>
                 </div>
             )}
 
-            {/* Entête & Bouton Upload */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2 border-b border-ink-150 dark:border-ink-700">
+            {/* Entête & Bouton Upload (affiché uniquement s'il y a déjà des documents pour éviter le doublon avec l'EmptyState) */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2 border-b border-[var(--color-border-subtle)]">
                 <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] flex items-center gap-2">
                         <Folder size={14} /> Documents RH Déposés ({documentsData.documents.length})
                     </h3>
-                    <p className="text-xs text-ink-400">Consultez, téléchargez ou ajoutez les pièces justificatives de l'employé</p>
+                    <p className="text-xs text-[var(--color-fg-muted)]">Consultez, téléchargez ou ajoutez les pièces justificatives de l'employé</p>
                 </div>
-                {canWrite && (
+                {canWrite && documentsData.documents.length > 0 && (
                     <Button
                         onClick={() => onOpenUploadModal()}
                         variant="primary"
@@ -80,80 +88,84 @@ export default function DocumentsRhTab({
                     <SkeletonTable rows={5} columns={6} />
                 </div>
             ) : documentsData.documents.length === 0 ? (
-                <div className="p-10 text-center bg-ink-50 dark:bg-ink-950 border border-dashed border-ink-200 dark:border-ink-700 space-y-2">
-                    <Folder size={36} className="mx-auto text-ink-300" />
-                    <p className="text-sm font-bold text-ink-800 dark:text-white">Aucun document RH déposé</p>
-                    <p className="text-xs text-ink-400">Cliquez sur Téléverser un Document pour en ajouter un.</p>
-                </div>
+                <EmptyState
+                    icon={Folder}
+                    title="Aucun document RH déposé"
+                    description="Cliquez sur Téléverser un Document pour ajouter les pièces justificatives du collaborateur."
+                    actionLabel={canWrite ? "Téléverser un Document" : undefined}
+                    onAction={canWrite ? () => onOpenUploadModal() : undefined}
+                />
             ) : (
-                <div className="overflow-x-auto border border-ink-150 dark:border-ink-700 rounded-none">
-                    <table className="w-full text-sm text-left">
-                        <thead>
-                            <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
-                                <th className="px-4 py-3">Document & Nom</th>
-                                <th className="px-4 py-3">Type & Catégorie</th>
-                                <th className="px-4 py-3">Taille</th>
-                                <th className="px-4 py-3">Date Document</th>
-                                <th className="px-4 py-3">Versé par</th>
-                                <th className="px-4 py-3 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                            {documentsData.documents.map((doc) => (
-                                <tr key={doc.idDocument} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 bg-brand-500/10 text-brand-500 flex items-center justify-center rounded-none font-bold text-xs">
-                                                {doc.extension ? doc.extension.toUpperCase() : 'DOC'}
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-ink-900 dark:text-white">{doc.nomOriginal}</p>
-                                                {doc.commentaire && <p className="text-xs text-ink-400">{doc.commentaire}</p>}
-                                            </div>
+                <Table>
+                    <Thead>
+                        <Tr>
+                            <Th>Document & Nom</Th>
+                            <Th>Type & Catégorie</Th>
+                            <Th>Taille</Th>
+                            <Th>Date Document</Th>
+                            <Th>Versé par</Th>
+                            <Th className="text-right">Actions</Th>
+                        </Tr>
+                    </Thead>
+                    <Tbody>
+                        {documentsData.documents.map((doc) => (
+                            <Tr key={doc.idDocument} className="group">
+                                <Td>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] flex items-center justify-center rounded-none font-bold text-xs">
+                                            {doc.extension ? doc.extension.toUpperCase() : 'DOC'}
                                         </div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant="primary" size="sm">{doc.typeDocumentLibelle}</Badge>
-                                            {doc.typeDocumentObligatoire && (
-                                                <Badge variant="warning" size="sm">Obligatoire</Badge>
-                                            )}
+                                        <div>
+                                            <p className="font-semibold text-[var(--color-fg)]">{doc.nomOriginal}</p>
+                                            {doc.commentaire && <p className="text-xs text-[var(--color-fg-muted)]">{doc.commentaire}</p>}
                                         </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-xs font-mono text-ink-500">
-                                        {formatBytes(doc.tailleOctet)}
-                                    </td>
-                                    <td className="px-4 py-3 text-xs font-mono">
-                                        {fmtDate(doc.dateDocument)}
-                                    </td>
-                                    <td className="px-4 py-3 text-xs text-ink-500">
-                                        {doc.uploadedByIdentifiant || 'Admin'}
-                                    </td>
-                                    <td className="px-4 py-3 text-right">
-                                        <div className="flex justify-end gap-2">
+                                    </div>
+                                </Td>
+                                <Td>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="brand" size="sm">{doc.typeDocumentLibelle}</Badge>
+                                        {doc.typeDocumentObligatoire && (
+                                            <Badge variant="warning" size="sm">Obligatoire</Badge>
+                                        )}
+                                    </div>
+                                </Td>
+                                <Td isData className="text-xs font-mono text-[var(--color-fg-muted)]">
+                                    {formatBytes(doc.tailleOctet)}
+                                </Td>
+                                <Td isData className="text-xs font-mono text-[var(--color-fg-muted)]">
+                                    {fmtDate(doc.dateDocument)}
+                                </Td>
+                                <Td className="text-xs text-[var(--color-fg-muted)]">
+                                    {doc.uploadedByIdentifiant || 'Admin'}
+                                </Td>
+                                <Td className="text-right whitespace-nowrap">
+                                    <div className="flex justify-end gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => onDownloadDoc(doc.idDocument, doc.nomOriginal)}
+                                            className="p-1.5 text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer"
+                                            title="Visualiser / Télécharger"
+                                            aria-label="Visualiser / Télécharger"
+                                        >
+                                            <Download size={16} />
+                                        </button>
+                                        {canWrite && (
                                             <button
-                                                onClick={() => onDownloadDoc(doc.idDocument, doc.nomOriginal)}
-                                                className="p-1.5 text-brand-500 hover:bg-brand-500/10 rounded-none  cursor-pointer"
-                                                title="Visualiser / Télécharger"
+                                                type="button"
+                                                onClick={() => onDeleteDoc(doc.idDocument, doc.nomOriginal)}
+                                                className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer"
+                                                title="Supprimer"
+                                                aria-label="Supprimer le document"
                                             >
-                                                <Download size={16} />
+                                                <Trash2 size={16} />
                                             </button>
-                                            {canWrite && (
-                                                <button
-                                                    onClick={() => onDeleteDoc(doc.idDocument, doc.nomOriginal)}
-                                                    className="p-1.5 text-danger-500 hover:bg-danger-500/10 rounded-none  cursor-pointer"
-                                                    title="Supprimer"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                                        )}
+                                    </div>
+                                </Td>
+                            </Tr>
+                        ))}
+                    </Tbody>
+                </Table>
             )}
         </div>
     );

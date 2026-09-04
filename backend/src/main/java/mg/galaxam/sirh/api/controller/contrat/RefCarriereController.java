@@ -25,6 +25,7 @@ public class RefCarriereController {
     private DataSource dataSource;
 
     @GetMapping("/all")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getAllReferentielsCarriere() {
         try (Connection c = dataSource.getConnection()) {
             Map<String, Object> result = new HashMap<>();
@@ -42,6 +43,7 @@ public class RefCarriereController {
     }
 
     @GetMapping("/types-evenements")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getTypesEvenementRh() {
         try (Connection c = dataSource.getConnection()) {
             List<RefTypeEvenementRh> list = RefTypeEvenementRh.listAll(c);
@@ -55,6 +57,7 @@ public class RefCarriereController {
 
     // Catégories Professionnelles
     @GetMapping("/categories-pro")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getCategoriesPro(@RequestParam(value = "actifUniquement", required = false, defaultValue = "false") Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
             List<RefCategorieProfessionnelle> list = RefCategorieProfessionnelle.listAll(c, actifUniquement);
@@ -67,7 +70,7 @@ public class RefCarriereController {
     }
 
     @PostMapping("/categories-pro")
-    @PreAuthorize("hasAuthority('ADMIN_ACCESS') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createCategoriePro(@RequestBody RefCategorieProfessionnelle cat) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -88,7 +91,7 @@ public class RefCarriereController {
     }
 
     @PutMapping("/categories-pro/{id}")
-    @PreAuthorize("hasAuthority('ADMIN_ACCESS') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateCategoriePro(@PathVariable int id, @RequestBody RefCategorieProfessionnelle cat) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -120,6 +123,7 @@ public class RefCarriereController {
 
     // Modes de Calcul Paie
     @GetMapping("/modes-paie")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getModesPaie(@RequestParam(value = "actifUniquement", required = false, defaultValue = "false") Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
             List<RefModeCalculPaie> list = RefModeCalculPaie.listAll(c, actifUniquement);
@@ -133,6 +137,7 @@ public class RefCarriereController {
 
     // Motifs de Mouvement
     @GetMapping("/motifs-mouvement")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getMotifsMouvement(@RequestParam(value = "actifUniquement", required = false, defaultValue = "false") Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
             List<RefMotifMouvement> list = RefMotifMouvement.listAll(c, actifUniquement);
@@ -146,6 +151,7 @@ public class RefCarriereController {
 
     // Motifs de Sortie
     @GetMapping("/motifs-sortie")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getMotifsSortie(@RequestParam(value = "actifUniquement", required = false, defaultValue = "false") Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
             List<RefMotifSortie> list = RefMotifSortie.listAll(c, actifUniquement);

@@ -7,21 +7,20 @@ export function Toggle({ checked, onChange, label, description }) {
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`
-          relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-none border-2 border-transparent
+          relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-none border-2 border-transparent
             focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]
           ${checked ? 'bg-[var(--color-brand-500)]' : 'bg-[var(--color-border)]'}
         `}
       >
         <span className={`
-          pointer-events-none inline-block h-5 w-5 transform rounded-none bg-white shadow-sm
-            
-          ${checked ? 'translate-x-5' : 'translate-x-0'}
+          pointer-events-none inline-block h-4 w-4 transform rounded-none bg-white shadow-xs
+          ${checked ? 'translate-x-4' : 'translate-x-0'}
         `} />
       </button>
       {(label || description) && (
         <div>
-          {label && <p className="text-sm font-semibold text-[var(--color-fg)]">{label}</p>}
-          {description && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{description}</p>}
+          {label && <p className="text-xs sm:text-[13px] font-bold text-[var(--color-fg)]">{label}</p>}
+          {description && <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{description}</p>}
         </div>
       )}
     </div>

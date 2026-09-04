@@ -1,4 +1,4 @@
-import { Plus, Edit2, Calendar } from 'lucide-react';
+import { Plus, Edit2, Trash2, Calendar } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -11,6 +11,7 @@ export default function JoursFeriesList({
     search,
     onOpenCreate,
     onOpenEdit,
+    onDelete,
 }) {
     return (
         <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
@@ -68,13 +69,22 @@ export default function JoursFeriesList({
                                     </Badge>
                                 </Td>
                                 <Td className="text-right">
-                                    <button
-                                        onClick={() => onOpenEdit(f)}
-                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer"
-                                        title="Modifier"
-                                    >
-                                        <Edit2 size={15} />
-                                    </button>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <button
+                                            onClick={() => onOpenEdit(f)}
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer"
+                                            title="Modifier"
+                                        >
+                                            <Edit2 size={15} />
+                                        </button>
+                                        <button
+                                            onClick={() => onDelete && onDelete(f)}
+                                            className="p-1.5 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer"
+                                            title="Supprimer ce jour férié"
+                                        >
+                                            <Trash2 size={15} />
+                                        </button>
+                                    </div>
                                 </Td>
                             </Tr>
                         ))}

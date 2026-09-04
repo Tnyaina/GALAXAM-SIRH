@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import {   Eye } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import { fmtDateInput } from '@/utils/paieUtils';
-import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 
 import DepartementsList from './departements/DepartementsList';
 import DepartementFormModal from './departements/DepartementFormModal';
@@ -22,6 +21,17 @@ export default function DepartementsServicesTab() {
     const [actionSuccess, setActionSuccess] = useState(null);
     const [showInactive, setShowInactive] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    // Confirmation dialog state
+    const [confirmState, setConfirmState] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmLabel: '',
+        variant: 'danger',
+        onConfirm: null,
+        loading: false
+    });
 
     // Modale Département
     const [showDeptModal, setShowDeptModal] = useState(false);
@@ -42,17 +52,22 @@ export default function DepartementsServicesTab() {
         setError(null);
         try {
             const data = await organisationService.getDepartements();
-            setDepartements(data || []);
-            if (data?.length > 0 && !selectedDepartement) {
-                setSelectedDepartement(data[0]);
-            }
+            const list = Array.isArray(data) ? data : (data?.items || data?.content || []);
+            setDepartements(list);
+            setSelectedDepartement((prev) => {
+                if (prev) {
+                    const match = list.find(d => d.idDepartement === prev.idDepartement);
+                    return match || (list.length > 0 ? list[0] : null);
+                }
+                return list.length > 0 ? list[0] : null;
+            });
         } catch (err) {
             setError("Erreur lors du chargement des départements.");
             console.error(err);
         } finally {
             setLoading(false);
         }
-    }, [selectedDepartement]);
+    }, []);
 
     const loadServicesForDepartement = async (idDept) => {
         setLoadingServices(true);
@@ -73,6 +88,8 @@ export default function DepartementsServicesTab() {
     useEffect(() => {
         if (selectedDepartement) {
             loadServicesForDepartement(selectedDepartement.idDepartement);
+        } else {
+            setServices([]);
         }
     }, [selectedDepartement]);
 
@@ -85,7 +102,7 @@ export default function DepartementsServicesTab() {
     };
 
     const handleOpenEditDept = (dept, e) => {
-        e.stopPropagation();
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
         setEditingDept(dept);
         setDeptFormData({
             codeDepartement: dept.codeDepartement,
@@ -133,25 +150,37 @@ export default function DepartementsServicesTab() {
         }
     };
 
-    const handleToggleDeptStatus = async (dept, e) => {
-        e.stopPropagation();
-        if (submitting) return;
-        setActionSuccess(null);
-        setSubmitting(true);
-        try {
-            if (dept.estActif) {
-                await organisationService.deactivateDepartement(dept.idDepartement);
-                setActionSuccess(`Département "${dept.libelle}" désactivé.`);
-            } else {
-                await organisationService.activateDepartement(dept.idDepartement);
-                setActionSuccess(`Département "${dept.libelle}" réactivé.`);
+    const requestToggleDeptStatus = (dept, e) => {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        const isDeactivating = dept.estActif;
+
+        setConfirmState({
+            isOpen: true,
+            title: isDeactivating ? `Désactiver le département "${dept.libelle}" ?` : `Réactiver le département "${dept.libelle}" ?`,
+            message: isDeactivating
+                ? `Attention : La désactivation de ce département désactivera également l'accès à ses services rattachés et masquera l'entité lors des nouvelles affectations de collaborateurs.`
+                : `Le département et ses services redeviendront actifs.`,
+            confirmLabel: isDeactivating ? "Désactiver le département" : "Réactiver",
+            variant: isDeactivating ? "danger" : "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    if (isDeactivating) {
+                        await organisationService.deactivateDepartement(dept.idDepartement);
+                        setActionSuccess(`Département "${dept.libelle}" désactivé.`);
+                    } else {
+                        await organisationService.activateDepartement(dept.idDepartement);
+                        setActionSuccess(`Département "${dept.libelle}" réactivé.`);
+                    }
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    loadDepartements();
+                } catch {
+                    setError("Erreur lors de la modification du statut du département.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                }
             }
-            loadDepartements();
-        } catch {
-            setError("Erreur lors de la modification du statut.");
-        } finally {
-            setSubmitting(false);
-        }
+        });
     };
 
     // Service Handlers
@@ -221,26 +250,38 @@ export default function DepartementsServicesTab() {
         }
     };
 
-    const handleToggleServiceStatus = async (service) => {
-        if (submitting) return;
-        setActionSuccess(null);
-        setSubmitting(true);
-        try {
-            if (service.estActif) {
-                await organisationService.deactivateService(service.idService);
-                setActionSuccess(`Service "${service.libelle}" désactivé.`);
-            } else {
-                await organisationService.activateService(service.idService);
-                setActionSuccess(`Service "${service.libelle}" réactivé.`);
+    const requestToggleServiceStatus = (service) => {
+        const isDeactivating = service.estActif;
+
+        setConfirmState({
+            isOpen: true,
+            title: isDeactivating ? `Désactiver le service "${service.libelle}" ?` : `Réactiver le service "${service.libelle}" ?`,
+            message: isDeactivating
+                ? `La désactivation de ce service le rendra indisponible pour les futurs contrats et pointages. Les salariés actuellement rattachés conserveront leur historique.`
+                : `Le service redeviendra disponible pour les affectations.`,
+            confirmLabel: isDeactivating ? "Désactiver le service" : "Réactiver",
+            variant: isDeactivating ? "danger" : "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    if (isDeactivating) {
+                        await organisationService.deactivateService(service.idService);
+                        setActionSuccess(`Service "${service.libelle}" désactivé.`);
+                    } else {
+                        await organisationService.activateService(service.idService);
+                        setActionSuccess(`Service "${service.libelle}" réactivé.`);
+                    }
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    if (selectedDepartement) {
+                        loadServicesForDepartement(selectedDepartement.idDepartement);
+                    }
+                } catch {
+                    setError("Erreur lors de la modification du statut du service.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                }
             }
-            if (selectedDepartement) {
-                loadServicesForDepartement(selectedDepartement.idDepartement);
-            }
-        } catch {
-            setError("Erreur lors de la modification du statut.");
-        } finally {
-            setSubmitting(false);
-        }
+        });
     };
 
     const filteredDepartements = departements.filter(d => showInactive || d.estActif);
@@ -248,40 +289,36 @@ export default function DepartementsServicesTab() {
 
     return (
         <div className="space-y-6">
-            {error && (
-                <div className="p-4 bg-danger-500/10 text-danger-500 border border-danger-500/20 text-sm">
-                    {error}
-                </div>
-            )}
-            {actionSuccess && (
-                <div className="p-3 bg-success-500/10 text-success-600 border border-success-500/20 text-xs font-semibold">
-                    {actionSuccess}
-                </div>
-            )}
+            {error && <Alert type="error" message={error} />}
+            {actionSuccess && <Alert type="success" message={actionSuccess} />}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Colonne Gauche : Départements */}
-                <DepartementsList
-                    departements={filteredDepartements}
-                    selectedDepartement={selectedDepartement}
-                    loading={loading}
-                    showInactive={showInactive}
-                    onSelectDepartement={setSelectedDepartement}
-                    onOpenCreateDept={handleOpenCreateDept}
-                    onOpenEditDept={handleOpenEditDept}
-                    onToggleDeptStatus={handleToggleDeptStatus}
-                    onToggleShowInactive={() => setShowInactive(!showInactive)}
-                />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Colonne Gauche : Départements (5 cols sur 12) */}
+                <div className="lg:col-span-5">
+                    <DepartementsList
+                        departements={filteredDepartements}
+                        selectedDepartement={selectedDepartement}
+                        loading={loading}
+                        showInactive={showInactive}
+                        onSelectDepartement={setSelectedDepartement}
+                        onOpenCreateDept={handleOpenCreateDept}
+                        onOpenEditDept={handleOpenEditDept}
+                        onToggleDeptStatus={requestToggleDeptStatus}
+                        onToggleShowInactive={() => setShowInactive(!showInactive)}
+                    />
+                </div>
 
-                {/* Colonne Droite : Services */}
-                <ServicesList
-                    selectedDepartement={selectedDepartement}
-                    services={filteredServices}
-                    loadingServices={loadingServices}
-                    onOpenCreateService={handleOpenCreateService}
-                    onOpenEditService={handleOpenEditService}
-                    onToggleServiceStatus={handleToggleServiceStatus}
-                />
+                {/* Colonne Droite : Services (7 cols sur 12) */}
+                <div className="lg:col-span-7">
+                    <ServicesList
+                        selectedDepartement={selectedDepartement}
+                        services={filteredServices}
+                        loadingServices={loadingServices}
+                        onOpenCreateService={handleOpenCreateService}
+                        onOpenEditService={handleOpenEditService}
+                        onToggleServiceStatus={requestToggleServiceStatus}
+                    />
+                </div>
             </div>
 
             {/* Modale Département */}
@@ -307,6 +344,18 @@ export default function DepartementsServicesTab() {
                 departements={departements}
                 actionError={actionError}
                 submitting={submitting}
+            />
+
+            {/* Boîte de confirmation sécurisée */}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmLabel={confirmState.confirmLabel}
+                variant={confirmState.variant}
+                loading={confirmState.loading}
             />
         </div>
     );

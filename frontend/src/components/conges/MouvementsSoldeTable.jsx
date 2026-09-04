@@ -1,20 +1,33 @@
 import { useState } from 'react';
-import { History, PlusCircle, Filter } from 'lucide-react';
+import { History, PlusCircle, Filter, X } from 'lucide-react';
 import congeService from '@/api/congeService';
+import { getErrorMessage } from '@/api/apiClient';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea } from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 
-const formatDateTime = (timestamp) => {
-  if (!timestamp) return '-';
-  const date = new Date(timestamp);
-  return date.toLocaleString('fr-FR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit'
+const formatDateMouvement = (dateVal, fallbackTimestamp) => {
+  const target = dateVal || fallbackTimestamp;
+  if (!target) return '—';
+  const date = new Date(target);
+  if (isNaN(date.getTime())) return String(target);
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
   });
+};
+
+const getMouvementLabel = (type) => {
+  switch (type) {
+    case 'ACQUISITION': return 'Acquisition mensuelle';
+    case 'BONIFICATION': return 'Bonification ancienneté';
+    case 'PRISE': return 'Prise de congé';
+    case 'AJUSTEMENT': return 'Ajustement manuel RH';
+    case 'ANNULATION': return 'Annulation de demande';
+    case 'EXPIRATION': return 'Prescription triennale';
+    default: return type;
+  }
 };
 
 export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjustementSuccess }) {
@@ -25,22 +38,12 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const filteredMouvements = (mouvements || []).filter((mvt) => {
+  const safeMouvements = Array.isArray(mouvements) ? mouvements : (mouvements?.items || mouvements?.content || mouvements?.data || []);
+  const filteredMouvements = safeMouvements.filter((mvt) => {
+    if (!mvt) return false;
     if (filterType === 'ALL') return true;
     return mvt.typeMouvement === filterType;
   });
-
-  const getTypeBadgeVariant = (type) => {
-    switch (type) {
-      case 'ACQUISITION': return 'primary';
-      case 'BONIFICATION': return 'warning';
-      case 'PRISE': return 'info';
-      case 'AJUSTEMENT': return 'warning';
-      case 'ANNULATION': return 'success';
-      case 'EXPIRATION': return 'danger';
-      default: return 'default';
-    }
-  };
 
   const handleAjustementSubmit = async (e) => {
     e.preventDefault();
@@ -62,183 +65,187 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
       setShowModalAjustement(false);
       if (onAjustementSuccess) onAjustementSuccess();
     } catch (err) {
-      setError(err?.response?.data || err.message || 'Erreur lors de la création de l\'ajustement.');
+      setError(getErrorMessage(err, 'Erreur lors de la création de l\'ajustement.'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card className="rounded-none border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-sm font-sans">
-      <CardHeader>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 w-full">
-          <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-blue-500" />
-            <CardTitle>Historique des Mouvements de Solde</CardTitle>
-          </div>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            {/* Filtre par type */}
-            <div className="flex items-center gap-1.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] px-2.5 py-1 text-xs">
-              <Filter className="w-3.5 h-3.5 text-[var(--color-fg-muted)]" />
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="bg-transparent text-[var(--color-fg)] focus:outline-none cursor-pointer text-xs"
-              >
-                <option value="ALL">Tous les mouvements</option>
-                <option value="ACQUISITION">Acquisition mensuelle (+2.5j)</option>
-                <option value="BONIFICATION">Bonification d'ancienneté</option>
-                <option value="PRISE">Prise de congé</option>
-                <option value="AJUSTEMENT">Ajustement manuel RH</option>
-                <option value="ANNULATION">Annulation de demande</option>
-                <option value="EXPIRATION">Expiration triennale</option>
-              </select>
-            </div>
-
-            {/* Bouton d'ajustement RH */}
-            {idEmploye && (
-              <Button
-                variant="primary"
-                size="xs"
-                onClick={() => setShowModalAjustement(true)}
-                iconLeft={<PlusCircle size={14} />}
-                className="rounded-none font-bold uppercase"
-              >
-                Ajustement RH
-              </Button>
-            )}
-          </div>
+    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4 font-sans">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[var(--color-border-subtle)]">
+        <div className="flex items-center gap-2">
+          <History className="w-4 h-4 text-brand-500" />
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+            Registre des Mouvements & Crédits de Solde ({filteredMouvements.length})
+          </h4>
         </div>
-      </CardHeader>
 
-      <CardBody>
-        <div className="overflow-x-auto">
-          {filteredMouvements.length === 0 ? (
-            <div className="p-8 border-t border-[var(--color-border-subtle)]">
-                <EmptyState
-                    icon={History}
-                    title="Aucun mouvement"
-                    description="Aucun mouvement de solde n'a été enregistré pour ce filtre."
-                />
-            </div>
-          ) : (
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          {/* Filtre par type */}
+          <div className="flex items-center gap-1.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] px-2.5 py-1 text-xs">
+            <Filter className="w-3.5 h-3.5 text-[var(--color-fg-subtle)]" />
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="bg-transparent text-[var(--color-fg)] focus:outline-none cursor-pointer text-xs font-medium"
+            >
+              <option value="ALL">Tous les mouvements</option>
+              <option value="ACQUISITION">Acquisition mensuelle (+2.5j)</option>
+              <option value="BONIFICATION">Bonification d'ancienneté</option>
+              <option value="PRISE">Prise de congé</option>
+              <option value="AJUSTEMENT">Ajustement manuel RH</option>
+              <option value="ANNULATION">Annulation de demande</option>
+              <option value="EXPIRATION">Expiration triennale</option>
+            </select>
+          </div>
+
+          {/* Bouton d'ajustement RH */}
+          {idEmploye && (
+            <Button
+              variant="primary"
+              size="xs"
+              onClick={() => setShowModalAjustement(true)}
+              iconLeft={<PlusCircle size={14} />}
+              className="font-bold"
+            >
+              Ajustement RH
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        {filteredMouvements.length === 0 ? (
+          <div className="p-8">
+            <EmptyState
+              icon={History}
+              title="Aucun mouvement"
+              description="Aucun mouvement de solde n'a été enregistré pour ce filtre."
+            />
+          </div>
+        ) : (
           <Table>
             <Thead>
               <Tr>
-                <Th>Date & Heure</Th>
-                <Th>Type Mouvement</Th>
+                <Th>Date</Th>
+                <Th>Type de Mouvement</Th>
                 <Th className="text-center">Impact Solde</Th>
-                <Th>Motif & Explication</Th>
+                <Th>Motif & Justification</Th>
                 <Th>Opérateur</Th>
               </Tr>
             </Thead>
             <Tbody>
-                {filteredMouvements.map((m) => {
-                  const val = Number(m.nbJours || 0);
-                  const isPositive = val > 0;
-                  return (
-                    <Tr key={m.idMouvement}>
-                      <Td className="font-data text-xs">
-                        {formatDateTime(m.createdAt || m.dateMouvement)}
-                      </Td>
-                      <Td>
-                        <Badge variant={getTypeBadgeVariant(m.typeMouvement)} size="sm">
-                          {m.typeMouvement}
-                        </Badge>
-                      </Td>
-                      <Td className="text-center font-data font-extrabold text-xs">
-                        <span className={isPositive ? 'text-success-500' : 'text-danger-500'}>
-                          {isPositive ? `+${val.toFixed(2)}` : val.toFixed(2)}j
-                        </span>
-                      </Td>
-                      <Td className="text-xs text-[var(--color-fg)]">
-                        {m.commentaire || '—'}
-                      </Td>
-                      <Td className="font-data text-xs text-[var(--color-fg-subtle)]">
-                        {m.createdBy ? `Admin (${m.createdBy})` : 'Système Auto'}
-                      </Td>
-                    </Tr>
-                  );
-                })}
+              {filteredMouvements.map((m) => {
+                const val = Number(m.nbJours || 0);
+                const isPositive = val > 0;
+                return (
+                  <Tr key={m.idMouvement} className="hover:bg-[var(--color-surface-hover)] transition-colors">
+                    <Td className="font-mono text-xs text-[var(--color-fg-muted)]">
+                      {formatDateMouvement(m.dateMouvement, m.createdAt)}
+                    </Td>
+                    <Td>
+                      <Badge variant="default" size="xs" className="font-semibold">
+                        {getMouvementLabel(m.typeMouvement)}
+                      </Badge>
+                    </Td>
+                    <Td className="text-center font-mono font-bold text-xs">
+                      <span className={isPositive ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'}>
+                        {isPositive ? `+${val.toFixed(2)}` : val.toFixed(2)} j
+                      </span>
+                    </Td>
+                    <Td className="text-xs text-[var(--color-fg)]">
+                      {m.commentaire || '—'}
+                    </Td>
+                    <Td className="font-mono text-xs text-[var(--color-fg-subtle)]">
+                      {m.createdBy ? `Admin (${m.createdBy})` : 'Système Auto'}
+                    </Td>
+                  </Tr>
+                );
+              })}
             </Tbody>
           </Table>
-          )}
-        </div>
-      </CardBody>
+        )}
+      </div>
 
       {/* Modal d'Ajustement Manuel RH */}
       {showModalAjustement && (
-        <div className="fixed inset-0 bg-[var(--color-brand-900)]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] max-w-md w-full p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-3">
-              <h4 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2 uppercase tracking-wider">
-                <PlusCircle className="w-4 h-4 text-[var(--color-brand-500)]" />
-                Ajustement Manuel du Solde (RH / DAF)
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
+                <PlusCircle className="w-4 h-4 text-brand-500" />
+                Ajustement Manuel du Solde
               </h4>
-              <button onClick={() => setShowModalAjustement(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] font-bold">
-                ×
+              <button
+                type="button"
+                onClick={() => setShowModalAjustement(false)}
+                className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)] cursor-pointer"
+              >
+                <X size={16} />
               </button>
             </div>
 
             {error && (
-              <div className="p-3 bg-danger-500/10 border border-danger-500/30 text-xs text-danger-500">
+              <div className="p-2.5 bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/30 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] text-xs">
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleAjustementSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleAjustementSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] mb-1">
-                  Nombre de jours (+ ou -) *
+                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-1">
+                  Nombre de jours à ajouter / déduire
                 </label>
                 <Input
                   type="number"
                   step="0.5"
-                  placeholder="ex: +2.5 ou -1.0"
                   value={nbJours}
                   onChange={(e) => setNbJours(e.target.value)}
+                  placeholder="Ex : +1.5 ou -2"
                   required
+                  className="font-mono text-sm"
                 />
+                <p className="text-[11px] text-[var(--color-fg-subtle)] mt-1">
+                  Nombre positif pour créditer des jours, négatif pour déduire.
+                </p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] mb-1">
-                  Motif & Explication Régularisation *
+                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-1">
+                  Motif / Justification réglementaire
                 </label>
                 <Textarea
-                  rows="3"
-                  placeholder="Justification de l'ajustement..."
                   value={commentaire}
                   onChange={(e) => setCommentaire(e.target.value)}
+                  placeholder="Justification RH obligatoire (ex: régularisation fin de contrat, rachat...)"
+                  rows={3}
                   required
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border-subtle)]">
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="sm"
+                  variant="outline"
+                  size="xs"
                   onClick={() => setShowModalAjustement(false)}
-                  className="rounded-none"
                 >
                   Annuler
                 </Button>
                 <Button
                   type="submit"
                   variant="primary"
-                  size="sm"
+                  size="xs"
                   loading={loading}
-                  className="rounded-none font-bold uppercase"
                 >
-                  Enregistrer
+                  Valider l'Ajustement
                 </Button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </Card>
+    </div>
   );
 }

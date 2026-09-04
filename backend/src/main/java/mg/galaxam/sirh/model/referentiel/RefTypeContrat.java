@@ -160,4 +160,14 @@ public class RefTypeContrat extends ClassMere {
 
     public boolean isEstActif() { return estActif; }
     public void setEstActif(boolean estActif) { this.estActif = estActif; }
+
+    // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
+    public boolean isCdi() { return !exigeDateFin; }
+    public boolean isCdd() { return code != null && code.toUpperCase().contains("CDD"); }
+    public boolean isStage() { return code != null && code.toUpperCase().contains("STAGE"); }
+    public boolean isPrestataire() {
+        if (code == null) return false;
+        String c = code.toUpperCase();
+        return c.contains("PRESTATION") || c.contains("CONSULTANT");
+    }
 }

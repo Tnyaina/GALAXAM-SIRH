@@ -23,14 +23,17 @@ export default function ProtectedRoute({ allowedRoles, requiredPermission, child
     }
 
     // Redirige vers la page non autorisée si le rôle ou la permission est insuffisante
-    if (allowedRoles && !allowedRoles.includes(user?.role)) {
-        if (user?.role === 'ROLE_AGENT_POINTAGE') {
-            return <Navigate to="/pointages" replace />;
+    if (allowedRoles && !allowedRoles.includes(user?.role) && user?.role !== 'ROLE_ADMIN') {
+        if (!hasPermission('EMPLOYE_READ') && hasPermission('POINTAGE_READ')) {
+            return <Navigate to="/pointages/saisie" replace />;
         }
         return <Navigate to="/non-autorise" replace />;
     }
 
     if (requiredPermission && !hasPermission(requiredPermission)) {
+        if (!hasPermission('EMPLOYE_READ') && hasPermission('POINTAGE_READ')) {
+            return <Navigate to="/pointages/saisie" replace />;
+        }
         return <Navigate to="/non-autorise" replace />;
     }
 

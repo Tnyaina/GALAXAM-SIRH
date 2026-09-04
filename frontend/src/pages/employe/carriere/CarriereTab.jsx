@@ -1,7 +1,6 @@
-import { CheckCircle, ShieldAlert, RefreshCw } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import { useToast } from '@/components/ui/feedback/Toast';
 import Loading from '@/components/ui/feedback/Loading';
-import Button from '@/components/ui/forms/Button';
 
 // Hooks
 import { useCarriere } from '@/hooks/useCarriere';
@@ -21,6 +20,7 @@ export default function CarriereTab({
     nomEmploye,
     matriculeEmploye,
     canWrite = true,
+    canValidate = false,
     autoOpenWorkflowId = null,
     onEmployeUpdated,
 }) {
@@ -38,7 +38,7 @@ export default function CarriereTab({
 
     const workflowsValidesDuContrat = contratActif
         ? workflowsList
-            .filter((wf) => wf.codeStatutWorkflow === 'VALIDE' && (
+            .filter((wf) => Boolean(wf.isActif) && (
                 Number(wf.idContratCible) === Number(contratActif.idContrat) || 
                 (Number(wf.idContratSource) === Number(contratActif.idContrat) && !wf.idContratCible)
             ))
@@ -59,18 +59,10 @@ export default function CarriereTab({
     }
 
     return (
-        <div className="space-y-8">
-            <div className="flex justify-end">
-                <Button variant="outline" size="sm" iconLeft={<RefreshCw size={14} />} onClick={() => {
-                    refreshData();
-                    if (toast) toast({ title: 'Actualisé', message: 'Les données de la carrière ont été mises à jour.', type: 'info', duration: 2000 });
-                }}>
-                    Actualiser
-                </Button>
-            </div>
-            
+        <div className="space-y-3.5">
             {/* Header carte contrat + alerte période d'essai */}
             <CarriereHeaderCard
+                employe={employe}
                 contratActif={contratActif}
                 affectationActive={affectationActive}
                 brouillonWf={brouillonWf}
@@ -78,8 +70,14 @@ export default function CarriereTab({
                 workflowPlanifieFutur={workflowPlanifieFutur}
                 estEssaiRenouveleFlag={estEssaiRenouveleFlag}
                 canWrite={canWrite}
+                onRefresh={() => {
+                    refreshData();
+                    if (toast) toast({ title: 'Actualisé', message: 'Les données de la carrière ont été mises à jour.', type: 'info', duration: 2000 });
+                }}
                 onOpenConfirmation={modalsState.handleOpenConfirmationModal}
                 onOpenRenouvellement={modalsState.handleOpenRenouvellementModal}
+                onOpenTransition={() => modalsState.handleOpenTransitionModal()}
+                onOpenRupture={() => modalsState.handleOpenRuptureModal()}
                 onOpenRecap={() => modalsState.setIsRecapModalOpen(true)}
             />
 
@@ -113,6 +111,7 @@ export default function CarriereTab({
                 onSelectWorkflowRecap={modalsState.handleSelectWorkflowRecap}
                 onOpenCertificat={modalsState.handleOpenCertificat}
                 onOpenAttestation={modalsState.handleOpenAttestation}
+                onOpenContrat={modalsState.handleOpenContrat}
             />
 
             {/* Gestionnaire Centralisé de Modales */}
@@ -126,6 +125,9 @@ export default function CarriereTab({
                 workflowCplActif={workflowCplActif}
                 contratsList={contratsList}
                 brouillonWf={brouillonWf}
+                etatEssai={etatEssai}
+                canWrite={canWrite}
+                canValidate={canValidate}
                 modalsState={modalsState}
             />
         </div>

@@ -42,6 +42,12 @@ export function useCarriereModals({
     const [selectedAttestationAffectation, setSelectedAttestationAffectation] = useState(null);
     const [loadingAttestationAffectation, setLoadingAttestationAffectation] = useState(false);
 
+    // Contrat de Travail
+    const [isContratModalOpen, setIsContratModalOpen] = useState(false);
+    const [selectedContratDoc, setSelectedContratDoc] = useState(null);
+    const [selectedContratAffectation, setSelectedContratAffectation] = useState(null);
+    const [loadingContratAffectation, setLoadingContratAffectation] = useState(false);
+
     const [selectedWfModal, setSelectedWfModal] = useState(null);
 
     // -------------------------------------------------------------------------------------------------
@@ -91,13 +97,17 @@ export function useCarriereModals({
 
         try {
             setSearchParams(prev => {
-                if (!prev.has('wf')) return prev;
+                if (!prev.has('wf') && !prev.has('action')) return prev;
                 const next = new URLSearchParams(prev);
+                if (next.get('action') === 'new_contract') {
+                    setIsEmbaucheModalOpen(true);
+                }
                 next.delete('wf');
+                next.delete('action');
                 return next;
             }, { replace: true });
         } catch (e) {
-            console.error('Erreur nettoyage URL wf:', e);
+            console.error('Erreur nettoyage URL wf/action:', e);
         }
     }, [loading, autoOpenWorkflowId, workflowsList, brouillonWf, setSearchParams]);
 
@@ -132,7 +142,9 @@ export function useCarriereModals({
     const handleOpenEditModal = (data) => {
         setEditInitialData(data);
         const code = data?.codeTypeEvenement;
-        if (isEmbaucheEvent(code)) {
+        if (data?.idContratSource || data?.workflow?.idContratSource) {
+            setIsTransitionModalOpen(true);
+        } else if (isEmbaucheEvent(code)) {
             setIsEmbaucheModalOpen(true);
         } else if (isRuptureEvent(code)) {
             setIsRuptureModalOpen(true);
@@ -145,8 +157,11 @@ export function useCarriereModals({
         }
     };
 
-    const handleSelectWorkflowRecap = (wf) => {
+    const [isRecapCancelMode, setIsRecapCancelMode] = useState(false);
+
+    const handleSelectWorkflowRecap = (wf, { startInCancelMode = false } = {}) => {
         setSelectedWfModal(wf);
+        setIsRecapCancelMode(startInCancelMode);
         setIsRecapModalOpen(true);
     };
 
@@ -209,6 +224,31 @@ export function useCarriereModals({
         }
     };
 
+    const handleOpenContrat = async (contrat = null) => {
+        const cible = contrat || contratActif || (contratsList.length > 0 ? contratsList[0] : null);
+        if (!cible) return;
+
+        setSelectedContratDoc(cible);
+        setSelectedContratAffectation(null);
+        setIsContratModalOpen(true);
+
+        if (contratActif && Number(cible.idContrat) === Number(contratActif.idContrat) && affectationActive) {
+            setSelectedContratAffectation(affectationActive);
+            return;
+        }
+
+        setLoadingContratAffectation(true);
+        try {
+            const aff = await contratService.getAffectationParContrat(idEmploye, cible.idContrat);
+            setSelectedContratAffectation(aff);
+        } catch (err) {
+            console.error('Erreur récupération affectation pour contrat:', err);
+            setSelectedContratAffectation(null);
+        } finally {
+            setLoadingContratAffectation(false);
+        }
+    };
+
     return {
         // États d'orchestration
         isTransitioning, setIsTransitioning,
@@ -219,15 +259,18 @@ export function useCarriereModals({
         isEmbaucheModalOpen, setIsEmbaucheModalOpen,
         isTransitionModalOpen, setIsTransitionModalOpen,
         isRecapModalOpen, setIsRecapModalOpen,
+        isRecapCancelMode, setIsRecapCancelMode,
         isConfirmationModalOpen, setIsConfirmationModalOpen,
         isRenouvellementModalOpen, setIsRenouvellementModalOpen,
         isRuptureModalOpen, setIsRuptureModalOpen,
         
-        // Données Certificat / Attestation
+        // Données Certificat / Attestation / Contrat
         isCertificatModalOpen, setIsCertificatModalOpen,
         selectedCertificatContrat, selectedCertificatAffectation, loadingCertificatAffectation,
         isAttestationModalOpen, setIsAttestationModalOpen,
         selectedAttestationContrat, selectedAttestationAffectation, loadingAttestationAffectation,
+        isContratModalOpen, setIsContratModalOpen,
+        selectedContratDoc, selectedContratAffectation, loadingContratAffectation,
 
         // Actions
         handleSuccessAction,
@@ -239,6 +282,7 @@ export function useCarriereModals({
         handleOpenEditModal,
         handleSelectWorkflowRecap,
         handleOpenCertificat,
-        handleOpenAttestation
+        handleOpenAttestation,
+        handleOpenContrat
     };
 }

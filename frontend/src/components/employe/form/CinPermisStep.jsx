@@ -4,7 +4,7 @@ export default function CinPermisStep({ formData, set, villesStandards }) {
     return (
         <div className="space-y-6">
             <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-ink-400 mb-3">Carte d'Identité Nationale (CIN)</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-3">Carte d'Identité Nationale (CIN)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input label="N° CIN" required value={formData.cinNumero} onChange={e => set('cinNumero', e.target.value)} placeholder="Ex: 101 234 567 890" />
                     <Input label="Date de Délivrance" required type="date" value={formData.cinDateDelivrance} onChange={e => set('cinDateDelivrance', e.target.value)} />
@@ -30,8 +30,8 @@ export default function CinPermisStep({ formData, set, villesStandards }) {
                     </div>
                 </div>
             </div>
-            <div className="border-t border-ink-150 dark:border-ink-700 pt-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-ink-400 mb-3">Permis de Conduire</h3>
+            <div className="border-t border-[var(--color-border-subtle)] pt-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-3">Permis de Conduire</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Input label="N° Permis" value={formData.permisConduireNumero} onChange={e => set('permisConduireNumero', e.target.value)} placeholder="N° de permis" />
                     <Input label="Date Délivrance" type="date" value={formData.permisConduireDateDelivrance} onChange={e => set('permisConduireDateDelivrance', e.target.value)} />

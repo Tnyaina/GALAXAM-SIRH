@@ -4,7 +4,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -34,35 +37,29 @@ public class NotificationController {
     private DataSource dataSource;
 
     /**
-     * Récupère les notifications non lues de l'utilisateur courant.
-     * Inclut aussi les notifications broadcast (id_utilisateur IS NULL).
-     * Limite à 50 notifications (performance UI).
+     * Recupere les notifications non lues de l'utilisateur courant.
+     * Filtre par id_utilisateur ou par cible_role correspondant au role de l'utilisateur.
+     * Limite a 50 notifications (performance UI).
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getNotifications() {
         try (Connection c = dataSource.getConnection()) {
             Integer idUtilisateur = getCurrentUserId(c);
+            String userRoleCode = getCurrentUserRoleCode(c, idUtilisateur);
 
             String sql = "SELECT id_notification, type_alerte, priorite, titre, message, " +
-                    "lien, id_employe_concerne, est_lue, date_creation, date_lecture " +
+                    "lien, id_employe_concerne, est_lue, date_creation, date_lecture, cible_role " +
                     "FROM notification_rh " +
                     "WHERE est_lue = FALSE " +
-                    "AND (id_utilisateur IS NULL OR id_utilisateur = ?) " +
-                    "AND (date_expiration IS NULL OR date_expiration > CURRENT_TIMESTAMP) " +
-                    "ORDER BY " +
-                    "  CASE priorite " +
-                    "    WHEN 'CRITIQUE' THEN 1 " +
-                    "    WHEN 'HAUTE'    THEN 2 " +
-                    "    WHEN 'NORMALE'  THEN 3 " +
-                    "    ELSE 4 " +
-                    "  END, " +
-                    "  date_creation DESC " +
+                    "AND (id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?))) " +
+                    "ORDER BY date_creation DESC " +
                     "LIMIT 50";
 
             List<Map<String, Object>> notifications = new ArrayList<>();
             try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setObject(1, idUtilisateur);
+                ps.setObject(1, idUtilisateur, java.sql.Types.INTEGER);
+                ps.setString(2, userRoleCode);
                 ResultSet rs = ps.executeQuery();
                 while (rs.next()) {
                     Map<String, Object> n = new LinkedHashMap<>();
@@ -73,6 +70,7 @@ public class NotificationController {
                     n.put("message", rs.getString("message"));
                     n.put("lien", rs.getString("lien"));
                     n.put("idEmployeConcerne", rs.getObject("id_employe_concerne"));
+                    n.put("cibleRole", rs.getString("cible_role"));
                     n.put("estLue", rs.getBoolean("est_lue"));
                     n.put("dateCreation", rs.getTimestamp("date_creation"));
                     notifications.add(n);
@@ -87,7 +85,7 @@ public class NotificationController {
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des notifications.");
+                    .body("Erreur lors de la recuperation des notifications.");
         }
     }
 
@@ -95,16 +93,18 @@ public class NotificationController {
      * Marquer TOUTES les notifications de l'utilisateur comme lues.
      */
     @PutMapping("/marquer-lues")
-    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> marquerToutesLues() {
         try (Connection c = dataSource.getConnection()) {
             Integer idUtilisateur = getCurrentUserId(c);
+            String userRoleCode = getCurrentUserRoleCode(c, idUtilisateur);
 
             String sql = "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
                     "WHERE est_lue = FALSE " +
-                    "AND (id_utilisateur IS NULL OR id_utilisateur = ?)";
+                    "AND (id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?)))";
             try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setObject(1, idUtilisateur);
+                ps.setObject(1, idUtilisateur, java.sql.Types.INTEGER);
+                ps.setString(2, userRoleCode);
                 int updated = ps.executeUpdate();
                 return ResponseEntity.ok(Map.of("marquees", updated));
             }
@@ -116,10 +116,10 @@ public class NotificationController {
     }
 
     /**
-     * Marquer UNE notification spécifique comme lue.
+     * Marquer UNE notification specifique comme lue.
      */
     @PutMapping("/{id}/lire")
-    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> marquerUne(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             String sql = "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
@@ -136,8 +136,32 @@ public class NotificationController {
         }
     }
 
+    /**
+     * Supprimer toutes les notifications (effacer l'historique).
+     */
+    @DeleteMapping("/purger-toutes")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> purgerToutes() {
+        try (Connection c = dataSource.getConnection()) {
+            Integer idUtilisateur = getCurrentUserId(c);
+            String userRoleCode = getCurrentUserRoleCode(c, idUtilisateur);
+            String sql = "DELETE FROM notification_rh " +
+                    "WHERE (id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?)))";
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
+                ps.setObject(1, idUtilisateur, java.sql.Types.INTEGER);
+                ps.setString(2, userRoleCode);
+                int deleted = ps.executeUpdate();
+                return ResponseEntity.ok(Map.of("supprimees", deleted));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de la purge des notifications.");
+        }
+    }
+
     // =========================================================================
-    // Utilitaire — Résolution de l'utilisateur courant
+    // Utilitaire — Resolution de l'utilisateur courant et de son role
     // =========================================================================
 
     private Integer getCurrentUserId(Connection c) throws Exception {
@@ -154,5 +178,17 @@ public class NotificationController {
             ResultSet rs = ps.executeQuery();
             return rs.next() ? rs.getInt(1) : null;
         }
+    }
+
+    private String getCurrentUserRoleCode(Connection c, Integer idUtilisateur) {
+        if (idUtilisateur == null) return null;
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT r.code_role FROM utilisateur u JOIN ref_role r ON u.id_role = r.id_role WHERE u.id_utilisateur = ?")) {
+            ps.setInt(1, idUtilisateur);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString("code_role");
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

@@ -12,7 +12,7 @@ import SEO from '@/components/system/SEO';
 
 export default function Login() {
     const navigate = useNavigate();
-    const { login, isAuthenticated, user } = useAuth();
+    const { login, isAuthenticated, user, hasPermission } = useAuth();
 
     const [identifiant, setIdentifiant] = useState('');
     const [password, setPassword] = useState('');
@@ -23,10 +23,14 @@ export default function Login() {
 
     useEffect(() => {
         if (isAuthenticated && user) {
-            const redirectPath = user.role === 'ROLE_AGENT_POINTAGE' ? '/pointages' : '/dashboard';
+            const redirectPath = hasPermission('EMPLOYE_READ')
+                ? '/dashboard'
+                : (hasPermission('POINTAGE_READ')
+                    ? '/pointages/saisie'
+                    : (hasPermission('CONGE_READ') ? '/conges' : '/dashboard'));
             navigate(redirectPath, { replace: true });
         }
-    }, [isAuthenticated, user, navigate]);
+    }, [isAuthenticated, user, hasPermission, navigate]);
 
     const handleIdentifiantChange = (e) => {
         if (error) setError('');
@@ -57,7 +61,7 @@ export default function Login() {
     };
 
     return (
-        <main className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg)] px-4 py-12">
+        <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg)] px-4 py-12 focus:outline-none">
             <SEO title="Connexion" description="Connectez-vous à l'intranet RH de Galaxam." />
             <div className="w-full max-w-md">
                 <Card shadow="sm" bordered className="border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
@@ -73,10 +77,10 @@ export default function Login() {
                                 decoding="async"
                             />
                             <div className="text-center flex flex-col items-center justify-center -mt-2">
-                                <h1 className="text-[26px] font-black tracking-tighter text-[#012f41] uppercase leading-none">
+                                <span className="text-[26px] font-black tracking-tighter text-[var(--color-fg)] uppercase leading-none block">
                                     Galaxam
-                                </h1>
-                                <span className="text-sm font-light tracking-[0.25em] text-gray-500 uppercase mt-0.5 ml-1">
+                                </span>
+                                <span className="text-sm font-light tracking-[0.25em] text-[var(--color-fg-muted)] uppercase mt-0.5 ml-1">
                                     Logistics
                                 </span>
                             </div>
@@ -93,8 +97,14 @@ export default function Login() {
                         </div>
 
                         {error && (
-                            <div className="mb-5">
-                                <Alert type="error" title="Erreur">{error}</Alert>
+                            <div className="mb-5 animate-in fade-in duration-200">
+                                <Alert 
+                                    type="error" 
+                                    title="Échec de la connexion"
+                                    onClose={() => setError('')}
+                                >
+                                    {error}
+                                </Alert>
                             </div>
                         )}
 
@@ -103,12 +113,11 @@ export default function Login() {
                                 label="Identifiant"
                                 type="text"
                                 name="identifiant"
-                                placeholder="Votre identifiant"
+                                placeholder="Votre identifiant (ex: admin)"
                                 icon={<User size={16} />}
                                 value={identifiant}
                                 onChange={handleIdentifiantChange}
                                 autoComplete="username"
-                                error={!!error}
                                 required
                             />
 
@@ -122,7 +131,7 @@ export default function Login() {
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword((v) => !v)}
-                                        className="min-w-[44px] min-h-[44px] -mr-3 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] focus:outline-none  cursor-pointer"
+                                        className="min-w-[44px] min-h-[44px] -mr-3 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] focus:outline-none cursor-pointer"
                                         aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                                     >
                                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -131,7 +140,6 @@ export default function Login() {
                                 value={password}
                                 onChange={handlePasswordChange}
                                 autoComplete="current-password"
-                                error={!!error}
                                 required
                             />
 

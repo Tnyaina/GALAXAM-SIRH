@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import { AuthProvider } from "@/context/AuthContext";
+import { MenuProvider } from "@/context/MenuContext";
 import Layout from "@/components/layout/Layout";
 import Loading from "@/components/ui/feedback/Loading";
 
@@ -15,8 +16,8 @@ const Login = lazy(() => import("@/pages/auth/Login"));
 // Module Dashboard
 const Dashboard = lazy(() => import("@/pages/dashboard/Dashboard"));
 
-// Module Pointage
-const Pointages = lazy(() => import("@/pages/pointage/Pointages"));
+// Module Pointage & Présence
+const GestionPointagesPage = lazy(() => import("@/pages/pointage/GestionPointagesPage"));
 
 // Module Congés & Absences
 const GestionCongesPage = lazy(() => import("@/pages/conges/GestionCongesPage"));
@@ -24,6 +25,7 @@ const GestionCongesPage = lazy(() => import("@/pages/conges/GestionCongesPage"))
 // Module Employés
 const EmployeList = lazy(() => import("@/pages/employe/EmployeList"));
 const EmployeFicheDetailPage = lazy(() => import("@/pages/employe/EmployeFicheDetailPage"));
+const CarrieresSupervisionPage = lazy(() => import("@/pages/employe/CarrieresSupervisionPage"));
 
 // Administration / Paramètres
 const SecuriteAdminPanel = lazy(() => import("@/pages/parametres/securite/SecuriteAdminPanel"));
@@ -45,9 +47,10 @@ const NoConnection = lazy(() => import("@/pages/systeme/NoConnection"));
 export default function Router() {
     return (
         <AuthProvider>
-            {/* Fallback de chargement global pendant le téléchargement des chunks JS */}
-            <Suspense fallback={<Loading display="fullscreen" size="lg" label="Chargement de la page..." />}>
-                <Routes>
+            <MenuProvider>
+                {/* Fallback de chargement global pendant le téléchargement des chunks JS */}
+                <Suspense fallback={<Loading display="fullscreen" size="lg" label="Chargement de la page..." />}>
+                    <Routes>
                     {/* ---------------------------------------------------- */}
                     {/* Routes Publiques / Hors Session                      */}
                     {/* ---------------------------------------------------- */}
@@ -59,23 +62,27 @@ export default function Router() {
                     {/* ---------------------------------------------------- */}
                     {/* Routes Protégées Standard (Authentifié + Layout)    */}
                     {/* ---------------------------------------------------- */}
-                    <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
+                    <Route element={<ProtectedRoute requiredPermission="EMPLOYE_READ" />}>
                         <Route path="/dashboard" element={<Dashboard />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}
                     {/* Module Congés & Absences                             */}
                     {/* ---------------------------------------------------- */}
-                    <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN"]} />}>
+                    <Route element={<ProtectedRoute requiredPermission="CONGE_READ" />}>
                         <Route path="/conges" element={<GestionCongesPage />} />
                         <Route path="/conges/*" element={<GestionCongesPage />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}
-                    {/* Module Pointage (Rôles requis)                      */}
+                    {/* Module Pointage & Présence (Admin & Agent Pointage)  */}
                     {/* ---------------------------------------------------- */}
-                    <Route element={<ProtectedRoute allowedRoles={["ROLE_ADMIN", "ROLE_AGENT_POINTAGE"]} />}>
-                        <Route path="/pointages" element={<Pointages />} />
+                    <Route element={<ProtectedRoute requiredPermission="POINTAGE_READ" allowedRoles={["ROLE_ADMIN", "ROLE_AGENT_POINTAGE"]} />}>
+                        <Route path="/pointages" element={<GestionPointagesPage />} />
+                        <Route path="/pointages/saisie" element={<Navigate to="/pointages?tab=saisie" replace />} />
+                        <Route path="/pointages/anomalies" element={<Navigate to="/pointages?tab=anomalies" replace />} />
+                        <Route path="/pointages/synthese" element={<Navigate to="/pointages?tab=synthese" replace />} />
+                        <Route path="/pointages/periodes" element={<Navigate to="/pointages?tab=periodes" replace />} />
                     </Route>
 
                     <Route element={<ProtectedRoute />}>
@@ -89,6 +96,7 @@ export default function Router() {
                     <Route element={<ProtectedRoute requiredPermission="EMPLOYE_READ" />}>
                         <Route path="/employes" element={<EmployeList />} />
                         <Route path="/employes/:id" element={<EmployeFicheDetailPage />} />
+                        <Route path="/carrieres" element={<CarrieresSupervisionPage />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}
@@ -116,6 +124,7 @@ export default function Router() {
                     />
                 </Routes>
             </Suspense>
+            </MenuProvider>
         </AuthProvider>
     );
 }   

@@ -116,6 +116,7 @@ CREATE TABLE demande_conge (
     -- que bloquées silencieusement ou validées sans trace.
     derogation_solde_negatif BOOLEAN DEFAULT FALSE,   -- validé malgré solde insuffisant (anticipation)
     derogation_delai_preavis BOOLEAN DEFAULT FALSE,   -- validé malgré préavis non respecté
+    derogation_continuite_service BOOLEAN DEFAULT FALSE, -- validé malgré collision de poste (continuité de service)
 
     -- Extension maternité pour état pathologique (Art. 6 CNaPS) : porte le
     -- plafond de 98j à 119j (98 + 21j max). Applicable uniquement si
@@ -126,6 +127,7 @@ CREATE TABLE demande_conge (
     est_demi_journee BOOLEAN DEFAULT FALSE,
     moment_demi_journee VARCHAR(10) CHECK (moment_demi_journee IN ('MATIN', 'APRES_MIDI')),
 
+    est_remunere BOOLEAN DEFAULT NULL, -- NULL = selon ref_type_conge, TRUE = rémunérée (maintien salaire), FALSE = non rémunérée (sans solde)
     justificatif_fourni BOOLEAN DEFAULT FALSE,
     commentaire TEXT,
 
@@ -178,6 +180,8 @@ CREATE TABLE mouvement_solde_conge (
 CREATE INDEX idx_mouvement_solde_employe ON mouvement_solde_conge(id_employe);
 CREATE INDEX idx_mouvement_solde_demande ON mouvement_solde_conge(id_demande_conge);
 CREATE INDEX idx_mouvement_solde_date ON mouvement_solde_conge(date_mouvement);
+CREATE UNIQUE INDEX idx_uniq_mouvement_prise_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'PRISE' AND id_demande_conge IS NOT NULL;
+CREATE UNIQUE INDEX idx_uniq_mouvement_annulation_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'ANNULATION' AND id_demande_conge IS NOT NULL;
 
 -- ------------------------------------------
 -- 5. VUES DE SYNTHÈSE
@@ -221,7 +225,8 @@ SELECT
     d.id_type_conge,
     tc.code AS code_type_conge,
     tc.libelle AS libelle_type_conge,
-    tc.est_paye,
+    COALESCE(d.est_remunere, tc.est_paye) AS est_paye,
+    d.est_remunere,
     tc.suspend_acquisition_solde,
     d.id_motif_evenement_familial,
     m.code AS code_motif_evenement,
@@ -259,18 +264,8 @@ LEFT JOIN utilisateur uv ON uv.id_utilisateur = d.valide_par;
 -- ------------------------------------------
 -- 6. EXTENSION notification_rh (types d'alerte congés)
 -- ------------------------------------------
-ALTER TABLE notification_rh DROP CONSTRAINT IF EXISTS chk_notif_type;
-ALTER TABLE notification_rh ADD CONSTRAINT chk_notif_type CHECK (type_alerte IN (
-    'CONTRAT_EXPIRE_J', 'CONTRAT_EXPIRE_7J', 'CONTRAT_EXPIRE_30J',
-    'ESSAI_EXPIRE_J', 'ESSAI_EXPIRE_7J', 'ESSAI_EXPIRE_15J', 'ESSAI_EXPIRE_30J',
-    'BROUILLON_EN_ATTENTE', 'MOUVEMENT_APPLIQUE',
-    'DOCUMENTS_MANQUANTS', 'EMPLOYE_CREE', 'BROUILLON_CREE',
-    -- Congés & absences
-    'CONGE_EN_ATTENTE', 'DEMANDE_CONGE_EN_ATTENTE', 'CONGE_VALIDE', 'CONGE_REFUSE', 'CONGE_ANNULE',
-    'SOLDE_CONGE_FAIBLE', 'SOLDE_CONGE_NEGATIF', 'RETOUR_CONGE_J', 'CONGE_EXPIRATION_PROCHE',
-    'MALADIE_PLAFOND_EPISODE_ATTEINT', 'POOL_EXCEPTIONNEL_EPUISE',
-    'FRACTIONNEMENT_NON_RESPECTE', 'BONIFICATION_ANCIENNETE_APPLIQUEE'
-));
+-- NOTE : La contrainte chk_notif_type est définie de façon exhaustive
+-- dans 26-08-10-sp2-notifications.sql. Aucune modification nécessaire ici.
 
 -- ------------------------------------------
 -- 7. PARAMÈTRES GLOBAUX
@@ -292,7 +287,7 @@ INSERT INTO parametre_global (code_parametre, categorie, valeur, description, da
 ('SEUIL_ANCIENNETE_BONIFICATION_ANS', 'CONGE', '3', 'Ancienneté minimale (en années) à partir de laquelle la bonification de congé s applique (Art. 86/87)', '2026-01-01'),
 ('PALIER_ANNEES_BONIFICATION', 'CONGE', '5', 'Nombre d années par tranche donnant droit à un jour de bonification supplémentaire (Art. 86/87)', '2026-01-01'),
 ('JOURS_BONIFICATION_PAR_PALIER', 'CONGE', '1', 'Nombre de jours de congé supplémentaires accordés par tranche d ancienneté atteinte (Art. 86/87)', '2026-01-01')
-ON CONFLICT (code_parametre) DO NOTHING;
+ON CONFLICT (code_parametre, date_debut) DO NOTHING;
 
 -- ------------------------------------------
 -- 8. DONNÉES INITIALES
@@ -327,6 +322,7 @@ INSERT INTO ref_type_conge (code, libelle, est_paye, decompte_solde_acquis, exig
 INSERT INTO ref_type_conge (code, libelle, est_paye, decompte_solde_acquis, exige_anciennete_min_mois, duree_fixe_jours, exige_justificatif, soumis_delai_preavis, suspend_acquisition_solde) VALUES
 ('ANNUEL',     'Congé annuel payé',  TRUE,  TRUE,  12, NULL, FALSE, TRUE,  FALSE),
 ('MATERNITE',  'Congé maternité',    TRUE,  FALSE, 0,  98,   TRUE,  FALSE, FALSE),
+('PERMISSION', 'Permission exceptionnelle autorisée', TRUE, FALSE, 0, NULL, TRUE, FALSE, FALSE),
 ('SABBATIQUE', 'Congé sabbatique',   FALSE, FALSE, 0,  NULL, FALSE, TRUE,  TRUE),
 ('FORMATION',  'Congé formation',    FALSE, FALSE, 0,  NULL, FALSE, TRUE,  TRUE),
 ('SANS_SOLDE', 'Congé sans solde',   FALSE, FALSE, 0,  NULL, FALSE, FALSE, TRUE);

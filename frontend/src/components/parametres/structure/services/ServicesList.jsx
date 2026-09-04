@@ -1,4 +1,4 @@
-import { Layers, Plus, Edit2, Building } from 'lucide-react';
+import { Layers, Plus, Edit2, Building, Power } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -14,16 +14,18 @@ export default function ServicesList({
     onToggleServiceStatus,
 }) {
     return (
-        <div className="lg:col-span-2 bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
+        <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-4 sm:p-5 space-y-4 flex flex-col h-full">
             {selectedDepartement ? (
-                <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center pb-4 border-b border-[var(--color-border-subtle)] gap-3">
+                <div className="space-y-4 flex-1 flex flex-col">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center pb-3 border-b border-[var(--color-border-subtle)] gap-3">
                         <div>
-                            <h4 className="font-bold text-base text-[var(--color-fg)] flex items-center gap-2">
+                            <h4 className="font-bold text-sm sm:text-base text-[var(--color-fg)] flex items-center gap-2">
                                 <Layers size={18} className="text-[var(--color-brand-500)]" />
-                                Services rattachés à : <span className="text-[var(--color-brand-500)]">{selectedDepartement.libelle}</span>
+                                Services de : <span className="text-[var(--color-brand-500)]">{selectedDepartement.libelle}</span>
                             </h4>
-                            <p className="text-xs text-[var(--color-fg-muted)]">Code Département : {selectedDepartement.codeDepartement}</p>
+                            <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                Code Département : <span className="font-mono font-bold">{selectedDepartement.codeDepartement}</span>
+                            </p>
                         </div>
                         <Button
                             onClick={onOpenCreateService}
@@ -31,7 +33,7 @@ export default function ServicesList({
                             size="sm"
                             iconLeft={<Plus size={16} />}
                         >
-                            Ajouter un Service
+                            Nouveau Service
                         </Button>
                     </div>
 
@@ -40,60 +42,79 @@ export default function ServicesList({
                             <SkeletonTable rows={5} columns={4} />
                         </div>
                     ) : (
-                        <Table>
-                            <Thead>
-                                <Th>Code Service</Th>
-                                <Th>Nom du Service</Th>
-                                <Th>Statut</Th>
-                                <Th className="text-right">Actions</Th>
-                            </Thead>
-                            <Tbody>
-                                {services.length > 0 ? (
-                                    services.map((srv) => (
-                                        <Tr key={srv.idService}>
-                                            <Td isData className="font-bold text-[var(--color-brand-500)]">{srv.codeService}</Td>
-                                            <Td className="font-semibold text-[var(--color-fg)]">{srv.libelle}</Td>
-                                            <Td>
-                                                <Badge variant={srv.estActif ? 'success' : 'default'} size="sm" dot>
-                                                    {srv.estActif ? "Actif" : "Désactivé"}
-                                                </Badge>
-                                            </Td>
-                                            <Td className="text-right">
-                                                <div className="flex justify-end items-center gap-2">
-                                                    <button
-                                                        onClick={() => onOpenEditService(srv)}
-                                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
-                                                        title="Modifier"
-                                                    >
-                                                        <Edit2 size={15} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => onToggleServiceStatus(srv)}
-                                                        className={`px-2 py-1 text-xs font-bold rounded-none  cursor-pointer uppercase ${
-                                                            srv.estActif
-                                                                ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
-                                                                : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
-                                                        }`}
-                                                    >
-                                                        {srv.estActif ? "Désactiver" : "Activer"}
-                                                    </button>
-                                                </div>
+                        <div className="flex-1 overflow-x-auto">
+                            <Table>
+                                <Thead>
+                                    <Th>Code Service</Th>
+                                    <Th>Nom du Service</Th>
+                                    <Th>Statut</Th>
+                                    <Th className="text-right">Actions</Th>
+                                </Thead>
+                                <Tbody>
+                                    {services.length > 0 ? (
+                                        services.map((srv) => (
+                                            <Tr key={srv.idService}>
+                                                <Td isData className="font-bold text-[var(--color-brand-500)]">{srv.codeService}</Td>
+                                                <Td className="font-bold text-[var(--color-fg)]">
+                                                    <div className="flex items-center gap-2">
+                                                        <Layers size={14} className="text-[var(--color-fg-muted)] shrink-0" />
+                                                        <span>{srv.libelle}</span>
+                                                    </div>
+                                                </Td>
+                                                <Td>
+                                                    <Badge variant={srv.estActif ? 'success' : 'default'} size="sm" dot>
+                                                        {srv.estActif ? "Actif" : "Désactivé"}
+                                                    </Badge>
+                                                </Td>
+                                                <Td className="text-right">
+                                                    <div className="flex justify-end items-center gap-1.5">
+                                                        <button
+                                                            onClick={() => onOpenEditService(srv)}
+                                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                                            title="Modifier le service"
+                                                            aria-label={`Modifier le service ${srv.libelle}`}
+                                                        >
+                                                            <Edit2 size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => onToggleServiceStatus(srv)}
+                                                            className={`p-1.5 rounded-none cursor-pointer transition-colors ${
+                                                                srv.estActif
+                                                                    ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
+                                                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
+                                                            }`}
+                                                            title={srv.estActif ? "Désactiver le service" : "Réactiver le service"}
+                                                            aria-label={srv.estActif ? `Désactiver ${srv.libelle}` : `Activer ${srv.libelle}`}
+                                                        >
+                                                            <Power size={14} />
+                                                        </button>
+                                                    </div>
+                                                </Td>
+                                            </Tr>
+                                        ))
+                                    ) : (
+                                        <Tr>
+                                            <Td colSpan={4} className="p-0">
+                                                <EmptyState
+                                                    icon={Layers}
+                                                    title="Aucun service rattaché"
+                                                    description={`Créez le premier service sous le département "${selectedDepartement.libelle}".`}
+                                                    actionLabel="Ajouter un service"
+                                                    onAction={onOpenCreateService}
+                                                />
                                             </Td>
                                         </Tr>
-                                    ))
-                                ) : (
-                                        <Td colSpan={4} className="p-0">
-                                            <EmptyState title="Aucun service" description="Aucun service rattaché à ce département." />
-                                        </Td>
-                                )}
-                            </Tbody>
-                        </Table>
+                                    )}
+                                </Tbody>
+                            </Table>
+                        </div>
                     )}
                 </div>
             ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-[var(--color-fg-muted)]">
-                    <Building size={36} className="mb-2 opacity-40 text-[var(--color-fg-subtle)]" />
-                    <p className="text-sm">Veuillez sélectionner un département à gauche.</p>
+                <div className="flex flex-col items-center justify-center py-20 text-[var(--color-fg-muted)] flex-1">
+                    <Building size={40} className="mb-3 opacity-30 text-[var(--color-fg-subtle)]" />
+                    <p className="text-sm font-semibold">Aucun département sélectionné</p>
+                    <p className="text-xs text-[var(--color-fg-muted)] mt-1">Sélectionnez un département à gauche pour afficher ses services rattachés.</p>
                 </div>
             )}
         </div>

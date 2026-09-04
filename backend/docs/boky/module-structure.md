@@ -224,35 +224,24 @@ Les jours fériés sont utilisés par :
 - Le module **Congés** : pour le décompte calendaire strict.
 - Le scheduler de **notifications** : pour anticiper les alertes de fin de contrat.
 
-### 4.4 Paramètres Globaux
+### 4.4 Paramètres Globaux (`parametre_global`) & Exercices Fiscaux (`paie_config_legale`)
 
-La table `parametre_global` centralise tous les **paramètres de calcul configurables** du système, avec historisation temporelle :
+Afin de garantir une stricte séparation entre les **paramètres opérationnels RH/Pointage** et les **constantes légales/fiscales évolutives**, le système s'appuie sur deux mécanismes distincts :
 
-```sql
-Table parametre_global {
-  id_parametre    INTEGER PK
-  code_parametre  VARCHAR(50) UNIQUE  -- ex: 'SME_COURANT', 'SEUIL_SECOND_REPAS'
-  valeur          VARCHAR(100) NOT NULL
-  description     TEXT
-  date_debut      DATE NOT NULL  -- Historisation
-  date_fin        DATE           -- NULL = valeur actuellement en vigueur
-}
-```
+#### 1. Paramètres Opérationnels (`parametre_global`)
+Centralise les paramètres de calcul opérationnels non soumis à la Loi de Finances annuelle :
+* **`RH_GENERAL`** : Durée normale quotidienne (`SEUIL_HEURES_JOUR` = 8h), durée hebdomadaire normale (`SEUIL_HEURES_SEMAINE` = 40h), seuil HS tranche 1 (`SEUIL_HS_TRANCHE_1` = 8h), plafond HS hebdo (`PLAFOND_HEURES_SUPP_SEMAINE` = 20h).
+* **`POINTAGE`** : Début nuit (`SEUIL_NUIT_DEBUT` = 22:00), fin nuit (`SEUIL_NUIT_FIN` = 05:00), indemnité repas (`MONTANT_REPAS_MIDI` = 2 000 Ar), tranches 2nd repas (19:30 à 2 000 Ar, 21:00 à 4 000 Ar), détection pause minimale (60 min).
+* **`CONGE`** : Durées légales maternité (98j / 119j), plafonds solde négatif (-10j), préavis de dépôt (2j / 15j) et seuils d'alertes.
 
-**Paramètres clés du système** :
+#### 2. Millésimes Fiscaux & Sociaux (`paie_config_legale`)
+Gère l'historique immuable de la législation malgache par version (ex: `LF_2024`, `LF_2026`) :
+* **SME National & Agricole** (262 680 Ar / 266 500 Ar en 2026).
+* **Plafond Social CNaPS/Santé** : $8 \times \text{SME} = 2\,101\,440\text{ Ar}$.
+* **Règles IRSA** : Seuil d'exonération (350 000 Ar), minimum de perception (3 000 Ar), déduction par charge de famille (2 000 Ar/personne).
+* **Temps de travail & Congés** : Diviseur moyen mensuel ($173.3333\text{ h}$), acquisition mensuelle ($2.5\text{ j}$), diviseur de valorisation des congés ($\div 30$).
 
-| Code Paramètre | Valeur Exemple | Usage |
-|---|---|---|
-| `SME_COURANT` | `400000` | Salaire Minimum d'Embauche (plafond cotisations) |
-| `SEUIL_SECOND_REPAS` | `19:30` | Heure seuil pour 2ème repas du soir |
-| `DUREE_MAX_MATERNITE_STANDARD_JOURS` | `98` | Durée légale congé maternité |
-| `DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS` | `119` | Extension pathologique maternité |
-| `PLAFOND_SOLDE_CONGE_NEGATIF` | `-10` | Max jours anticipation congés |
-| `DELAI_PREAVIS_COURT_JOURS` | `2` | Préavis court (≤ 3j de congé) |
-| `DELAI_PREAVIS_LONG_JOURS` | `15` | Préavis long (> 3j de congé) |
-| `SEUIL_ALERTE_SOLDE_CONGE_FAIBLE` | `3` | Seuil déclencheur alerte solde faible |
-
----
+> 📖 Pour la spécification complète de ce système, consulter : [`module-paie-reglementation-fiscale.md`](./module-paie-reglementation-fiscale.md).
 
 ## 5. Référentiels Fiscaux & Sociaux
 

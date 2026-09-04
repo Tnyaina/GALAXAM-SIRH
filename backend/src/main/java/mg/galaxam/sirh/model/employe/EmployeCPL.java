@@ -9,6 +9,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class EmployeCPL extends ClassMere {
 
@@ -76,6 +77,10 @@ public class EmployeCPL extends ClassMere {
     private Integer nbContactsUrgence;
 
     // AFFECTATION CARRIERE & CONTRAT ACTIF (SYNTHESE)
+    private Integer idContratActif;
+    private String numeroContratActif;
+    private String codeStatutContrat;
+    private String statutContrat;
     private Integer idSite;
     private String nomSite;
     private Integer idDepartement;
@@ -87,6 +92,22 @@ public class EmployeCPL extends ClassMere {
     private Integer idFiliale;
     private String nomFiliale;
     private Date dateEmbauche;
+
+    // ANCIENNETE CALCULEE (BACKEND-DRIVEN)
+    private Double ancienneteEffectiveAnnees;
+    private Integer ancienneteEffectiveMois;
+    private String ancienneteEffectiveTexte;
+    private String ancienneteContratTexte;
+    private Integer nombreContratsChaine;
+
+    // ÉCHÉANCES & ALERTES CONTRAT (BACKEND-DRIVEN)
+    private Date dateFinContrat;
+    private Date dateFinEssai;
+    private String typeContrat;
+    private Integer joursRestantsFinContrat;
+    private Integer joursRestantsEssai;
+    private String alerteContratTexte;
+    private String alerteContratNiveau;
 
     public EmployeCPL() {
         this.setNomTable("V_EMPLOYE_CPL");
@@ -104,17 +125,17 @@ public class EmployeCPL extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        throw new UnsupportedOperationException("La vue v_employe_cpl est en lecture seule.");
+        throw new UnsupportedOperationException("L'insertion directe dans une vue n'est pas autorisée.");
     }
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        throw new UnsupportedOperationException("La vue v_employe_cpl est en lecture seule.");
+        throw new UnsupportedOperationException("La modification directe d'une vue n'est pas autorisée.");
     }
 
     @Override
     protected void supprimer(Connection c) throws Exception {
-        throw new UnsupportedOperationException("La vue v_employe_cpl est en lecture seule.");
+        throw new UnsupportedOperationException("La suppression directe d'une vue n'est pas autorisée.");
     }
 
     @Override
@@ -126,21 +147,41 @@ public class EmployeCPL extends ClassMere {
     public EmployeCPL rechercherParId(Integer id, Connection c) throws Exception {
         String sql = "SELECT e.*, eac.id_site, rs.libelle AS nom_site, eac.id_departement, rd.libelle AS nom_departement, " +
                 "eac.id_service, rserv.libelle AS nom_service, eac.id_fonction, rf.libelle AS nom_fonction, " +
-                "ct.id_filiale, rfil.raison_sociale AS nom_filiale, ct.date_debut AS date_embauche " +
+                "ct.id_contrat AS id_contrat_actif, ct.numero_contrat AS numero_contrat_actif, " +
+                "rsc.code AS code_statut_contrat, rsc.libelle AS statut_contrat, " +
+                "ct.id_filiale, rfil.raison_sociale AS nom_filiale, ct.date_debut AS date_embauche, " +
+                "ct.date_fin AS date_fin_contrat, ct.date_fin_essai AS date_fin_essai, rtc.libelle AS type_contrat " +
                 "FROM v_employe_cpl e " +
-                "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_affectation = COALESCE((SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ACTIVE' LIMIT 1), 1) " +
+                "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF' LIMIT 1), 1) " +
                 "LEFT JOIN ref_site rs ON eac.id_site = rs.id_site " +
                 "LEFT JOIN ref_departement rd ON eac.id_departement = rd.id_departement " +
                 "LEFT JOIN ref_service rserv ON eac.id_service = rserv.id_service " +
                 "LEFT JOIN ref_fonction rf ON eac.id_fonction = rf.id_fonction " +
                 "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
+                "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "LEFT JOIN ref_filiale rfil ON ct.id_filiale = rfil.id_filiale " +
+                "LEFT JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                 "WHERE e.id_employe = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return mapResultSet(rs);
+                    EmployeCPL emp = mapResultSet(rs);
+                    if (emp.getIdContratActif() != null && emp.getIdContratActif() > 0) {
+                        var anc = mg.galaxam.sirh.model.contrat.ContratTravail.calculerAncienneteDetaillee(emp.getIdContratActif(), c);
+                        emp.setAncienneteEffectiveTexte((String) anc.get("ancienneteEffectiveTexte"));
+                        emp.setAncienneteContratTexte((String) anc.get("ancienneteContratTexte"));
+                        if (anc.get("ancienneteEffectiveAnnees") instanceof Number) {
+                            emp.setAncienneteEffectiveAnnees(((Number) anc.get("ancienneteEffectiveAnnees")).doubleValue());
+                        }
+                        if (anc.get("ancienneteEffectiveMois") instanceof Number) {
+                            emp.setAncienneteEffectiveMois(((Number) anc.get("ancienneteEffectiveMois")).intValue());
+                        }
+                        if (anc.get("nombreContratsChaine") instanceof Number) {
+                            emp.setNombreContratsChaine(((Number) anc.get("nombreContratsChaine")).intValue());
+                        }
+                    }
+                    return emp;
                 }
             }
         }
@@ -188,15 +229,20 @@ public class EmployeCPL extends ClassMere {
         List<EmployeCPL> list = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT e.*, eac.id_site, rs.libelle AS nom_site, eac.id_departement, rd.libelle AS nom_departement, " +
                 "eac.id_service, rserv.libelle AS nom_service, eac.id_fonction, rf.libelle AS nom_fonction, " +
-                "ct.id_filiale, rfil.raison_sociale AS nom_filiale, ct.date_debut AS date_embauche " +
+                "ct.id_contrat AS id_contrat_actif, ct.numero_contrat AS numero_contrat_actif, " +
+                "rsc.code AS code_statut_contrat, rsc.libelle AS statut_contrat, " +
+                "ct.id_filiale, rfil.raison_sociale AS nom_filiale, ct.date_debut AS date_embauche, " +
+                "ct.date_fin AS date_fin_contrat, ct.date_fin_essai AS date_fin_essai, rtc.libelle AS type_contrat " +
                 "FROM v_employe_cpl e " +
-                "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_affectation = COALESCE((SELECT id_statut_affectation FROM ref_statut_affectation WHERE code = 'ACTIVE' LIMIT 1), 1) " +
+                "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF' LIMIT 1), 1) " +
                 "LEFT JOIN ref_site rs ON eac.id_site = rs.id_site " +
                 "LEFT JOIN ref_departement rd ON eac.id_departement = rd.id_departement " +
                 "LEFT JOIN ref_service rserv ON eac.id_service = rserv.id_service " +
                 "LEFT JOIN ref_fonction rf ON eac.id_fonction = rf.id_fonction " +
                 "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
+                "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "LEFT JOIN ref_filiale rfil ON ct.id_filiale = rfil.id_filiale " +
+                "LEFT JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
                 "WHERE 1=1 ");
 
         List<Object> params = new ArrayList<>();
@@ -340,6 +386,10 @@ public class EmployeCPL extends ClassMere {
         emp.setNbContactsUrgence((Integer) rs.getObject("nb_contacts_urgence"));
 
         // Affectation & Contrat
+        emp.setIdContratActif(getNullableIntFromRs(rs, "id_contrat_actif"));
+        emp.setNumeroContratActif(getNullableStringFromRs(rs, "numero_contrat_actif"));
+        emp.setCodeStatutContrat(getNullableStringFromRs(rs, "code_statut_contrat"));
+        emp.setStatutContrat(getNullableStringFromRs(rs, "statut_contrat"));
         emp.setIdSite(getNullableIntFromRs(rs, "id_site"));
         emp.setNomSite(getNullableStringFromRs(rs, "nom_site"));
         emp.setIdDepartement(getNullableIntFromRs(rs, "id_departement"));
@@ -352,8 +402,64 @@ public class EmployeCPL extends ClassMere {
         emp.setNomFiliale(getNullableStringFromRs(rs, "nom_filiale"));
         emp.setDateEmbauche(getNullableDateFromRs(rs, "date_embauche"));
 
+        emp.setDateFinContrat(getNullableDateFromRs(rs, "date_fin_contrat"));
+        emp.setDateFinEssai(getNullableDateFromRs(rs, "date_fin_essai"));
+        emp.setTypeContrat(getNullableStringFromRs(rs, "type_contrat"));
+
+        // Calculs des alertes d'échéance contractuelle Backend-Driven
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (emp.getDateFinContrat() != null) {
+            java.time.LocalDate dFin = emp.getDateFinContrat().toLocalDate();
+            long diff = java.time.temporal.ChronoUnit.DAYS.between(today, dFin);
+            emp.setJoursRestantsFinContrat((int) diff);
+            if (diff < 0) {
+                emp.setAlerteContratTexte("Contrat échu (J" + diff + ")");
+                emp.setAlerteContratNiveau("DANGER");
+            } else if (diff == 0) {
+                emp.setAlerteContratTexte("Fin de contrat aujourd'hui");
+                emp.setAlerteContratNiveau("DANGER");
+            } else if (diff <= 7) {
+                emp.setAlerteContratTexte("Fin " + (emp.getTypeContrat() != null ? emp.getTypeContrat() : "contrat") + " : J-" + diff + " (Urgent)");
+                emp.setAlerteContratNiveau("DANGER");
+            } else if (diff <= 30) {
+                emp.setAlerteContratTexte("Fin " + (emp.getTypeContrat() != null ? emp.getTypeContrat() : "contrat") + " : J-" + diff);
+                emp.setAlerteContratNiveau("WARNING");
+            } else if (diff <= 60) {
+                emp.setAlerteContratTexte("Fin " + (emp.getTypeContrat() != null ? emp.getTypeContrat() : "contrat") + " : J-" + diff);
+                emp.setAlerteContratNiveau("INFO");
+            }
+        }
+
+        if (emp.getDateFinEssai() != null && emp.getAlerteContratTexte() == null) {
+            java.time.LocalDate dEssai = emp.getDateFinEssai().toLocalDate();
+            long diff = java.time.temporal.ChronoUnit.DAYS.between(today, dEssai);
+            emp.setJoursRestantsEssai((int) diff);
+            if (diff < 0) {
+                emp.setAlerteContratTexte("Période d'essai échue (J" + diff + ")");
+                emp.setAlerteContratNiveau("DANGER");
+            } else if (diff == 0) {
+                emp.setAlerteContratTexte("Dernier jour d'essai");
+                emp.setAlerteContratNiveau("WARNING");
+            } else if (diff <= 15) {
+                emp.setAlerteContratTexte("Fin d'essai : J-" + diff);
+                emp.setAlerteContratNiveau("WARNING");
+            }
+        }
+
         return emp;
     }
+
+    public Integer getIdContratActif() { return idContratActif; }
+    public void setIdContratActif(Integer idContratActif) { this.idContratActif = idContratActif; }
+
+    public String getNumeroContratActif() { return numeroContratActif; }
+    public void setNumeroContratActif(String numeroContratActif) { this.numeroContratActif = numeroContratActif; }
+
+    public String getCodeStatutContrat() { return codeStatutContrat; }
+    public void setCodeStatutContrat(String codeStatutContrat) { this.codeStatutContrat = codeStatutContrat; }
+
+    public String getStatutContrat() { return statutContrat; }
+    public void setStatutContrat(String statutContrat) { this.statutContrat = statutContrat; }
 
     // Getters and Setters
     public Integer getIdEmploye() { return idEmploye; }
@@ -532,4 +638,40 @@ public class EmployeCPL extends ClassMere {
 
     public Date getDateEmbauche() { return dateEmbauche; }
     public void setDateEmbauche(Date dateEmbauche) { this.dateEmbauche = dateEmbauche; }
+
+    public Double getAncienneteEffectiveAnnees() { return ancienneteEffectiveAnnees; }
+    public void setAncienneteEffectiveAnnees(Double ancienneteEffectiveAnnees) { this.ancienneteEffectiveAnnees = ancienneteEffectiveAnnees; }
+
+    public Integer getAncienneteEffectiveMois() { return ancienneteEffectiveMois; }
+    public void setAncienneteEffectiveMois(Integer ancienneteEffectiveMois) { this.ancienneteEffectiveMois = ancienneteEffectiveMois; }
+
+    public String getAncienneteEffectiveTexte() { return ancienneteEffectiveTexte; }
+    public void setAncienneteEffectiveTexte(String ancienneteEffectiveTexte) { this.ancienneteEffectiveTexte = ancienneteEffectiveTexte; }
+
+    public String getAncienneteContratTexte() { return ancienneteContratTexte; }
+    public void setAncienneteContratTexte(String ancienneteContratTexte) { this.ancienneteContratTexte = ancienneteContratTexte; }
+
+    public Integer getNombreContratsChaine() { return nombreContratsChaine; }
+    public void setNombreContratsChaine(Integer nombreContratsChaine) { this.nombreContratsChaine = nombreContratsChaine; }
+
+    public Date getDateFinContrat() { return dateFinContrat; }
+    public void setDateFinContrat(Date dateFinContrat) { this.dateFinContrat = dateFinContrat; }
+
+    public Date getDateFinEssai() { return dateFinEssai; }
+    public void setDateFinEssai(Date dateFinEssai) { this.dateFinEssai = dateFinEssai; }
+
+    public String getTypeContrat() { return typeContrat; }
+    public void setTypeContrat(String typeContrat) { this.typeContrat = typeContrat; }
+
+    public Integer getJoursRestantsFinContrat() { return joursRestantsFinContrat; }
+    public void setJoursRestantsFinContrat(Integer joursRestantsFinContrat) { this.joursRestantsFinContrat = joursRestantsFinContrat; }
+
+    public Integer getJoursRestantsEssai() { return joursRestantsEssai; }
+    public void setJoursRestantsEssai(Integer joursRestantsEssai) { this.joursRestantsEssai = joursRestantsEssai; }
+
+    public String getAlerteContratTexte() { return alerteContratTexte; }
+    public void setAlerteContratTexte(String alerteContratTexte) { this.alerteContratTexte = alerteContratTexte; }
+
+    public String getAlerteContratNiveau() { return alerteContratNiveau; }
+    public void setAlerteContratNiveau(String alerteContratNiveau) { this.alerteContratNiveau = alerteContratNiveau; }
 }

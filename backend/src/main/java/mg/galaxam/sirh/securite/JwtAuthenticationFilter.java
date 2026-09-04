@@ -23,6 +23,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private CustomUserDetailsService userDetailsService;
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private mg.galaxam.sirh.cron.RattrapageAutomatiqueService rattrapageAutomatiqueService;
+
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
@@ -54,6 +58,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                    if (rattrapageAutomatiqueService != null) {
+                        rattrapageAutomatiqueService.verifierEtExecuterRattrapageAsync();
+                    }
                 }
             }
         } catch (Exception e) {

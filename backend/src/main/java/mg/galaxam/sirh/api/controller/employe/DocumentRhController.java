@@ -121,7 +121,18 @@ public class DocumentRhController {
                     extension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
                 }
 
-                String uniqueFilename = UUID.randomUUID().toString() + (extension.isEmpty() ? "" : "." + extension);
+                // 2.bis Vérification de l'extension autorisée (whitelist stricte)
+                String allowedExtensions = typeDoc.getExtensionAutorisee() != null && !typeDoc.getExtensionAutorisee().isBlank()
+                        ? typeDoc.getExtensionAutorisee().toLowerCase()
+                        : "pdf,jpg,jpeg,png";
+                java.util.List<String> allowedList = java.util.Arrays.stream(allowedExtensions.split(","))
+                        .map(String::trim)
+                        .toList();
+                if (extension.isEmpty() || !allowedList.contains(extension)) {
+                    return ResponseEntity.badRequest().body("Format de fichier non autorisé (." + extension + "). Formats acceptés : " + allowedExtensions);
+                }
+
+                String uniqueFilename = UUID.randomUUID().toString() + "." + extension;
                 Path filePath = uploadPath.resolve(uniqueFilename);
                 Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
@@ -164,7 +175,7 @@ public class DocumentRhController {
     /**
      * Téléchargement / Visualisation d'un document RH par son ID.
      */
-    @GetMapping("/documents-rh/{idDocument}/telecharger")
+    @GetMapping({"/documents-rh/{idDocument}/telecharger", "/documents-rh/{idDocument}/download"})
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> downloadDocument(@PathVariable int idDocument) {
         try (Connection c = dataSource.getConnection()) {

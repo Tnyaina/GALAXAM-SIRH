@@ -28,8 +28,14 @@ export default function EmployeSearchSelect({
   useEffect(() => {
     if (employesProp && Array.isArray(employesProp)) {
       setListEmployes(employesProp);
+      if (value && String(value).trim() !== '' && String(value) !== '0') {
+        const found = employesProp.find((e) => String(e.idEmploye ?? e.id_employe) === String(value));
+        if (found) {
+          setSelectedEmployeObj(found);
+        }
+      }
     }
-  }, [employesProp]);
+  }, [employesProp, value]);
 
   // Mode 2 : Si pas de prop, recherche débouncée côté serveur (Front + Back)
   useEffect(() => {
@@ -39,7 +45,7 @@ export default function EmployeSearchSelect({
     setLoadingList(true);
 
     employeService
-      .getEmployes({ q: debouncedQuery.trim() || undefined, size: 20 })
+      .getEmployes({ q: debouncedQuery.trim() || undefined, size: 20, actif: true })
       .then((res) => {
         if (!isMounted) return;
         const list = Array.isArray(res) ? res : res?.content || [];
@@ -57,24 +63,53 @@ export default function EmployeSearchSelect({
 
   // Retrouver l'objet employé si seule la valeur (ID) est passée depuis le parent
   useEffect(() => {
-    if (value) {
-      // Chercher d'abord dans la liste courante
-      const found = listEmployes.find((emp) => String(emp.idEmploye) === String(value));
-      if (found) {
-        setSelectedEmployeObj(found);
-      } else if (!selectedEmployeObj || String(selectedEmployeObj.idEmploye) !== String(value)) {
-        // Sinon charger les détails de l'employé spécifique par son ID depuis le serveur
-        employeService
-          .getEmployeFicheDetail(value)
-          .then((empData) => {
-            if (empData) setSelectedEmployeObj(empData);
-          })
-          .catch(() => null);
-      }
-    } else {
+    if (!value || String(value).trim() === '' || String(value) === '0') {
       setSelectedEmployeObj(null);
+      return;
     }
-  }, [value, listEmployes, selectedEmployeObj]);
+
+    const currentId = selectedEmployeObj
+      ? (selectedEmployeObj.idEmploye ?? selectedEmployeObj.id_employe)
+      : null;
+
+    if (currentId && String(currentId) === String(value)) {
+      return;
+    }
+
+    // 1. Chercher d'abord dans la liste locale déjà disponible en mémoire
+    const sourceList = (employesProp && Array.isArray(employesProp) && employesProp.length > 0)
+      ? employesProp
+      : listEmployes;
+    const found = sourceList.find((e) => String(e.idEmploye ?? e.id_employe) === String(value));
+    if (found) {
+      setSelectedEmployeObj(found);
+      return;
+    }
+
+    // 2. Si non trouvé dans la liste en mémoire, charger la fiche depuis le serveur
+    let isMounted = true;
+    employeService
+      .getEmployeFicheDetail(value)
+      .then((res) => {
+        if (!isMounted) return;
+        // getEmployeFicheDetail retourne { employe: { idEmploye, nom, prenom, matricule, ... }, conjoint, ... }
+        const emp = res?.employe || res;
+        if (emp && (emp.idEmploye || emp.id_employe)) {
+          setSelectedEmployeObj(emp);
+        } else {
+          setSelectedEmployeObj(null);
+        }
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        console.error('Erreur récupération détail employé sélectionné:', err);
+        setSelectedEmployeObj(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [value, selectedEmployeObj, employesProp, listEmployes]);
 
   // Fermeture du dropdown au clic extérieur
   useEffect(() => {
@@ -92,7 +127,8 @@ export default function EmployeSearchSelect({
     setShowEmpDropdown(false);
     setEmpSearchQuery('');
     if (onChange) {
-      onChange(emp ? emp.idEmploye : '', emp);
+      const empId = emp ? (emp.idEmploye ?? emp.id_employe) : '';
+      onChange(empId, emp);
     }
   };
 
@@ -104,16 +140,20 @@ export default function EmployeSearchSelect({
     }
   };
 
-  // Filtrage local complémentaire si employesProp a été fourni
-  const displayEmployes = employesProp
-    ? listEmployes.filter((emp) => {
-      const query = empSearchQuery.toLowerCase().trim();
-      if (!query) return true;
-      const fullName = `${emp.nom || ''} ${emp.prenom || ''}`.toLowerCase();
-      const matricule = (emp.matricule || '').toLowerCase();
-      return fullName.includes(query) || matricule.includes(query);
-    })
-    : listEmployes;
+  // Filtrage local complémentaire avec exclusion des employés inactifs/désactivés
+  const displayEmployes = listEmployes.filter((emp) => {
+    const empId = emp.idEmploye ?? emp.id_employe;
+    if (emp.actif === false || emp.statut === 'INACTIF' || emp.statut === 'DESACTIVE') {
+      if (String(empId) !== String(value)) return false;
+    }
+    const query = empSearchQuery.toLowerCase().trim();
+    if (!query) return true;
+    const fullName = `${emp.nom || ''} ${emp.prenom || ''}`.toLowerCase();
+    const matricule = (emp.matricule || '').toLowerCase();
+    return fullName.includes(query) || matricule.includes(query);
+  });
+
+  const selectedId = selectedEmployeObj ? (selectedEmployeObj.idEmploye ?? selectedEmployeObj.id_employe) : null;
 
   return (
     <div className={`space-y-1.5 relative ${className}`} ref={dropdownRef}>
@@ -123,21 +163,21 @@ export default function EmployeSearchSelect({
         </label>
       )}
 
-      {selectedEmployeObj ? (
+      {selectedEmployeObj && selectedId ? (
         /* Carte récapitulative de l'employé sélectionné */
-        <div className="flex items-center justify-between p-3 border-2 border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/5 text-sm font-sans">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[var(--color-brand-500)] text-white flex items-center justify-center font-bold text-xs shrink-0">
+        <div className="flex items-center justify-between p-2 sm:p-2.5 border border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/5 text-xs sm:text-sm font-sans">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-[var(--color-brand-500)] text-white flex items-center justify-center font-bold text-xs shrink-0">
               {(selectedEmployeObj.prenom?.[0] || selectedEmployeObj.nom?.[0] || 'E').toUpperCase()}
             </div>
             <div>
               <div className="font-bold text-[var(--color-fg)]">
                 {selectedEmployeObj.nom} {selectedEmployeObj.prenom}
               </div>
-              <div className="text-xs text-[var(--color-fg-muted)]">
+              <div className="text-[11px] text-[var(--color-fg-muted)]">
                 {selectedEmployeObj.matricule
                   ? `Matricule : ${selectedEmployeObj.matricule}`
-                  : `ID : #${selectedEmployeObj.idEmploye}`}
+                  : `ID : #${selectedId}`}
               </div>
             </div>
           </div>
@@ -145,7 +185,7 @@ export default function EmployeSearchSelect({
             <button
               type="button"
               onClick={handleClear}
-              className="inline-flex items-center gap-1 text-xs text-danger-500 hover:text-danger-700 font-semibold px-2 py-1 border border-danger-500/30 hover:bg-danger-500/10 cursor-pointer"
+              className="inline-flex items-center gap-1 text-[11px] text-danger-500 hover:text-danger-700 font-semibold px-2 py-1 border border-danger-500/30 hover:bg-danger-500/10 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" /> Changer
             </button>
@@ -155,7 +195,7 @@ export default function EmployeSearchSelect({
         /* Champ de recherche avec autocomplétion */
         <div className="relative">
           <div className="relative flex items-center">
-            <Search className="w-4 h-4 absolute left-3 text-[var(--color-fg-muted)] pointer-events-none" />
+            <Search className="w-4 h-4 absolute left-2.5 text-[var(--color-fg-muted)] pointer-events-none" />
             <input
               type="text"
               disabled={disabled}
@@ -167,7 +207,7 @@ export default function EmployeSearchSelect({
               onFocus={() => !disabled && setShowEmpDropdown(true)}
               placeholder={placeholder}
               aria-invalid={!!error}
-              className={`w-full pl-9 pr-4 py-2.5 bg-[var(--color-bg-subtle)] border rounded-none text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none text-sm ${error
+              className={`w-full pl-8 pr-3 py-1.5 bg-[var(--color-bg-subtle)] border rounded-none text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none text-xs sm:text-sm ${error
                   ? 'border-danger-500 focus:border-danger-500'
                   : 'border-[var(--color-border-subtle)] focus:border-[var(--color-brand-500)]'
                 }`}

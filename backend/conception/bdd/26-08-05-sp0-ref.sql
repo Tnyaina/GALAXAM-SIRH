@@ -4,16 +4,12 @@
 
 DROP TABLE IF EXISTS site_indemnite_config CASCADE;
 DROP TABLE IF EXISTS site_calendrier_ferie CASCADE;
-DROP TABLE IF EXISTS site_cotisation CASCADE;
 DROP TABLE IF EXISTS parametre_global CASCADE;
-DROP TABLE IF EXISTS ref_taux_majoration CASCADE;
 DROP TABLE IF EXISTS ref_calendrier_ferie CASCADE;
 DROP TABLE IF EXISTS ref_periode_chomee CASCADE;
 DROP TABLE IF EXISTS ref_site CASCADE;
 DROP TABLE IF EXISTS ref_type_intervenant CASCADE;
 DROP TABLE IF EXISTS ref_indemnite CASCADE;
-DROP TABLE IF EXISTS bareme_irsa CASCADE;
-DROP TABLE IF EXISTS ref_type_cotisation CASCADE;
 DROP TABLE IF EXISTS ref_banque CASCADE;
 DROP TABLE IF EXISTS ref_type_contrat CASCADE;
 DROP TABLE IF EXISTS ref_fonction CASCADE;
@@ -79,34 +75,15 @@ CREATE TABLE ref_banque (
 );
 
 -- ------------------------------------------
--- 3. REGLES FISCALES, SOCIALES & BAREMES
+-- 3. INDEMNITES & TYPES D'INTERVENANTS
 -- ------------------------------------------
-
-CREATE TABLE ref_type_cotisation (
-    id_type_cotisation SERIAL PRIMARY KEY,
-    code VARCHAR(20) NOT NULL UNIQUE,
-    libelle VARCHAR(100) NOT NULL,
-    taux_salarial NUMERIC(5,2),
-    taux_patronal NUMERIC(5,2),
-    date_debut DATE NOT NULL,
-    date_fin DATE
-);
-
-CREATE TABLE bareme_irsa (
-    id_tranche SERIAL PRIMARY KEY,
-    numero_tranche INT NOT NULL,
-    tranche_min NUMERIC(12,2) NOT NULL,
-    tranche_max NUMERIC(12,2), -- NULL si tranche sans plafond
-    taux NUMERIC(5,2) NOT NULL,
-    date_debut DATE NOT NULL,
-    date_fin DATE
-);
 
 CREATE TABLE ref_indemnite (
     id_indemnite SERIAL PRIMARY KEY,
     code VARCHAR(20) NOT NULL UNIQUE,
     libelle VARCHAR(100) NOT NULL,
     imposable_irsa BOOLEAN DEFAULT FALSE,
+    fractionnable BOOLEAN DEFAULT FALSE,
     est_actif BOOLEAN DEFAULT TRUE
 );
 
@@ -119,15 +96,6 @@ CREATE TABLE ref_type_intervenant (
     soumis_cnaps BOOLEAN DEFAULT TRUE,
     soumis_sante BOOLEAN DEFAULT TRUE,
     est_actif BOOLEAN DEFAULT TRUE
-);
-
-CREATE TABLE ref_taux_majoration (
-    id_taux_majoration SERIAL PRIMARY KEY,
-    type_majoration VARCHAR(20) NOT NULL,
-    taux NUMERIC(5,2) NOT NULL,
-    description TEXT,
-    date_debut DATE NOT NULL,
-    date_fin DATE
 );
 
 -- ------------------------------------------
@@ -145,14 +113,6 @@ CREATE TABLE ref_site (
     heure_debut_apres_midi TIME,
     heure_fin_apres_midi TIME,
     est_actif BOOLEAN DEFAULT TRUE
-);
-
-CREATE TABLE site_cotisation (
-    id_site_cotisation SERIAL PRIMARY KEY,
-    id_site INT NOT NULL REFERENCES ref_site(id_site),
-    id_type_cotisation INT NOT NULL REFERENCES ref_type_cotisation(id_type_cotisation),
-    est_actif BOOLEAN DEFAULT TRUE,
-    CONSTRAINT uk_site_cotisation UNIQUE (id_site, id_type_cotisation)
 );
 
 CREATE TABLE site_indemnite_config (
@@ -193,12 +153,13 @@ CREATE TABLE ref_periode_chomee (
 
 CREATE TABLE parametre_global (
     id_parametre SERIAL PRIMARY KEY,
-    code_parametre VARCHAR(50) NOT NULL UNIQUE,
+    code_parametre VARCHAR(50) NOT NULL,
     categorie VARCHAR(30) NOT NULL DEFAULT 'GENERAL',
     valeur VARCHAR(100) NOT NULL,
     description TEXT,
     date_debut DATE NOT NULL,
-    date_fin DATE
+    date_fin DATE,
+    CONSTRAINT uq_parametre_global_code_date UNIQUE (code_parametre, date_debut)
 );
 
 -- Index d'optimisation
@@ -218,7 +179,7 @@ INSERT INTO ref_filiale (code_filiale, raison_sociale, nif, stat, seuil_effectif
 -- 2. Départements
 INSERT INTO ref_departement (code_departement, libelle) VALUES
 ('LOG', 'Logistics'),
-('LMD', 'Projet LMD');
+('LMD', 'LMD');
 
 -- 3. Services (Hierarchie Département)
 INSERT INTO ref_service (code_service, libelle, id_departement) VALUES
@@ -273,34 +234,10 @@ INSERT INTO ref_banque (code_banque, nom_banque, code_swift) VALUES
 ('BNI', 'BNI Madagascar', 'BNIMA3MG'),
 ('BFV', 'Société Générale Madagasikara', 'SOGEMGMG');
 
--- 7. Cotisations Sociales
-INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, date_debut) VALUES
-('CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, '2026-01-01'),
-('OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, '2026-01-01'),
-('OMSI', 'Organisation Médicale Inter-entreprises', 1.50, 5.50, '2026-01-01'),
-('ISI', 'Impôt Synthétique Intermédiaire', 0.00, 5.00, '2026-01-01');
-
--- 8. Barème IRSA Officiel (6 Tranches - Loi de Finances 2026)
-INSERT INTO bareme_irsa (numero_tranche, tranche_min, tranche_max, taux, date_debut) VALUES
-(1, 0.00, 350000.00, 0.00, '2026-01-01'),
-(2, 350001.00, 400000.00, 5.00, '2026-01-01'),
-(3, 400001.00, 500000.00, 10.00, '2026-01-01'),
-(4, 500001.00, 600000.00, 15.00, '2026-01-01'),
-(5, 600001.00, 4000000.00, 20.00, '2026-01-01'),
-(6, 4000001.00, NULL, 25.00, '2026-01-01');
-
--- 9. Majorations HS / Spéciales
-INSERT INTO ref_taux_majoration (type_majoration, taux, description, date_debut) VALUES
-('HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine', '2026-01-01'),
-('HS_50', 0.50, 'Au-delà de la 48ᵉ heure', '2026-01-01'),
-('NUIT', 0.30, 'Heures de nuit (22h - 05h)', '2026-01-01'),
-('DIMANCHE', 0.40, 'Travail le dimanche', '2026-01-01'),
-('FERIE', 1.00, 'Travail jour férié', '2026-01-01');
-
--- 10. Indemnités & Configuration des Sites (Conforme aux spécifications réelles)
-INSERT INTO ref_indemnite (code, libelle, imposable_irsa) VALUES
-('DEPLACEMENT', 'Indemnité de Déplacement', FALSE),
-('REPAS', 'Indemnité de Repas', FALSE);
+-- 7. Indemnités & Configuration des Sites (Conforme aux spécifications réelles)
+INSERT INTO ref_indemnite (code, libelle, imposable_irsa, fractionnable) VALUES
+('DEPLACEMENT', 'Indemnité de Déplacement', FALSE, TRUE),
+('REPAS', 'Indemnité de Repas', FALSE, FALSE);
 
 INSERT INTO ref_site (code_site, libelle, id_filiale_rattachement, horaire_continu, heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi) VALUES
 ('TNR', 'Antananarivo - Siège', 1, TRUE, '08:00', '12:00', '13:00', '17:00'),
@@ -316,16 +253,7 @@ INSERT INTO site_indemnite_config (id_site, id_indemnite, periodicite, montant_r
 -- TMM Repas Journalier : 0 Ar
 (2, 2, 'JOURNALIER', 0.00, '2026-01-01');
 
--- Cotisations de Santé et Prévoyance rattachées par Site
-INSERT INTO site_cotisation (id_site, id_type_cotisation) VALUES
--- Antananarivo - Siège (TNR) : CNaPS (1) + OSTIE (2)
-(1, 1),
-(1, 2),
--- Toamasina - Agence (TMM) : CNaPS (1) + OMSI (3)
-(2, 1),
-(2, 3);
-
--- 11. Paramètres Globaux Légaux et Opérationnels
+-- 8. Paramètres Globaux Légaux et Opérationnels
 -- ============================================================
 -- CONVENTION : séparés par CATEGORIE pour faciliter la lecture du code
 --   RH_GENERAL  : règles métier communes (pointage, temps de travail)
@@ -334,15 +262,16 @@ INSERT INTO site_cotisation (id_site, id_type_cotisation) VALUES
 -- ============================================================
 INSERT INTO parametre_global (code_parametre, categorie, valeur, description, date_debut) VALUES
 
--- ---- RH_GENERAL : temps de travail (utilisés par Pointage) ----
-('SEUIL_HEURES_JOUR',          'RH_GENERAL', '8',      'Heures normales quotidiennes', '2026-01-01'),
-('SEUIL_HEURES_SEMAINE',       'RH_GENERAL', '40',     'Heures normales hebdomadaires', '2026-01-01'),
-('PLAFOND_HEURES_SUPP_SEMAINE','RH_GENERAL', '20',     'Plafond légal HS/semaine (Décret 2007-563)', '2026-01-01'),
-('SEUIL_HS_TRANCHE_1',         'RH_GENERAL', '8',      'Premières Xh HS/tronçon au taux 30% (41e−48e heure)', '2026-01-01'),
+-- ---- RH_GENERAL : seuils de temps de travail (lus par le module Pointage) ----
+-- SEUIL_HEURES_JOUR et SEUIL_HEURES_SEMAINE restent ici (utilisés par PointageSyntheseService).
+-- PLAFOND_HEURES_SUPP_SEMAINE et SEUIL_HS_TRANCHE_1 également (calcul des tranches HS en pointage).
+('PLAFOND_HEURES_SUPP_SEMAINE','RH_GENERAL', '20',     'Plafond légal HS/semaine (Code du Travail Art. 83)', '2026-01-01'),
+('SEUIL_HS_TRANCHE_1',         'RH_GENERAL', '8',      'Les X premières heures supplementaires de la semaine sont payees avec une majoration de +30%', '2026-01-01'),
 
 -- ---- POINTAGE : seuils et montants spécifiques au module Pointage ----
 ('SEUIL_NUIT_DEBUT',           'POINTAGE', '22:00', 'Début du travail de nuit (Art. 83 Code Travail Malgache)', '2026-01-01'),
 ('SEUIL_NUIT_FIN',             'POINTAGE', '05:00', 'Fin du travail de nuit', '2026-01-01'),
+('MONTANT_REPAS_MIDI',          'POINTAGE', '2000',  'Indemnité repas midi de référence en Ariary', '2026-01-01'),
 ('SEUIL_2ND_REPAS_1',          'POINTAGE', '19:30', 'Heure sortie mini pour 2ᵉ repas tranche 1', '2026-01-01'),
 ('MONTANT_2ND_REPAS_1',        'POINTAGE', '2000',  '2ᵉ repas tranche 1 en Ariary (19h30-21h00)', '2026-01-01'),
 ('SEUIL_2ND_REPAS_2',          'POINTAGE', '21:00', 'Heure sortie mini pour 2ᵉ repas tranche 2', '2026-01-01'),
@@ -350,10 +279,12 @@ INSERT INTO parametre_global (code_parametre, categorie, valeur, description, da
 ('SEUIL_PAUSE_MIDI_MIN',       'POINTAGE', '60',    'Pause midi minimale en minutes (détection « ne rentre pas midi » TMM)', '2026-01-01'),
 ('REDUCTION_DEPLACT_REPAS_MIDI','POINTAGE', '1000', 'Déduction indemnité déplacement (en Ar) si repas midi reçu sur site TMM', '2026-01-01'),
 
--- ---- PAIE : utilisés uniquement par le module Paie (futur) ----
--- Ces paramètres sont déjà stockés ici pour anticiper, mais ne seront lus que par le module Paie.
-('SME_COURANT',                 'PAIE', '300000.00', 'Salaire Minimum Embauche en Ariary (2026)', '2026-01-01'),
-('DIVISEUR_HORAIRE_ABSENCE',    'PAIE', '173.33',    'Heures/mois pour valoriser une absence (40h x 52/12)', '2026-01-01'),
-('PLAFOND_COTISATION_SME_MULT', 'PAIE', '8',         '8 x SME = plafond de la base CNaPS/OSTIE', '2026-01-01'),
-('MINIMUM_PERCEPTION_IRSA',     'PAIE', '3000.00',   'Minimum de perception légal IRSA en Ariary', '2026-01-01'),
-('REDUCTION_IRSA_PAR_ENFANT',   'PAIE', '2000.00',   'Déduction IRSA par enfant à charge', '2026-01-01');
+-- ---- PAIE : SME, IRSA, plafonds sociaux ----
+-- IMPORTANT : Ces constantes fiscales et sociales ont été migrées dans la table
+-- paie_config_legale (script 26-09-02-sp4-paie.sql) pour permettre le
+-- versionnement par exercice fiscal (Loi de Finances annuelle).
+-- NE PAS ajouter ici de paramètres de calcul de paie.
+-- Les constantes restantes (SEUIL_HEURES_JOUR, SEUIL_HEURES_SEMAINE) sont
+-- conservées ici car lues par le module Pointage AVANT le moteur de paie.
+('SEUIL_HEURES_JOUR',          'RH_GENERAL', '8',  'Durée normale d une journée de travail (utilisée par Pointage)', '2026-01-01'),
+('SEUIL_HEURES_SEMAINE',       'RH_GENERAL', '40', 'Durée légale hebdomadaire normale (40h, Code du Travail Art. 83)', '2026-01-01');

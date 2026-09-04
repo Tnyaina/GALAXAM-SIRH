@@ -77,7 +77,7 @@ Table contrat_travail {
   id_filiale              INTEGER FK → ref_filiale
   id_type_contrat         INTEGER FK → ref_type_contrat  -- CDI, CDD, STAGE...
   id_type_intervenant     INTEGER FK → ref_type_intervenant
-  id_statut_contrat       INTEGER FK → ref_statut_contrat
+  id_statut_rh       INTEGER FK → ref_statut_rh
   id_type_evenement_initial INTEGER FK → ref_type_evenement_rh
   id_contrat_precedent    INTEGER FK → contrat_travail  -- Chaînage historique
   
@@ -113,7 +113,7 @@ Table employe_affectation_carriere {
   id_affectation          INTEGER PK
   id_employe              INTEGER FK → employe
   id_contrat              INTEGER FK → contrat_travail
-  id_statut_affectation   INTEGER FK → ref_statut_affectation
+  id_statut_rh   INTEGER FK → ref_statut_rh
   id_motif_mouvement      INTEGER FK → ref_motif_mouvement
   
   -- Localisation
@@ -142,7 +142,7 @@ Table employe_affectation_carriere {
 
 **Cycle de vie du statut affectation** :
 ```
-PLANIFIEE → ACTIVE → HISTORISEE
+PLANIFIE → ACTIVE → HISTORISE
 ```
 
 ### 2.4 Table `workflow_rh`
@@ -154,7 +154,7 @@ Table workflow_rh {
   id_workflow             INTEGER PK
   id_employe              INTEGER FK → employe
   id_type_evenement_rh    INTEGER FK → ref_type_evenement_rh
-  id_statut_workflow      INTEGER FK → ref_statut_workflow
+  id_statut_rh      INTEGER FK → ref_statut_rh
   
   id_contrat_cible        INTEGER FK → contrat_travail  -- Contrat à activer
   id_affectation_cible    INTEGER FK → employe_affectation_carriere
@@ -178,9 +178,9 @@ Table workflow_rh {
 - `CHANGEMENT_TYPE_CONTRAT` — ex: CDD → CDI
 - `RUPTURE_CONTRAT` — Fin de la relation de travail
 
-**Statuts de workflow (`ref_statut_workflow`)** :
+**Statuts de workflow (`ref_statut_rh`)** :
 - `BROUILLON` — Saisi, non validé
-- `VALIDE` — Approuvé par DAF/DRH, pas encore appliqué
+- `PLANIFIE` — Approuvé par DAF/DRH, pas encore appliqué
 - `PLANIFIE` — Validé mais date d'effet future
 - `APPLIQUE` — Effectivement appliqué
 - `ANNULE` — Annulé sans suite
@@ -201,7 +201,7 @@ CRÉATION BROUILLON EMBAUCHE
     ├── [VÉRIF] Contrat actif existant ? → ERREUR si OUI
     ├── [VÉRIF] Workflow brouillon existant ? → ERREUR si OUI
     ├── [CREATE] ContratTravail (statut: BROUILLON)
-    ├── [CREATE] EmployeAffectationCarriere (statut: PLANIFIEE)
+    ├── [CREATE] EmployeAffectationCarriere (statut: PLANIFIE)
     └── [CREATE] WorkflowRh (statut: BROUILLON)
 ```
 
@@ -229,8 +229,8 @@ Date de fin ancienne affectation = Date d'effet du mouvement — 1 jour
 
 **3. Transitions de statut :**
 ```
-Ancienne Affectation : ACTIVE → HISTORISEE
-Nouvelle Affectation : PLANIFIEE → ACTIVE
+Ancienne Affectation : ACTIVE → HISTORISE
+Nouvelle Affectation : PLANIFIE → ACTIVE
 ```
 
 **4. Gestion des événements futurs (PLANIFIE) :**
@@ -253,10 +253,10 @@ La rupture de contrat est le point critique où le SIRH doit synchroniser le sta
 // Lors de l'application effective d'une rupture :
 1. Contrat source → statut = ROMPU (ou CLOTURE)
                     date_fin = date_effet
-2. Affectation source → statut = HISTORISEE
+2. Affectation source → statut = HISTORISE
 3. Vérifier s'il reste un autre contrat ACTIF pour cet employé :
    SELECT COUNT(*) FROM contrat_travail 
-   WHERE id_employe = ? AND id_statut_contrat = ACTIF
+   WHERE id_employe = ? AND id_statut_rh = ACTIF
    
    SI COUNT > 0 → employe.est_actif reste TRUE  (multi-contrats)
    SI COUNT = 0 → employe.est_actif = FALSE     (offboarding complet)
@@ -286,6 +286,17 @@ La catégorie professionnelle (`A` ou `C`) a un impact direct sur la **gestion d
 | **Agent** | `A` | ✅ OUI | Ouvriers, employés, techniciens. Les HS sont calculées et payées. |
 | **Cadre** | `C` | ❌ NON | Cadres dirigeants. Les HS sont forcées à 0 dans la synthèse mensuelle, quelle que soit la réalité du pointage. |
 
+### RG-CON-07 : Matrice Dynamique des Transitions de Carrière & Réintégration
+
+Afin d'éviter toute incohérence d'état contractuel, le système s'appuie sur une matrice de transitions d'états (`carriereTransitionMatrix.js`) :
+
+1. **Filtrage contextuel des événements** :
+   - Sur contrat **ACTIF** : Seules les actions cohérentes sont débloquées (Confirmation d'essai, Renouvellement d'essai, Mutation, Promotion, Changement de contrat CDD→CDI, Rupture).
+   - Sur contrat **EN_COURS_DE_RUPTURE** / **TERMINE** : Le système autorise l'anticipation d'une fin de contrat en proposant directement la **Réintégration** ou la signature d'un nouveau contrat successif.
+2. **Anticipation et Réactivation Automatique** :
+   - Lors de la création d'un mouvement pour un salarié en fin de contrat ou inactif, le formulaire pré-remplit le contrat précédent et adapte les champs requis.
+   - À la date d'effet (ou immédiatement si date antérieure/du jour), le service backend `WorkflowRhService` réactive automatiquement le collaborateur (`est_actif = true`), historise le contrat échu et initialise le nouveau contrat actif.
+
 ---
 
 ## 4. Workflow & Circuit d'Approbation
@@ -300,7 +311,7 @@ La catégorie professionnelle (`A` ou `C`) a un impact direct sur la **gestion d
         ├──────────────────────────┐
         ▼ (Action: VALIDER)        ▼ (Action: ANNULER)
 ┌────────────────┐         ┌────────────────┐
-│     VALIDE     │         │    ANNULE      │
+│    PLANIFIE    │         │    ANNULE      │
 └───────┬────────┘         └────────────────┘
         │
         ├──────────────────────────────────────┐
@@ -350,7 +361,7 @@ public void effectuerBasculementMouvementsPlanifies() {
 ```
 
 **Logique d'application automatique :**
-- Détection des workflows au statut `VALIDE` dont `date_effet <= CURRENT_DATE`.
+- Détection des workflows au statut `PLANIFIE` dont `date_effet <= CURRENT_DATE`.
 - Application des effets réels :
   - Confirmation d'essai (`contrat_periode_essai` -> `CONFIRMEE`, `date_fin_essai` -> `NULL`).
   - Renouvellement d'essai (P1 -> `RENOUVELEE`, P2 -> `EN_COURS`).
@@ -360,6 +371,10 @@ public void effectuerBasculementMouvementsPlanifies() {
 
 **Garanties :**
 - Exécuté en premier (avant le scheduler de notifications à 00h05).
+- Rattrapage autonome périodique (`fixedDelay = 15 min`) via `RattrapageAutomatiqueService` dès la sortie de veille de la machine, sans nécessiter d'action utilisateur ni de redémarrage serveur.
+- Filet de sécurité paresseux (Lazy Catch-up) : déclenchement asynchrone sur requêtes HTTP (`JwtAuthenticationFilter`, `POST /auth/refresh`, `POST /auth/login`).
+- Endpoint explicite de déclenchement manuel : `POST /workflows-rh/rattrapage`.
+- Rattrapage initial au démarrage physique du serveur (`ApplicationReadyEvent`).
 - Traitement atomique par workflow (chaque workflow est une transaction indépendante).
 - Journalisation des erreurs en cas d'échec (log système).
 
@@ -514,7 +529,7 @@ SELECT
     wf.*,
     e.nom, e.prenom, e.matricule,
     tev.libelle AS type_evenement,
-    rsw.code AS statut_workflow_code,
+    rsw.code AS code_statut_workflow,
     ct.numero_contrat, ct.date_debut, ct.date_fin,
     rtc.code AS type_contrat_code, rtc.libelle AS type_contrat_libelle,
     aff.salaire_base,

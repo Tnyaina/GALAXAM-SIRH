@@ -23,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,6 +40,10 @@ public class AuthController {
 
     @Autowired
     private CustomUserDetailsService customUserDetailsService;
+
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private mg.galaxam.sirh.cron.RattrapageAutomatiqueService rattrapageAutomatiqueService;
 
     private ResponseCookie createRefreshCookie(String token, boolean isSecure, long maxAgeSeconds) {
         return ResponseCookie.from("refreshToken", token)
@@ -72,18 +77,23 @@ public class AuthController {
                         journal.setStatut("COMPTE_DESACTIVE");
                         journal.save(c);
                         c.commit();
-                        return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Ce compte est désactivé.");
+                        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                .body("Votre compte utilisateur est actuellement désactivé. Veuillez contacter le service RH pour le réactiver.");
                     }
                     
                     if (u.verifierMotDePasse(request.getMotDePasse())) {
                         journal.setStatut("SUCCES");
                         journal.save(c);
-                        c.commit();
                         
                         // Génération des tokens JWT
                         UserDetails userDetails = customUserDetailsService.loadUserByUsername(u.getIdentifiant());
                         String accessToken = jwtService.generateAccessToken(userDetails);
                         String refreshToken = jwtService.generateRefreshToken(userDetails);
+
+                        // Persistance du refresh token en base de données
+                        java.sql.Timestamp expirationTs = new java.sql.Timestamp(System.currentTimeMillis() + jwtService.getRefreshTokenExpirationMs());
+                        Utilisateur.enregistrerRefreshToken(u.getIdUtilisateur(), refreshToken, expirationTs, c);
+                        c.commit();
 
                         // Création du cookie HTTP-Only pour le Refresh Token
                         boolean isSecure = httpRequest != null && (httpRequest.isSecure() || "https".equalsIgnoreCase(httpRequest.getHeader("X-Forwarded-Proto")));
@@ -98,6 +108,10 @@ public class AuthController {
                                 .findFirst()
                                 .orElse("ROLE_USER"));
 
+                        if (rattrapageAutomatiqueService != null) {
+                            rattrapageAutomatiqueService.verifierEtExecuterRattrapageAsync();
+                        }
+
                         return ResponseEntity.ok()
                                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                                 .body(responseBody);
@@ -108,7 +122,8 @@ public class AuthController {
                 }
                 
                 c.commit(); 
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Identifiants invalides.");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body("Identifiant ou mot de passe incorrect. Veuillez vérifier votre saisie ou vous rapprocher du service RH si vous n'avez pas encore d'accès.");
                 
             } catch (Exception e) {
                 c.rollback(); 
@@ -116,8 +131,8 @@ public class AuthController {
             }
             
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur interne du serveur.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Une erreur technique temporaire est survenue sur le serveur. Veuillez réessayer dans quelques instants.");
         }
     }
 
@@ -135,28 +150,55 @@ public class AuthController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Refresh token invalide ou expiré.");
             }
 
-            String username = jwtService.extractUsername(refreshToken);
-            UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
+            try (Connection c = dataSource.getConnection()) {
+                Utilisateur u = Utilisateur.rechercherParRefreshToken(refreshToken, c);
+                if (u == null) {
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session révoquée ou introuvable.");
+                }
 
-            String newAccessToken = jwtService.generateAccessToken(userDetails);
-            String newRefreshToken = jwtService.generateRefreshToken(userDetails);
+                UserDetails userDetails = customUserDetailsService.loadUserByUsername(u.getIdentifiant());
 
-            boolean isSecure = httpRequest != null && (httpRequest.isSecure() || "https".equalsIgnoreCase(httpRequest.getHeader("X-Forwarded-Proto")));
-            ResponseCookie refreshCookie = createRefreshCookie(newRefreshToken, isSecure, jwtService.getRefreshTokenExpirationMs() / 1000);
+                String newAccessToken = jwtService.generateAccessToken(userDetails);
+                String newRefreshToken = jwtService.generateRefreshToken(userDetails);
 
-            Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("accessToken", newAccessToken);
+                // Rotation du refresh token en base
+                java.sql.Timestamp expirationTs = new java.sql.Timestamp(System.currentTimeMillis() + jwtService.getRefreshTokenExpirationMs());
+                Utilisateur.enregistrerRefreshToken(u.getIdUtilisateur(), newRefreshToken, expirationTs, c);
 
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                    .body(responseBody);
+                boolean isSecure = httpRequest != null && (httpRequest.isSecure() || "https".equalsIgnoreCase(httpRequest.getHeader("X-Forwarded-Proto")));
+                ResponseCookie refreshCookie = createRefreshCookie(newRefreshToken, isSecure, jwtService.getRefreshTokenExpirationMs() / 1000);
+
+                Map<String, Object> responseBody = new HashMap<>();
+                responseBody.put("accessToken", newAccessToken);
+
+                if (rattrapageAutomatiqueService != null) {
+                    rattrapageAutomatiqueService.verifierEtExecuterRattrapageAsync();
+                }
+
+                return ResponseEntity.ok()
+                        .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                        .body(responseBody);
+            }
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Erreur lors du rafraîchissement du token.");
         }
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpServletRequest httpRequest) {
+    public ResponseEntity<?> logout(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            HttpServletRequest httpRequest
+    ) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            try (Connection c = dataSource.getConnection()) {
+                Utilisateur u = Utilisateur.rechercherParRefreshToken(refreshToken, c);
+                if (u != null) {
+                    Utilisateur.revoquerRefreshToken(u.getIdUtilisateur(), c);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
         boolean isSecure = httpRequest != null && (httpRequest.isSecure() || "https".equalsIgnoreCase(httpRequest.getHeader("X-Forwarded-Proto")));
         ResponseCookie deleteCookie = createRefreshCookie("", isSecure, 0);
 
@@ -215,6 +257,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
 
         if (request.getIdentifiant() == null || request.getMotDePasse() == null || request.getIdRole() == null) {

@@ -2,6 +2,44 @@ import apiClient from '@/api/apiClient';
 
 const paieConfigService = {
     // ----------------------------------------------------
+    // EXERCICES FISCAUX & RÉGLEMENTATION LÉGALE (paie_config_legale)
+    // ----------------------------------------------------
+    /** Liste tous les exercices fiscaux (actifs + archivés) */
+    getAllConfigsLegales: async () => {
+        const response = await apiClient.get('/paie/config-legale');
+        return response.data;
+    },
+    /** Retourne l'exercice actif à la date du jour */
+    getConfigLegaleActive: async () => {
+        const response = await apiClient.get('/paie/config-legale/active');
+        return response.data;
+    },
+    /** Retourne l'exercice actif à une date donnée (format YYYY-MM-DD) */
+    getConfigLegaleAt: async (date) => {
+        const response = await apiClient.get('/paie/config-legale/active-at', { params: { date } });
+        return response.data;
+    },
+    /** Crée un premier exercice fiscal (création initiale) */
+    createConfigLegale: async (data) => {
+        const response = await apiClient.post('/paie/config-legale', data);
+        return response.data;
+    },
+    /**
+     * Revalorisation par date d'effet.
+     * Clôt automatiquement l'exercice actif (date_fin = dateDebut - 1j)
+     * et crée le nouvel exercice à partir de dateDebut.
+     */
+    revaloriserConfigLegale: async (data) => {
+        const response = await apiClient.post('/paie/config-legale/revaloriser', data);
+        return response.data;
+    },
+    /** Correction immédiate d'un champ (sans créer de nouvelle version) */
+    updateConfigLegale: async (id, data) => {
+        const response = await apiClient.put(`/paie/config-legale/${id}`, data);
+        return response.data;
+    },
+
+    // ----------------------------------------------------
     // COTISATIONS SOCIALES & SANTE
     // ----------------------------------------------------
     getCotisations: async () => {
@@ -126,6 +164,10 @@ const paieConfigService = {
     },
     updateCalendrierFerie: async (id, data) => {
         const response = await apiClient.put(`/referentiel/calendrier-ferie/${id}`, data);
+        return response.data;
+    },
+    deleteCalendrierFerie: async (id) => {
+        const response = await apiClient.delete(`/referentiel/calendrier-ferie/${id}`);
         return response.data;
     },
     getSiteFeries: async () => {

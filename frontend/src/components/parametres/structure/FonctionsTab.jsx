@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Edit2, Eye, Briefcase, X } from 'lucide-react';
+import { Search, Plus, Edit2, Eye, Briefcase, Power } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
-import Input from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import FonctionFormModal from './fonctions/FonctionFormModal';
 
 export default function FonctionsTab() {
     const [fonctions, setFonctions] = useState([]);
@@ -17,6 +18,18 @@ export default function FonctionsTab() {
     const [actionSuccess, setActionSuccess] = useState(null);
     const [search, setSearch] = useState('');
     const [showInactive, setShowInactive] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+
+    // Confirmation dialog state
+    const [confirmState, setConfirmState] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmLabel: '',
+        variant: 'danger',
+        onConfirm: null,
+        loading: false
+    });
 
     const [showModal, setShowModal] = useState(false);
     const [editingFonction, setEditingFonction] = useState(null);
@@ -64,6 +77,7 @@ export default function FonctionsTab() {
 
     const handleSave = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setActionError(null);
         setActionSuccess(null);
 
@@ -72,39 +86,58 @@ export default function FonctionsTab() {
             return;
         }
         if (!formData.libelle.trim()) {
-            setActionError("Le libellé de la fonction est obligatoire.");
+            setActionError("L'intitulé du poste est obligatoire.");
             return;
         }
 
+        setSubmitting(true);
         try {
             if (editingFonction) {
                 await organisationService.updateFonction(editingFonction.idFonction, formData);
-                setActionSuccess(`Intitulé de poste "${formData.libelle}" modifié.`);
+                setActionSuccess(`Poste "${formData.libelle}" modifié avec succès.`);
             } else {
                 await organisationService.createFonction(formData);
-                setActionSuccess(`Intitulé de poste "${formData.libelle}" créé.`);
+                setActionSuccess(`Poste "${formData.libelle}" créé avec succès.`);
             }
             setShowModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
+            setActionError(err.response?.data || "Erreur de sauvegarde de la fonction.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
-    const handleToggleStatus = async (fonction) => {
-        setActionSuccess(null);
-        try {
-            if (fonction.estActif) {
-                await organisationService.deactivateFonction(fonction.idFonction);
-                setActionSuccess(`Poste "${fonction.libelle}" désactivé.`);
-            } else {
-                await organisationService.activateFonction(fonction.idFonction);
-                setActionSuccess(`Poste "${fonction.libelle}" réactivé.`);
+    const requestToggleStatus = (fonction) => {
+        const isDeactivating = fonction.estActif;
+
+        setConfirmState({
+            isOpen: true,
+            title: isDeactivating ? `Désactiver le poste "${fonction.libelle}" ?` : `Réactiver le poste "${fonction.libelle}" ?`,
+            message: isDeactivating
+                ? `Attention : La désactivation de ce poste empêchera son affectation lors de l'embauche ou du renouvellement de contrats. Les contrats existants resteront valides.`
+                : `Le poste redeviendra immédiatement sélectionnable dans les fiches collaborateurs et contrats.`,
+            confirmLabel: isDeactivating ? "Désactiver le poste" : "Réactiver",
+            variant: isDeactivating ? "danger" : "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    if (isDeactivating) {
+                        await organisationService.deactivateFonction(fonction.idFonction);
+                        setActionSuccess(`Poste "${fonction.libelle}" désactivé.`);
+                    } else {
+                        await organisationService.activateFonction(fonction.idFonction);
+                        setActionSuccess(`Poste "${fonction.libelle}" réactivé.`);
+                    }
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    loadData();
+                } catch {
+                    setError("Erreur lors de la modification du statut du poste.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                }
             }
-            loadData();
-        } catch {
-            setError("Erreur lors du changement de statut.");
-        }
+        });
     };
 
     const filteredFonctions = fonctions.filter(f =>
@@ -134,7 +167,7 @@ export default function FonctionsTab() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" size={16} />
                         <input
                             type="text"
-                            placeholder="Rechercher un poste, code..."
+                            placeholder="Rechercher par intitulé de poste, code..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="w-full pl-9 pr-4 py-2 border border-[var(--color-border)] rounded-none bg-[var(--color-surface)] text-sm text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
@@ -148,7 +181,7 @@ export default function FonctionsTab() {
                             className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
                         />
                         <Eye size={14} />
-                        <span>Afficher désactivés</span>
+                        <span>Afficher inactifs</span>
                     </label>
                 </div>
                 <Button
@@ -164,9 +197,9 @@ export default function FonctionsTab() {
             {/* Tableau des fonctions */}
             <Table>
                 <Thead>
-                    <Th>Code Fonction</Th>
-                    <Th>Intitulé du Poste</Th>
-                    <Th>Autonome (Sans Pointage)</Th>
+                    <Th>Code Poste</Th>
+                    <Th>Intitulé du Poste / Fonction</Th>
+                    <Th>Régime Pointage</Th>
                     <Th>Statut</Th>
                     <Th className="text-right">Actions</Th>
                 </Thead>
@@ -175,12 +208,21 @@ export default function FonctionsTab() {
                         filteredFonctions.map((f) => (
                             <Tr key={f.idFonction}>
                                 <Td isData className="font-bold text-[var(--color-brand-500)]">{f.codeFonction}</Td>
-                                <Td className="font-bold text-[var(--color-fg)]">{f.libelle}</Td>
+                                <Td className="font-bold text-[var(--color-fg)]">
+                                    <div className="flex items-center gap-2">
+                                        <Briefcase size={15} className="text-[var(--color-fg-muted)] shrink-0" />
+                                        <span>{f.libelle}</span>
+                                    </div>
+                                </Td>
                                 <Td>
                                     {f.dispensePointage ? (
-                                        <Badge variant="warning" size="sm">Oui</Badge>
+                                        <Badge variant="warning" size="sm">
+                                            Dispense de pointage
+                                        </Badge>
                                     ) : (
-                                        <Badge variant="default" size="sm">Non</Badge>
+                                        <Badge variant="default" size="sm">
+                                            Pointage standard
+                                        </Badge>
                                     )}
                                 </Td>
                                 <Td>
@@ -189,23 +231,26 @@ export default function FonctionsTab() {
                                     </Badge>
                                 </Td>
                                 <Td className="text-right">
-                                    <div className="flex justify-end items-center gap-2">
+                                    <div className="flex justify-end items-center gap-1.5">
                                         <button
                                             onClick={() => handleOpenEdit(f)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
-                                            title="Modifier"
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            title="Modifier le poste"
+                                            aria-label={`Modifier ${f.libelle}`}
                                         >
-                                            <Edit2 size={16} />
+                                            <Edit2 size={15} />
                                         </button>
                                         <button
-                                            onClick={() => handleToggleStatus(f)}
-                                            className={`px-2 py-1 text-xs font-bold rounded-none  cursor-pointer uppercase ${
+                                            onClick={() => requestToggleStatus(f)}
+                                            className={`p-1.5 rounded-none cursor-pointer transition-colors ${
                                                 f.estActif
-                                                    ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
-                                                    : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
+                                                    ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
+                                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
                                             }`}
+                                            title={f.estActif ? "Désactiver le poste" : "Réactiver le poste"}
+                                            aria-label={f.estActif ? `Désactiver ${f.libelle}` : `Activer ${f.libelle}`}
                                         >
-                                            {f.estActif ? "Désactiver" : "Activer"}
+                                            <Power size={15} />
                                         </button>
                                     </div>
                                 </Td>
@@ -214,7 +259,13 @@ export default function FonctionsTab() {
                     ) : (
                         <Tr>
                             <Td colSpan={5} className="p-0">
-                                <EmptyState title="Aucune fonction" description="Aucune fonction enregistrée." />
+                                <EmptyState
+                                    icon={Briefcase}
+                                    title="Aucun poste ou fonction trouvé"
+                                    description="Ajoutez les fonctions et postes de l'organigramme pour les lier aux contrats."
+                                    actionLabel="Créer un poste"
+                                    onAction={handleOpenCreate}
+                                />
                             </Td>
                         </Tr>
                     )}
@@ -222,56 +273,28 @@ export default function FonctionsTab() {
             </Table>
 
             {/* Modale Fonction */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                            <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                <Briefcase size={18} className="text-[var(--color-brand-500)]" />
-                                {editingFonction ? "Modifier le Poste" : "Nouveau Poste / Fonction"}
-                            </h3>
-                            <button onClick={() => setShowModal(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSave} className="p-6 space-y-4">
-                            {actionError && <Alert type="error" message={actionError} />}
-                            <Input
-                                label="Code Fonction"
-                                required
-                                disabled={!!editingFonction}
-                                value={formData.codeFonction}
-                                onChange={(e) => setFormData({ ...formData, codeFonction: e.target.value.toUpperCase() })}
-                                placeholder="Ex: DG, DAF, CHEF_DECLARANT"
-                            />
-                            <Input
-                                label="Intitulé du Poste"
-                                required
-                                value={formData.libelle}
-                                onChange={(e) => setFormData({ ...formData, libelle: e.target.value })}
-                                placeholder="Ex: Directeur Général"
-                            />
-                            <label className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)] cursor-pointer p-3 border border-[var(--color-border-subtle)] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors mt-2">
-                                <input
-                                    type="checkbox"
-                                    checked={formData.dispensePointage}
-                                    onChange={(e) => setFormData({ ...formData, dispensePointage: e.target.checked })}
-                                    className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
-                                />
-                                <span>Dispense de pointage (Poste autonome)</span>
-                            </label>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
-                                <Button type="button" onClick={() => setShowModal(false)} variant="ghost" size="sm">
-                                    Annuler
-                                </Button>
-                                <Button type="submit" variant="primary" size="sm">
-                                    Enregistrer
-                                </Button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            <FonctionFormModal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                onSubmit={handleSave}
+                editingFonction={editingFonction}
+                formData={formData}
+                setFormData={setFormData}
+                actionError={actionError}
+                submitting={submitting}
+            />
+
+            {/* Boîte de confirmation sécurisée */}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmLabel={confirmState.confirmLabel}
+                variant={confirmState.variant}
+                loading={confirmState.loading}
+            />
         </div>
     );
 }

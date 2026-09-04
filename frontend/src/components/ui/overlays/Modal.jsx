@@ -21,6 +21,9 @@ export default function Modal({
         lg: 'max-w-xl',
         xl: 'max-w-2xl',
         '2xl': 'max-w-4xl',
+        '3xl': 'max-w-5xl',
+        '4xl': 'max-w-6xl',
+        full: 'max-w-7xl',
     };
 
     // Fermeture sur la touche Échap
@@ -46,6 +49,10 @@ export default function Modal({
 
             {/* Boîte Modale */}
             <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="modal-title"
+                tabIndex={-1}
                 className={`
           relative w-full ${sizes[size] || sizes.md} bg-[var(--color-surface)] border border-[var(--color-border)]
           shadow-2xl rounded-none flex flex-col overflow-hidden animate-in fade-in zoom-in-95 
@@ -53,29 +60,29 @@ export default function Modal({
         `}
             >
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between shrink-0">
-                    <h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2.5 truncate">
+                <div className="px-4 py-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between shrink-0">
+                    <h3 id="modal-title" className="font-bold text-[var(--color-fg)] text-sm sm:text-base flex items-center gap-2 truncate">
                         {icon && <span className="text-[var(--color-brand-500)] shrink-0">{icon}</span>}
                         <span className="truncate">{title}</span>
                     </h3>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface)]  rounded-none cursor-pointer"
+                        className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface)] rounded-none cursor-pointer"
                         aria-label="Fermer la modale"
                     >
-                        <X size={18} />
+                        <X size={16} />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div className="p-6 overflow-y-auto max-h-[70vh] space-y-4">
+                <div className="p-4 sm:p-5 overflow-y-auto max-h-[75vh] space-y-3.5">
                     {children}
                 </div>
 
                 {/* Footer */}
                 {footer && (
-                    <div className="px-6 py-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex justify-end items-center gap-3 shrink-0">
+                    <div className="px-4 py-3 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex justify-end items-center gap-2 shrink-0">
                         {footer}
                     </div>
                 )}

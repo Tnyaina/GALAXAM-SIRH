@@ -2,10 +2,12 @@ package mg.galaxam.sirh.cron;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import javax.sql.DataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -16,24 +18,28 @@ import org.springframework.stereotype.Component;
 @Component
 public class AuditLogPurgeScheduler {
 
+    private static final Logger log = LoggerFactory.getLogger(AuditLogPurgeScheduler.class);
+
     @Autowired
     private DataSource dataSource;
 
     /**
      * Exécuté le 1er de chaque mois à 04:00:00.
-     * Supprime les entrées d'audit_log de plus de 365 jours.
+     * Supprime les entrées d'audit_log de plus de 365 jours (calculé en Java).
      */
     @Scheduled(cron = "0 0 4 1 * ?")
     public void purgerAnciensLogsAudit() {
-        String sql = "DELETE FROM audit_log WHERE date_action < CURRENT_TIMESTAMP - INTERVAL '365 days'";
+        Timestamp seuil1An = Timestamp.valueOf(LocalDateTime.now().minusDays(365));
+        String sql = "DELETE FROM audit_log WHERE date_action < ?";
         try (Connection c = dataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setTimestamp(1, seuil1An);
             int nbSupprimes = ps.executeUpdate();
             if (nbSupprimes > 0) {
-                System.out.println("[AuditLogPurgeScheduler] Purge des logs d'audit effectuée : " + nbSupprimes + " entrées supprimées (> 1 an).");
+                log.info("[AuditLogPurgeScheduler] Purge des logs d'audit effectuée : {} entrées supprimées (> 1 an).", nbSupprimes);
             }
         } catch (Exception e) {
-            System.err.println("[AuditLogPurgeScheduler] Erreur lors de la purge des logs d'audit : " + e.getMessage());
+            log.error("[AuditLogPurgeScheduler] Erreur lors de la purge des logs d'audit : {}", e.getMessage(), e);
         }
     }
 }

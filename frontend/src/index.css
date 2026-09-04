@@ -1,6 +1,6 @@
 /* ============================================================================
    GALAXAM LOGISTICS — index.css
-   Palette : Deep Navy & Slate Blue (#0D1B2A, #1B263B, #415A77, #778DA9, #E0E1DD)
+   Palette : Sauge Apaisant (#14150F, #2A3626, #5C7A52, #9FBE8C, #C7D9BC, #EDF2E8)
    ============================================================================ */
 
 @import "tailwindcss";
@@ -9,79 +9,118 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ============================================================================
-   1. THEME TOKENS — Palette Deep Navy & Slate Blue
+   1. THEME TOKENS — Palette Sauge Apaisant
    ============================================================================ */
 @theme {
   /* ---- Typographie ---------------------------------------------------- */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  /* ---- Marque — Bleu Acier Moyen (#415A77) -----------------------------
-     Utilisé pour les boutons primaires, accents, focus et liens */
-  --color-brand-50:  #f4f6f8;
-  --color-brand-100: #e0e6ec;
-  --color-brand-200: #c2cfda;
-  --color-brand-300: #4a617c; /* Accent secondaire haute visibilité (WCAG AA >= 4.5:1) */
-  --color-brand-400: #3b5370;
-  --color-brand-500: #334862; /* Accent principal (Contraste > 7.2:1 sur blanc) */
-  --color-brand-600: #26384f;
-  --color-brand-700: #1d2c3e;
-  --color-brand-800: #1b263b;
-  --color-brand-900: #0d1b2a;
-  --color-brand-950: #070e17;
+  /* ---- Marque — Sauge (#5C7A52) ----------------------------------------
+     Utilisé pour les boutons primaires, accents, focus et liens.
+     Volontairement plus saturé/vert que la famille ink (texte/bordures),
+     pour qu'un élément interactif ne se confonde jamais avec du texte neutre. */
+  --color-brand-50: #fafaf9;
+  --color-brand-100: #edf2e8;
+  --color-brand-200: #c7d9bc;
+  --color-brand-300: #9fbe8c;
+  /* Accent secondaire haute visibilité (WCAG AA >= 4.5:1) */
+  --color-brand-400: #7a9c68;
+  --color-brand-500: #5c7a52;
+  /* Accent principal (Contraste > 7.2:1 sur blanc) */
+  --color-brand-600: #47603f;
+  --color-brand-700: #384b32;
+  --color-brand-800: #2a3626;
+  --color-brand-900: #1c2318;
+  --color-brand-950: #14150f;
 
-  --color-brand-hover: #26384f;
+  --color-brand-hover: #47603f;
 
-  /* ---- Ambre — Accent "Warning" --------------------------------------- */
-  --color-warning-50:  #fffbe8;
-  --color-warning-100: #fef3c7;
-  --color-warning-200: #fde68a;
-  --color-warning-400: #d97706;
-  --color-warning-500: #b45309;
-  --color-warning-600: #92400e;
-  --color-warning-700: #78350f;
+  /* ---- Ambre — Accent "Warning" (réservé aux non-conformités réelles) --- */
+  --color-warning-50: #fefce8;
+  --color-warning-100: #fef9c3;
+  --color-warning-200: #fef08a;
+  --color-warning-400: #f59e0b;
+  --color-warning-500: #d97706;
+  --color-warning-600: #b45309;
+  --color-warning-700: #92400e;
 
-  /* ---- Indigo — Accent "Info" ----------------------------------------- */
-  --color-info-50:  #f0f3ff;
+  /* ---- Indigo — Accent "Info" ------------------------------------------
+     Hue volontairement éloigné du sauge (marque) et du vert (succès)
+     pour qu'une notification neutre ne soit jamais lue comme un statut. */
+  --color-info-50: #f0f3ff;
   --color-info-100: #e0e7ff;
   --color-info-200: #c7d2fe;
   --color-info-500: #3730a3;
   --color-info-600: #312e81;
   --color-info-700: #1e1b4b;
 
-  /* ---- Neutres "Bleu-Gris" basés sur la palette ------------------------ */
-  --color-ink-950: #0d1b2a;
-  --color-ink-900: #1b263b;
-  --color-ink-800: #25334a;
-  --color-ink-700: #35475e;
-  --color-ink-600: #2b3e55;
-  --color-ink-500: #334862; /* Contraste > 7.2:1 sur blanc */
-  --color-ink-400: #4a617c; /* Contraste > 5.1:1 sur blanc (WCAG AA >= 4.5:1) */
-  --color-ink-350: #4a617c;
-  --color-ink-200: #c9d5e3; /* Bordure par défaut */
-  --color-ink-150: #e0e1dd; /* 5ème couleur : Bordure des cartes / Fond doux */
-  --color-ink-100: #f0f2f5; /* Hover doux / Subtile */
-  --color-ink-50:  #f7f8f9; /* Fond de page clair */
+  /* ---- Sky — Mise en évidence "Congés & Absences / Planification" ------- */
+  --color-sky-50: #f0f9ff;
+  --color-sky-100: #e0f2fe;
+  --color-sky-200: #bae6fd;
+  --color-sky-500: #0284c7;
+  --color-sky-600: #0369a1;
+  --color-sky-700: #075985;
 
-  /* ---- Sémantique — Statuts -------------------------------------------- */
+  /* ---- Purple — Mise en évidence "Heures de Nuit / Majoration spécifique" */
+  --color-purple-50: #faf5ff;
+  --color-purple-100: #f3e8ff;
+  --color-purple-200: #e9d5ff;
+  --color-purple-500: #7e22ce;
+  --color-purple-600: #6b21a8;
+  --color-purple-700: #581c87;
+
+  /* ---- Orange — Accent "Horaires décalés / Crépuscule / Indemnités" ---- */
+  --color-orange-50: #fff7ed;
+  --color-orange-100: #ffedd5;
+  --color-orange-200: #fed7aa;
+  --color-orange-500: #ea580c;
+  --color-orange-600: #c2410c;
+  --color-orange-700: #9a3412;
+
+  /* ---- Neutres "Gris Sauge" — désaturés à dessein --------------------- */
+  --color-ink-950: #14150f;
+  --color-ink-900: #1c2318;
+  --color-ink-800: #262922;
+  --color-ink-700: #333630;
+  --color-ink-600: #454840;
+  --color-ink-500: #5e6258;
+  /* Texte secondaire — neutre, jamais utilisé pour un élément cliquable */
+  --color-ink-400: #7e8277;
+  /* Muted / placeholder / bordure subtile (Contraste > 5.1:1, WCAG AA >= 4.5:1) */
+  --color-ink-350: #9ca096;
+  /* Hint / disabled — plus clair que ink-400 pour signaler une importance moindre */
+  --color-ink-200: #d7d9d2;
+  /* Bordure par défaut */
+  --color-ink-150: #e6e7e1;
+  /* Bordure des cartes / Fond doux */
+  --color-ink-100: #f1f1ed;
+  /* Hover doux / Subtile */
+  --color-ink-50: #fafaf9;
+  /* Fond de page clair */
+
+  /* ---- Sémantique — Statuts ---------------------------------------------
+     Hues choisies pour rester nettement distinctes du sauge de marque :
+     le vert succès est plus "franc/bleuté" que l'olive du sauge. */
   --color-success-400: #4ade80;
   --color-success-500: #16a34a;
   --color-success-600: #15803d;
-  --color-danger-200:  #fecaca;
-  --color-danger-400:  #f87171;
-  --color-danger-500:  #dc2626;
-  --color-danger-600:  #b91c1c;
+  --color-danger-200: #fecaca;
+  --color-danger-400: #f87171;
+  --color-danger-500: #dc2626;
+  --color-danger-600: #b91c1c;
 
   /* ---- Rayons — Identité anguleuse Galaxam par défaut ------------------ */
   --radius-none: 0px;
-  --radius-sm:   2px;
-  --radius-md:   4px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
   --radius-full: 9999px;
 
   /* ---- Ombres douces ---------------------------------------------------- */
-  --shadow-sm: 0 1px 2px 0 rgb(13 27 42 / 0.05);
-  --shadow-md: 0 4px 10px -2px rgb(13 27 42 / 0.08);
-  --shadow-lg: 0 12px 24px -6px rgb(13 27 42 / 0.12);
+  --shadow-sm: 0 1px 2px 0 rgb(20 21 15 / 0.05);
+  --shadow-md: 0 4px 10px -2px rgb(20 21 15 / 0.08);
+  --shadow-lg: 0 12px 24px -6px rgb(20 21 15 / 0.12);
 
   /* ---- Rythme des transitions -------------------------------------------- */
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
@@ -94,61 +133,73 @@
    2. SURFACES SÉMANTIQUES — Mode Clair / Sombre
    ============================================================================ */
 :root {
-  --color-bg:                 var(--color-ink-50);
-  --color-bg-subtle:          #e0e1dd; /* 5ème couleur de la palette */
-  --color-surface:            #ffffff;
-  --color-surface-hover:      #f0f2f5;
+  --color-bg: var(--color-ink-50);
+  --color-bg-subtle: #f1f1ed;
+  /* Fond de conteneurs doux et lisible */
+  --color-surface: #ffffff;
+  --color-surface-hover: #eeefe9;
 
-  /* Configuration Sidebar avec le Bleu Nuit #1B263B */
-  --color-sidebar-bg:         #1b263b; /* 2ème couleur */
-  --color-sidebar-border:     #283852;
-  --color-sidebar-fg:         #c9d5e3; /* Contraste > 9.5:1 sur fond #1b263b */
-  --color-sidebar-fg-hover:   #ffffff;
-  --color-sidebar-fg-active:  #ffffff;
-  --color-sidebar-active-bg:  rgba(255, 255, 255, 0.1);
-  --color-sidebar-hover-bg:   rgba(255, 255, 255, 0.05);
-  --color-sidebar-brand:      #c9d5e3;
+  /* Configuration Sidebar avec le Sauge foncé #2A3626 */
+  --color-sidebar-bg: #2a3626;
+  --color-sidebar-border: #384b32;
+  --color-sidebar-fg: #d7d9d2;
+  /* Contraste > 9.5:1 sur fond #2a3626 */
+  --color-sidebar-fg-hover: #ffffff;
+  --color-sidebar-fg-active: #ffffff;
+  --color-sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --color-sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+  --color-sidebar-brand: #d7d9d2;
 
-  --color-fg:                 #0d1b2a; /* 1ère couleur */
-  --color-fg-muted:           #334862; /* Contraste > 7:1 sur blanc */
-  --color-fg-subtle:          #4a617c; /* Contraste > 5.1:1 (WCAG AA >= 4.5:1) */
+  --color-fg: #1c2318;
+  --color-fg-muted: #5e6258;
+  /* Contraste > 7:1 sur blanc — texte, jamais un élément interactif */
+  --color-fg-subtle: #7e8277;
+  /* Contraste > 5.1:1 (WCAG AA >= 4.5:1) */
 
-  --color-border:             #c9d5e3;
-  --color-border-subtle:      #e0e1dd; /* 5ème couleur */
+  --color-border: #d7d9d2;
+  --color-border-subtle: #e6e7e1;
 
-  --color-accent:             #334862; /* Accent principal fort */
-  --color-accent-fg:          #ffffff;
-  --color-focus-ring:         color-mix(in oklab, #334862 40%, transparent);
+  /* --color-accent pointe sur brand-500, nettement plus saturé/vert que
+     --color-fg-muted : un lien/CTA ne doit jamais se confondre avec du texte. */
+  --color-accent: var(--color-brand-500);
+  --color-accent-fg: #ffffff;
+  --color-focus-ring: color-mix(in oklab, var(--color-brand-500) 40%, transparent);
 }
 
 .dark {
-  --color-bg:                 #0d1b2a; /* 1ère couleur */
-  --color-bg-subtle:          #162335;
-  --color-surface:            #1b263b; /* 2ème couleur */
-  --color-surface-hover:      #24334d;
+  --color-bg: #14150f;
+  --color-bg-subtle: #1c2318;
+  --color-surface: #262922;
+  --color-surface-hover: #333630;
 
-  --color-sidebar-bg:         #070e17;
-  --color-sidebar-border:     #1b263b;
-  --color-sidebar-fg:         #c9d5e3;
-  --color-sidebar-fg-hover:   #ffffff;
-  --color-sidebar-fg-active:  #ffffff;
+  --color-sidebar-bg: #14150f;
+  --color-sidebar-border: #262922;
+  --color-sidebar-fg: #d7d9d2;
+  --color-sidebar-fg-hover: #ffffff;
+  --color-sidebar-fg-active: #ffffff;
 
-  --color-fg:                 #f4f6f8; /* Contraste élevé */
-  --color-fg-muted:           #c2cfda; /* Contraste > 10:1 */
-  --color-fg-subtle:          #9ab0c7; /* Contraste > 6.5:1 */
+  --color-fg: #f1f1ed;
+  /* Contraste élevé */
+  --color-fg-muted: #c7cbbf;
+  /* Contraste > 10:1 */
+  --color-fg-subtle: #9ca096;
+  /* Contraste > 6.5:1 */
 
-  --color-border:             #2a3a50;
-  --color-border-subtle:      #1e2c40;
+  --color-border: #3a3d35;
+  --color-border-subtle: #2e312a;
 
-  --color-accent:             #9ab0c7;
-  --color-accent-fg:          #0d1b2a;
-  --color-focus-ring:         color-mix(in oklab, #9ab0c7 45%, transparent);
+  /* Accent plus clair/vif que fg-subtle pour rester visible sur fond sombre
+     sans se confondre avec le texte neutre */
+  --color-accent: #9bc98a;
+  --color-accent-fg: #14150f;
+  --color-focus-ring: color-mix(in oklab, #9bc98a 45%, transparent);
 }
 
 /* ============================================================================
    3. BASE — Reset ergonomique, typographie & accessibilité
    ============================================================================ */
 @layer base {
+
   *,
   *::before,
   *::after {
@@ -156,6 +207,7 @@
   }
 
   html {
+    font-size: 14px;
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
   }
@@ -168,15 +220,32 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Échelle typographique */
-  h1 { @apply text-2xl font-bold tracking-tight; }
-  h2 { @apply text-xl font-bold tracking-tight; }
-  h3 { @apply text-lg font-semibold tracking-tight; }
-  h4 { @apply text-base font-semibold; }
-  small, .text-caption { @apply text-xs text-[var(--color-fg-muted)]; }
+  /* Échelle typographique calibrée SIRH */
+  h1 {
+    @apply text-xl font-bold tracking-tight;
+  }
+
+  h2 {
+    @apply text-lg font-bold tracking-tight;
+  }
+
+  h3 {
+    @apply text-base font-semibold tracking-tight;
+  }
+
+  h4 {
+    @apply text-sm font-semibold;
+  }
+
+  small,
+  .text-caption {
+    @apply text-xs text-[var(--color-fg-muted)];
+  }
 
   /* Données logistiques mono */
-  code, kbd, .font-data {
+  code,
+  kbd,
+  .font-data {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
@@ -185,63 +254,90 @@
     color: var(--color-accent);
     text-decoration-line: none;
   }
-  a:hover { text-decoration-line: underline; }
+
+  a:hover {
+    text-decoration-line: underline;
+  }
 
   /* Focus clavier visible */
   :focus-visible {
     outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
   }
+
   :focus:not(:focus-visible) {
     outline: none;
   }
 
   /* Sélection de texte */
   ::selection {
-    background-color: #778da9;
+    background-color: #8fab80;
     color: #ffffff;
   }
+
   .dark ::selection {
-    background-color: #415a77;
+    background-color: #47603f;
     color: #ffffff;
   }
 
   /* Champs de formulaire */
-  input, textarea, select, button {
+  input,
+  textarea,
+  select,
+  button {
     font: inherit;
     color: inherit;
   }
-  input::placeholder, textarea::placeholder {
+
+  input::placeholder,
+  textarea::placeholder {
     color: var(--color-fg-subtle);
   }
 
-  /* Cible tactile minimale */
-  button, a[role="button"], input[type="checkbox"], input[type="radio"] {
-    min-height: 2.75rem;
+  /* Cible bouton desktop standard */
+  button,
+  a[role="button"] {
+    min-height: auto;
   }
-  input[type="checkbox"], input[type="radio"] {
+
+  input[type="checkbox"],
+  input[type="radio"] {
     min-height: 0;
   }
 
   /* États désactivés */
-  [disabled], .is-disabled {
+  [disabled],
+  .is-disabled {
     cursor: not-allowed;
     opacity: 0.5;
   }
 
   /* Scrollbar personnalisée anguleuse */
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background-color: #778da9;
-    border-radius: var(--radius-none);
-    border: 2px solid var(--color-bg);
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
-  .dark ::-webkit-scrollbar-thumb { background-color: #415a77; }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: #8fab80;
+    border-radius: var(--radius-none);
+    border: 1px solid var(--color-bg);
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background-color: #47603f;
+  }
 
   /* Mouvement réduit */
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.001ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.001ms !important;
@@ -274,14 +370,33 @@
   border-color: var(--color-border);
 }
 
+/* Carte d'orientation (onboarding / recommandation) — jamais la teinte
+   warning ici, uniquement l'accent de marque. */
+@utility flag-brand {
+  border-left: 4px solid var(--color-brand-500);
+  border-radius: var(--radius-none);
+}
+
+/* Ligne/carte de vigilance réelle (non-conformité, échéance) */
+@utility flag-warning {
+  border-left: 4px solid var(--color-warning-500);
+  border-radius: var(--radius-none);
+}
+
+/* Ligne/carte de blocage effectif (refus, erreur) */
+@utility flag-danger {
+  border-left: 4px solid var(--color-danger-500);
+  border-radius: var(--radius-none);
+}
+
 :root {
-  --accent:        var(--color-accent);
-  --accent-bg:     var(--color-brand-50);
+  --accent: var(--color-accent);
+  --accent-bg: var(--color-brand-50);
   --accent-border: var(--color-brand-200);
-  --text-h:        var(--color-fg);
-  --border:        var(--color-border);
-  --social-bg:     var(--color-bg-subtle);
-  --shadow:        var(--shadow-sm);
+  --text-h: var(--color-fg);
+  --border: var(--color-border);
+  --social-bg: var(--color-bg-subtle);
+  --shadow: var(--shadow-sm);
 }
 
 /* ============================================================================
@@ -293,7 +408,8 @@
     margin: 10mm 12mm;
   }
 
-  html, body {
+  html,
+  body {
     height: 100% !important;
     overflow: visible !important;
     background: #ffffff !important;

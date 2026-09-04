@@ -59,6 +59,10 @@ export function useNotifications() {
             setTotalNonLues(result.totalNonLues || 0);
         } catch (err) {
             if (err.name === 'CanceledError' || err.__CANCEL__) return;
+            if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+                console.warn('[Notifications] Serveur en cours de reconnexion...');
+                return;
+            }
             console.error('[Notifications] Erreur:', err);
         } finally {
             if (!isBackground) setLoading(false);

@@ -19,6 +19,7 @@ public class TypeIntervenantController {
     private DataSource dataSource;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getAllTypesIntervenant() {
         try (Connection c = dataSource.getConnection()) {
             List<RefTypeIntervenant> list = RefTypeIntervenant.listAll(c);
@@ -31,7 +32,7 @@ public class TypeIntervenantController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ADMIN_ACCESS')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createTypeIntervenant(@RequestBody RefTypeIntervenant request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -51,7 +52,7 @@ public class TypeIntervenantController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ADMIN_ACCESS')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateTypeIntervenant(@PathVariable int id, @RequestBody RefTypeIntervenant request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -85,7 +86,7 @@ public class TypeIntervenantController {
     }
 
     @PutMapping("/{id}/desactiver")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ADMIN_ACCESS')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deactivateTypeIntervenant(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -112,7 +113,7 @@ public class TypeIntervenantController {
     }
 
     @PutMapping("/{id}/activer")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ADMIN_ACCESS')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> activateTypeIntervenant(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

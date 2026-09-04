@@ -1,8 +1,10 @@
 import { lazy, Suspense } from 'react';
-import { Shield, Users, ArrowLeft, Menu } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Shield, Users, Menu } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import Tabs from '@/components/ui/navigation/Tabs';
+import PageHeader from '@/components/ui/navigation/PageHeader';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import SEO from '@/components/system/SEO';
 
 const UserManagementTab = lazy(() => import('@/components/parametres/securite/UserManagementTab'));
 const RolesAndPermissionsTab = lazy(() => import('@/components/parametres/securite/RolesAndPermissionsTab'));
@@ -23,33 +25,22 @@ export default function SecuriteAdminPanel() {
     ];
 
     return (
-        <div className="space-y-6">
-            {/* Lien retour */}
-            <Link 
-                to="/dashboard" 
-                className="inline-flex items-center gap-2 text-sm text-[var(--color-brand-500)] hover:underline font-semibold "
-            >
-                <ArrowLeft size={16} />
-                Retour au Tableau de bord
-            </Link>
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+            <SEO title="Sécurité & Accès" description="Administration des comptes utilisateurs, rôles, permissions et menus." />
 
-            {/* En-tête de la page */}
-            <div className="bg-[var(--color-surface)] rounded-none shadow-sm border border-[var(--color-border-subtle)] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-[var(--color-brand-500)] text-white rounded-none flex items-center justify-center shadow-md shrink-0">
-                        <Shield size={24} />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-[var(--color-fg)]">Sécurité & Accès</h1>
-                        <p className="text-xs text-[var(--color-fg-muted)]">
-                            Gestion des utilisateurs, des rôles, des permissions et des menus.
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <PageHeader
+                title="Sécurité & Contrôle d'Accès"
+                subtitle="Gestion des comptes utilisateurs, assignation des rôles RBAC, permissions et visibilité des menus."
+                icon={Shield}
+                breadcrumbs={[
+                    { label: 'Tableau de bord', href: '/dashboard' },
+                    { label: 'Paramètres', href: '/parametres/securite' },
+                    { label: 'Sécurité & Contrôle d\'Accès' }
+                ]}
+            />
 
             {/* Sélecteur d'onglets principal avec Tabs Design System et persistance URL */}
-            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden">
+            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden flex flex-col">
                 <Tabs 
                     tabs={mainTabs} 
                     activeTab={activeTab} 
@@ -58,7 +49,7 @@ export default function SecuriteAdminPanel() {
                 />
 
                 {/* Contenu de l'onglet actif avec Suspense & SkeletonTable standardisé */}
-                <div className="p-6">
+                <div className="p-4 sm:p-4.5">
                     <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
                         {activeTab === 'users' && <UserManagementTab />}
                         {activeTab === 'roles' && <RolesAndPermissionsTab />}

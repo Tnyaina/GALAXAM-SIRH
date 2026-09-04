@@ -1,0 +1,195 @@
+package mg.galaxam.sirh.api.dto.pointage;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class SaisiePointageJourDTO {
+    private Integer idPointage;
+    private Integer idEmploye;
+    private String matricule;
+    private String nom;
+    private String prenom;
+    private String photoUrl;
+    private Integer idSite;
+    private String siteNom;
+    private String datePointage; // YYYY-MM-DD
+
+    private String heureEntreeMatin; // HH:mm
+    private String heureSortieMatin; // HH:mm
+    private String heureEntreeAm;    // HH:mm
+    private String heureSortieAm;    // HH:mm
+
+    private Double heuresMatin;
+    private Double heuresAm;
+    private Double totalHeures;
+    private Double heuresNuit;
+    private Integer minutesRetard;
+
+    private String codeStatut; // PRESENT, RETARD, ABSENCE_NON_JUSTIFIEE, DISPENSE_POINTAGE, CONGE, etc.
+    private String libelleStatut;
+
+    private boolean estAutonome; // Cadre / Dispense de pointage
+    private String typeCongeJour; // FULL_DAY, MATIN, APRES_MIDI, null
+    private boolean ferieJour;
+    private String libelleFerie;
+
+    private String codeCategorie;
+    private String libelleCategorie;
+    private boolean horaireContinu;
+
+    private boolean siteIndemniteDeplacementActif;
+    private boolean siteIndemniteRepasActif;
+    private boolean estDerogeDeplacement;
+    private boolean estDerogeRepas;
+
+    private boolean indemniteDeplacementRecue;
+    private boolean deplacementMatin = true;
+    private boolean deplacementAm = true;
+    private boolean indemniteRepasRecue;
+    private Double montantRepas;
+
+    private String motifAjustement;
+    private Integer idPeriodePaie;
+    private String libelleConge;
+    private Integer version; // Optimistic locking version
+    private Map<String, Object> dynamicIndemnites = new HashMap<>();
+
+    // Getters et Setters
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+
+    public Integer getIdPeriodePaie() { return idPeriodePaie; }
+    public void setIdPeriodePaie(Integer idPeriodePaie) { this.idPeriodePaie = idPeriodePaie; }
+
+    public String getLibelleConge() { return libelleConge; }
+    public void setLibelleConge(String libelleConge) { this.libelleConge = libelleConge; }
+
+    public Integer getIdPointage() { return idPointage; }
+    public void setIdPointage(Integer idPointage) { this.idPointage = idPointage; }
+
+    public Integer getIdEmploye() { return idEmploye; }
+    public void setIdEmploye(Integer idEmploye) { this.idEmploye = idEmploye; }
+
+    public String getMatricule() { return matricule; }
+    public void setMatricule(String matricule) { this.matricule = matricule; }
+
+    public String getNom() { return nom; }
+    public void setNom(String nom) { this.nom = nom; }
+
+    public String getPrenom() { return prenom; }
+    public void setPrenom(String prenom) { this.prenom = prenom; }
+
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
+
+    public Integer getIdSite() { return idSite; }
+    public void setIdSite(Integer idSite) { this.idSite = idSite; }
+
+    public String getSiteNom() { return siteNom; }
+    public void setSiteNom(String siteNom) { this.siteNom = siteNom; }
+
+    public String getDatePointage() { return datePointage; }
+    public void setDatePointage(String datePointage) { this.datePointage = datePointage; }
+
+    public String getHeureEntreeMatin() { return heureEntreeMatin; }
+    public void setHeureEntreeMatin(String heureEntreeMatin) { this.heureEntreeMatin = heureEntreeMatin; }
+
+    public String getHeureSortieMatin() { return heureSortieMatin; }
+    public void setHeureSortieMatin(String heureSortieMatin) { this.heureSortieMatin = heureSortieMatin; }
+
+    public String getHeureEntreeAm() { return heureEntreeAm; }
+    public void setHeureEntreeAm(String heureEntreeAm) { this.heureEntreeAm = heureEntreeAm; }
+
+    public String getHeureSortieAm() { return heureSortieAm; }
+    public void setHeureSortieAm(String heureSortieAm) { this.heureSortieAm = heureSortieAm; }
+
+    public Double getHeuresMatin() { return heuresMatin; }
+    public void setHeuresMatin(Double heuresMatin) { this.heuresMatin = heuresMatin; }
+
+    public Double getHeuresAm() { return heuresAm; }
+    public void setHeuresAm(Double heuresAm) { this.heuresAm = heuresAm; }
+
+    public Double getTotalHeures() { return totalHeures; }
+    public void setTotalHeures(Double totalHeures) { this.totalHeures = totalHeures; }
+
+    public Double getHeuresNuit() { return heuresNuit; }
+    public void setHeuresNuit(Double heuresNuit) { this.heuresNuit = heuresNuit; }
+
+    public Integer getMinutesRetard() { return minutesRetard; }
+    public void setMinutesRetard(Integer minutesRetard) { this.minutesRetard = minutesRetard; }
+
+    public String getCodeStatut() { return codeStatut; }
+    public void setCodeStatut(String codeStatut) { this.codeStatut = codeStatut; }
+
+    public String getLibelleStatut() { return libelleStatut; }
+    public void setLibelleStatut(String libelleStatut) { this.libelleStatut = libelleStatut; }
+
+    public boolean isEstAutonome() { return estAutonome; }
+    public void setEstAutonome(boolean estAutonome) { this.estAutonome = estAutonome; }
+
+    public String getTypeCongeJour() { return typeCongeJour; }
+    public void setTypeCongeJour(String typeCongeJour) { this.typeCongeJour = typeCongeJour; }
+
+    public boolean isFerieJour() { return ferieJour; }
+    public void setFerieJour(boolean ferieJour) { this.ferieJour = ferieJour; }
+
+    public String getLibelleFerie() { return libelleFerie; }
+    public void setLibelleFerie(String libelleFerie) { this.libelleFerie = libelleFerie; }
+
+    public String getCodeCategorie() { return codeCategorie; }
+    public void setCodeCategorie(String codeCategorie) { this.codeCategorie = codeCategorie; }
+
+    public String getLibelleCategorie() { return libelleCategorie; }
+    public void setLibelleCategorie(String libelleCategorie) { this.libelleCategorie = libelleCategorie; }
+
+    public boolean isHoraireContinu() { return horaireContinu; }
+    public void setHoraireContinu(boolean horaireContinu) { this.horaireContinu = horaireContinu; }
+
+    public boolean isSiteIndemniteDeplacementActif() { return siteIndemniteDeplacementActif; }
+    public void setSiteIndemniteDeplacementActif(boolean siteIndemniteDeplacementActif) { this.siteIndemniteDeplacementActif = siteIndemniteDeplacementActif; }
+
+    public boolean isSiteIndemniteRepasActif() { return siteIndemniteRepasActif; }
+    public void setSiteIndemniteRepasActif(boolean siteIndemniteRepasActif) { this.siteIndemniteRepasActif = siteIndemniteRepasActif; }
+
+    public boolean isEstDerogeDeplacement() { return estDerogeDeplacement; }
+    public void setEstDerogeDeplacement(boolean estDerogeDeplacement) { this.estDerogeDeplacement = estDerogeDeplacement; }
+
+    public boolean isEstDerogeRepas() { return estDerogeRepas; }
+    public void setEstDerogeRepas(boolean estDerogeRepas) { this.estDerogeRepas = estDerogeRepas; }
+
+    public boolean isIndemniteDeplacementRecue() { return indemniteDeplacementRecue; }
+    public void setIndemniteDeplacementRecue(boolean indemniteDeplacementRecue) { this.indemniteDeplacementRecue = indemniteDeplacementRecue; }
+
+    public boolean isDeplacementMatin() { return deplacementMatin; }
+    public void setDeplacementMatin(boolean deplacementMatin) { this.deplacementMatin = deplacementMatin; }
+
+    public boolean isDeplacementAm() { return deplacementAm; }
+    public void setDeplacementAm(boolean deplacementAm) { this.deplacementAm = deplacementAm; }
+
+    public boolean isIndemniteRepasRecue() { return indemniteRepasRecue; }
+    public void setIndemniteRepasRecue(boolean indemniteRepasRecue) { this.indemniteRepasRecue = indemniteRepasRecue; }
+
+    public Double getMontantRepas() { return montantRepas; }
+    public void setMontantRepas(Double montantRepas) { this.montantRepas = montantRepas; }
+
+    public String getMotifAjustement() { return motifAjustement; }
+    public void setMotifAjustement(String motifAjustement) { this.motifAjustement = motifAjustement; }
+
+    public Map<String, Object> getDynamicIndemnites() { return dynamicIndemnites; }
+    public void setDynamicIndemnites(Map<String, Object> dynamicIndemnites) { this.dynamicIndemnites = dynamicIndemnites; }
+
+    // Backend-driven booleans pour l'interface UI (Zero comparaison de string en dur sur le front)
+    public boolean isPresent() { return "PRESENT".equalsIgnoreCase(codeStatut); }
+    public boolean isRetard() { return "RETARD".equalsIgnoreCase(codeStatut) || (minutesRetard != null && minutesRetard > 0); }
+    public boolean isConge() { return "CONGE".equalsIgnoreCase(codeStatut) || typeCongeJour != null; }
+    public boolean isFerieTravaille() { return "FERIE_TRAVAILLE".equalsIgnoreCase(codeStatut) || (ferieJour && totalHeures != null && totalHeures > 0); }
+    public boolean isFerieChome() { return ("FERIE_CHOME".equalsIgnoreCase(codeStatut) || ferieJour) && !isFerieTravaille(); }
+    public boolean isDimancheTravaille() { return "DIMANCHE_TRAVAILLE".equalsIgnoreCase(codeStatut); }
+    public boolean isSamediTravaille() { return "SAMEDI_TRAVAILLE".equalsIgnoreCase(codeStatut); }
+    public boolean isDispensePointage() {
+        if (isFerieChome() || isConge()) return false;
+        return estAutonome || "DISPENSE_POINTAGE".equalsIgnoreCase(codeStatut);
+    }
+    public boolean isAnomalie() { return "ANOMALIE_SAISIE".equalsIgnoreCase(codeStatut); }
+    public boolean isAbsenceNonJustifiee() { return "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(codeStatut); }
+}

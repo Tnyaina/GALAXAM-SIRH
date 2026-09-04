@@ -121,4 +121,56 @@ public class RefTypeEvenementRh extends ClassMere {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
+
+    public boolean isExigeNouveauContrat() {
+        if (code == null) return false;
+        return switch (code) {
+            case "TRANSFORMATION_CDI", "RENOUVELLEMENT_CDD", "EMBAUCHE_APRES_STAGE", "REPRISE_CONSULTANT", "EMBAUCHE_INITIALE", "REPRISE_ANCIENNETE" -> true;
+            default -> false;
+        };
+    }
+
+    public boolean isAutorisePeriodeEssai() {
+        if (code == null) return false;
+        return isExigeNouveauContrat() && !"RENOUVELLEMENT_CDD".equals(code);
+    }
+
+    public boolean isEmbauche() {
+        return "EMBAUCHE_INITIALE".equals(code) || "REPRISE_ANCIENNETE".equals(code);
+    }
+
+    public boolean isEssai() {
+        return "CONFIRMATION_ESSAI".equals(code) || "RENOUVELLEMENT_ESSAI".equals(code);
+    }
+
+    public boolean isConfirmationEssai() {
+        return "CONFIRMATION_ESSAI".equals(code);
+    }
+
+    public boolean isRenouvellementEssai() {
+        return "RENOUVELLEMENT_ESSAI".equals(code);
+    }
+
+    public boolean isRenouvellementCdd() {
+        return "RENOUVELLEMENT_CDD".equals(code);
+    }
+
+    public boolean isRupture() {
+        if (code == null) return false;
+        return switch (code) {
+            case "FIN_CONTRAT", "DEMISSION", "LICENCIEMENT", "RUPTURE_CONVENTIONNELLE",
+                 "RUPTURE_ESSAI_EMPLOYEUR", "RUPTURE_ESSAI_SALARIE" -> true;
+            default -> false;
+        };
+    }
+
+    public boolean isAvenant() {
+        if (code == null) return false;
+        return switch (code) {
+            case "MUTATION", "PROMOTION", "AUGMENTATION", "REVALORISATION", "AJUSTEMENT_POSTE" -> true;
+            default -> false;
+        };
+    }
 }

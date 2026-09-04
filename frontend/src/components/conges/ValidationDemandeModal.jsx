@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CheckSquare, XSquare } from 'lucide-react';
 import congeService from '@/api/congeService';
+import { getErrorMessage } from '@/api/apiClient';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import { Textarea } from '@/components/ui/forms/Input';
@@ -31,7 +32,7 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
       setSuccessMsg(`La demande #${demande.idDemandeConge} de ${demande.prenom} ${demande.nom} a été validée avec succès.`);
       if (onActionComplete) onActionComplete();
     } catch (err) {
-      setError(err?.response?.data || err.message || 'Erreur lors de la validation.');
+      setError(getErrorMessage(err, 'Erreur lors de la validation de la demande.'));
     } finally {
       setLoading(false);
     }
@@ -55,7 +56,7 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
       setMotifRefus('');
       if (onActionComplete) onActionComplete();
     } catch (err) {
-      setError(err?.response?.data || err.message || 'Erreur lors du refus.');
+      setError(getErrorMessage(err, 'Erreur lors du refus de la demande.'));
     } finally {
       setLoading(false);
     }
@@ -219,10 +220,10 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
 
       {/* Modal de Refus Explicite */}
       {showRefusModal && selectedDemande && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-ink-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-3">
-              <h4 className="text-xs font-bold text-rose-500 flex items-center gap-2 uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-[var(--color-danger-500)] flex items-center gap-2 uppercase tracking-wider">
                 <XSquare className="w-4 h-4" />
                 Refus de la Demande #{selectedDemande.idDemandeConge}
               </h4>

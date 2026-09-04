@@ -5,27 +5,27 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import { fmtDate } from '../DashboardUtils';
 import SkeletonListRows from './SkeletonListRows';
 
-export default function AbsentsWidget({ loading, absentsAujourdhui = [] }) {
+export default function AbsentsWidget({ loading, absentsAujourdhui = [], className = '' }) {
     return (
-        <Card>
-            <CardHeader>
+        <Card className={`flex flex-col ${className}`}>
+            <CardHeader className="min-h-[56px] flex items-center">
                 <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
-                        <UserCheck size={16} className="text-info-500" />
+                        <UserCheck size={16} className="text-info-500 shrink-0" />
                         <CardTitle>Salariés Actuellement Absents / En Congé</CardTitle>
                     </div>
-                    <Badge variant={absentsAujourdhui.length > 0 ? 'info' : 'default'} size="sm">
+                    <Badge variant={absentsAujourdhui.length > 0 ? 'info' : 'default'} size="sm" className="shrink-0">
                         {loading ? '…' : absentsAujourdhui.length} absent(s)
                     </Badge>
                 </div>
             </CardHeader>
-            <CardBody>
+            <CardBody className="flex-1 flex flex-col justify-center">
                 {loading && <SkeletonListRows count={3} />}
                 {!loading && absentsAujourdhui.length === 0 && (
-                    <EmptyState description="Aucun collaborateur en congé ou absent aujourd'hui." />
+                    <EmptyState compact description="Aucun collaborateur en congé ou absent aujourd'hui." />
                 )}
                 {!loading && absentsAujourdhui.length > 0 && (
-                    <div className="divide-y divide-[var(--color-border-subtle)]">
+                    <div className="max-h-[280px] overflow-y-auto pr-1 divide-y divide-[var(--color-border-subtle)]">
                         {absentsAujourdhui.slice(0, 5).map((a) => (
                             <div key={a.idDemandeConge} className="py-3 flex items-center justify-between gap-3 text-xs">
                                 <div className="min-w-0">

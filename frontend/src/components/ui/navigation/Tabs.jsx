@@ -1,3 +1,4 @@
+import { isValidElement } from 'react';
 import Button from '@/components/ui/forms/Button';
 
 /**
@@ -14,33 +15,44 @@ export function Tabs({
     // Choix dynamique de la couleur de fond
     const bgClass = bg === 'surface' ? 'bg-[var(--color-surface)]' : 'bg-[var(--color-bg-subtle)]';
 
+    const renderIcon = (icon) => {
+        if (!icon) return null;
+        if (isValidElement(icon)) return icon;
+        if (typeof icon === 'function' || (typeof icon === 'object' && icon !== null)) {
+            const IconComp = icon;
+            return <IconComp size={15} />;
+        }
+        return null;
+    };
+
     if (variant === 'underline') {
         return (
-            <div className={`flex border-b border-[var(--color-border-subtle)] ${bgClass} px-4 overflow-x-auto gap-1 ${className}`}>
+            <div className={`flex border-b border-[var(--color-border-subtle)] ${bgClass} px-3 overflow-x-auto gap-0.5 ${className}`}>
                 {tabs.map((tab) => {
                     const isActive = activeTab === tab.id;
+                    const badgeVal = tab.count !== undefined ? tab.count : tab.badge;
                     return (
                         <button
                             key={tab.id}
                             type="button"
                             onClick={() => onChange(tab.id)}
                             className={`
-                                flex items-center gap-2 py-4 px-4 border-b-2 text-sm font-semibold  cursor-pointer whitespace-nowrap rounded-none
+                                flex items-center gap-1.5 py-2 px-3 border-b-2 text-xs font-semibold cursor-pointer whitespace-nowrap rounded-none
                                 ${isActive
                                     ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-bold'
                                     : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                 }
                             `}
                         >
-                            {tab.icon}
+                            {renderIcon(tab.icon)}
                             <span>{tab.label}</span>
-                            {tab.count !== undefined && (
-                                <span className={`px-2 py-0.5 text-xs font-data font-bold rounded-none ${
+                            {badgeVal !== undefined && (
+                                <span className={`px-1.5 py-0.5 text-[10.5px] font-data font-bold rounded-none ${
                                     isActive
                                         ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)]'
                                         : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'
                                 }`}>
-                                    {tab.count}
+                                    {badgeVal}
                                 </span>
                             )}
                         </button>

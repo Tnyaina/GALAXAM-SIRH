@@ -112,6 +112,39 @@ public class CalendrierFerieController {
         }
     }
 
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deleteCalendrierFerie(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefCalendrierFerie cf = new RefCalendrierFerie();
+                RefCalendrierFerie existing = (RefCalendrierFerie) cf.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Jour férié non trouvé.");
+                }
+
+                String sqlDelSite = "DELETE FROM site_calendrier_ferie WHERE id_ferie = ?";
+                try (java.sql.PreparedStatement ps = c.prepareStatement(sqlDelSite)) {
+                    ps.setInt(1, id);
+                    ps.executeUpdate();
+                }
+
+                existing.delete(c);
+                AuditLog.audit(c, "SUPPRESSION", "ref_calendrier_ferie", String.valueOf(id), existing, null);
+
+                c.commit();
+                return ResponseEntity.ok("Jour férié supprimé avec succès.");
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
     // Config Fériés par Site
     @GetMapping("/site-config")
     @PreAuthorize("isAuthenticated()")

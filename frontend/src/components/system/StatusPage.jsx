@@ -4,17 +4,17 @@ import Button from '@/components/ui/forms/Button';
 import { useAuth } from '@/context/AuthContext'; // Import du hook Auth
 
 const tones = {
-    neutral: 'text-[#2d2d2d] border-[#2d2d2d] bg-[#f5f5f5]',
-    danger:  'text-[#c0392b] border-[#c0392b] bg-red-50',
-    warning: 'text-[#b45309] border-[#b45309] bg-amber-50',
-    info:    'text-[#1A82B1] border-[#1A82B1] bg-[#eaf6fa]',
+    neutral: 'text-[var(--color-fg)] border-[var(--color-border)] bg-[var(--color-bg-subtle)]',
+    danger:  'text-[var(--color-danger-600)] border-[var(--color-danger-500)] bg-[var(--color-danger-500)]/8',
+    warning: 'text-[var(--color-warning-600)] border-[var(--color-warning-500)] bg-[var(--color-warning-500)]/8',
+    info:    'text-[var(--color-info-600)] border-[var(--color-info-500)] bg-[var(--color-info-500)]/8',
 };
 
 const codeTones = {
-    neutral: 'text-[#2d2d2d]',
-    danger:  'text-[#c0392b]',
-    warning: 'text-[#b45309]',
-    info:    'text-[#1A82B1]',
+    neutral: 'text-[var(--color-fg-muted)]',
+    danger:  'text-[var(--color-danger-500)]',
+    warning: 'text-[var(--color-warning-500)]',
+    info:    'text-[var(--color-info-500)]',
 };
 
 export default function StatusPage({

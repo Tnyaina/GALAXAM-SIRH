@@ -50,6 +50,8 @@ CREATE TABLE utilisateur (
     est_actif BOOLEAN DEFAULT TRUE,
     date_desactivation TIMESTAMP,
     motif_desactivation VARCHAR(100),
+    refresh_token VARCHAR(500),
+    refresh_token_expiration TIMESTAMP,
     
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

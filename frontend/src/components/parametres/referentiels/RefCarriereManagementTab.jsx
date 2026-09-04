@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Award, CreditCard, ArrowUpRight, X } from 'lucide-react';
+import { Plus, Edit2, Award, CreditCard, ArrowUpRight } from 'lucide-react';
 import contratService from '@/api/employe/contratService';
-import Input, { Textarea } from '@/components/ui/forms/Input';
+import Input, { Textarea, Checkbox } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import EmptyState from '@/components/ui/data-display/EmptyState';
+import Modal from '@/components/ui/overlays/Modal';
 
 export default function RefCarriereManagementTab() {
     const [categoriesPro, setCategoriesPro] = useState([]);
@@ -17,6 +18,7 @@ export default function RefCarriereManagementTab() {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [modalError, setModalError] = useState('');
     const [actionSuccess, setActionSuccess] = useState('');
 
     const [showModalCp, setShowModalCp] = useState(false);
@@ -54,7 +56,7 @@ export default function RefCarriereManagementTab() {
     const handleOpenCreateCp = () => {
         setSelectedCp(null);
         setFormDataCp({ code: '', libelle: '', description: '', estEligibleHs: true, actif: true });
-        setError('');
+        setModalError('');
         setShowModalCp(true);
     };
 
@@ -67,15 +69,17 @@ export default function RefCarriereManagementTab() {
             estEligibleHs: cp.estEligibleHs !== undefined ? cp.estEligibleHs : true,
             actif: cp.actif !== undefined ? cp.actif : true
         });
-        setError('');
+        setModalError('');
         setShowModalCp(true);
     };
 
     const handleSubmitCp = async (e) => {
         e.preventDefault();
-        setError('');
+        if (submitting) return;
+        setModalError(null);
+
         if (!formDataCp.code.trim() || !formDataCp.libelle.trim()) {
-            setError('Le code et le libellé sont obligatoires.');
+            setModalError('Le code et le libellé sont obligatoires.');
             return;
         }
 
@@ -92,7 +96,7 @@ export default function RefCarriereManagementTab() {
             loadData();
         } catch (err) {
             console.error('Erreur enregistrement catégorie:', err);
-            setError(err.response?.data || "Erreur lors de l'enregistrement.");
+            setModalError(err.response?.data || "Erreur lors de l'enregistrement.");
         } finally {
             setSubmitting(false);
         }
@@ -102,7 +106,7 @@ export default function RefCarriereManagementTab() {
         <div className="space-y-8">
             {/* Notifications */}
             {actionSuccess && <Alert type="success" message={actionSuccess} />}
-            {error && !showModalCp && <Alert type="error" message={error} />}
+            {error && <Alert type="error" message={error} />}
 
             {/* Section 1: Catégories Professionnelles */}
             <div className="space-y-4">
@@ -169,8 +173,9 @@ export default function RefCarriereManagementTab() {
                                     <Td className="text-right">
                                         <button
                                             onClick={() => handleOpenEditCp(cp)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
-                                            title="Modifier"
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            title="Modifier la catégorie"
+                                            aria-label={`Modifier ${cp.libelle}`}
                                         >
                                             <Edit2 size={16} />
                                         </button>
@@ -185,9 +190,9 @@ export default function RefCarriereManagementTab() {
             {/* Section 2: Modes de calcul de paie, Motifs et Types d'Événements RH */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Modes de Calcul Paie */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-6 rounded-none shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
-                        <CreditCard size={16} className="text-[var(--color-brand-500)]" />
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 rounded-none shadow-sm space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-2">
+                        <CreditCard size={15} className="text-[var(--color-brand-500)]" />
                         Modes de Paie ({modesPaie.length})
                     </h3>
                     <div className="divide-y divide-[var(--color-border-subtle)] border border-[var(--color-border-subtle)] rounded-none max-h-[260px] overflow-y-auto">
@@ -204,9 +209,9 @@ export default function RefCarriereManagementTab() {
                 </div>
 
                 {/* Motifs de Mouvement */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-6 rounded-none shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
-                        <ArrowUpRight size={16} className="text-[var(--color-brand-500)]" />
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 rounded-none shadow-sm space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-2">
+                        <ArrowUpRight size={15} className="text-[var(--color-brand-500)]" />
                         Motifs de Mouvements ({motifsMouvement.length})
                     </h3>
                     <div className="divide-y divide-[var(--color-border-subtle)] border border-[var(--color-border-subtle)] rounded-none max-h-[260px] overflow-y-auto">
@@ -220,9 +225,9 @@ export default function RefCarriereManagementTab() {
                 </div>
 
                 {/* Types d'Événements RH */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-6 rounded-none shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
-                        <Award size={16} className="text-[var(--color-brand-500)]" />
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 rounded-none shadow-sm space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-2">
+                        <Award size={15} className="text-[var(--color-brand-500)]" />
                         Types d'Événements RH ({typesEvenement.length})
                     </h3>
                     <div className="divide-y divide-[var(--color-border-subtle)] border border-[var(--color-border-subtle)] rounded-none max-h-[260px] overflow-y-auto">
@@ -240,64 +245,59 @@ export default function RefCarriereManagementTab() {
             </div>
 
             {/* Modale d'ajout/modification Catégorie Pro */}
-            {showModalCp && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-md w-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] flex justify-between items-center bg-[var(--color-bg-subtle)]">
-                            <h3 className="font-bold text-[var(--color-fg)] flex items-center gap-2">
-                                <Award size={18} className="text-[var(--color-brand-500)]" />
-                                {selectedCp ? 'Modifier la Catégorie Professionnelle' : 'Nouvelle Catégorie Professionnelle'}
-                            </h3>
-                            <button onClick={() => setShowModalCp(false)} className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-1 rounded-none">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSubmitCp} className="p-6 space-y-4">
-                            {error && (
-                                <Alert type="error" message={error} />
-                            )}
-                            <Input
-                                label="Code"
-                                required
-                                value={formDataCp.code}
-                                onChange={e => setFormDataCp({ ...formDataCp, code: e.target.value.toUpperCase() })}
-                                placeholder="Ex: CADRE, AM, EMP..."
-                            />
-                            <Input
-                                label="Libellé"
-                                required
-                                value={formDataCp.libelle}
-                                onChange={e => setFormDataCp({ ...formDataCp, libelle: e.target.value })}
-                                placeholder="Ex: Cadre Supérieur, Agent de Maîtrise..."
-                            />
-                            <Textarea
-                                label="Description"
-                                rows={2}
-                                value={formDataCp.description}
-                                onChange={e => setFormDataCp({ ...formDataCp, description: e.target.value })}
-                                placeholder="Précisions sur cette catégorie..."
-                            />
-                            <label className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)] cursor-pointer p-3 border border-[var(--color-border-subtle)] rounded-none hover:bg-[var(--color-bg-subtle)] transition-colors mt-2">
-                                <input
-                                    type="checkbox"
-                                    checked={formDataCp.estEligibleHs}
-                                    onChange={(e) => setFormDataCp({ ...formDataCp, estEligibleHs: e.target.checked })}
-                                    className="w-4 h-4 rounded-none accent-[var(--color-brand-500)]"
-                                />
-                                <span>Éligible aux Heures Supplémentaires</span>
-                            </label>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-subtle)]">
-                                <Button type="button" onClick={() => setShowModalCp(false)} variant="ghost" size="sm">
-                                    Annuler
-                                </Button>
-                                <Button type="submit" variant="primary" size="sm" loading={submitting}>
-                                    Enregistrer
-                                </Button>
-                            </div>
-                        </form>
+            <Modal
+                isOpen={showModalCp}
+                onClose={() => setShowModalCp(false)}
+                title={selectedCp ? 'Modifier la Catégorie Professionnelle' : 'Nouvelle Catégorie Professionnelle'}
+                icon={<Award size={18} />}
+                size="md"
+                footer={
+                    <>
+                        <Button type="button" onClick={() => setShowModalCp(false)} variant="ghost" size="sm" disabled={submitting}>
+                            Annuler
+                        </Button>
+                        <Button type="submit" form="cp-form" variant="primary" size="sm" loading={submitting}>
+                            {selectedCp ? "Enregistrer" : "Créer la catégorie"}
+                        </Button>
+                    </>
+                }
+            >
+                <form id="cp-form" onSubmit={handleSubmitCp} className="space-y-4">
+                    {modalError && <Alert type="error" message={modalError} />}
+                    <Input
+                        label="Code Catégorie"
+                        required
+                        disabled={!!selectedCp}
+                        value={formDataCp.code}
+                        onChange={e => setFormDataCp({ ...formDataCp, code: e.target.value.toUpperCase() })}
+                        placeholder="Ex: CADRE, AM, EMP, OUV"
+                    />
+                    <Input
+                        label="Intitulé / Libellé"
+                        required
+                        value={formDataCp.libelle}
+                        onChange={e => setFormDataCp({ ...formDataCp, libelle: e.target.value })}
+                        placeholder="Ex: Cadre Supérieur, Agent de Maîtrise..."
+                    />
+                    <Textarea
+                        label="Description (Optionnel)"
+                        rows={2}
+                        value={formDataCp.description}
+                        onChange={e => setFormDataCp({ ...formDataCp, description: e.target.value })}
+                        placeholder="Précisions sur les critères de cette catégorie..."
+                    />
+                    <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-1">
+                        <Checkbox
+                            label="Éligible au calcul des Heures Supplémentaires"
+                            checked={formDataCp.estEligibleHs}
+                            onChange={(e) => setFormDataCp({ ...formDataCp, estEligibleHs: e.target.checked })}
+                        />
+                        <p className="text-[11px] text-[var(--color-fg-muted)] ml-6">
+                            Décocher pour les cadres dirigeants au forfait jours / sans comptabilisation des heures supp.
+                        </p>
                     </div>
-                </div>
-            )}
+                </form>
+            </Modal>
         </div>
     );
 }
