@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Printer, X, FileText, Building, Calendar, DollarSign, UserCheck } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { DocumentFrame } from '@/components/carriere/ContractDocument';
+import HasPermission from '@/components/auth/HasPermission';
 import { fmtDateFr, fmtMoney } from '@/utils/carriereUtils';
 
 export default function ContratTravailModal({
@@ -277,7 +278,9 @@ export default function ContratTravailModal({
                                         En contrepartie de ses prestations, le Salarié percevra un salaire de base mensuel fixé à :
                                     </p>
                                     <p className="font-mono text-base font-black text-[var(--color-brand-500)] print:text-black py-1">
-                                        {salaireBase ? fmtMoney(salaireBase) : '— Ar'}
+                                        <HasPermission authority="PAIE_READ" fallback={<span>[Confidentiel]</span>}>
+                                            {salaireBase ? fmtMoney(salaireBase) : '— Ar'}
+                                        </HasPermission>
                                     </p>
                                     {modePaie && (
                                         <p className="text-[11px] text-[var(--color-fg-muted)] print:text-black">

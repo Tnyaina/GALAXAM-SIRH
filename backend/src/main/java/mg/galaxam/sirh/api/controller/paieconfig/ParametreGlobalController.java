@@ -20,7 +20,7 @@ public class ParametreGlobalController {
     private DataSource dataSource;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllParametresGlobaux() {
         try (Connection c = dataSource.getConnection()) {
             List<ParametreGlobal> list = ParametreGlobal.listAll(c);
@@ -33,7 +33,7 @@ public class ParametreGlobalController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getParametreGlobalById(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             ParametreGlobal pg = new ParametreGlobal();
@@ -50,7 +50,7 @@ public class ParametreGlobalController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createParametreGlobal(@RequestBody ParametreGlobalRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -83,7 +83,7 @@ public class ParametreGlobalController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateParametreGlobal(@PathVariable int id, @RequestBody ParametreGlobalRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

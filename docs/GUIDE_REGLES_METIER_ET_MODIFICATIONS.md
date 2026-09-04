@@ -35,9 +35,16 @@
   - [Scénario 13 : Mettre à jour le SMIG et le plafond des cotisations CNaPS](#scénario-13--mettre-à-jour-le-smig-et-le-plafond-des-cotisations-cnaps)
   - [Scénario 14 : Mettre à jour les tranches de l'IRSA ou le minimum de perception](#scénario-14--mettre-à-jour-les-tranches-de-lirsa-ou-le-minimum-de-perception)
   - [Scénario 15 : Modifier la déduction fiscale par enfant à charge](#scénario-15--modifier-la-déduction-fiscale-par-enfant-à-charge)
-  - [Scénario 16 : Modifier les types de pièces jointes autorisées en GED](#scénario-16--modifier-les-types-de-pièces-jointes-autorisées-en-ged)
-  - [Scénario 17 : Ajouter un nouveau rôle ou permission applicative](#scénario-17--ajouter-un-nouveau-rôle-ou-permission-applicative)
-- [5. Checklist Qualité lors d'une Modification Métier](#5-checklist-qualité-lors-dune-modification-métier)
+  - [Scénario 17 : Ajouter un nouveau rôle ou module applicatif (Backend + Base)](#scénario-17--ajouter-un-nouveau-rôle-ou-module-applicatif-backend--base)
+  - [Scénario 18 : Sécuriser ou masquer un élément sensible dans l'interface Frontend (Bouton, Colonne, Donnée)](#scénario-18--sécuriser-ou-masquer-un-élément-sensible-dans-linterface-frontend-bouton-colonne-donnée)
+  - [Scénario 19 : Configurer ou modifier le compte administrateur initial (Bootstrap Seeder)](#scénario-19--configurer-ou-modifier-le-compte-administrateur-initial-bootstrap-seeder)
+- [5. Guide Opérationnel du Frontend (React / Vite) & Système de Permissions UI](#5-guide-opérationnel-du-frontend-react--vite--système-de-permissions-ui)
+  - [5.1 Structure et Cartographie des Dossiers Frontend (`frontend/src/`)](#51-structure-et-cartographie-des-dossiers-frontend-frontendsrc)
+  - [5.2 Système de Contrôle d'Accès Frontend (`useAuth` vs `<HasPermission />`)](#52-système-de-contrôle-daccès-frontend-useauth-vs-haspermission-)
+  - [5.3 Matrice Complète des Permissions et Impacts sur l'Interface](#53-matrice-complète-des-permissions-et-impacts-sur-linterface)
+  - [5.4 Comment Sécuriser / Masquer un Nouveau Champ ou Bouton Sensible](#54-comment-sécuriser--masquer-un-nouveau-champ-ou-bouton-sensible)
+  - [5.5 Comment Créer une Nouvelle Page ou un Nouvel Onglet Protégé](#55-comment-créer-une-nouvelle-page-ou-un-nouvel-onglet-protégé)
+- [6. Checklist Qualité lors d'une Modification Métier](#6-checklist-qualité-lors-dune-modification-métier)
 
 ---
 
@@ -473,16 +480,276 @@ Cette section est le **manuel de maintenance pratique**. Lorsqu'une règle d'ent
 
 ---
 
-### Scénario 17 : Ajouter un nouveau rôle ou permission applicative
-*Exemple : Créer un rôle `ROLE_CONTROLEUR_GESTION` avec lecture seule sur les paies et synthèses.*
-1. **Base de Données :** Insérer dans `ref_role` et lier les permissions dans `role_permission` :
-   `INSERT INTO ref_role (code, libelle) VALUES ('ROLE_CONTROLEUR_GESTION', 'Contrôleur de Gestion');`
-2. **Backend Contrôleurs :** Ajouter l'autorité dans les annotations `@PreAuthorize` souhaitées (ex: `@PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_CONTROLEUR_GESTION')")`).
-3. **Frontend Routage :** Ajouter le rôle dans `roleRequired` des routes protégées dans `App.jsx` ou le système RBAC `useAuth.js`.
+### Scénario 17 : Ajouter un nouveau rôle ou module applicatif (Backend + Base)
+*Exemple : Créer un rôle `ROLE_DAF` ayant les droits de validation sur la paie et la consultation des autres modules.*
+1. **Base de Données :**
+   - Si un nouveau module est créé :
+     `INSERT INTO ref_module (code_module, libelle, est_actif) VALUES ('PAIE', 'Module Paie et Salaires', true);`
+   - Insérer le nouveau rôle :
+     `INSERT INTO ref_role (code_role, libelle, est_actif) VALUES ('ROLE_DAF', 'Directeur Administratif et Financier', true);`
+   - Configurer les permissions du rôle dans `role_permission` :
+     `INSERT INTO role_permission (id_role, id_module, droit_lecture, droit_ecriture, droit_validation) VALUES (idRole, idModule, true, false, true);`
+2. **Backend Sécurité :**
+   - Dans [`SecurityConfig.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/config/SecurityConfig.java) : Si `ROLE_ADMIN` doit hériter de ce rôle, l'ajouter au builder `.role("ADMIN").implies(...)`.
+   - Dans les Contrôleurs ciblés : Annoter les méthodes sensibles avec `@PreAuthorize("hasAuthority('PAIE_VALIDATE') or hasAuthority('ROLE_ADMIN')")`.
+3. **Backend UserDetailsService :**
+   - [`CustomUserDetailsService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/CustomUserDetailsService.java) génère automatiquement les `SimpleGrantedAuthority` à partir de `role_permission` (`MODULE_READ`, `MODULE_WRITE`, `MODULE_VALIDATE`).
 
 ---
 
-# 5. Checklist Qualité lors d'une Modification Métier
+### Scénario 18 : Sécuriser ou masquer un élément sensible dans l'interface Frontend (Bouton, Colonne, Donnée)
+*Exemple : Masquer un montant de prime ou un bouton de validation pour les utilisateurs n'ayant pas `PAIE_WRITE`.*
+1. **Option 1 : Approche Déclarative avec `<HasPermission>` (Recommandé pour les blocs JSX)**
+   - Importer le composant :
+     ```jsx
+     import HasPermission from '@/components/auth/HasPermission';
+     ```
+   - Envelopper le bloc avec ou sans fallback :
+     ```jsx
+     {/* Masquage simple */}
+     <HasPermission authority="PAIE_WRITE">
+         <Button onClick={handleCalculerPaie}>Générer les Bulletins</Button>
+     </HasPermission>
+
+     {/* Masquage avec valeur de substitution */}
+     <HasPermission authority="PAIE_READ" fallback={<span className="italic text-gray-400">Confidentiel</span>}>
+         <span className="font-bold">{fmtMoney(salaire)} Ar</span>
+     </HasPermission>
+     ```
+2. **Option 2 : Approche Programmatique avec `useAuth()` (Pour logique JS, requêtes, ou attributs disabled)**
+   - Utiliser le hook :
+     ```jsx
+     const { hasPermission, hasAnyPermission, hasRole } = useAuth();
+     const canWrite = hasPermission('PAIE_WRITE');
+     ```
+   - Conditionner les actions :
+     ```jsx
+     <Button disabled={!canWrite} onClick={canWrite ? handleSave : undefined}>Enregistrer</Button>
+     ```
+
+---
+
+### Scénario 19 : Configurer ou modifier le compte administrateur initial (Bootstrap Seeder)
+*Exemple : Définir un mot de passe administrateur par défaut sécurisé lors du premier déploiement en production.*
+1. **Composant d'initialisation :** [`AdminAccountSeeder.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/AdminAccountSeeder.java).
+2. **Configuration sans modifier le code :**
+   - Définir les variables d'environnement dans le conteneur ou serveur :
+     - `GALAXAM_DEFAULT_ADMIN_USERNAME=superadmin`
+     - `GALAXAM_DEFAULT_ADMIN_PASSWORD=MonMotDePasseComplexe2026!`
+   - Ou modifier dans [`application.properties`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/resources/application.properties) :
+     ```properties
+     app.security.default-admin.username=superadmin
+     app.security.default-admin.password=MonMotDePasseComplexe2026!
+     ```
+3. **Comportement au démarrage :**
+   - Si un administrateur actif existe déjà en BDD, le seeder ignore l'opération.
+   - Si la BDD est neuve ou sans admin, il crée le compte avec le mot de passe hashé par BCrypt.
+
+---
+
+# 5. Guide Opérationnel du Frontend (React / Vite) & Système de Permissions UI
+
+Pour permettre à tout développeur ou mainteneur de naviguer aisément dans le Frontend et de le modifier sans risque de régression :
+
+## 5.1 Structure et Cartographie des Dossiers Frontend (`frontend/src/`)
+
+```text
+frontend/src/
+├── api/                   # Clients HTTP Axios et appels d'API REST
+│   ├── admin/             # organisationService.js, referentielService.js
+│   ├── employe/           # employeService.js, contratService.js, documentRhService.js
+│   ├── conges/            # congeService.js
+│   ├── pointage/          # pointageService.js, periodePaieService.js
+│   ├── paie/              # paieConfigService.js (et futur paieCalculService.js)
+│   └── apiClient.js       # Client Axios configuré avec intercepteurs JWT (auto-refresh)
+│
+├── components/            # Composants réutilisables
+│   ├── auth/              # HasPermission.jsx (Composant déclaratif RBAC)
+│   ├── layout/            # Layout.jsx, Sidebar.jsx, Topbar.jsx, Footer.jsx
+│   ├── carriere/          # Dossier carrière : timeline, formulaires d'avenant, documents officiels
+│   │   ├── timeline/      # ContratActifSection.jsx, ParcoursChronologique.jsx, HistoriqueContratsTable.jsx
+│   │   ├── form/          # AffectationFieldsSection.jsx, ContratFieldsSection.jsx
+│   │   └── supervision/   # SupervisionMouvementsTab.jsx
+│   ├── employe/           # EmployeHeaderCard.jsx, EmployeTable.jsx, EmployeStatsCards.jsx
+│   ├── conges/            # DemandesValidationTab.jsx, DemandeCongeModal.jsx, soldes/
+│   ├── pointage/          # PointageTable.jsx, PeriodNavigator.jsx
+│   ├── dashboard/         # Widgets et grilles KPI du tableau de bord
+│   └── ui/                # Bibliothèque UI Atomique (Button, Modal, Table, Badge, Alert, Input, etc.)
+│
+├── context/               # Contextes React globaux
+│   └── AuthContext.jsx    # État utilisateur, JWT, rôles, hasPermission, hasAnyPermission, hasRole
+│
+├── hooks/                 # Custom Hooks React métier
+│   ├── useAuth.js         # Raccourci vers useAuth()
+│   ├── useMenu.js         # Chargement dynamique des menus autorisés depuis l'API
+│   ├── useDashboard.js    # Récupération et polling des indicateurs RH
+│   ├── useContractReferentiels.js # Cache des listes déroulantes (filiales, sites, fonctions, etc.)
+│   └── useDebounce.js     # Débounce pour barres de recherche
+│
+├── pages/                 # Écrans principaux associés aux routes
+│   ├── auth/              # Login.jsx, Logout.jsx
+│   ├── dashboard/         # Dashboard.jsx
+│   ├── employe/           # EmployeList.jsx, EmployeFicheDetailPage.jsx, CarrieresSupervisionPage.jsx
+│   ├── conges/            # GestionCongesPage.jsx
+│   ├── pointage/          # SaisieQuotidiennePage.jsx, AnomaliesPointagePage.jsx, PeriodePaiePage.jsx, SynthesePointagePage.jsx
+│   └── parametres/        # Panels d'administration (Organisation, Sécurité, Paramètres modules)
+│
+├── routes/                # Routage de l'application
+│   ├── AppRoutes.jsx      # Définition des routes et URLs
+│   └── ProtectedRoute.jsx # Garde de route avec contrôle de permissions
+│
+└── utils/                 # Utilitaires purs
+    ├── carriereUtils.js   # Formatage dates, salaires, devises Ariary
+    ├── fileUtils.js       # Traitement fichiers, formats acceptés, prévisualisations
+    └── dateUtils.js       # Manipulation de calendriers et jours ouvrables
+```
+
+## 5.2 Système de Contrôle d'Accès Frontend (`useAuth` vs `<HasPermission />`)
+
+Le frontend dispose de deux mécanismes complémentaires pour gérer les autorisations :
+
+### 1. Le Hook `useAuth()` (Logique JS)
+Utilisé pour les conditions impératives dans les fonctions, les redirections, ou l'attribut `disabled` des boutons :
+```jsx
+import { useAuth } from '@/context/AuthContext';
+
+function MonComposant() {
+    const { user, hasPermission, hasAnyPermission, hasAllPermissions, hasRole } = useAuth();
+
+    const canEdit = hasPermission('EMPLOYE_WRITE');
+    const isDAF = hasRole('ROLE_DAF');
+
+    const handleAction = () => {
+        if (!canEdit) {
+            alert("Action non autorisée");
+            return;
+        }
+        // ...
+    };
+
+    return <Button disabled={!canEdit} onClick={handleAction}>Modifier</Button>;
+}
+```
+
+### 2. Le Composant Déclaratif `<HasPermission />` (Structure JSX)
+Utilisé pour rendre ou masquer des blocs entiers, des cartes ou des colonnes sans polluer le JSX avec des conditions ternaires :
+```jsx
+import HasPermission from '@/components/auth/HasPermission';
+
+// Affiche le bouton uniquement si l'utilisateur possède la permission
+<HasPermission authority="EMPLOYE_WRITE">
+    <Button onClick={openModal}>Ajouter un collaborateur</Button>
+</HasPermission>
+
+// Masque une donnée confidentielle avec un texte de remplacement
+<HasPermission authority="PAIE_READ" fallback={<span className="italic">Confidentiel</span>}>
+    <span>{fmtMoney(salaire)} Ar</span>
+</HasPermission>
+
+// Vérifie la présence d'au moins une permission parmi une liste
+<HasPermission any={['PAIE_READ', 'PAIE_WRITE']}>
+    <OngletPaie />
+</HasPermission>
+
+// Contrôle par rôle spécifique
+<HasPermission role="ROLE_ADMIN">
+    <PanelAdministration />
+</HasPermission>
+```
+
+> **Règle d'or :** L'utilisateur `ROLE_ADMIN` est automatiquement évalué à `true` sur toutes les vérifications de permissions (principe de super-administrateur).
+
+---
+
+## 5.3 Matrice Complète des Permissions et Impacts sur l'Interface
+
+| Module | Code Permission | Pages / Vues impactées | Actions / Données contrôlées dans l'UI |
+| :--- | :--- | :--- | :--- |
+| **EMPLOYÉ** | `EMPLOYE_READ` | `/employes`, `/employes/:id`, `/carrieres/supervision` | Consultation du répertoire, fiches salariés, documents et historique de carrière. |
+| **EMPLOYÉ** | `EMPLOYE_WRITE` | `/employes` (Bouton Nouvel Employé), Fiche détail, Modales de mouvements | Création d'employé, modification des coordonnées, téléversement de documents RH, saisie d'avenants/embauches (brouillons). |
+| **EMPLOYÉ** | `EMPLOYE_VALIDATE` | `/dashboard` (Widget Brouillons), Fiche détail, Modale de validation | Approbation définitive des mouvements de carrière, désactivation / réactivation d'un employé. |
+| **CONGÉ** | `CONGE_READ` | `/conges`, Fiche détail (Onglet Congés) | Consultation des plannings d'absences, soldes et historiques de demandes. |
+| **CONGÉ** | `CONGE_WRITE` | `/conges` (Bouton Nouvelle Demande) | Soumission d'une demande de congé, modification/annulation d'une demande en attente. |
+| **CONGÉ** | `CONGE_VALIDATE` | `/dashboard` (Widget Congés à valider), `/conges` (Onglet Validation) | Boutons d'approbation et de refus des demandes de congés. |
+| **POINTAGE** | `POINTAGE_READ` | `/pointages/saisie`, `/pointages/anomalies`, `/pointages/synthese` | Consultation de la grille journalière, des anomalies et des cumuls d'heures. |
+| **POINTAGE** | `POINTAGE_WRITE` | `/pointages/saisie`, `/pointages/anomalies` | Saisie des heures d'arrivée/départ, déclaration des pauses et des motifs de retard. |
+| **POINTAGE** | `POINTAGE_VALIDATE` | `/pointages/periodes`, `/pointages/synthese` | Verrouillage/clôture de période de pointage, signature/validation DAF pour export paie. |
+| **ORGANISATION** | `ORGANISATION_READ` | `/parametres/organisation` | Consultation des filiales, sites, départements, services et fonctions. |
+| **ORGANISATION** | `ORGANISATION_WRITE` | `/parametres/organisation` | Création, modification, activation et désactivation des structures organisationnelles. |
+| **PAIE** | `PAIE_READ` | Carrière ([CarriereHeaderCard](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/carriere/CarriereHeaderCard.jsx), [ContratActifSection](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/carriere/timeline/ContratActifSection.jsx)), [Supervision](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/components/carriere/supervision/SupervisionMouvementsTab.jsx), Contrats | Affichage en clair du salaire de base, des révisions salariales et des paramètres fiscaux (IRSA, CNaPS). |
+| **PAIE** | `PAIE_WRITE` | `/parametres/paie`, Futur module de paie | Modification des barèmes légaux, calcul des salaires bruts/nets, génération des bulletins. |
+
+---
+
+## 5.4 Comment Sécuriser / Masquer un Nouveau Champ ou Bouton Sensible
+
+### Cas pratique 1 : Masquer une colonne dans un tableau
+```jsx
+// 1. Importer useAuth ou HasPermission
+import { useAuth } from '@/context/AuthContext';
+import HasPermission from '@/components/auth/HasPermission';
+
+function MonTableau({ items }) {
+    const { hasPermission } = useAuth();
+    const canSeePaie = hasPermission('PAIE_READ');
+
+    return (
+        <Table>
+            <Thead>
+                <Tr>
+                    <Th>Employé</Th>
+                    {/* N'afficher l'en-tête que si autorisé */}
+                    {canSeePaie && <Th>Salaire Brut</Th>}
+                </Tr>
+            </Thead>
+            <Tbody>
+                {items.map(item => (
+                    <Tr key={item.id}>
+                        <Td>{item.nom}</Td>
+                        {canSeePaie && (
+                            <Td className="font-data">{fmtMoney(item.salaire)} Ar</Td>
+                        )}
+                    </Tr>
+                ))}
+            </Tbody>
+        </Table>
+    );
+}
+```
+
+### Cas pratique 2 : Protéger un bouton d'action avec un fallback informatif
+```jsx
+<HasPermission 
+    authority="EMPLOYE_WRITE" 
+    fallback={<span className="text-xs text-gray-400 italic">Droits insuffisants pour modifier</span>}
+>
+    <Button onClick={handleEdit} variant="outline" size="sm">
+        Modifier la fiche
+    </Button>
+</HasPermission>
+```
+
+---
+
+## 5.5 Comment Créer une Nouvelle Page ou un Nouvel Onglet Protégé
+
+1. **Créer la vue** dans `src/pages/mon-module/MaNouvellePage.jsx`.
+2. **Déclarer la route protégée** dans `src/routes/AppRoutes.jsx` :
+   ```jsx
+   <Route 
+       path="/mon-module/page" 
+       element={
+           <ProtectedRoute requiredPermission="MON_MODULE_READ">
+               <MaNouvellePage />
+           </ProtectedRoute>
+       } 
+   />
+   ```
+3. **Configurer le menu** dans l'Administration (`/parametres/menus` ou table `ref_menu`) : lier le chemin `/mon-module/page` au module correspondant pour qu'il apparaisse automatiquement dans la Sidebar des profils autorisés.
+
+---
+
+# 6. Checklist Qualité lors d'une Modification Métier
 
 Avant de déployer toute modification de règle métier en préproduction ou production, valider la checklist impérative suivante :
 
@@ -499,6 +766,7 @@ Avant de déployer toute modification de règle métier en préproduction ou pro
 
 [ ] 4. ALIGNEMENT FRONTEND
     Les validateurs JavaScript côté client (employeFormValidation.js, masques regex) reflètent-ils fidèlement la nouvelle règle ?
+    Les permissions nécessaires sont-elles appliquées via <HasPermission> ou useAuth() ?
 
 [ ] 5. CONCURRENCE & TRANSACTIONS
     Si la règle modifie un solde ou un statut critique, le verrouillage pessimiste (FOR UPDATE) et le rollback transactionnel sont-ils garantis ?

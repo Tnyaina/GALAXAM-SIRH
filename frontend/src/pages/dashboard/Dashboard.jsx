@@ -9,6 +9,7 @@ import EcheancesWidget from '@/components/dashboard/widgets/EcheancesWidget';
 import ActiviteRhWidget from '@/components/dashboard/widgets/ActiviteRhWidget';
 import AccesRapidesWidget from '@/components/dashboard/widgets/AccesRapidesWidget';
 import { useAuth } from '@/context/AuthContext';
+import HasPermission from '@/components/auth/HasPermission';
 import SEO from '@/components/system/SEO';
 
 export default function Dashboard() {
@@ -53,13 +54,13 @@ export default function Dashboard() {
             {/* Layout principal équilibré : Grille 2 colonnes parfaitement alignée */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
                 {/* Ligne 1 : Congés à valider (si valideur) & Salariés absents */}
-                {canValidateConges && (
+                <HasPermission authority="CONGE_VALIDATE">
                     <CongesAValiderWidget 
                         loading={loading} 
                         demandesCongeAValider={demandesCongeAValider}
                         className="h-full"
                     />
-                )}
+                </HasPermission>
                 <AbsentsWidget 
                     loading={loading} 
                     absentsAujourdhui={absentsAujourdhui}
@@ -76,19 +77,19 @@ export default function Dashboard() {
                     className="h-full"
                 />
                 <PlanningQuinzaineWidget 
-                    loading={loading}
+                    loading={loading} 
                     absences={congesQuinzaine.length > 0 ? congesQuinzaine : absentsAujourdhui}
                     className="h-full"
                 />
 
                 {/* Ligne 3 : Brouillons en attente (si valideur) & Accès rapides */}
-                {canValidateEmployes && (
+                <HasPermission authority="EMPLOYE_VALIDATE">
                     <BrouillonsEnAttenteWidget
                         loading={loading}
                         brouillons={brouillons}
                         className="h-full"
                     />
-                )}
+                </HasPermission>
                 <AccesRapidesWidget 
                     className={`h-full ${!canValidateEmployes ? 'lg:col-span-2' : ''}`}
                 />

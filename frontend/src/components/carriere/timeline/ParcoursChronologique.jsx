@@ -21,6 +21,8 @@ import {
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
+import HasPermission from '@/components/auth/HasPermission';
+import { useAuth } from '@/context/AuthContext';
 import { fmtDate } from '@/utils/carriereUtils';
 
 export default function ParcoursChronologique({
@@ -32,6 +34,8 @@ export default function ParcoursChronologique({
     onOpenAttestation
 }) {
     const [ordreDecroissant, setOrdreDecroissant] = useState(true);
+    const { hasPermission } = useAuth();
+    const canSeePaie = hasPermission('PAIE_READ');
 
     const safeContrats = useMemo(() => {
         const list = Array.isArray(contratsList) ? [...contratsList] : (contratsList?.items || contratsList?.content || []);
@@ -83,7 +87,7 @@ export default function ParcoursChronologique({
                 }
 
                 // Changement de salaire
-                if (current.salaireBase && prev.salaireBase && Number(current.salaireBase) !== Number(prev.salaireBase)) {
+                if (canSeePaie && current.salaireBase && prev.salaireBase && Number(current.salaireBase) !== Number(prev.salaireBase)) {
                     const salCurrent = Number(current.salaireBase);
                     const salPrev = Number(prev.salaireBase);
                     const diffMontant = salCurrent - salPrev;
@@ -482,14 +486,16 @@ export default function ParcoursChronologique({
                                                             )}
 
                                                             {wf.salaireBase && (
-                                                                <div>
-                                                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-ink-400 block">
-                                                                        Salaire de base
-                                                                    </span>
-                                                                    <p className="font-mono font-bold text-ink-900 dark:text-ink-100">
-                                                                        {Number(wf.salaireBase).toLocaleString('fr-FR')} Ar
-                                                                    </p>
-                                                                </div>
+                                                                <HasPermission authority="PAIE_READ">
+                                                                    <div>
+                                                                        <span className="text-[10px] uppercase tracking-wider font-semibold text-ink-400 block">
+                                                                            Salaire de base
+                                                                        </span>
+                                                                        <p className="font-mono font-bold text-ink-900 dark:text-ink-100">
+                                                                            {Number(wf.salaireBase).toLocaleString('fr-FR')} Ar
+                                                                        </p>
+                                                                    </div>
+                                                                </HasPermission>
                                                             )}
 
                                                             {wf.nomPrenomResponsable && (

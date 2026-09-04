@@ -22,7 +22,7 @@ public class CotisationController {
     private DataSource dataSource;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllCotisations() {
         try (Connection c = dataSource.getConnection()) {
             List<RefTypeCotisation> list = RefTypeCotisation.listAll(c);
@@ -35,7 +35,7 @@ public class CotisationController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getCotisationById(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             RefTypeCotisation cot = new RefTypeCotisation();
@@ -52,7 +52,7 @@ public class CotisationController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createCotisation(@RequestBody CotisationRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -81,7 +81,7 @@ public class CotisationController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateCotisation(@PathVariable int id, @RequestBody CotisationRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -115,7 +115,7 @@ public class CotisationController {
     }
 
     @PutMapping("/{id}/desactiver")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deactivateCotisation(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -141,7 +141,7 @@ public class CotisationController {
 
     // Config Cotisations par Site
     @GetMapping("/site-config")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllSiteCotisations() {
         try (Connection c = dataSource.getConnection()) {
             List<SiteCotisation> list = SiteCotisation.listAll(c);
@@ -154,7 +154,7 @@ public class CotisationController {
     }
 
     @PostMapping("/site-config")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createSiteCotisation(@RequestBody SiteCotisationRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -180,7 +180,7 @@ public class CotisationController {
     }
 
     @PutMapping("/site-config/{id}/desactiver")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deactivateSiteCotisation(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -208,7 +208,7 @@ public class CotisationController {
     }
 
     @PutMapping("/site-config/{id}/activer")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> activateSiteCotisation(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -236,7 +236,7 @@ public class CotisationController {
     }
 
     @DeleteMapping("/site-config/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deleteSiteCotisation(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

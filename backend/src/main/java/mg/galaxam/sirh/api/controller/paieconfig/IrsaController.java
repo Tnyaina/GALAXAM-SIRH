@@ -20,7 +20,7 @@ public class IrsaController {
     private DataSource dataSource;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllBaremesIrsa() {
         try (Connection c = dataSource.getConnection()) {
             List<BaremeIrsa> list = BaremeIrsa.listAll(c);
@@ -33,7 +33,7 @@ public class IrsaController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getIrsaById(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             BaremeIrsa b = new BaremeIrsa();
@@ -50,7 +50,7 @@ public class IrsaController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createIrsa(@RequestBody IrsaRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -79,7 +79,7 @@ public class IrsaController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateIrsa(@PathVariable int id, @RequestBody IrsaRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

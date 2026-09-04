@@ -13,6 +13,7 @@ import Pagination from '@/components/ui/navigation/Pagination';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { fmtDate, fmtAriary } from '@/components/dashboard/DashboardUtils';
+import HasPermission from '@/components/auth/HasPermission';
 import useDebounce from '@/hooks/useDebounce';
 
 function SupervisionMouvementsTab() {
@@ -290,15 +291,17 @@ function SupervisionMouvementsTab() {
                                         </div>
                                     </Td>
 
-                                    {/* Rémunération */}
+                                    {/* Rémunération (protégée par PAIE_READ) */}
                                     <Td className="font-data">
-                                        {wf.salaireBase ? (
-                                            <span className="font-bold text-[var(--color-fg)]">
-                                                {fmtAriary(wf.salaireBase)} Ar
-                                            </span>
-                                        ) : (
-                                            <span className="text-[var(--color-fg-subtle)]">—</span>
-                                        )}
+                                        <HasPermission authority="PAIE_READ" fallback={<span className="text-[var(--color-fg-subtle)] text-[11px] italic">Confidentiel</span>}>
+                                            {wf.salaireBase ? (
+                                                <span className="font-bold text-[var(--color-fg)]">
+                                                    {fmtAriary(wf.salaireBase)} Ar
+                                                </span>
+                                            ) : (
+                                                <span className="text-[var(--color-fg-subtle)]">—</span>
+                                            )}
+                                        </HasPermission>
                                     </Td>
 
                                     {/* Statut */}

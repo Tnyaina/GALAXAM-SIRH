@@ -1,6 +1,7 @@
 import { User, Edit2, Power, RotateCcw, Briefcase, MapPin } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import HasPermission from '@/components/auth/HasPermission';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
 
 export default function EmployeHeaderCard({
@@ -86,42 +87,40 @@ export default function EmployeHeaderCard({
                 </div>
             </div>
 
-            {(canWrite || canValidate) && (
-                <div className="flex items-center gap-2 self-stretch md:self-auto">
-                    {canWrite && (
+            <div className="flex items-center gap-2 self-stretch md:self-auto">
+                <HasPermission authority="EMPLOYE_WRITE">
+                    <Button
+                        onClick={onEdit}
+                        variant="outline"
+                        size="sm"
+                        iconLeft={<Edit2 size={15} />}
+                    >
+                        Modifier le profil
+                    </Button>
+                </HasPermission>
+                <HasPermission authority="EMPLOYE_VALIDATE">
+                    {emp.estActif ? (
                         <Button
-                            onClick={onEdit}
-                            variant="outline"
+                            onClick={onDesactiver}
+                            variant="ghost"
                             size="sm"
-                            iconLeft={<Edit2 size={15} />}
+                            className="text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10"
+                            iconLeft={<Power size={15} />}
                         >
-                            Modifier le profil
+                            Désactiver
+                        </Button>
+                    ) : (
+                        <Button
+                            onClick={onReactiver}
+                            variant="primary"
+                            size="sm"
+                            iconLeft={<RotateCcw size={15} />}
+                        >
+                            Réactiver l'employé
                         </Button>
                     )}
-                    {canValidate && (
-                        emp.estActif ? (
-                            <Button
-                                onClick={onDesactiver}
-                                variant="ghost"
-                                size="sm"
-                                className="text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10"
-                                iconLeft={<Power size={15} />}
-                            >
-                                Désactiver
-                            </Button>
-                        ) : (
-                            <Button
-                                onClick={onReactiver}
-                                variant="primary"
-                                size="sm"
-                                iconLeft={<RotateCcw size={15} />}
-                            >
-                                Réactiver l'employé
-                            </Button>
-                        )
-                    )}
-                </div>
-            )}
+                </HasPermission>
+            </div>
         </div>
     );
 }

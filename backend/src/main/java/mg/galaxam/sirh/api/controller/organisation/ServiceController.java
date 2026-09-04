@@ -55,7 +55,7 @@ public class ServiceController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ORGANISATION_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createService(@RequestBody ServiceRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -81,7 +81,7 @@ public class ServiceController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ORGANISATION_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateService(@PathVariable int id, @RequestBody ServiceRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -112,7 +112,7 @@ public class ServiceController {
     }
 
     @PutMapping("/{id}/desactiver")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ORGANISATION_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deactivateService(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -140,7 +140,7 @@ public class ServiceController {
     }
 
     @PutMapping("/{id}/activer")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('ORGANISATION_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> activateService(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

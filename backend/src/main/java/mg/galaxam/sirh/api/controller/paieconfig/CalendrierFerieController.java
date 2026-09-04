@@ -24,7 +24,7 @@ public class CalendrierFerieController {
     private DataSource dataSource;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllCalendrierFerie() {
         try (Connection c = dataSource.getConnection()) {
             List<RefCalendrierFerie> list = RefCalendrierFerie.listAll(c);
@@ -37,7 +37,7 @@ public class CalendrierFerieController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getCalendrierFerieById(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             RefCalendrierFerie cf = new RefCalendrierFerie();
@@ -54,7 +54,7 @@ public class CalendrierFerieController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createCalendrierFerie(@RequestBody CalendrierFerieRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -81,7 +81,7 @@ public class CalendrierFerieController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateCalendrierFerie(@PathVariable int id, @RequestBody CalendrierFerieRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -113,7 +113,7 @@ public class CalendrierFerieController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deleteCalendrierFerie(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -147,7 +147,7 @@ public class CalendrierFerieController {
 
     // Config Fériés par Site
     @GetMapping("/site-config")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllSiteFeries() {
         try (Connection c = dataSource.getConnection()) {
             List<SiteCalendrierFerie> list = SiteCalendrierFerie.listAll(c);
@@ -160,7 +160,7 @@ public class CalendrierFerieController {
     }
 
     @PostMapping("/site-config")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createSiteFerie(@RequestBody SiteCalendrierFerieRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -185,7 +185,7 @@ public class CalendrierFerieController {
     }
 
     @DeleteMapping("/site-config/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deleteSiteFerie(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -213,7 +213,7 @@ public class CalendrierFerieController {
 
     // Périodes Chômées Exceptionnelles
     @GetMapping("/periodes")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllPeriodesChomees() {
         try (Connection c = dataSource.getConnection()) {
             List<RefPeriodeChomee> list = RefPeriodeChomee.listAll(c);
@@ -226,7 +226,7 @@ public class CalendrierFerieController {
     }
 
     @PostMapping("/periodes")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createPeriodeChomee(@RequestBody PeriodeChomeeRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -257,7 +257,7 @@ public class CalendrierFerieController {
     }
 
     @PutMapping("/periodes/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updatePeriodeChomee(@PathVariable int id, @RequestBody PeriodeChomeeRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -295,7 +295,7 @@ public class CalendrierFerieController {
     }
 
     @DeleteMapping("/periodes/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deletePeriodeChomee(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

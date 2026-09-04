@@ -27,7 +27,7 @@ public class PaieConfigLegaleController {
     private DataSource dataSource;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllConfigs() {
         try (Connection c = dataSource.getConnection()) {
             List<PaieConfigLegale> list = PaieConfigLegale.listAll(c);
@@ -40,7 +40,7 @@ public class PaieConfigLegaleController {
     }
 
     @GetMapping("/active")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getActiveConfig() {
         try (Connection c = dataSource.getConnection()) {
             PaieConfigLegale config = PaieConfigLegale.findActiveAt(c, LocalDate.now());
@@ -56,7 +56,7 @@ public class PaieConfigLegaleController {
     }
 
     @GetMapping("/active-at")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getConfigAt(@RequestParam("date") String dateStr) {
         try (Connection c = dataSource.getConnection()) {
             LocalDate date = LocalDate.parse(dateStr);
@@ -73,7 +73,7 @@ public class PaieConfigLegaleController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createConfig(@RequestBody PaieConfigLegaleRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -98,7 +98,7 @@ public class PaieConfigLegaleController {
      * Revalorisation : clôt l'exercice actif + crée le suivant à la date d'effet.
      */
     @PostMapping("/revaloriser")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> revaloriser(@RequestBody PaieConfigLegaleRequest request) {
         if (request.getDateDebut() == null) {
             return ResponseEntity.badRequest().body("La date d'effet est obligatoire pour une revalorisation.");
@@ -123,7 +123,7 @@ public class PaieConfigLegaleController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateConfig(@PathVariable int id, @RequestBody PaieConfigLegaleRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

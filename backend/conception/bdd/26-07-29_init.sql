@@ -71,7 +71,7 @@ CREATE TABLE journal_connexion (
 
 -- Insertion des 2 rôles autorisés
 INSERT INTO ref_role (code_role, libelle) VALUES
-('ROLE_ADMIN', 'Administrateur / DAF'),
+('ROLE_ADMIN', 'Administrateur'),
 ('ROLE_AGENT_POINTAGE', 'Agent de Pointage');
 
 -- Insertion des modules principaux
@@ -108,4 +108,32 @@ INSERT INTO role_permission (id_role, id_module, droit_lecture, droit_ecriture, 
 
 -- Aucun accès à la paie (confidentialité stricte)
 (2, 4, FALSE, FALSE, FALSE); -- PAIE
+
+-- =====================================================================
+-- GALAXAM SIRH — MIGRATION SP6 : AJOUT DU MODULE ORGANISATION
+-- Permet la gestion granulaire des structures d'entreprise (Sites, Filiales, Fonctions)
+-- =====================================================================
+
+INSERT INTO ref_module (code_module, libelle, est_actif)
+VALUES ('ORGANISATION', 'Structure d''entreprise, filiales, sites et fonctions', true)
+ON CONFLICT (code_module) DO UPDATE
+SET libelle = EXCLUDED.libelle, est_actif = true;
+
+-- Attribution par défaut des permissions du module ORGANISATION au rôle ADMIN (id_role = 1)
+INSERT INTO role_permission (id_role, id_module, droit_lecture, droit_ecriture, droit_validation)
+SELECT 1, id_module, true, true, true
+FROM ref_module
+WHERE code_module = 'ORGANISATION'
+ON CONFLICT (id_role, id_module) DO UPDATE
+SET droit_lecture = true, droit_ecriture = true, droit_validation = true;
+
+-- =====================================================================
+-- COMPTE ADMINISTRATEUR INITIAL PAR DÉFAUT (BOOTSTRAP)
+-- Identifiant : admin | Mot de passe : Pass1234
+-- =====================================================================
+INSERT INTO utilisateur (id_utilisateur, identifiant, mot_de_passe_hache, id_role, est_actif)
+VALUES (1, 'admin', '$2a$10$wN1.aJ1K9h6O2e1G1D9CSu4t7g8b9p0q1r2s3t4u5v6w7x8y9z0a.', 1, true)
+ON CONFLICT (id_utilisateur) DO NOTHING;
+
+SELECT setval('utilisateur_id_utilisateur_seq', (SELECT GREATEST(MAX(id_utilisateur), 1) FROM utilisateur));
 

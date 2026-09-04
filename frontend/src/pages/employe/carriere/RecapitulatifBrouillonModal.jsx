@@ -8,6 +8,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import { Textarea } from '@/components/ui/forms/Input';
 import { useAuth } from '@/context/AuthContext';
+import HasPermission from '@/components/auth/HasPermission';
 import contratService from '@/api/employe/contratService';
 import {
     fmtDate, fmtMoney, getWorkflowLibellesUI,
@@ -348,7 +349,9 @@ export default function RecapitulatifBrouillonModal({
                                 <InfoRow label="Catégorie Pro" value={currentWf.libelleCategoriePro} />
                                 <InfoRow label="Supérieur Hiérarchique" value={currentWf.nomPrenomResponsable} />
                                 <InfoRow label="Mode Calcul Paie" value={currentWf.libelleModeCalculPaie} />
-                                <InfoRow label="Salaire de Base" value={fmtMoney(currentWf.salaireBase)} highlight />
+                                <HasPermission authority="PAIE_READ">
+                                    <InfoRow label="Salaire de Base" value={fmtMoney(currentWf.salaireBase)} highlight />
+                                </HasPermission>
                                 <InfoRow label="Date de Prise d'Effet" value={fmtDate(currentWf.dateEffet)} />
                             </div>
                         </div>

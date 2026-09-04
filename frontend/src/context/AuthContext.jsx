@@ -124,12 +124,39 @@ export const AuthProvider = ({ children }) => {
         }
     }, [scheduleTokenRefresh, clearRefreshTimer]);
 
-    const hasPermission = (permissionCode) => {
+    const hasPermission = useCallback((permissionCode) => {
         if (!user) return false;
         if (user.role === 'ROLE_ADMIN') return true;
         if (!user.permissions) return false;
+        if (Array.isArray(permissionCode)) {
+            return permissionCode.some((p) => user.permissions.includes(p));
+        }
         return user.permissions.includes(permissionCode);
-    };
+    }, [user]);
+
+    const hasAnyPermission = useCallback((...permissions) => {
+        if (!user) return false;
+        if (user.role === 'ROLE_ADMIN') return true;
+        if (!user.permissions) return false;
+        const flat = permissions.flat();
+        return flat.some((p) => user.permissions.includes(p));
+    }, [user]);
+
+    const hasAllPermissions = useCallback((...permissions) => {
+        if (!user) return false;
+        if (user.role === 'ROLE_ADMIN') return true;
+        if (!user.permissions) return false;
+        const flat = permissions.flat();
+        return flat.every((p) => user.permissions.includes(p));
+    }, [user]);
+
+    const hasRole = useCallback((roleName) => {
+        if (!user) return false;
+        if (Array.isArray(roleName)) {
+            return roleName.includes(user.role);
+        }
+        return user.role === roleName;
+    }, [user]);
 
     // Connexion utilisateur
     const login = async (identifiant, password) => {
@@ -255,6 +282,9 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         hasPermission,
+        hasAnyPermission,
+        hasAllPermissions,
+        hasRole,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,4 +1,5 @@
 import { DocumentFrame, DocumentHeader, Clause, ClauseDiff, ArticleBlock, DocumentFooter } from '@/components/carriere/ContractDocument';
+import HasPermission from '@/components/auth/HasPermission';
 import { fmtDateFr, fmtMoney } from '@/utils/carriereUtils';
 
 export default function AvenantPreviewDocument({
@@ -57,11 +58,13 @@ export default function AvenantPreviewDocument({
 
                 <ArticleBlock n={exigeNouveauContrat ? "3" : "2"} title="Rémunération & Mode de calcul">
                     <ClauseDiff label="Mode de calcul de paie" before={avantModePaie} after={apresModePaie} />
-                    <ClauseDiff
-                        label="Salaire de base brut"
-                        before={avantSalaire != null ? fmtMoney(avantSalaire) : null}
-                        after={formData.salaireBase ? fmtMoney(formData.salaireBase) : null}
-                    />
+                    <HasPermission authority="PAIE_READ" fallback={<ClauseDiff label="Salaire de base brut" before="[Confidentiel]" after="[Confidentiel]" />}>
+                        <ClauseDiff
+                            label="Salaire de base brut"
+                            before={avantSalaire != null ? fmtMoney(avantSalaire) : null}
+                            after={formData.salaireBase ? fmtMoney(formData.salaireBase) : null}
+                        />
+                    </HasPermission>
                 </ArticleBlock>
 
                 {formData.motif && (

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Printer, X, FileCheck, CheckCircle } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { DocumentFrame } from '@/components/carriere/ContractDocument';
+import HasPermission from '@/components/auth/HasPermission';
 import { fmtDateFr, fmtMoney } from '@/utils/carriereUtils';
 
 export default function AttestationTravailModal({
@@ -196,15 +197,17 @@ export default function AttestationTravailModal({
                             </div>
                         </div>
 
-                        <label className="flex items-center gap-2 cursor-pointer font-medium text-ink-700 dark:text-ink-200 hover:text-brand-500">
-                            <input
-                                type="checkbox"
-                                checked={inclureSalaire}
-                                onChange={(e) => setInclureSalaire(e.target.checked)}
-                                className="rounded-none border-ink-300 text-brand-500 focus:ring-brand-500"
-                            />
-                            <span>Mentionner le salaire mensuel ({salaireBaseFmt})</span>
-                        </label>
+                        <HasPermission authority="PAIE_READ">
+                            <label className="flex items-center gap-2 cursor-pointer font-medium text-ink-700 dark:text-ink-200 hover:text-brand-500">
+                                <input
+                                    type="checkbox"
+                                    checked={inclureSalaire}
+                                    onChange={(e) => setInclureSalaire(e.target.checked)}
+                                    className="rounded-none border-ink-300 text-brand-500 focus:ring-brand-500"
+                                />
+                                <span>Mentionner le salaire mensuel ({salaireBaseFmt})</span>
+                            </label>
+                        </HasPermission>
                     </div>
 
                     <span className="font-mono font-bold text-success-600 text-xs">

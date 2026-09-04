@@ -1,6 +1,7 @@
 import { Clock } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import HasPermission from '@/components/auth/HasPermission';
 import { fmtDate, fmtMoney } from '@/utils/carriereUtils';
 
 export default function CarriereHeaderCard({
@@ -88,14 +89,16 @@ export default function CarriereHeaderCard({
                     </div>
                 </div>
 
-                {/* Séparateur doux & Ligne Salaire */}
-                <div className="pt-3 border-t border-[var(--color-border-subtle)] flex items-baseline gap-2 text-xs">
-                    <span className="text-[var(--color-fg-muted)]">Salaire actuel ({periodiciteLabel})</span>
-                    <span className="text-sm sm:text-base font-extrabold text-[var(--color-fg)] font-data">
-                        {salaireValeur || '—'}
-                    </span>
-                    <span className="text-[var(--color-fg-subtle)] text-[11px]">{rawMode}</span>
-                </div>
+                {/* Séparateur doux & Ligne Salaire (conditionné par la permission PAIE_READ) */}
+                <HasPermission authority="PAIE_READ">
+                    <div className="pt-3 border-t border-[var(--color-border-subtle)] flex items-baseline gap-2 text-xs">
+                        <span className="text-[var(--color-fg-muted)]">Salaire actuel ({periodiciteLabel})</span>
+                        <span className="text-sm sm:text-base font-extrabold text-[var(--color-fg)] font-data">
+                            {salaireValeur || '—'}
+                        </span>
+                        <span className="text-[var(--color-fg-subtle)] text-[11px]">{rawMode}</span>
+                    </div>
+                </HasPermission>
             </div>
 
             {/* BANNIERE PERIODE D'ESSAI EN COURS */}

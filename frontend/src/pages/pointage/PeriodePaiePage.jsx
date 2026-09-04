@@ -28,6 +28,7 @@ import Card, { CardBody } from '@/components/ui/data-display/Card';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { useAuth } from '@/context/AuthContext';
+import HasPermission from '@/components/auth/HasPermission';
 import SEO from '@/components/system/SEO';
 
 const STATUT_CONFIG = {
@@ -395,28 +396,26 @@ export default function PeriodePaiePage() {
                     >
                         Actualiser
                     </Button>
-                    {canManage && (
-                        <>
-                            <Button
-                                onClick={handleOpenCreateWithSuggestion}
-                                variant="primary"
-                                size="sm"
-                                icon={<Sparkles size={14} className="text-amber-300" />}
-                                title={`Créer automatiquement la suite logique : ${nextSuggestion.libelle} (${nextSuggestion.dateDebut} au ${nextSuggestion.dateFin})`}
-                            >
-                                Créer {nextSuggestion.libelle} (Suggéré)
-                            </Button>
-                            <Button
-                                onClick={handleOpenCreateBlank}
-                                variant="outline"
-                                size="sm"
-                                icon={<Plus size={14} />}
-                                title="Créer une période avec des dates personnalisées"
-                            >
-                                Personnalisée...
-                            </Button>
-                        </>
-                    )}
+                    <HasPermission authority="POINTAGE_VALIDATE">
+                        <Button
+                            onClick={handleOpenCreateWithSuggestion}
+                            variant="primary"
+                            size="sm"
+                            icon={<Sparkles size={14} className="text-amber-300" />}
+                            title={`Créer automatiquement la suite logique : ${nextSuggestion.libelle} (${nextSuggestion.dateDebut} au ${nextSuggestion.dateFin})`}
+                        >
+                            Créer {nextSuggestion.libelle} (Suggéré)
+                        </Button>
+                        <Button
+                            onClick={handleOpenCreateBlank}
+                            variant="outline"
+                            size="sm"
+                            icon={<Plus size={14} />}
+                            title="Créer une période avec des dates personnalisées"
+                        >
+                            Personnalisée...
+                        </Button>
+                    </HasPermission>
                 </div>
             </div>
 
@@ -573,16 +572,18 @@ export default function PeriodePaiePage() {
                                                         Clôturer
                                                     </Button>
                                                 )}
-                                                {isLocked && canManage && (
-                                                    <Button
-                                                        size="xs"
-                                                        variant="ghost"
-                                                        className="!text-warning-600 dark:!text-warning-400 hover:!bg-warning-500/10"
-                                                        icon={<RotateCcw size={13} />}
-                                                        onClick={() => triggerStatutChange(p, 'EN_COURS')}
-                                                    >
-                                                        Rouvrir
-                                                    </Button>
+                                                {isLocked && (
+                                                    <HasPermission authority="POINTAGE_VALIDATE">
+                                                        <Button
+                                                            size="xs"
+                                                            variant="ghost"
+                                                            className="!text-warning-600 dark:!text-warning-400 hover:!bg-warning-500/10"
+                                                            icon={<RotateCcw size={13} />}
+                                                            onClick={() => triggerStatutChange(p, 'EN_COURS')}
+                                                        >
+                                                            Rouvrir
+                                                        </Button>
+                                                    </HasPermission>
                                                 )}
                                             </Td>
                                         </Tr>

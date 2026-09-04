@@ -3,6 +3,7 @@
 // contractuel plutôt que d'une simple suite de champs de saisie.
 
 import { fmtDateFr, fmtMoney } from '@/utils/carriereUtils';
+import HasPermission from '@/components/auth/HasPermission';
 //
 // À placer par ex. dans src/components/carriere/ContractDocument.jsx et à importer
 // depuis les modaux : import { Clause, ArticleHeader, DocumentFrame } from '@/components/carriere/ContractDocument';
@@ -201,7 +202,9 @@ export function ContractPreview({
 
                 <ArticleBlock n="3" title="Rémunération">
                     <Clause label="Mode de calcul" value={libModePaie?.libelle} />
-                    <Clause label="Salaire de base" value={formData?.salaireBase ? fmtMoney(formData?.salaireBase) : ''} className="text-brand-500" />
+                    <HasPermission authority="PAIE_READ" fallback={<Clause label="Salaire de base" value="[Confidentiel]" />}>
+                        <Clause label="Salaire de base" value={formData?.salaireBase ? fmtMoney(formData?.salaireBase) : ''} className="text-brand-500" />
+                    </HasPermission>
                     <Clause label="Date d'effet (dossier)" value={fmtDateFr(formData?.dateEffet || formData?.dateDebut)} />
                 </ArticleBlock>
 

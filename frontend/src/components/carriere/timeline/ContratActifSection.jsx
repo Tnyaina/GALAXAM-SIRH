@@ -1,6 +1,7 @@
 import { Briefcase, Clock, FileCheck, RefreshCw, UserMinus, Plus, Building, Landmark, CheckCircle } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import HasPermission from '@/components/auth/HasPermission';
 import { fmtDate, fmtMoney } from '@/utils/carriereUtils';
 
 /**
@@ -215,19 +216,21 @@ export default function ContratActifSection({
                         <InfoRow label="Catégorie pro">{affectationActive?.libelleCategoriePro || affectationActive?.libelleCategorieProfessionnelle || workflowCplActif?.libelleCategoriePro || '—'}</InfoRow>
                         <InfoRow label="Supérieur N+1">{affectationActive?.nomPrenomResponsable || affectationActive?.nomResponsableHierarchique || workflowCplActif?.nomPrenomResponsable || '—'}</InfoRow>
                     </div>
-                    {/* Salaire mis en avant — donnée prioritaire */}
-                    <div className="pt-2 border-t border-[var(--color-border-subtle)] mt-2 flex justify-between items-baseline">
-                        <span className="text-[var(--color-fg-muted)] text-xs">Salaire de base :</span>
-                        <span className="font-extrabold text-[var(--color-fg)] font-data text-sm sm:text-base">
-                            {fmtMoney(affectationActive?.salaireBase)} {
-                                (affectationActive?.libelleModeCalculPaie || workflowCplActif?.libelleModeCalculPaie || '').toLowerCase().includes('horaire')
-                                    ? '/ h'
-                                    : (affectationActive?.libelleModeCalculPaie || workflowCplActif?.libelleModeCalculPaie || '').toLowerCase().includes('journal')
-                                        ? '/ j'
-                                        : '/ mois'
-                            }
-                        </span>
-                    </div>
+                    {/* Salaire mis en avant — donnée prioritaire (protégé par PAIE_READ) */}
+                    <HasPermission authority="PAIE_READ">
+                        <div className="pt-2 border-t border-[var(--color-border-subtle)] mt-2 flex justify-between items-baseline">
+                            <span className="text-[var(--color-fg-muted)] text-xs">Salaire de base :</span>
+                            <span className="font-extrabold text-[var(--color-fg)] font-data text-sm sm:text-base">
+                                {fmtMoney(affectationActive?.salaireBase)} {
+                                    (affectationActive?.libelleModeCalculPaie || workflowCplActif?.libelleModeCalculPaie || '').toLowerCase().includes('horaire')
+                                        ? '/ h'
+                                        : (affectationActive?.libelleModeCalculPaie || workflowCplActif?.libelleModeCalculPaie || '').toLowerCase().includes('journal')
+                                            ? '/ j'
+                                            : '/ mois'
+                                }
+                            </span>
+                        </div>
+                    </HasPermission>
                 </div>
             </div>
         </div>

@@ -31,6 +31,22 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:5173}")
     private String[] allowedOrigins;
 
+    public static final String ROLE_ADMIN = "ADMIN";
+
+    private static final String[] PUBLIC_ENDPOINTS = {
+        "/auth/login",
+        "/auth/refresh",
+        "/auth/logout",
+        "/uploads/photos/**",
+        "/error"
+    };
+
+    private static final String[] ADMIN_ENDPOINTS = {
+        "/auth/register",
+        "/admin/**",
+        "/securite/**"
+    };
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -42,16 +58,36 @@ public class SecurityConfig {
                 .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000))
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/login", "/auth/refresh", "/auth/logout", "/uploads/photos/**", "/error").permitAll()
-                .requestMatchers("/auth/register").hasAuthority("ROLE_ADMIN")
-                .requestMatchers("/uploads/documents/**").authenticated()
-                .requestMatchers("/admin/**", "/securite/**").hasAuthority("ROLE_ADMIN")
-                .requestMatchers("/pointages/**", "/pointage/**", "/periodes/**").authenticated()
+                // 1. Accès publics sans authentification
+                .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+
+                // 2. Administration système et sécurité IAM (Super-Admin uniquement)
+                .requestMatchers(ADMIN_ENDPOINTS).hasRole(ROLE_ADMIN)
+
+                // 3. Tout le reste de l'API requiert une authentification valide
+                // (La finesse READ/WRITE/VALIDATE est assurée par @PreAuthorize et la hiérarchie de rôles)
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * Hiérarchie de sécurité officielle Spring Security :
+     * Le rôle ADMIN hérite automatiquement de toutes les permissions filles.
+     */
+    @Bean
+    public org.springframework.security.access.hierarchicalroles.RoleHierarchy roleHierarchy() {
+        return org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl.withDefaultRolePrefix()
+            .role(ROLE_ADMIN).implies(
+                "EMPLOYE_READ", "EMPLOYE_WRITE", "EMPLOYE_VALIDATE",
+                "CONGE_READ", "CONGE_WRITE", "CONGE_VALIDATE",
+                "POINTAGE_READ", "POINTAGE_WRITE", "POINTAGE_VALIDATE",
+                "PAIE_READ", "PAIE_WRITE", "PAIE_VALIDATE",
+                "ORGANISATION_READ", "ORGANISATION_WRITE"
+            )
+            .build();
     }
 
     @Bean

@@ -20,7 +20,7 @@ public class TauxMajorationController {
     private DataSource dataSource;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllTauxMajoration() {
         try (Connection c = dataSource.getConnection()) {
             List<RefTauxMajoration> list = RefTauxMajoration.listAll(c);
@@ -33,7 +33,7 @@ public class TauxMajorationController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getTauxMajorationById(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             RefTauxMajoration tm = new RefTauxMajoration();
@@ -50,7 +50,7 @@ public class TauxMajorationController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createTauxMajoration(@RequestBody TauxMajorationRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -78,7 +78,7 @@ public class TauxMajorationController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateTauxMajoration(@PathVariable int id, @RequestBody TauxMajorationRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

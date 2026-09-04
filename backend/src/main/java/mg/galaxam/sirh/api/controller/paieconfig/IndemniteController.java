@@ -22,7 +22,7 @@ public class IndemniteController {
     private DataSource dataSource;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllIndemnites() {
         try (Connection c = dataSource.getConnection()) {
             List<RefIndemnite> list = RefIndemnite.listAll(c);
@@ -35,7 +35,7 @@ public class IndemniteController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getIndemniteById(@PathVariable int id) {
         try (Connection c = dataSource.getConnection()) {
             RefIndemnite ind = new RefIndemnite();
@@ -52,7 +52,7 @@ public class IndemniteController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createIndemnite(@RequestBody IndemniteRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -79,7 +79,7 @@ public class IndemniteController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateIndemnite(@PathVariable int id, @RequestBody IndemniteRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -112,7 +112,7 @@ public class IndemniteController {
 
     // Config Indemnités par Site
     @GetMapping("/site-config")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllSiteIndemnites() {
         try (Connection c = dataSource.getConnection()) {
             List<SiteIndemniteConfig> list = SiteIndemniteConfig.listAll(c);
@@ -125,7 +125,7 @@ public class IndemniteController {
     }
 
     @PostMapping("/site-config")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createSiteIndemnite(@RequestBody SiteIndemniteRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -154,7 +154,7 @@ public class IndemniteController {
     }
 
     @PutMapping("/site-config/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateSiteIndemnite(@PathVariable int id, @RequestBody SiteIndemniteRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);

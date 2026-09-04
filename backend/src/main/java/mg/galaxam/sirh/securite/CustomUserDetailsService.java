@@ -73,7 +73,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
             // 4. Filet de sécurité pour le rôle ADMIN : toujours accorder tous les droits de base
             if (codeRole.contains("ADMIN")) {
-                for (String mod : new String[]{"EMPLOYE", "POINTAGE", "PAIE", "CONGE"}) {
+                for (String mod : new String[]{"EMPLOYE", "POINTAGE", "PAIE", "CONGE", "ORGANISATION"}) {
                     authorities.add(new SimpleGrantedAuthority(mod + "_READ"));
                     authorities.add(new SimpleGrantedAuthority(mod + "_WRITE"));
                     authorities.add(new SimpleGrantedAuthority(mod + "_VALIDATE"));
