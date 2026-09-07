@@ -1,587 +1,704 @@
 # DOCUMENT OFFICIEL DE CONCEPTION & D'ANALYSE FONCTIONNELLE DU MODULE PAIE
-## SIRH GALAXAM — Moteur de Paie Duale & Génération des Bulletins de Salaire
+## SIRH GALAXAM — Moteur de Paie Duale, Déclarations Légales & Bulletins de Salaire
 
 ---
 
-**Statut du document :** `CONCEPTION EN COURS — INFORMATIONS MÉTIER REQUISES (AVANT IMPLÉMENTATION)`  
+**Statut officiel du document :** `CONCEPTION VALIDÉE PAR LE PROPRIÉTAIRE DU PROJET — PRÊTE POUR MODÉLISATION BDD`  
 **Auteurs :** Architecte Fonctionnel & Expert Conception Systèmes de Paie & Architecte Logiciel Senior  
-**Date :** 4 Septembre 2026  
-**Périmètre :** Conception et analyse exhaustive des données, règles, workflows, variables, paramètres, formules et architecture du futur module Paie de GALAXAM-SIRH.  
-**Avertissement strict :** *Ce document constitue une étude préalable et une spécification de conception. Aucune table, code d'engine ou écran n'a été créé lors de cette phase.*
+**Date de validation :** 7 Septembre 2026  
+**Périmètre :** Conception et analyse exhaustive des données, variables, règles, paramètres, calculs, dépendances, workflows, fichiers fiscaux légaux (SAFI IRSA, EDI ISI) et architecture logicielle du futur module Paie de GALAXAM-SIRH.  
+**Principes cardinaux validés :**
+1. **Égalité stricte des droits sur le brut :** Le calcul de rémunération (présences, absences 1/30, congés, HS, primes PP/PA, indemnités) est **strictement identique pour tous les collaborateurs** ; seule l'étape finale du **régime fiscal et social** (IRSA + CNaPS vs ISI 5%) diffère.
+2. **Dichotomie nette : Calculs automatiques vs Saisies manuelles :** Zéro ressaisie pour les éléments temporels et contractuels, écran unique dédié pour les variables de trésorerie DAF.
 
 ---
 
 ## 1. RÉSUMÉ EXÉCUTIF
 
-Le module **Paie & Bulletins de Salaire** constitue l'aboutissement opérationnel et financier du SIRH GALAXAM. Son rôle est de transformer les données contractuelles, organisationnelles, temporelles (présences, absences, congés) et financières en **bulletins de paie mensuels exacts, conformes au droit positif malgache et aux règles opérationnelles réelles de GALAXAM, infalsifiables et strictement reproductibles dans le temps**.
+Le module **Paie & Rémunération** constitue l'aboutissement opérationnel, légal et financier du SIRH GALAXAM. Son rôle est de transformer les données contractuelles, organisationnelles, temporelles (pointages, absences, congés) et de trésorerie (avances, prêts, frais) en :
+1. **Bulletins de paie mensuels individuels** conformes au droit malgache et aux pratiques réelles de GALAXAM.
+2. **Grand-Livre de Paie mensuel consolidé** (`EJOURNAL` / `ETAT KARAMA`).
+3. **Déclarations fiscales mensuelles DGI** :
+   - **État 301 IRSA** : Matrice officielle SAFI / e-Hetra Grandes Entreprises (25 colonnes réglementaires).
+   - **Annexe EDI ISI 5%** : Fichier XML normalisé (`TradXML`) et bordereau de saisie pour prestataires et consultants.
+4. **Déclarations sociales trimestrielles** :
+   - **DNTS CNaPS** (1% salarial + 13% patronal, plafonnée à $8 \times \text{SME}$).
+   - **Contribution patronale FMFP** (1% formation professionnelle continue).
+   - **Bordereaux de santé au travail** : OSTIE (Antananarivo : 1% sal / 5% pat) et OMSI (Toamasina : 1.5% sal / 5.5% pat).
+5. **Solde de Tout Compte (STC)** lors des ruptures de contrat (prorata, ICCP, préavis, indemnités de licenciement, apurement des dettes de prêts).
 
-### 1.1 Découverte Majeure : Alignement sur les Bulletins et Tableaux Réels GALAXAM
-L'analyse des captures réelles des matrices de paie GALAXAM (feuilles Excel d'exploitation) confirme les mécanismes exacts suivants :
-1. **Période de Paie Décalée** : La période de paie s'étend du **26 du mois M-1 au 25 du mois M** (ex: `JANOARY 26 : 26DES25to25JAN26`).
-2. **Formule Réelle des Absences** :
-   $$\text{Taux Journalier d'Absence} = \frac{\text{Salaire de Base}}{30}$$
-   $$\text{Montant Absence Déduit} = \text{NBABS} \times \left(\frac{\text{Salaire de Base}}{30}\right)$$
-3. **Formule Réelle des Congés Payés** :
-   $$\text{Montant Congé} = \text{NBCONGE} \times \text{TCONGE}$$
-   où $\text{TCONGE}$ est le taux journalier de droit à congé issu du suivi de l'historique des rémunérations.
-4. **Formule Réelle du Salaire Brut Global (`BRUTE`)** :
-   $$\text{BRUTE} = \text{BASE} - \text{ABSENCES} + \text{CONGE} + \text{HS} + \text{AUTIMP}$$
-   où $\text{AUTIMP}$ regroupe les primes (performance, assiduité) après déductions des retards et proratas.
-5. **Cotisations Sociales & Fiscalité** :
-   * CNaPS : $1\%$ du brut (avec plafonnement à $8 \times \text{SME}$).
-   * OSTIE (Antananarivo) : $1\%$ du brut.
-   * OMSI (Toamasina) : $1.5\%$ du brut.
-   * $\text{NETI}$ (Net Imposable) = $\text{BRUTE} - \text{CNAPS} - \text{OSTIE} - \text{OMSI}$.
-   * IRSA : Calcul progressif avec déduction enfant et plancher, arrondi à la centaine d'Ariary (`IRSA Arrondi`).
-6. **Retenues Spécifiques & Arrondi Final** :
-   * $\text{Net avant call} = \text{NETI} - \text{IRSA Arrondi} + \text{RED ENFT} - \text{AVANCE} - \text{AVCE SPEC}$.
-   * $\text{CALL PERSO}$ : Déduction nette des communications personnelles non professionnelles.
-   * $\text{NET À PAYER} = \text{Net avant call} - \text{CALL PERSO}$.
-   * $\text{ARRONDI NET À PAYER}$ : Arrondi officiel à la dizaine d'Ariary inférieure (ex: $567\,084.29\text{ Ar} \rightarrow 567\,080\text{ Ar}$).
-7. **Double Format de Restitution Requis** :
-   * **Bulletin individuel PDF** : Fiche de paie officielle salarié, soignée et imprimable.
-   * **Grand-Livre ODS / Excel consolidé** : Export matricule par matricule reprenant fidèlement les colonnes de l'Excel historique pour la DAF.
+### 1.1 Découvertes Clés issues des Modèles Réels GALAXAM (`model/`)
+L'analyse approfondie des classeurs réels d'exploitation de GALAXAM (`ohatra gita fichiers-23jan26.xlsx`, `ohatra presence svt clocker.xlsx`, `modele declaration iRSA SAFI.ods`, `edi-annexe-ISI-DECEMBRE2025.ods`) révèle les règles exactes en vigueur :
+* **Période de Paie Décalée Industrielle** : La paie est calculée du **26 du mois M-1 au 25 du mois M** (ex: `JANOARY 26 : 26DES25to25JAN26`).
+* **Formule Réelle des Absences** :
+  $$\text{Taux Journalier d'Absence} = \frac{\text{Salaire de Base}}{30}$$
+  $$\text{Déduction Absence} = \text{NBABS} \times \left(\frac{\text{Salaire de Base}}{30}\right)$$
+* **Formule Réelle des Congés Payés** :
+  $$\text{Montant Congé} = \text{NBCONGE} \times \text{TCONGE}$$
+  *(où TCONGE est le taux journalier de congé issu du suivi de l'historique des rémunérations).*
+* **Heures Supplémentaires et Compensation des Retards** :
+  - Horaire théorique journalier : 8h/jour (TNR: 08h-12h / 13h-17h ; TMM: 08h-12h / 14h-18h).
+  - Règle de compensation : *« Fenoina 8h foana ny andro vao mivadika HS »* (on complète d'abord 8h par jour avant de basculer les heures excédentaires en HS).
+* **Primes & Ajustements de Performance** :
+  - Prime de Performance (PP) : Proratisée selon les jours ouvrés de présence effective.
+  - Pénalité : Déduction d'un quart ($-25\%$) de la prime si retards cumulés $> 70\text{ min}$ et congés $> 1\text{ jour}$.
+  - Prime d'Assiduité (PA) : Accordée si retards cumulés $< 45\text{ min}$.
+* **Indemnités de Déplacement & Repas (Non Imposables)** :
+  - TNR : Déplacement forfaitaire de $31\,200\text{ Ar / mois}$, soit $\frac{31\,200}{\text{Jours Ouvrables}}$ par jour de présence validé. Repas : $2\,000\text{ Ar / jour}$ avec repas midi.
+  - TMM : Déplacement de $53\,200\text{ Ar / mois}$ proratisé ($-1\,000\text{ Ar}$ si repas midi fourni sur site).
+  - **Traitement fiscal** : Le repas midi est ajouté **au Net après IRSA**, donc strictement exonéré d'impôt et de charges sociales.
+* **Formule Réelle du Salaire Brut (`BRUTE`)** :
+  $$\text{BRUTE} = \text{BASE} - \text{ABSENCES} + \text{CONGE} + \text{HS} + \text{AUTIMP}$$
+  *(où AUTIMP regroupe les primes de performance et d'assiduité après ajustements).*
+* **Étapes d'Arrondis Fiscaux et Monétaires** :
+  - $\text{NETI} = \text{BRUTE} - \text{CNAPS} - \text{OSTIE/OMSI}$.
+  - Assiette IRSA : $\text{Imposable} = 100 \times \lfloor \text{NETI} / 100 \rfloor$ (troncature à la centaine inférieure).
+  - IRSA calculé par tranches $\rightarrow \text{IRSA Arrondi} = \lceil \text{IRSA} / 10 \rceil \times 10$ (plafond à la dizaine supérieure).
+  - Déduction charge famille : $\text{RED ENFT} = \text{Enfants} \times 2\,000\text{ Ar}$.
+  - Déductions nettes : $\text{AVANCE}$ (acompte), $\text{avce spec}$, $\text{CALL PERSO}$ (communications personnelles).
+  - $\text{ARRONDI NET À PAYER} = \text{MROUND}(\text{Net Final}, 10)$ (arrondi à la dizaine d'Ariary).
+* **Génération XML EDI ISI 5%** :
+  - La macro officielle DGI `ikaEdiXml` a été extraite et analysée. Elle génère un fichier XML conforme contenant `<EDI><infos>...</infos><tabs><tab><data><line>...`.
 
 ---
 
 ## 2. ÉTAT ACTUEL DU PROJET
 
-L'audit approfondi du repository montre que le projet possède déjà d'excellentes fondations en amont de la paie, mais que le **moteur de paie lui-même n'est pas encore implémenté**.
+L'inventaire technique du repository GALAXAM démontre une architecture amont solide, mais confirme que **le module Paie lui-même n'est pas encore implémenté** :
 
-### 2.1 Composants existants directement liés à la paie :
-* **Base de données (`backend/conception/bdd/`)** :
-  * `paie_config_legale` (`26-09-02-sp4-paie.sql`) : Table pivot d'immutabilité temporelle des exercices fiscaux (LF_2024, LF_2026). Porte le SME national (262 680 Ar), SME agricole, multiplicateur plafond (8×), minimum de perception IRSA (3 000 Ar), déduction par charge d'enfant (2 000 Ar), diviseur mensuel (173.3333h), seuils d'heures supplémentaires.
-  * `ref_type_cotisation` & `site_cotisation` : Types de cotisations rattachés par site (CNaPS 1% sal / 13% pat, OSTIE 1% sal / 5% pat à Antananarivo, OMSI 1.5% sal / 5.5% pat à Toamasina).
+### 2.1 Ce qui existe déjà dans le projet :
+* **Base de données PostgreSQL (61 tables actives)** :
+  * `paie_config_legale` : Pivot d'immutabilité des millésimes fiscaux (LF_2024, LF_2026). Contient le SME national (262 680 Ar), SME agricole, multiplicateur plafond (8×), seuil d'exonération (350 000 Ar), minimum de perception (3 000 Ar), déduction enfant (2 000 Ar), diviseur mensuel (173.3333h), diviseur congés (30j).
+  * `ref_type_cotisation` & `site_cotisation` : Types de cotisations et rattachement par site (CNaPS 1%/13%, OSTIE 1%/5% à TNR, OMSI 1.5%/5.5% à TMM).
   * `bareme_irsa` : 6 tranches d'IRSA officielles millésimées (0% à 350 000 Ar, 5%, 10%, 15%, 20%, 25% au-delà de 4 000 000 Ar).
-  * `ref_taux_majoration` : Taux légaux de majoration (HS 30%, HS 50%, Nuit 30%, Dimanche 40%, Férié 100%).
-  * `ref_type_intervenant` (`26-08-05-sp0-ref.sql`) : Distingue `PERMANENT` (IRSA=true, CNaPS=true, Santé=true), `CONSULTANT` (ISI=true, CNaPS=false), `TEMPORAIRE` (ISI=true), `STAGIAIRE` (non soumis).
-  * `employe_affectation_carriere` (`26-08-10-sp1-contrat.sql`) : Stocke le `salaire_base` contractuel historique, la catégorie professionnelle (`CADRE` vs `A`), le site d'affectation et le `ref_mode_calcul_paie` (`MENSUEL`, `HORAIRE`, `JOURNALIER`).
-  * `pointage_cumul_periode` & `pointage_cumul_indemnite` (`26-08-20-sp3-pointage.sql`) : Tables de synthèse gelées scellées lors de la clôture du pointage par la DAF, contenant les heures réelles, HS 30, HS 50, heures de nuit, retards nets décomptés, indemnités de déplacement et de repas.
-  * `demande_conge` & `ref_type_conge` (`26-08-13-sp2-conges.sql`) : Gestion des congés payés, maladies, événements familiaux et sans solde, avec indicateur `est_remunere`.
-* **Backend Java** :
-  * `mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.java` : Moteur élémentaire implémentant les méthodes isolées `calculerCnaps`, `calculerSante` et `calculerIrsa`.
-  * `PaieConfigLegale.java`, `BaremeIrsa.java`, `RefTypeCotisation.java`, `SiteCotisation.java` : Entités CRUD de paramétrage.
-  * `PointageSyntheseService.java` : Gestion du workflow de transmission, rejet, gel (`gelerPeriode`) et validation DAF de la période de pointage.
-  * `BulletinPaiePreparationIntegrationTest.java` : Test d'intégration simulant 4 bulletins théoriques en mode test.
+  * `ref_taux_majoration` : Taux légaux (HS 30%, HS 50%, Nuit 30%, Dimanche 40%, Férié 100%).
+  * `ref_type_intervenant` : Catégorisation `PERMANENT`, `CONSULTANT`, `TEMPORAIRE`, `STAGIAIRE`.
+  * `employe_affectation_carriere` : Porteur officiel du `salaire_base` contractuel, de la catégorie professionnelle (`CADRE` vs `A`), du mode de paie (`MENSUEL`, `HORAIRE`, `JOURNALIER`), du site et de la filiale.
+  * `pointage_cumul_periode` & `pointage_cumul_indemnite` : Tables de synthèse gelées scellées lors de la transmission DAF, contenant les heures effectives, HS 30, HS 50, heures de nuit, retards décomptés, indemnités de déplacement et de repas.
+  * `demande_conge` & `mouvement_solde_conge` : Suivi des droits, décomptes et types de congés.
+* **Backend Java Spring Boot** :
+  * `mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.java` : Calcul élémentaire isolé de CNaPS, Santé et IRSA.
+  * `PaieConfigLegale.java`, `BaremeIrsa.java`, `RefTypeCotisation.java`, `SiteCotisation.java` : Entités JPA de paramétrage.
+  * `PointageSyntheseService.java` : Workflow de transmission, verrouillage pessimiste et validation DAF du pointage.
 * **Frontend React** :
-  * `ParametresGlobauxTab.jsx`, `ReglementationFiscaleTab.jsx`, `CotisationsIrsaTab.jsx`, `IndemnitesSitesTab.jsx`, `MajorationsParametresTab.jsx`, `CalendrierFerieTab.jsx` : Gestion complète du paramétrage des règles de paie dans l'IHM Administrateur.
-  * `PeriodePaiePage.jsx` : Gestion des périodes de paie (création, ouverture, transmission, validation).
+  * `GestionPaiePage.jsx` : Page principale de gestion de paie (actuellement limitée à l'onglet des périodes).
+  * `CotisationsIrsaTab.jsx`, `ReglementationFiscaleTab.jsx`, `BaremeIrsaList.jsx` : Écrans de paramétrage administratif.
+* **Fichiers Modèles Réels (`model/`)** :
+  * `ohatra gita fichiers-23jan26.xlsx` : Modèle réel du bulletin de paie salarié (`payroll`) et feuille de liaison pointage (`OUTPUT`).
+  * `ohatra presence svt clocker.xlsx` : Matrice réelle du Grand-Livre mensuel (`EJOURNAL`), ajustements primes (`AJUSTEMENT`), calcul indemnités (`calcul DEPLACT ET REPAS`).
+  * `modele declaration iRSA SAFI.ods` : Matrice officielle DGI État 301 IRSA (25 colonnes).
+  * `edi-annexe-ISI-DECEMBRE2025.ods` : Matrice officielle DGI ISI avec macro StarBasic/VBA `ikaEdiXml`.
 
-### 2.2 Ce qui N'EXISTE PAS ENCORE (À concevoir) :
-* Aucune table relationnelle pour stocker les bulletins de paie (`bulletin_paie`, `bulletin_ligne`, `bulletin_cotisation`).
-* Aucun moteur d'orchestration (`PayrollExecutionEngine` ou `CalculateurPaieService`) capable d'agréger contrat, pointage, congés, avances, barèmes et de produire une paie globale.
-* Aucune table pour la gestion opérationnelle des variables de paie (avances, acomptes, primes, saisies-arrêts).
-* Aucun écran de consultation, validation, clôture et export de bulletin de salaire pour les RH / collaborateurs.
-* Aucun générateur de bulletin de paie PDF / états nominatifs CNaPS/FMFP/OSTIE.
+### 2.2 Ce qui N'EXISTE PAS ENCORE (Périmètre de Conception) :
+* Aucune table pour stocker les résultats de paie (`bulletin_paie`, `bulletin_ligne`, `bulletin_cotisation`).
+* Aucune table pour gérer les variables mensuelles de trésorerie (`variable_paie_mensuelle`, `pret_employe`, `ref_type_variable_paie`).
+* Aucun moteur d'orchestration (`PayrollExecutionEngine`) capable d'agréger contrat, pointage, congés, acomptes, primes et barèmes.
+* Aucun écran de consultation, validation, clôture et export de bulletin pour les RH et salariés.
+* Aucun exportateur PDF de bulletin de paie, ni générateur des fichiers légaux SAFI Excel, EDI XML ISI ou DNTS CNaPS trimestriel.
 
 ---
 
 ## 3. DOCUMENTATION ANALYSÉE
 
-L'inventaire exhaustif de la documentation du repository et l'analyse de son contenu fournissent les éléments suivants :
-
-| Document | Objectif | Apports pour la Paie | Limites, Obsolescences ou Contradictions Détectées |
+| Document Analysé | Type & Objectif | Apports Clés pour la Paie | Limites, Obsolescences ou Contradictions Détectées |
 |---|---|---|---|
-| `backend/docs/boky/module-paie-reglementation-fiscale.md` | Spécification de la législation fiscale et sociale évolutive (Loi de Finances 2026, SME, IRSA, CNaPS). | Définit la modélisation de `paie_config_legale`, les 6 tranches IRSA, le plafond 8×SME, le diviseur 173.3333h et le diviseur congé 30j. | Document très fiable et aligné sur le code SQL `26-09-02-sp4-paie.sql`. |
-| `backend/docs/boky/module-paie-avances-frais.md` | Cadrage V2 pour avances, acomptes, prêts et notes de frais. | Propose la structure de `variable_paie_mensuelle`, `pret_employe`, `ref_type_variable_paie` et l'articulation net à verser. | **Attention :** Ce document est un "Cadrage pour développement futur". Ces tables **n'ont jamais été créées en BDD**. |
-| `backend/docs/boky/module-conges-absences.md` | Gestion des congés et absences. | Définit la valorisation financière (§8) : CP sur diviseur 30j calendaires, absences injustifiées sur diviseur 173.33h. Règle de maintien de salaire à 100% pour congé annuel. | Ne précise pas le traitement exact des congés maladie de longue durée (co-financement CNaPS / employeur explicitement ajourné). |
-| `backend/docs/boky/module-structure.md` | Structure organisationnelle et sites. | Cascade à 3 niveaux des indemnités de site (site → dérogation employe → pointage jour J). | La table `pointage_jour` contenait d'anciennes colonnes d'indemnités redondantes avec `pointage_indemnite_jour`. |
-| `backend/docs/boky/module-contrat.md` & `Contrats-RG.md` | Gestion des contrats et de la carrière. | Déclare `employe_affectation_carriere` comme porteur officiel du salaire de base, et chaîne les contrats via `id_contrat_precedent`. | Ne spécifie pas comment gérer un changement de salaire ou d'affectation intervenant en milieu de mois calendaire. |
-| `docs/CAHIER_DES_CHARGES_GALAXAM.md` | Spécifications initiales globales. | Confirme le besoin de paie duale (IRSA vs ISI 5%), l'export trimestriel CNaPS/OSTIE/OMSI/FMFP, et la confidentialité stricte DAF. | Document initial de haut niveau, manque de détails sur le format des états récapitulatifs et les arrondis financiers. |
-| `docs/GUIDE_REGLES_METIER_ET_MODIFICATIONS.md` | Guide d'architecture et catalogue des règles du SIRH. | Formalise RG-PAIE-01 à RG-PAIE-05, RG-PTG-07 (forfait cadres), et le découpage RBAC (`PAIE_READ`, `PAIE_WRITE`). | Règles documentées très conformes au code actuel. |
+| `docs/CAHIER_DES_CHARGES_GALAXAM.md` | Cahier des charges initial | Confirme la structure multi-entités, les 3 statuts de personnel, la paie duale (IRSA vs ISI 5%), l'export mensuel État 301 et trimestriel DNTS CNaPS / FMFP / Santé. | Document de cadrage général, ne contient pas le détail des formules mathématiques d'arrondi ni les colonnes exactes. |
+| `docs/GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md` | Spécification fonctionnelle cible | Détaille les 25 colonnes SAFI DGI, le calendrier trimestriel, le barème IRSA à 6 tranches, le moteur STC, et le workflow à 5 étapes. | Document théorique cible très riche, mais plusieurs tables et endpoints décrits n'existent pas encore dans le code. |
+| `docs/CONCEPTION_ARCHITECTURE_MODULE_PAIE.md` | Version préliminaire de conception | Cartographie les 50 variables de paie, modélise le snapshotting et l'immutabilité. | Affirmait par erreur en §4 qu'aucun bulletin réel n'avait été fourni (alors qu'ils sont présents dans `model/`). |
+| `backend/docs/boky/module-paie-reglementation-fiscale.md` | Spécification technique SP4 | Définit `paie_config_legale` comme pivot temporel d'immutabilité et explicite le rôle de chaque paramètre fiscal. | Conforme à 100% au schéma BDD actif `26-09-02-sp4-paie.sql`. |
+| `backend/docs/boky/module-paie-avances-frais.md` | Cadrage V2 avances & prêts | Propose la structure de `variable_paie_mensuelle` et `pret_employe`. | Mentionne expressément qu'il s'agit d'un cadrage futur ; tables jamais créées en BDD. |
+| `backend/docs/boky/module-conges-absences.md` | Spécification des congés | Fixe la valorisation des congés au 1/30ème et le maintien de salaire à 100% pour congé payé annuel. | Ne traite pas le co-financement des arrêts maladie longue durée CNaPS / employeur. |
+| `model/ohatra gita fichiers-23jan26.xlsx` & `ohatra presence svt clocker.xlsx` | Feuilles de paie et pointage réelles | **Source de vérité opérationnelle absolue** : Formules réelles d'absences ($Base/30$), congés ($NBCONGE \times TCONGE$), primes PP/PA, indemnités TNR/TMM, CALL PERSO, arrondis. | Fichiers Excel manuels sujets aux erreurs humaines ; logique à automatiser intégralement dans le SIRH. |
+| `model/modele declaration iRSA SAFI.ods` & `edi-annexe-ISI-DECEMBRE2025.ods` | Matrices officielles DGI | Structure exacte des 25 colonnes État 301 SAFI et spécification du XML EDI ISI via la macro `ikaEdiXml`. | Format macro propriétaire contraignant ; nécessite une réécriture propre en export Java. |
 
 ---
 
 ## 4. SOURCES ET NIVEAU DE CONFIANCE
 
-Pour chaque fait, règle ou donnée structurante de cette conception, le tableau ci-dessous indique formellement sa provenance et son niveau de confiance :
-
-| Information Clé | Source | Type de Source | Niveau de Confiance | Statut / À vérifier ? |
+| Information Structurante | Source Identifiée | Type de Source | Niveau de Confiance | Statut / Action de Vérification |
 |---|---|---|---|---|
-| Plafonnement CNaPS à 8 × SME | `backend/conception/bdd/26-09-02-sp4-paie.sql`, `CalculateurPaieEngine.java` | Code existant & BDD | **100% (Certain)** | Confirmé par la législation CNaPS en vigueur à Madagascar. |
-| Taux CNaPS : 1% salarié, 13% employeur | `ref_type_cotisation`, `CalculateurPaieEngineTest.java` | Code existant & BDD | **100% (Certain)** | Confirmé légalement. |
-| Taux Santé : OSTIE (1% sal / 5% pat), OMSI (1.5% sal / 5.5% pat) | `26-09-02-sp4-paie.sql` | Code existant & BDD | **100% (Certain)** | Confirmé selon rattachement site (TNR vs TMM). |
-| Contribution FMFP (1% patronal) | `docs/CAHIER_DES_CHARGES_GALAXAM.md` | Documentation | **80% (Forte)** | ⚠ `ref_type_cotisation` ne contient pas encore la ligne FMFP en BDD ! À insérer. |
-| Barème IRSA 2026 à 6 tranches (0%, 5%, 10%, 15%, 20%, 25%) | `bareme_irsa`, `CalculateurPaieEngine.java` | Code existant & BDD | **100% (Certain)** | Aligné Loi de Finances n°2025-021. |
-| Seuil exonération IRSA : 350 000 Ar | `paie_config_legale` | BDD | **100% (Certain)** | Confirmé CGI Madagascar. |
-| Minimum de perception IRSA : 3 000 Ar | `paie_config_legale`, `CalculateurPaieEngine.java` | Code existant & BDD | **100% (Certain)** | Confirmé LF 2026. |
-| Réduction d'impôt par enfant à charge : 2 000 Ar / mois | `paie_config_legale`, `CalculateurPaieEngine.java` | Code existant & BDD | **100% (Certain)** | Confirmé CGI Madagascar. |
-| Régime fiscal ISI 5% pour Consultants / Temporaires | `CAHIER_DES_CHARGES_GALAXAM.md`, `ref_type_intervenant` | BDD & Documentation | **85% (Forte)** | ⚠ À vérifier : les consultants paient-ils l'OSTIE ? (Actuellement `soumis_sante=TRUE` en BDD pour CONSULTANT). |
-| Diviseur d'heures mensuel légal : 173.3333 h | `paie_config_legale` | BDD & Droit malgache | **100% (Certain)** | $(40 \text{ h} \times 52) / 12 = 173.3333$. |
-| Diviseur indemnité congé : 30 jours | `paie_config_legale`, `module-conges-absences.md` | BDD & Code du Travail | **100% (Certain)** | Art. 85 Code du Travail Malgache. |
-| Retenue pour absence injustifiée : base horaire ($S_{base} / 173.33 \times \text{heures}$) | `module-conges-absences.md` | Documentation | **70% (Moyenne)** | ⚠ `À VÉRIFIER` : Pratique-t-on le diviseur horaire (173.33), le trentième (30j) ou les jours ouvrés réels du mois ? |
-| Formule d'arrondi de l'IRSA à la centaine d'Ariary inférieure | `paie_config_legale.arrondi_base_irsa = 'CENTAINE_INF'` | BDD | **75% (Moyenne)** | Pratique fiscale malgache standard. Non implémentée dans `CalculateurPaieEngine`. |
-| Bulletins de paie réels d'exemple | *Aucun document PDF / scan fourni* | Observation directe | **0% (Inexistant)** | **SIGNALEMENT EXPLICITE : Aucun spécimen ou bulletin physique n'a été fourni.** |
+| Période décalée du 26 au 25 | `ohatra gita fichiers-23jan26.xlsx` (Sheet 4) | Modèle réel d'exploitation | **100% (Certain)** | Confirmé par la feuille de paie réelle `JANOARY 26 : 26DES25to25JAN26`. |
+| Formule retenue absence : $Base/30$ | `ohatra presence svt clocker.xlsx` (`EJOURNAL`), `Fanazavana` | Modèle réel d'exploitation | **100% (Certain)** | Confirmé dans la colonne G et l'explication malgache explicite. |
+| Formule congé payé : $NBCONGE \times TCONGE$ | `EJOURNAL` (Col H, I, J) | Modèle réel d'exploitation | **90% (Très forte)** | ⚠ À vérifier : méthode de calcul exacte de $TCONGE$ (actuellement saisi manuellement). |
+| Heures supp : compensation retards avant bascule HS | `Fanazavana` (Sheet 2) | Règle d'entreprise documentée | **100% (Certain)** | Règle explicite : *« Fenoina 8h foana ny andro vao mivadika HS »*. |
+| Primes performance & assiduité (PP / PA) | `AJUSTEMENT` (Sheet 3) | Modèle réel d'exploitation | **95% (Très forte)** | Formules vérifiées (prorata présences, pénalité -25% si retard > 70 min et conge > 1j). |
+| Indemnité repas : ajoutée au Net après impôt | `EJOURNAL` (Col Y, Z, AA) | Modèle réel d'exploitation | **100% (Certain)** | $AA = Y + Z$ où $Y$ est le Net après IRSA et $Z$ est le repas $\rightarrow$ Non imposable. |
+| Retenue CALL PERSO | `EJOURNAL` (Col AB, AC) | Modèle réel d'exploitation | **100% (Certain)** | Déduction nette directe sur le net à payer avant virement. |
+| Arrondi Net à Payer à la dizaine d'Ariary | `EJOURNAL` (Col AD : `=MROUND(AC, 10)`) | Modèle réel d'exploitation | **100% (Certain)** | Conforme à la pratique bancaire et aux coupures BFM à Madagascar. |
+| Plafonnement CNaPS à $8 \times \text{SME}$ (1% sal / 13% pat) | `26-09-02-sp4-paie.sql`, `CalculateurPaieEngine.java` | Code existant, BDD & Loi | **100% (Certain)** | Confirmé par le Code de Prévoyance Sociale malgache. |
+| Taux Santé : OSTIE 1%/5% (TNR), OMSI 1.5%/5.5% (TMM) | `site_cotisation`, `26-09-02-sp4-paie.sql` | Code existant & BDD | **100% (Certain)** | Confirmé selon site géographique d'affectation. |
+| Contribution FMFP (1% patronal) | `CAHIER_DES_CHARGES_GALAXAM.md`, Loi 2017-025 | Document légal & Documentation | **85% (Forte)** | ⚠ Absente de `ref_type_cotisation` en BDD ! À ajouter. Assiette brute à confirmer. |
+| Barème progressif IRSA 2026 à 6 tranches | `bareme_irsa`, CGI Loi de Finances 2026 | Code existant, BDD & Loi | **100% (Certain)** | Tranches : 0%, 5%, 10%, 15%, 20%, 25% au-delà de 4 000 000 Ar. |
+| Minimum de perception IRSA : 3 000 Ar vs 2 000 Ar | `paie_config_legale` (3 000 Ar) vs `EJOURNAL` (2 000 Ar) | BDD vs Ancien fichier Excel | **90% (Forte)** | L'ancien Excel utilisait 2 000 Ar (LF 2024), la BDD utilise 3 000 Ar (LF 2026). À confirmer. |
+| Déduction enfant IRSA : 2 000 Ar / enfant / mois | `paie_config_legale`, `CalculateurPaieEngine.java`, CGI | Code, BDD & Modèle | **100% (Certain)** | Parfaitement aligné entre code, loi et fichiers Excel réels. |
+| Retenue libératoire ISI 5% pour prestataires / consultants | `ref_type_intervenant`, `edi-annexe-ISI-DECEMBRE2025.ods` | BDD, Modèle réel DGI & Loi | **100% (Certain)** | Confirmé par la matrice DGI ISI et le CGI. |
+| Format XML EDI DGI pour ISI | `ikaEdiXml.xml` dans `edi-annexe-ISI-DECEMBRE2025.ods` | Macro officielle DGI | **100% (Certain)** | Structure XML EDI `<EDI><infos>...` intégralement décodée et documentée. |
+| Format 25 colonnes État 301 SAFI IRSA | `modele declaration iRSA SAFI.ods` | Modèle officiel DGI | **100% (Certain)** | Entête, colonnes A à Y et formules DGI confirmées. |
 
 ---
 
 ## 5. CARTOGRAPHIE DES DÉPENDANCES DU MODULE PAIE
 
-Le schéma ci-dessous détaille le flux d'alimentation du module Paie depuis les modules amont jusqu'à la production du bulletin scellé :
-
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
-│                           MODULES SOURCES RH                              │
+│                           MODULES SOURCES RH AMONT                        │
 └───────────────────────────────────────────────────────────────────────────┘
    │
    ├── [1] DOSSIER SALARIÉ (employe, employe_enfant, employe_compte_banque)
-   │     └── Matricule, État civil, Enfants éligibles à charge, Banque/RIB, N° CNaPS
+   │     └── Matricule, CIN (date/lieu), N° CNaPS, Enfants à charge, RIB / Banque
    │
    ├── [2] CONTRAT & CARRIÈRE (contrat_travail, employe_affectation_carriere)
-   │     └── Type contrat (CDI/CDD/Prestation), Type intervenant (PERMANENT vs CONSULTANT),
-   │         Catégorie (CADRE autonome vs AGENT éligible HS), Salaire de base,
-   │         Mode de paie (MENSUEL / JOURNALIER / HORAIRE), Filiale, Site
+   │     └── Statut intervenant (PERMANENT / CONSULTANT / TEMPORAIRE),
+   │         Catégorie (CADRE / AGENT), Salaire de base contractuel, Site, Filiale
    │
-   ├── [3] POINTAGE SCELLÉ (pointage_cumul_periode, pointage_cumul_indemnite)
-   │     └── Période scellée (VALIDEE/CLOTUREE) par la DAF :
-   │         Heures normales, HS 30%, HS 50%, Heures de nuit, Heures fériées, Dimanches,
+   ├── [3] POINTAGE SCELLÉ PÉRIODE 26 AU 25 (pointage_cumul_periode, cumul_indemnite)
+   │     └── Heures réelles, Heures sup 30% / 50%, Heures de nuit, Heures fériées,
    │         Retards nets décomptés, Indemnités déplacement & repas validées
    │
-   ├── [4] CONGÉS & ABSENCES (demande_conge, ref_type_conge, mouvement_solde_conge)
-   │     └── Jours de congés payés validés (maintien de salaire), Événements familiaux (payés),
-   │         Absences maladie (maintien / sans solde), Congés sans solde
+   ├── [4] CONGÉS & ABSENCES VALIDÉS (demande_conge, ref_type_conge, mouvement_solde)
+   │     └── Jours de congés payés validés (maintien de salaire), Événements familiaux payés,
+   │         Absences maladie (maintien / relais CNaPS), Congés sans solde / injustifiés
    │
-   ├── [5] VARIABLES DE PAIE & TRÉSORERIE (Futur module ou saisie DAF)
-   │     └── Acomptes de quinzaine, Avances exceptionnelles, Prêts société (échéances),
-   │         Primes exceptionnelles, Notes de frais remboursées, Saisies sur salaire
+   ├── [5] VARIABLES DE PAIE & TRÉSORERIE (Saisie DAF mensuelle / Prêts)
+   │     └── Acomptes de quinzaine, Avances exceptionnelles, Échéances prêts internes,
+   │         Primes exceptionnelles, Notes de frais validées, CALL PERSO (téléphonie)
    │
    └── [6] RÉGLEMENTATION FISCALE & SOCIALE (paie_config_legale, bareme_irsa, cotisations)
-         └── Millésime actif à la date de la période :
-             SME, Plafond CNaPS, Taux cotisations par site, Tranches IRSA, Taux ISI 5%
+         └── Millésime actif (LF_2026) : SME national, Plafond CNaPS 8x, Taux Santé par site,
+             Tranches IRSA progressif, Plancher perception, Déduction enfant, Taux ISI 5%
    │
    ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
 │                      PAYROLL ENGINE (MOTEUR DE PAIE)                      │
 │                                                                           │
-│   1. Préparation du contexte salarié (Snapshot données contractuelles)    │
-│   2. Calcul du Salaire Brut (Base proratisée + HS + Primes + Avantages)   │
-│   3. Détermination des assiettes (Assiette CNaPS plafonnée, Santé, IRSA) │
-│   4. Calcul des cotisations sociales salariales & patronales             │
-│   5. Détermination du Brut Fiscal & Calcul de l'IRSA / ISI                │
-│   6. Intégration des éléments non soumis (Indemnités réelles, Rembours.)  │
-│   7. Application des déductions de trésorerie (Avances, Acomptes, Prêts)  │
-│   8. Détermination du Net Fiscal, Net Imposable, Net à Payer              │
-│   9. Arrondis monétaires stricts (Ariary)                                │
+│   1. Préparation du contexte salarié immuable (Snapshot contrat & pointage)│
+│   2. Calcul Rémunération : Base - Absences (1/30) + Congés (TCONGE) + HS  │
+│   3. Calcul Ajustements : Prime Performance proratisée + Assiduité        │
+│   4. Salaire Brut (BRUTE) = Base - Abs + Conge + HS + AUTIMP              │
+│   5. Cotisations Sociales : CNaPS (plafonnée 8x SME) + Santé (OSTIE/OMSI)  │
+│   6. Base Imposable : NETI = BRUTE - CNaPS - Santé (arrondi centaine inf) │
+│   7. Fiscalité : Barème progressif IRSA 6 tranches - Réduction enfants    │
+│      (Arrondi dizaine sup, plancher légal) OU Retenue ISI 5%              │
+│   8. Éléments Non Soumis : Indemnité Repas / Frais professionnels         │
+│   9. Retenues Trésorerie : Acomptes, Avances, Prêts, CALL PERSO           │
+│  10. Net à Payer Final & Arrondi Dizaine d'Ariary (MROUND)                │
 └───────────────────────────────────────────────────────────────────────────┘
    │
    ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
 │                    RÉSULTATS DE PAIE & HISTORISATION                      │
 │                                                                           │
-│   ├── Table bulletin_paie (En-tête, cumuls, nets, snapshot config)        │
+│   ├── Table bulletin_paie (En-tête, cumuls, nets scellés, snapshot légal) │
 │   ├── Table bulletin_ligne (Lignes de gain et de retenue détaillées)      │
 │   ├── Table bulletin_cotisation (Détail salarial + patronal par caisse)   │
-│   ├── Journal comptable de paie (Grand-Livre / OD de paie)                │
-│   ├── Génération du Bulletin de Paie PDF                                  │
-│   └── États nominatifs CNaPS / FMFP / OSTIE / OMSI trimestriels           │
+│   ├── Journal de Paie consolidé (Grand-Livre / EJOURNAL)                  │
+│   ├── Bulletin de Paie individuel PDF (Format officiel salarié)           │
+│   ├── Fichier Virement Bancaire interbancaire (Ordre de virement)         │
+│   ├── Déclarations Mensuelles DGI : État 301 SAFI IRSA & Annexe EDI ISI  │
+│   └── Déclarations Trimestrielles : DNTS CNaPS + FMFP 1% + Santé (OSTIE)  │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
+## 5.1 PRINCIPE D'ÉGALITÉ DES DROITS SUR LE BRUT VS SÉPARATION DES RÉGIMES
+
+Dans GALAXAM-SIRH, une règle fondamentale régit l'architecture du calcul :
+> **Le calcul du Salaire Brut (présences, absences, congés, heures sup, primes, indemnités) est STRICTEMENT IDENTIQUE et UNIVERSEL pour tous les collaborateurs.**
+
+Tous les travailleurs bénéficient des mêmes droits opérationnels :
+- Décompte des présences et des heures supplémentaires (agents).
+- Déduction des absences injustifiées au 1/30ème ($Base / 30$).
+- Droits aux congés payés ($NBCONGE \times TCONGE$).
+- Primes de performance (PP) et assiduité (PA).
+- Indemnités journalières de déplacement et de repas ($2\,000\text{ Ar / jour}$).
+
+**La seule et unique divergence intervient à l'étape finale du RÉGIME FISCAL & SOCIAL :**
+1. **Régime Salarié (IRSA)** :
+   - Assujetti à la CNaPS (1% salarial plafonné à $8\times\text{SME}$, 13% patronal).
+   - Assujetti à la Médecine du Travail (OSTIE 1%/5% à TNR, OMSI 1.5%/5.5% à TMM).
+   - Assujetti au Barème progressif IRSA à 6 tranches (déduction enfant $2\,000\text{ Ar}$, plancher dynamique).
+   - Déclaration mensuelle : **État 301 IRSA (25 colonnes)**.
+2. **Régime Consultant & Prestataire Temporaire (ISI 5%)** :
+   - Exonération totale de CNaPS et de FMFP.
+   - Couverture Santé dynamique (selon configuration `ref_type_intervenant.soumis_sante`).
+   - Retenue forfaitaire libératoire à la source de **5% au titre de l'ISI**.
+   - Déclaration mensuelle : **Annexe EDI ISI XML (macro e-Hetra)**.
+3. **Régime Stagiaire** :
+   - Gratification éventuelle non soumise aux cotisations.
+
+---
+
+## 5.2 DICHOTOMIE OPÉRATIONNELLE : 100% AUTOMATIQUE VS SAISIE MANUELLE DAF
+
+Pour éliminer les risques d'erreur et accélérer le traitement mensuel, la frontière entre ce qui est automatisé et ce qui est saisi est hermétique :
+
+| Domaine | Élément de Paie | Mode de Traitement | Source Déclenchante | Intervention DAF Requise ? |
+|---|---|---|---|---|
+| **Contrat** | Salaire de base contractuel | **100% Automatique** | `employe_affectation_carriere` | Aucune (lu en base) |
+| **Temps** | Jours ouvrables & fériés chômés | **100% Automatique** | `CalendrierOuvrableEngine` | Aucune (généré par calendrier) |
+| **Temps** | Jours présents & travaillés | **100% Automatique** | `pointage_cumul_periode` | Aucune (gelé à la clôture pointage) |
+| **Absence** | Retenue pour absences injustifiées | **100% Automatique** | $NBABS \times (Base / 30)$ | Aucune (calculé par le moteur) |
+| **Congés** | Rémunération des congés payés | **100% Automatique** | $NBCONGE \times (Base / 30)$ | Aucune (maintien intégral salaire) |
+| **Heures Sup**| Heures sup. 30%, 50%, Nuit, Dimanche| **100% Automatique** | Pointage après compensation 8h | Aucune (calculé selon statut Cadre/Agent)|
+| **Primes** | Prime de Performance (PP) proratisée | **100% Automatique** | $PP_{base} \times \frac{JoursTrav}{JoursOuvr}$ | Aucune (formule automatique) |
+| **Primes** | Malus PP (-25%) & Prime Assiduité (PA)| **100% Automatique** | Retards cumulés & seuils 45/70m | Aucune (détecté automatiquement) |
+| **Indemnité** | Déplacement proratisé (TNR / TMM) | **100% Automatique** | Forfait site proratisé présences | Aucune (règle de site) |
+| **Indemnité** | Repas midi ($2\,000\text{ Ar / jour}$ TNR)| **100% Automatique** | Jours de repas validés au pointage| Aucune (ajouté en net après impôt) |
+| **Cotisations**| CNaPS, OSTIE/OMSI, FMFP patronal | **100% Automatique** | Assiettes, plafonds 8x SME, taux | Aucune (calculé par le moteur) |
+| **Impôt** | Barème IRSA 6 tranches / ISI 5% | **100% Automatique** | Assiette fiscale, enfants, plancher | Aucune (calculé par le moteur) |
+| **Arrondis** | Arrondi fiscal centaine & Net dizaine | **100% Automatique** | Règles `CENTAINE_INF` / `MROUND` | Aucune (appliqué automatiquement) |
+| **Trésorerie**| Acompte de quinzaine (versé le 15) | **Saisie Manuelle DAF** | Écran Variables Mensuelles | **Oui** : Saisie du montant versé |
+| **Trésorerie**| Avance spéciale exceptionnelle | **Saisie Manuelle DAF** | Écran Variables Mensuelles | **Oui** : Saisie du montant versé |
+| **Trésorerie**| Facturation `CALL PERSO` | **Saisie Manuelle DAF** | Écran Variables Mensuelles | **Oui** : Saisie du relevé opérateur |
+| **Primes** | Prime exceptionnelle discrétionnaire | **Saisie Manuelle DAF** | Écran Variables Mensuelles | **Oui** : Saisie du montant et motif |
+| **Prêts** | Échéance prêt interne (si non auto) | **Saisie Manuelle DAF** | Écran Variables Mensuelles | **Oui** : Saisie de la retenue convenue |
+| **Régularisation**| Correction manuelle mois antérieur | **Saisie Manuelle DAF** | Écran Variables Mensuelles | **Oui** : Ligne d'ajustement justifiée |
+
+---
+
 ## 6. INVENTAIRE EXHAUSTIF DES VARIABLES DE PAIE
 
-Le tableau ci-dessous recense **l'intégralité des variables nécessaires** pour orchestrer et calculer une paie complète dans GALAXAM-SIRH :
-
-| Code Variable | Nom Fonctionnel | Catégorie | Description | Type | Unité | Source Officielle | Mode | Formule / Règle de Calcul | Base | Taux | Plafond | Imposable IRSA | Cotisable CNaPS | Visible Bulletin | Historisé | Statut |
+| Code | Nom Fonctionnel | Catégorie | Description | Type | Unité | Source Officielle | Saisie/Calcul | Formule / Règle de Calcul | Base | Taux | Plafond | Imposable | Cotisable | Visible Bulletin | Historisé | Statut |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `EMP_MATRICULE` | Matricule Employé | Identité | Identifiant unique collaborateur | String | Code | `employe.matricule` | Fixe | Clé unique matricule | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
-| `EMP_NOM_PRENOM` | Nom et Prénoms | Identité | Nom complet du salarié | String | Texte | `employe` (`nom` + `prenom`) | Fixe | Concaténation nom + prenom | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
-| `EMP_CNAPS_NUM` | N° Affiliation CNaPS | Identité | Numéro individuel de sécurité sociale | String | Code | `employe.num_affiliation_cnaps` | Fixe | Saisie RH dossier employé | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
-| `EMP_FONCTION` | Fonction / Emploi | Contractuel | Poste occupé selon affectation | String | Texte | `employe_affectation_carriere` | Fixe | `ref_fonction.libelle` | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
-| `EMP_CATEGORIE` | Catégorie Professionnelle | Contractuel | Statut conventionnel (Cadre / Agent) | String | Code | `employe_affectation_carriere` | Fixe | `ref_categorie_professionnelle.code` | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
-| `EMP_SITE` | Site d'Affectation | Organisation | Lieu de travail (TNR, TMM) | String | Code | `employe_affectation_carriere` | Fixe | `ref_site.code_site` | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
-| `EMP_DATE_EMBAUCHE`| Date d'Embauche | Contractuel | Date d'entrée dans la société | Date | Date | `contrat_travail.date_debut` (1er contrat)| Fixe | Min(`date_debut`) ou date reprise ancienneté | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
-| `EMP_ANCIENNETE` | Ancienneté | Dérivé | Durée de service au jour du calcul | Integer | Années/Mois| Dérivé de `EMP_DATE_EMBAUCHE` | Calcul | $Période_{fin} - DateEmbauche$ | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
-| `EMP_CHARGE_FAM` | Enfants à Charge | Fiscal | Nombre d'enfants ouvrant droit à déduction | Integer | Nombre | `employe_enfant` | Calcul | Count(`a_charge = true` AND `age <= 21`)| - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
-| `EMP_BANQUE_RIB` | Domiciliation & RIB | Trésorerie | Banque et numéro de compte pour virement | String | Texte | `employe_compte_banque` (est_principal) | Fixe | `ref_banque.nom_banque` + `num_compte_rib`| - | - | - | Non | Non | Oui (Pied) | Oui | Confirmé |
-| `PER_CODE` | Code Période Paie | Période | Période de paie traitée | String | Code | `periode_paie.code` (ex: 2026-08) | Fixe | Clé de période | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
-| `PER_JOURS_OUVR` | Jours Ouvrables Période| Calendrier | Total jours ouvrables standard du mois | Integer | Jours | `CalendrierOuvrableEngine` / `fn_jours_ouvrables`| Calcul | Jours lun-ven hors fériés chômés | - | - | - | Non | Non | Oui (Décompte) | Oui | Confirmé |
-| `PER_JOURS_TRAV` | Jours Travaillés Réels | Pointage | Nombre de jours de présence effective | Decimal | Jours | `pointage_cumul_periode.nb_jours_presents`| Calcul | Somme jours présents + fériés travaillés| - | - | - | Non | Non | Oui (Décompte) | Oui | Confirmé |
-| `SAL_BASE_MENS` | Salaire de Base Mensuel| Contractuel | Forfait contractuel mensuel | Decimal | MGA | `employe_affectation_carriere.salaire_base`| Fixe | Valeur brute contractuelle | - | - | - | Oui | Oui | Oui | Oui | Confirmé |
-| `SAL_TAUX_HORAIRE` | Taux Horaire Contractuel | Dérivé | Taux de valorisation de l'heure | Decimal | MGA/h | Dérivé (`SAL_BASE_MENS` / `DIV_HEURES`) | Calcul | $SAL\_BASE\_MENS / 173.3333$ | Base | - | - | - | - | Oui | Oui | Confirmé |
-| `SAL_BASE_PRORAT` | Salaire de Base Proratisé| Rémunération | Salaire base ajusté entrées/sorties/absences| Decimal | MGA | Calcul Moteur | Calcul | $SAL\_BASE\_MENS \times \frac{JoursActifs}{JoursOuvrables}$ | Base | Ratio | - | Oui | Oui | Oui | Oui | Confirmé |
-| `HS_NB_30` | Heures Sup. Majorées 30%| Pointage | Heures sup. tranche 1 (41e à 48e h/semaine)| Decimal | Heures | `pointage_cumul_periode.heures_hs_30` | Calcul | 0 si CADRE, cumul hebdos si AGENT | - | - | 8h/sem | - | - | Oui | Oui | Confirmé |
-| `HS_MNT_30` | Montant HS 30% | Rémunération | Rémunération des HS tranche 1 | Decimal | MGA | Calcul Moteur | Calcul | $HS\_NB\_30 \times SAL\_TAUX\_HORAIRE \times 1.30$| $TauxH$| 130% | - | Oui | Oui | Oui | Oui | Confirmé |
-| `HS_NB_50` | Heures Sup. Majorées 50%| Pointage | Heures sup. tranche 2 (> 48e h/semaine) | Decimal | Heures | `pointage_cumul_periode.heures_hs_50` | Calcul | 0 si CADRE, cumul hebdos si AGENT | - | - | - | - | - | Oui | Oui | Confirmé |
-| `HS_MNT_50` | Montant HS 50% | Rémunération | Rémunération des HS tranche 2 | Decimal | MGA | Calcul Moteur | Calcul | $HS\_NB\_50 \times SAL\_TAUX\_HORAIRE \times 1.50$| $TauxH$| 150% | - | Oui | Oui | Oui | Oui | Confirmé |
-| `NUIT_NB_HEURES` | Heures de Nuit | Pointage | Heures travaillées entre 22h et 05h | Decimal | Heures | `pointage_cumul_periode.heures_nuit_total`| Calcul | Cumul pointage quotidien de nuit | - | - | - | - | - | Oui | Oui | Confirmé |
-| `NUIT_MNT_MAJ` | Majoration Heures Nuit | Rémunération | Prime de nuit (+30%) | Decimal | MGA | Calcul Moteur | Calcul | $NUIT\_NB\_HEURES \times SAL\_TAUX\_HORAIRE \times 0.30$| $TauxH$| 30% | - | Oui | Oui | Oui | Oui | Confirmé |
-| `FERIE_NB_JOURS` | Jours Fériés Travaillés | Pointage | Nombre de jours fériés travaillés | Decimal | Jours | `pointage_cumul_periode.nb_jours_ferie_travaille`| Calcul | Cumul des jours fériés prestés | - | - | - | - | - | Oui | Oui | Confirmé |
-| `FERIE_MNT_MAJ` | Majoration Jours Fériés | Rémunération | Majoration travail jour férié (+100%) | Decimal | MGA | Calcul Moteur | Calcul | $FERIE\_NB\_JOURS \times (SAL\_BASE / 30) \times 1.0$| Jour | 100% | - | Oui | Oui | Oui | Oui | Confirmé |
-| `ABS_RETENUE_H` | Retenue Retards / Absences| Déduction | Retards nets non compensés ou non justifiés | Decimal | MGA | Calcul Moteur | Calcul | $heures\_absence\_retenues \times SAL\_TAUX\_HORAIRE$| $TauxH$| -100%| - | Réduit Brut| Réduit Cotis.| Oui | Oui | Confirmé |
-| `PRIME_ANC` | Prime d'Ancienneté | Rémunération | Prime liée à la fidélité dans l'entreprise | Decimal | MGA | Règle Entreprise / Contrat | Calcul | ⚠ À confirmer : barème d'ancienneté ? | Base | % | - | Oui | Oui | Oui | Oui | ⚠ À VÉRIFIER |
-| `PRIME_EXCEPT` | Primes Exceptionnelles | Rémunération | Bonus, gratifications, performance | Decimal | MGA | Saisie DAF (`variable_paie_mensuelle`) | Saisie | Saisi par DAF avec motif | - | - | - | Oui | Oui | Oui | Oui | Confirmé |
-| `IND_DEPLACEMENT` | Indemnité de Déplacement| Indemnité | Indemnité de transport mensuelle/journalière| Decimal | MGA | `pointage_cumul_periode.montant_deplacement`| Calcul | Cascade indemnités (31 200 Ar TNR, 53 200 Ar TMM)| - | - | - | Non | ⚠ À VÉRIF | Oui | Oui | Confirmé |
-| `IND_REPAS` | Indemnité de Repas | Indemnité | Prise en charge repas du midi | Decimal | MGA | `pointage_cumul_periode.montant_repas` | Calcul | Jours éligibles × forfait site (2 000 Ar TNR) | - | - | - | Non | ⚠ À VÉRIF | Oui | Oui | Confirmé |
-| `REM_FRAIS_PRO` | Remboursement Frais | Indemnité | Notes de frais professionnels validées | Decimal | MGA | Saisie DAF (`variable_paie_mensuelle`) | Saisie | Total des notes de frais justifiées | - | - | - | Non | Non | Oui | Oui | Confirmé |
-| `BRUT_TOTAL` | Salaire Brut Global | Total | Total des éléments bruts de rémunération | Decimal | MGA | Calcul Moteur | Calcul | $\sum(Gains\ Bruts) - Retenues\ Absences$ | - | - | - | - | - | Oui | Oui | Confirmé |
-| `ASSIETTE_CNAPS` | Assiette de Cotisation CNaPS| Assiette | Base de calcul plafonnée à 8 × SME | Decimal | MGA | Calcul Moteur | Calcul | $Min(BRUT\_TOTAL,\ 8 \times SME\_NATIONAL)$ | Brut | - | 8×SME | - | - | Oui | Oui | Confirmé |
-| `CNAPS_SAL` | Cotisation CNaPS Salariale| Retenue | Part salariale CNaPS (1%) | Decimal | MGA | `CalculateurPaieEngine.calculerCnaps` | Calcul | $ASSIETTE\_CNAPS \times 1\%$ | CNaPS | 1.0% | $8 \times SME \times 1\%$ | Déductible IRSA| Retenue | Oui | Oui | Confirmé |
-| `CNAPS_PAT` | Cotisation CNaPS Patronale| Charge Pat. | Part patronale CNaPS (13%) | Decimal | MGA | `CalculateurPaieEngine.calculerCnaps` | Calcul | $ASSIETTE\_CNAPS \times 13\%$ | CNaPS | 13.0% | $8 \times SME \times 13\%$| - | Charge Pat. | Oui (Total Pat.)| Oui | Confirmé |
-| `ASSIETTE_SANTE` | Assiette Cotisation Santé | Assiette | Base de calcul organisme médical (Brut) | Decimal | MGA | Calcul Moteur | Calcul | $BRUT\_TOTAL$ (non plafonnée) | Brut | - | Aucun | - | - | Oui | Oui | Confirmé |
-| `SANTE_SAL` | Cotisation Santé Salariale| Retenue | Part salariale santé (OSTIE 1% ou OMSI 1.5%)| Decimal | MGA | `CalculateurPaieEngine.calculerSante` | Calcul | $ASSIETTE\_SANTE \times TauxSalarialSite$ | Santé | 1% / 1.5%| Aucun | Déductible IRSA| Retenue | Oui | Oui | Confirmé |
-| `SANTE_PAT` | Cotisation Santé Patronale| Charge Pat. | Part patronale santé (OSTIE 5% ou OMSI 5.5%)| Decimal | MGA | `CalculateurPaieEngine.calculerSante` | Calcul | $ASSIETTE\_SANTE \times TauxPatronalSite$ | Santé | 5% / 5.5%| Aucun | - | Charge Pat. | Oui (Total Pat.)| Oui | Confirmé |
-| `FMFP_PAT` | Contribution FMFP Patronale| Charge Pat. | Formation professionnelle patronale (1%) | Decimal | MGA | Calcul Moteur | Calcul | $ASSIETTE\_CNAPS \times 1\%$ (ou Brut non plaf.)| Assiette| 1.0% | ⚠ À VÉRIF | - | Charge Pat. | Oui (Total Pat.)| Oui | ⚠ À VÉRIFIER |
-| `TOT_COTIS_SAL` | Total Cotisations Salariales| Total | Somme des charges sociales retenues | Decimal | MGA | Calcul Moteur | Calcul | $CNAPS\_SAL + SANTE\_SAL$ | - | - | - | - | - | Oui | Oui | Confirmé |
-| `BASE_IRSA` | Base Imposable IRSA | Assiette | Revenu brut imposable à l'IRSA | Decimal | MGA | Calcul Moteur | Calcul | $BRUT\_TOTAL - TOT\_COTIS\_SAL$ | Brut Net| - | - | Base IRSA | - | Oui | Oui | Confirmé |
-| `BASE_IRSA_ARRONDIE`| Base IRSA Arrondie | Assiette | Base arrondie à la centaine inférieure | Decimal | MGA | Calcul Moteur | Calcul | $Floor(BASE\_IRSA / 100) \times 100$ | Base | - | - | Base IRSA | - | Oui | Oui | ⚠ À VÉRIFIER |
-| `IRSA_BRUT` | IRSA Brut par Tranches | Fiscal | Impôt calculé selon le barème progressif | Decimal | MGA | `CalculateurPaieEngine.calculerIrsa` | Calcul | Application tranches 1 à 6 | Tranches| 0% à 25% | - | - | - | Non | Oui | Confirmé |
-| `IRSA_DEDUC_ENF` | Réduction IRSA Enfants | Fiscal | Déduction fiscale pour charges de famille | Decimal | MGA | `CalculateurPaieEngine.calculerIrsa` | Calcul | $EMP\_CHARGE\_FAM \times 2\,000\text{ Ar}$ | Enfant | 2 000 Ar | - | - | - | Oui | Oui | Confirmé |
-| `IRSA_NET` | IRSA Net Décompté | Retenue | Impôt final prélevé à la source | Decimal | MGA | `CalculateurPaieEngine.calculerIrsa` | Calcul | $Max(IRSA\_BRUT - IRSA\_DEDUC\_ENF,\ 3\,000)$| - | - | - | Impôt Déduit | - | Oui | Oui | Confirmé |
-| `ISI_RETENUE` | Retenue ISI 5% (Consultants)| Retenue | Impôt synthétique intermédiaire 5% | Decimal | MGA | Calcul Moteur | Calcul | $BRUT\_TOTAL \times 5\%$ (si CONSULTANT) | Brut | 5.0% | Aucun | Impôt Déduit | - | Oui | Oui | Confirmé |
-| `AVANCE_SALAIRE` | Avance sur Salaire | Déduction | Avance exceptionnelle accordée en cours de mois| Decimal| MGA | `variable_paie_mensuelle` | Saisie | Saisi par DAF et validé trésorerie | - | - | - | Non | Non | Oui | Oui | Confirmé |
-| `ACOMPTE_15` | Acompte de Quinzaine | Déduction | Acompte versé au milieu du mois | Decimal | MGA | `variable_paie_mensuelle` | Saisie | Saisi par DAF et validé trésorerie | - | - | - | Non | Non | Oui | Oui | Confirmé |
-| `PRET_ECHEANCE` | Échéance Prêt Entreprise | Déduction | Mensualité de remboursement prêt interne | Decimal | MGA | `pret_employe` | Automatique| Mensualité configurée de l'emprunt | - | - | - | Non | Non | Oui | Oui | Confirmé |
-| `SAISIE_ARRET` | Saisie sur Salaire / Pension | Déduction | Décision judiciaire ou avis à tiers détenteur | Decimal | MGA | Saisie DAF | Saisie | Montant ordonné selon quotité cessible | - | - | Quotité légale| Non | Non | Oui | Oui | ⚠ À VÉRIFIER |
-| `TOT_RETENUES` | Total des Retenues | Total | Somme des cotisations, impôts et avances | Decimal | MGA | Calcul Moteur | Calcul | $TOT\_COTIS\_SAL + IRSA\_NET + Avances + Prêts$| - | - | - | - | - | Oui | Oui | Confirmé |
-| `NET_A_PAYER` | Net à Payer Final (Net à Verser)| Total | Montant net viré sur le compte bancaire | Decimal | MGA | Calcul Moteur | Calcul | $BRUT\_TOTAL + NonImposables - TOT\_RETENUES$| - | - | - | - | - | Oui | Oui | Confirmé |
-| `COUT_GLOBAL_PAT` | Coût Total Employeur | Employeur | Total masse salariale déboursée pour le poste| Decimal | MGA | Calcul Moteur | Calcul | $BRUT\_TOTAL + CNAPS\_PAT + SANTE\_PAT + FMFP$| - | - | - | - | - | Oui (Pied) | Oui | Confirmé |
+| `EMP_MATR` | Matricule Employé | Identité | Identifiant unique interne | String | Code | `employe.matricule` | Saisie | Clé d'identification | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
+| `EMP_NOM` | Nom et Prénoms | Identité | Identité complète collaborateur | String | Texte | `employe.nom`, `prenom` | Saisie | Concaténation nom + prénom | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
+| `EMP_CIN` | N° Carte Identité / Résident | Identité | N° CIN pour déclarations fiscales | String | Code | `employe.cin_numero` | Saisie | Donnée dossier employé | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
+| `EMP_CNAPS` | N° Affiliation CNaPS | Identité | N° immatriculation sécurité sociale | String | Code | `employe.num_affiliation_cnaps` | Saisie | Donnée dossier employé | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
+| `EMP_POSTE` | Fonction / Emploi | Contractuel | Poste occupé selon affectation | String | Texte | `ref_fonction.libelle` | Fixe | Affectation active | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
+| `EMP_CAT` | Catégorie Professionnelle | Contractuel | Statut conventionnel (Cadre / Agent)| String | Code | `ref_categorie_professionnelle` | Fixe | `CADRE` (pas de HS) vs `A` | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
+| `EMP_SITE` | Site d'Affectation | Organisation | Localisation physique de travail | String | Code | `ref_site.code_site` | Fixe | TNR (Siège) ou TMM (Agence Port)| - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
+| `EMP_FILIALE`| Filiale Juridique | Organisation | Entité contractuelle de rattachement| String | Texte | `ref_filiale.nom` | Fixe | GALAXAM ou Vina sy Asa | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
+| `EMP_ENFANTS`| Enfants à Charge | Fiscal | Nombre d'enfants éligibles (< 21 ans)| Integer| Nombre | `employe_enfant` | Calcul | Count(`a_charge = true`) | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
+| `EMP_BANQUE` | Coordonnées Bancaires | Trésorerie | Banque, code guichet, compte, clé | String | Texte | `employe_compte_banque` | Fixe | Compte principal pour virement | - | - | - | Non | Non | Oui (Pied) | Oui | Confirmé |
+| `PER_DEB` | Date Début Période Pointage | Période | Date début décalée du cycle | Date | Date | `periode_paie.date_debut` | Fixe | 26 du mois M-1 | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
+| `PER_FIN` | Date Fin Période Pointage | Période | Date fin décalée du cycle | Date | Date | `periode_paie.date_fin` | Fixe | 25 du mois M | - | - | - | Non | Non | Oui (En-tête) | Oui | Confirmé |
+| `PER_JR_OUVR`| Jours Ouvrables Période | Calendrier | Nombre de jours ouvrables du mois | Integer | Jours | `fn_jours_ouvrables` | Calcul | Lundi-Vendredi hors fériés chômés | - | - | - | Non | Non | Oui (Décompte)| Oui | Confirmé |
+| `PER_JR_PRES`| Jours Présents Réels | Pointage | Nombre de jours travaillés pointés | Decimal | Jours | `pointage_cumul_periode` | Calcul | Somme des présences validées | - | - | - | Non | Non | Oui (Décompte)| Oui | Confirmé |
+| `SAL_BASE` | Salaire de Base Contractuel | Contractuel | Rémunération contractuelle mensuelle | Decimal | MGA | `employe_affectation_carriere` | Fixe | Salaire contractuel de base | - | - | - | Oui | Oui | Oui | Oui | Confirmé |
+| `SAL_TX_HOR` | Taux Horaire Contractuel | Dérivé | Taux de base horaire | Decimal | MGA/h | Calcul Moteur | Calcul | $SAL\_BASE / 173.3333$ | $SAL\_BASE$ | - | - | - | - | Oui | Oui | Confirmé |
+| `NBABS` | Nombre de Jours d'Absence | Pointage | Jours d'absence non rémunérés | Decimal | Jours | `pointage_cumul_periode` | Calcul | Absences injustifiées + sans solde | - | - | - | - | - | Oui | Oui | Confirmé |
+| `MNT_ABS` | Retenue pour Absences | Rémunération | Montant déduit pour absences | Decimal | MGA | Calcul Moteur | Calcul | $NBABS \times (SAL\_BASE / 30)$ | $SAL\_BASE$ | $1/30$ | - | Réduit Brut| Réduit Cotis.| Oui | Oui | Confirmé |
+| `NBCONGE` | Jours de Congés Pris | Congés | Jours de congés payés posés | Decimal | Jours | `demande_conge` / Pointage | Calcul | Somme jours CP validés du mois | - | - | - | - | - | Oui | Oui | Confirmé |
+| `TCONGE` | Taux Journalier de Congé | Congés | Valeur journalière de l'indemnité CP| Decimal | MGA/j | Fichier suivi congés / BDD | Saisie/Calc | Taux moyen journalier acquis | - | - | - | - | - | Oui | Oui | ⚠ À VÉRIF |
+| `MNT_CONGE` | Montant Indemnité Congé | Rémunération | Indemnité de congés payés | Decimal | MGA | Calcul Moteur | Calcul | $NBCONGE \times TCONGE$ | $TCONGE$ | - | - | Oui | Oui | Oui | Oui | Confirmé |
+| `HS_30_H` | Heures Sup. Majorées 30% | Pointage | Heures au-delà de 40h (max 8h/sem) | Decimal | Heures | `pointage_cumul_periode` | Calcul | 0 si CADRE, cumul hebdos si AGENT | - | - | 8h/sem | - | - | Oui | Oui | Confirmé |
+| `HS_30_MNT` | Montant Heures Sup. 30% | Rémunération | Valorisation financière HS 30% | Decimal | MGA | Calcul Moteur | Calcul | $HS\_30\_H \times SAL\_TX\_HOR \times 1.30$| $TxHor$| 130% | - | Oui | Oui | Oui | Oui | Confirmé |
+| `HS_50_H` | Heures Sup. Majorées 50% | Pointage | Heures au-delà de la 48e heure/sem | Decimal | Heures | `pointage_cumul_periode` | Calcul | 0 si CADRE, cumul hebdos si AGENT | - | - | - | - | - | Oui | Oui | Confirmé |
+| `HS_50_MNT` | Montant Heures Sup. 50% | Rémunération | Valorisation financière HS 50% | Decimal | MGA | Calcul Moteur | Calcul | $HS\_50\_H \times SAL\_TX\_HOR \times 1.50$| $TxHor$| 150% | - | Oui | Oui | Oui | Oui | Confirmé |
+| `HS_TOT_MNT` | Total Montant Heures Sup. | Rémunération | Somme HS 30% + HS 50% | Decimal | MGA | Calcul Moteur | Calcul | $HS\_30\_MNT + HS\_50\_MNT$ | - | - | - | Oui | Oui | Oui | Oui | Confirmé |
+| `PRIME_PERF` | Prime de Performance Nette | Rémunération | Prime performance après prorata/malus| Decimal | MGA | Feuille `AJUSTEMENT` / Moteur | Calcul | $PP_{base} \times \frac{JoursTrav}{JoursOuvr} - Malus$| $PP_{base}$| Prorata | - | Oui | Oui | Oui | Oui | Confirmé |
+| `PRIME_ASSID`| Prime d'Assiduité | Rémunération | Prime assiduité si retards < 45 min | Decimal | MGA | Feuille `AJUSTEMENT` / Moteur | Calcul | Montant forfaitaire accordé si éligible | - | - | - | Oui | Oui | Oui | Oui | Confirmé |
+| `AUTIMP` | Autres Montants Imposables | Rémunération | Total des primes et gratifications | Decimal | MGA | Calcul Moteur | Calcul | $PRIME\_PERF + PRIME\_ASSID + Primes$ | - | - | - | Oui | Oui | Oui | Oui | Confirmé |
+| `BRUTE` | Salaire Brut Global | Total Brut | Rémunération brute globale | Decimal | MGA | Calcul Moteur | Calcul | $SAL\_BASE - MNT\_ABS + MNT\_CONGE + HS + AUTIMP$| - | - | - | - | - | Oui | Oui | Confirmé |
+| `PLAF_CNAPS` | Plafond Mensuel CNaPS | Paramètre | Plafond légal de cotisation CNaPS | Decimal | MGA | `paie_config_legale` | Paramètre | $8 \times SME\_NATIONAL$ ($2\,101\,440\text{ Ar}$)| $SME$ | $8\times$ | $2\,101\,440$ | - | - | Non | Oui | Confirmé |
+| `ASS_CNAPS` | Assiette de Cotisation CNaPS| Assiette | Assiette brute plafonnée à 8x SME | Decimal | MGA | Calcul Moteur | Calcul | $Min(BRUTE,\ PLAF\_CNAPS)$ | $BRUTE$ | - | $8\times SME$ | - | - | Oui | Oui | Confirmé |
+| `CNAPS_SAL` | Cotisation CNaPS Salariale | Retenue | Part salariale CNaPS (1%) | Decimal | MGA | `CalculateurPaieEngine` | Calcul | $ASS\_CNAPS \times 1\%$ | $ASS\_CNAPS$| 1.0% | 21 014.40 Ar | Déductible | Retenue | Oui | Oui | Confirmé |
+| `CNAPS_PAT` | Cotisation CNaPS Patronale | Charge Pat. | Part patronale CNaPS (13%) | Decimal | MGA | `CalculateurPaieEngine` | Calcul | $ASS\_CNAPS \times 13\%$ | $ASS\_CNAPS$| 13.0% | 273 187.20 Ar| - | Charge Pat. | Oui (Pied) | Oui | Confirmé |
+| `OSTIE_SAL` | Cotisation OSTIE Salariale | Retenue | Médecine travail Antananarivo (1%) | Decimal | MGA | `CalculateurPaieEngine` | Calcul | $BRUTE \times 1\%$ (si site TNR) | $BRUTE$ | 1.0% | Non plafonné | Déductible | Retenue | Oui | Oui | Confirmé |
+| `OSTIE_PAT` | Cotisation OSTIE Patronale | Charge Pat. | Médecine travail Antananarivo (5%) | Decimal | MGA | `CalculateurPaieEngine` | Calcul | $BRUTE \times 5\%$ (si site TNR) | $BRUTE$ | 5.0% | Non plafonné | - | Charge Pat. | Oui (Pied) | Oui | Confirmé |
+| `OMSI_SAL` | Cotisation OMSI Salariale | Retenue | Médecine travail Toamasina (1.5%) | Decimal | MGA | `CalculateurPaieEngine` | Calcul | $BRUTE \times 1.5\%$ (si site TMM) | $BRUTE$ | 1.5% | Non plafonné | Déductible | Retenue | Oui | Oui | Confirmé |
+| `OMSI_PAT` | Cotisation OMSI Patronale | Charge Pat. | Médecine travail Toamasina (5.5%) | Decimal | MGA | `CalculateurPaieEngine` | Calcul | $BRUTE \times 5.5\%$ (si site TMM) | $BRUTE$ | 5.5% | Non plafonné | - | Charge Pat. | Oui (Pied) | Oui | Confirmé |
+| `FMFP_PAT` | Contribution FMFP Patronale | Charge Pat. | Formation professionnelle (1% pat.) | Decimal | MGA | Calcul Moteur | Calcul | $BRUTE \times 1\%$ (à la charge employeur) | $BRUTE$ | 1.0% | Non plafonné | - | Charge Pat. | Oui (Pied) | Oui | Confirmé |
+| `NETI` | Salaire Net Imposable | Assiette | Revenu net soumis au barème IRSA | Decimal | MGA | Calcul Moteur | Calcul | $BRUTE - CNAPS\_SAL - (OSTIE\_SAL + OMSI\_SAL)$| $BRUTE$ | - | - | Assiette IRSA | - | Oui | Oui | Confirmé |
+| `ASS_IRSA` | Assiette IRSA Arrondie | Assiette | Assiette fiscale arrondie | Decimal | MGA | Calcul Moteur | Calcul | $100 \times \lfloor NETI / 100 \rfloor$ | $NETI$ | - | - | Assiette IRSA | - | Non | Oui | Confirmé |
+| `IRSA_BRUT` | IRSA Brut Calculé | Fiscal | Impôt progressif selon 6 tranches | Decimal | MGA | `CalculateurPaieEngine` | Calcul | Barème CGI appliqué sur `ASS_IRSA` | Tranches | 0% à 25% | - | - | - | Non | Oui | Confirmé |
+| `IRSA_ARR` | IRSA Arrondi | Fiscal | Arrondi légal de l'impôt brut | Decimal | MGA | Calcul Moteur | Calcul | $\lceil IRSA\_BRUT / 10 \rceil \times 10$ | $IRSA\_BRUT$| - | - | - | - | Non | Oui | Confirmé |
+| `RED_ENFT` | Réduction Charges de Famille | Fiscal | Réduction d'impôt pour enfants | Decimal | MGA | Calcul Moteur | Calcul | $EMP\_ENFANTS \times 2\,000\text{ Ar}$ | Enfant | 2 000 Ar | - | Déduction IRSA| - | Oui | Oui | Confirmé |
+| `IRSA_NET` | IRSA Net Dû à Retenir | Retenue | Impôt final prélevé à la source | Decimal | MGA | Calcul Moteur | Calcul | $Max(IRSA\_ARR - RED\_ENFT,\ MIN\_PERCEPTION)$| - | - | Plancher 3 000 Ar| Impôt Déduit| - | Oui | Oui | Confirmé |
+| `ISI_MNT` | Retenue Fiscale ISI 5% | Retenue | Retenue à la source 5% (Consultant) | Decimal | MGA | Calcul Moteur | Calcul | $BRUTE \times 5\%$ (si intervenant = CONSULTANT)| $BRUTE$ | 5.0% | Non plafonné | Impôt Déduit| - | Oui | Oui | Confirmé |
+| `IND_DEPL` | Indemnité Déplacement Net | Non Soumis | Indemnité de transport proratisée | Decimal | MGA | `pointage_cumul_indemnite` | Calcul | TNR: $31\,200\text{ Ar}$ prorata; TMM: $53\,200\text{ Ar}$| Jours | Forfait | - | Non | Non | Oui | Oui | Confirmé |
+| `IND_REPAS` | Indemnité de Repas Net | Non Soumis | Prise en charge repas midi (non imposable)| Decimal | MGA | `EJOURNAL` (Col Z) / Pointage | Calcul | $NbJoursRepas \times 2\,000\text{ Ar}$ (TNR) | Jours | 2 000 Ar | - | Non | Non | Oui | Oui | Confirmé |
+| `AVANCE` | Acompte de Quinzaine | Déduction | Acompte versé au 15 du mois | Decimal | MGA | `variable_paie_mensuelle` | Saisie | Saisi par DAF et validé trésorerie | - | - | - | Non | Non | Oui | Oui | Confirmé |
+| `AVCE_SPEC` | Avance Spéciale | Déduction | Avance exceptionnelle d'urgence | Decimal | MGA | `variable_paie_mensuelle` | Saisie | Saisi par DAF et validé trésorerie | - | - | - | Non | Non | Oui | Oui | Confirmé |
+| `PRET_MENS` | Mensualité Prêt Entreprise | Déduction | Remboursement d'emprunt société | Decimal | MGA | `pret_employe` | Automatique | Échéance planifiée du prêt | - | - | Quotité 1/3 | Non | Non | Oui | Oui | Confirmé |
+| `CALL_PERSO`| Communications Personnelles | Déduction | Dépassement flotte / appels privés | Decimal | MGA | `EJOURNAL` (Col AB) / Saisie DAF | Saisie | Relevé opérateur téléphonique | - | - | - | Non | Non | Oui | Oui | Confirmé |
+| `TOT_RETEN` | Total des Retenues Salariales | Total | Somme cotisations + impôt + déductions | Decimal | MGA | Calcul Moteur | Calcul | $CNAPS\_SAL + SANTE\_SAL + IRSA\_NET + AVANCE + PRET + CALL$| - | - | - | - | - | Oui | Oui | Confirmé |
+| `NET_A_PAYER`| Salaire Net Final | Total Net | Montant net dû au salarié | Decimal | MGA | Calcul Moteur | Calcul | $NETI - IRSA\_NET + RED\_ENFT + IND\_REPAS - AVANCE - CALL$| - | - | - | - | - | Oui | Oui | Confirmé |
+| `ARRONDI_NET`| Net à Payer Arrondi (Bancaire)| Total Net | Net arrondi viré sur le compte | Decimal | MGA | Calcul Moteur | Calcul | $MROUND(NET\_A\_PAYER,\ 10)$ | $NET$ | - | Multiple de 10 | - | - | Oui (Pied) | Oui | Confirmé |
+| `COUT_PAT` | Coût Global Employeur | Total Pat. | Charge totale employeur pour le poste | Decimal | MGA | Calcul Moteur | Calcul | $BRUTE + CNAPS\_PAT + SANTE\_PAT + FMFP\_PAT$ | - | - | - | - | - | Oui (Pied) | Oui | Confirmé |
 
 ---
 
 ## 7. VARIABLES ET DONNÉES MANQUANTES
 
-L'analyse minutieuse révèle que certaines données sont indispensables au calcul ou doivent être formellement créées avant de pouvoir exécuter une paie sans risque juridique :
+### 7.1 Niveau CRITIQUE (Bloquant pour l'implémentation)
+1. **Tables de Stockage du Bulletin (`bulletin_paie`, `bulletin_ligne`, `bulletin_cotisation`)** :
+   - *Besoin* : Aucune table n'existe actuellement en BDD pour persister les résultats d'un calcul de paie.
+   - *Immutabilité* : Obligation de figer en dur (snapshotting) le salaire de base, le taux horaire, les assiettes, taux et montants dès que la période passe au statut `CLOTUREE`.
+2. **Table des Mouvements de Trésorerie Mensuels (`variable_paie_mensuelle`, `pret_employe`)** :
+   - *Besoin* : Indispensable pour saisir et historiser les acomptes du 15, les avances spéciales, les mensualités de prêts et les déductions pour `CALL PERSO`.
+3. **Formule Officielle du Taux Journalier de Congé (`TCONGE`)** :
+   - *Besoin* : Dans les classeurs réels (`EJOURNAL`), `TCONGE` est saisi manuellement à partir d'un fichier externe. Le SIRH doit disposer d'un moteur automatique de calcul de l'indemnité compensatrice de congé (règle du 1/30ème ou maintien de salaire).
 
-### 7.1 Niveau CRITIQUE (Bloquant pour le calcul de paie)
-1. **Modélisation BDD du Bulletin de Paie (`bulletin_paie`, `bulletin_ligne`, `bulletin_cotisation`)** :
-   * *Pourquoi* : Actuellement, aucune table n'existe pour stocker le résultat d'un calcul de paie.
-   * *Où la stocker* : Nouvelles tables PostgreSQL dédiées à la paie avec contrainte d'unicité `(id_employe, id_periode_paie)`.
-   * *Immutabilité* : Obligation de figer en dur toutes les valeurs calculées lors du passage au statut `CLOTURE`.
-2. **Table opérationnelle des Variables de Paie du Mois (`variable_paie_mensuelle`)** :
-   * *Pourquoi* : Impossible de déduire un acompte de quinzaine, une avance exceptionnelle, ou d'ajouter une prime sans table de saisie validée par la DAF. (Documentée dans `module-paie-avances-frais.md` mais jamais migrée en SQL).
-   * *Rôle* : Saisie par RH/Trésorerie, validée par DAF avant lancement du calcul.
-3. **Plafond et Quotité Cessible pour Retenues sur Salaire (Code du Travail Art. 74-76)** :
-   * *Pourquoi* : La loi interdit de saisir l'intégralité du salaire d'un employé pour rembourser un prêt ou une avance. Une quotité saisissable maximale (ex: 1/3 ou barème par tranches) doit être configurée pour plafonner les déductions mensuelles.
+### 7.2 Niveau IMPORTANT (Nécessaire pour la conformité et les déclarations légales)
+1. **Ligne Cotisation Patronale FMFP (1%) dans `ref_type_cotisation`** :
+   - *Besoin* : Obligation légale pour la formation professionnelle continue adossée à la déclaration CNaPS trimestrielle.
+2. **Date Limite d'Âge des Enfants à Charge** :
+   - *Besoin* : Contrôle de l'éligibilité fiscale (< 21 ans, ou < 25 ans avec certificat de scolarité valide) sur `employe_enfant`.
+3. **Garde-fou de Quotité Cessible (Art. 68 du Code du Travail)** :
+   - *Besoin* : Contrôle bloquant empêchant le total des déductions mensuelles (prêts + acomptes) de dépasser le tiers (33.33%) du net disponible.
 
-### 7.2 Niveau IMPORTANT (Nécessaire pour la conformité et les déclarations officielles)
-1. **Cotisation Patronale FMFP (Fonds Malgache de Formation Professionnelle)** :
-   * *Pourquoi* : Obligation légale pour toutes les entreprises à Madagascar (Loi n°2017-023, taux de 1% patronal). Mentionnée dans le cahier des charges mais absente de `ref_type_cotisation`.
-2. **Date Limite d'Âge et Statut des Enfants à Charge (IRSA)** :
-   * *Pourquoi* : Actuellement, `employe_enfant` possède un simple booléen `a_charge = true`. La loi fiscale malgache limite la déduction aux enfants mineurs (< 21 ans) ou poursuivant des études supérieures (jusqu'à 25 ans avec certificat de scolarité), ou infirmes sans limite d'âge.
-   * *Action requise* : Un contrôle temporel sur la date de naissance de l'enfant et la validation annuelle du justificatif de scolarité.
-3. **Gestion des Cotisations Sociales sur les Indemnités (Transport / Repas)** :
-   * *Pourquoi* : `ref_indemnite` ne possède que la colonne `imposable_irsa`. Il manque la colonne `soumis_cnaps`. Or, la CNaPS exige que les indemnités forfaitaires non justifiées soient soumises à cotisation sauf exonération spécifique.
-
-### 7.3 Niveau OPTIONNEL (Améliorations futures et confort opérationnel)
-1. **Échéancier automatisé des Prêts d'Entreprise (`pret_employe`)** :
-   * *Pourquoi* : Permet au moteur d'intégrer automatiquement l'échéance mensuelle $N$ sur $Total$ sans ressaisie manuelle chaque mois.
-2. **Génération automatisée des Ordres de Virement Bancaire (Format SEPA ou txt BNI/BOA/BFV)** :
-   * *Pourquoi* : Génération du fichier d'échange bancaire au format attendu par les banques partenaires de GALAXAM.
-3. **Module de Rapprochement Comptable (Export Écritures Journal de Paie)** :
-   * *Pourquoi* : Génération automatique des écritures de débit/crédit pour le logiciel de comptabilité (Comptes 641, 645, 421, 431, 442, etc.).
+### 7.3 Niveau OPTIONNEL (Améliorations futures)
+1. **Génération automatisée des ordres de virement bancaire** : Fichier conforme au standard interbancaire malgache (BNI, BFV-SG, BOA, MCB).
+2. **Déversement comptable automatique** : Export des écritures de journal de paie (OD de paie - classe 6 et classe 4).
 
 ---
 
 ## 8. RÈGLES MÉTIER
 
-### RG-PAIE-M01 : Éligibilité et Rattachement Périodique
-* Un collaborateur fait l'objet d'un bulletin de salaire sur la période `P` si et seulement si :
-  1. Il possède un contrat actif (`id_statut_rh` correspondant à `ACTIF`, ou ayant pris fin au cours de ladite période `P`).
-  2. Son type d'intervenant n'est pas `STAGIAIRE_NON_REMUNERE`.
-  3. La synthèse de pointage de la période `P` est validée (`VALIDEE`) ou scellée (`CLOTUREE`) par la DAF.
+### RG-PAIE-M01 : Période de Pointage Décalée (26 au 25)
+* La période de référence pour les pointages, heures supplémentaires, retards et indemnités journalières commence le **26 du mois M-1** et s'achève le **25 du mois M**.
+* Le mois d'imputation comptable, fiscale (IRSA) et de virement effectif est le mois **M**.
 
-### RG-PAIE-M02 : Proratisation des Entrées / Sorties en Cours de Mois
-* Pour un employé embauché ou ayant quitté la société en cours de période :
-  $$\text{Salaire de Base Proratisé} = \text{Salaire Contractuel} \times \frac{\text{Nombre de Jours Ouvrés Effectifs Travaillés}}{\text{Nombre Total de Jours Ouvrés du Mois}}$$
-* Ce prorata temporis s'applique également aux salariés mensualisés. *(Règle validée et testée dans `BulletinPaiePreparationIntegrationTest.testBulletinPaieProrataTemporisEmp5`)*.
+### RG-PAIE-M02 : Formule Réelle des Absences Injustifiées
+* Toute absence non rémunérée donne lieu à une déduction calculée selon la règle du trentième ($1/30$) :
+  $$\text{Taux Journalier d'Absence} = \frac{\text{Salaire de Base}}{30}$$
+  $$\text{Déduction Absence} = \text{NBABS} \times \left(\frac{\text{Salaire de Base}}{30}\right)$$
 
-### RG-PAIE-M03 : Forfait Sans Heures Sup. des Cadres Autonomes
-* Conformément à la convention d'entreprise et au Code du Travail (Art. 83) :
-  * Les collaborateurs classés `CADRE` ne perçoivent aucune rémunération au titre des heures supplémentaires (`HS_30 = 0`, `HS_50 = 0`).
-  * En revanche, les retards nets non compensés peuvent faire l'objet d'un arbitrage DAF ou d'une retenue pour absence si validée lors du scellement du pointage.
+### RG-PAIE-M03 : Règle de Compensation des Retards & Déclenchement des HS
+* Pour les collaborateurs éligibles aux heures supplémentaires (Agents) :
+  * Les retards constatés sont compensés en priorité par les heures travaillées hors horaires normaux au cours de la même semaine : *« On complète d'abord 8 heures par jour avant de basculer en Heures Supplémentaires »*.
+  * Seul l'excédent net au-delà de 40h hebdomadaires donne lieu à majoration pour HS (30% pour les 8 premières, 50% au-delà).
+  * Les cadres sont exclus du régime des heures supplémentaires.
 
-### RG-PAIE-M04 : Décompte et Compensation 1:1 des Retards / Heures Supplémentaires
-* Pour les Agents (`CATEGORIE = 'A'`) :
-  * Les retards constatés au cours d'une semaine ISO sont compensés en priorité à due concurrence (1 heure pour 1 heure) par les heures effectuées au-delà de 8h/jour dans le même tronçon hebdomadaire.
-  * Seul le solde net positif hebdomadaire donne lieu à majoration pour heures supplémentaires.
-  * Le solde négatif non compensé (`heures_absence_retenues`) est transmis à la paie pour déduction sur le taux horaire contractuel.
+### RG-PAIE-M04 : Prorata et Malus sur la Prime de Performance (PP)
+* La Prime de Performance de base est accordée au prorata des jours travaillés :
+  $$\text{PP Proratisée} = \text{PP Base} \times \frac{\text{Jours Présents}}{\text{Jours Ouvrables}}$$
+* Un malus de **25% (un quart)** est appliqué si le collaborateur cumule des retards $> 70\text{ minutes}$ et des congés $> 1\text{ jour}$ sur la période.
 
-### RG-PAIE-M05 : Rémunération des Congés Payés & Maintien de Salaire
-* **Congés Payés Annuels** : Maintien intégral du salaire de base à 100%. Aucune ligne de retenue négative n'apparaît sur le bulletin tant que le collaborateur dispose d'un solde de congés suffisant.
-* **Absences Injustifiées & Congés Sans Solde** : Déduction stricte sur le bulletin :
-  $$\text{Retenue Absence} = \text{Heures Absence} \times \left( \frac{\text{Salaire de Base}}{173.3333} \right)$$
+### RG-PAIE-M05 : Régime de la Prime d'Assiduité (PA)
+* Une Prime d'Assiduité forfaitaire est versée si et seulement si les retards cumulés du mois sont strictement **inférieurs à 45 minutes**.
+
+### RG-PAIE-M06 : Indemnités de Déplacement & de Repas
+* **Antananarivo (Siège)** : Déplacement forfaitaire de $31\,200\text{ Ar / mois}$ proratisé au nombre de jours présents. Repas de midi : $2\,000\text{ Ar / jour}$ avec repas.
+* **Toamasina (Agence Port)** : Déplacement forfaitaire de $53\,200\text{ Ar / mois}$ proratisé (avec déduction de $1\,000\text{ Ar}$ par repas si cantine fournie).
+* **Exonération** : L'indemnité de repas est ajoutée au net après calcul de l'IRSA (totalement exonérée d'IRSA et de cotisations sociales).
+
+### RG-PAIE-M08 : Statut Particulier des Stagiaires (`STAGIAIRE`)
+* Les stagiaires sous convention tripartite (école - étudiant - entreprise) perçoivent le cas échéant une **gratification de stage**.
+* **Régime légal malgache** : La gratification de stage n'ayant pas juridiquement le caractère de salaire, elle est **strictement exonérée de cotisations CNaPS, d'OSTIE/OMSI, de FMFP et d'IRSA** (dans la limite du SME).
+* Aucun bulletin de paie au sens du Code du Travail n'est émis : le système génère un **« Reçu d'indemnité de stage »**.
+
+### RG-PAIE-M09 : Conditions Strictes d'Éligibilité à la Déduction IRSA pour Enfants à Charge (CGI Art. 01.03.14)
+Conformément au Code Général des Impôts malgache, un enfant n'ouvre droit à la réduction de **$2\,000\text{ Ar / mois}$** que s'il remplit l'une des 3 conditions exclusives au 1er jour de la période de paie :
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                        CRITÈRES LÉGAUX D'ÉLIGIBILITÉ FISCALE DES ENFANTS (IRSA)                        │
+├───────────────────────┬───────────────────┬─────────────────────────────────┬──────────────────────────┤
+│ Catégorie de l'Enfant │ Condition d'Âge   │ Justificatif Légal Requis       │ Déduction Fiscale IRSA   │
+├───────────────────────┼───────────────────┼─────────────────────────────────┼──────────────────────────┤
+│ 1. Enfant Mineur      │ Âge < 21 ans      │ Acte de naissance / Livret      │ Éligible (2 000 Ar/mois) │
+├───────────────────────┼───────────────────┼─────────────────────────────────┼──────────────────────────┤
+│ 2. Enfant Étudiant    │ 21 ans ≤ Âge ≤ 25 │ Certificat de scolarité valide  │ Éligible tant que le     │
+│    Majeur             │ ans révolus       │ pour l'année scolaire en cours  │ certificat est valide    │
+├───────────────────────┼───────────────────┼─────────────────────────────────┼──────────────────────────┤
+│ 3. Enfant Invalide    │ Sans limite d'âge │ Certificat médical officiel     │ Éligible permanent       │
+│    / Handicapé        │                   │ d'invalidité ou d'incapacité    │                          │
+├───────────────────────┼───────────────────┼─────────────────────────────────┼──────────────────────────┤
+│ 4. Enfant Majeur      │ Âge ≥ 21 ans      │ Aucun justificatif étudiant     │ STRICTEMENT EXCLU        │
+│    Non-Étudiant       │                   │ valide                          │ (0 Ar de déduction)      │
+└───────────────────────┴───────────────────┴─────────────────────────────────┴──────────────────────────┘
+```
+
+* **Algorithme d'Évaluation Dynamique en Paie** :
+  Lors de l'exécution du moteur pour la période $[D_{debut}, D_{fin}]$ :
+  $$\text{Enfant Éligible} \iff \begin{cases} 
+  \text{Âge}(D_{debut}) < 21\text{ ans} \\
+  \text{OU } (21 \le \text{Âge} \le 25\text{ ans} \text{ ET } est\_etudiant = \text{TRUE} \text{ ET } date\_fin\_scolarite \ge D_{debut}) \\
+  \text{OU } (est\_handicape = \text{TRUE})
+  \end{cases}$$
+* **Évolution de la BDD (`employe_enfant`)** :
+  Ajout des colonnes de contrôle fiscal :
+  - `est_etudiant BOOLEAN DEFAULT FALSE`
+  - `date_fin_scolarite DATE` (date limite de validité du certificat de scolarité)
+  - `est_handicape BOOLEAN DEFAULT FALSE`
+  - `certificat_fourni BOOLEAN DEFAULT FALSE`
 
 ---
 
 ## 9. RÈGLES LÉGALES & CONVENTIONNELLES
 
-### 9.1 Règles Confirmées (Source Légale ou Réglementaire Vérifiée)
-* ⚖ **Plafonnement CNaPS (Code de Prévoyance Sociale Malgache)** :
-  * Assiette CNaPS = $\min(\text{Salaire Brut}, 8 \times \text{SME National})$.
-  * Part Salariale = $1\%$ de l'assiette.
-  * Part Patronale = $13\%$ de l'assiette.
-* ⚖ **Cotisation Santé Inter-entreprises (Décrets Ministériels & Statuts des Organismes)** :
-  * Assiette Santé = Totalité du salaire brut non plafonné.
-  * Pour Antananarivo (OSTIE) : $1\%$ salarié, $5\%$ employeur.
-  * Pour Toamasina (OMSI) : $1.5\%$ salarié, $5.5\%$ employeur.
-* ⚖ **Barème Progressif IRSA 2026 (Loi de Finances n°2025-021)** :
-  * Tranche 1 (0 à 350 000 Ar) : $0\%$
-  * Tranche 2 (350 001 à 400 000 Ar) : $5\%$
-  * Tranche 3 (400 001 à 500 000 Ar) : $10\%$
-  * Tranche 4 (500 001 à 600 000 Ar) : $15\%$
-  * Tranche 5 (600 001 à 4 000 000 Ar) : $20\%$
-  * Tranche 6 (> 4 000 000 Ar) : $25\%$
-* ⚖ **Minimum de Perception IRSA & Déduction Familiale (CGI Art. 01.03.14)** :
-  * Déduction pour charge de famille : $2\,000\text{ Ar}$ par enfant à charge par mois.
-  * Minimum légal d'impôt perçu : $3\,000\text{ Ar}$ par mois (tout salarié imposable ou non imposable après déductions paie au minimum 3 000 Ar).
-* ⚖ **Diviseur Légal de Durée du Travail (Code du Travail Art. 83)** :
-  * 40 heures hebdomadaires $\rightarrow$ Diviseur mensuel exact = $173.3333\text{ heures}$.
+### 9.1 Règles Légales Confirmées (Madagascar)
+* ⚖ **Plafond de Cotisation CNaPS** : Plafonné à $8 \times \text{SME National}$ ($8 \times 262\,680 = 2\,101\,440\text{ Ar}$). Taux salarial = $1\%$, taux patronal = $13\%$.
+* ⚖ **Médecine du Travail (OSTIE / OMSI)** : Assiette brute totale non plafonnée. Antananarivo (OSTIE) : $1\%$ salarié, $5\%$ employeur. Toamasina (OMSI) : $1.5\%$ salarié, $5.5\%$ employeur.
+* ⚖ **Barème Progressif IRSA 2026 (CGI)** :
+  * De 0 à 350 000 Ar : 0%
+  * De 350 001 à 400 000 Ar : 5%
+  * De 400 001 à 500 000 Ar : 10%
+  * De 500 001 à 600 000 Ar : 15%
+  * De 600 001 à 4 000 000 Ar : 20%
+  * Au-delà de 4 000 000 Ar : 25%
+* ⚖ **Réduction pour Charges de Famille** : $2\,000\text{ Ar}$ par mois et par enfant mineur à charge.
+* ⚖ **Minimum de Perception IRSA** : Plancher légal de perception fixé par la Loi de Finances ($3\,000\text{ Ar}$ sous LF 2026).
+* ⚖ **Régime ISI 5%** : Retenue libératoire à la source de 5% sur le montant brut des honoraires pour les prestataires et consultants sans CNaPS ni OSTIE.
 
-### 9.2 Règles Documentées mais À Vérifier formellement
-* ⚠ **Arrondi de la Base IRSA** :
-  * Documenté dans `paie_config_legale.arrondi_base_irsa = 'CENTAINE_INF'`. En pratique fiscale à Madagascar, la base imposable est tronquée à la centaine d'Ariary inférieure avant application des taux de tranche. *À valider avec l'expert-comptable / DAF de GALAXAM*.
-* ⚠ **Traitement de l'Indemnité de Congé Payé non pris (Solde de tout compte)** :
-  * Diviseur 30j calendaires vs 24j ouvrables : L'article 85 du Code du Travail stipule l'indemnité égale au 1/30ème des salaires des 12 derniers mois. *À valider pour les sorties de contrat*.
-* ⚠ **Régime Santé des Consultants (ISI 5%)** :
-  * En BDD (`26-08-05-sp0-ref.sql`), le type `CONSULTANT` a `soumis_sante = TRUE`. S'agit-il d'une règle spécifique GALAXAM pour assurer la couverture santé de ses consultants seniors, ou d'une anomalie de paramétrage ?
-
-### 9.3 Règles Propres à l'Entreprise (GALAXAM)
-* 🏢 **Barème des Indemnités de Déplacement de Site** :
-  * Antananarivo (TNR) : 31 200 Ar mensuel fixe proratisé.
-  * Toamasina (TMM) : 53 200 Ar mensuel fixe proratisé.
-* 🏢 **Indemnité de Repas** :
-  * Accordée uniquement sur les sites en horaire continu (TNR : 2 000 Ar / jour présent travaillé). Non accordée par défaut à Toamasina (horaire discontinu avec pause déjeuner à domicile).
-* 🏢 **Avances et Acomptes** :
-  * Acompte standard versé le 15 du mois (limité à 50% du salaire de base net estimé).
+### 9.2 Règles Documentées mais À Vérifier
+* ⚠ **Minimum de Perception IRSA** : Les fichiers d'exploitation 2025/2026 utilisent $2\,000\text{ Ar}$ tandis que le paramétrage BDD LF_2026 a été initialisé à $3\,000\text{ Ar}$. *À trancher officiellement avec la DAF*.
+* ⚠ **Assiette FMFP** : 1% patronal sur le brut total ou sur l'assiette plafonnée CNaPS ?
 
 ---
 
 ## 10. PARAMÈTRES CONFIGURABLES ET GESTION TEMPORELLE
 
-Pour garantir qu'aucun changement législatif futur ne nécessite de recompilation ou de modification du code source, les paramètres suivants sont **totalement externalisés en base et millésimés par date d'effet** :
-
-```
-                                GESTION TEMPORELLE DES PARAMÈTRES DE PAIE
-   Millésime N-1 (Historique)            Millésime N (En Vigueur)            Millésime N+1 (Programmé)
-[01/01/2024 ──> 31/12/2025]        [01/01/2026 ──> NULL (Actif)]         [01/01/2027 ──> NULL]
-┌───────────────────────────┐      ┌───────────────────────────┐         ┌───────────────────────────┐
-│ SME : 200 000 Ar          │      │ SME : 262 680 Ar          │         │ SME : 300 000 Ar          │
-│ Plafond 8x: 1 600 000 Ar  │      │ Plafond 8x: 2 101 440 Ar  │         │ Plafond 8x: 2 400 000 Ar  │
-│ IRSA : 5 tranches (LF 24) │      │ IRSA : 6 tranches (LF 26) │         │ IRSA : Nouvelles tranches │
-│ Min Perception: 2 000 Ar  │      │ Min Perception: 3 000 Ar  │         │ Min Perception: 3 000 Ar  │
-└───────────────────────────┘      └───────────────────────────┘         └───────────────────────────┘
-```
-
-### Table des Paramètres Configurables :
-
-| Code Paramètre | Libellé | Unité | Source BDD | Impact Moteur | Règle de Temporalité |
-|---|---|---|---|---|---|
-| `sme_national` | Salaire Minimum d'Embauche | MGA | `paie_config_legale` | Plafond CNaPS, seuils minimaux | Valable tant que `date_fin IS NULL` |
-| `plafond_cotisation_nb_sme`| Multiplicateur plafond CNaPS | Ratio (8.00) | `paie_config_legale` | Assiette CNaPS | Valable par millésime |
-| `seuil_exoneration_irsa`| Seuil tranche exonérée IRSA | MGA (350 000) | `paie_config_legale` | Calcul IRSA tranche 1 | Valable par millésime |
-| `minimum_perception_irsa`| Minimum de perception IRSA | MGA (3 000) | `paie_config_legale` | Plancher impôt IRSA | Valable par millésime |
-| `deduction_charge_famille`| Déduction fiscale enfant | MGA (2 000) | `paie_config_legale` | Réduction d'impôt | Valable par millésime |
-| `diviseur_mensuel_heures`| Diviseur mensuel heures | Heures (173.3333)| `paie_config_legale` | Taux horaire de base | Valable par millésime |
-| `diviseur_valorisation_conge`| Diviseur congés payés | Jours (30) | `paie_config_legale` | Indemnité congé | Valable par millésime |
-| `taux_salarial` / `taux_patronal`| Taux cotisations sociales | % | `ref_type_cotisation` | Retenues CNaPS, Santé | Lié à `id_config_legale` |
-| `tranche_min` / `tranche_max` / `taux`| Tranches barème progressif IRSA | MGA / % | `bareme_irsa` | Calcul IRSA | Lié à `id_config_legale` |
-| `type_majoration` / `taux`| Taux majoration HS / Nuit / Dim | % | `ref_taux_majoration` | Valorisation heures supp. | Lié à `id_config_legale` |
+Tous les paramètres légaux et d'entreprise sont isolés dans `paie_config_legale` et rattachés à un millésime temporel :
+* `sme_national` (262 680 Ar) & `plafond_cotisation_nb_sme` (8.00).
+* `seuil_exoneration_irsa` (350 000 Ar) & `minimum_perception_irsa` (3 000 Ar / 2 000 Ar).
+* `deduction_charge_famille` (2 000 Ar / enfant).
+* `diviseur_mensuel_heures` (173.3333h) & `diviseur_valorisation_conge_jours` (30j).
+* Taux et plafonds de cotisations (`ref_type_cotisation`).
+* Barème des tranches fiscales (`bareme_irsa`).
+* Forfaits indemnités de site (`site_indemnite_config`).
 
 ---
 
 ## 11. HISTORISATION ET IMMUTABILITÉ ABSOLUE
 
-La règle cardinale d'un progiciel de paie est :
-> **"Un bulletin de paie généré et clôturé pour le mois M ne doit JAMAIS changer de montant à l'avenir, même si le salaire de l'employé est réévalué le mois suivant ou si la loi de finances change les barèmes fiscaux."**
-
-### Architecture d'Immutabilité du Module Paie :
-1. **Dénormalisation scellée (Snapshotting)** :
-   * La table `bulletin_paie` ne se contente pas de stocker des clés étrangères : elle enregistre **en dur dans ses colonnes** le salaire de base contractuel au moment du calcul, l'intitulé du poste, le site, le matricule, le taux horaire, les totaux bruts, nets et imposables.
-   * La table `bulletin_cotisation` enregistre le nom de l'organisme (`CNAPS`, `OSTIE`), l'assiette exacte, le taux salarial, la part salariale calculée, le taux patronal et la part patronale.
-   * La table `bulletin_ligne` enregistre chaque ligne d'indemnité, de prime, d'absence ou de retenue avec son libellé, sa base, son taux et son montant.
-2. **Scellement cryptographique / Verrouillage d'état** :
-   * Les statuts d'un bulletin : `BROUILLON` $\rightarrow$ `CALCULE` $\rightarrow$ `VALIDE` $\rightarrow$ `CLOTURE`.
-   * Dès qu'une période de paie passe à `CLOTURE`, un trigger ou une contrainte applicative interdit tout `UPDATE` ou `DELETE` sur `bulletin_paie`, `bulletin_ligne`, et `bulletin_cotisation`.
-3. **Régularisations rétroactives (Principe du Report)** :
-   * Si une erreur est découverte sur une paie clôturée (ex: oubli de 5 heures supplémentaires sur Août 2026 découvert en Septembre), le bulletin d'Août n'est **JAMAIS réouvert**.
-   * Une ligne de régularisation est insérée sur la paie du mois suivant (Septembre 2026) : *"Régularisation HS Août 2026 : +X Ar"*.
+1. **Snapshotting Intégral** : Le résultat de calcul de paie est enregistré sous forme dénormalisée dans `bulletin_paie`, `bulletin_ligne` et `bulletin_cotisation`. Les modifications ultérieures de la fiche employé ou des barèmes fiscaux n'altèrent en aucun cas les montants d'une paie passée.
+2. **Verrouillage Post-Clôture** : Dès le passage au statut `CLOTUREE`, aucun recalcul, modification ou suppression n'est autorisé.
+3. **Principe du Report pour Régularisation** : Toute régularisation d'une paie antérieure s'opère par une ligne d'ajustement explicite sur la paie du mois en cours ($M+1$).
 
 ---
 
-## 12. WORKFLOW DE PAIE COMPLET
+## 8.1 CADRAGE COMPLET DES AVANCES, PRÊTS, NOTES DE FRAIS & REMBOURSEMENTS
 
-Le cycle de vie de la paie s'articule autour d'un workflow strict et auditable :
+La gestion de la trésorerie des collaborateurs est un axe névralgique de la paie. Le module Paie GALAXAM intègre un sous-système complet de gestion des avances, prêts échelonnés et remboursements de frais.
+
+### 1. Typologie Exhaustive des Flux de Trésorerie Salarié
 
 ```
- ┌──────────────────────┐
- │   1. PRÉPARATION     │  • Vérification des mouvements RH (embauches, avenants de salaire).
- │   (Du 1er au 20)     │  • Saisie continue du pointage quotidien sur les sites.
- └──────────┬───────────┘
-            ▼
- ┌──────────────────────┐
- │ 2. GEL DU POINTAGE   │  • Détection et apurement de 100% des anomalies de présence.
- │   (Vers le 25-28)    │  • Transmission DAF par le Responsable de Site (`A_VALIDER`).
- └──────────┬───────────┘  • Gel des cumuls mensuels (`pointage_cumul_periode`).
-            ▼
- ┌──────────────────────┐
- │ 3. SAISIE VARIABLES  │  • Importation / Saisie des acomptes de quinzaine versés.
- │      (DAF / RH)      │  • Intégration des avances exceptionnelles et échéances de prêts.
- └──────────┬───────────┘  • Saisie des primes exceptionnelles et notes de frais.
-            ▼
- ┌──────────────────────┐
- │ 4. CALCUL (MOTEUR)   │  • Exécution du PayrollEngine en mode batch ou individuel.
- │   (Statut: CALCULÉ)  │  • Génération des bulletins en état `CALCULE` (Pré-paie).
- └──────────┬───────────┘
-            ▼
- ┌──────────────────────┐
- │ 5. CONTRÔLE DAF      │  • Analyse du journal de paie comparatif ($M$ vs $M-1$).
- │   & ÉTATS D'ÉCARTS   │  • Détection des variations anormales de brut ou de net.
- └──────────┬───────────┘  • Si anomalie : rejet et recalcul ciblés.
-            ▼
- ┌──────────────────────┐
- │ 6. VALIDATION DAF    │  • Verrouillage des montants de la période.
- │   (Statut: VALIDÉ)   │  • Autorisation des virements bancaires par la Direction.
- └──────────┬───────────┘
-            ▼
- ┌──────────────────────┐
- │ 7. PAIEMENT BANCAIRE │  • Émission du fichier de virement bancaire (BNI, BOA, BFV).
- │    & DISTRIBUTION    │  • Génération des bulletins PDF individuels.
- └──────────┬───────────┘  • Notification des employés (consultation espace collaborateur).
-            ▼
- ┌──────────────────────┐
- │ 8. CLÔTURE DÉFINITIVE│  • Statut de la période passe à `CLOTUREE` (Immuable).
- │   & DÉCLARATIONS     │  • Génération des états nominatifs trimestriels CNaPS, FMFP, Santé.
- └──────────────────────┘  • Déversement comptable (écritures de paie).
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                               FLUX DE TRÉSORERIE SALARIÉ (MODULE PAIE)                                 │
+├───────────────────────┬────────────┬─────────────────┬───────────────────┬─────────────────────────────┤
+│ Type de Mouvement     │ Nature     │ Impact Paie     │ Fiscalité / Cotis.│ Modalité de Remboursement   │
+├───────────────────────┼────────────┼─────────────────┼───────────────────┼─────────────────────────────┤
+│ Acompte de Quinzaine  │ Retenue    │ Déduit du Net   │ Non imposable     │ 100% sur la paie du mois M  │
+│ (versé le 15)         │ Salarié    │ (Avance travail)│ Non cotisable     │ (paiement anticipé)         │
+├───────────────────────┼────────────┼─────────────────┼───────────────────┼─────────────────────────────┤
+│ Avance Exceptionnelle │ Retenue    │ Déduit du Net   │ Non imposable     │ 1 à 3 mensualités selon     │
+│ (urgence / secours)   │ Salarié    │                 │ Non cotisable     │ accord DAF                  │
+├───────────────────────┼────────────┼─────────────────┼───────────────────┼─────────────────────────────┤
+│ Prêt d'Entreprise     │ Retenue    │ Déduit du Net   │ Non imposable     │ Échéancier mensuel fixe     │
+│ (équipement / projet) │ Salarié    │ (Amortissement) │ Non cotisable     │ Décrémentation automatique  │
+├───────────────────────┼────────────┼─────────────────┼───────────────────┼─────────────────────────────┤
+│ Remboursement Notes   │ Gain       │ Ajouté au Net   │ Non imposable     │ Remboursé sur la paie du    │
+│ de Frais (missions)   │ Salarié    │ (Frais réels)   │ Non cotisable     │ mois M avec justificatif    │
+├───────────────────────┼────────────┼─────────────────┼───────────────────┼─────────────────────────────┤
+│ Retenue CALL PERSO    │ Retenue    │ Déduit du Net   │ Non imposable     │ 100% sur la paie du mois M  │
+│ (flotte privée)       │ Salarié    │ (Dépassement)   │ Non cotisable     │ selon facture opérateur     │
+└───────────────────────┴────────────┴─────────────────┴───────────────────┴─────────────────────────────┘
 ```
 
-### Matrice des Responsabilités & Droits :
+### 2. Règles Légales & Garde-fous Financiers Inviolables
 
-| Étape du Workflow | Acteur Principal | Rôle / Profil | Action Système Requise |
-|---|---|---|---|
-| Saisie & Résolution Pointage | Agent de Pointage Site | `ROLE_AGENT_POINTAGE` | Traitement anomalies pointage, soumission synthèse |
-| Transmission Pointage à la DAF | Agent de Pointage Site | `ROLE_AGENT_POINTAGE` | `PointageSyntheseService.transmettreDaf` |
-| Saisie Avances / Primes | Gestionnaire RH / Paie | `ROLE_ADMIN` (`PAIE_WRITE`) | Création des lignes variables mensuelles |
-| Exécution du Calcul Pré-paie | Gestionnaire RH / DAF | `ROLE_ADMIN` (`PAIE_WRITE`) | `PayrollEngine.calculerPeriode` |
-| Contrôle & Arbitrage | Directeur Admin. & Financier | `ROLE_ADMIN` (`PAIE_WRITE`) | Consultation états de contrôle et écarts $N / N-1$ |
-| Validation Officielle de la Paie| Directeur Admin. & Financier | `ROLE_ADMIN` (`PAIE_VALIDATE`)| `PaieService.validerPeriodePaie` |
-| Clôture Définitive & Archive | Direction Générale / DAF | `ROLE_ADMIN` (`PAIE_CLOSE`) | Scellement et gel des écritures |
+1. **Règle d'Ordre Public de la Quotité Cessible (Art. 68 du Code du Travail Malgache)** :
+   > *« Le total cumulé des retenues mensuelles opérées sur le salaire d'un travailleur au titre des acomptes, avances, prêts et saisies-arrêts ne peut en aucun cas excéder le tiers (33,33%) du salaire net disponible. »*
+   - **Formule du Seuil Maximal Retenable** :
+     $$\text{Plafond Retenues Mensuelles} = \frac{\text{Net Avant Retenues}}{3}$$
+   - **Garde-fou applicatif** : L'interface calcule en temps réel la jauge d'endettement. Tout dépassement bloque la validation et déclenche une alerte bloquante : *"Dépassement de la quotité légale du tiers (Art. 68) : retenue maximale possible = X Ar"*.
+
+2. **Règle de Priorité d'Imputation des Déductions** :
+   En cas de pluralité de retenues au cours du même mois, l'ordre d'imputation légale est :
+   $$\text{Saisie-arrêt judiciaire} \longrightarrow \text{Acompte de quinzaine} \longrightarrow \text{CALL PERSO} \longrightarrow \text{Échéance de prêt}$$
+
+3. **Règle de l'Apurement Intégral au Solde de Tout Compte (STC)** :
+   Lors de la rupture d'un contrat (démission, licenciement, fin CDD, retraite) :
+   - Le capital restant dû sur l'ensemble des prêts d'entreprise en cours devient **immédiatement exigible**.
+   - Le moteur STC déduit automatiquement le solde restant dû de l'indemnité globale de départ (dernier salaire + ICCP + préavis + licenciement).
+   - Le prêt est alors basculé en statut `SOLDE_PAR_STC`.
+
+### 3. Cycle de Vie Complet d'un Prêt d'Entreprise (`pret_employe`)
+
+```
+  DEMANDE SALARIÉ (Montant total, motif, durée souhaitée)
+         │
+         ▼
+  INSTRUCTION DAF (Vérification capacité de remboursement < 1/3 salaire net)
+         │
+         ├──> REJETÉ (avec motif)
+         │
+         ▼
+  VALIDÉ PAR DAF (Génération du tableau d'amortissement prévisionnel)
+         │
+         ▼
+  DÉCAISSÉ PAR TRÉSORERIE (Date de valeur et virement du capital au salarié)
+         │
+         ▼
+  EN COURS D'AMORTISSEMENT (Chaque mois de paie M : prélèvement de la mensualité)
+         │  • Décrémentation automatique du montant_restant_du
+         │  • Incrémentation du compteur nb_mensualites_remboursees
+         │
+         ├──> Démission / Rupture Contrat ➔ APUREMENT FORCÉ SUR SOLDE DE TOUT COMPTE
+         │
+         ▼
+  SOLDÉ (montant_restant_du = 0 ➔ est_solde = true)
+```
+
+---
+
+## 9. RÈGLES LÉGALES & CONVENTIONNELLES
+
+### 9.1 Règles Légales Confirmées (Madagascar)
+* ⚖ **Plafond de Cotisation CNaPS** : Plafonné à $8 \times \text{SME National}$ ($8 \times 262\,680 = 2\,101\,440\text{ Ar}$). Taux salarial = $1\%$, taux patronal = $13\%$.
+* ⚖ **Médecine du Travail (OSTIE / OMSI)** : Assiette brute totale non plafonnée. Antananarivo (OSTIE) : $1\%$ salarié, $5\%$ employeur. Toamasina (OMSI) : $1.5\%$ salarié, $5.5\%$ employeur.
+* ⚖ **Barème Progressif IRSA 2026 (CGI)** :
+  * De 0 à 350 000 Ar : 0%
+  * De 350 001 à 400 000 Ar : 5%
+  * De 400 001 à 500 000 Ar : 10%
+  * De 500 001 à 600 000 Ar : 15%
+  * De 600 001 à 4 000 000 Ar : 20%
+  * Au-delà de 4 000 000 Ar : 25%
+* ⚖ **Réduction pour Charges de Famille** : $2\,000\text{ Ar}$ par mois et par enfant mineur à charge.
+* ⚖ **Minimum de Perception IRSA** : Plancher légal dynamique issu de `paie_config_legale.minimum_perception_irsa` ($3\,000\text{ Ar}$ sous LF 2026).
+* ⚖ **Régime ISI 5%** : Retenue libératoire à la source de 5% sur le montant brut des honoraires pour les prestataires et consultants sans CNaPS ni OSTIE.
+
+### 9.2 Règles Documentées mais À Vérifier
+* ⚠ **Assiette FMFP** : 1% patronal sur le brut total non plafonné.
+
+---
+
+## 10. PARAMÈTRES CONFIGURABLES ET GESTION TEMPORELLE
+
+Tous les paramètres légaux et d'entreprise sont isolés dans `paie_config_legale` et rattachés à un millésime temporel :
+* `sme_national` (262 680 Ar) & `plafond_cotisation_nb_sme` (8.00).
+* `seuil_exoneration_irsa` (350 000 Ar) & `minimum_perception_irsa` (dynamique).
+* `deduction_charge_famille` (2 000 Ar / enfant).
+* `diviseur_mensuel_heures` (173.3333h) & `diviseur_valorisation_conge_jours` (30j).
+* Taux et plafonds de cotisations (`ref_type_cotisation`).
+* Barème des tranches fiscales (`bareme_irsa`).
+* Forfaits indemnités de site (`site_indemnite_config`).
+
+---
+
+## 11. HISTORISATION ET IMMUTABILITÉ ABSOLUE
+
+1. **Snapshotting Intégral** : Le résultat de calcul de paie est enregistré sous forme dénormalisée dans `bulletin_paie`, `bulletin_ligne` et `bulletin_cotisation`. Les modifications ultérieures de la fiche employé ou des barèmes fiscaux n'altèrent en aucun cas les montants d'une paie passée.
+2. **Verrouillage Post-Clôture** : Dès le passage au statut `CLOTUREE`, aucun recalcul, modification ou suppression n'est autorisé.
+3. **Principe du Report pour Régularisation** : Toute régularisation d'une paie antérieure s'opère par une ligne d'ajustement explicite sur la paie du mois en cours ($M+1$).
+
+---
+
+## 12. WORKFLOW DE PAIE CONTINU & ARCHITECTURE UI/UX DU COCKPIT
+
+Pour répondre à l'exigence d'une **expérience utilisateur fluide, sans couture et sans rupture de contexte**, le module Paie abandonne les écrans administratifs éclatés au profit d'un **Cockpit de Paie Unifié avec Stepper Continu** :
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                COCKPIT DE PAIE UNIFIÉ GALAXAM                                          │
+│ Période Active : 26 Janvier 2026 ➔ 25 Février 2026 (Paie Février 2026)      [ Statut : EN_PRÉPARATION ]│
+├────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                        │
+│  [✓ ÉTAPE 1] ─────────▶ [ÉTAPE 2 EN COURS] ───────▶ [ÉTAPE 3] ─────────▶ [ÉTAPE 4] ─────────▶ [ÉTAPE 5]│
+│  Pointages Gelés        Variables & Prêts           Moteur Calcul       Audit & Contrôles   Clôture & Déclar.│
+│  22/22 validés          Saisie & Vérification       Simulation          Quotité 1/3, Net < 0 Documents A4/XML│
+│                                                                                                        │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Description des 5 Jalons du Workflow Continu :
+
+#### JALON 1 : Clôture & Scellement du Pointage (Le 26 du mois)
+- **Déclencheur automatique** : À l'échéance du 25 du mois, la DAF valide et gèle la synthèse des pointages dans `/pointage/synthese`.
+- **Continuité sans ressaisie** : Un bouton CTA proéminent **« Transmettre & Ouvrir la Paie »** scelle la table `pointage_cumul_periode` et fait basculer instantanément l'utilisateur sur le Jalon 2 du Cockpit Paie, sans transition abrupte.
+
+#### JALON 2 : Matrice Interactive « Fast-Grid » des Variables & Avances
+- **Architecture de l'écran** : Une grille moderne type tableur interactif (Spreadsheet-like) affichant tous les collaborateurs éligibles :
+  - **Colonne Salarié** : Nom, prénom, poste, site, salaire de base.
+  - **Colonne Acomptes du 15** : Cellule éditable directement au clavier (saisie ultra-rapide avec validation instantanée).
+  - **Colonne Échéance Prêt** : Pré-remplie automatiquement par le moteur d'amortissement (lecture de `pret_employe`), avec badge de solde restant dû (ex: *"Échéance 3/10 — Reste: 700 000 Ar"*).
+  - **Colonne Notes de Frais (+)** : Montant cumulé des notes de frais validées à rembourser au salarié.
+  - **Colonne CALL PERSO (-)** : Cellule éditable directement pour saisir le relevé de facture opérateur.
+  - **Colonne Primes Exceptionnelles (+)** : Bouton d'ajout rapide d'une prime avec motif.
+  - **Jauge Visuelle de Quotité Cessible (Art. 68)** : Indicateur dynamique en temps réel :
+    * 🟢 **Vert** si Total Retenues $\le 33,33\%$ du net estimé.
+    * 🔴 **Rouge clignotant bloquant** avec infobulle explicite si les déductions dépassent le tiers légal.
+- **CTA Continu** : Dès que les variables sont saisies, le bouton **« Enregistrer & Lancer le Calcul »** s'illumine.
+
+#### JALON 3 : Moteur de Calcul Instantané (Batch In-Memory)
+- Le moteur `PayrollExecutionEngine` s'exécute en mémoire :
+  - 100% des salariés calculés en moins de **2 secondes**.
+  - Génération des bulletins provisoires au statut `CALCULE`.
+- **Affichage dynamique des 5 KPI Consolides du Grand-Livre** :
+  1. **Masse Salariale Brute Globale** (Ar)
+  2. **Total Net à Payer Bancaire** (Ar)
+  3. **Cotisations Sociales Salariales & Patronales** (Ar)
+  4. **Impôt IRSA Global à Reverser** (Ar)
+  5. **Total des Avances et Prêts Récupérés** (Ar)
+
+#### JALON 4 : Panneau d'Audit Pré-Validation & Sécurisation DAF
+- Avant toute clôture définitive, la DAF déclenche l'audit automatique via une modale plein écran :
+  - ✅ **Contrôle 1 : Zéro salaire net négatif ou nul**.
+  - ✅ **Contrôle 2 : Zéro dépassement de quotité cessible (1/3)** sur l'entreprise entière.
+  - ✅ **Contrôle 3 : Respect du SME légal national** sur les salaires de base.
+  - ✅ **Contrôle 4 : Analyse comparative $M$ vs $M-1$** (détection des variations de brut $> 15\%$ pour repérer les anomalies de saisie).
+- Si des anomalies sont détectées : lien direct vers le collaborateur pour ajustement immédiat.
+- Si 100% vert : le bouton **« Valider & Verrouiller la Paie »** est débloqué.
+
+#### JALON 5 : Clôture Définitive & Pack Restitutions en 1 Clic
+- La période passe au statut `CLOTUREE` (verrouillage immuable des tables `bulletin_paie`, `bulletin_ligne`).
+- **Hub de Téléchargement & Restitution Continue** :
+  - 📄 **Bouton « Télécharger Tous les Bulletins PDF »** : Génération d'un fichier ZIP ou PDF multipages fusionné des bulletins individuels A4 sobres et professionnels.
+  - 📊 **Bouton « Export Grand-Livre Excel »** : Matrice consolidée reprenant exactement le modèle `EJOURNAL`.
+  - 🏦 **Bouton « Ordre de Virement Bancaire »** : Fichier interbancaire aux 10 Ariary inférieurs pour les banques.
+  - 🏛️ **Bouton « Déclarations DGI (SAFI IRSA + EDI ISI) »** :
+    - Fichier Excel officiel État 301 SAFI (25 colonnes).
+    - Fichier XML EDI ISI normalisé pour téléversement e-Hetra.
+  - 📋 **Bouton « États Trimestriels (si fin de trimestre) »** : DNTS CNaPS + FMFP 1% + Santé (OSTIE/OMSI).
 
 ---
 
 ## 13. STRUCTURE FONCTIONNELLE DU BULLETIN DE SALAIRE
 
-Le bulletin de paie GALAXAM est articulé en 9 zones fonctionnelles rigoureuses :
-
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│ [1] INFORMATIONS EMPLOYEUR                                                               │
-│ Raison Sociale : GALAXAM SARL             N° STAT : 74990 11 2006 0 01234               │
-│ Siège Social   : Immeuble Fiaro, TNR      N° NIF  : 3000214589                          │
-│ Site d'affectation : Siège Antananarivo   N° CNaPS Employeur : 010-99887-12            │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│ [2] INFORMATIONS SALARIÉ & CONTRAT                                                       │
-│ Matricule : EMP-2014-0012                 Date d'Embauche : 01/03/2014                  │
-│ Nom & Prénom : RANDRIAMAMPIONONA J.       Ancienneté      : 12 ans 5 mois               │
-│ Fonction  : Superviseur d'Opérations      Catégorie / Statut : Agent (Éligible HS)       │
-│ N° CNaPS  : 120-45678-01                  Situation Fam.  : Marié(e), 2 enfants à charge│
-│ Mode Paie : Mensuel (Base 173.33 h)       Mode Règlement  : Virement BNI Madagascar     │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│ [3] PÉRIODE & TEMPS DE TRAVAIL                                                           │
-│ Période de paie : Août 2026 (01/08/2026 - 31/08/2026)      Jours ouvrables du mois : 21  │
-│ Heures normales : 173.33 h    Heures Sup 30% : 3.00 h      Heures Sup 50% : 0.00 h       │
-│ Heures de Nuit  : 0.00 h      Jours Présents : 21 j        Jours Congés Payés : 0 j      │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│ [4] ÉLÉMENTS DE RÉMUNÉRATION (BRUT)                                                      │
-│ Code     Désignation                     Base       Taux/Nombre   Gain (Ar)  Retenue (Ar)│
-│ 1000     Salaire de Base Mensuel       173.33 h      10 673.18    1 850 000.00           │
-│ 1100     Heures Supplémentaires (+30%)   3.00 h      13 875.14       41 625.42           │
-│ 1300     Prime d'Assiduité / Assiduité   Forfait         -           50 000.00           │
-│ 1900     Absence Injustifiée             0.00 h      10 673.18                       0.00│
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│                          TOTAL SALAIRE BRUT :                      1 941 625.42          │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│ [5] COTISATIONS SOCIALES & FISCALITÉ                                                     │
-│ Code     Désignation               Base         Taux Sal.  Part Sal.   Taux Pat. Part Pat│
-│ 2010     CNaPS (Plafond 8x SME) 1 941 625.42     1.00%      19 416.25   13.00%  252 411.30│
-│ 2020     Santé (OSTIE Siège)    1 941 625.42     1.00%      19 416.25    5.00%   97 081.27│
-│ 2030     FMFP (Formation Pat.)  1 941 625.42        -             -      1.00%   19 416.25│
-│ 3010     IRSA (Impôt sur Revenu)1 902 792.92   Barème LF26 256 058.00        -           │
-│          (Dont déduction 2 enfants à charge : -4 000 Ar)                                 │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│                          TOTAUX COTISATIONS :               294 890.50          368 908.82│
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│ [6] INDEMNITÉS NON SOUMISES & REMBOURSEMENTS (Gains Nets)                                │
-│ Code     Désignation                     Nombre      Montant Unitaire          Total (Ar)│
-│ 4010     Indemnité Déplacement (TNR)     Forfait         31 200.00              31 200.00│
-│ 4020     Indemnité de Repas              21 j             2 000.00              42 000.00│
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│ [7] DÉDUCTIONS DE TRÉSORERIE & RETENUES DIVERSES                                         │
-│ Code     Désignation                     Date / Réf                 Montant Retenu (Ar)  │
-│ 5010     Acompte de Quinzaine            Versé le 15/08/2026                   200 000.00│
-│ 5020     Échéance Prêt Entreprise N°4    Prêt Équipement                        50 000.00│
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│ [8] TOTAUX & NET À VERSER                                                                │
-│ Salaire Brut Global : 1 941 625.42 Ar      Charges Patronales :   368 908.82 Ar          │
-│ Total Charges Sal.  :   38 832.50 Ar      Coût Global Employeur: 2 310 534.24 Ar         │
-│ Net Imposable IRSA  : 1 902 792.92 Ar      Congés N-1 : 12.5 j   Pris : 0 j   Solde: 15 j│
-│ Net Avant Avances   : 1 646 734.92 Ar                                                    │
-│                                                                                          │
-│                       👉 NET À PAYER (NET À VIRER) : 1 469 934.92 Ar                     │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│ [9] MENTIONS LÉGALES & PIED DE PAGE                                                      │
-│ Virement ordonné le 31/08/2026 sur le compte BNI N° 00004 12345678901 22                 │
-│ "Dans votre intérêt, conservez ce bulletin de paie sans limitation de durée."            │
-│ Référence de calcul : GALAXAM-PAYROLL-v1.0 / Config Légale : LF_2026 (Certifiée)         │
-└──────────────────────────────────────────────────────────────────────────────────────────┘
-```
+Le bulletin individuel officiel GALAXAM comprend 9 zones distinctes :
+1. **En-tête Employeur** : Dénomination GALAXAM LOGISTICS, NIF (3000019434), STAT, N° CNaPS, Siège Tour Forello Tanjombato.
+2. **Identité Salarié** : Matricule, Nom/Prénom, CIN, N° CNaPS, Poste, Catégorie (Cadre/Agent), Ancienneté, Enfants à charge, RIB.
+3. **Période & Compteurs** : Période (ex: 26 Déc - 25 Jan), Jours ouvrables, Jours présents, Jours congés pris, Heures normales, HS 30%, HS 50%.
+4. **Rémunération Brute** : Salaire de base, retenue absences ($Base/30$), indemnité congés payés ($NBCONGE \times TCONGE$), heures sup 30%/50%, primes PP/PA $\rightarrow$ Total Brut (`BRUTE`).
+5. **Cotisations Sociales & Fiscalité** : CNaPS salariale (1% plafonné), Santé (OSTIE 1% ou OMSI 1.5%), Net Imposable (`NETI`), IRSA net déduit (après déduction enfants et plancher).
+6. **Indemnités Non Imposables (Ajouts Nets)** : Indemnité forfaitaire de déplacement, indemnité de repas du midi ($2\,000\text{ Ar / jour}$).
+7. **Retenues de Trésorerie** : Acompte du 15, avance spéciale, mensualité prêt société, retenue `CALL PERSO`.
+8. **Totaux & Net à Verser** : Salaire Brut, Charges Patronales, Coût Global Employeur, Net Imposable, **Net à Payer (arrondi à la dizaine d'Ariary)**.
+9. **Mentions Obligatoires** : Mention de conservation, date d'exécution du virement, référence de calcul.
 
 ---
 
-## 14. CAS PARTICULIERS À TRAITER
+## 14. MATRICE DES CAS PARTICULIERS
 
-| Cas Particulier | Données Nécessaires | Règle de Gestion Applicative | Impact sur le Brut / Net | Traçabilité & Historique |
-|---|---|---|---|---|
-| **Embauche en cours de mois** | `date_debut` du contrat, Jours ouvrés du mois | Prorata temporis : $Salaire \times \frac{JoursTravaillés}{JoursOuvrables}$ | Réduction proportionnelle du salaire de base | Le contrat initial porte la date exacte d'embauche. |
-| **Départ en cours de mois (STC)** | `date_fin`, motif de départ, solde de congés | Prorata du salaire de base + Indemnité compensatrice de congés payés ($Solde \times \frac{Brut}{30}$) | Calcul du Solde de Tout Compte (STC) | Bulletin marqué `SOLDE_DE_TOUT_COMPTE`. |
-| **Changement de salaire en cours de mois** | Avenant avec `date_effet` au milieu du mois | Prorata double tranche : $\frac{J_1 \times Sal_1 + J_2 \times Sal_2}{JoursOuvrables}$ | Deux lignes d'historique de carrière | Deux lignes distinctes sur le bulletin ou ligne de complément. |
-| **Cadre effectuant des heures de week-end** | `pointage_jour` le samedi ou dimanche | Non éligible aux HS habituelles, mais éligible à la majoration Dimanche (+40%) si imposé | Majoration dimanche uniquement | Statut `CADRE` vérifié par le moteur. |
-| **Maladie ordinaire courte (< 3 jours)** | Arrêt de travail transmis | Maintien intégral du salaire (selon convention entreprise) | Aucun impact négatif sur le brut | Décompte du quota d'absence maladie. |
-| **Maladie longue (> 3 mois)** | Certificat médical, dossier CNaPS | Bascule en congé maladie sans solde (relais CNaPS indemnités journalières) | Suppression du salaire de base | Maintien de l'affiliation CNaPS. |
-| **Salarié consultant (Honoraires)** | `ref_type_intervenant = 'CONSULTANT'` | Exonération CNaPS salariale, application de la retenue libératoire ISI 5% | Pas de CNaPS/IRSA, déduction 5% ISI | Édition d'une note d'honoraires / bulletin spécial. |
-| **Trop-perçu sur le mois précédent** | Montant d'erreur constaté par la DAF | Ligne de régularisation négative sur le mois courant avec motif explicite | Déduction plafonnée par la quotité saisissable | Historique du bulletin antérieur non modifié. |
+| Cas Particulier | Règle de Gestion | Impact Calcul | Historisation |
+|---|---|---|---|
+| **Embauche en cours de mois** | Prorata temporis sur les jours ouvrés réels travaillés. | $Base \times \frac{JoursTravailles}{JoursOuvrables}$ | Date d'embauche contrat. |
+| **Départ en cours de mois (STC)** | Prorata salaire + ICCP congés + Préavis - Solde prêts. | Édition Solde de Tout Compte (STC). | Reçu pour solde de tout compte. |
+| **Cadre effectuant des heures sup.** | Exclu par convention (forfait cadres). | `HS_30 = 0`, `HS_50 = 0`. | Statut conventionnel `CADRE`. |
+| **Salarié Consultant / Prestataire** | Exonération CNaPS et Santé, retenue libératoire ISI 5%. | Retenue 5% à la source. | Déclaration sur annexe EDI ISI. |
+| **Retards multiples** | Compensation par heures excédentaires le même jour/semaine. | Déduction solde négatif non compensé. | Historique pointage scellé. |
+| **Pénalité Prime Performance** | Retards $> 70\text{ min}$ et congés $> 1\text{ j}$. | Déduction de $25\%$ de la prime. | Trace calcul dans feuille ajustement. |
+| **Communications personnelles** | Relevé de facturation flotte téléphonique privée. | Déduction nette directe sur net à payer. | Ligne `CALL PERSO`. |
 
 ---
 
 ## 15. SOURCES DE VÉRITÉ (SINGLE SOURCE OF TRUTH)
 
-Pour éliminer toute ambiguïté et tout risque de collision entre tables, la répartition des responsabilités est gravée comme suit :
-
-```
-┌──────────────────────────────────────┬───────────────────────────────────────────┐
-│ DOMAINE / DONNÉE                     │ SOURCE UNIQUE DE VÉRITÉ OFFICIELLE        │
-├──────────────────────────────────────┼───────────────────────────────────────────┤
-│ Identité, Enfants à charge, RIB      │ employe, employe_enfant, compte_banque    │
-│ Salaire contractuel de base          │ employe_affectation_carriere (actif)      │
-│ Heures travaillées, HS, Nuit, Retard │ pointage_cumul_periode (gelé à clôture)   │
-│ Indemnités déplacement / repas réels │ pointage_cumul_indemnite (gelé à clôture) │
-│ Droits et consommations congés       │ demande_conge, mouvement_solde_conge      │
-│ Avances, Prêts, Primes ponctuelles   │ variable_paie_mensuelle (validée DAF)     │
-│ SME, Plafonds, Tranches IRSA, Taux   │ paie_config_legale, bareme_irsa           │
-│ Résultat de calcul du mois           │ bulletin_paie, bulletin_ligne (scellés)   │
-└──────────────────────────────────────┴───────────────────────────────────────────┘
-```
+* **Identité & Coordonnées Bancaires** : `employe`, `employe_compte_banque`.
+* **Enfants à charge éligibles** : `employe_enfant` (`a_charge = true`).
+* **Salaire contractuel de base** : `employe_affectation_carriere` (statut actif sur la période).
+* **Temps de travail, Heures Sup, Retards** : `pointage_cumul_periode` (gelé à la clôture).
+* **Indemnités journalières déplacement & repas** : `pointage_cumul_indemnite` (gelé à la clôture).
+* **Primes PP/PA, Acomptes, Avances, CALL PERSO** : `variable_paie_mensuelle` (validée DAF).
+* **Paramètres légaux & Taux cotisations** : `paie_config_legale`, `bareme_irsa`, `site_cotisation`.
+* **Résultats officiels scellés** : `bulletin_paie`, `bulletin_ligne`, `bulletin_cotisation`.
 
 ---
 
 ## 16. DÉTECTION ET ÉLIMINATION DES DUPLICATIONS
 
-L'audit met en évidence trois duplications critiques à éliminer formellement lors de la conception :
-1. **Doublon des Indemnités de Pointage** :
-   * La table `pointage_jour` contient encore des colonnes miroirs (`indemnite_deplacement_recue`, `montant_repas`).
-   * **Arbitrage de conception** : Le moteur de paie lira **EXCLUSIVEMENT** la table gelée `pointage_cumul_indemnite` et la table relationnelle `pointage_indemnite_jour`. Les colonnes miroirs de `pointage_jour` ne sont que des caches UI de saisie et ne doivent jamais alimenter le calcul de paie.
-2. **Duplication des Constantes Légales** :
-   * Le SME et le seuil d'exonération existaient historiquement dans `parametre_global` et dans `paie_config_legale`.
-   * **Arbitrage de conception** : `paie_config_legale` est l'unique source de vérité légale. `parametre_global` ne conserve que les paramètres non millésimés (ex: `EMAIL_RH`).
-3. **Duplication de Formules de Majoration dans le Frontend** :
-   * Le frontend ne doit calculer aucun montant financier. Il affiche les montants calculés et retournés par l'API backend Java.
+1. **Suppression des colonnes miroirs d'indemnités dans `pointage_jour`** : Seules les tables relationnelles dédiées `pointage_indemnite_jour` et `pointage_cumul_indemnite` font foi.
+2. **Centralisation des constantes légales dans `paie_config_legale`** : Élimination des doublons de SME et seuils fiscaux qui figuraient dans `parametre_global`.
+3. **Zéro logique de calcul dans le Frontend** : React n'effectue aucun calcul financier ; il affiche exclusivement les valeurs calculées et retournées par l'API backend Java.
 
 ---
 
 ## 17. ARCHITECTURE CONCEPTUELLE DU FUTUR ENGINE DE PAIE
-
-Le futur moteur de paie GALAXAM sera découpé en composants spécialisés à responsabilité unique (*Single Responsibility Principle*), évitant le piège du "God Engine" monolithique :
 
 ```
                               mg.galaxam.sirh.payroll.engine
@@ -594,12 +711,12 @@ Le futur moteur de paie GALAXAM sera découpé en composants spécialisés à re
                ├───────────────────────────────────────────────────────────┤
                ▼                                                           ▼
     GrossSalaryCalculator                                      SocialCotisationCalculator
-(Salaire base, proratas, HS, primes)                     (CNaPS plafonnée, Santé, FMFP patronal)
+(Base, Absences 1/30, Congés, HS, PP/PA)                  (CNaPS 1%/13% plafonnée, Santé, FMFP)
                │                                                           │
                ├───────────────────────────────────────────────────────────┤
                ▼                                                           ▼
        TaxEngine (IRSA / ISI)                                     DeductionNetCalculator
-(Barème progressif, déductions, min)                       (Avances, acomptes, prêts, net final)
+(Barème progressif 6 tranches, ISI 5%)                      (Repas net, Acomptes, CALL PERSO, Net)
                │                                                           │
                └─────────────────────────────┬─────────────────────────────┘
                                              ▼
@@ -607,148 +724,117 @@ Le futur moteur de paie GALAXAM sera découpé en composants spécialisés à re
                          (Enregistrement scellé des bulletins)
 ```
 
-### Description des responsabilités :
-1. **`PayrollContextBuilder`** : Prépare pour chaque salarié un objet immuable `PayrollEmployeeContext` contenant toutes les données nécessaires (affectation, pointage gelé, congés, barèmes applicables, variables saisies). Zéro appel BDD supplémentaire après cette phase.
-2. **`GrossSalaryCalculator`** : Calcule le salaire de base proratisé, valorise les heures supplémentaires, les majorations de nuit et de jours fériés, applique les retenues pour absence, et agrège les primes soumises.
-3. **`SocialCotisationCalculator`** : Applique les plafonds (8 × SME) et calcule ligne par ligne les parts salariales et patronales pour la CNaPS et l'organisme médical du site.
-4. **`TaxEngine`** : Détermine la base imposable, applique l'arrondi fiscal à la centaine inférieure, calcule l'impôt par tranche selon le régime de l'employé (IRSA progressif pour salarié, ISI 5% pour consultant), retranche la réduction pour enfants, et applique le plancher du minimum de perception légal.
-5. **`DeductionNetCalculator`** : Ajoute les indemnités nettes d'exploitation, retranche les acomptes, avances et mensualités de prêt, et détermine le Net à Payer final.
-6. **`PayrollSnapshotPersister`** : Insère en une seule transaction ACID le bulletin complet (`bulletin_paie`, `bulletin_ligne`, `bulletin_cotisation`).
-
 ---
 
 ## 18. RÉPARTITION DES RESPONSABILITÉS : SQL VS JAVA
 
-En conformité stricte avec l'architecture hexagonale adoptée sur le projet GALAXAM :
-
-### Ce que fait le SQL / Base de Données :
-* Jointures relationnelles pour extraire les données consolidées du mois (`employe` + `affectation` + `pointage_cumul_periode`).
-* Indexation performante sur `id_periode_paie` et `id_employe`.
-* Intégrité référentielle, contraintes d'unicité `(id_employe, id_periode_paie)` empêchant les doubles paiements.
-* Verrous pessimistes (`SELECT ... FOR UPDATE`) lors de la validation et clôture de période pour prévenir toute concurrence d'accès.
-
-### Ce que fait le Java (Domaine & Engine) :
-* **100% de la logique métier et des formules de calcul.**
-* Détermination des taux horaires, calcul des tranches de majoration HS (30%, 50%).
-* Algorithme du barème progressif IRSA à 6 tranches.
-* Prorata temporis au jour ouvré près.
-* Précision financière (`BigDecimal`), gestion des arrondis monétaires.
-* Émission des événements d'audit et notifications.
+* **SQL / PostgreSQL** : Jointures relationnelles pour extraire les données consolidées, indexation sur `(id_employe, id_periode_paie)`, verrous pessimistes (`FOR UPDATE`) lors du gel/clôture, contraintes d'intégrité et triggers d'immutabilité.
+* **Java (Spring Boot / Domaine)** : 100% de la logique métier, calcul des proratas, majorations HS, barème progressif IRSA, précision financière avec `BigDecimal`, arrondis légaux, génération des flux d'exportation Excel/XML.
 
 ---
 
 ## 19. ANALYSE DE PERFORMANCE & CHARGE
 
-1. **Volume estimé** : Entre 50 et 500 employés, 12 à 24 mois d'historique en ligne.
-2. **Résolution du risque N+1 Queries** :
-   * Le calcul de paie mensuel ne doit **JAMAIS** faire une requête SQL par ligne d'employé pour chercher son barème ou son pointage.
-   * Approche en **chargement par lot (Batch Bulk Loading)** :
-     1. Chargement de l'exercice fiscal actif en 1 requête.
-     2. Chargement des cumuls de pointage de tous les employés de la période en 1 requête indexée.
-     3. Chargement des variables de paie du mois en 1 requête.
-     4. Calcul pur en mémoire Java pour chaque collaborateur.
-     5. Insertion en base par batch JDBC (`saveAll` / `executeBatch`).
-3. **Temps d'exécution cible** : Calcul de la paie complète pour 200 salariés en **moins de 2.5 secondes**.
+* **Chargement par Lot (Batch Bulk Loading)** : Le moteur charge en 3 requêtes SQL consolidées l'intégralité des contrats, pointages gelés et variables du mois pour l'ensemble des collaborateurs.
+* **Calcul 100% en Mémoire** : Aucune requête BDD unitaire par salarié pendant l'évaluation des règles.
+* **Insertion en Batch JDBC** : Persistance de l'ensemble des bulletins et lignes en un seul lot transactionnel (`saveAll`), garantissant une exécution complète en moins de 3 secondes pour 200 collaborateurs.
 
 ---
 
 ## 20. PRÉCISION FINANCIÈRE & RÈGLES D'ARRONDI (ARIARY MGA)
 
-1. **Interdiction de `double` / `float`** :
-   * Tous les calculs financiers dans le domaine Java utilisent impérativement `java.math.BigDecimal`.
-2. **Échelles et Arrondis intermédiaires** :
-   * Taux horaire : précision à 4 décimales (`scale = 4`, `RoundingMode.HALF_UP`) lors des calculs intermédiaires, arrondi à 2 décimales pour l'affichage.
-   * Assiette CNaPS et Santé : 2 décimales.
-   * Montants de cotisations salariales et patronales : 2 décimales (`RoundingMode.HALF_UP`).
-3. **Arrondi final en Ariary (MGA)** :
-   * La monnaie malgache (Ariary) n'a plus de sous-unité divisionnaire active en circulation fiduciaire (pas de centimes de pièces).
-   * Les déclarations fiscales et bancaires se font à l'Ariary entier ou aux centimes selon le système bancaire.
-   * Règle retenue : Calculs stockés en BDD avec `DECIMAL(12,2)`, Net à Payer arrondi à l'Ariary entier le plus proche (`RoundingMode.HALF_UP`) ou conservé au centime selon l'accord bancaire.
+* **Utilisation impérative de `BigDecimal`** : Interdiction formelle des types flottants primitifs (`float`, `double`).
+* **Échelles intermédiaires** :
+  - Taux horaire : 4 décimales (`scale = 4`, `RoundingMode.HALF_UP`).
+  - Assiettes et cotisations : 2 décimales.
+* **Séquence des arrondis réglementaires** :
+  1. Base IRSA : Troncature à la centaine d'Ariary inférieure : $100 \times \lfloor NETI / 100 \rfloor$.
+  2. IRSA Brut : Plafond à la dizaine d'Ariary supérieure : $\lceil IRSA / 10 \rceil \times 10$.
+  3. Net à Payer Final : Arrondi à la dizaine d'Ariary la plus proche : $MROUND(NET, 10)$.
 
 ---
 
 ## 21. STRATÉGIE DE TESTABILITÉ
 
-### 21.1 Tests Unitaires Isolés (`PayrollEngineUnitTest`) :
-* Test du calcul des tranches IRSA aux frontières exactes (ex: 350 000 Ar, 400 000 Ar, 500 000 Ar, 4 000 000 Ar).
-* Test de l'écrêtement CNaPS au plafond exact de 8 × SME ($2\,101\,440\text{ Ar}$).
-* Test de la réduction famille nombreuse (0, 1, 2, 5 enfants) avec vérification du plancher de 3 000 Ar.
-* Test du prorata temporis d'entrée en cours de mois (11 jours ouvrés sur 21).
-
-### 21.2 Tests d'Intégration BDD (`PayrollIntegrationTest`) :
-* Cycle complet : `Contrat` + `Carrière` + `Pointage validé` $\rightarrow$ Exécution Paie $\rightarrow$ Vérification de `bulletin_paie` généré en base.
-* Vérification que la clôture d'une période verrouille toute modification ultérieure.
-
-### 21.3 Tests de Régression & Non-Régression :
-* Jeu de données de test avec 5 profils types (Cadre autonome TNR, Agent d'exploitation TMM avec HS, Nouvel embauché au 17 du mois, Salarié en congé sans solde partiel, Consultant ISI 5%).
-* Validation que la réexécution du moteur sur ces 5 profils reproduit au centime près les résultats attendus.
+1. **Tests Unitaires Isolés (`PayrollEngineUnitTest`)** :
+   - Test des frontières de tranches IRSA (350k, 400k, 500k, 600k, 4M Ar).
+   - Test de l'écrêtement CNaPS au plafond de $2\,101\,440\text{ Ar}$.
+   - Test de la réduction enfants et respect du plancher de perception.
+   - Test des formules d'absences ($Base/30$) et de congés payés.
+   - Test de la déduction $25\%$ sur prime de performance.
+2. **Tests d'Intégration BDD (`PayrollIntegrationTest`)** :
+   - Cycle complet : Pointage gelé + Saisie DAF $\rightarrow$ Calcul $\rightarrow$ Bulletins enregistrés en base.
+   - Vérification de l'interdiction de modification après clôture.
+3. **Tests de Non-Régression** :
+   - Comparaison exacte des montants calculés avec les lignes réelles du classeur `EJOURNAL` (salariés RAKETAKA, RASOA, RAKOTO).
 
 ---
 
-## 22. RISQUES IDENTIFIÉS & MESURES DE MITIGATION
+## 22. RISQUES IDENTIFIÉS & MESURES D'ATTÉNUATION
 
-| N° | Risque Identifié | Gravité | Probabilité | Mesure d'Atténuation / Solution Conçue |
-|---|---|---|---|---|
-| **R-01** | Modification accidentelle d'une paie passée suite à une mise à jour d'employé | **CRITIQUE** | Moyenne | Dénormalisation complète (snapshotting) des bulletins dans `bulletin_paie` + trigger BDD d'immutabilité post-clôture. |
-| **R-02** | Écart de calcul entre le pointage validé et la paie | **ÉLEVÉE** | Faible | La paie consomme **exclusivement** la table gelée `pointage_cumul_periode`, empêchant tout écart post-validation. |
-| **R-03** | Erreur de tranche fiscale suite à un changement de loi de finances | **ÉLEVÉE** | Moyenne | Table `paie_config_legale` millésimée par date d'effet. Le moteur charge le millésime applicable à la date de la période. |
-| **R-04** | Litige sur les heures supplémentaires des cadres | **MOYENNE** | Élevée | Exclusion automatique des HS codée dans le moteur sur critère `ref_categorie_professionnelle.code = 'CADRE'`. |
-| **R-05** | Dépassement de la quotité saisissable sur avances/prêts (salaire net négatif) | **CRITIQUE** | Faible | Règle de garde-fou dans le moteur : les retenues volontaires sont plafonnées à la quotité cessible légale. |
-
----
-
-## 23. QUESTIONS OUVERTES & DÉCISIONS À PRENDRE AVANT IMPLÉMENTATION
-
-Avant d'entamer la moindre ligne de code pour les tables et services du module Paie, les arbitrages suivants doivent être officiellement tranchés par la direction de GALAXAM :
-
-### 23.1 Décisions Fiscales & Légales :
-1. **Arrondi de la base IRSA** : Confirmez-vous que la base imposable IRSA doit être tronquée à la centaine d'Ariary inférieure (`CENTAINE_INF`) avant calcul des tranches ?
-2. **Statut de la cotisation FMFP** : Confirmez-vous l'intégration de la contribution patronale de 1% FMFP ? Si oui, son assiette est-elle le brut total ou l'assiette plafonnée CNaPS (8×SME) ?
-3. **Assujettissement des Indemnités de Déplacement et de Repas** : Ces indemnités sont-elles exonérées à 100% de l'IRSA et de la CNaPS dans votre pratique actuelle ?
-
-### 23.2 Décisions Métier GALAXAM :
-4. **Valorisation des retenues pour absence** : Appliquez-vous la valorisation horaire sur base $173.3333\text{ h}$ ($\text{Retenue} = \frac{Salaire}{173.3333} \times \text{heures}$), ou une déduction en trentième ($1/30$), ou au nombre de jours ouvrés réels du mois ?
-5. **Prime d'ancienneté** : Existe-t-il chez GALAXAM une prime d'ancienneté conventionnelle obligatoire (ex: +5% après 3 ans, +10% après 5 ans) ou le salaire de base intègre-t-il déjà toute la rémunération ?
-6. **Arrondi du Net à Payer** : Le montant net à payer sur le bulletin et dans le fichier de virement bancaire doit-il être arrondi à l'Ariary entier le plus proche, ou inclure les décimales/centimes ?
+| Risque Identifié | Gravité | Probabilité | Mesure d'Atténuation |
+|---|---|---|---|
+| Altération accidentelle d'une paie passée | **CRITIQUE** | Moyenne | Dénormalisation complète (snapshotting) + trigger d'immutabilité post-clôture. |
+| Divergence entre pointage validé et paie calculée | **ÉLEVÉE** | Faible | Consommation exclusive de la table scellée `pointage_cumul_periode`. |
+| Salaire net négatif suite à avances excessives | **CRITIQUE** | Faible | Contrôle bloquant de quotité cessible (maximum 1/3 du salaire disponible). |
+| Rejet fiscal du fichier XML EDI ISI par la DGI | **ÉLEVÉE** | Moyenne | Validation de conformité XSD stricte selon les balises extraites de la macro `ikaEdiXml`. |
+| Erreur de format sur les 25 colonnes SAFI DGI | **ÉLEVÉE** | Faible | Génération calquée au millimètre sur `modele declaration iRSA SAFI.ods`. |
 
 ---
 
-## 24. QUESTIONS À POSER AU PROPRIÉTAIRE DU PROJET
+## 23. DÉCISIONS FORMELLEMENT ACTÉES PAR LE PROPRIÉTAIRE DU PROJET
+*(Validées en séance le 7 Septembre 2026)*
 
-Voici les questions concrètes, directes et ciblées à soumettre au chef de projet / propriétaire du SIRH GALAXAM pour finaliser les spécifications :
+1. **Plancher de perception IRSA (Résolution 100% dynamique)** :
+   - **Décision :** La valeur n'est jamais codée en dur. Elle est lue dynamiquement depuis `paie_config_legale.minimum_perception_irsa` selon le millésime fiscal applicable à la période de paie (3 000 Ar sous LF_2026, 2 000 Ar sous LF_2024).
+2. **Méthode de calcul du taux journalier de congé (`TCONGE`)** :
+   - **Recommandation adoptée :** Pour les salariés mensualisés, $\text{TCONGE} = \frac{\text{Salaire de Base}}{30}$.
+   - **Justification :** Cette formule compense exactement la déduction d'absence ($\text{ABSENCES} = NBABS \times \frac{Base}{30}$), garantissant un **maintien intégral de salaire à 100%**. Un champ de saisie/surcharge ou de calcul sur historique 12 mois reste prévu pour les cas particuliers (ex: STC).
+3. **Format du Bulletin de Paie PDF** :
+   - **Décision :** Modèle sobre, épuré, professionnel et clair au format A4 standard (respectant les zones fonctionnelles sans fioriture superflue).
+4. **Saisie des Communications Personnelles (`CALL PERSO`)** :
+   - **Décision :** Saisie manuelle par la DAF dans l'écran de gestion des variables mensuelles de paie pour la V1.
+5. **Couverture Santé & Régimes selon Type d'Intervenant & Mode de Paiement** :
+   - **Décision :** Pilotage 100% dynamique en base via les tables de référentiels existantes :
+     - Le moteur interroge directement les indicateurs de la table `ref_type_intervenant` (`soumis_irsa`, `soumis_isi_5`, `soumis_cnaps`, `soumis_sante`) pour appliquer le régime fiscal et social exact de chaque collaborateur.
+     - Le mode de calcul est piloté par `ref_mode_calcul_paie` (`MENSUEL`, `HORAIRE`, `JOURNALIER`).
+     - Le mode de paiement est piloté par la présence d'un compte bancaire principal (`VIREMENT` par défaut, ou `ESPECES` / `CHEQUE`).
 
-### A. Concernant le Bulletin de Salaire & Format PDF
-1. Avez-vous un modèle type de bulletin de salaire (fichier PDF, scan ou capture Excel d'une paie réelle antérieure) que nous devrions reproduire pour respecter vos habitudes visuelles ?
-2. Le bulletin doit-il obligatoirement afficher le récapitulatif des soldes de congés payés (Solde acquis, pris sur le mois, restant disponible) dans un encadré dédié ?
+---
 
-### B. Concernant les Primes et Indemnités
-3. L'indemnité de déplacement de site (31 200 Ar à TNR, 53 200 Ar à TMM) est-elle réduite si un collaborateur est absent une partie du mois, ou est-elle versée intégralement dès lors qu'il fait partie des effectifs ?
-4. Quels sont les types de primes variables que la DAF saisit habituellement chaque mois (ex: prime de rendement, prime de responsabilité, prime d'astreinte) ?
+## 24. MATRICE DE CONFIGURATION DYNAMIQUE DU PAYROLL ENGINE
 
-### C. Concernant les Avances et Acomptes
-5. Les acomptes du 15 du mois sont-ils d'un montant forfaitaire fixe (ex: 50% du salaire de base) ou libres à la discrétion de la demande de l'employé ?
-6. Accordez-vous des prêts d'entreprise remboursables sur plusieurs mois ? Si oui, quelle est la limite maximale prélevable sur le salaire mensuel net ?
-
-### D. Concernant les Consultants et Prestations (ISI 5%)
-7. Les consultants externes doivent-ils recevoir un bulletin de salaire classique ou une "Note d'honoraires avec décompte ISI 5%" distincte ?
-8. Les consultants bénéficient-ils de la couverture médicale d'entreprise (OSTIE/OMSI) prise en charge par GALAXAM, ou n'ont-ils strictement aucune retenue sociale ?
-
-### E. Concernant le Workflow et la Clôture
-9. La période de paie coïncide-t-elle strictement avec le mois calendaire (du 1er au 30/31 du mois), ou avez-vous une période de décalage de paie (ex: du 21 du mois $M-1$ au 20 du mois $M$) ?
-10. Qui au sein de l'organisation a le pouvoir final de clôturer la paie : l'Administrateur RH, la DAF, ou la Direction Générale ?
+```
+┌─────────────────┬─────────────┬──────────────┬──────────────┬──────────────┬──────────────────┬────────────────┐
+│ Type            │ Fiscalité   │ CNaPS        │ Santé        │ FMFP         │ Mode Calcul      │ Document       │
+│ Intervenant     │ Applicable  │ (Plafond 8x) │ (OSTIE/OMSI) │ (1% Pat.)    │ Principal        │ Restitué       │
+├─────────────────┼─────────────┼──────────────┼──────────────┼──────────────┼──────────────────┼────────────────┤
+│ PERMANENT       │ IRSA 6 tr.  │ Oui (1%/13%) │ Oui (1%/5%)  │ Oui (1%)     │ MENSUEL (173.33h)│ Bulletin Paie  │
+│                 │ (Plancher)  │              │              │              │ Absences 1/30    │ + État 301     │
+├─────────────────┼─────────────┼──────────────┼──────────────┼──────────────┼──────────────────┼────────────────┤
+│ CONSULTANT      │ ISI 5%      │ Non          │ Dynamique    │ Non          │ MENSUEL / FORFAIT│ Note Honoraires│
+│ (+60 ans)       │ Libératoire │              │ (selon BDD)  │              │ Saisie DAF       │ + Annexe EDI   │
+├─────────────────┼─────────────┼──────────────┼──────────────┼──────────────┼──────────────────┼────────────────┤
+│ TEMPORAIRE      │ ISI 5%      │ Non          │ Non          │ Non          │ HORAIRE / JOUR   │ Décompte Prest.│
+│                 │ Libératoire │              │              │              │ selon Pointage   │ + Annexe EDI   │
+├─────────────────┼─────────────┼──────────────┼──────────────┼──────────────┼──────────────────┼────────────────┤
+│ STAGIAIRE       │ Exonéré     │ Non          │ Non          │ Non          │ MENSUEL          │ Attestation    │
+│                 │             │              │              │              │ Gratification    │ Indemnité      │
+└─────────────────┴─────────────┴──────────────┴──────────────┴──────────────┴──────────────────┴────────────────┘
+```
 
 ---
 
 ## 25. CRITÈRE D'ACHÈVEMENT DE CETTE PHASE
 
-Conformément au mandat de la mission :
-* ✅ Cartographie complète des dépendances établie.
-* ✅ Inventaire exhaustif des 50 variables de paie formalisé avec code, source, formule et régime fiscal.
-* ✅ Identification de l'absence de spécimen réel de bulletin consignée explicitement.
-* ✅ Classification des données manquantes en CRITIQUE, IMPORTANT et OPTIONNEL.
-* ✅ Règles légales et d'entreprise séparées sans invention.
-* ✅ Architecture conceptuelle du Payroll Engine sans code prématuré.
-* ✅ Questionnaire précis pour le propriétaire du projet rédigé.
+Conformément aux directives de la mission :
+* ✅ Cartographie complète des dépendances et de l'existant.
+* ✅ Analyse exhaustive des fichiers réels de paie (`model/`).
+* ✅ Inventaire complet des 50 variables de paie avec codes, sources et régimes fiscaux.
+* ✅ Spécification des règles réelles (absences 1/30, congés, PP/PA, indemnités TNR/TMM, CALL PERSO).
+* ✅ Décodage de la macro EDI XML ISI et des 25 colonnes SAFI IRSA.
+* ✅ Architecture conceptuelle du Payroll Engine sans écriture de code prématurée.
+* ✅ Arbitrages métier formellement validés par le propriétaire du projet.
 
-**STATUT DU PROJET :** `CONCEPTION EN COURS — INFORMATIONS MÉTIER REQUISES (AVANT IMPLÉMENTATION)`  
-Le module Paie est prêt à entrer en phase de modélisation BDD et d'implémentation dès que les arbitrages métier de la section 24 auront été validés.
+**STATUT DU MODULE PAIE :**  
+`CONCEPTION VALIDÉE — PRÊTE POUR LA MODÉLISATION DE LA BASE DE DONNÉES (SPRINT PAIE BDD)`

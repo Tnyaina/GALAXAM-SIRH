@@ -115,6 +115,10 @@ CREATE TABLE employe_enfant (
     date_naissance DATE NOT NULL,
     lieu_naissance VARCHAR(100),
     a_charge BOOLEAN DEFAULT TRUE,
+    est_etudiant BOOLEAN DEFAULT FALSE,
+    date_fin_scolarite DATE,
+    est_handicape BOOLEAN DEFAULT FALSE,
+    certificat_fourni BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_enfant_employe FOREIGN KEY(id_employe) REFERENCES employe(id_employe) ON DELETE CASCADE

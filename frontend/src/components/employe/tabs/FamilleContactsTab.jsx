@@ -60,15 +60,35 @@ export default function FamilleContactsTab({ conjoint, enfants = [], contactsUrg
 
             {/* Carte 2 : Enfants Déclarés */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[var(--color-border-subtle)]">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[var(--color-border-subtle)]">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
                         <Baby size={14} className="text-brand-500" />
                         Enfants Déclarés ({enfants.length})
                     </h3>
                     {enfants.length > 0 && (
-                        <span className="text-xs text-[var(--color-fg-muted)]">
-                            {enfants.filter(e => e.aCharge).length} à charge légale
-                        </span>
+                        <div className="flex items-center gap-3 text-xs">
+                            <span className="text-[var(--color-fg-muted)]">
+                                {enfants.filter(e => e.aCharge).length} à charge du foyer
+                            </span>
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                • {enfants.filter(e => {
+                                    if (!e.aCharge) return false;
+                                    if (e.estHandicape) return true;
+                                    if (!e.dateNaissance) return false;
+                                    const dob = new Date(e.dateNaissance);
+                                    if (isNaN(dob.getTime())) return false;
+                                    const now = new Date();
+                                    let age = now.getFullYear() - dob.getFullYear();
+                                    const m = now.getMonth() - dob.getMonth();
+                                    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+                                    if (age < 21) return true;
+                                    if (age < 25 && e.estEtudiant && e.certificatFourni) {
+                                        return !e.dateFinScolarite || new Date(e.dateFinScolarite) >= now;
+                                    }
+                                    return false;
+                                }).length} déductible(s) IRSA (-2 000 Ar/chacun)
+                            </span>
+                        </div>
                     )}
                 </div>
 
@@ -78,31 +98,76 @@ export default function FamilleContactsTab({ conjoint, enfants = [], contactsUrg
                             <Tr>
                                 <Th>Nom & Prénom</Th>
                                 <Th>Sexe</Th>
-                                <Th>Date de Naissance</Th>
-                                <Th align="center">À Charge Légale</Th>
+                                <Th>Naissance & Âge</Th>
+                                <Th>Statut Fiscal / Scolaire</Th>
+                                <Th align="center">À Charge</Th>
+                                <Th align="center">Déduction IRSA</Th>
                             </Tr>
                         </Thead>
                         <Tbody>
-                            {enfants.map((enf, i) => (
-                                <Tr key={i}>
-                                    <Td className="font-bold text-[var(--color-fg)]">
-                                        {enf.nom} {enf.prenom}
-                                    </Td>
-                                    <Td className="text-[var(--color-fg-muted)]">
-                                        {enf.sexe === 'M' ? 'Garçon' : enf.sexe === 'F' ? 'Fille' : (enf.sexe || '—')}
-                                    </Td>
-                                    <Td isData className="font-mono text-xs text-[var(--color-fg)]">
-                                        {fmtDate(enf.dateNaissance)}
-                                    </Td>
-                                    <Td align="center">
-                                        {enf.aCharge ? (
-                                            <Badge variant="success" size="xs" className="font-bold">Oui</Badge>
-                                        ) : (
-                                            <Badge variant="default" size="xs">Non</Badge>
-                                        )}
-                                    </Td>
-                                </Tr>
-                            ))}
+                            {enfants.map((enf, i) => {
+                                let age = null;
+                                if (enf.dateNaissance) {
+                                    const dob = new Date(enf.dateNaissance);
+                                    if (!isNaN(dob.getTime())) {
+                                        const now = new Date();
+                                        age = now.getFullYear() - dob.getFullYear();
+                                        const m = now.getMonth() - dob.getMonth();
+                                        if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+                                    }
+                                }
+                                const isEligible = Boolean(
+                                    enf.aCharge && (
+                                        enf.estHandicape ||
+                                        (age !== null && age < 21) ||
+                                        (age !== null && age < 25 && enf.estEtudiant && enf.certificatFourni && (!enf.dateFinScolarite || new Date(enf.dateFinScolarite) >= new Date()))
+                                    )
+                                );
+
+                                return (
+                                    <Tr key={i}>
+                                        <Td className="font-bold text-[var(--color-fg)]">
+                                            {enf.nom} {enf.prenom}
+                                        </Td>
+                                        <Td className="text-[var(--color-fg-muted)]">
+                                            {enf.sexe === 'M' ? 'Garçon' : enf.sexe === 'F' ? 'Fille' : (enf.sexe || '—')}
+                                        </Td>
+                                        <Td isData className="font-mono text-xs text-[var(--color-fg)]">
+                                            {fmtDate(enf.dateNaissance)} {age !== null ? `(${age} ans)` : ''}
+                                        </Td>
+                                        <Td className="text-xs">
+                                            {enf.estHandicape ? (
+                                                <Badge variant="purple" size="xs">Situation de Handicap</Badge>
+                                            ) : enf.estEtudiant ? (
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="font-semibold text-sky-600 dark:text-sky-400">Étudiant majeur</span>
+                                                    <span className="text-[11px] text-[var(--color-fg-subtle)]">
+                                                        {enf.certificatFourni ? `Certificat fourni ${enf.dateFinScolarite ? `(échéance ${fmtDate(enf.dateFinScolarite)})` : ''}` : 'Certificat manquant'}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-[var(--color-fg-muted)]">
+                                                    {age !== null && age < 21 ? 'Mineur à charge' : 'Majeur standard'}
+                                                </span>
+                                            )}
+                                        </Td>
+                                        <Td align="center">
+                                            {enf.aCharge ? (
+                                                <Badge variant="success" size="xs" className="font-bold">Oui</Badge>
+                                            ) : (
+                                                <Badge variant="default" size="xs">Non</Badge>
+                                            )}
+                                        </Td>
+                                        <Td align="center">
+                                            {isEligible ? (
+                                                <Badge variant="success" size="xs" className="font-bold">-2 000 Ar</Badge>
+                                            ) : (
+                                                <Badge variant="default" size="xs">Exclu</Badge>
+                                            )}
+                                        </Td>
+                                    </Tr>
+                                );
+                            })}
                         </Tbody>
                     </Table>
                 ) : (

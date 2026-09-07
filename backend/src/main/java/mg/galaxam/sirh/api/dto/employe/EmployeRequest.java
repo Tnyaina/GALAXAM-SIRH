@@ -85,6 +85,10 @@ public class EmployeRequest {
         private Date dateNaissance;
         private String lieuNaissance;
         private boolean aCharge = true;
+        private boolean estEtudiant = false;
+        private Date dateFinScolarite;
+        private boolean estHandicape = false;
+        private boolean certificatFourni = false;
 
         public String getNom() { return nom; }
         public void setNom(String nom) { this.nom = nom; }
@@ -103,6 +107,18 @@ public class EmployeRequest {
 
         public boolean isACharge() { return aCharge; }
         public void setACharge(boolean aCharge) { this.aCharge = aCharge; }
+
+        public boolean isEstEtudiant() { return estEtudiant; }
+        public void setEstEtudiant(boolean estEtudiant) { this.estEtudiant = estEtudiant; }
+
+        public Date getDateFinScolarite() { return dateFinScolarite; }
+        public void setDateFinScolarite(Date dateFinScolarite) { this.dateFinScolarite = dateFinScolarite; }
+
+        public boolean isEstHandicape() { return estHandicape; }
+        public void setEstHandicape(boolean estHandicape) { this.estHandicape = estHandicape; }
+
+        public boolean isCertificatFourni() { return certificatFourni; }
+        public void setCertificatFourni(boolean certificatFourni) { this.certificatFourni = certificatFourni; }
     }
 
     public static class ContactUrgenceRequest {

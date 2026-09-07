@@ -136,34 +136,97 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
                     {/* Enfants */}
                     {enfants.length > 0 && (
                         <div>
-                            <SectionTitle icon={<Baby size={16} />}>Enfants ({enfants.length})</SectionTitle>
+                            <div className="flex items-center justify-between mb-2">
+                                <SectionTitle icon={<Baby size={16} />}>Enfants ({enfants.length})</SectionTitle>
+                                <span className="text-xs text-ink-500 dark:text-ink-400">
+                                    {enfants.filter(e => {
+                                        if (!e.aCharge) return false;
+                                        if (e.estHandicape) return true;
+                                        if (!e.dateNaissance) return false;
+                                        const dob = new Date(e.dateNaissance);
+                                        if (isNaN(dob.getTime())) return false;
+                                        const now = new Date();
+                                        let age = now.getFullYear() - dob.getFullYear();
+                                        const m = now.getMonth() - dob.getMonth();
+                                        if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+                                        if (age < 21) return true;
+                                        if (age < 25 && e.estEtudiant && e.certificatFourni) {
+                                            return !e.dateFinScolarite || new Date(e.dateFinScolarite) >= now;
+                                        }
+                                        return false;
+                                    }).length} déductible(s) fiscalement IRSA (-2 000 Ar)
+                                </span>
+                            </div>
                             <div className="overflow-x-auto border border-ink-150 dark:border-ink-700">
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="bg-ink-50 dark:bg-ink-950 border-b border-ink-150 dark:border-ink-700 text-ink-400 text-[10px] font-bold uppercase tracking-widest">
-                                            <th className="px-4 py-3 text-left">Nom</th>
-                                            <th className="px-4 py-3 text-left">Prénom</th>
+                                            <th className="px-4 py-3 text-left">Nom & Prénom</th>
                                             <th className="px-4 py-3 text-left">Sexe</th>
-                                            <th className="px-4 py-3 text-left">Date Naissance</th>
-                                            <th className="px-4 py-3 text-left">À Charge</th>
+                                            <th className="px-4 py-3 text-left">Date Naissance & Âge</th>
+                                            <th className="px-4 py-3 text-left">Statut Fiscal / Scolaire</th>
+                                            <th className="px-4 py-3 text-center">À Charge</th>
+                                            <th className="px-4 py-3 text-center">Déduction IRSA</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-                                        {enfants.map((enf, i) => (
-                                            <tr key={i} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
-                                                <td className="px-4 py-3">{enf.nom}</td>
-                                                <td className="px-4 py-3">{enf.prenom}</td>
-                                                <td className="px-4 py-3">{enf.sexe === 'M' ? 'Garçon' : 'Fille'}</td>
-                                                <td className="px-4 py-3 font-mono text-xs">{fmtDate(enf.dateNaissance)}</td>
-                                                <td className="px-4 py-3">
-                                                    {enf.aCharge ? (
-                                                        <Badge variant="success" size="sm">Oui</Badge>
-                                                    ) : (
-                                                        <Badge variant="default" size="sm">Non</Badge>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {enfants.map((enf, i) => {
+                                            let age = null;
+                                            if (enf.dateNaissance) {
+                                                const dob = new Date(enf.dateNaissance);
+                                                if (!isNaN(dob.getTime())) {
+                                                    const now = new Date();
+                                                    age = now.getFullYear() - dob.getFullYear();
+                                                    const m = now.getMonth() - dob.getMonth();
+                                                    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+                                                }
+                                            }
+                                            const isEligible = Boolean(
+                                                enf.aCharge && (
+                                                    enf.estHandicape ||
+                                                    (age !== null && age < 21) ||
+                                                    (age !== null && age < 25 && enf.estEtudiant && enf.certificatFourni && (!enf.dateFinScolarite || new Date(enf.dateFinScolarite) >= new Date()))
+                                                )
+                                            );
+
+                                            return (
+                                                <tr key={i} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
+                                                    <td className="px-4 py-3 font-semibold">{enf.nom} {enf.prenom}</td>
+                                                    <td className="px-4 py-3 text-ink-500">{enf.sexe === 'M' ? 'Garçon' : 'Fille'}</td>
+                                                    <td className="px-4 py-3 font-mono text-xs">{fmtDate(enf.dateNaissance)} {age !== null ? `(${age} ans)` : ''}</td>
+                                                    <td className="px-4 py-3 text-xs">
+                                                        {enf.estHandicape ? (
+                                                            <Badge variant="purple" size="sm">Handicap</Badge>
+                                                        ) : enf.estEtudiant ? (
+                                                            <div className="flex flex-col">
+                                                                <span className="font-semibold text-sky-600 dark:text-sky-400">Étudiant</span>
+                                                                <span className="text-[10px] text-ink-400">
+                                                                    {enf.certificatFourni ? `Certificat fourni ${enf.dateFinScolarite ? `(exp. ${fmtDate(enf.dateFinScolarite)})` : ''}` : 'Sans certificat'}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-ink-400">
+                                                                {age !== null && age < 21 ? 'Mineur (< 21 ans)' : 'Majeur standard'}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        {enf.aCharge ? (
+                                                            <Badge variant="success" size="sm">Oui</Badge>
+                                                        ) : (
+                                                            <Badge variant="default" size="sm">Non</Badge>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        {isEligible ? (
+                                                            <Badge variant="success" size="sm">-2 000 Ar</Badge>
+                                                        ) : (
+                                                            <Badge variant="default" size="sm">Exclu</Badge>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

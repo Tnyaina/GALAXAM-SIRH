@@ -21,6 +21,10 @@ public class EmployeEnfant extends ClassMere {
     private Date dateNaissance;
     private String lieuNaissance;
     private boolean aCharge = true;
+    private boolean estEtudiant = false;
+    private Date dateFinScolarite;
+    private boolean estHandicape = false;
+    private boolean certificatFourni = false;
     private Timestamp createdAt;
     private Timestamp updatedAt;
 
@@ -61,7 +65,7 @@ public class EmployeEnfant extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        String sql = "INSERT INTO employe_enfant (id_employe, nom, prenom, sexe, date_naissance, lieu_naissance, a_charge) VALUES (?, ?, ?, ?::sexe_enum, ?, ?, ?)";
+        String sql = "INSERT INTO employe_enfant (id_employe, nom, prenom, sexe, date_naissance, lieu_naissance, a_charge, est_etudiant, date_fin_scolarite, est_handicape, certificat_fourni) VALUES (?, ?, ?, ?::sexe_enum, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             int i = 1;
             ps.setInt(i++, idEmploye);
@@ -71,6 +75,10 @@ public class EmployeEnfant extends ClassMere {
             ps.setDate(i++, dateNaissance);
             ps.setString(i++, lieuNaissance);
             ps.setBoolean(i++, aCharge);
+            ps.setBoolean(i++, estEtudiant);
+            ps.setDate(i++, dateFinScolarite);
+            ps.setBoolean(i++, estHandicape);
+            ps.setBoolean(i++, certificatFourni);
 
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -84,7 +92,7 @@ public class EmployeEnfant extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        String sql = "UPDATE employe_enfant SET nom = ?, prenom = ?, sexe = ?::sexe_enum, date_naissance = ?, lieu_naissance = ?, a_charge = ?, updated_at = CURRENT_TIMESTAMP WHERE id_enfant = ?";
+        String sql = "UPDATE employe_enfant SET nom = ?, prenom = ?, sexe = ?::sexe_enum, date_naissance = ?, lieu_naissance = ?, a_charge = ?, est_etudiant = ?, date_fin_scolarite = ?, est_handicape = ?, certificat_fourni = ?, updated_at = CURRENT_TIMESTAMP WHERE id_enfant = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             int i = 1;
             ps.setString(i++, nom);
@@ -93,6 +101,10 @@ public class EmployeEnfant extends ClassMere {
             ps.setDate(i++, dateNaissance);
             ps.setString(i++, lieuNaissance);
             ps.setBoolean(i++, aCharge);
+            ps.setBoolean(i++, estEtudiant);
+            ps.setDate(i++, dateFinScolarite);
+            ps.setBoolean(i++, estHandicape);
+            ps.setBoolean(i++, certificatFourni);
             ps.setInt(i++, idEnfant);
 
             ps.executeUpdate();
@@ -160,9 +172,58 @@ public class EmployeEnfant extends ClassMere {
         enf.setDateNaissance(rs.getDate("date_naissance"));
         enf.setLieuNaissance(rs.getString("lieu_naissance"));
         enf.setACharge(rs.getBoolean("a_charge"));
+        enf.setEstEtudiant(rs.getBoolean("est_etudiant"));
+        enf.setDateFinScolarite(rs.getDate("date_fin_scolarite"));
+        enf.setEstHandicape(rs.getBoolean("est_handicape"));
+        enf.setCertificatFourni(rs.getBoolean("certificat_fourni"));
         enf.setCreatedAt(rs.getTimestamp("created_at"));
         enf.setUpdatedAt(rs.getTimestamp("updated_at"));
         return enf;
+    }
+
+    /**
+     * Calcule l'âge de l'enfant à une date de référence (en années révolues).
+     */
+    public int getAge(java.time.LocalDate dateReference) {
+        if (this.dateNaissance == null || dateReference == null) {
+            return 0;
+        }
+        return java.time.Period.between(this.dateNaissance.toLocalDate(), dateReference).getYears();
+    }
+
+    /**
+     * Vérifie si l'enfant ouvre droit à la réduction d'IRSA (2 000 Ar / mois)
+     * à la date de calcul de la paie considérée (CGI Madagascar, Art. 01.03.14).
+     * 
+     * Règle fiscale :
+     * 1. L'enfant doit être à charge (aCharge == true).
+     * 2. Si infirme / en situation de handicap : éligible sans limite d'âge.
+     * 3. Si mineur (< 21 ans révolus à datePaie) : éligible d'office.
+     * 4. Si étudiant majeur (de 21 ans à moins de 25 ans révolus) :
+     *    éligible si estEtudiant == true ET certificatFourni == true
+     *    ET (dateFinScolarite == null OU datePaie <= dateFinScolarite).
+     * 5. Tout autre cas (>= 21 ans non étudiant, ou >= 25 ans révolus, ou certificat expiré) : non éligible.
+     */
+    public boolean isEligibleReductionIrsa(java.time.LocalDate datePaie) {
+        if (!this.aCharge || this.dateNaissance == null || datePaie == null) {
+            return false;
+        }
+        if (this.estHandicape) {
+            return true;
+        }
+        java.time.LocalDate dob = this.dateNaissance.toLocalDate();
+        java.time.LocalDate limite21 = dob.plusYears(21);
+        if (datePaie.isBefore(limite21)) {
+            return true;
+        }
+        // De 21 ans à moins de 25 ans révolus
+        java.time.LocalDate limite25 = dob.plusYears(25);
+        if (this.estEtudiant && this.certificatFourni && datePaie.isBefore(limite25)) {
+            if (this.dateFinScolarite == null || !datePaie.isAfter(this.dateFinScolarite.toLocalDate())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Getters and Setters
@@ -189,6 +250,18 @@ public class EmployeEnfant extends ClassMere {
 
     public boolean isACharge() { return aCharge; }
     public void setACharge(boolean aCharge) { this.aCharge = aCharge; }
+
+    public boolean isEstEtudiant() { return estEtudiant; }
+    public void setEstEtudiant(boolean estEtudiant) { this.estEtudiant = estEtudiant; }
+
+    public Date getDateFinScolarite() { return dateFinScolarite; }
+    public void setDateFinScolarite(Date dateFinScolarite) { this.dateFinScolarite = dateFinScolarite; }
+
+    public boolean isEstHandicape() { return estHandicape; }
+    public void setEstHandicape(boolean estHandicape) { this.estHandicape = estHandicape; }
+
+    public boolean isCertificatFourni() { return certificatFourni; }
+    public void setCertificatFourni(boolean certificatFourni) { this.certificatFourni = certificatFourni; }
 
     public Timestamp getCreatedAt() { return createdAt; }
     public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }

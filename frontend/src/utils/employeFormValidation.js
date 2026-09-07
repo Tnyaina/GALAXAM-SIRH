@@ -136,6 +136,13 @@ export const validerEtapeEmploye = (stepId, formData, matriculeError = '', optio
           if (dateNaissEnf > today) {
             return `La date de naissance de l'enfant n°${i + 1} ne peut pas être dans le futur.`;
           }
+          if (enf.dateFinScolarite) {
+            const [yS, mS, dS] = String(enf.dateFinScolarite).substring(0, 10).split('-').map(Number);
+            const dateScol = new Date(yS, mS - 1, dS, 0, 0, 0, 0);
+            if (dateScol < dateNaissEnf) {
+              return `L'enfant n°${i + 1} : la date de fin de scolarité ne peut pas précéder sa date de naissance.`;
+            }
+          }
         }
       }
     }

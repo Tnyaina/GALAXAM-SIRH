@@ -148,4 +148,121 @@ public class SirhApiE2EIntegrationTest {
         assertTrue(list.isArray());
         assertEquals(5, list.size(), "La synthèse mensuelle doit retourner les 5 employés");
     }
+
+    @Test
+    @Order(6)
+    @DisplayName("API-06 : Création et consultation d'un employé avec enfants (étudiant, handicapé, déduction IRSA)")
+    void testGestionEnfantsEmployeApi() throws Exception {
+        assertNotNull(adminToken);
+
+        String employePayload = """
+                {
+                    "matricule": "EMP-TEST-ENF-001",
+                    "nom": "TESTFAMILLE",
+                    "prenom": "Jean",
+                    "sexe": "M",
+                    "dateNaissance": "1985-01-01",
+                    "lieuNaissance": "Antananarivo",
+                    "nationalite": "Malgache",
+                    "cinNumero": "101985000001",
+                    "cinDateDelivrance": "2003-01-01",
+                    "cinLieuDelivrance": "Antananarivo",
+                    "adresse": "Lot Test",
+                    "ville": "Antananarivo",
+                    "telephone": "+261340000000",
+                    "email": "test.famille@galaxam.mg",
+                    "enfants": [
+                        {
+                            "nom": "TESTFAMILLE",
+                            "prenom": "Mineur",
+                            "sexe": "M",
+                            "dateNaissance": "2015-06-01",
+                            "aCharge": true,
+                            "estEtudiant": false,
+                            "estHandicape": false,
+                            "certificatFourni": false
+                        },
+                        {
+                            "nom": "TESTFAMILLE",
+                            "prenom": "Etudiant",
+                            "sexe": "F",
+                            "dateNaissance": "2003-09-15",
+                            "aCharge": true,
+                            "estEtudiant": true,
+                            "dateFinScolarite": "2027-06-30",
+                            "estHandicape": false,
+                            "certificatFourni": true
+                        },
+                        {
+                            "nom": "TESTFAMILLE",
+                            "prenom": "Handicape",
+                            "sexe": "M",
+                            "dateNaissance": "1998-04-10",
+                            "aCharge": true,
+                            "estEtudiant": false,
+                            "estHandicape": true,
+                            "certificatFourni": false
+                        }
+                    ]
+                }
+                """;
+
+        // 1. Création employé
+        MvcResult createResult = mockMvc.perform(post("/employes")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(employePayload))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        JsonNode createdNode = objectMapper.readTree(createResult.getResponse().getContentAsString());
+        int empId = createdNode.get("idEmploye").asInt();
+        assertTrue(empId > 0);
+
+        try {
+            // 2. Consultation fiche détail
+            MvcResult detailResult = mockMvc.perform(get("/employes/" + empId)
+                            .header("Authorization", "Bearer " + adminToken))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            JsonNode detailNode = objectMapper.readTree(detailResult.getResponse().getContentAsString());
+            assertTrue(detailNode.has("enfants"));
+            JsonNode enfantsNode = detailNode.get("enfants");
+            assertEquals(3, enfantsNode.size(), "L'employé doit avoir 3 enfants enregistrés");
+
+            // Vérifier l'étudiant
+            JsonNode etudiantNode = null;
+            for (JsonNode enf : enfantsNode) {
+                if ("Etudiant".equals(enf.get("prenom").asText())) {
+                    etudiantNode = enf;
+                    break;
+                }
+            }
+            assertNotNull(etudiantNode);
+            assertTrue(etudiantNode.get("estEtudiant").asBoolean());
+            assertTrue(etudiantNode.get("certificatFourni").asBoolean());
+            assertTrue(etudiantNode.get("dateFinScolarite").asText().startsWith("2027-06-30"));
+
+            // Vérifier l'enfant handicapé
+            JsonNode handiNode = null;
+            for (JsonNode enf : enfantsNode) {
+                if ("Handicape".equals(enf.get("prenom").asText())) {
+                    handiNode = enf;
+                    break;
+                }
+            }
+            assertNotNull(handiNode);
+            assertTrue(handiNode.get("estHandicape").asBoolean());
+
+        } finally {
+            // Nettoyage
+            try (java.sql.Connection c = dataSource.getConnection()) {
+                try (java.sql.PreparedStatement ps = c.prepareStatement("DELETE FROM employe WHERE id_employe = ?")) {
+                    ps.setInt(1, empId);
+                    ps.executeUpdate();
+                }
+            }
+        }
+    }
 }

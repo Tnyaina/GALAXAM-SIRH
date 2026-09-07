@@ -163,6 +163,10 @@ public class EmployeService {
                             enf.setDateNaissance(enfReq.getDateNaissance());
                             enf.setLieuNaissance(enfReq.getLieuNaissance());
                             enf.setACharge(enfReq.isACharge());
+                            enf.setEstEtudiant(enfReq.isEstEtudiant());
+                            enf.setDateFinScolarite(enfReq.getDateFinScolarite());
+                            enf.setEstHandicape(enfReq.isEstHandicape());
+                            enf.setCertificatFourni(enfReq.isCertificatFourni());
                             enf.save(c);
                         }
                     }
@@ -289,6 +293,10 @@ public class EmployeService {
                             enf.setDateNaissance(enfReq.getDateNaissance());
                             enf.setLieuNaissance(enfReq.getLieuNaissance());
                             enf.setACharge(enfReq.isACharge());
+                            enf.setEstEtudiant(enfReq.isEstEtudiant());
+                            enf.setDateFinScolarite(enfReq.getDateFinScolarite());
+                            enf.setEstHandicape(enfReq.isEstHandicape());
+                            enf.setCertificatFourni(enfReq.isCertificatFourni());
                             enf.save(c);
                         }
                     }

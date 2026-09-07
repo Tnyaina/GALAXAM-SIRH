@@ -122,7 +122,11 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                     sexe: enf.sexe || 'M',
                     dateNaissance: fmtDate(enf.dateNaissance), 
                     lieuNaissance: enf.lieuNaissance || '',
-                    aCharge: enf.aCharge !== undefined ? enf.aCharge : true
+                    aCharge: enf.aCharge !== undefined ? enf.aCharge : true,
+                    estEtudiant: enf.estEtudiant || false,
+                    dateFinScolarite: fmtDate(enf.dateFinScolarite),
+                    estHandicape: enf.estHandicape || false,
+                    certificatFourni: enf.certificatFourni || false
                 })),
                 contactsUrgence: (employeData.contactsUrgence?.length > 0)
                     ? employeData.contactsUrgence.map(ct => ({
@@ -160,7 +164,21 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
     const addEnfant = () => {
         setFormData(prev => ({
             ...prev,
-            enfants: [...prev.enfants, { nom: '', prenom: '', sexe: 'M', dateNaissance: '', lieuNaissance: '', aCharge: true }]
+            enfants: [
+                ...prev.enfants,
+                {
+                    nom: '',
+                    prenom: '',
+                    sexe: 'M',
+                    dateNaissance: '',
+                    lieuNaissance: '',
+                    aCharge: true,
+                    estEtudiant: false,
+                    dateFinScolarite: '',
+                    estHandicape: false,
+                    certificatFourni: false
+                }
+            ]
         }));
     };
 

@@ -116,7 +116,7 @@ export default function ParcoursChronologique({
             diffs.set(current.idWorkflow, evolutions);
         }
         return diffs;
-    }, [workflowsChronologiques]);
+    }, [workflowsChronologiques, canSeePaie]);
 
     // Groupement des workflows sous leurs contrats respectifs
     const chapitresContractuels = useMemo(() => {

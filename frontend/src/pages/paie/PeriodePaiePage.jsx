@@ -27,7 +27,6 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Card, { CardBody } from '@/components/ui/data-display/Card';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
-import { useAuth } from '@/context/AuthContext';
 import HasPermission from '@/components/auth/HasPermission';
 import SEO from '@/components/system/SEO';
 
@@ -158,8 +157,6 @@ export default function PeriodePaiePage() {
         updateStatut
     } = usePeriodePaie();
 
-    const { hasPermission } = useAuth();
-    const canManage = hasPermission('PAIE_VALIDATE') || hasPermission('PAIE_WRITE') || hasPermission('POINTAGE_VALIDATE') || hasPermission('ADMIN');
     const toast = useToast();
 
     // Calcul automatique de la prochaine période suggérée

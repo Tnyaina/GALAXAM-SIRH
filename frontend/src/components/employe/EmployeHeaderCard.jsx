@@ -6,8 +6,6 @@ import { getFullPhotoUrl } from '@/utils/fileUtils';
 
 export default function EmployeHeaderCard({
     emp,
-    canWrite = false,
-    canValidate = false,
     onEdit,
     onDesactiver,
     onReactiver,

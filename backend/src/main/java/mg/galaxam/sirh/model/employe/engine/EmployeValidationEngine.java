@@ -98,6 +98,10 @@ public class EmployeValidationEngine {
                 if (dateNaissEnf != null && dateNaissEnf.isAfter(LocalDate.now())) {
                     erreurs.add("La date de naissance de l'enfant n°" + (i + 1) + " ne peut pas être dans le futur.");
                 }
+                LocalDate dateFinScol = toLocalDate(enf.getDateFinScolarite());
+                if (dateFinScol != null && dateNaissEnf != null && dateFinScol.isBefore(dateNaissEnf)) {
+                    erreurs.add("La date de fin de scolarité de l'enfant n°" + (i + 1) + " ne peut pas précéder sa date de naissance.");
+                }
             }
         }
 
