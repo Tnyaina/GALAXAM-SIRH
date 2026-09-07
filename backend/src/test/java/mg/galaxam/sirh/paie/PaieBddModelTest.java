@@ -408,13 +408,29 @@ class PaieBddModelTest {
                 assertEquals(new BigDecimal("1000000.00"), pretRelu.getCapitalRestantDu());
                 assertEquals("EN_COURS", pretRelu.getStatut());
 
-                // 6. Si on prélève les 1 000 000 Ar restants (ex: remboursement anticipé ou STC)
-                pretRelu.enregistrerRemboursement(new BigDecimal("1000000.00"), c);
+                // 6. Test Contre-Audit Axe 6 : Calcul du capital restant total pour STC et solde anticipé
+                BigDecimal totalRestant = PaiePret.calculerCapitalRestantTotal(1, c);
+                assertEquals(new BigDecimal("1000000.00"), totalRestant, "Le capital restant total en cours doit être de 1 000 000 Ar");
+
+                // Clôture anticipée lors du Solde de Tout Compte (STC)
+                BigDecimal totalSoldeStc = PaiePret.solderPretsPourStc(1, null, c);
+                assertEquals(new BigDecimal("1000000.00"), totalSoldeStc, "Le montant imputé sur le STC doit être de 1 000 000 Ar");
+
+                // Vérifier que le prêt est désormais SOLDE et capital restant = 0
                 PaiePret pretSolde = PaiePret.trouverParId(pret.getIdPret(), c);
                 assertNotNull(pretSolde);
                 assertEquals(new BigDecimal("1200000.00"), pretSolde.getCapitalRembourse());
                 assertEquals(BigDecimal.ZERO.setScale(2), pretSolde.getCapitalRestantDu());
-                assertEquals("SOLDE", pretSolde.getStatut(), "Le prêt doit être marqué SOLDE une fois tout le capital remboursé");
+                assertEquals("SOLDE", pretSolde.getStatut(), "Le prêt doit être marqué SOLDE une fois soldé par le STC");
+
+                // Vérifier que les échéances 2 à 6 sont passées en REMBOURSEE_ANTICIPEE
+                List<PaiePretEcheance> echsApresStc = PaiePretEcheance.listerParPret(pret.getIdPret(), c);
+                for (int i = 1; i < echsApresStc.size(); i++) {
+                    PaiePretEcheance echI = echsApresStc.get(i);
+                    assertEquals("REMBOURSEE_ANTICIPEE", echI.getStatut(), "L'échéance résiduelle doit être REMBOURSEE_ANTICIPEE");
+                    assertNull(echI.getIdBulletin());
+                    assertEquals(BigDecimal.ZERO.setScale(2), echI.getMontantRestantEcheance());
+                }
 
             } finally {
                 c.rollback();

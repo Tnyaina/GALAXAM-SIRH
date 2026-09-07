@@ -202,6 +202,80 @@ public class PaiePret extends ClassMere {
     }
 
     /**
+     * Calcule le montant total du capital restant dû pour l'ensemble des prêts en cours d'un salarié.
+     * Utilisé pour la simulation et la vérification préalable au départ / Solde de Tout Compte.
+     */
+    public static BigDecimal calculerCapitalRestantTotal(Integer idEmploye, Connection c) throws Exception {
+        if (idEmploye == null) return BigDecimal.ZERO;
+        String sql = "SELECT COALESCE(SUM(capital_restant_du), 0) AS total_restant " +
+                     "FROM paie_pret WHERE id_employe = ? AND statut = 'EN_COURS'";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    BigDecimal tot = rs.getBigDecimal("total_restant");
+                    return tot != null ? tot : BigDecimal.ZERO;
+                }
+            }
+        }
+        return BigDecimal.ZERO;
+    }
+
+    /**
+     * Solde l'ensemble des prêts en cours d'un salarié lors du Solde de Tout Compte (STC).
+     * Les échéances résiduelles passent en 'REMBOURSEE_ANTICIPEE' rattachées au bulletin STC,
+     * et les prêts passent en statut 'SOLDE'.
+     *
+     * @return Le montant total du capital restant dû ainsi soldé.
+     */
+    public static BigDecimal solderPretsPourStc(Integer idEmploye, Integer idBulletinStc, Connection c) throws Exception {
+        if (idEmploye == null) return BigDecimal.ZERO;
+        List<PaiePret> pretsEnCours = listerEnCoursParEmploye(idEmploye, c);
+        BigDecimal totalSolde = BigDecimal.ZERO;
+
+        for (PaiePret pret : pretsEnCours) {
+            BigDecimal restant = pret.getCapitalRestantDu() != null ? pret.getCapitalRestantDu() : BigDecimal.ZERO;
+            if (restant.compareTo(BigDecimal.ZERO) > 0) {
+                totalSolde = totalSolde.add(restant);
+            }
+
+            // Marquer toutes les échéances résiduelles non échues comme remboursées par anticipation sur le STC
+            String sqlEch = "UPDATE paie_pret_echeance SET " +
+                    "statut = 'REMBOURSEE_ANTICIPEE', " +
+                    "montant_preleve = montant_restant_echeance, " +
+                    "montant_restant_echeance = 0, " +
+                    "id_bulletin = ?, " +
+                    "date_prelevement = CURRENT_TIMESTAMP, " +
+                    "commentaire = 'Cloture et imputation sur Solde de Tout Compte (STC)' " +
+                    "WHERE id_pret = ? AND statut IN ('A_ECHOIR', 'PRELEVEE_PARTIELLEMENT')";
+            try (PreparedStatement psEch = c.prepareStatement(sqlEch)) {
+                if (idBulletinStc != null) {
+                    psEch.setInt(1, idBulletinStc);
+                } else {
+                    psEch.setNull(1, java.sql.Types.INTEGER);
+                }
+                psEch.setInt(2, pret.getIdPret());
+                psEch.executeUpdate();
+            }
+
+            // Clôturer le prêt
+            pret.setCapitalRembourse(pret.getMontantTotal());
+            pret.setCapitalRestantDu(BigDecimal.ZERO);
+            pret.setStatut("SOLDE");
+            pret.update(c);
+        }
+
+        return totalSolde;
+    }
+
+    /**
+     * Alias explicite pour l'exigibilité et la clôture anticipée de prêt lors de la cessation de contrat.
+     */
+    public static BigDecimal exigerSoldePretFinContrat(Integer idEmploye, Integer idBulletinStc, Connection c) throws Exception {
+        return solderPretsPourStc(idEmploye, idBulletinStc, c);
+    }
+
+    /**
      * Génère l'échéancier prévisionnel de N mensualités avec décompte du capital restant dû.
      */
     public List<PaiePretEcheance> genererEcheances() {

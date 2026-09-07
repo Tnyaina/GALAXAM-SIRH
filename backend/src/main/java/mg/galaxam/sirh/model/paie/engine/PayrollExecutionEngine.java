@@ -339,7 +339,10 @@ public class PayrollExecutionEngine {
             } else {
                 BigDecimal minimumPerception = input.getMinimumPerceptionIrsa();
                 irsaNet = irsaArrondiDizaine.subtract(reductionEnfants).max(BigDecimal.ZERO);
-                irsaNet = irsaNet.max(minimumPerception).setScale(2, RoundingMode.HALF_UP);
+                irsaNet = irsaNet.max(minimumPerception);
+                // Règle fiscale protectrice (CGI Madagascar Art. 01.03.18) :
+                // La retenue IRSA ne peut excéder le montant même du salaire net imposable
+                irsaNet = irsaNet.min(salaireNetImposable).setScale(2, RoundingMode.HALF_UP);
             }
 
             if (irsaNet.compareTo(BigDecimal.ZERO) > 0) {

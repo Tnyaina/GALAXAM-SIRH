@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS paie_pret_echeance (
     created_at              TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_echeance_statut CHECK (statut IN (
-        'A_ECHOIR', 'PRELEVEE_EN_PAIE', 'REMBOURSEE_ANTICIPEE', 'REPORTEE', 'ANNULEE'
+        'A_ECHOIR', 'PRELEVEE_EN_PAIE', 'PRELEVEE_PARTIELLEMENT', 'REMBOURSEE_ANTICIPEE', 'REPORTEE', 'ANNULEE'
     )),
     CONSTRAINT uk_pret_echeance UNIQUE (id_pret, numero_echeance)
 );

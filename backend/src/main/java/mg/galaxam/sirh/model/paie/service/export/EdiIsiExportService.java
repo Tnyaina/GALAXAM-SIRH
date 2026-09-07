@@ -10,6 +10,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -57,6 +58,41 @@ public class EdiIsiExportService {
         // Fallback de compatibilité : récupérer d'éventuels bulletins résiduels sous régime ISI
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriode, c);
 
+        // 3. Validation préalable collective des identifiants fiscaux obligatoires (Axe 4 du Contre-Audit)
+        // Rassemble l'ensemble des prestataires ou consultants ayant un CIN/NIF manquant en une seule notification exhaustive
+        List<String> manquantsIdentification = new ArrayList<>();
+
+        for (PaieHonorairePrestation h : honoraires) {
+            String cinOuNif = h.getCinOuNif() != null ? h.getCinOuNif().replaceAll("\\s+", "") : "";
+            if (cinOuNif.isEmpty()) {
+                String nom = h.getNomComplet() != null && !h.getNomComplet().isBlank() ? h.getNomComplet().trim() : "Prestataire ID " + h.getIdPrestation();
+                manquantsIdentification.add("Prestataire (honoraires) : '" + nom + "' n'a ni CIN ni NIF renseigne");
+            }
+        }
+
+        for (BulletinPaie bp : bulletins) {
+            boolean isConsultant = "CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) ||
+                                   "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant()) ||
+                                   (bp.getRetenueIsi5() != null && bp.getRetenueIsi5().compareTo(BigDecimal.ZERO) > 0);
+            if (!isConsultant) continue;
+
+            boolean dejaPresent = honoraires.stream().anyMatch(h ->
+                    (h.getIdIntervenant() != null && h.getIdIntervenant().equals(bp.getIdEmploye())) ||
+                    (bp.getCinNumero() != null && !bp.getCinNumero().isBlank() && bp.getCinNumero().equals(h.getCinOuNif()))
+            );
+            if (dejaPresent) continue;
+
+            String cinOuNif = bp.getCinNumero() != null ? bp.getCinNumero().replaceAll("\\s+", "") : "";
+            if (cinOuNif.isEmpty()) {
+                manquantsIdentification.add("Salarie/Consultant : '" + bp.getNomPrenom() + "' (Matricule " + bp.getMatricule() + ") n'a aucun numero de CIN renseigne");
+            }
+        }
+
+        if (!manquantsIdentification.isEmpty()) {
+            throw new IllegalStateException("Declaration EDI ISI impossible — identifiants fiscaux obligatoires (CIN/NIF) manquants :\n- "
+                    + String.join("\n- ", manquantsIdentification));
+        }
+
         StringBuilder sb = new StringBuilder();
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         sb.append("<EDI>");
@@ -77,9 +113,7 @@ public class EdiIsiExportService {
 
             String nomComplet = h.getNomComplet() != null && !h.getNomComplet().isBlank() ? h.getNomComplet().trim() : "PRESTATAIRE EXTERNE";
             String cinOuNif = h.getCinOuNif() != null ? h.getCinOuNif().replaceAll("\\s+", "") : "";
-            if (cinOuNif.isEmpty()) {
-                throw new IllegalStateException("Numéro CIN ou NIF obligatoire manquant pour le prestataire '" + nomComplet + "' dans la déclaration EDI ISI.");
-            }
+
             String intitulePrestation = h.getIntitulePrestation() != null && !h.getIntitulePrestation().isBlank() ? h.getIntitulePrestation().trim() : "PRESTATION DE CONSEIL / EXPERTISE";
             String natureService = h.getNatureService() != null && !h.getNatureService().isBlank() ? h.getNatureService().trim() : "PRESTATIONS DE SERVICES";
 
@@ -148,9 +182,6 @@ public class EdiIsiExportService {
             long isi = bp.getRetenueIsi5() != null ? bp.getRetenueIsi5().longValue() : 0L;
             String datePaiement = DATE_FMT.format(dateFin);
             String cinOuNif = bp.getCinNumero() != null ? bp.getCinNumero().replaceAll("\\s+", "") : "";
-            if (cinOuNif.isEmpty()) {
-                throw new IllegalStateException("Numéro CIN obligatoire manquant pour le salarié/consultant '" + bp.getNomPrenom() + "' dans la déclaration EDI ISI.");
-            }
 
             sb.append("<line>");
             sb.append("<k><id>texte_1</id><o>").append(escapeXml(bp.getNomPrenom())).append("</o></k>");

@@ -285,4 +285,67 @@ class PaieExportServiceIntegrationTest {
         assertTrue(contentXmlStr.contains("EMP-2006-0001"), "content.xml doit contenir le matricule du salarié");
         assertTrue(contentXmlStr.contains("RAKOTONDRAZAKA"), "content.xml doit contenir le nom du salarié");
     }
+
+    @Test
+    @DisplayName("6. Contre-Audit Axe 4 : Diagnostic groupé exhaustif des identifiants manquants EDI ISI")
+    void testEdiIsiDiagnosticGroupeIdentifiantsManquants() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                // Créer deux prestataires sans CIN/NIF
+                mg.galaxam.sirh.model.paie.PaieHonorairePrestation p1 = new mg.galaxam.sirh.model.paie.PaieHonorairePrestation();
+                p1.setIdPeriodePaie(ID_PERIODE);
+                p1.setNomComplet("Expert Alpha Sans CIN");
+                p1.setCinOuNif("");
+                p1.setIntitulePrestation("Conseil A");
+                p1.setMontantBrut(new BigDecimal("500000.00"));
+                p1.setDatePrestation(java.sql.Date.valueOf("2026-08-15"));
+                p1.save(c);
+
+                mg.galaxam.sirh.model.paie.PaieHonorairePrestation p2 = new mg.galaxam.sirh.model.paie.PaieHonorairePrestation();
+                p2.setIdPeriodePaie(ID_PERIODE);
+                p2.setNomComplet("Expert Beta Sans NIF");
+                p2.setCinOuNif("   ");
+                p2.setIntitulePrestation("Conseil B");
+                p2.setMontantBrut(new BigDecimal("700000.00"));
+                p2.setDatePrestation(java.sql.Date.valueOf("2026-08-20"));
+                p2.save(c);
+
+                IllegalStateException ex = assertThrows(IllegalStateException.class, () -> {
+                    ediIsiExportService.exporterEdiXml(ID_PERIODE, c);
+                });
+
+                // Le message doit lister TOUS les prestataires manquants en une seule fois
+                assertTrue(ex.getMessage().contains("Expert Alpha Sans CIN"), "Le rapport d'erreur doit citer le premier prestataire");
+                assertTrue(ex.getMessage().contains("Expert Beta Sans NIF"), "Le rapport d'erreur doit citer le second prestataire");
+                assertTrue(ex.getMessage().contains("identifiants fiscaux obligatoires (CIN/NIF) manquants"));
+            } finally {
+                c.rollback();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("7. Contre-Audit Axe 2 : Régularisation trimestrielle CNaPS et assiette plafonnée")
+    void testDntsRegularisationTrimestrielleCNaPS() throws Exception {
+        // Obtenir la DNTS agrégée pour T3 2026
+        List<DntsRowDto> rows = paieExportService.obtenirDonneesDntsTrimestre(2026, 3);
+        assertNotNull(rows);
+        assertFalse(rows.isEmpty());
+
+        BigDecimal maxPlafondTrimestriel = new BigDecimal("6304320.00"); // 3 mois x 2 101 440 Ar
+
+        for (DntsRowDto r : rows) {
+            // L'assiette déclarée ne doit en aucun cas excéder le plafond trimestriel (3 x 8 x SME)
+            assertTrue(r.getAssiettePlafonneeCnaps().compareTo(maxPlafondTrimestriel) <= 0,
+                    "L'assiette CNaPS trimestrielle ne doit pas excéder le plafond trimestriel légal");
+
+            // Cohérence de la cotisation CNaPS calculée sur l'assiette régulière
+            BigDecimal expectedCnapsSal = r.getAssiettePlafonneeCnaps().multiply(new BigDecimal("0.01")).setScale(2, java.math.RoundingMode.HALF_UP);
+            BigDecimal expectedCnapsPat = r.getAssiettePlafonneeCnaps().multiply(new BigDecimal("0.13")).setScale(2, java.math.RoundingMode.HALF_UP);
+
+            assertEquals(expectedCnapsSal, r.getCnapsSalarial(), "CNaPS salarial trimestriel = 1% de l'assiette regularisee");
+            assertEquals(expectedCnapsPat, r.getCnapsPatronal(), "CNaPS patronal trimestriel = 13% de l'assiette regularisee");
+        }
+    }
 }

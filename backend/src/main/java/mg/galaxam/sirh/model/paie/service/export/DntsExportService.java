@@ -3,6 +3,7 @@ package mg.galaxam.sirh.model.paie.service.export;
 import mg.galaxam.sirh.model.paie.BulletinPaie;
 import mg.galaxam.sirh.model.paie.BulletinPaieLigne;
 import mg.galaxam.sirh.model.paie.dto.export.DntsRowDto;
+import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -13,8 +14,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -221,14 +224,27 @@ public class DntsExportService {
             }
         }
 
+        // Configuration légale pour les taux et le plafond CNaPS du trimestre
+        LocalDate dateDebutTrimestre = LocalDate.of(annee, moisDebut, 1);
+        PaieConfigLegale config = PaieConfigLegale.findActiveAt(c, dateDebutTrimestre);
+        BigDecimal plafondMensuel = (config != null && config.getPlafondCotisationMensuel() != null)
+                ? config.getPlafondCotisationMensuel()
+                : new BigDecimal("2101440.00");
+        BigDecimal tauxCnapsSal = new BigDecimal("0.01");
+        BigDecimal tauxCnapsPat = new BigDecimal("0.13");
+        BigDecimal tauxFmfpPat = new BigDecimal("0.01");
+
         // Agréger par matricule sur l'ensemble du trimestre
         Map<String, DntsRowDto> mapSalaries = new LinkedHashMap<>();
+        Map<String, Integer> moisPresents = new HashMap<>();
         int ordre = 1;
 
         for (Integer idPer : idsPeriodes) {
             List<DntsRowDto> moisRows = genererDonneesDnts(idPer, c);
             for (DntsRowDto r : moisRows) {
                 String matr = r.getMatricule();
+                moisPresents.merge(matr, 1, Integer::sum);
+
                 if (!mapSalaries.containsKey(matr)) {
                     DntsRowDto cumul = new DntsRowDto();
                     cumul.setNumeroOrdre(ordre++);
@@ -250,18 +266,38 @@ public class DntsExportService {
                 } else {
                     DntsRowDto exist = mapSalaries.get(matr);
                     exist.setSalaireBrutReel(exist.getSalaireBrutReel().add(r.getSalaireBrutReel()));
-                    exist.setAssiettePlafonneeCnaps(exist.getAssiettePlafonneeCnaps().add(r.getAssiettePlafonneeCnaps()));
-                    exist.setCnapsSalarial(exist.getCnapsSalarial().add(r.getCnapsSalarial()));
-                    exist.setCnapsPatronal(exist.getCnapsPatronal().add(r.getCnapsPatronal()));
-                    exist.setFmfpPatronal(exist.getFmfpPatronal().add(r.getFmfpPatronal()));
                     exist.setSanteSalarial(exist.getSanteSalarial().add(r.getSanteSalarial()));
                     exist.setSantePatronal(exist.getSantePatronal().add(r.getSantePatronal()));
-                    exist.setTotalCotisations(exist.getTotalCotisations().add(r.getTotalCotisations()));
                     if (r.getDateDebauchage() != null && !r.getDateDebauchage().isBlank()) {
                         exist.setDateDebauchage(r.getDateDebauchage());
                     }
                 }
             }
+        }
+
+        // Régularisation progressive trimestrielle CNaPS (Loi de Prévoyance Sociale Madagascar) :
+        // AssietteTrimestrielle = min(BrutCumulé, nbMoisPresents × PlafondMensuel 8x SME).
+        // Évite la sous-déclaration de cotisations lorsque le brut fluctue d'un mois à l'autre dans le même trimestre.
+        for (Map.Entry<String, DntsRowDto> entry : mapSalaries.entrySet()) {
+            String matr = entry.getKey();
+            DntsRowDto row = entry.getValue();
+            int nbMois = moisPresents.getOrDefault(matr, 1);
+            BigDecimal plafondTrimestriel = plafondMensuel.multiply(BigDecimal.valueOf(nbMois));
+
+            BigDecimal assietteTrim = row.getSalaireBrutReel().min(plafondTrimestriel).setScale(2, RoundingMode.HALF_UP);
+            row.setAssiettePlafonneeCnaps(assietteTrim);
+
+            BigDecimal cnapsSal = assietteTrim.multiply(tauxCnapsSal).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal cnapsPat = assietteTrim.multiply(tauxCnapsPat).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal fmfpPat = row.getSalaireBrutReel().multiply(tauxFmfpPat).setScale(2, RoundingMode.HALF_UP);
+
+            row.setCnapsSalarial(cnapsSal);
+            row.setCnapsPatronal(cnapsPat);
+            row.setFmfpPatronal(fmfpPat);
+
+            BigDecimal totCotis = cnapsSal.add(cnapsPat).add(fmfpPat)
+                    .add(row.getSanteSalarial()).add(row.getSantePatronal());
+            row.setTotalCotisations(totCotis.setScale(2, RoundingMode.HALF_UP));
         }
 
         return new ArrayList<>(mapSalaries.values());
@@ -334,19 +370,29 @@ public class DntsExportService {
     }
 
     private String chercherDateFinContrat(Integer idEmploye, Date dateDebutPeriode, Date dateFinPeriode, Connection c) {
-        String sql = "SELECT date_fin FROM contrat_travail WHERE id_employe = ? ORDER BY date_debut DESC LIMIT 1";
+        String sql = "SELECT ct.date_fin, rsa.code AS statut_rh " +
+                     "FROM contrat_travail ct " +
+                     "LEFT JOIN employe_affectation_carriere eac ON ct.id_contrat = eac.id_contrat " +
+                     "LEFT JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh " +
+                     "WHERE ct.id_employe = ? ORDER BY ct.date_debut DESC LIMIT 1";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next() && rs.getDate("date_fin") != null) {
                     Date dateFin = rs.getDate("date_fin");
-                    // Règle CNaPS / FMFP : la date de débauchage ne doit être renseignée QUE si la cessation
-                    // de contrat est intervenue pendant la période déclarée (ni avant, ni après).
+                    String statutRh = rs.getString("statut_rh");
+
+                    // 1. Échéance future : pas encore débauché
                     if (dateFinPeriode != null && dateFin.after(dateFinPeriode)) {
                         return "";
                     }
+                    // 2. Échéance antérieure à la période déclarée :
+                    // Si le salarié est encore ACTIF (ex: renouvellement/continuation), ce n'est pas un débauchage.
+                    // Si le salarié est non-actif, il s'agit d'un Solde de Tout Compte décalé : afficher la date réelle de cessation.
                     if (dateDebutPeriode != null && dateFin.before(dateDebutPeriode)) {
-                        return "";
+                        if ("ACTIF".equalsIgnoreCase(statutRh)) {
+                            return "";
+                        }
                     }
                     return DATE_FMT.format(dateFin.toLocalDate());
                 }

@@ -467,4 +467,39 @@ class PayrollExecutionEngineTest {
         assertNotNull(cStandard.trouverLigne("HEURES_FERIE"));
         verifierEquilibreComptable(cStandard);
     }
+
+    @Test
+    @DisplayName("14. Contre-Audit Axe 3 : Plafonnement protecteur de l'IRSA minimum au montant net imposable (CGI Art. 01.03.18)")
+    void testIrsaMinimumPlafonneAuNetImposable() {
+        // Rémunération symbolique / régularisation de fin de contrat avec salaire brut très faible (1 500 Ar)
+        BigDecimal salaireBaseFaible = new BigDecimal("1500.00");
+        PayrollCalculationInput in = creerInputBase("EMP_TRES_FAIBLE", salaireBaseFaible, "TNR");
+        in.setNbJoursPresents(new BigDecimal("22.0"));
+        in.setTotalHeuresTravaillees(new BigDecimal("173.33"));
+        in.setHeuresNormales(new BigDecimal("173.33"));
+        in.setIndemniteTransport(BigDecimal.ZERO);
+        in.setIndemniteRepas(BigDecimal.ZERO);
+
+        BulletinPaieComplet c = engine.calculer(in);
+
+        // Cotisations CNaPS (1% = 15 Ar) + OSTIE (1% = 15 Ar) = 30 Ar
+        // Salaire Net Imposable = 1 500 - 30 = 1 470 Ar.
+        // Le plancher d'IRSA est de 3 000 Ar (minimum de perception CGI).
+        // Règle protectrice CGI Art. 01.03.18 :
+        // L'IRSA ne peut en aucun cas excéder le montant net imposable lui-même (1 470 Ar).
+        BulletinPaie bp = c.getBulletin();
+        BigDecimal netImposable = bp.getSalaireNetImposable();
+        BigDecimal irsaRetenu = bp.getIrsaNet();
+
+        assertNotNull(irsaRetenu);
+        assertTrue(irsaRetenu.compareTo(netImposable) <= 0,
+                "L'IRSA retenu (" + irsaRetenu + ") ne doit jamais dépasser le salaire net imposable (" + netImposable + ")");
+        assertEquals(netImposable, irsaRetenu, "Pour un salaire net imposable < 3000 Ar, l'IRSA est plafonné à la valeur exacte du net imposable");
+
+        // Le net à payer ne doit jamais être négatif
+        assertTrue(bp.getNetAPayer().compareTo(BigDecimal.ZERO) >= 0,
+                "Le salaire net à payer ne doit jamais être négatif");
+        assertEquals(BigDecimal.ZERO.setScale(2), bp.getNetAPayer(), "Le net à payer doit être ramené à 0.00 Ar");
+        verifierEquilibreComptable(c);
+    }
 }

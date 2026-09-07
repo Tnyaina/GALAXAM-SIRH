@@ -327,19 +327,29 @@ public class SafiExportService {
     }
 
     private String chercherDateFinContrat(Integer idEmploye, Date dateDebutPeriode, Date dateFinPeriode, Connection c) {
-        String sql = "SELECT date_fin FROM contrat_travail WHERE id_employe = ? ORDER BY date_debut DESC LIMIT 1";
+        String sql = "SELECT ct.date_fin, rsa.code AS statut_rh " +
+                     "FROM contrat_travail ct " +
+                     "LEFT JOIN employe_affectation_carriere eac ON ct.id_contrat = eac.id_contrat " +
+                     "LEFT JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh " +
+                     "WHERE ct.id_employe = ? ORDER BY ct.date_debut DESC LIMIT 1";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next() && rs.getDate("date_fin") != null) {
                     Date dateFin = rs.getDate("date_fin");
-                    // Règle DGI e-Hetra : la date de débauchage ne doit être renseignée QUE si la cessation
-                    // de contrat est intervenue pendant la période déclarée (ni avant, ni après).
+                    String statutRh = rs.getString("statut_rh");
+
+                    // 1. Échéance future : pas encore débauché
                     if (dateFinPeriode != null && dateFin.after(dateFinPeriode)) {
                         return "";
                     }
+                    // 2. Échéance antérieure à la période déclarée :
+                    // Si le salarié est encore ACTIF (ex: renouvellement/continuation), ce n'est pas un débauchage.
+                    // Si le salarié est non-actif, il s'agit d'un Solde de Tout Compte décalé : afficher la date réelle de cessation.
                     if (dateDebutPeriode != null && dateFin.before(dateDebutPeriode)) {
-                        return "";
+                        if ("ACTIF".equalsIgnoreCase(statutRh)) {
+                            return "";
+                        }
                     }
                     return DATE_FMT.format(dateFin.toLocalDate());
                 }
