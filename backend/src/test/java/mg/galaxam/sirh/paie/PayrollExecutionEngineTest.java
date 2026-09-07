@@ -403,4 +403,68 @@ class PayrollExecutionEngineTest {
         assertEquals(new BigDecimal("190000.00"), cNonPlaf.getMontantLignePatronale("COTISATION_OSTIE_PAT"));
         verifierEquilibreComptable(cNonPlaf);
     }
+
+    @Test
+    @DisplayName("12. Contre-Audit Axe 4 : Plafonnement du remboursement des avances employeur au dixième (1/10ème Art. 68)")
+    void testPlafonnementAvanceEmployeurDixiemeArt68() {
+        PayrollCalculationInput in = creerInputBase("EMP_AVANCE_01", new BigDecimal("1000000.00"), "TNR");
+
+        // L'employé a reçu une avance spéciale exceptionnelle de 300 000 Ar
+        PaieAvanceAcompte avance = new PaieAvanceAcompte();
+        avance.setIdAvance(99);
+        avance.setTypeMouvement("AVANCE_SPECIALE");
+        avance.setMontant(new BigDecimal("300000.00"));
+        avance.setMotif("Avance exceptionnelle équipement");
+        in.setAvancesAcomptes(List.of(avance));
+
+        BulletinPaieComplet complet = engine.calculer(in);
+
+        // Net avant trésorerie = 951 700 Ar
+        // Plafond 1/10ème (10%) = 95 170.00 Ar
+        // L'avance demandée (300 000 Ar) doit être strictement plafonnée à 95 170 Ar dans ce bulletin !
+        BulletinPaieLigne ligneAvance = complet.trouverLigne("RETENUE_AVANCE_SPECIALE");
+        assertNotNull(ligneAvance, "La ligne d'avance spéciale doit figurer sur le bulletin");
+        assertEquals(new BigDecimal("95170.00"), ligneAvance.getMontantSalarial(),
+                "Le prélèvement de l'avance en paie doit être strictement plafonné à 10% (1/10ème Art. 68)");
+
+        // Vérification de l'équilibre comptable et du respect du reste à vivre
+        verifierEquilibreComptable(complet);
+        assertTrue(complet.getBulletin().getNetAPayer().compareTo(new BigDecimal("800000.00")) > 0);
+    }
+
+    @Test
+    @DisplayName("13. Contre-Audit Axe 5 : Régime Cadres — Heures supplémentaires vs sujétion Nuit et Férié")
+    void testCadresHeuresSupEtMajorationNuitFerie() {
+        BigDecimal salaireBase = new BigDecimal("2000000.00");
+
+        // Cas A : Cadre dirigeant / Forfait-jours -> Exonéré d'heures sup (+30%, +50%), mais majorations Nuit & Férié rémunérées
+        PayrollCalculationInput inDirigeant = creerInputBase("EMP_CADRE_DIR", salaireBase, "TNR");
+        inDirigeant.setCategorieProfessionnelle("CADRE_DIRIGEANT");
+        inDirigeant.setHeuresHs30(new BigDecimal("10.0"));
+        inDirigeant.setHeuresHs50(new BigDecimal("5.0"));
+        inDirigeant.setHeuresNuit(new BigDecimal("8.0"));
+        inDirigeant.setHeuresFeriees(new BigDecimal("8.0"));
+
+        BulletinPaieComplet cDirigeant = engine.calculer(inDirigeant);
+        assertNull(cDirigeant.trouverLigne("HEURES_SUP_30"), "Un cadre dirigeant ne perçoit pas d'HS +30%");
+        assertNull(cDirigeant.trouverLigne("HEURES_SUP_50"), "Un cadre dirigeant ne perçoit pas d'HS +50%");
+        assertNotNull(cDirigeant.trouverLigne("HEURES_NUIT"), "Le travail de nuit est dû même aux cadres");
+        assertNotNull(cDirigeant.trouverLigne("HEURES_FERIE"), "Le travail les jours fériés est dû même aux cadres");
+        verifierEquilibreComptable(cDirigeant);
+
+        // Cas B : Cadre opérationnel / Agent standard -> Toutes les heures supplémentaires et majorations sont payées
+        PayrollCalculationInput inStandard = creerInputBase("EMP_CADRE_OPS", salaireBase, "TNR");
+        inStandard.setCategorieProfessionnelle("CADRE");
+        inStandard.setHeuresHs30(new BigDecimal("10.0"));
+        inStandard.setHeuresHs50(new BigDecimal("5.0"));
+        inStandard.setHeuresNuit(new BigDecimal("8.0"));
+        inStandard.setHeuresFeriees(new BigDecimal("8.0"));
+
+        BulletinPaieComplet cStandard = engine.calculer(inStandard);
+        assertNotNull(cStandard.trouverLigne("HEURES_SUP_30"), "Un cadre opérationnel perçoit les heures supplémentaires");
+        assertNotNull(cStandard.trouverLigne("HEURES_SUP_50"));
+        assertNotNull(cStandard.trouverLigne("HEURES_NUIT"));
+        assertNotNull(cStandard.trouverLigne("HEURES_FERIE"));
+        verifierEquilibreComptable(cStandard);
+    }
 }

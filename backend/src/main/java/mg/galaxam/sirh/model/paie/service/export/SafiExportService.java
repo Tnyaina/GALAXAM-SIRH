@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.text.DecimalFormat;
@@ -38,6 +39,15 @@ public class SafiExportService {
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriode, c);
         List<SafiRowDto> rows = new ArrayList<>();
 
+        Date dateFinPeriode = null;
+        String sqlPeriodeDate = "SELECT date_fin FROM periode_paie WHERE id_periode_paie = ?";
+        try (PreparedStatement ps = c.prepareStatement(sqlPeriodeDate)) {
+            ps.setInt(1, idPeriode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) dateFinPeriode = rs.getDate("date_fin");
+            }
+        }
+
         int ordre = 1;
         for (BulletinPaie bp : bulletins) {
             // Filtrer les prestataires / consultants sous régime ISI (qui vont sur l'EDI ISI)
@@ -54,7 +64,7 @@ public class SafiExportService {
             row.setNomPrenoms(bp.getNomPrenom());
             row.setCin(bp.getCinNumero() != null ? bp.getCinNumero() : "");
             row.setDateEmbauche(bp.getDateEmbauche() != null ? DATE_FMT.format(bp.getDateEmbauche().toLocalDate()) : "");
-            row.setDateDebauchage(chercherDateFinContrat(bp.getIdEmploye(), c));
+            row.setDateDebauchage(chercherDateFinContrat(bp.getIdEmploye(), dateFinPeriode, c));
             row.setFonction(bp.getIntitulePoste());
 
             // Ventilation par rubriques
@@ -74,30 +84,39 @@ public class SafiExportService {
                 switch (code) {
                     case "SALAIRE_BASE":
                     case "RETENUE_ABSENCE":
+                    case "INDEMNITE_CONGE":
                     case "INDEMNITE_CONGE_PAYE":
                         base = base.add(mnt);
                         break;
+                    case "HEURES_SUP_30":
+                    case "HEURES_SUP_50":
                     case "HS_130":
                     case "HS_150":
                     case "HEURES_NUIT":
+                    case "HEURES_FERIE":
                         hs = hs.add(mnt);
                         break;
                     case "PRIME_ASSIDUITE":
                     case "PRIME_PERFORMANCE":
                     case "PRIME_EXCEPTIONNELLE":
+                    case "PRIME_ANCIENNETE":
                         primes = primes.add(mnt);
                         break;
                     case "INDEMNITE_TRANSPORT":
+                    case "REMBOURSEMENT_NOTE_FRAIS":
                         indemNonImpos = indemNonImpos.add(mnt);
                         break;
                     case "INDEMNITE_REPAS":
                         repas = repas.add(mnt);
                         break;
                     case "COTISATION_CNAPS":
+                    case "COTISATION_CNAPS_SAL":
                         cnaps = cnaps.add(mnt);
                         break;
                     case "COTISATION_OSTIE":
+                    case "COTISATION_OSTIE_SAL":
                     case "COTISATION_OMSI":
+                    case "COTISATION_OMSI_SAL":
                         sante = sante.add(mnt);
                         break;
                     default:
@@ -297,13 +316,18 @@ public class SafiExportService {
         return sb.toString();
     }
 
-    private String chercherDateFinContrat(Integer idEmploye, Connection c) {
+    private String chercherDateFinContrat(Integer idEmploye, Date dateFinPeriode, Connection c) {
         String sql = "SELECT date_fin FROM contrat_travail WHERE id_employe = ? ORDER BY date_debut DESC LIMIT 1";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next() && rs.getDate("date_fin") != null) {
-                    return DATE_FMT.format(rs.getDate("date_fin").toLocalDate());
+                    Date dateFin = rs.getDate("date_fin");
+                    // Règle DGI e-Hetra : la date de débauchage ne doit pas être renseignée pour un CDD dont l'échéance est future
+                    if (dateFinPeriode != null && dateFin.after(dateFinPeriode)) {
+                        return "";
+                    }
+                    return DATE_FMT.format(dateFin.toLocalDate());
                 }
             }
         } catch (Exception ignored) {}

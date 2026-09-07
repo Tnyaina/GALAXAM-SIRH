@@ -25,7 +25,8 @@ import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.TrancheIrsa
 @Component
 public class PayrollExecutionEngine {
 
-    public static final BigDecimal PLAFOND_QUOTITE_CESSIBLE = new BigDecimal("0.33333333"); // 1/3 légal (Art. 68)
+    public static final BigDecimal PLAFOND_QUOTITE_CESSIBLE = new BigDecimal("0.33333333"); // 1/3 légal (Saisies-arrêts et prêts Art. 72)
+    public static final BigDecimal PLAFOND_AVANCE_EMPLOYEUR_DIXIEME = new BigDecimal("0.10"); // 1/10 légal (Avances consenties par l'employeur Art. 68)
     public static final BigDecimal DIVISEUR_HEURES_MENSUELLES = new BigDecimal("173.3333");
     public static final BigDecimal DIVISEUR_JOURS_TRENTIEME = new BigDecimal("30.0");
     public static final BigDecimal MULTIPLICATEUR_PLAFOND_CNAPS = new BigDecimal("8.0");
@@ -148,9 +149,12 @@ public class PayrollExecutionEngine {
             totalGainsBruts = totalGainsBruts.add(montantConge);
         }
 
-        // 1.4 Heures supplémentaires et majorations (Réservées aux non-cadres / Agents)
-        boolean estCadre = "CADRE".equalsIgnoreCase(input.getCategorieProfessionnelle());
-        if (!estCadre) {
+        // 1.4 Heures supplémentaires et majorations
+        // Seuls les cadres dirigeants ou collaborateurs sous convention forfait-jours sont dispensés d'heures supplémentaires
+        boolean estCadreExempteHs = "CADRE_DIRIGEANT".equalsIgnoreCase(input.getCategorieProfessionnelle())
+                || "FORFAIT_JOUR".equalsIgnoreCase(input.getCategorieProfessionnelle());
+
+        if (!estCadreExempteHs) {
             BigDecimal hs30 = zeroIfNull(input.getHeuresHs30());
             if (hs30.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal mntHs30 = hs30.multiply(tauxHoraire).multiply(new BigDecimal("1.30")).setScale(2, RoundingMode.HALF_UP);
@@ -166,22 +170,23 @@ public class PayrollExecutionEngine {
                         tauxHoraire, new BigDecimal("150.00"), mntHs50, null, 50));
                 totalGainsBruts = totalGainsBruts.add(mntHs50);
             }
+        }
 
-            BigDecimal hNuit = zeroIfNull(input.getHeuresNuit());
-            if (hNuit.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal mntNuit = hNuit.multiply(tauxHoraire).multiply(new BigDecimal("0.30")).setScale(2, RoundingMode.HALF_UP);
-                lignes.add(creerLigne(bp, "HEURES_NUIT", "Majoration Travail de Nuit (+30%)", "GAIN", "HEURES_SUP",
-                        tauxHoraire, new BigDecimal("30.00"), mntNuit, null, 60));
-                totalGainsBruts = totalGainsBruts.add(mntNuit);
-            }
+        // Le travail de nuit et les jours fériés sont des compensations de sujétion légale dues à tous les collaborateurs
+        BigDecimal hNuit = zeroIfNull(input.getHeuresNuit());
+        if (hNuit.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal mntNuit = hNuit.multiply(tauxHoraire).multiply(new BigDecimal("0.30")).setScale(2, RoundingMode.HALF_UP);
+            lignes.add(creerLigne(bp, "HEURES_NUIT", "Majoration Travail de Nuit (+30%)", "GAIN", "HEURES_SUP",
+                    tauxHoraire, new BigDecimal("30.00"), mntNuit, null, 60));
+            totalGainsBruts = totalGainsBruts.add(mntNuit);
+        }
 
-            BigDecimal hFerie = zeroIfNull(input.getHeuresFeriees());
-            if (hFerie.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal mntFerie = hFerie.multiply(tauxHoraire).multiply(BigDecimal.ONE).setScale(2, RoundingMode.HALF_UP);
-                lignes.add(creerLigne(bp, "HEURES_FERIE", "Majoration Travail Jour Férié (+100%)", "GAIN", "HEURES_SUP",
-                        tauxHoraire, new BigDecimal("100.00"), mntFerie, null, 80));
-                totalGainsBruts = totalGainsBruts.add(mntFerie);
-            }
+        BigDecimal hFerie = zeroIfNull(input.getHeuresFeriees());
+        if (hFerie.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal mntFerie = hFerie.multiply(tauxHoraire).multiply(BigDecimal.ONE).setScale(2, RoundingMode.HALF_UP);
+            lignes.add(creerLigne(bp, "HEURES_FERIE", "Majoration Travail Jour Férié (+100%)", "GAIN", "HEURES_SUP",
+                    tauxHoraire, new BigDecimal("100.00"), mntFerie, null, 80));
+            totalGainsBruts = totalGainsBruts.add(mntFerie);
         }
 
         // 1.5 Primes & Ajustements opérationnels
@@ -409,25 +414,29 @@ public class PayrollExecutionEngine {
         BigDecimal totalAvancesSpeciales = BigDecimal.ZERO;
         List<Integer> idsAvancesImputees = new ArrayList<>();
 
+        // Traitement prioritaire des acomptes de quinzaine (salaire déjà échu)
+        BigDecimal soldeDisponibleAcompte = netAvantTresorerie;
         if (input.getAvancesAcomptes() != null) {
             for (PaieAvanceAcompte a : input.getAvancesAcomptes()) {
                 if (a.getMontant() == null || a.getMontant().compareTo(BigDecimal.ZERO) <= 0) continue;
 
                 String type = a.getTypeMouvement() != null ? a.getTypeMouvement() : "ACOMPTE_15";
-                String codeRubrique = mapRubriqueAvance(type);
-                String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : "Acompte sur salaire";
+                boolean isAcompteQuinzaine = "ACOMPTE_15".equalsIgnoreCase(type) || "AVANCE_QUINZAINE".equalsIgnoreCase(type);
 
-                lignes.add(creerLigne(bp, codeRubrique, libelle, "RETENUE", "ACOMPTE_AVANCE",
-                        a.getMontant(), null, a.getMontant(), null, 600));
+                if (isAcompteQuinzaine) {
+                    String codeRubrique = mapRubriqueAvance(type);
+                    String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : "Acompte sur salaire";
 
-                if ("ACOMPTE_15".equalsIgnoreCase(type) || "AVANCE_QUINZAINE".equalsIgnoreCase(type)) {
-                    totalAcomptesQuinzaine = totalAcomptesQuinzaine.add(a.getMontant());
-                } else {
-                    totalAvancesSpeciales = totalAvancesSpeciales.add(a.getMontant());
-                }
-
-                if (a.getIdAvance() != null) {
-                    idsAvancesImputees.add(a.getIdAvance());
+                    BigDecimal mntAcompte = a.getMontant().min(soldeDisponibleAcompte).setScale(2, RoundingMode.HALF_UP);
+                    if (mntAcompte.compareTo(BigDecimal.ZERO) > 0) {
+                        lignes.add(creerLigne(bp, codeRubrique, libelle, "RETENUE", "ACOMPTE_AVANCE",
+                                a.getMontant(), null, mntAcompte, null, 600));
+                        totalAcomptesQuinzaine = totalAcomptesQuinzaine.add(mntAcompte);
+                        soldeDisponibleAcompte = soldeDisponibleAcompte.subtract(mntAcompte).max(BigDecimal.ZERO);
+                    }
+                    if (a.getIdAvance() != null) {
+                        idsAvancesImputees.add(a.getIdAvance());
+                    }
                 }
             }
         }
@@ -435,10 +444,41 @@ public class PayrollExecutionEngine {
         // Net disponible après paiement de l'acompte de quinzaine déjà échu
         BigDecimal netApresAcompte = netAvantTresorerie.subtract(totalAcomptesQuinzaine).max(BigDecimal.ZERO);
 
-        // Plafond de la quotité cessible (Art. 68 : maximum un tiers du net disponible après acompte)
+        // Plafond Art. 68 du Code du Travail : Le remboursement d'avances en espèces consenties par l'employeur
+        // ne peut excéder le dixième (10%) du montant des salaires échus
+        BigDecimal plafondDixiemeAvances = netApresAcompte.multiply(PLAFOND_AVANCE_EMPLOYEUR_DIXIEME).setScale(2, RoundingMode.HALF_UP);
+
+        // Traitement des avances exceptionnelles / spéciales (plafonnées au 1/10ème légal)
+        if (input.getAvancesAcomptes() != null) {
+            for (PaieAvanceAcompte a : input.getAvancesAcomptes()) {
+                if (a.getMontant() == null || a.getMontant().compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                String type = a.getTypeMouvement() != null ? a.getTypeMouvement() : "ACOMPTE_15";
+                boolean isAcompteQuinzaine = "ACOMPTE_15".equalsIgnoreCase(type) || "AVANCE_QUINZAINE".equalsIgnoreCase(type);
+
+                if (!isAcompteQuinzaine) {
+                    String codeRubrique = mapRubriqueAvance(type);
+                    String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : "Avance sur salaire (Art. 68)";
+
+                    BigDecimal capaciteRestanteAvance = plafondDixiemeAvances.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
+                    BigDecimal mntAvanceRetenu = a.getMontant().min(capaciteRestanteAvance).setScale(2, RoundingMode.HALF_UP);
+
+                    if (mntAvanceRetenu.compareTo(BigDecimal.ZERO) > 0) {
+                        lignes.add(creerLigne(bp, codeRubrique, libelle, "RETENUE", "ACOMPTE_AVANCE",
+                                a.getMontant(), null, mntAvanceRetenu, null, 610));
+                        totalAvancesSpeciales = totalAvancesSpeciales.add(mntAvanceRetenu);
+                    }
+                    if (a.getIdAvance() != null) {
+                        idsAvancesImputees.add(a.getIdAvance());
+                    }
+                }
+            }
+        }
+
+        // Plafond global de la quotité cessible pour prêts et saisies (1/3 du net disponible après acompte Art. 72)
         BigDecimal plafondTiers = netApresAcompte.multiply(PLAFOND_QUOTITE_CESSIBLE).setScale(2, RoundingMode.HALF_UP);
 
-        // Capacité d'endettement résiduelle pour l'échéance de prêt (après avances exceptionnelles)
+        // Capacité d'endettement résiduelle pour l'échéance de prêt (après imputation des avances)
         BigDecimal capaciteRestantePret = plafondTiers.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
 
         // 5.2 Échéance de prêt (plafonnement au tiers légal Art. 68)

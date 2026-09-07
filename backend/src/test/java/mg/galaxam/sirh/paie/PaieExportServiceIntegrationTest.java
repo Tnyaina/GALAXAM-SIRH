@@ -109,7 +109,7 @@ class PaieExportServiceIntegrationTest {
         assertNotNull(dntsRows);
         assertFalse(dntsRows.isEmpty(), "La DNTS doit contenir les salariés affiliés CNaPS");
 
-        BigDecimal maxPlafondCnaps = new BigDecimal("2099472.00");
+        BigDecimal maxPlafondCnaps = new BigDecimal("2101440.00"); // 8 x 262 680 Ar (SME LF 2026)
 
         for (DntsRowDto row : dntsRows) {
             assertNotNull(row.getMatricule());
@@ -119,7 +119,7 @@ class PaieExportServiceIntegrationTest {
 
             // Contrôle du respect du plafond légal 8x SME
             assertTrue(row.getAssiettePlafonneeCnaps().compareTo(maxPlafondCnaps) <= 0,
-                    "L'assiette CNaPS ne doit pas dépasser le plafond 8x SME (2 099 472 Ar)");
+                    "L'assiette CNaPS ne doit pas dépasser le plafond 8x SME (2 101 440 Ar)");
 
             // Contrôle des taux : CNaPS salarial = 1% assiette, CNaPS patronal = 13% assiette
             assertNotNull(row.getCnapsSalarial());

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.text.DecimalFormat;
@@ -34,6 +35,15 @@ public class DntsExportService {
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriode, c);
         List<DntsRowDto> rows = new ArrayList<>();
 
+        Date dateFinPeriode = null;
+        String sqlPeriodeDate = "SELECT date_fin FROM periode_paie WHERE id_periode_paie = ?";
+        try (PreparedStatement ps = c.prepareStatement(sqlPeriodeDate)) {
+            ps.setInt(1, idPeriode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) dateFinPeriode = rs.getDate("date_fin");
+            }
+        }
+
         int ordre = 1;
         for (BulletinPaie bp : bulletins) {
             // Exclure les consultants sans affiliation CNaPS
@@ -50,7 +60,7 @@ public class DntsExportService {
             row.setNomPrenom(bp.getNomPrenom());
             row.setRefCin(bp.getCinNumero() != null ? bp.getCinNumero() : "");
             row.setDateEmbauche(bp.getDateEmbauche() != null ? DATE_FMT.format(bp.getDateEmbauche().toLocalDate()) : "");
-            row.setDateDebauchage(chercherDateFinContrat(bp.getIdEmploye(), c));
+            row.setDateDebauchage(chercherDateFinContrat(bp.getIdEmploye(), dateFinPeriode, c));
 
             BigDecimal brut = bp.getTotalGainsBruts() != null ? bp.getTotalGainsBruts() : BigDecimal.ZERO;
             row.setSalaireBrutReel(brut.setScale(2, RoundingMode.HALF_UP));
@@ -64,13 +74,18 @@ public class DntsExportService {
 
             for (BulletinPaieLigne l : lignes) {
                 String code = l.getCodeRubrique();
-                if ("COTISATION_CNAPS".equals(code)) {
-                    if (l.getBaseCalcul() != null) assietteCnaps = l.getBaseCalcul();
+                if (code == null) continue;
+
+                if ("COTISATION_CNAPS".equals(code) || "COTISATION_CNAPS_SAL".equals(code) || "COTISATION_CNAPS_PAT".equals(code)) {
+                    if (l.getBaseCalcul() != null && l.getBaseCalcul().compareTo(BigDecimal.ZERO) > 0) {
+                        assietteCnaps = l.getBaseCalcul();
+                    }
                     if (l.getMontantSalarial() != null) cnapsSal = cnapsSal.add(l.getMontantSalarial());
                     if (l.getMontantPatronal() != null) cnapsPat = cnapsPat.add(l.getMontantPatronal());
-                } else if ("COTISATION_FMFP".equals(code)) {
+                } else if ("COTISATION_FMFP".equals(code) || "COTISATION_FMFP_PAT".equals(code)) {
                     if (l.getMontantPatronal() != null) fmfpPat = fmfpPat.add(l.getMontantPatronal());
-                } else if ("COTISATION_OSTIE".equals(code) || "COTISATION_OMSI".equals(code)) {
+                } else if ("COTISATION_OSTIE".equals(code) || "COTISATION_OSTIE_SAL".equals(code) || "COTISATION_OSTIE_PAT".equals(code)
+                        || "COTISATION_OMSI".equals(code) || "COTISATION_OMSI_SAL".equals(code) || "COTISATION_OMSI_PAT".equals(code)) {
                     if (l.getMontantSalarial() != null) santeSal = santeSal.add(l.getMontantSalarial());
                     if (l.getMontantPatronal() != null) santePat = santePat.add(l.getMontantPatronal());
                 }
@@ -172,13 +187,18 @@ public class DntsExportService {
         return sb.toString();
     }
 
-    private String chercherDateFinContrat(Integer idEmploye, Connection c) {
+    private String chercherDateFinContrat(Integer idEmploye, Date dateFinPeriode, Connection c) {
         String sql = "SELECT date_fin FROM contrat_travail WHERE id_employe = ? ORDER BY date_debut DESC LIMIT 1";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next() && rs.getDate("date_fin") != null) {
-                    return DATE_FMT.format(rs.getDate("date_fin").toLocalDate());
+                    Date dateFin = rs.getDate("date_fin");
+                    // Règle CNaPS / FMFP : la date de débauchage ne doit pas être renseignée pour un CDD dont l'échéance est future
+                    if (dateFinPeriode != null && dateFin.after(dateFinPeriode)) {
+                        return "";
+                    }
+                    return DATE_FMT.format(dateFin.toLocalDate());
                 }
             }
         } catch (Exception ignored) {}

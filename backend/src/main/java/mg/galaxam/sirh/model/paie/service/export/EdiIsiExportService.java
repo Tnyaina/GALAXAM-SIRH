@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.model.paie.service.export;
 
 import mg.galaxam.sirh.model.paie.BulletinPaie;
+import mg.galaxam.sirh.model.paie.PaieHonorairePrestation;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -50,7 +51,10 @@ public class EdiIsiExportService {
         int mois = dateFin.getMonthValue();
         int exercice = dateFin.getYear();
 
-        // 2. Récupérer les bulletins des consultants / prestataires sous régime ISI
+        // 2. Récupérer les honoraires et prestations externes sous régime ISI (Axe 1 du Contre-Audit)
+        List<PaieHonorairePrestation> honoraires = PaieHonorairePrestation.listerParPeriode(idPeriode, c);
+
+        // Fallback de compatibilité : récupérer d'éventuels bulletins résiduels sous régime ISI
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriode, c);
 
         StringBuilder sb = new StringBuilder();
@@ -65,6 +69,30 @@ public class EdiIsiExportService {
         sb.append("</infos>");
         sb.append("<tabs><tab><data>");
 
+        // Lignes issues des honoraires légaux isolés (paie_honoraire_prestation)
+        for (PaieHonorairePrestation h : honoraires) {
+            long brut = h.getMontantBrut() != null ? h.getMontantBrut().longValue() : 0L;
+            long isi = h.getMontantRetenueIsi() != null ? h.getMontantRetenueIsi().longValue() : 0L;
+            String datePaiement = h.getDatePaiement() != null ? DATE_FMT.format(h.getDatePaiement().toLocalDate()) : DATE_FMT.format(dateFin);
+
+            sb.append("<line>");
+            sb.append("<k><id>texte_1</id><o>").append(escapeXml(h.getNomComplet())).append("</o></k>");
+            sb.append("<k><id>texte_2</id><o>").append(escapeXml(h.getCinOuNif())).append("</o></k>");
+            sb.append("<k><id>texte_3</id><o>").append(escapeXml(h.getIntitulePrestation())).append("</o></k>");
+            sb.append("<k><id>texte_4</id><o>").append(escapeXml(h.getNatureService() != null ? h.getNatureService() : "SERVICE SYSTEMATIQUE")).append("</o></k>");
+            sb.append("<k><id>date_1</id><o>").append(datePaiement).append("</o></k>");
+            sb.append("<k><id>montant_1</id><o>").append(brut).append("</o></k>");
+            sb.append("<k><id>montant_2</id><o>").append(isi).append("</o></k>");
+            sb.append("<k><id>texte_5</id><o>").append(escapeXml(h.getAdresse() != null ? h.getAdresse() : "ANTANANARIVO")).append("</o></k>");
+            sb.append("<k><id>texte_6</id><o></o></k>");
+            sb.append("<k><id>texte_7</id><o>").append(escapeXml(h.getCommune() != null ? h.getCommune() : "ANTANANARIVO RENIVOHITRA C.U")).append("</o></k>");
+            sb.append("<k><id>texte_8</id><o>").append(escapeXml(h.getRegion() != null ? h.getRegion() : "ANALAMANGA")).append("</o></k>");
+            sb.append("<k><id>texte_9</id><o>").append(escapeXml(h.getDistrict() != null ? h.getDistrict() : "ANTANANARIVO RENIVOHITRA")).append("</o></k>");
+            sb.append("<k><id>texte_10</id><o>").append(escapeXml(h.getProvince() != null ? h.getProvince() : "ANTANANARIVO")).append("</o></k>");
+            sb.append("</line>");
+        }
+
+        // Lignes issues d'anciens bulletins résiduels sous régime ISI (si non encore migrés)
         for (BulletinPaie bp : bulletins) {
             boolean isConsultant = "CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) ||
                                    "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant()) ||
@@ -74,7 +102,10 @@ public class EdiIsiExportService {
                 continue;
             }
 
-            // Récupérer adresse et localisation de l'employé
+            // Éviter le doublon si déjà présent dans honoraires
+            boolean dejaPresent = honoraires.stream().anyMatch(h -> h.getIdIntervenant() != null && h.getIdIntervenant().equals(bp.getIdEmploye()));
+            if (dejaPresent) continue;
+
             String adresse = "ANTANANARIVO";
             String commune = "ANTANANARIVO RENIVOHITRA C.U";
             String region = "ANALAMANGA";
