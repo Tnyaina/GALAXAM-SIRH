@@ -334,6 +334,20 @@ public class BulletinPaie extends ClassMere {
         return null;
     }
 
+    public static BulletinPaie trouverParId(Integer id, Connection c) throws Exception {
+        if (id == null) return null;
+        String sql = "SELECT * FROM bulletin_paie WHERE id_bulletin = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSet(rs);
+                }
+            }
+        }
+        return null;
+    }
+
     public static BulletinPaie trouverParPeriodeEtEmploye(Integer idPeriode, Integer idEmploye, Connection c) throws Exception {
         String sql = "SELECT * FROM bulletin_paie WHERE id_periode_paie = ? AND id_employe = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {

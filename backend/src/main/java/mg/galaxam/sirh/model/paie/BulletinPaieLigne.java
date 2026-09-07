@@ -154,6 +154,15 @@ public class BulletinPaieLigne extends ClassMere {
         return list;
     }
 
+    public static void supprimerParBulletin(Integer idBulletin, Connection c) throws Exception {
+        if (idBulletin == null) return;
+        String sql = "DELETE FROM bulletin_paie_ligne WHERE id_bulletin = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idBulletin);
+            ps.executeUpdate();
+        }
+    }
+
     private static BulletinPaieLigne mapResultSet(ResultSet rs) throws Exception {
         BulletinPaieLigne l = new BulletinPaieLigne();
         l.setIdLigne(rs.getInt("id_ligne"));

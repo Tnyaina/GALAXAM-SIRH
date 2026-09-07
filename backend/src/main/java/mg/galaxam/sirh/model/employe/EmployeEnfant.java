@@ -226,6 +226,18 @@ public class EmployeEnfant extends ClassMere {
         return false;
     }
 
+    public static int nbEnfantsEligibles(Integer idEmploye, java.sql.Date datePaie, Connection c) throws Exception {
+        if (idEmploye == null || datePaie == null) return 0;
+        List<EmployeEnfant> enfants = listByEmployeId(idEmploye, c);
+        int count = 0;
+        for (EmployeEnfant e : enfants) {
+            if (e.isEligibleReductionIrsa(datePaie.toLocalDate())) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     // Getters and Setters
     public Integer getIdEnfant() { return idEnfant; }
     public void setIdEnfant(Integer idEnfant) { this.idEnfant = idEnfant; }

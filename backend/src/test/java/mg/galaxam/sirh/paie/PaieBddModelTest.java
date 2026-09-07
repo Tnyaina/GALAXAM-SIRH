@@ -16,6 +16,7 @@ import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
 import mg.galaxam.sirh.model.paie.PaiePret;
 import mg.galaxam.sirh.model.paie.PaiePretEcheance;
 import mg.galaxam.sirh.model.paie.PaieRubrique;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,21 @@ class PaieBddModelTest {
 
     @Autowired
     private DataSource dataSource;
+
+    @BeforeEach
+    void nettoyerBulletinsTest() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE bulletin_paie SET statut = 'ROUVERT', motif_reouverture = 'Nettoyage unitaire test' " +
+                    "WHERE id_periode_paie = 1 AND id_employe = 1 AND statut = 'CLOTURE'")) {
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "DELETE FROM bulletin_paie WHERE id_periode_paie = 1 AND id_employe = 1")) {
+                ps.executeUpdate();
+            }
+        }
+    }
 
     @Test
     @DisplayName("1. Vérification du catalogue paie_rubrique et des rubriques fondamentales")

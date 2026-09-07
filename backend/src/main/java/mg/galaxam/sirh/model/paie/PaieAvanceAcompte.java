@@ -145,6 +145,20 @@ public class PaieAvanceAcompte extends ClassMere {
         return null;
     }
 
+    public static PaieAvanceAcompte trouverParId(Integer id, Connection c) throws Exception {
+        if (id == null) return null;
+        String sql = "SELECT * FROM paie_avance_acompte WHERE id_avance = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSet(rs);
+                }
+            }
+        }
+        return null;
+    }
+
     public static List<PaieAvanceAcompte> listerParEmployeEtPeriode(Integer idEmploye, Integer idPeriode, Connection c) throws Exception {
         List<PaieAvanceAcompte> list = new ArrayList<>();
         String sql = "SELECT * FROM paie_avance_acompte WHERE id_employe = ? AND id_periode_paie = ? ORDER BY date_demande ASC";
