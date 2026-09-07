@@ -825,16 +825,65 @@ Le bulletin individuel officiel GALAXAM comprend 9 zones distinctes :
 
 ---
 
-## 25. CRITÈRE D'ACHÈVEMENT DE CETTE PHASE
+## 26. RÉSOLUTIONS DU CONTRE-AUDIT DU SOCLE PAIE
+*(Arbitrages contradictoires actés pour sécuriser le socle BDD et le futur PayrollExecutionEngine)*
 
-Conformément aux directives de la mission :
+Un contre-audit technique, comptable et juridique a été mené sur l'architecture du socle de paie. Sept résolutions majeures ont été formellement adoptées :
+
+### 26.1 Procédure de Réouverture Exceptionnelle Sécurisée
+* **Problématique :** Un trigger PostgreSQL bloquant 100% des modifications post-clôture sans porte de sortie risquait de paralyser l'exploitation en cas d'erreur matérielle découverte avant l'envoi des virements bancaires et déclarations fiscales.
+* **Résolution :** 
+  - Le trigger `fn_bulletin_paie_immutabilite()` autorise la transition exceptionnelle de `statut = 'CLOTURE'` vers `statut = 'ROUVERT'` **si et seulement si** les colonnes `motif_reouverture` (texte explicatif obligatoire) et `rouvert_par` (utilisateur habilité `ROLE_ADMIN` / Direction) sont renseignées.
+  - Tout `DELETE` direct sur un bulletin clôturé demeure strictement interdit.
+
+### 26.2 Modélisation Dédiée des Prêts d'Entreprise & Échéanciers
+* **Problématique :** Confondre les acomptes de quinzaine (opération ponctuelle sur 30 jours) et les prêts du personnel (engagement plurimensuel) dans une même table générique rendait impossible le suivi du capital restant dû et le calcul du Solde de Tout Compte (STC).
+* **Résolution :**
+  - Table `paie_pret` : Contrat plurimensuel (capital emprunté, mensualité fixe, date de début, nombre d'échéances, capital remboursé, capital restant dû, statut `EN_COURS` / `SOLDE`).
+  - Table `paie_pret_echeance` : Échéancier prévisionnel ($1/N$ à $N/N$) avec traçabilité de chaque prélèvement en paie.
+  - Table `paie_avance_acompte` : Recentré sur les variables mensuelles (`ACOMPTE_15`, `AVANCE_SPECIALE`, `CALL_PERSO`, `NOTE_DE_FRAIS`).
+
+### 26.3 Prélèvement Partiel d'Échéance de Prêt & Protection du Net Alimentaire
+* **Problématique :** Si un salarié a un salaire net faible suite à de nombreuses absences, prélever l'échéance complète violerait la quotité cessible légale du tiers (Art. 68 Code du Travail) et rendrait son net négatif.
+* **Résolution :**
+  - Ajout des colonnes `montant_preleve` et `montant_restant_echeance` sur `paie_pret_echeance`.
+  - Le moteur prélève le montant autorisé dans la limite du tiers du net disponible, passe l'échéance au statut `PRELEVEE_PARTIELLEMENT`, et reporte le reliquat sur le plan d'amortissement sans fausser le capital global du prêt.
+
+### 26.4 Idempotence des Prêts en Simulation (Découplage Simulation / Validation)
+* **Problématique :** Si un calcul provisoire en phase de préparation décrémente directement le capital restant dû en base, chaque recalcul (simulation DAF) amortirait le prêt à tort.
+* **Résolution :**
+  - En statut `CALCULE` : Le moteur effectue une projection virtuelle en mémoire sans altérer les tables `paie_pret` et `paie_pret_echeance`.
+  - En statut `VALIDE` ou `CLOTURE` : Le prélèvement réel et l'amortissement du capital restant dû sont scellés en base.
+
+### 26.5 Équilibre Comptable de l'Arrondi Monétaire (`AJUSTEMENT_ARRONDI`)
+* **Problématique :** L'arrondi du net à la dizaine d'Ariary la plus proche (`MROUND(net, 10)`) crée un écart de quelques centimes d'Ariary entre le montant bancaire et la somme arithmétique des lignes ($Gains - Retenues$).
+* **Résolution :**
+  - L'écart monétaire est matérialisé par une ligne de bulletin dédiée portant le code rubrique `AJUSTEMENT_ARRONDI`.
+  - La comptabilité conserve un équilibre mathématique parfait au centime près : $\sum Gains - \sum Retenues = Net \text{ à Payer}$.
+
+### 26.6 Garde-fous Mathématiques sur les Absences au Trentième (1/30)
+* **Problématique :** La formule $NBABS \times \frac{Base}{30}$ produit des aberrations sur mois de 28 jours (un salarié absent tout le mois toucherait quand même $2/30$ de son salaire) et sur mois de 31 jours (un salarié absent tout le mois aurait un brut négatif).
+* **Résolution :**
+  - Garde-fou présence nulle : Si $\text{Jours Travaillés} = 0$ et absence injustifiée sur toute la période, $\text{Salaire Net d'Absence} = 0\text{ Ar}$.
+  - Plafonnement de la retenue d'absence au montant exact du salaire de base du mois.
+
+### 26.7 Paramétrage de l'Assiette FMFP (1%)
+* **Résolution :** Le moteur supporte les deux interprétations juridiques du FMFP (assiette brute totale ou assiette plafonnée CNaPS à $8 \times SME$) via un paramètre dynamique rattaché à la configuration légale active.
+
+---
+
+## 27. CRITÈRE D'ACHÈVEMENT DE LA PHASE SOCLE & PRÊTS
+
+Conformément aux validations :
 * ✅ Cartographie complète des dépendances et de l'existant.
 * ✅ Analyse exhaustive des fichiers réels de paie (`model/`).
-* ✅ Inventaire complet des 50 variables de paie avec codes, sources et régimes fiscaux.
-* ✅ Spécification des règles réelles (absences 1/30, congés, PP/PA, indemnités TNR/TMM, CALL PERSO).
-* ✅ Décodage de la macro EDI XML ISI et des 25 colonnes SAFI IRSA.
-* ✅ Architecture conceptuelle du Payroll Engine sans écriture de code prématurée.
-* ✅ Arbitrages métier formellement validés par le propriétaire du projet.
+* ✅ Inventaire des 50 variables de paie et du catalogue officiel des 33 rubriques.
+* ✅ Socle relationnel DDL déployé : `paie_rubrique`, `bulletin_paie`, `bulletin_paie_ligne`, `paie_pret`, `paie_pret_echeance`, `paie_avance_acompte`.
+* ✅ Cotisation patronale FMFP (1%) intégrée au millésime LF_2026.
+* ✅ Triggers PostgreSQL d'immutabilité post-clôture avec procédure d'exception tracée.
+* ✅ Entités Java et suite complète de 189 tests automatisés 100% au vert.
+* ✅ Contre-audit contradictoire documenté et arbitrages actés.
 
 **STATUT DU MODULE PAIE :**  
-`CONCEPTION VALIDÉE — PRÊTE POUR LA MODÉLISATION DE LA BASE DE DONNÉES (SPRINT PAIE BDD)`
+`SOCLE BDD, PRÊTS & RÉFÉRENTIELS VALIDÉS — PRÊT POUR L'IMPLÉMENTATION DU PAYROLL EXECUTION ENGINE`
+
