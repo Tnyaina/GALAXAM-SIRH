@@ -198,6 +198,21 @@ public class PaieController {
         }
     }
 
+    @GetMapping("/periode/{idPeriode}/export/safi-ods")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> telechargerSafiOds(@PathVariable("idPeriode") Integer idPeriode) {
+        try {
+            byte[] odsBytes = paieExportService.exporterSafiOds(idPeriode);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"modele_declaration_irsa_safi_periode_" + idPeriode + ".ods\"")
+                    .contentType(MediaType.parseMediaType("application/vnd.oasis.opendocument.spreadsheet"))
+                    .body(odsBytes);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse("Erreur lors de l'export SAFI ODS : " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/periode/{idPeriode}/export/safi-data")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> obtenirDonneesSafi(@PathVariable("idPeriode") Integer idPeriode) {

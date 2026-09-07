@@ -94,6 +94,10 @@ public class PayrollCalculationInput {
     private boolean entreeSortieEnCoursDeMois = false;
     private boolean calculerPrimeAncienneteAuto = false;
     private boolean simulation = true;
+    private BigDecimal nbHeuresAbsence = BigDecimal.ZERO;
+    private String modeCalculAbsence = "HEURES_REELLES"; // "HEURES_REELLES" (défaut opposable) ou "TRENTIEME"
+    private boolean estPlafonneSante = true; // Plafonnement OSTIE / OMSI à 8x SME
+    private boolean indemniteRepasImposable = false;
 
     // Constructeur par défaut
     public PayrollCalculationInput() {}
@@ -310,4 +314,16 @@ public class PayrollCalculationInput {
 
     public boolean isSimulation() { return simulation; }
     public void setSimulation(boolean simulation) { this.simulation = simulation; }
+
+    public BigDecimal getNbHeuresAbsence() { return nbHeuresAbsence; }
+    public void setNbHeuresAbsence(BigDecimal nbHeuresAbsence) { this.nbHeuresAbsence = nbHeuresAbsence; }
+
+    public String getModeCalculAbsence() { return modeCalculAbsence; }
+    public void setModeCalculAbsence(String modeCalculAbsence) { this.modeCalculAbsence = modeCalculAbsence; }
+
+    public boolean isEstPlafonneSante() { return estPlafonneSante; }
+    public void setEstPlafonneSante(boolean estPlafonneSante) { this.estPlafonneSante = estPlafonneSante; }
+
+    public boolean isIndemniteRepasImposable() { return indemniteRepasImposable; }
+    public void setIndemniteRepasImposable(boolean indemniteRepasImposable) { this.indemniteRepasImposable = indemniteRepasImposable; }
 }

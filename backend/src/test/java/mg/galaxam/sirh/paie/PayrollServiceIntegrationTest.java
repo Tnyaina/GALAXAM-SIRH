@@ -14,6 +14,7 @@ import javax.sql.DataSource;
 import mg.galaxam.sirh.model.paie.BulletinPaie;
 import mg.galaxam.sirh.model.paie.BulletinPaieLigne;
 import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
+import mg.galaxam.sirh.model.paie.PaieHonorairePrestation;
 import mg.galaxam.sirh.model.paie.PaiePret;
 import mg.galaxam.sirh.model.paie.PaiePretEcheance;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
@@ -55,14 +56,14 @@ class PayrollServiceIntegrationTest {
                 // Cotisation CNaPS salariale (1% plafonnée à 8x SME = 21 014.40 Ar)
                 assertEquals(new BigDecimal("21014.40"), complet.getMontantLigneSalariale("COTISATION_CNAPS_SAL"));
 
-                // Cotisation OSTIE salariale (1% sur brut total 3 800 000 = 38 000 Ar)
-                assertEquals(new BigDecimal("38000.00"), complet.getMontantLigneSalariale("COTISATION_OSTIE_SAL"));
+                // Cotisation OSTIE salariale (1% plafonnée à 8x SME = 21 014.40 Ar - Contre-Audit Axe 5)
+                assertEquals(new BigDecimal("21014.40"), complet.getMontantLigneSalariale("COTISATION_OSTIE_SAL"));
 
                 // FMFP patronale (1% sur 3 800 000 = 38 000 Ar)
                 assertEquals(new BigDecimal("38000.00"), complet.getMontantLignePatronale("COTISATION_FMFP_PAT"));
 
-                // Net imposable = 3 800 000 - 21 014.40 - 38 000 = 3 740 985.60 Ar
-                assertEquals(new BigDecimal("3740985.60"), bp.getSalaireNetImposable());
+                // Net imposable = 3 800 000 - 21 014.40 - 21 014.40 = 3 757 971.20 Ar
+                assertEquals(new BigDecimal("3757971.20"), bp.getSalaireNetImposable());
 
                 // Net à payer positif et arrondi à la dizaine
                 assertTrue(bp.getNetAPayer().compareTo(BigDecimal.ZERO) > 0);
@@ -227,6 +228,41 @@ class PayrollServiceIntegrationTest {
                 IllegalStateException exRecalcul = assertThrows(IllegalStateException.class, () ->
                         payrollService.calculerBulletinEmploye(1, 1, true, 1, c));
                 assertTrue(exRecalcul.getMessage().contains("clôturé"));
+
+            } finally {
+                c.rollback();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("6. Contre-Audit Axe 1 : Isolement des honoraires consultants (paie_honoraire_prestation)")
+    void testIsolementHonorairesConsultants() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                // Création d'un bordereau d'honoraire pour un consultant
+                PaieHonorairePrestation hono = new PaieHonorairePrestation();
+                hono.setIdPeriodePaie(1);
+                hono.setIdIntervenant(5);
+                hono.setNomComplet("Dr RAZAFY Hery (Consultant IT)");
+                hono.setCinOuNif("101999888777");
+                hono.setIntitulePrestation("Audit Cybersécurité et Architecture Cloud");
+                hono.setMontantBrut(new BigDecimal("2500000.00"));
+                hono.setTauxIsi(new BigDecimal("5.00"));
+                hono.setDatePrestation(Date.valueOf("2026-08-31"));
+                hono.save(c);
+
+                assertNotNull(hono.getIdPrestation());
+                // Retenue ISI 5% = 2 500 000 x 5% = 125 000 Ar
+                assertEquals(new BigDecimal("125000.00"), hono.getMontantRetenueIsi());
+                // Net payé = 2 500 000 - 125 000 = 2 375 000 Ar
+                assertEquals(new BigDecimal("2375000.00"), hono.getMontantNetPaye());
+
+                // Vérification de la persistance et listing par période
+                List<PaieHonorairePrestation> liste = PaieHonorairePrestation.listerParPeriode(1, c);
+                assertFalse(liste.isEmpty());
+                assertTrue(liste.stream().anyMatch(h -> h.getNomComplet().contains("RAZAFY")));
 
             } finally {
                 c.rollback();

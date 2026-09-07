@@ -97,14 +97,32 @@ public class PayrollExecutionEngine {
                 salaireBaseContractuel, null, salaireBaseLigne, null, 10));
         totalGainsBruts = totalGainsBruts.add(salaireBaseLigne);
 
-        // 1.2 Retenue sur salaire pour absences injustifiées (au trentième avec garde-fous)
+        // 1.2 Retenue sur salaire pour absences (Méthode légale des heures réelles vs trentième)
         BigDecimal nbJoursAbsence = zeroIfNull(input.getNbJoursAbsence());
+        BigDecimal nbHeuresAbsence = zeroIfNull(input.getNbHeuresAbsence());
         BigDecimal nbJoursOuvrables = zeroIfNull(input.getNbJoursOuvrables());
         BigDecimal montantAbsence = BigDecimal.ZERO;
 
-        if (nbJoursAbsence.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal tauxJournalierTrentieme = input.getTauxJournalierTrentieme();
-            montantAbsence = nbJoursAbsence.multiply(tauxJournalierTrentieme).setScale(2, RoundingMode.HALF_UP);
+        boolean aAbsence = nbHeuresAbsence.compareTo(BigDecimal.ZERO) > 0 || nbJoursAbsence.compareTo(BigDecimal.ZERO) > 0;
+        if (aAbsence) {
+            String modeAbsence = input.getModeCalculAbsence() != null ? input.getModeCalculAbsence() : "HEURES_REELLES";
+            BigDecimal baseCalculLigne;
+            String libelleAbsence;
+
+            if ("TRENTIEME".equalsIgnoreCase(modeAbsence)) {
+                BigDecimal tauxJournalierTrentieme = input.getTauxJournalierTrentieme();
+                montantAbsence = nbJoursAbsence.multiply(tauxJournalierTrentieme).setScale(2, RoundingMode.HALF_UP);
+                baseCalculLigne = tauxJournalierTrentieme;
+                libelleAbsence = "Retenue pour Absences Décomptées (1/30ème)";
+            } else {
+                // Méthode légale des heures réelles (opposable Inspection du Travail)
+                BigDecimal heuresACompter = nbHeuresAbsence.compareTo(BigDecimal.ZERO) > 0
+                        ? nbHeuresAbsence
+                        : nbJoursAbsence.multiply(new BigDecimal("8.00")); // 8h par jour ouvré légal (40h/5j)
+                montantAbsence = heuresACompter.multiply(tauxHoraire).setScale(2, RoundingMode.HALF_UP);
+                baseCalculLigne = tauxHoraire;
+                libelleAbsence = "Retenue pour Absences (" + heuresACompter + "h réelles)";
+            }
 
             // Garde-fou 1 : Si absence totale sur le mois, la retenue absorbe tout le salaire de base
             if (nbJoursOuvrables.compareTo(BigDecimal.ZERO) > 0 && nbJoursAbsence.compareTo(nbJoursOuvrables) >= 0) {
@@ -114,8 +132,9 @@ public class PayrollExecutionEngine {
                 montantAbsence = montantAbsence.min(salaireBaseLigne);
             }
 
-            lignes.add(creerLigne(bp, "RETENUE_ABSENCE", "Retenue pour Absences Décomptées", "RETENUE", "SALAIRE_BASE",
-                    tauxJournalierTrentieme, null, montantAbsence, null, 20));
+            lignes.add(creerLigne(bp, "RETENUE_ABSENCE", libelleAbsence, "RETENUE", "SALAIRE_BASE",
+                    baseCalculLigne, null, montantAbsence, null, 20));
+
             totalGainsBruts = totalGainsBruts.subtract(montantAbsence);
         }
 
@@ -231,7 +250,7 @@ public class PayrollExecutionEngine {
             totalCotisSalariales = totalCotisSalariales.add(cnapsSal);
             totalCotisPatronales = totalCotisPatronales.add(cnapsPat);
 
-            // 2.2 Santé (OSTIE ou OMSI sur brut total)
+            // 2.2 Santé (OSTIE ou OMSI - Plafonnement à 8x SME si activé)
             boolean estToamasina = "TMM".equalsIgnoreCase(input.getCodeSite())
                     || (input.getNomSite() != null && input.getNomSite().toUpperCase().contains("TOAMASINA"));
 
@@ -240,13 +259,17 @@ public class PayrollExecutionEngine {
             String codeSantePat = estToamasina ? "COTISATION_OMSI_PAT" : "COTISATION_OSTIE_PAT";
             String libelleSantePat = estToamasina ? "Cotisation OMSI Patronale (5.5%)" : "Cotisation OSTIE Patronale (5%)";
 
-            BigDecimal santeSal = totalGainsBruts.multiply(BigDecimal.valueOf(input.getTauxSanteSalarial())).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal santePat = totalGainsBruts.multiply(BigDecimal.valueOf(input.getTauxSantePatronal())).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal assietteSante = input.isEstPlafonneSante()
+                    ? totalGainsBruts.min(plafondCnaps)
+                    : totalGainsBruts;
+
+            BigDecimal santeSal = assietteSante.multiply(BigDecimal.valueOf(input.getTauxSanteSalarial())).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal santePat = assietteSante.multiply(BigDecimal.valueOf(input.getTauxSantePatronal())).setScale(2, RoundingMode.HALF_UP);
 
             lignes.add(creerLigne(bp, codeSanteSal, libelleSanteSal, "RETENUE", "COTISATION_SALARIALE",
-                    totalGainsBruts, BigDecimal.valueOf(input.getTauxSanteSalarial() * 100), santeSal, null, 210));
+                    assietteSante, BigDecimal.valueOf(input.getTauxSanteSalarial() * 100), santeSal, null, 210));
             lignes.add(creerLigne(bp, codeSantePat, libelleSantePat, "PATRONAL", "COTISATION_PATRONALE",
-                    totalGainsBruts, BigDecimal.valueOf(input.getTauxSantePatronal() * 100), null, santePat, 310));
+                    assietteSante, BigDecimal.valueOf(input.getTauxSantePatronal() * 100), null, santePat, 310));
 
             totalCotisSalariales = totalCotisSalariales.add(santeSal);
             totalCotisPatronales = totalCotisPatronales.add(santePat);
@@ -339,7 +362,7 @@ public class PayrollExecutionEngine {
             }
         }
         if (montantRepas.compareTo(BigDecimal.ZERO) > 0) {
-            lignes.add(creerLigne(bp, "INDEMNITE_REPAS", "Indemnité Forfaitaire de Repas (Net Exonéré)", "GAIN", "INDEMNITE_NON_IMPOSABLE",
+            lignes.add(creerLigne(bp, "INDEMNITE_REPAS", "Indemnité de Panier (Accord Établissement GALAXAM)", "GAIN", "INDEMNITE_NON_IMPOSABLE",
                     montantRepas, null, montantRepas, null, 510));
             totalIndemnitesNet = totalIndemnitesNet.add(montantRepas);
         }
@@ -381,12 +404,11 @@ public class PayrollExecutionEngine {
                 .add(totalIndemnitesNet)
                 .max(BigDecimal.ZERO);
 
-        BigDecimal plafondTiers = netAvantTresorerie.multiply(PLAFOND_QUOTITE_CESSIBLE).setScale(2, RoundingMode.HALF_UP);
-
-        BigDecimal totalRetenuesTresorerie = BigDecimal.ZERO;
+        // 5.1 Séparation des Acomptes sur salaire échu (Art. 64) et des dettes/avances spéciales (Art. 68)
+        BigDecimal totalAcomptesQuinzaine = BigDecimal.ZERO;
+        BigDecimal totalAvancesSpeciales = BigDecimal.ZERO;
         List<Integer> idsAvancesImputees = new ArrayList<>();
 
-        // 5.1 Acomptes et Avances du mois
         if (input.getAvancesAcomptes() != null) {
             for (PaieAvanceAcompte a : input.getAvancesAcomptes()) {
                 if (a.getMontant() == null || a.getMontant().compareTo(BigDecimal.ZERO) <= 0) continue;
@@ -398,35 +420,47 @@ public class PayrollExecutionEngine {
                 lignes.add(creerLigne(bp, codeRubrique, libelle, "RETENUE", "ACOMPTE_AVANCE",
                         a.getMontant(), null, a.getMontant(), null, 600));
 
-                totalRetenuesTresorerie = totalRetenuesTresorerie.add(a.getMontant());
+                if ("ACOMPTE_15".equalsIgnoreCase(type) || "AVANCE_QUINZAINE".equalsIgnoreCase(type)) {
+                    totalAcomptesQuinzaine = totalAcomptesQuinzaine.add(a.getMontant());
+                } else {
+                    totalAvancesSpeciales = totalAvancesSpeciales.add(a.getMontant());
+                }
+
                 if (a.getIdAvance() != null) {
                     idsAvancesImputees.add(a.getIdAvance());
                 }
             }
         }
 
+        // Net disponible après paiement de l'acompte de quinzaine déjà échu
+        BigDecimal netApresAcompte = netAvantTresorerie.subtract(totalAcomptesQuinzaine).max(BigDecimal.ZERO);
+
+        // Plafond de la quotité cessible (Art. 68 : maximum un tiers du net disponible après acompte)
+        BigDecimal plafondTiers = netApresAcompte.multiply(PLAFOND_QUOTITE_CESSIBLE).setScale(2, RoundingMode.HALF_UP);
+
+        // Capacité d'endettement résiduelle pour l'échéance de prêt (après avances exceptionnelles)
+        BigDecimal capaciteRestantePret = plafondTiers.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
+
         // 5.2 Échéance de prêt (plafonnement au tiers légal Art. 68)
         ImpactPret impactPret = null;
         PaiePretEcheance echeanceActive = input.getEcheancePretActive();
+        BigDecimal montantPrelevePret = BigDecimal.ZERO;
 
         if (echeanceActive != null) {
             BigDecimal mensualiteTheorique = echeanceActive.getMontantRestantEcheance() != null
                     ? echeanceActive.getMontantRestantEcheance()
                     : echeanceActive.getMontantEcheance();
 
-            // Capacité d'endettement restante dans le tiers légal
-            BigDecimal capaciteRestante = plafondTiers.subtract(totalRetenuesTresorerie).max(BigDecimal.ZERO);
-            BigDecimal montantPreleve = mensualiteTheorique.min(capaciteRestante).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal reliquatEcheance = mensualiteTheorique.subtract(montantPreleve).max(BigDecimal.ZERO);
+            montantPrelevePret = mensualiteTheorique.min(capaciteRestantePret).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal reliquatEcheance = mensualiteTheorique.subtract(montantPrelevePret).max(BigDecimal.ZERO);
 
             String nouveauStatut = reliquatEcheance.compareTo(BigDecimal.ZERO) == 0
                     ? "PRELEVEE_EN_PAIE"
                     : "PRELEVEE_PARTIELLEMENT";
 
-            if (montantPreleve.compareTo(BigDecimal.ZERO) > 0) {
+            if (montantPrelevePret.compareTo(BigDecimal.ZERO) > 0) {
                 lignes.add(creerLigne(bp, "RETENUE_ECHEANCE_PRET", "Échéance Prêt N° " + echeanceActive.getNumeroEcheance(),
-                        "RETENUE", "RETENUE_DIVERSE", mensualiteTheorique, null, montantPreleve, null, 620));
-                totalRetenuesTresorerie = totalRetenuesTresorerie.add(montantPreleve);
+                        "RETENUE", "RETENUE_DIVERSE", mensualiteTheorique, null, montantPrelevePret, null, 620));
             }
 
             BigDecimal capitalPretRestantApres = echeanceActive.getCapitalRestantApres() != null
@@ -437,13 +471,14 @@ public class PayrollExecutionEngine {
                     echeanceActive.getIdEcheance(),
                     echeanceActive.getIdPret(),
                     echeanceActive.getMontantEcheance(),
-                    montantPreleve,
+                    montantPrelevePret,
                     reliquatEcheance,
                     nouveauStatut,
                     capitalPretRestantApres
             );
         }
 
+        BigDecimal totalRetenuesTresorerie = totalAcomptesQuinzaine.add(totalAvancesSpeciales).add(montantPrelevePret);
         bp.setTotalRetenuesAcomptePret(totalRetenuesTresorerie);
 
         // ----------------------------------------------------------------------
@@ -459,12 +494,12 @@ public class PayrollExecutionEngine {
         // Écart d'arrondi monétaire
         BigDecimal ecartArrondi = netAPayer.subtract(netAvantArrondi).setScale(2, RoundingMode.HALF_UP);
 
-        // Ligne d'ajustement pour équilibre comptable exact : Somme(Gains) - Somme(Retenues) = Net à Payer
+        // Ligne d'ajustement pour équilibre monétaire du net à payer :
         if (ecartArrondi.compareTo(BigDecimal.ZERO) != 0) {
             String sensArrondi = ecartArrondi.compareTo(BigDecimal.ZERO) > 0 ? "GAIN" : "RETENUE";
             BigDecimal montantLigneArrondi = ecartArrondi.abs();
 
-            lignes.add(creerLigne(bp, "AJUSTEMENT_ARRONDI", "Ajustement Arrondi Monétaire (Net)",
+            lignes.add(creerLigne(bp, "AJUSTEMENT_ARRONDI", "Ajustement Arrondi Monétaire (Écart de Règlement)",
                     sensArrondi, "NET", ecartArrondi, null, montantLigneArrondi, null, 999));
         }
 

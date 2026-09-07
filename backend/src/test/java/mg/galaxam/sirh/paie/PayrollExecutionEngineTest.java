@@ -339,4 +339,68 @@ class PayrollExecutionEngineTest {
 
         verifierEquilibreComptable(complet);
     }
+
+    @Test
+    @DisplayName("10. Contre-Audit Axe 2 : Retenue d'absence aux heures réelles vs 1/30ème")
+    void testAbsenceHeuresReellesVsTrentieme() {
+        BigDecimal salaireBase = new BigDecimal("1000000.00");
+
+        // Cas A : Méthode légale des heures réelles (8h pour 1 jour d'absence)
+        PayrollCalculationInput inReel = creerInputBase("EMP010A", salaireBase, "TNR");
+        inReel.setModeCalculAbsence("HEURES_REELLES");
+        inReel.setNbJoursAbsence(new BigDecimal("1.0"));
+        inReel.setNbHeuresAbsence(new BigDecimal("8.0"));
+        BulletinPaieComplet cReel = engine.calculer(inReel);
+
+        // Taux horaire = 1 000 000 / 173.3333 = 5769.2323 Ar
+        // Retenue = 8 x 5769.2323 = 46 153.86 Ar
+        BulletinPaieLigne ligneReel = cReel.trouverLigne("RETENUE_ABSENCE");
+        assertNotNull(ligneReel);
+        assertEquals(new BigDecimal("46153.86"), ligneReel.getMontantSalarial());
+        verifierEquilibreComptable(cReel);
+
+        // Cas B : Méthode contractuelle du trentième (1/30ème)
+        PayrollCalculationInput inTrent = creerInputBase("EMP010B", salaireBase, "TNR");
+        inTrent.setModeCalculAbsence("TRENTIEME");
+        inTrent.setNbJoursAbsence(new BigDecimal("1.0"));
+        BulletinPaieComplet cTrent = engine.calculer(inTrent);
+
+        // Retenue = 1 000 000 / 30 = 33 333.33 Ar
+        BulletinPaieLigne ligneTrent = cTrent.trouverLigne("RETENUE_ABSENCE");
+        assertNotNull(ligneTrent);
+        assertEquals(new BigDecimal("33333.33"), ligneTrent.getMontantSalarial());
+        verifierEquilibreComptable(cTrent);
+
+        // La méthode des heures réelles déduit davantage pour un cadre/employé au forfait 40h
+        assertTrue(ligneReel.getMontantSalarial().compareTo(ligneTrent.getMontantSalarial()) > 0);
+    }
+
+    @Test
+    @DisplayName("10. Contre-Audit Axe 5 : Plafonnement des cotisations santé OSTIE à 8x SME pour haut salaire")
+    void testPlafonnementSanteHautSalaire() {
+        BigDecimal hautSalaire = new BigDecimal("3800000.00");
+
+        // Cas A : Avec plafonnement légal à 8x SME (par défaut)
+        PayrollCalculationInput inPlafonne = creerInputBase("EMP_DIR_01", hautSalaire, "TNR");
+        inPlafonne.setEstPlafonneSante(true);
+        BulletinPaieComplet cPlaf = engine.calculer(inPlafonne);
+
+        // Plafond 8 x SME (8 x 262 680 = 2 101 440 Ar)
+        // OSTIE Salariale 1% plafonnée = 21 014.40 Ar
+        // OSTIE Patronale 5% plafonnée = 105 072.00 Ar
+        assertEquals(new BigDecimal("21014.40"), cPlaf.getMontantLigneSalariale("COTISATION_OSTIE_SAL"));
+        assertEquals(new BigDecimal("105072.00"), cPlaf.getMontantLignePatronale("COTISATION_OSTIE_PAT"));
+        verifierEquilibreComptable(cPlaf);
+
+        // Cas B : Sans plafonnement (déplafonné)
+        PayrollCalculationInput inNonPlafonne = creerInputBase("EMP_DIR_02", hautSalaire, "TNR");
+        inNonPlafonne.setEstPlafonneSante(false);
+        BulletinPaieComplet cNonPlaf = engine.calculer(inNonPlafonne);
+
+        // OSTIE Salariale 1% sur 3 800 000 = 38 000.00 Ar
+        // OSTIE Patronale 5% sur 3 800 000 = 190 000.00 Ar
+        assertEquals(new BigDecimal("38000.00"), cNonPlaf.getMontantLigneSalariale("COTISATION_OSTIE_SAL"));
+        assertEquals(new BigDecimal("190000.00"), cNonPlaf.getMontantLignePatronale("COTISATION_OSTIE_PAT"));
+        verifierEquilibreComptable(cNonPlaf);
+    }
 }

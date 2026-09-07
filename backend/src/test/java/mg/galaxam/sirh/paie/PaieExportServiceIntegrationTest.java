@@ -180,4 +180,44 @@ class PaieExportServiceIntegrationTest {
         assertTrue(csv.contains("Matricule;Beneficiaire;Banque;Code Banque;Code Guichet;Numero Compte;Cle RIB;RIB Complet;Net a Payer"));
         assertTrue(csv.contains("TOTAL;"));
     }
+
+    @Test
+    @DisplayName("5. Contre-Audit Axe 6 : Export SAFI ODS natif conforme au modèle officiel e-Hetra DGI")
+    void testExportSafiOdsEHetra() throws Exception {
+        byte[] odsBytes = paieExportService.exporterSafiOds(ID_PERIODE);
+        assertNotNull(odsBytes, "Le flux binaire de l'ODS ne doit pas être nul");
+        assertTrue(odsBytes.length > 20000, "Le fichier ODS doit être complet et dépasser 20 Ko");
+
+        // Vérification de la validité de l'archive ZIP et de la présence des fichiers clés
+        boolean hasMimetype = false;
+        boolean hasContentXml = false;
+        boolean hasManifest = false;
+        String contentXmlStr = null;
+
+        try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(odsBytes))) {
+            java.util.zip.ZipEntry ze;
+            while ((ze = zis.getNextEntry()) != null) {
+                if ("mimetype".equals(ze.getName())) {
+                    hasMimetype = true;
+                    String mt = new String(zis.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    assertEquals("application/vnd.oasis.opendocument.spreadsheet", mt);
+                } else if ("content.xml".equals(ze.getName())) {
+                    hasContentXml = true;
+                    contentXmlStr = new String(zis.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                } else if ("META-INF/manifest.xml".equals(ze.getName())) {
+                    hasManifest = true;
+                }
+                zis.closeEntry();
+            }
+        }
+
+        assertTrue(hasMimetype, "L'entrée mimetype doit être présente dans l'archive ODS");
+        assertTrue(hasContentXml, "L'entrée content.xml doit être présente dans l'archive ODS");
+        assertTrue(hasManifest, "Le manifest ODF doit être présent");
+
+        assertNotNull(contentXmlStr);
+        assertTrue(contentXmlStr.toLowerCase().contains("galaxam logistics"), "content.xml doit contenir la raison sociale");
+        assertTrue(contentXmlStr.contains("EMP-2006-0001"), "content.xml doit contenir le matricule du salarié");
+        assertTrue(contentXmlStr.contains("RAKOTONDRAZAKA"), "content.xml doit contenir le nom du salarié");
+    }
 }

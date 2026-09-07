@@ -22,6 +22,7 @@ import mg.galaxam.sirh.model.employe.EmployeEnfant;
 import mg.galaxam.sirh.model.paie.BulletinPaie;
 import mg.galaxam.sirh.model.paie.BulletinPaieLigne;
 import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
+import mg.galaxam.sirh.model.paie.PaieHonorairePrestation;
 import mg.galaxam.sirh.model.paie.PaiePretEcheance;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet.ImpactPret;
@@ -119,11 +120,14 @@ public class PayrollService {
 
         PayrollBatchResult batch = new PayrollBatchResult(idPeriodePaie, codePeriode);
 
-        // Liste des employés actifs
-        String sqlEmployes = "SELECT e.id_employe FROM employe e " +
+        // Liste des salariés permanents / temporaires actifs (exclusion stricte des consultants / ISI 5%)
+        String sqlEmployes = "SELECT DISTINCT e.id_employe, e.matricule FROM employe e " +
                 "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
                 "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+                "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
+                "LEFT JOIN ref_type_intervenant tri ON ct.id_type_intervenant = tri.id_type_intervenant " +
                 "WHERE e.est_actif = true " +
+                "AND COALESCE(tri.code, 'PERMANENT') NOT IN ('CONSULTANT', 'PRESTATAIRE', 'ISI_5') " +
                 "ORDER BY e.matricule ASC";
 
         List<Integer> idsEmployes = new ArrayList<>();
@@ -139,7 +143,99 @@ public class PayrollService {
             batch.ajouterBulletin(bpc);
         }
 
+        // Si validation réelle : génération automatique des bordereaux d'honoraires pour les consultants
+        if (!simulation) {
+            genererHonorairesPeriode(idPeriodePaie, idUtilisateur, c);
+        }
+
         return batch;
+    }
+
+    /**
+     * Génère ou actualise les bordereaux d'honoraires et prestations externes (Régime ISI 5%)
+     * pour tous les intervenants externes / consultants de la période.
+     */
+    public List<PaieHonorairePrestation> genererHonorairesPeriode(Integer idPeriodePaie, Integer idUtilisateur, Connection c) throws Exception {
+        String sql = "SELECT DISTINCT e.id_employe, e.nom, e.prenom, e.cin_numero, e.adresse, e.ville, " +
+                "eac.salaire_base, f.libelle AS fonction_libelle, p.date_fin " +
+                "FROM employe e " +
+                "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
+                "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+                "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
+                "JOIN ref_type_intervenant tri ON ct.id_type_intervenant = tri.id_type_intervenant " +
+                "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
+                "CROSS JOIN periode_paie p " +
+                "WHERE e.est_actif = true " +
+                "AND tri.code IN ('CONSULTANT', 'PRESTATAIRE', 'ISI_5') " +
+                "AND p.id_periode_paie = ?";
+
+        List<PaieHonorairePrestation> honoraires = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idPeriodePaie);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int idEmp = rs.getInt("id_employe");
+                    String nom = rs.getString("nom");
+                    String prenom = rs.getString("prenom");
+                    String cin = rs.getString("cin_numero");
+                    String adr = rs.getString("adresse");
+                    String ville = rs.getString("ville");
+                    BigDecimal brut = rs.getBigDecimal("salaire_base");
+                    String fonction = rs.getString("fonction_libelle");
+                    Date dateFin = rs.getDate("date_fin");
+
+                    // Vérifier si un enregistrement existe déjà pour cet intervenant et cette période
+                    String checkSql = "SELECT id_prestation FROM paie_honoraire_prestation WHERE id_periode_paie = ? AND id_intervenant = ?";
+                    Integer existId = null;
+                    try (PreparedStatement psChk = c.prepareStatement(checkSql)) {
+                        psChk.setInt(1, idPeriodePaie);
+                        psChk.setInt(2, idEmp);
+                        try (ResultSet rsChk = psChk.executeQuery()) {
+                            if (rsChk.next()) {
+                                existId = rsChk.getInt("id_prestation");
+                            }
+                        }
+                    }
+
+                    PaieHonorairePrestation hono = existId != null ? PaieHonorairePrestation.trouverParId(existId, c) : new PaieHonorairePrestation();
+                    hono.setIdPeriodePaie(idPeriodePaie);
+                    hono.setIdIntervenant(idEmp);
+                    hono.setNomComplet(((nom != null ? nom : "") + " " + (prenom != null ? prenom : "")).trim());
+                    hono.setCinOuNif(cin != null ? cin : "NIF-A-PRECISER");
+                    hono.setIntitulePrestation(fonction != null ? fonction : "Prestation de Conseil / Expertise");
+                    hono.setNatureService("SERVICE SYSTEMATIQUE");
+                    hono.setDatePrestation(dateFin != null ? dateFin : new Date(System.currentTimeMillis()));
+                    hono.setDatePaiement(dateFin != null ? dateFin : new Date(System.currentTimeMillis()));
+                    hono.setMontantBrut(brut != null ? brut : BigDecimal.ZERO);
+                    hono.setTauxIsi(new BigDecimal("5.00"));
+                    hono.setAdresse(adr != null ? adr : "Antananarivo");
+                    hono.setCommune(ville != null ? ville : "ANTANANARIVO RENIVOHITRA C.U");
+                    hono.calculerMontants();
+
+                    if (existId != null) {
+                        hono.update(c);
+                    } else {
+                        hono.save(c);
+                    }
+                    honoraires.add(hono);
+                }
+            }
+        }
+        return honoraires;
+    }
+
+    public List<PaieHonorairePrestation> genererHonorairesPeriode(Integer idPeriodePaie, Integer idUtilisateur) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                List<PaieHonorairePrestation> list = genererHonorairesPeriode(idPeriodePaie, idUtilisateur, c);
+                c.commit();
+                return list;
+            } catch (Exception ex) {
+                c.rollback();
+                throw ex;
+            }
+        }
     }
 
     /**
@@ -361,12 +457,21 @@ public class PayrollService {
                     in.setHeuresNuit(rs.getBigDecimal("heures_nuit_total"));
                     in.setIndemniteRepas(rs.getBigDecimal("montant_repas"));
                     in.setIndemniteTransport(rs.getBigDecimal("montant_deplacement"));
+
+                    BigDecimal hAbs = rs.getBigDecimal("heures_absence_retenues");
+                    if (hAbs != null && hAbs.compareTo(BigDecimal.ZERO) > 0) {
+                        in.setNbHeuresAbsence(hAbs);
+                    } else if (in.getNbJoursAbsence() != null && in.getNbJoursAbsence().compareTo(BigDecimal.ZERO) > 0) {
+                        in.setNbHeuresAbsence(in.getNbJoursAbsence().multiply(new BigDecimal("8.0")));
+                    }
+                    in.setModeCalculAbsence("HEURES_REELLES");
                 } else {
                     // Fallback si la période de pointage n'a pas encore été gelée (simulation par défaut)
                     in.setNbJoursOuvrables(new BigDecimal("22.0"));
                     in.setNbJoursPresents(new BigDecimal("22.0"));
                     in.setTotalHeuresTravaillees(new BigDecimal("173.33"));
                     in.setHeuresNormales(new BigDecimal("173.33"));
+                    in.setModeCalculAbsence("HEURES_REELLES");
                 }
             }
         }
@@ -467,6 +572,22 @@ public class PayrollService {
         } else {
             in.setTauxSanteSalarial(0.01);
             in.setTauxSantePatronal(0.05);
+        }
+
+        // Plafonnement des cotisations santé à 8x SME (Contre-Audit Axe 5)
+        String sqlPlafSante = "SELECT sc.est_plafonne_sante " +
+                "FROM site_cotisation sc " +
+                "JOIN ref_site s ON sc.id_site = s.id_site " +
+                "WHERE s.code_site = ? AND sc.est_actif = true LIMIT 1";
+        try (PreparedStatement ps = c.prepareStatement(sqlPlafSante)) {
+            ps.setString(1, in.getCodeSite());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    in.setEstPlafonneSante(rs.getBoolean("est_plafonne_sante"));
+                } else {
+                    in.setEstPlafonneSante(true);
+                }
+            }
         }
     }
 
