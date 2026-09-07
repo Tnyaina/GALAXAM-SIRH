@@ -19,7 +19,11 @@ CREATE TYPE situation_familiale_enum AS ENUM (
     'Celibataire',
     'Marie',
     'Divorce',
-    'Veuf'
+    'Veuf',
+    'CELIBATAIRE',
+    'MARIE',
+    'DIVORCE',
+    'VEUF'
 );
 CREATE TYPE motif_desactivation_enum AS ENUM (
     'Demission',

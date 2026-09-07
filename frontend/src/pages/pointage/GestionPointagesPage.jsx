@@ -2,7 +2,6 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
-import { useAuth } from '@/context/AuthContext';
 import PointageWorkflowNav from '@/components/pointage/PointageWorkflowNav';
 import periodePaieService from '@/services/periodePaieService';
 
@@ -11,15 +10,11 @@ const PointageOverviewTab = lazy(() => import('@/components/pointage/PointageOve
 const SaisieQuotidiennePage = lazy(() => import('@/pages/pointage/SaisieQuotidiennePage'));
 const AnomaliesPointagePage = lazy(() => import('@/pages/pointage/AnomaliesPointagePage'));
 const SynthesePointagePage = lazy(() => import('@/pages/pointage/SynthesePointagePage'));
-const PeriodePaiePage = lazy(() => import('@/pages/pointage/PeriodePaiePage'));
 
 export default function GestionPointagesPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'saisie';
     const [activePeriode, setActivePeriode] = useState(null);
-
-    const { hasPermission } = useAuth();
-    const canViewPeriodes = hasPermission('POINTAGE_VALIDATE');
 
     useEffect(() => {
         const fetchActivePeriode = async () => {
@@ -78,10 +73,6 @@ export default function GestionPointagesPage() {
 
                     {activeTab === 'synthese' && (
                         <SynthesePointagePage />
-                    )}
-
-                    {activeTab === 'periodes' && canViewPeriodes && (
-                        <PeriodePaiePage />
                     )}
                 </Suspense>
             </div>

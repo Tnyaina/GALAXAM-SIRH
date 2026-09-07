@@ -342,7 +342,7 @@ export default function SaisieQuotidiennePage() {
                             <Button
                                 size="xs"
                                 variant="primary"
-                                onClick={() => navigate(`/pointages?tab=periodes&action=create&targetDate=${selectedDate}`)}
+                                onClick={() => navigate(`/paie?tab=periodes&action=create&targetDate=${selectedDate}`)}
                                 icon={<Sparkles size={13} className="text-amber-300" />}
                                 className="shrink-0"
                             >

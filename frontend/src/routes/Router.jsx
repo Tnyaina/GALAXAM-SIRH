@@ -22,6 +22,9 @@ const GestionPointagesPage = lazy(() => import("@/pages/pointage/GestionPointage
 // Module Congés & Absences
 const GestionCongesPage = lazy(() => import("@/pages/conges/GestionCongesPage"));
 
+// Module Paie & Rémunération
+const GestionPaiePage = lazy(() => import("@/pages/paie/GestionPaiePage"));
+
 // Module Employés
 const EmployeList = lazy(() => import("@/pages/employe/EmployeList"));
 const EmployeFicheDetailPage = lazy(() => import("@/pages/employe/EmployeFicheDetailPage"));
@@ -82,7 +85,15 @@ export default function Router() {
                         <Route path="/pointages/saisie" element={<Navigate to="/pointages?tab=saisie" replace />} />
                         <Route path="/pointages/anomalies" element={<Navigate to="/pointages?tab=anomalies" replace />} />
                         <Route path="/pointages/synthese" element={<Navigate to="/pointages?tab=synthese" replace />} />
-                        <Route path="/pointages/periodes" element={<Navigate to="/pointages?tab=periodes" replace />} />
+                        <Route path="/pointages/periodes" element={<Navigate to="/paie?tab=periodes" replace />} />
+                    </Route>
+
+                    {/* ---------------------------------------------------- */}
+                    {/* Module Paie & Rémunération (Admin DAF)              */}
+                    {/* ---------------------------------------------------- */}
+                    <Route element={<ProtectedRoute requiredPermission="PAIE_READ" allowedRoles={["ROLE_ADMIN"]} />}>
+                        <Route path="/paie" element={<GestionPaiePage />} />
+                        <Route path="/paie/periodes" element={<Navigate to="/paie?tab=periodes" replace />} />
                     </Route>
 
                     <Route element={<ProtectedRoute />}>

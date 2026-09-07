@@ -35,7 +35,7 @@ public class PeriodePaieController {
     private mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<PeriodePaieDTO>> getAllPeriodes() {
         List<PeriodePaieDTO> list = new ArrayList<>();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
@@ -79,7 +79,7 @@ public class PeriodePaieController {
     }
 
     @GetMapping("/current")
-    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<PeriodePaieDTO> getCurrentPeriode(@RequestParam(required = false) String date) {
         String targetDate = (date != null && !date.trim().isEmpty()) ? date : java.time.LocalDate.now().toString();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
@@ -124,7 +124,7 @@ public class PeriodePaieController {
     }
 
     @GetMapping("/simuler")
-    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> simulerPeriode(
             @RequestParam String dateDebut,
             @RequestParam String dateFin
@@ -168,7 +168,7 @@ public class PeriodePaieController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('POINTAGE_VALIDATE')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('PAIE_WRITE') or hasAuthority('PAIE_VALIDATE') or hasAuthority('POINTAGE_VALIDATE')")
     public ResponseEntity<Map<String, Object>> createPeriode(@RequestBody Map<String, Object> payload) {
         Map<String, Object> resp = new HashMap<>();
         String code = (String) payload.get("code");
@@ -205,7 +205,7 @@ public class PeriodePaieController {
     }
 
     @PutMapping("/{id}/statut")
-    @PreAuthorize("hasAuthority('POINTAGE_VALIDATE') or hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('POINTAGE_VALIDATE') or hasAuthority('POINTAGE_WRITE') or hasAuthority('PAIE_VALIDATE') or hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> updateStatut(@PathVariable Integer id, @RequestBody Map<String, String> body) {
         Map<String, Object> resp = new HashMap<>();
         String newStatutCode = body.get("statutCode");
@@ -218,7 +218,7 @@ public class PeriodePaieController {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean isAdmin = auth != null && auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("PAIE_VALIDATE"));
 
         // Un agent de pointage ne peut que transmettre la période pour validation (A_VALIDER)
         if (!isAdmin && !"A_VALIDER".equals(newStatutCode)) {

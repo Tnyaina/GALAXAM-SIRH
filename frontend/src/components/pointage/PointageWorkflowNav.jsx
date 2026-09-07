@@ -3,15 +3,11 @@ import {
     CalendarDays, 
     AlertTriangle, 
     Layers, 
-    CalendarRange, 
     TrendingUp, 
     Lock
 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
 
 export default function PointageWorkflowNav({ activePeriode = null }) {
-    const { hasPermission } = useAuth();
-    const isDaf = hasPermission('POINTAGE_VALIDATE');
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTab = searchParams.get('tab') || 'vue-globale';
 
@@ -45,14 +41,6 @@ export default function PointageWorkflowNav({ activePeriode = null }) {
             icon: Layers
         }
     ];
-
-    if (isDaf) {
-        tabs.push({
-            tab: 'periodes',
-            label: 'Périodes de Paie',
-            icon: CalendarRange
-        });
-    }
 
     const stCode = activePeriode?.statutCode || activePeriode?.statut_code;
     const isTransmis = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';

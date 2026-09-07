@@ -56,7 +56,7 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 ('GESTION_PERSONNEL', 'Gestion du Personnel', 'Users', NULL, 2, 1, NULL),
 ('CONGES_MODULE', 'Congés & Absences', 'Palmtree', '/conges', 3, 1, NULL),
 ('POINTAGE', 'Pointage & Présences', 'Clock', '/pointages', 4, 1, NULL),
-('PAIE_MODULE', 'Paie', 'Banknote', NULL, 5, 1, NULL),
+('PAIE_MODULE', 'Paie & Rémunération', 'Banknote', '/paie', 5, 1, NULL),
 ('ADMIN_MODULE', 'Administration & Paramétrage', 'Settings', NULL, 6, 1, NULL);
 
 -- 2. Sous-menus de Niveau 2 - Gestion du Personnel
@@ -105,21 +105,25 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
     ('POINTAGE_GENERAL',     'Vue Globale & Pilotage',     'BarChart2',     '/pointages?tab=vue-globale', 1, 2, 'POINTAGE'),
     ('POINTAGE_JOURNALIER',  'Saisie Quotidienne',          'ClockCheck',    '/pointages?tab=saisie',      2, 2, 'POINTAGE'),
     ('POINTAGE_ANOMALIES',   'Gestion des Anomalies',       'AlertTriangle', '/pointages?tab=anomalies',   3, 2, 'POINTAGE'),
-    ('POINTAGE_SYNTHESE',    'Synthèse Hebdo & Mensuelle',  'FileText',      '/pointages?tab=synthese',    4, 2, 'POINTAGE'),
-    ('POINTAGE_PERIODES',    'Périodes de Paie & Clôture',  'CalendarRange', '/pointages?tab=periodes',    5, 2, 'POINTAGE')
-ON CONFLICT (id_menu) DO UPDATE SET libelle = EXCLUDED.libelle, href = EXCLUDED.href, rang = EXCLUDED.rang, icone = EXCLUDED.icone;
+    ('POINTAGE_SYNTHESE',    'Synthèse Hebdo & Mensuelle',  'FileText',      '/pointages?tab=synthese',    4, 2, 'POINTAGE')
+ON CONFLICT (id_menu) DO UPDATE SET libelle = EXCLUDED.libelle, href = EXCLUDED.href, rang = EXCLUDED.rang, icone = EXCLUDED.icone, id_pere = EXCLUDED.id_pere;
+
+INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
+    ('PAIE_PERIODES',        'Périodes de Paie & Clôture',  'CalendarRange', '/paie?tab=periodes',         1, 2, 'PAIE_MODULE')
+ON CONFLICT (id_menu) DO UPDATE SET libelle = EXCLUDED.libelle, href = EXCLUDED.href, rang = EXCLUDED.rang, icone = EXCLUDED.icone, id_pere = EXCLUDED.id_pere;
 
 -- Attribution fine par rôle :
--- id_role 1 = ROLE_ADMIN / DAF (accès complet : Vue Globale, Saisie, Anomalies, Synthèse, Périodes & Clôture)
+-- id_role 1 = ROLE_ADMIN / DAF (accès complet : Vue Globale, Saisie, Anomalies, Synthèse, Périodes de Paie)
 -- id_role 2 = ROLE_AGENT_POINTAGE (accès exploitation : Vue Globale, Saisie Quotidienne, Anomalies, Synthèse Hebdo)
 INSERT INTO role_menu (id_role, id_menu) VALUES
     (1, 'POINTAGE_GENERAL'),
     (1, 'POINTAGE_JOURNALIER'),
     (1, 'POINTAGE_ANOMALIES'),
     (1, 'POINTAGE_SYNTHESE'),
-    (1, 'POINTAGE_PERIODES'),
+    (1, 'PAIE_PERIODES'),
     (2, 'POINTAGE_GENERAL'),
     (2, 'POINTAGE_JOURNALIER'),
     (2, 'POINTAGE_ANOMALIES'),
     (2, 'POINTAGE_SYNTHESE')
 ON CONFLICT DO NOTHING;
+

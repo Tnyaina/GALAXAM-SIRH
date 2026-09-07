@@ -958,7 +958,7 @@ export default function SynthesePointagePage() {
 
                                 {canValidateDaf && (
                                     <div className="flex items-center gap-2 shrink-0">
-                                        <Link to="/pointages?tab=periodes">
+                                        <Link to="/paie?tab=periodes">
                                             <Button variant="secondary" size="sm" icon={<CalendarRange size={13} />}>
                                                 Gérer les Périodes
                                             </Button>
