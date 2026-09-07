@@ -877,32 +877,79 @@ Gérer les demandes d'absences et de congés payés, le suivi des droits acquis 
 
 ---
 
-## MODULE 8 : CONFIGURATION PAIE & PRÉPARATION BULLETINS
+## MODULE 8 : PAIE, RÉMUNÉRATION, DÉCLARATIONS LÉGALES & SOLDE DE TOUT COMPTE (STC)
 
 ### 1. Objectif
 
-Paramétrer l'ensemble des règles fiscales, légales et conventionnelles de paie malagasy : assiettes et taux CNaPS (plafond 8×SMIG), taux d'organismes de santé (OSTIE), barème progressif par tranches IRSA avec minimum de perception et déductions familiales, calendrier des jours fériés chômés par site, types de cotisations, primes/indemnités exonérées ou imposables, et taux de majoration des heures sup.
+Assurer le cycle complet de gestion des rémunérations conforme au droit social et fiscal malagasy :
+* **Calcul mensuel de paie** : Intégration automatique des pointages scellés (présences, retards compensés, heures supplémentaires majorées à 130%/150%, heures de nuit, indemnités transport et repas), barème progressif IRSA par tranches avec minimum fiscal (2 000 Ar) et réduction pour charge de famille (2 000 Ar/enfant), cotisations CNaPS plafonnées à 8×SME (2 101 440 Ar) et cotisations médicales (OSTIE/OMSI).
+* **Déclarations Légales & Fiscales (Mensuelles & Trimestrielles)** :
+  - **Mensuelles (DGI)** : Grand-Livre complet, bordereau officiel **État 301 IRSA** conforme au modèle DGI SAFI / e-Hetra Grandes Entreprises (25 colonnes réglementaires), annexe EDI ISI (5%) pour les prestataires occasionnels, et fichier d'ordre de virement bancaire interbancaire aux 10 Ariary inférieurs.
+  - **Trimestrielles (CNaPS, FMFP, Santé au travail)** : Consolidation obligatoire par trimestre civil (T1 à T4) des 3 mois d'activité pour la Déclaration Nominative Trimestrielle des Salaires (**DNTS CNaPS**), la contribution **FMFP 1% patronale** adossée, et les bordereaux nominatifs de médecine d'entreprise (**OSTIE, OMSI, AMIT, FUNHECE**).
+* **Workflow Continu & Non-Redondant (Rupture Contrat ➔ Solde de Tout Compte)** :
+  - Déclenchement en un clic depuis le module Carrière lors d'une rupture (démission, licenciement, rupture conventionnelle, fin de contrat, départ retraite).
+  - Déversement transparent dans l'écran STC avec récupération immédiate de l'ancienneté, du solde de congés réels et du capital restant dû des prêts.
+  - Calcul instantané des droits : prorata du dernier mois, indemnité compensatrice de congés payés (**ICCP**), préavis (dispense payée), indemnité légale de licenciement et apurement automatique des créances (prêts).
+  - Émission de la quittance libératoire et du reçu officiel de Solde de Tout Compte.
 
 ### 2. Acteurs
 
-* **Responsable Paie / DAF**
+* **Responsable Paie / DAF / DRH** : Saisie des variables, simulation, calcul global, validation/clôture de la période, émission des virements et déclarations officielles.
+* **Salarié** : Consultation et téléchargement de son bulletin de paie dématérialisé.
 
 ### 3. Frontend
 
-* **Pages** : [`ParametresModulesPanel.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/parametres/modules/ParametresModulesPanel.jsx)
-* **Composants** : `PaieConfigLegaleTab.jsx`, `BaremeIrsaList.jsx`, `IrsaTrancheModal.jsx`, `CotisationsTab.jsx`, `FeriesPeriodesChomeesTab.jsx`, `IndemnitesConfigTab.jsx`, `TauxMajorationTab.jsx`, `ParametresGlobauxTab.jsx`
-* **Services** : [`paieConfigService.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/api/admin/paieConfigService.js)
-* **Routes** : `/admin/parametres`
+* **Pages** : [`PaiePage.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/paie/PaiePage.jsx), [`ParametresModulesPanel.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/pages/parametres/modules/ParametresModulesPanel.jsx)
+* **Composants** :
+  - `PaieWorkflowStepper.jsx` : Stepper interactif guidant le cycle mensuel en 5 étapes séquentielles.
+  - `PaieAuditModal.jsx` : Panneau d'audit et contrôles pré-validation (quotité cessible 1/3, nets négatifs, équilibre du Grand-Livre).
+  - `EcheancierFiscalSocialWidget.jsx` : Widget dynamique de surveillance des échéances mensuelles (IRSA le 15) et trimestrielles (CNaPS/FMFP/Santé).
+  - `GrandLivrePaieTable.jsx` : Registre général des bulletins avec KPI synthétiques et filtre de recherche.
+  - `VariablesPaieTable.jsx` & `SaisieVariablesModal.jsx` : Saisie des éléments variables (primes, commissions, avances, régularisations).
+  - `BulletinPaieModal.jsx` : Visualisation grand format et impression du bulletin officiel aux normes malagasy.
+  - `SoldeToutCompteTable.jsx` & `SoldeToutCompteModal.jsx` : Moteur d'évaluation des droits de départ et émission STC.
+  - `RecuStcModal.jsx` : Reçu libératoire certifié pour quittance de solde de tout compte avec accès direct au Certificat de Travail.
+  - `DeclarationsLegalesModal.jsx` : Centre de téléchargement avec séparation claire des déclarations mensuelles (IRSA SAFI, EDI ISI, Virement) et trimestrielles consolidées (DNTS CNaPS, FMFP, Santé).
+  - `PretsEntrepriseTab.jsx` : Gestion des prêts et échéanciers de remboursement.
+* **Documentation Exhaustive** : [`GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/docs/GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md) (formules détaillées, calendrier trimestriel, 25 colonnes SAFI, code XML EDI).
+* **Services** :
+  - [`paieService.js`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/api/paie/paieService.js) : Calcul, validation, exports Grand-Livre, État 301 IRSA SAFI, DNTS trimestrielle CNaPS/FMFP, santé trimestrielle, EDI ISI XML/Excel, virements et STC.
+  - `variablePaieService.js` : Gestion des primes et variables mensuelles.
+  - `periodePaieService.js` : Cycle de vie des périodes.
+* **Routes** : `/paie`, `/paie?tab=variables`, `/paie?tab=stc`, `/paie?tab=prets`, `/admin/parametres?module=paie`
 
 ### 4. Backend
 
-* **Controllers** : `PaieConfigLegaleController.java`, `IrsaController.java`, `CotisationController.java`, `CalendrierFerieController.java`, `IndemniteController.java`, `TauxMajorationController.java`, `ParametreGlobalController.java`
-* **Engines** : [`CalculateurPaieEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/paieconfig/engine/CalculateurPaieEngine.java)
-* **Entities** : `PaieConfigLegale.java`, `BaremeIrsa.java`, `RefTypeCotisation.java`, `SiteCotisation.java`, `RefCalendrierFerie.java`, `SiteCalendrierFerie.java`, `RefPeriodeChomee.java`, `RefIndemnite.java`, `SiteIndemniteConfig.java`, `RefTauxMajoration.java`, `ParametreGlobal.java`
+* **Controllers** :
+  - `PaieController.java` : Endpoints de calcul, validation, exports légaux et synthèse IRSA.
+  - `StcController.java` : Préparation administrative et simulation de Solde de Tout Compte.
+  - `VariablePaieController.java` : Enregistrement et consultation des variables.
+  - `PeriodePaieController.java` : Gestion et sécurisation des périodes (`PAIE_READ`, `PAIE_WRITE`).
+  - `PaieConfigLegaleController.java`, `IrsaController.java`, `CotisationController.java`, `CalendrierFerieController.java`, `IndemniteController.java`, `TauxMajorationController.java`, `ParametreGlobalController.java`
+* **Services & Engines** :
+  - [`PayrollEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/paie/engine/PayrollEngine.java) : Moteur de calcul unitaire déterministe (pointages, absences, congés, cotisations, barème IRSA à 6 tranches, minimum 2000 Ar, réduction famille).
+  - [`PaieService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/paie/service/PaieService.java) : Orchestration collective, clôture, exports POI XSSFWorkbook (Grand-Livre, SAFI 25 colonnes, DNTS 3 mois, Santé 3 mois, EDI ISI).
+  - [`StcService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/paie/service/StcService.java) : Préparation, calcul d'ancienneté, solde de congés réels, décompte de préavis et de licenciement, apurement des prêts.
+* **Entities** : `BulletinPaie.java`, `BulletinPaieLigne.java`, `PeriodePaie.java`, `VariablePaieMensuelle.java`, `SoldeToutCompte.java`, `PretEmploye.java`, `PretEmployeEcheance.java`, `PaieConfigLegale.java`, `BaremeIrsa.java`
 
 ### 5. Database
 
-* **Tables** : `paie_config_legale`, `bareme_irsa`, `ref_type_cotisation`, `site_cotisation`, `ref_calendrier_ferie`, `site_calendrier_ferie`, `ref_periode_chomee`, `ref_indemnite`, `site_indemnite_config`, `ref_taux_majoration`, `parametre_global`
+* **Tables** : `bulletin_paie`, `bulletin_paie_ligne`, `periode_paie`, `variable_paie_mensuelle`, `solde_tout_compte`, `pret_employe`, `pret_employe_echeance`, `paie_config_legale`, `bareme_irsa`, `ref_type_cotisation`, `site_cotisation`, `ref_calendrier_ferie`, `site_calendrier_ferie`, `ref_indemnite`, `site_indemnite_config`, `ref_taux_majoration`, `parametre_global`
+
+### 6. API Principale
+
+* `POST /paie/calculer/{idPeriode}` : Exécution du calcul global de la période.
+* `POST /paie/valider/{idPeriode}` : Verrouillage et validation définitive des bulletins.
+* `GET /paie/export-grand-livre?idPeriode={id}` : Export du Grand-Livre en classeur Excel.
+* `GET /paie/export-etat-301?idPeriode={id}` : Export du bordereau officiel État 301 IRSA au format DGI SAFI / e-Hetra (25 colonnes).
+* `GET /paie/export-trimestriel-cnaps?annee={a}&trimestre={t}` : Export DNTS CNaPS & FMFP consolidé sur 3 mois civils.
+* `GET /paie/export-trimestriel-sante?annee={a}&trimestre={t}&organisme={org}` : Export médical nominatif trimestriel consolidé (OSTIE / OMSI).
+* `GET /paie/export-edi-isi-xml?idPeriode={id}` : Génération du flux XML EDI officiel pour l'Impôt Synthétique Intermittent (5%).
+* `GET /paie/export-edi-isi-excel?idPeriode={id}` : Export du bordereau de saisie Excel ISI (5%).
+* `GET /paie/export-virement-bancaire?idPeriode={id}` : Export de l'ordre de virement interbancaire collectif.
+* `GET /paie/stc/preparer/{idEmploye}?dateDepart={date}` : Récupération des droits préparatoires au STC.
+* `POST /paie/stc/calculer` : Simulation chiffrée complète du Solde de Tout Compte.
+* `POST /paie/stc/valider` : Émission, enregistrement et clôture du Solde de Tout Compte.
 
 ---
 

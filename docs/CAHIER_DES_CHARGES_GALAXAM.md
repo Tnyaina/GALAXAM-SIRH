@@ -105,15 +105,24 @@ Développer une application web unique et centralisée pour :
 
 ### **Module 4 : Moteur de Paie Duale & Bulletins**
 
-* **Calculs salariés (IRSA) :** Salaire de base, heures sup., cotisations sociales (CNAPS, OSTIE, OMSI) et impôt IRSA.
+* **Calculs salariés (IRSA) :** Salaire de base, pointages et heures supplémentaires (30%, 50%, nuit), indemnités légales de transport et repas, cotisations sociales (CNaPS plafonnée à 8x SME, OSTIE, OMSI) et impôt progressif IRSA selon le barème officiel CGI à 6 tranches avec minimum fiscal de 2 000 Ar et réduction pour charge de famille (2 000 Ar / enfant).
 
-* **Calcul Consultants & Temporaires (ISI 5%) :** Rémunération au forfait ou heures pointées, retenue à la source ISI de 5%.
+* **Calcul Consultants & Prestataires Temporaires (ISI 5%) :** Rémunération au forfait ou prestations occasionnelles de services, retenue à la source de 5% au titre de l'Impôt Synthétique Intermittent (ISINT), génération du bordereau de saisie et de l'annexe XML EDI officielle pour téléversement e-Hetra.
 
-* **Documents :** Génération des bulletins de paie individuels en PDF, export d'un récapitulatif et des Etats nominatifs des cotisations trimestrielles pour les CNAPS, FMFP, OSTIE, OMSI
+* **Déclarations Mensuelles vs Trimestrielles (Règles Légales Madagascar) :**
+  - **Mensuelle (avant le 15 du mois M+1) :** Grand-Livre de Paie, bordereau officiel nominatif **État 301 IRSA** conforme au modèle DGI SAFI / e-Hetra Grandes Entreprises (25 colonnes réglementaires), annexe EDI ISI (5%), et ordre de virement bancaire interbancaire collectif aux 10 Ariary inférieurs.
+  - **Trimestrielle (par tranche de 3 mois civils : T1 au 30 Avril, T2 au 31 Juillet, T3 au 31 Octobre, T4 au 31 Janvier) :** Déclaration Nominative Trimestrielle des Salaires (**DNTS CNaPS**) et contribution au fonds de formation professionnelle (**FMFP 1% patronal** adossé), ainsi que les bordereaux nominatifs des organismes de santé au travail (**OSTIE, OMSI, AMIT, FUNHECE**) consolidant les mois M1, M2 et M3 de chaque collaborateur.
 
-* **Paramétrage des Barèmes :** Gestion des taux et tranches (IRSA, CNAPS, OSTIE, OMSI indemnités) historisés par date d'application, pour absorber les évolutions réglementaires.
+* **Workflow Intégré & Continuité Sans Ressaisie (Rupture Contrat ➔ Solde de Tout Compte STC) :**
+  - À la clôture ou rupture d'un contrat (démission, licenciement, rupture conventionnelle, fin de contrat, départ retraite), l'action rapide **« Établir le STC »** déverse automatiquement les données contractuelles (salarié, date de départ, motif de rupture, catégorie professionnelle).
+  - Le moteur STC calcule instantanément les droits légaux : salaire au prorata du dernier mois, Indemnité Compensatrice de Congés Payés (**ICCP** = solde réel x salaire / diviseur légal), indemnité compensatrice de préavis (dispense payée), indemnité légale de licenciement selon l'ancienneté réelle, et déduction automatique du solde restant dû des prêts d'entreprise.
+  - Émission de la quittance libératoire et du reçu de Solde de Tout Compte avec archivage et mise à jour automatique des états administratifs.
 
-* **Primes et Retenues :** Prise en compte des primes (performance, assiduité) et des retenues diverses (avances) dans le calcul du bulletin.
+* **Paramétrage des Barèmes & Multi-Organismes :** Gestion des taux et plafonds (CNaPS 1% salarial / 13% patronal, plafond 8x SME = 2 101 440 Ar, FMFP 1%, OSTIE/OMSI 1% salarial / 5% patronal, barème IRSA, dérogations d'indemnités) historisés par date d'application.
+
+* **Prêts d'Entreprise & Avances :** Suivi des prêts accordés aux salariés, génération de l'échéancier mensuel, retenue automatique sur bulletin et apurement obligatoire sur Solde de Tout Compte.
+
+* **Documentation Métier Complète :** Pour le détail exhaustif des formules mathématiques, des barèmes IRSA, du calendrier trimestriel et des 25 colonnes SAFI DGI, se référer au document officiel : [GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/docs/GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md).
 
 ## 
 
