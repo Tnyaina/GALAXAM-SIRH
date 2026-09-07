@@ -34,6 +34,9 @@ class PaieExportServiceIntegrationTest {
     @Autowired
     private PaieExportService paieExportService;
 
+    @Autowired
+    private mg.galaxam.sirh.model.paie.service.export.EdiIsiExportService ediIsiExportService;
+
     private static final int ID_PERIODE = 1; // Période Août 2026
 
     @BeforeEach
@@ -74,6 +77,16 @@ class PaieExportServiceIntegrationTest {
             // Cohérence de l'arrondi fiscal à la centaine inférieure : imposable <= net
             assertTrue(row.getMontantImposable().compareTo(row.getSalaireNet()) <= 0,
                     "Le montant imposable (arrondi à 100 Ar inf) doit être <= salaire net");
+
+            // Vérification stricte de la formule DGI e-Hetra : Q = I + J + L + N + O + P
+            BigDecimal sommeQ = row.getSalaireBase()
+                    .add(row.getIndemnitesImposables())
+                    .add(row.getAvantagesNatureImposables())
+                    .add(row.getHeuresSupplementaires())
+                    .add(row.getPrimesEtGratifications())
+                    .add(row.getAutres());
+            assertEquals(row.getSalaireBrut(), sommeQ,
+                    "La somme I + J + L + N + O + P doit être strictement égale au salaire brut Q (règle DGI e-Hetra)");
         }
 
         // Export CSV
@@ -91,15 +104,46 @@ class PaieExportServiceIntegrationTest {
     @Test
     @DisplayName("2. Annexe EDI XML ISI 5% : Conformité du flux e-Hetra DGI")
     void testAnnexeEdiIsiXml() throws Exception {
-        String xml = paieExportService.exporterEdiXml(ID_PERIODE);
-        assertNotNull(xml);
-        assertTrue(xml.startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
-        assertTrue(xml.contains("<idEdiType>ISI</idEdiType>"));
-        assertTrue(xml.contains("<rContribuable>3000019434</rContribuable>"));
-        assertTrue(xml.contains("<idImpotNature>ISINT</idImpotNature>"));
-        assertTrue(xml.contains("<idExercice>2026</idExercice>"));
-        assertTrue(xml.contains("<idMois>8</idMois>"));
-        assertTrue(xml.endsWith("</tabs></EDI>"));
+        // 2.1 Export initial via la façade
+        String xmlFacade = paieExportService.exporterEdiXml(ID_PERIODE);
+        assertNotNull(xmlFacade);
+        assertTrue(xmlFacade.startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
+        assertTrue(xmlFacade.contains("<idEdiType>ISI</idEdiType>"));
+        assertTrue(xmlFacade.contains("<rContribuable>3000019434</rContribuable>"));
+
+        // 2.2 Enregistrer temporairement un honoraire consultant sous régime ISI et tester l'injection
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                mg.galaxam.sirh.model.paie.PaieHonorairePrestation hono = new mg.galaxam.sirh.model.paie.PaieHonorairePrestation();
+                hono.setIdPeriodePaie(ID_PERIODE);
+                hono.setNomComplet("Cabinet Expertise Comptable & Fiscale");
+                hono.setCinOuNif("101999888777");
+                hono.setIntitulePrestation("Audit Légal et Fiscal");
+                hono.setMontantBrut(new BigDecimal("1500000.00"));
+                hono.setTauxIsi(new BigDecimal("5.00"));
+                hono.setDatePrestation(java.sql.Date.valueOf("2026-08-31"));
+                hono.save(c);
+
+                String xml = ediIsiExportService.exporterEdiXml(ID_PERIODE, c);
+                assertNotNull(xml);
+                assertTrue(xml.startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
+                assertTrue(xml.contains("<idEdiType>ISI</idEdiType>"));
+                assertTrue(xml.contains("<rContribuable>3000019434</rContribuable>"));
+                assertTrue(xml.contains("<idImpotNature>ISINT</idImpotNature>"));
+                assertTrue(xml.contains("<idExercice>2026</idExercice>"));
+                assertTrue(xml.contains("<idMois>8</idMois>"));
+                assertTrue(xml.contains("Cabinet Expertise Comptable &amp; Fiscale"));
+                assertTrue(xml.contains("<id>texte_2</id><o>101999888777</o>"));
+                assertTrue(xml.contains("<id>texte_4</id><o>PRESTATIONS DE SERVICES</o>"));
+                assertTrue(xml.contains("<id>texte_5</id><o>ANALAKELY</o>"));
+                assertTrue(xml.contains("<id>texte_7</id><o>ANTANANARIVO RENIVOHITRA C.U</o>"));
+                assertFalse(xml.contains("000000000000"), "Le flux EDI ne doit jamais contenir de faux CIN 000000000000");
+                assertTrue(xml.endsWith("</tabs></EDI>"));
+            } finally {
+                c.rollback();
+            }
+        }
     }
 
     @Test

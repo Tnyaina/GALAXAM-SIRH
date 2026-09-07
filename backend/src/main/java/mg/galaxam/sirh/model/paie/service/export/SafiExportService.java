@@ -39,12 +39,16 @@ public class SafiExportService {
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriode, c);
         List<SafiRowDto> rows = new ArrayList<>();
 
+        Date dateDebutPeriode = null;
         Date dateFinPeriode = null;
-        String sqlPeriodeDate = "SELECT date_fin FROM periode_paie WHERE id_periode_paie = ?";
+        String sqlPeriodeDate = "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
         try (PreparedStatement ps = c.prepareStatement(sqlPeriodeDate)) {
             ps.setInt(1, idPeriode);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) dateFinPeriode = rs.getDate("date_fin");
+                if (rs.next()) {
+                    dateDebutPeriode = rs.getDate("date_debut");
+                    dateFinPeriode = rs.getDate("date_fin");
+                }
             }
         }
 
@@ -64,7 +68,7 @@ public class SafiExportService {
             row.setNomPrenoms(bp.getNomPrenom());
             row.setCin(bp.getCinNumero() != null ? bp.getCinNumero() : "");
             row.setDateEmbauche(bp.getDateEmbauche() != null ? DATE_FMT.format(bp.getDateEmbauche().toLocalDate()) : "");
-            row.setDateDebauchage(chercherDateFinContrat(bp.getIdEmploye(), dateFinPeriode, c));
+            row.setDateDebauchage(chercherDateFinContrat(bp.getIdEmploye(), dateDebutPeriode, dateFinPeriode, c));
             row.setFonction(bp.getIntitulePoste());
 
             // Ventilation par rubriques
@@ -132,7 +136,6 @@ public class SafiExportService {
             row.setAvantagesNatureImposables(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
             row.setAvantagesNatureExoneres(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
             row.setHeuresSupplementaires(hs.setScale(2, RoundingMode.HALF_UP));
-            row.setPrimesEtGratifications(primes.setScale(2, RoundingMode.HALF_UP));
             // Règle DGI SAFI : La colonne P ("Autres Repas") est automatiquement ajoutée au salaire brut imposable (Q)
             // dans la formule officielle e-Hetra (Q = I + J + L + N + O + P). L'indemnité de panier exonérée (accord d'établissement)
             // doit figurer en colonne K (Indemnités Non Imposables) pour ne pas être taxée à tort à l'IRSA.
@@ -140,6 +143,12 @@ public class SafiExportService {
 
             // Salaire brut (Q = I + J + L + N + O + P)
             BigDecimal brut = bp.getTotalGainsBruts() != null ? bp.getTotalGainsBruts() : BigDecimal.ZERO;
+            // Sécurisation de la cohérence arithmétique e-Hetra DGI
+            BigDecimal sommeComposantes = base.add(indemImpos).add(hs).add(primes);
+            if (brut.compareTo(sommeComposantes) > 0) {
+                primes = primes.add(brut.subtract(sommeComposantes));
+            }
+            row.setPrimesEtGratifications(primes.setScale(2, RoundingMode.HALF_UP));
             row.setSalaireBrut(brut.setScale(2, RoundingMode.HALF_UP));
 
             row.setDeductionsCnaps(cnaps.setScale(2, RoundingMode.HALF_UP));
@@ -317,15 +326,19 @@ public class SafiExportService {
         return sb.toString();
     }
 
-    private String chercherDateFinContrat(Integer idEmploye, Date dateFinPeriode, Connection c) {
+    private String chercherDateFinContrat(Integer idEmploye, Date dateDebutPeriode, Date dateFinPeriode, Connection c) {
         String sql = "SELECT date_fin FROM contrat_travail WHERE id_employe = ? ORDER BY date_debut DESC LIMIT 1";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next() && rs.getDate("date_fin") != null) {
                     Date dateFin = rs.getDate("date_fin");
-                    // Règle DGI e-Hetra : la date de débauchage ne doit pas être renseignée pour un CDD dont l'échéance est future
+                    // Règle DGI e-Hetra : la date de débauchage ne doit être renseignée QUE si la cessation
+                    // de contrat est intervenue pendant la période déclarée (ni avant, ni après).
                     if (dateFinPeriode != null && dateFin.after(dateFinPeriode)) {
+                        return "";
+                    }
+                    if (dateDebutPeriode != null && dateFin.before(dateDebutPeriode)) {
                         return "";
                     }
                     return DATE_FMT.format(dateFin.toLocalDate());

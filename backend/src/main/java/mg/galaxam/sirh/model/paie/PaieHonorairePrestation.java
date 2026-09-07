@@ -23,7 +23,7 @@ public class PaieHonorairePrestation extends ClassMere {
     private String nomComplet;
     private String cinOuNif;
     private String intitulePrestation;
-    private String natureService = "SERVICE SYSTEMATIQUE";
+    private String natureService = "PRESTATIONS DE SERVICES";
     private Date datePrestation;
     private Date datePaiement;
     private BigDecimal montantBrut;

@@ -76,21 +76,25 @@ public class EdiIsiExportService {
             String datePaiement = h.getDatePaiement() != null ? DATE_FMT.format(h.getDatePaiement().toLocalDate()) : DATE_FMT.format(dateFin);
 
             String nomComplet = h.getNomComplet() != null && !h.getNomComplet().isBlank() ? h.getNomComplet().trim() : "PRESTATAIRE EXTERNE";
-            String cinOuNif = h.getCinOuNif() != null && !h.getCinOuNif().isBlank() ? h.getCinOuNif().trim() : "000000000000";
+            String cinOuNif = h.getCinOuNif() != null ? h.getCinOuNif().replaceAll("\\s+", "") : "";
+            if (cinOuNif.isEmpty()) {
+                throw new IllegalStateException("Numéro CIN ou NIF obligatoire manquant pour le prestataire '" + nomComplet + "' dans la déclaration EDI ISI.");
+            }
             String intitulePrestation = h.getIntitulePrestation() != null && !h.getIntitulePrestation().isBlank() ? h.getIntitulePrestation().trim() : "PRESTATION DE CONSEIL / EXPERTISE";
+            String natureService = h.getNatureService() != null && !h.getNatureService().isBlank() ? h.getNatureService().trim() : "PRESTATIONS DE SERVICES";
 
             String[] terr = resoudreTerritoire(h.getCommune() != null ? h.getCommune() : h.getAdresse());
-            String adresse = h.getAdresse() != null && !h.getAdresse().isBlank() ? h.getAdresse() : terr[0];
-            String commune = h.getCommune() != null && !h.getCommune().isBlank() ? h.getCommune() : terr[0];
-            String region = h.getRegion() != null && !h.getRegion().isBlank() ? h.getRegion() : terr[1];
-            String district = h.getDistrict() != null && !h.getDistrict().isBlank() ? h.getDistrict() : terr[2];
-            String province = h.getProvince() != null && !h.getProvince().isBlank() ? h.getProvince() : terr[3];
+            String adresse = h.getAdresse() != null && !h.getAdresse().isBlank() ? h.getAdresse().trim() : terr[4];
+            String commune = h.getCommune() != null && !h.getCommune().isBlank() ? h.getCommune().trim() : terr[0];
+            String region = h.getRegion() != null && !h.getRegion().isBlank() ? h.getRegion().trim() : terr[1];
+            String district = h.getDistrict() != null && !h.getDistrict().isBlank() ? h.getDistrict().trim() : terr[2];
+            String province = h.getProvince() != null && !h.getProvince().isBlank() ? h.getProvince().trim() : terr[3];
 
             sb.append("<line>");
             sb.append("<k><id>texte_1</id><o>").append(escapeXml(nomComplet)).append("</o></k>");
             sb.append("<k><id>texte_2</id><o>").append(escapeXml(cinOuNif)).append("</o></k>");
             sb.append("<k><id>texte_3</id><o>").append(escapeXml(intitulePrestation)).append("</o></k>");
-            sb.append("<k><id>texte_4</id><o>").append(escapeXml(h.getNatureService() != null ? h.getNatureService() : "SERVICE SYSTEMATIQUE")).append("</o></k>");
+            sb.append("<k><id>texte_4</id><o>").append(escapeXml(natureService)).append("</o></k>");
             sb.append("<k><id>date_1</id><o>").append(datePaiement).append("</o></k>");
             sb.append("<k><id>montant_1</id><o>").append(brut).append("</o></k>");
             sb.append("<k><id>montant_2</id><o>").append(isi).append("</o></k>");
@@ -134,8 +138,8 @@ public class EdiIsiExportService {
             }
 
             String[] terr = resoudreTerritoire(vilEmp != null ? vilEmp : adrEmp);
-            String adresse = adrEmp != null && !adrEmp.isBlank() ? adrEmp : terr[0];
-            String commune = vilEmp != null && !vilEmp.isBlank() ? vilEmp : terr[0];
+            String adresse = adrEmp != null && !adrEmp.isBlank() ? adrEmp.trim() : terr[4];
+            String commune = vilEmp != null && !vilEmp.isBlank() ? vilEmp.trim() : terr[0];
             String region = terr[1];
             String district = terr[2];
             String province = terr[3];
@@ -143,14 +147,17 @@ public class EdiIsiExportService {
             long brut = bp.getTotalGainsBruts() != null ? bp.getTotalGainsBruts().longValue() : 0L;
             long isi = bp.getRetenueIsi5() != null ? bp.getRetenueIsi5().longValue() : 0L;
             String datePaiement = DATE_FMT.format(dateFin);
-            String cinOuNif = bp.getCinNumero() != null && !bp.getCinNumero().isBlank() ? bp.getCinNumero().trim() : "000000000000";
+            String cinOuNif = bp.getCinNumero() != null ? bp.getCinNumero().replaceAll("\\s+", "") : "";
+            if (cinOuNif.isEmpty()) {
+                throw new IllegalStateException("Numéro CIN obligatoire manquant pour le salarié/consultant '" + bp.getNomPrenom() + "' dans la déclaration EDI ISI.");
+            }
 
             sb.append("<line>");
             sb.append("<k><id>texte_1</id><o>").append(escapeXml(bp.getNomPrenom())).append("</o></k>");
             sb.append("<k><id>texte_2</id><o>").append(escapeXml(cinOuNif)).append("</o></k>");
             // Sécurisation juridique : Ne jamais exposer l'intitulé d'un poste salarié pour une annexe fiscale d'honoraires
             sb.append("<k><id>texte_3</id><o>PRESTATION DE CONSEIL / EXPERTISE</o></k>");
-            sb.append("<k><id>texte_4</id><o>SERVICE SYSTEMATIQUE</o></k>");
+            sb.append("<k><id>texte_4</id><o>PRESTATIONS DE SERVICES</o></k>");
             sb.append("<k><id>date_1</id><o>").append(datePaiement).append("</o></k>");
             sb.append("<k><id>montant_1</id><o>").append(brut).append("</o></k>");
             sb.append("<k><id>montant_2</id><o>").append(isi).append("</o></k>");
@@ -176,14 +183,16 @@ public class EdiIsiExportService {
                 "TOAMASINA I C.U",
                 "ATSINANANA",
                 "TOAMASINA I",
-                "TOAMASINA"
+                "TOAMASINA",
+                "BAZARIKELY"
             };
         }
         return new String[] {
             "ANTANANARIVO RENIVOHITRA C.U",
             "ANALAMANGA",
             "ANTANANARIVO RENIVOHITRA",
-            "ANTANANARIVO"
+            "ANTANANARIVO",
+            "ANALAKELY"
         };
     }
 

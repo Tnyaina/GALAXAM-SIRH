@@ -556,4 +556,31 @@ class PaieBddModelTest {
             }
         }
     }
+
+    @Test
+    @DisplayName("13. Art. 68 Code du Travail : Distinction du dixième (10%) avance employeur vs tiers (33.33%) quotité cessible")
+    void testArt68AvanceEmployeurVsQuotiteCessible() {
+        BigDecimal netDisponible = new BigDecimal("1000000.00"); // 1 000 000 Ar
+
+        // 1. Plafond avance employeur (1/10e = 100 000 Ar)
+        BigDecimal maxAvance = PaieAvanceAcompte.calculerAvanceEmployeurMax(netDisponible);
+        assertEquals(new BigDecimal("100000.00"), maxAvance);
+
+        assertTrue(PaieAvanceAcompte.isAvanceEmployeurRespectee(netDisponible, new BigDecimal("100000.00")));
+        assertTrue(PaieAvanceAcompte.isAvanceEmployeurRespectee(netDisponible, new BigDecimal("50000.00")));
+        assertFalse(PaieAvanceAcompte.isAvanceEmployeurRespectee(netDisponible, new BigDecimal("100001.00")));
+        assertFalse(PaieAvanceAcompte.isAvanceEmployeurRespectee(netDisponible, new BigDecimal("250000.00")));
+
+        // 2. Plafond quotité cessible générale (1/3 = 333 333.33 Ar)
+        BigDecimal maxQuotite = PaieAvanceAcompte.calculerQuotiteCessibleMax(netDisponible);
+        assertEquals(new BigDecimal("333333.33"), maxQuotite);
+
+        // Une retenue de 250 000 Ar respecte la quotité cessible générale mais violerait le 1/10e avance employeur
+        assertTrue(PaieAvanceAcompte.isQuotiteCessibleRespectee(netDisponible, new BigDecimal("250000.00")));
+        assertFalse(PaieAvanceAcompte.isAvanceEmployeurRespectee(netDisponible, new BigDecimal("250000.00")));
+
+        // Cas limites nuls
+        assertFalse(PaieAvanceAcompte.isAvanceEmployeurRespectee(BigDecimal.ZERO, new BigDecimal("50000.00")));
+        assertTrue(PaieAvanceAcompte.isAvanceEmployeurRespectee(netDisponible, BigDecimal.ZERO));
+    }
 }

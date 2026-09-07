@@ -17,6 +17,14 @@ import java.util.List;
  */
 public class PaieAvanceAcompte extends ClassMere {
 
+    /**
+     * Garde-fous légaux (Code du Travail Malagasy, Loi n° 2003-044, Art. 68) :
+     * 1. Avances en espèces consenties par l'employeur (Avance Spéciale) :
+     *    La retenue mensuelle ne peut excéder le dixième (10%) du montant des salaires exigibles.
+     * 2. Quotité cessible / saisissable générale (Prêts, cessions volontaires notifiées, saisies) :
+     *    Plafond d'un tiers (33.33%) du salaire net disponible.
+     */
+    public static final BigDecimal RATIO_AVANCE_EMPLOYEUR_MAX = new BigDecimal("0.10");
     public static final BigDecimal RATIO_QUOTITE_CESSIBLE_MAX = new BigDecimal("0.3333");
 
     private Integer idAvance;
@@ -209,6 +217,29 @@ public class PaieAvanceAcompte extends ClassMere {
             return BigDecimal.ZERO;
         }
         return netDisponible.divide(new BigDecimal("3"), 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Garde-fou légal pour avance spéciale employeur (Code du Travail Art. 68) :
+     * La retenue mensuelle au titre d'avances en espèces consenties par l'employeur
+     * ne peut excéder le dixième (10%) du montant des salaires exigibles.
+     */
+    public static boolean isAvanceEmployeurRespectee(BigDecimal netDisponible, BigDecimal montantAvance) {
+        if (netDisponible == null || netDisponible.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        if (montantAvance == null || montantAvance.compareTo(BigDecimal.ZERO) <= 0) {
+            return true;
+        }
+        BigDecimal plafondAvance = netDisponible.multiply(RATIO_AVANCE_EMPLOYEUR_MAX).setScale(2, RoundingMode.HALF_UP);
+        return montantAvance.compareTo(plafondAvance) <= 0;
+    }
+
+    public static BigDecimal calculerAvanceEmployeurMax(BigDecimal netDisponible) {
+        if (netDisponible == null || netDisponible.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return netDisponible.multiply(RATIO_AVANCE_EMPLOYEUR_MAX).setScale(2, RoundingMode.HALF_UP);
     }
 
     private static PaieAvanceAcompte mapResultSet(ResultSet rs) throws Exception {

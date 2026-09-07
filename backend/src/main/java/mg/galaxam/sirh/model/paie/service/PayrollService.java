@@ -203,7 +203,7 @@ public class PayrollService {
                     hono.setNomComplet(((nom != null ? nom : "") + " " + (prenom != null ? prenom : "")).trim());
                     hono.setCinOuNif(cin != null ? cin : "NIF-A-PRECISER");
                     hono.setIntitulePrestation(fonction != null ? fonction : "Prestation de Conseil / Expertise");
-                    hono.setNatureService("SERVICE SYSTEMATIQUE");
+                    hono.setNatureService("PRESTATIONS DE SERVICES");
                     hono.setDatePrestation(dateFin != null ? dateFin : new Date(System.currentTimeMillis()));
                     hono.setDatePaiement(dateFin != null ? dateFin : new Date(System.currentTimeMillis()));
                     hono.setMontantBrut(brut != null ? brut : BigDecimal.ZERO);

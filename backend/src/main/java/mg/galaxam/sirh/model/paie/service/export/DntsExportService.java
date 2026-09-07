@@ -37,12 +37,16 @@ public class DntsExportService {
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriode, c);
         List<DntsRowDto> rows = new ArrayList<>();
 
+        Date dateDebutPeriode = null;
         Date dateFinPeriode = null;
-        String sqlPeriodeDate = "SELECT date_fin FROM periode_paie WHERE id_periode_paie = ?";
+        String sqlPeriodeDate = "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
         try (PreparedStatement ps = c.prepareStatement(sqlPeriodeDate)) {
             ps.setInt(1, idPeriode);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) dateFinPeriode = rs.getDate("date_fin");
+                if (rs.next()) {
+                    dateDebutPeriode = rs.getDate("date_debut");
+                    dateFinPeriode = rs.getDate("date_fin");
+                }
             }
         }
 
@@ -62,7 +66,7 @@ public class DntsExportService {
             row.setNomPrenom(bp.getNomPrenom());
             row.setRefCin(bp.getCinNumero() != null ? bp.getCinNumero() : "");
             row.setDateEmbauche(bp.getDateEmbauche() != null ? DATE_FMT.format(bp.getDateEmbauche().toLocalDate()) : "");
-            row.setDateDebauchage(chercherDateFinContrat(bp.getIdEmploye(), dateFinPeriode, c));
+            row.setDateDebauchage(chercherDateFinContrat(bp.getIdEmploye(), dateDebutPeriode, dateFinPeriode, c));
 
             BigDecimal brut = bp.getTotalGainsBruts() != null ? bp.getTotalGainsBruts() : BigDecimal.ZERO;
             row.setSalaireBrutReel(brut.setScale(2, RoundingMode.HALF_UP));
@@ -329,15 +333,19 @@ public class DntsExportService {
         return sb.toString();
     }
 
-    private String chercherDateFinContrat(Integer idEmploye, Date dateFinPeriode, Connection c) {
+    private String chercherDateFinContrat(Integer idEmploye, Date dateDebutPeriode, Date dateFinPeriode, Connection c) {
         String sql = "SELECT date_fin FROM contrat_travail WHERE id_employe = ? ORDER BY date_debut DESC LIMIT 1";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next() && rs.getDate("date_fin") != null) {
                     Date dateFin = rs.getDate("date_fin");
-                    // Règle CNaPS / FMFP : la date de débauchage ne doit pas être renseignée pour un CDD dont l'échéance est future
+                    // Règle CNaPS / FMFP : la date de débauchage ne doit être renseignée QUE si la cessation
+                    // de contrat est intervenue pendant la période déclarée (ni avant, ni après).
                     if (dateFinPeriode != null && dateFin.after(dateFinPeriode)) {
+                        return "";
+                    }
+                    if (dateDebutPeriode != null && dateFin.before(dateDebutPeriode)) {
                         return "";
                     }
                     return DATE_FMT.format(dateFin.toLocalDate());
