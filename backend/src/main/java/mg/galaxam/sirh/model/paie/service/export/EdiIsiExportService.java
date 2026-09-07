@@ -75,20 +75,31 @@ public class EdiIsiExportService {
             long isi = h.getMontantRetenueIsi() != null ? h.getMontantRetenueIsi().longValue() : 0L;
             String datePaiement = h.getDatePaiement() != null ? DATE_FMT.format(h.getDatePaiement().toLocalDate()) : DATE_FMT.format(dateFin);
 
+            String nomComplet = h.getNomComplet() != null && !h.getNomComplet().isBlank() ? h.getNomComplet().trim() : "PRESTATAIRE EXTERNE";
+            String cinOuNif = h.getCinOuNif() != null && !h.getCinOuNif().isBlank() ? h.getCinOuNif().trim() : "000000000000";
+            String intitulePrestation = h.getIntitulePrestation() != null && !h.getIntitulePrestation().isBlank() ? h.getIntitulePrestation().trim() : "PRESTATION DE CONSEIL / EXPERTISE";
+
+            String[] terr = resoudreTerritoire(h.getCommune() != null ? h.getCommune() : h.getAdresse());
+            String adresse = h.getAdresse() != null && !h.getAdresse().isBlank() ? h.getAdresse() : terr[0];
+            String commune = h.getCommune() != null && !h.getCommune().isBlank() ? h.getCommune() : terr[0];
+            String region = h.getRegion() != null && !h.getRegion().isBlank() ? h.getRegion() : terr[1];
+            String district = h.getDistrict() != null && !h.getDistrict().isBlank() ? h.getDistrict() : terr[2];
+            String province = h.getProvince() != null && !h.getProvince().isBlank() ? h.getProvince() : terr[3];
+
             sb.append("<line>");
-            sb.append("<k><id>texte_1</id><o>").append(escapeXml(h.getNomComplet())).append("</o></k>");
-            sb.append("<k><id>texte_2</id><o>").append(escapeXml(h.getCinOuNif())).append("</o></k>");
-            sb.append("<k><id>texte_3</id><o>").append(escapeXml(h.getIntitulePrestation())).append("</o></k>");
+            sb.append("<k><id>texte_1</id><o>").append(escapeXml(nomComplet)).append("</o></k>");
+            sb.append("<k><id>texte_2</id><o>").append(escapeXml(cinOuNif)).append("</o></k>");
+            sb.append("<k><id>texte_3</id><o>").append(escapeXml(intitulePrestation)).append("</o></k>");
             sb.append("<k><id>texte_4</id><o>").append(escapeXml(h.getNatureService() != null ? h.getNatureService() : "SERVICE SYSTEMATIQUE")).append("</o></k>");
             sb.append("<k><id>date_1</id><o>").append(datePaiement).append("</o></k>");
             sb.append("<k><id>montant_1</id><o>").append(brut).append("</o></k>");
             sb.append("<k><id>montant_2</id><o>").append(isi).append("</o></k>");
-            sb.append("<k><id>texte_5</id><o>").append(escapeXml(h.getAdresse() != null ? h.getAdresse() : "ANTANANARIVO")).append("</o></k>");
+            sb.append("<k><id>texte_5</id><o>").append(escapeXml(adresse)).append("</o></k>");
             sb.append("<k><id>texte_6</id><o></o></k>");
-            sb.append("<k><id>texte_7</id><o>").append(escapeXml(h.getCommune() != null ? h.getCommune() : "ANTANANARIVO RENIVOHITRA C.U")).append("</o></k>");
-            sb.append("<k><id>texte_8</id><o>").append(escapeXml(h.getRegion() != null ? h.getRegion() : "ANALAMANGA")).append("</o></k>");
-            sb.append("<k><id>texte_9</id><o>").append(escapeXml(h.getDistrict() != null ? h.getDistrict() : "ANTANANARIVO RENIVOHITRA")).append("</o></k>");
-            sb.append("<k><id>texte_10</id><o>").append(escapeXml(h.getProvince() != null ? h.getProvince() : "ANTANANARIVO")).append("</o></k>");
+            sb.append("<k><id>texte_7</id><o>").append(escapeXml(commune)).append("</o></k>");
+            sb.append("<k><id>texte_8</id><o>").append(escapeXml(region)).append("</o></k>");
+            sb.append("<k><id>texte_9</id><o>").append(escapeXml(district)).append("</o></k>");
+            sb.append("<k><id>texte_10</id><o>").append(escapeXml(province)).append("</o></k>");
             sb.append("</line>");
         }
 
@@ -102,37 +113,43 @@ public class EdiIsiExportService {
                 continue;
             }
 
-            // Éviter le doublon si déjà présent dans honoraires
-            boolean dejaPresent = honoraires.stream().anyMatch(h -> h.getIdIntervenant() != null && h.getIdIntervenant().equals(bp.getIdEmploye()));
+            // Éviter le doublon si déjà présent dans honoraires (par ID ou par numéro de CIN)
+            boolean dejaPresent = honoraires.stream().anyMatch(h ->
+                    (h.getIdIntervenant() != null && h.getIdIntervenant().equals(bp.getIdEmploye())) ||
+                    (bp.getCinNumero() != null && !bp.getCinNumero().isBlank() && bp.getCinNumero().equals(h.getCinOuNif()))
+            );
             if (dejaPresent) continue;
 
-            String adresse = "ANTANANARIVO";
-            String commune = "ANTANANARIVO RENIVOHITRA C.U";
-            String region = "ANALAMANGA";
-            String district = "ANTANANARIVO RENIVOHITRA";
-            String province = "ANTANANARIVO";
-
+            String adrEmp = null;
+            String vilEmp = null;
             String sqlEmp = "SELECT adresse, ville FROM employe WHERE id_employe = ?";
             try (PreparedStatement ps = c.prepareStatement(sqlEmp)) {
                 ps.setInt(1, bp.getIdEmploye());
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
-                        String adr = rs.getString("adresse");
-                        String vil = rs.getString("ville");
-                        if (adr != null && !adr.isBlank()) adresse = adr;
-                        if (vil != null && !vil.isBlank()) commune = vil;
+                        adrEmp = rs.getString("adresse");
+                        vilEmp = rs.getString("ville");
                     }
                 }
             }
 
+            String[] terr = resoudreTerritoire(vilEmp != null ? vilEmp : adrEmp);
+            String adresse = adrEmp != null && !adrEmp.isBlank() ? adrEmp : terr[0];
+            String commune = vilEmp != null && !vilEmp.isBlank() ? vilEmp : terr[0];
+            String region = terr[1];
+            String district = terr[2];
+            String province = terr[3];
+
             long brut = bp.getTotalGainsBruts() != null ? bp.getTotalGainsBruts().longValue() : 0L;
             long isi = bp.getRetenueIsi5() != null ? bp.getRetenueIsi5().longValue() : 0L;
             String datePaiement = DATE_FMT.format(dateFin);
+            String cinOuNif = bp.getCinNumero() != null && !bp.getCinNumero().isBlank() ? bp.getCinNumero().trim() : "000000000000";
 
             sb.append("<line>");
             sb.append("<k><id>texte_1</id><o>").append(escapeXml(bp.getNomPrenom())).append("</o></k>");
-            sb.append("<k><id>texte_2</id><o>").append(escapeXml(bp.getCinNumero() != null ? bp.getCinNumero() : "")).append("</o></k>");
-            sb.append("<k><id>texte_3</id><o>").append(escapeXml(bp.getIntitulePoste())).append("</o></k>");
+            sb.append("<k><id>texte_2</id><o>").append(escapeXml(cinOuNif)).append("</o></k>");
+            // Sécurisation juridique : Ne jamais exposer l'intitulé d'un poste salarié pour une annexe fiscale d'honoraires
+            sb.append("<k><id>texte_3</id><o>PRESTATION DE CONSEIL / EXPERTISE</o></k>");
             sb.append("<k><id>texte_4</id><o>SERVICE SYSTEMATIQUE</o></k>");
             sb.append("<k><id>date_1</id><o>").append(datePaiement).append("</o></k>");
             sb.append("<k><id>montant_1</id><o>").append(brut).append("</o></k>");
@@ -150,6 +167,24 @@ public class EdiIsiExportService {
         sb.append("</EDI>");
 
         return sb.toString();
+    }
+
+    private String[] resoudreTerritoire(String villeOuCommune) {
+        String v = villeOuCommune != null ? villeOuCommune.toUpperCase() : "";
+        if (v.contains("TOAMASINA") || v.contains("TAMATAVE")) {
+            return new String[] {
+                "TOAMASINA I C.U",
+                "ATSINANANA",
+                "TOAMASINA I",
+                "TOAMASINA"
+            };
+        }
+        return new String[] {
+            "ANTANANARIVO RENIVOHITRA C.U",
+            "ANALAMANGA",
+            "ANTANANARIVO RENIVOHITRA",
+            "ANTANANARIVO"
+        };
     }
 
     private String escapeXml(String text) {

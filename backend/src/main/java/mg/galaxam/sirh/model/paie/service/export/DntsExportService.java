@@ -15,8 +15,10 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Service d'exportation de la Déclaration Nominative Trimestrielle des Salaires (DNTS) pour la CNaPS et le FMFP.
@@ -130,6 +132,146 @@ public class DntsExportService {
         sb.append("CNAPS - CAISSE NATIONALE DE PREVOYANCE SOCIALE & FMFP\n");
         sb.append("DECLARATION NOMINATIVE DES SALAIRES ET DES COTISATIONS\n");
         sb.append("EMPLOYEUR :;GALAXAM LOGISTICS;NIF :;3000019434;PERIODE :;").append(libellePeriode != null ? libellePeriode : codePeriode).append("\n\n");
+
+        sb.append("N° Ordre;Matricule;N° CNaPS;Nom et Prenom;CIN;Date Embauche;Date Debauchage;")
+          .append("Salaire Brut Reel;Assiette Plafonnee CNaPS;CNaPS Salarial (1%);CNaPS Patronal (13%);FMFP Patronal (1%);")
+          .append("Sante Salarial;Sante Patronal;Total Cotisations\n");
+
+        DecimalFormat df = new DecimalFormat("0.00", DFS);
+        df.setGroupingUsed(false);
+
+        BigDecimal totBrut = BigDecimal.ZERO;
+        BigDecimal totAssiette = BigDecimal.ZERO;
+        BigDecimal totCnapsSal = BigDecimal.ZERO;
+        BigDecimal totCnapsPat = BigDecimal.ZERO;
+        BigDecimal totFmfpPat = BigDecimal.ZERO;
+        BigDecimal totSanteSal = BigDecimal.ZERO;
+        BigDecimal totSantePat = BigDecimal.ZERO;
+        BigDecimal totGlobal = BigDecimal.ZERO;
+
+        for (DntsRowDto r : data) {
+            sb.append(r.getNumeroOrdre()).append(";")
+              .append(escape(r.getMatricule())).append(";")
+              .append(escape(r.getNumAffiliationCnaps())).append(";")
+              .append(escape(r.getNomPrenom())).append(";")
+              .append(escape(r.getRefCin())).append(";")
+              .append(escape(r.getDateEmbauche())).append(";")
+              .append(escape(r.getDateDebauchage())).append(";")
+              .append(df.format(r.getSalaireBrutReel())).append(";")
+              .append(df.format(r.getAssiettePlafonneeCnaps())).append(";")
+              .append(df.format(r.getCnapsSalarial())).append(";")
+              .append(df.format(r.getCnapsPatronal())).append(";")
+              .append(df.format(r.getFmfpPatronal())).append(";")
+              .append(df.format(r.getSanteSalarial())).append(";")
+              .append(df.format(r.getSantePatronal())).append(";")
+              .append(df.format(r.getTotalCotisations())).append("\n");
+
+            totBrut = totBrut.add(r.getSalaireBrutReel());
+            totAssiette = totAssiette.add(r.getAssiettePlafonneeCnaps());
+            totCnapsSal = totCnapsSal.add(r.getCnapsSalarial());
+            totCnapsPat = totCnapsPat.add(r.getCnapsPatronal());
+            totFmfpPat = totFmfpPat.add(r.getFmfpPatronal());
+            totSanteSal = totSanteSal.add(r.getSanteSalarial());
+            totSantePat = totSantePat.add(r.getSantePatronal());
+            totGlobal = totGlobal.add(r.getTotalCotisations());
+        }
+
+        sb.append("TOTAL;;;;;;;")
+          .append(df.format(totBrut)).append(";")
+          .append(df.format(totAssiette)).append(";")
+          .append(df.format(totCnapsSal)).append(";")
+          .append(df.format(totCnapsPat)).append(";")
+          .append(df.format(totFmfpPat)).append(";")
+          .append(df.format(totSanteSal)).append(";")
+          .append(df.format(totSantePat)).append(";")
+          .append(df.format(totGlobal)).append("\n");
+
+        return sb.toString();
+    }
+
+    /**
+     * Génère la Déclaration Nominative Trimestrielle des Salaires (DNTS CNaPS & FMFP)
+     * en agrégeant les 3 mois d'un trimestre donné (T1 = Jan-Mar, T2 = Avr-Juin, T3 = Juil-Sept, T4 = Oct-Déc).
+     */
+    public List<DntsRowDto> genererDonneesDntsTrimestre(int annee, int trimestre, Connection c) throws Exception {
+        if (trimestre < 1 || trimestre > 4) {
+            throw new IllegalArgumentException("Le trimestre doit être compris entre 1 et 4.");
+        }
+        int moisDebut = (trimestre - 1) * 3 + 1;
+        int moisFin = moisDebut + 2;
+
+        String sqlPeriodes = "SELECT id_periode_paie FROM periode_paie " +
+                "WHERE EXTRACT(YEAR FROM date_debut) = ? " +
+                "AND EXTRACT(MONTH FROM date_debut) BETWEEN ? AND ? " +
+                "ORDER BY date_debut ASC";
+
+        List<Integer> idsPeriodes = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sqlPeriodes)) {
+            ps.setInt(1, annee);
+            ps.setInt(2, moisDebut);
+            ps.setInt(3, moisFin);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    idsPeriodes.add(rs.getInt("id_periode_paie"));
+                }
+            }
+        }
+
+        // Agréger par matricule sur l'ensemble du trimestre
+        Map<String, DntsRowDto> mapSalaries = new LinkedHashMap<>();
+        int ordre = 1;
+
+        for (Integer idPer : idsPeriodes) {
+            List<DntsRowDto> moisRows = genererDonneesDnts(idPer, c);
+            for (DntsRowDto r : moisRows) {
+                String matr = r.getMatricule();
+                if (!mapSalaries.containsKey(matr)) {
+                    DntsRowDto cumul = new DntsRowDto();
+                    cumul.setNumeroOrdre(ordre++);
+                    cumul.setMatricule(matr);
+                    cumul.setNumAffiliationCnaps(r.getNumAffiliationCnaps());
+                    cumul.setNomPrenom(r.getNomPrenom());
+                    cumul.setRefCin(r.getRefCin());
+                    cumul.setDateEmbauche(r.getDateEmbauche());
+                    cumul.setDateDebauchage(r.getDateDebauchage());
+                    cumul.setSalaireBrutReel(r.getSalaireBrutReel());
+                    cumul.setAssiettePlafonneeCnaps(r.getAssiettePlafonneeCnaps());
+                    cumul.setCnapsSalarial(r.getCnapsSalarial());
+                    cumul.setCnapsPatronal(r.getCnapsPatronal());
+                    cumul.setFmfpPatronal(r.getFmfpPatronal());
+                    cumul.setSanteSalarial(r.getSanteSalarial());
+                    cumul.setSantePatronal(r.getSantePatronal());
+                    cumul.setTotalCotisations(r.getTotalCotisations());
+                    mapSalaries.put(matr, cumul);
+                } else {
+                    DntsRowDto exist = mapSalaries.get(matr);
+                    exist.setSalaireBrutReel(exist.getSalaireBrutReel().add(r.getSalaireBrutReel()));
+                    exist.setAssiettePlafonneeCnaps(exist.getAssiettePlafonneeCnaps().add(r.getAssiettePlafonneeCnaps()));
+                    exist.setCnapsSalarial(exist.getCnapsSalarial().add(r.getCnapsSalarial()));
+                    exist.setCnapsPatronal(exist.getCnapsPatronal().add(r.getCnapsPatronal()));
+                    exist.setFmfpPatronal(exist.getFmfpPatronal().add(r.getFmfpPatronal()));
+                    exist.setSanteSalarial(exist.getSanteSalarial().add(r.getSanteSalarial()));
+                    exist.setSantePatronal(exist.getSantePatronal().add(r.getSantePatronal()));
+                    exist.setTotalCotisations(exist.getTotalCotisations().add(r.getTotalCotisations()));
+                    if (r.getDateDebauchage() != null && !r.getDateDebauchage().isBlank()) {
+                        exist.setDateDebauchage(r.getDateDebauchage());
+                    }
+                }
+            }
+        }
+
+        return new ArrayList<>(mapSalaries.values());
+    }
+
+    public String exporterDntsTrimestreCsv(int annee, int trimestre, Connection c) throws Exception {
+        List<DntsRowDto> data = genererDonneesDntsTrimestre(annee, trimestre, c);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append('\ufeff'); // BOM UTF-8
+
+        sb.append("CNAPS - CAISSE NATIONALE DE PREVOYANCE SOCIALE & FMFP\n");
+        sb.append("DECLARATION NOMINATIVE TRIMESTRIELLE DES SALAIRES ET DES COTISATIONS (DNTS)\n");
+        sb.append("EMPLOYEUR :;GALAXAM LOGISTICS;NIF :;3000019434;TRIMESTRE :;T").append(trimestre).append(" ").append(annee).append("\n\n");
 
         sb.append("N° Ordre;Matricule;N° CNaPS;Nom et Prenom;CIN;Date Embauche;Date Debauchage;")
           .append("Salaire Brut Reel;Assiette Plafonnee CNaPS;CNaPS Salarial (1%);CNaPS Patronal (13%);FMFP Patronal (1%);")

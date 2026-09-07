@@ -72,6 +72,18 @@ public class PaieExportService {
         }
     }
 
+    public List<DntsRowDto> obtenirDonneesDntsTrimestre(int annee, int trimestre) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            return dntsExportService.genererDonneesDntsTrimestre(annee, trimestre, c);
+        }
+    }
+
+    public String exporterDntsTrimestreCsv(int annee, int trimestre) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            return dntsExportService.exporterDntsTrimestreCsv(annee, trimestre, c);
+        }
+    }
+
     public List<VirementRowDto> obtenirDonneesVirement(Integer idPeriode) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             return virementBancaireExportService.genererDonneesVirement(idPeriode, c);

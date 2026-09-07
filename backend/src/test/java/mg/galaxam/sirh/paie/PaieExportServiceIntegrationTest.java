@@ -147,6 +147,27 @@ class PaieExportServiceIntegrationTest {
     }
 
     @Test
+    @DisplayName("3b. Déclaration Trimestrielle DNTS CNaPS : Agrégation T3 2026")
+    void testDntsTrimestrielleCnaps() throws Exception {
+        // T3 2026 (Juillet, Août, Septembre 2026)
+        List<DntsRowDto> rowsTrimestre = paieExportService.obtenirDonneesDntsTrimestre(2026, 3);
+        assertNotNull(rowsTrimestre);
+        assertFalse(rowsTrimestre.isEmpty(), "La DNTS trimestrielle doit agréger les salariés du trimestre T3");
+
+        for (DntsRowDto r : rowsTrimestre) {
+            assertNotNull(r.getMatricule());
+            assertNotNull(r.getNomPrenom());
+            assertTrue(r.getSalaireBrutReel().compareTo(BigDecimal.ZERO) >= 0);
+            assertTrue(r.getTotalCotisations().compareTo(BigDecimal.ZERO) >= 0);
+        }
+
+        String csvTrim = paieExportService.exporterDntsTrimestreCsv(2026, 3);
+        assertNotNull(csvTrim);
+        assertTrue(csvTrim.contains("TRIMESTRE :;T3 2026"));
+        assertTrue(csvTrim.contains("DECLARATION NOMINATIVE TRIMESTRIELLE"));
+    }
+
+    @Test
     @DisplayName("4. Ordre de Virement Bancaire : Fichier de télétransmission et découpage RIB")
     void testOrdreVirementBancaire() throws Exception {
         List<VirementRowDto> virementRows = paieExportService.obtenirDonneesVirement(ID_PERIODE);

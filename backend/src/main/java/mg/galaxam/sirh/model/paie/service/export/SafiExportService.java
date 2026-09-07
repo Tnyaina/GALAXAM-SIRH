@@ -104,10 +104,8 @@ public class SafiExportService {
                         break;
                     case "INDEMNITE_TRANSPORT":
                     case "REMBOURSEMENT_NOTE_FRAIS":
-                        indemNonImpos = indemNonImpos.add(mnt);
-                        break;
                     case "INDEMNITE_REPAS":
-                        repas = repas.add(mnt);
+                        indemNonImpos = indemNonImpos.add(mnt);
                         break;
                     case "COTISATION_CNAPS":
                     case "COTISATION_CNAPS_SAL":
@@ -135,7 +133,10 @@ public class SafiExportService {
             row.setAvantagesNatureExoneres(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
             row.setHeuresSupplementaires(hs.setScale(2, RoundingMode.HALF_UP));
             row.setPrimesEtGratifications(primes.setScale(2, RoundingMode.HALF_UP));
-            row.setAutres(repas.setScale(2, RoundingMode.HALF_UP));
+            // Règle DGI SAFI : La colonne P ("Autres Repas") est automatiquement ajoutée au salaire brut imposable (Q)
+            // dans la formule officielle e-Hetra (Q = I + J + L + N + O + P). L'indemnité de panier exonérée (accord d'établissement)
+            // doit figurer en colonne K (Indemnités Non Imposables) pour ne pas être taxée à tort à l'IRSA.
+            row.setAutres(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
 
             // Salaire brut (Q = I + J + L + N + O + P)
             BigDecimal brut = bp.getTotalGainsBruts() != null ? bp.getTotalGainsBruts() : BigDecimal.ZERO;
