@@ -628,20 +628,28 @@ public class PointageEmployeService {
         double heuresTheoriquesPlein = totalJoursOuvrables * (dureeJourMins / 60.0);
         int hTheoriquesInt = (int) heuresTheoriquesPlein;
 
-        double heuresRealisees = synDto != null ? synDto.getTotalHeuresTravaillees() : totalHeuresRealisees;
+        double heuresRealisees = (synDto != null && synDto.getTotalHeuresTravaillees() > 0) ? synDto.getTotalHeuresTravaillees() : totalHeuresRealisees;
         int retardsMins = synDto != null ? synDto.getTotalMinutesRetard() : totalMinutesRetard;
         double hs30 = synDto != null ? synDto.getHeuresHs30() : totalHeuresHs30;
         double hs50 = synDto != null ? synDto.getHeuresHs50() : totalHeuresHs50;
         double hNuit = synDto != null ? synDto.getHeuresNuitTotal() : totalHeuresNuit;
         double hDim = synDto != null ? synDto.getHeuresDimancheTotal() : totalHeuresDimanche;
         double hFer = synDto != null ? synDto.getHeuresFerieTotal() : totalHeuresFerie;
-        double mntRep = synDto != null ? synDto.getMontantRepas() : totalRepasMontant;
-        int nbRep = synDto != null ? synDto.getNbJoursRepas() : (total1erRepasCount + total2eRepasCount);
-        double mntDepl = synDto != null ? synDto.getMontantDeplacement() : 0.0;
+
+        // Repas : priorité à synDto si renseigné en base, sinon total calculé en mémoire (ex: cadres/autonomes)
+        double mntRep = (synDto != null && synDto.getMontantRepas() > 0) ? synDto.getMontantRepas() : totalRepasMontant;
+        int nbRep = (synDto != null && synDto.getNbJoursRepas() > 0) ? synDto.getNbJoursRepas() : (total1erRepasCount + total2eRepasCount);
+
+        // Déplacement : priorité à synDto si renseigné, sinon prorata basé sur totalTrajetsCount et forfait de référence
+        double mntDepl = (synDto != null && synDto.getMontantDeplacement() > 0) ? synDto.getMontantDeplacement() : 0.0;
+        if (mntDepl <= 0.0 && totalTrajetsCount > 0) {
+            double tarifJourRef = (totalJoursOuvrables > 0) ? (53200.0 / totalJoursOuvrables) : 2418.0;
+            mntDepl = Math.round(totalTrajetsCount * tarifJourRef);
+        }
         double totalIndemnites = mntRep + mntDepl;
 
         Map<String, String> kpis = new LinkedHashMap<>();
-        kpis.put("joursTravailles", (synDto != null ? synDto.getNbJoursPresents() : totalJoursTravailles) + " j");
+        kpis.put("joursTravailles", ((synDto != null && synDto.getNbJoursPresents() > 0) ? synDto.getNbJoursPresents() : totalJoursTravailles) + " j");
         kpis.put("joursPrevus", totalJoursOuvrables + " prévus");
         kpis.put("heuresRealisees", String.format("%02dh%02d", (int) Math.floor(heuresRealisees), (int) Math.round((heuresRealisees - Math.floor(heuresRealisees)) * 60)));
         kpis.put("heuresObjectif", String.format("objectif %02dh00", hTheoriquesInt));

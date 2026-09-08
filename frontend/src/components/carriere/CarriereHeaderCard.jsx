@@ -101,56 +101,48 @@ export default function CarriereHeaderCard({
                 </HasPermission>
             </div>
 
-            {/* BANNIERE PERIODE D'ESSAI EN COURS */}
+            {/* BANDEAU COMPACT PERIODE D'ESSAI EN COURS */}
             {(etatEssai?.aPeriodeEssai || etatEssai?.isEssaiActif) && (etatEssai?.dateFinEssai || etatEssai?.dateFinEssaiStr) && (
-                <div className={`p-4 rounded-none border flex flex-col md:flex-row md:items-center justify-between gap-4 ${etatEssai.isEssaiEchu
-                    ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
-                    : 'bg-warning-500/10 border-warning-500/30 text-warning-900 dark:text-warning-200'
-                    }`}>
-                    <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-none bg-white dark:bg-ink-900 shadow-sm flex-shrink-0 mt-0.5">
-                            <Clock className={etatEssai.isEssaiEchu ? 'text-danger-500' : 'text-warning-500'} size={20} />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h4 className="text-xs font-bold uppercase tracking-wider">
-                                    Période d'essai en cours
-                                    {etatEssai.periodeActuelle > 1 && ` (Renouvellement ${etatEssai.nombreRenouvellements}/${etatEssai.maxRenouvellements})`}
-                                </h4>
-                                {Number.isFinite(etatEssai.joursRestants) && (
-                                    <Badge variant={etatEssai.isEssaiEchu ? 'danger' : 'warning'} size="xs">
-                                        {etatEssai.isEssaiEchu
-                                            ? `Dépassée de ${Math.abs(etatEssai.joursRestants)} jour(s)`
-                                            : etatEssai.joursRestants === 0
-                                                ? `Dernier jour`
-                                                : `Reste ${etatEssai.joursRestants} jour(s)`}
-                                    </Badge>
-                                )}
-                            </div>
-                            <p className="text-xs mt-1 text-ink-600 dark:text-ink-300">
-                                Échéance prévue le <strong>{fmtDate(etatEssai.dateFinEssai || etatEssai.dateFinEssaiStr)}</strong>.
-                                {workflowPlanifieFutur
-                                    ? ` Un événement (${workflowPlanifieFutur.libelleTypeEvenement || workflowPlanifieFutur.codeTypeEvenement}) est déjà planifié au ${fmtDate(workflowPlanifieFutur.dateEffet)}.`
-                                    : ' Aucune action RH de confirmation ou de rupture n\'a encore été validée pour cet essai.'}
-                            </p>
-                        </div>
+                <div className={`py-2 px-3 border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs ${
+                    etatEssai.isEssaiEchu
+                        ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
+                        : 'bg-warning-500/10 border-warning-500/30 text-warning-900 dark:text-warning-200'
+                }`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <Clock className={`shrink-0 ${etatEssai.isEssaiEchu ? 'text-danger-500' : 'text-warning-500'}`} size={15} />
+                        <span className="font-bold uppercase tracking-wider text-[11px]">Période d'essai</span>
+                        {Number.isFinite(etatEssai.joursRestants) && (
+                            <Badge variant={etatEssai.isEssaiEchu ? 'danger' : 'warning'} size="xs">
+                                {etatEssai.isEssaiEchu
+                                    ? `Dépassée de ${Math.abs(etatEssai.joursRestants)}j`
+                                    : etatEssai.joursRestants === 0
+                                        ? `Dernier jour`
+                                        : `Reste ${etatEssai.joursRestants}j`}
+                            </Badge>
+                        )}
+                        <span className="text-[var(--color-fg-muted)] truncate hidden md:inline">
+                            — Échéance au <strong>{fmtDate(etatEssai.dateFinEssai || etatEssai.dateFinEssaiStr)}</strong>
+                            {workflowPlanifieFutur && ` (Événement ${workflowPlanifieFutur.libelleTypeEvenement || workflowPlanifieFutur.codeTypeEvenement} planifié)`}
+                        </span>
                     </div>
 
                     {canWrite && !workflowPlanifieFutur && !brouillonWf && (
-                        <div className="flex items-center gap-2 self-end md:self-auto flex-shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
                             {etatEssai?.canRenew === true && (
                                 <Button
                                     variant="secondary"
                                     size="xs"
+                                    className="h-6 px-2 text-[11px]"
                                     onClick={onOpenRenouvellement}
                                 >
-                                    Renouveller l'essai
+                                    Renouveler
                                 </Button>
                             )}
                             {etatEssai?.canConfirm === true && (
                                 <Button
                                     variant="primary"
                                     size="xs"
+                                    className="h-6 px-2 text-[11px]"
                                     onClick={onOpenConfirmation}
                                 >
                                     Confirmer l'essai
@@ -161,47 +153,37 @@ export default function CarriereHeaderCard({
                 </div>
             )}
 
-            {/* BANNIERE ECHEANCE CONTRAT EN COURS */}
+            {/* BANDEAU COMPACT ECHEANCE CONTRAT EN COURS */}
             {contratActif?.dateFin && (contratActif?.isFinProche || contratActif?.isFinEchue || (contratActif?.joursRestantsFin !== null && contratActif?.joursRestantsFin <= 60)) && (
-                <div className={`p-4 rounded-none border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                <div className={`py-2 px-3 border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs ${
                     contratActif.isFinEchue || (contratActif.joursRestantsFin !== null && contratActif.joursRestantsFin <= 7)
                         ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
                         : 'bg-warning-500/10 border-warning-500/30 text-warning-900 dark:text-warning-200'
                 }`}>
-                    <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-none bg-white dark:bg-ink-900 shadow-sm flex-shrink-0 mt-0.5">
-                            <Clock className={contratActif.isFinEchue || (contratActif.joursRestantsFin !== null && contratActif.joursRestantsFin <= 7) ? 'text-danger-500' : 'text-warning-500'} size={20} />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h4 className="text-xs font-bold uppercase tracking-wider">
-                                    Échéance de contrat ({contratActif.libelleTypeContrat || 'CDD'})
-                                </h4>
-                                {contratActif.joursRestantsFin !== null && (
-                                    <Badge variant={contratActif.isFinEchue || contratActif.joursRestantsFin <= 7 ? 'danger' : 'warning'} size="xs">
-                                        {contratActif.isFinEchue
-                                            ? `Contrat échu de ${Math.abs(contratActif.joursRestantsFin)} jour(s)`
-                                            : contratActif.joursRestantsFin === 0
-                                                ? `Expire aujourd'hui`
-                                                : `Expire dans ${contratActif.joursRestantsFin} jour(s)`}
-                                    </Badge>
-                                )}
-                            </div>
-                            <p className="text-xs mt-1 text-ink-600 dark:text-ink-300">
-                                Date de fin contractuelle : <strong>{fmtDate(contratActif.dateFin)}</strong>.
-                                {workflowPlanifieFutur
-                                    ? ` Un événement (${workflowPlanifieFutur.libelleTypeEvenement || workflowPlanifieFutur.codeTypeEvenement}) est déjà planifié au ${fmtDate(workflowPlanifieFutur.dateEffet)}.`
-                                    : ' Pensez à anticiper le renouvellement, la titularisation ou la clôture du contrat.'}
-                            </p>
-                        </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <Clock className={`shrink-0 ${contratActif.isFinEchue || (contratActif.joursRestantsFin !== null && contratActif.joursRestantsFin <= 7) ? 'text-danger-500' : 'text-warning-500'}`} size={15} />
+                        <span className="font-bold uppercase tracking-wider text-[11px]">Échéance {contratActif.libelleTypeContrat || 'CDD'}</span>
+                        {contratActif.joursRestantsFin !== null && (
+                            <Badge variant={contratActif.isFinEchue || contratActif.joursRestantsFin <= 7 ? 'danger' : 'warning'} size="xs">
+                                {contratActif.isFinEchue
+                                    ? `Échu de ${Math.abs(contratActif.joursRestantsFin)}j`
+                                    : contratActif.joursRestantsFin === 0
+                                        ? `Expire aujourd'hui`
+                                        : `Dans ${contratActif.joursRestantsFin}j`}
+                            </Badge>
+                        )}
+                        <span className="text-[var(--color-fg-muted)] truncate hidden md:inline">
+                            — Fin prévue au <strong>{fmtDate(contratActif.dateFin)}</strong>
+                        </span>
                     </div>
 
                     {canWrite && !workflowPlanifieFutur && !brouillonWf && (
-                        <div className="flex items-center gap-2 self-end md:self-auto flex-shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
                             {onOpenTransition && (
                                 <Button
                                     variant="secondary"
                                     size="xs"
+                                    className="h-6 px-2 text-[11px]"
                                     onClick={onOpenTransition}
                                 >
                                     Renouveler / Titulariser
@@ -211,10 +193,10 @@ export default function CarriereHeaderCard({
                                 <Button
                                     variant="ghost"
                                     size="xs"
-                                    className="text-danger-600 hover:bg-danger-500/10"
+                                    className="h-6 px-2 text-[11px] text-danger-600 hover:bg-danger-500/10"
                                     onClick={onOpenRupture}
                                 >
-                                    Clôturer le contrat
+                                    Clôturer
                                 </Button>
                             )}
                         </div>

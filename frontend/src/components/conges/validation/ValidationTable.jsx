@@ -1,4 +1,4 @@
-import { Check, X, Eye, Clock, Calendar } from 'lucide-react';
+import { Check, X, Eye, Clock, Calendar, Pencil } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
@@ -21,7 +21,8 @@ export default function ValidationTable({
   canValidate = true,
   onOpenDetail,
   onOpenRefus,
-  onOpenValider
+  onOpenValider,
+  onOpenModifier
 }) {
   return (
     <div className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xs p-5 sm:p-6 space-y-4">
@@ -194,6 +195,19 @@ export default function ValidationTable({
                             </Button>
                           </>
                         ) : null}
+
+                        {d.codeStatutDemande === 'VALIDE' && d.dateDebut && new Date(d.dateDebut).setHours(0,0,0,0) >= new Date().setHours(0,0,0,0) && onOpenModifier && (
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            iconLeft={<Pencil size={12} />}
+                            onClick={() => onOpenModifier(d)}
+                            title="Modifier les dates de ce congé validé"
+                            className="text-xs text-brand-600 hover:text-brand-700 font-medium"
+                          >
+                            Modifier dates
+                          </Button>
+                        )}
 
                         <Button
                           variant="ghost"

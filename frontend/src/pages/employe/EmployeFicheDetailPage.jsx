@@ -370,7 +370,13 @@ export default function EmployeFicheDetailPage() {
                         {/* Onglet 1: Fiche Personnelle */}
                         {activeTab === 'personnel' && (
                             <Suspense fallback={<TabLoader label="Chargement de la fiche personnelle..." />}>
-                                <FichePersonnelleTab emp={emp} comptes={comptes} />
+                                <FichePersonnelleTab 
+                                    emp={emp} 
+                                    comptes={comptes} 
+                                    conjoint={conjoint} 
+                                    enfants={enfants} 
+                                    contactsUrgence={contactsUrgence} 
+                                />
                             </Suspense>
                         )}
 

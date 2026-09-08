@@ -13,7 +13,8 @@ import {
     Award,
     Search,
     ClipboardCheck,
-    FileSpreadsheet
+    FileSpreadsheet,
+    Edit3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -30,6 +31,7 @@ import periodePaieService from '@/services/periodePaieService';
 import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 import { formatMonnaie } from '@/utils/pointageUtils';
 import { exportPointageValidationToExcel } from '@/utils/excelExportUtils';
+import DafAjustementPointageModal from '@/components/pointage/DafAjustementPointageModal';
 
 export default function PointageValidationDafTab() {
     const { hasPermission } = useAuth();
@@ -38,6 +40,7 @@ export default function PointageValidationDafTab() {
 
     const [periodes, setPeriodes] = useState([]);
     const [selectedPeriode, setSelectedPeriode] = useState('');
+    const [selectedEmployeToAdjust, setSelectedEmployeToAdjust] = useState(null);
     const [sites, setSites] = useState([]);
     const [selectedSite, setSelectedSite] = useState(0);
 
@@ -428,6 +431,7 @@ export default function PointageValidationDafTab() {
                                         <Th className="py-2.5 px-2 text-center text-[var(--color-danger-500)]">Déficit</Th>
                                         <Th className="py-2.5 px-3 text-center border-l border-[var(--color-border-subtle)]">Repas</Th>
                                         <Th className="py-2.5 px-3 text-center">Déplact</Th>
+                                        <Th className="py-2.5 px-3 text-right">Action</Th>
                                     </Tr>
                                 </Thead>
                                 <Tbody>
@@ -460,6 +464,20 @@ export default function PointageValidationDafTab() {
                                             </Td>
                                             <Td className="py-2.5 px-3 text-center font-mono border-l border-[var(--color-border-subtle)]">{row.nbJoursRepas}j {row.montantRepas > 0 ? `(${fmtMoney(row.montantRepas)})` : ''}</Td>
                                             <Td className="py-2.5 px-3 text-center font-mono">{row.nbJoursDeplacement}j {row.montantDeplacement > 0 ? `(${fmtMoney(row.montantDeplacement)})` : ''}</Td>
+                                            <Td className="py-2.5 px-3 text-right">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="xs"
+                                                    disabled={isCloturee}
+                                                    onClick={() => setSelectedEmployeToAdjust(row)}
+                                                    icon={<Edit3 size={11} />}
+                                                    className="h-6 px-2 text-[11px] font-semibold"
+                                                    title="Rectifier directement les pointages de ce salarié"
+                                                >
+                                                    Rectifier
+                                                </Button>
+                                            </Td>
                                         </Tr>
                                     ))}
                                 </Tbody>
@@ -546,6 +564,19 @@ export default function PointageValidationDafTab() {
                 variant="danger"
                 loading={processing}
             />
+
+            {/* Modale d'ajustement direct par la DAF */}
+            {selectedEmployeToAdjust && (
+                <DafAjustementPointageModal
+                    isOpen={Boolean(selectedEmployeToAdjust)}
+                    onClose={() => setSelectedEmployeToAdjust(null)}
+                    idEmploye={selectedEmployeToAdjust.idEmploye}
+                    employeNom={`${selectedEmployeToAdjust.nom} ${selectedEmployeToAdjust.prenom}`}
+                    matricule={selectedEmployeToAdjust.matricule}
+                    idPeriode={Number(selectedPeriode)}
+                    onSuccess={loadData}
+                />
+            )}
         </>
     );
 }

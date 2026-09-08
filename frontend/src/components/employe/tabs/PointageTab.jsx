@@ -405,18 +405,22 @@ export default function PointageTab({ idEmploye }) {
                                     <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Heures</Th>
                                     <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Écart</Th>
                                     <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Statut</Th>
-                                    <Th className="text-xs font-bold uppercase py-3 px-3 text-center border-l border-[var(--color-border-subtle)]">Indemnités</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-2 text-center border-l border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-500/10 font-mono tracking-wider" title="Déplacement (trajets ou journées : 1, 0.5, 0)">DPLT</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-2 text-center border-l border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-500/10 font-mono tracking-wider" title="Paniers repas (1, 2, 0)">REPAS</Th>
                                 </Thead>
                                 <Tbody>
                                     {pointages.length === 0 ? (
                                         <Tr>
-                                            <Td colSpan={10} className="text-center py-8 text-xs text-[var(--color-fg-muted)]">
+                                            <Td colSpan={11} className="text-center py-8 text-xs text-[var(--color-fg-muted)]">
                                                 Aucune donnée de pointage pour cette période.
                                             </Td>
                                         </Tr>
                                     ) : (
                                         pointages.map((ptg, idx) => {
                                             const isWeekend = ptg.statut === 'REPOS';
+                                            const valDplt = (ptg.deplacementMatin ? 0.5 : 0) + (ptg.deplacementAm ? 0.5 : 0);
+                                            const valRepas = ptg.nbRepas || (ptg.indemniteRepas ? 1 : 0);
+
                                             return (
                                                 <Tr
                                                     key={`${ptg.dateComplete || ptg.date}-${idx}`}
@@ -462,44 +466,60 @@ export default function PointageTab({ idEmploye }) {
                                                         {getStatutBadge(ptg.statut)}
                                                     </Td>
 
-                                                    {/* Colonne Indemnités Reçues (Repas, 2e Repas, Déplacement) */}
-                                                    <Td className="py-2.5 px-3 border-l border-[var(--color-border-subtle)] text-center">
-                                                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                                            {ptg.indemniteRepas ? (
-                                                                <span
-                                                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10.5px] font-bold rounded ${ptg.nbRepas === 2
-                                                                        ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/30'
-                                                                        : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                                                                        }`}
-                                                                    title={ptg.nbRepas === 2 ? '2 Repas (Travail prolongé / Nuit)' : `1 Repas standard (${ptg.montantRepas ? Math.round(ptg.montantRepas) + ' Ar' : '2 000 Ar'})`}
-                                                                >
-                                                                    <Utensils size={10} />
-                                                                    <span>{ptg.nbRepas === 2 ? 'Repas x2' : 'Repas'}</span>
-                                                                </span>
-                                                            ) : null}
+                                                    {/* Colonne DPLT (Déplacement : 1, 0.5 ou 0) - Surlignée en Orange */}
+                                                    <Td className="font-mono text-xs text-center py-2.5 px-2 border-l border-amber-500/20 bg-amber-500/[0.04]">
+                                                        {valDplt > 0 ? (
+                                                            <span className="font-bold text-amber-700 dark:text-amber-400" title={`Déplacement : ${valDplt === 1 ? 'Matin + Soir (1)' : ptg.deplacementMatin ? 'Matin (0.5)' : 'Soir (0.5)'}`}>
+                                                                {valDplt}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[var(--color-fg-subtle)] opacity-40">
+                                                                {isWeekend ? '—' : '0'}
+                                                            </span>
+                                                        )}
+                                                    </Td>
 
-                                                            {(ptg.deplacementMatin || ptg.deplacementAm) ? (
-                                                                <span
-                                                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10.5px] font-bold rounded bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/30"
-                                                                    title={`Déplacement : ${ptg.deplacementMatin && ptg.deplacementAm ? '2 trajets (Matin + Soir)' : ptg.deplacementMatin ? '1 trajet (Matin)' : '1 trajet (Soir)'}`}
-                                                                >
-                                                                    <Bus size={10} />
-                                                                    <span>
-                                                                        {ptg.deplacementMatin && ptg.deplacementAm ? 'Trajets (M+S)' : ptg.deplacementMatin ? 'Trajet (M)' : 'Trajet (S)'}
-                                                                    </span>
-                                                                </span>
-                                                            ) : null}
-
-                                                            {!ptg.indemniteRepas && !ptg.deplacementMatin && !ptg.deplacementAm && (
-                                                                <span className="text-[var(--color-fg-muted)] text-xs">—</span>
-                                                            )}
-                                                        </div>
+                                                    {/* Colonne REPAS (Paniers repas : 1, 2 ou 0) - Surlignée en Orange */}
+                                                    <Td className="font-mono text-xs text-center py-2.5 px-2 border-l border-amber-500/20 bg-amber-500/[0.04]">
+                                                        {valRepas > 0 ? (
+                                                            <span className="font-bold text-amber-700 dark:text-amber-400" title={`Repas : ${valRepas} ${valRepas > 1 ? 'repas' : 'repas'}`}>
+                                                                {valRepas}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[var(--color-fg-subtle)] opacity-40">
+                                                                {isWeekend ? '—' : '0'}
+                                                            </span>
+                                                        )}
                                                     </Td>
                                                 </Tr>
                                             );
                                         })
                                     )}
                                 </Tbody>
+                                {pointages.length > 0 && (
+                                    <tfoot className="border-t-2 border-[var(--color-border)] bg-[var(--color-bg-subtle)]/60 font-bold">
+                                        <tr>
+                                            <td colSpan={6} className="py-2.5 px-3 text-xs uppercase font-bold text-[var(--color-fg-muted)]">
+                                                Total Période
+                                            </td>
+                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
+                                                {recap.tempsRealise || '—'}
+                                            </td>
+                                            <td className="font-mono text-xs text-center py-2.5 px-3 text-[var(--color-fg-muted)]">
+                                                {recap.ecartCumule || '—'}
+                                            </td>
+                                            <td className="text-center py-2.5 px-3 text-xs font-bold text-[var(--color-fg-muted)]">
+                                                {pointages.filter(p => p.statut === 'PRESENT' || p.statut === 'DISPENSE_POINTAGE').length} j ouvrés
+                                            </td>
+                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-500/10">
+                                                {pointages.reduce((acc, p) => acc + (p.deplacementMatin ? 0.5 : 0) + (p.deplacementAm ? 0.5 : 0), 0)}
+                                            </td>
+                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-500/10">
+                                                {pointages.reduce((acc, p) => acc + (p.nbRepas || (p.indemniteRepas ? 1 : 0)), 0)}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                )}
                             </Table>
                         </div>
                     </div>

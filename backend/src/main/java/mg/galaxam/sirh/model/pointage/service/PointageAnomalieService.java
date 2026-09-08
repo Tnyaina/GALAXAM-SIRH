@@ -347,8 +347,19 @@ public class PointageAnomalieService {
                     try (ResultSet rsCP = psCP.executeQuery()) {
                         if (rsCP.next()) {
                             String stCode = rsCP.getString("code");
-                            if ("VALIDEE".equalsIgnoreCase(stCode) || "CLOTUREE".equalsIgnoreCase(stCode) || "A_VALIDER".equalsIgnoreCase(stCode) || "TRANSMIS_DAF".equalsIgnoreCase(stCode)) {
-                                throw new IllegalStateException("Impossible de modifier les pointages : la période de paie est fermée ou en attente de validation DAF.");
+                            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+                            boolean isAdminOrDaf = auth != null && auth.getAuthorities().stream().anyMatch(a -> 
+                                "ROLE_ADMIN".equals(a.getAuthority()) || "POINTAGE_VALIDATE".equals(a.getAuthority())
+                            );
+
+                            if ("CLOTUREE".equalsIgnoreCase(stCode)) {
+                                throw new IllegalStateException("Impossible de modifier les pointages : la période de paie est clôturée de manière définitive.");
+                            }
+                            if ("VALIDEE".equalsIgnoreCase(stCode) && !isAdminOrDaf) {
+                                throw new IllegalStateException("Impossible de modifier les pointages : la période de paie est déjà validée.");
+                            }
+                            if (("A_VALIDER".equalsIgnoreCase(stCode) || "TRANSMIS_DAF".equalsIgnoreCase(stCode)) && !isAdminOrDaf) {
+                                throw new IllegalStateException("Impossible de modifier les pointages : la période de paie est fermée aux agents et en attente de validation DAF.");
                             }
                         }
                     }

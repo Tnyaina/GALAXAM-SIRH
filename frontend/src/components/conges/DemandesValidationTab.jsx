@@ -163,6 +163,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
         onOpenDetail={openDetail}
         onOpenRefus={openRefus}
         onOpenValider={openValider}
+        onOpenModifier={openModifier}
       />
 
       {/* Toutes les Modales d'action */}

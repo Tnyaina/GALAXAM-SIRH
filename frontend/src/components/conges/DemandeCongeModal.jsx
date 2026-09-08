@@ -2,6 +2,7 @@ import { Calendar } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import Alert from '@/components/ui/feedback/Alert';
+import Badge from '@/components/ui/data-display/Badge';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Textarea } from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
@@ -74,7 +75,11 @@ export default function DemandeCongeModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={initialDemande?.idDemandeConge ? `Modifier la demande #${initialDemande.idDemandeConge}` : "Nouvelle demande de congé ou d'absence"}
+      title={initialDemande?.idDemandeConge 
+        ? (initialDemande.codeStatutDemande === 'VALIDE' 
+            ? `Modifier les dates du congé validé #${initialDemande.idDemandeConge}` 
+            : `Modifier la demande #${initialDemande.idDemandeConge}`) 
+        : "Nouvelle demande de congé ou d'absence"}
       icon={<Calendar className="w-5 h-5 text-brand-500" />}
       size="full"
       className="max-w-[1380px] w-[95vw]"
@@ -115,16 +120,32 @@ export default function DemandeCongeModal({
           <div className="lg:col-span-5 space-y-4">
             {/* Section 0 : Employé concerné */}
             {!idEmployeProp && (
-              <EmployeSearchSelect
-                label="Employé concerné"
-                required
-                value={selectedEmployeId}
-                onChange={(empId) => {
-                  setSelectedEmployeId(empId);
-                  setFieldErrors((prev) => ({ ...prev, idEmploye: null }));
-                }}
-                error={fieldErrors.idEmploye}
-              />
+              initialDemande ? (
+                <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-[var(--color-fg-subtle)] block uppercase font-bold tracking-wider">Employé concerné</span>
+                    <span className="font-semibold text-sm text-[var(--color-fg)]">
+                      {initialDemande.prenom} {initialDemande.nom} {initialDemande.matricule ? `(${initialDemande.matricule})` : ''}
+                    </span>
+                  </div>
+                  {initialDemande.codeStatutDemande && (
+                    <Badge variant={initialDemande.codeStatutDemande === 'VALIDE' ? 'success' : 'brand'} size="xs">
+                      {initialDemande.libelleStatutDemande || initialDemande.codeStatutDemande}
+                    </Badge>
+                  )}
+                </div>
+              ) : (
+                <EmployeSearchSelect
+                  label="Employé concerné"
+                  required
+                  value={selectedEmployeId}
+                  onChange={(empId) => {
+                    setSelectedEmployeId(empId);
+                    setFieldErrors((prev) => ({ ...prev, idEmploye: null }));
+                  }}
+                  error={fieldErrors.idEmploye}
+                />
+              )
             )}
 
             {/* Section 1 : Type de congé */}

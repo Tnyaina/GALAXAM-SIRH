@@ -182,11 +182,11 @@ public class DemandeCongeController {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                // Verrouillage pessimiste strict de la demande pour éviter toute course avec une validation/annulation concurrente
-                String sqlLock = "SELECT s.code, dc.id_statut_demande_conge FROM demande_conge dc " +
-                                 "JOIN ref_statut_demande_conge s ON dc.id_statut_demande_conge = s.id_statut_demande_conge " +
-                                 "WHERE dc.id_demande_conge = ? FOR UPDATE";
                 String statutCode;
+                Date dateDebutCourante = null;
+                String sqlLock = "SELECT s.code, dc.id_statut_demande_conge, dc.date_debut FROM demande_conge dc " +
+                        "JOIN ref_statut_demande_conge s ON dc.id_statut_demande_conge = s.id_statut_demande_conge " +
+                        "WHERE dc.id_demande_conge = ? FOR UPDATE";
                 try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
                     psLock.setInt(1, id);
                     try (ResultSet rsLock = psLock.executeQuery()) {
@@ -194,12 +194,36 @@ public class DemandeCongeController {
                             return ResponseEntity.notFound().build();
                         }
                         statutCode = rsLock.getString("code");
+                        dateDebutCourante = rsLock.getDate("date_debut");
                     }
                 }
 
+                Authentication authModif = SecurityContextHolder.getContext().getAuthentication();
+                boolean isAdminOrRh = authModif != null && authModif.getAuthorities().stream()
+                        .anyMatch(a -> "CONGE_VALIDATE".equals(a.getAuthority()) || "ROLE_ADMIN".equals(a.getAuthority()));
+
+                boolean etaitValide = "VALIDE".equals(statutCode);
+
                 if (!"EN_ATTENTE".equals(statutCode) && !"BROUILLON".equals(statutCode)) {
-                    return ResponseEntity.badRequest()
-                            .body("Seules les demandes en attente ou en brouillon peuvent être modifiées.");
+                    if (!etaitValide) {
+                        return ResponseEntity.badRequest()
+                                .body("Seules les demandes en attente, en brouillon ou validées futures peuvent être modifiées.");
+                    }
+                    if (!isAdminOrRh) {
+                        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                .body("Seul un responsable RH ou Administrateur peut modifier un congé déjà validé.");
+                    }
+                    if (dateDebutCourante != null && !dateDebutCourante.toLocalDate().isAfter(java.time.LocalDate.now())) {
+                        return ResponseEntity.badRequest()
+                                .body("Ce congé validé a déjà commencé ou est passé (date de début : " + dateDebutCourante + "). Il ne peut plus être modifié directement.");
+                    }
+                    if (req.containsKey("dateDebut")) {
+                        Date newD = Date.valueOf(req.get("dateDebut").toString());
+                        if (newD.toLocalDate().isBefore(java.time.LocalDate.now())) {
+                            return ResponseEntity.badRequest()
+                                    .body("La nouvelle date de début ne peut pas être dans le passé.");
+                        }
+                    }
                 }
 
                 DemandeConge d = DemandeConge.rechercherParId(id, c);
@@ -207,6 +231,15 @@ public class DemandeCongeController {
                     return ResponseEntity.notFound().build();
 
                 d.setIdDemandeConge(id); // Garantie d'exclusion de son propre ID pour l'anti-overlap
+
+                if (etaitValide) {
+                    // Supprime temporairement le mouvement de solde PRISE pour recalculer exactement le solde disponible
+                    try (PreparedStatement psDelPrise = c.prepareStatement(
+                            "DELETE FROM mouvement_solde_conge WHERE id_demande_conge = ? AND type_mouvement = 'PRISE'")) {
+                        psDelPrise.setInt(1, id);
+                        psDelPrise.executeUpdate();
+                    }
+                }
 
                 if (req.containsKey("idTypeConge"))
                     d.setIdTypeConge(Integer.parseInt(req.get("idTypeConge").toString()));
@@ -228,9 +261,7 @@ public class DemandeCongeController {
                     d.setMomentDemiJournee(mom != null && !mom.toString().isBlank() ? mom.toString() : null);
                 }
 
-                Authentication authModif = SecurityContextHolder.getContext().getAuthentication();
-                boolean canManageDerogations = authModif != null && authModif.getAuthorities().stream()
-                        .anyMatch(a -> "CONGE_VALIDATE".equals(a.getAuthority()) || "ROLE_ADMIN".equals(a.getAuthority()));
+                boolean canManageDerogations = isAdminOrRh;
 
                 if (canManageDerogations) {
                     if (req.containsKey("derogationSoldeNegatif"))
@@ -250,6 +281,29 @@ public class DemandeCongeController {
 
                 d.controler(c);
                 d.update(c);
+
+                if (etaitValide) {
+                    RefTypeConge typeConge = RefTypeConge.rechercherParId(d.getIdTypeConge(), c);
+                    if (typeConge != null && typeConge.isDecompteSoldeAcquis()) {
+                        mg.galaxam.sirh.model.conge.MouvementSoldeConge prise = new mg.galaxam.sirh.model.conge.MouvementSoldeConge();
+                        prise.setIdEmploye(d.getIdEmploye());
+                        prise.setTypeMouvement("PRISE");
+                        prise.setNbJours(d.getNbJoursDecomptes().negate());
+                        prise.setIdDemandeConge(d.getIdDemandeConge());
+                        prise.setCommentaire("Prise de congé " + typeConge.getLibelle() + " (Demande #" + d.getIdDemandeConge() + " - Dates modifiées)");
+                        prise.setCreatedBy(getCurrentUserId());
+                        prise.save(c);
+                    }
+
+                    NotificationRhService.creer(
+                            c,
+                            "MOUVEMENT_APPLIQUE",
+                            "NORMALE",
+                            "Dates de congé modifiées",
+                            "Les dates du congé validé (#" + id + ") ont été modifiées (du " + d.getDateDebut() + " au " + d.getDateFin() + ").",
+                            "/conges",
+                            d.getIdEmploye());
+                }
 
                 c.commit();
 

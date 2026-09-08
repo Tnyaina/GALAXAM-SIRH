@@ -82,6 +82,20 @@ export default function ValidationModals({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {selectedDemande?.codeStatutDemande === 'VALIDE' && selectedDemande?.dateDebut && new Date(selectedDemande.dateDebut).setHours(0,0,0,0) >= new Date().setHours(0,0,0,0) && onOpenModifier && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    iconLeft={<Pencil size={14} />}
+                    onClick={() => {
+                      onCloseDetail();
+                      onOpenModifier(selectedDemande);
+                    }}
+                  >
+                    Modifier les dates
+                  </Button>
+                )}
+
                 {(selectedDemande?.isEnAttente ?? (selectedDemande?.codeStatutDemande === 'EN_ATTENTE')) && (
                   <>
                     <Button
