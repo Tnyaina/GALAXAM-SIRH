@@ -106,6 +106,21 @@ public class PaieAjustementController {
     }
 
     /**
+     * Liste les types de mouvements de paie actifs (primes, déductions, acomptes).
+     */
+    @GetMapping("/types-mouvements")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> listerTypesMouvements() {
+        try (Connection c = dataSource.getConnection()) {
+            List<RefTypeMouvementPaie> types = RefTypeMouvementPaie.listerActifs(c);
+            return ResponseEntity.ok(types);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse("Erreur lors de la récupération des types de mouvements : " + e.getMessage()));
+        }
+    }
+
+    /**
      * Enregistre un nouvel ajustement, avance ou prime.
      */
     @PostMapping

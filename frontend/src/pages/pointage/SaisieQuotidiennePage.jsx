@@ -170,14 +170,14 @@ export default function SaisieQuotidiennePage() {
         }
     };
 
-    // Comptages par statut pour les onglets (100% basé sur les flags booléens DTO)
+    // Comptages par statut pour les onglets (100% basé sur les flags booléens DTO backend-driven)
     const statusCounts = useMemo(() => {
         const list = Array.isArray(grilleData) ? grilleData : [];
         const all = list.length;
         const presents = list.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0)).length;
-        const conges = list.filter(r => r.conge || r.absenceJustifiee || r.codeStatut === 'ABSENCE_JUSTIFIEE').length;
-        const nonSaisis = list.filter(r => (!r.totalHeures || r.totalHeures === 0) && !r.conge && !r.absenceJustifiee && r.codeStatut !== 'ABSENCE_JUSTIFIEE' && r.codeStatut !== 'ABSENCE_NON_JUSTIFIEE' && !r.dispensePointage && !r.ferieChome).length;
-        const retards = list.filter(r => r.retard || (r.minutesRetard && r.minutesRetard > 0)).length;
+        const conges = list.filter(r => Boolean(r.conge || r.absenceJustifiee)).length;
+        const nonSaisis = list.filter(r => Boolean(r.nonSaisi)).length;
+        const retards = list.filter(r => Boolean(r.retard)).length;
 
         return { ALL: all, PRESENT: presents, CONGE: conges, NON_SAISI: nonSaisis, RETARD: retards };
     }, [grilleData]);
@@ -189,11 +189,11 @@ export default function SaisieQuotidiennePage() {
         if (statutFilter === 'PRESENT') {
             list = list.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0));
         } else if (statutFilter === 'CONGE') {
-            list = list.filter(r => r.conge || r.absenceJustifiee || r.codeStatut === 'ABSENCE_JUSTIFIEE');
+            list = list.filter(r => Boolean(r.conge || r.absenceJustifiee));
         } else if (statutFilter === 'NON_SAISI') {
-            list = list.filter(r => (!r.totalHeures || r.totalHeures === 0) && !r.conge && !r.absenceJustifiee && r.codeStatut !== 'ABSENCE_JUSTIFIEE' && r.codeStatut !== 'ABSENCE_NON_JUSTIFIEE' && !r.dispensePointage && !r.ferieChome);
+            list = list.filter(r => Boolean(r.nonSaisi));
         } else if (statutFilter === 'RETARD') {
-            list = list.filter(r => r.retard || (r.minutesRetard && r.minutesRetard > 0));
+            list = list.filter(r => Boolean(r.retard));
         }
 
         if (!debouncedSearch.trim()) return list;

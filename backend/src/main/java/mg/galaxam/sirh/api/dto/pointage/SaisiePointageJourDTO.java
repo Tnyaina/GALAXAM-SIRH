@@ -203,4 +203,48 @@ public class SaisiePointageJourDTO {
     }
     public boolean isAnomalie() { return "ANOMALIE_SAISIE".equalsIgnoreCase(codeStatut); }
     public boolean isAbsenceNonJustifiee() { return "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(codeStatut); }
+    public boolean isAbsence() { return isAbsenceJustifiee() || isAbsenceNonJustifiee(); }
+
+    public boolean isNonSaisi() {
+        if (isConge() || isAbsenceJustifiee() || isAbsenceNonJustifiee() || isFerieChome() || isFerieTravaille() || isDimancheTravaille() || isSamediTravaille()) {
+            return false;
+        }
+        if (estAutonome || isDispensePointage()) {
+            return false;
+        }
+        return (totalHeures == null || totalHeures.compareTo(0.0) == 0);
+    }
+
+    public boolean isCongeFull() { return "FULL_DAY".equalsIgnoreCase(typeCongeJour); }
+    public boolean isCongeMatin() { return "MATIN".equalsIgnoreCase(typeCongeJour); }
+    public boolean isCongeAm() { return "APRES_MIDI".equalsIgnoreCase(typeCongeJour); }
+
+    public String getStatutBadgeVariant() {
+        if (isFerieTravaille()) return "error";
+        if (isFerieChome()) return "neutral";
+        if (isDimancheTravaille()) return "purple";
+        if (isSamediTravaille() || isDispensePointage()) return "brand";
+        if (isRetard() || isAnomalie() || isAbsenceNonJustifiee()) return "error";
+        if (isConge() || isAbsenceJustifiee()) return "warning";
+        if (isPresent()) return "success";
+        return "neutral";
+    }
+
+    public String getStatutBadgeLabel() {
+        if (libelleStatut != null && !libelleStatut.trim().isEmpty() && !"Non saisi".equalsIgnoreCase(libelleStatut)) {
+            return libelleStatut;
+        }
+        if (isFerieTravaille()) return "Férié (+100%)";
+        if (isFerieChome()) return "Férié chômé";
+        if (isDimancheTravaille()) return "Dimanche (+40%)";
+        if (isSamediTravaille()) return "Samedi travaillé";
+        if (isDispensePointage()) return "Forfait 8h";
+        if (isConge()) return "Congé";
+        if (isAbsenceJustifiee()) return "Absence justifiée";
+        if (isRetard()) return "Retard";
+        if (isAnomalie()) return "Incomplet";
+        if (isAbsenceNonJustifiee()) return "Absent";
+        if (isPresent()) return "Présent";
+        return "Non saisi";
+    }
 }

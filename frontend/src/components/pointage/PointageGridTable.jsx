@@ -31,35 +31,10 @@ export default function PointageGridTable({
 
     const fmtMoney = (val) => formatMonnaie(val);
 
-    const getStatutPointageBadge = (statutCode, libelle) => {
-        switch (statutCode) {
-            case 'PRESENT':
-                return <Badge variant="success" size="sm" className="font-bold">Présent</Badge>;
-            case 'DISPENSE_POINTAGE':
-                return <Badge variant="brand" size="sm" className="font-bold">{libelle || 'Forfait 8h'}</Badge>;
-            case 'CONGE':
-                return <Badge variant="warning" size="sm" className="font-bold">{libelle || 'Congé'}</Badge>;
-            case 'CONGE_DEMI_JOURNEE':
-                return <Badge variant="warning" size="sm" className="font-bold">{libelle || 'Demi-journée'}</Badge>;
-            case 'ABSENCE_JUSTIFIEE':
-                return <Badge variant="warning" size="sm" className="font-bold">{libelle || 'Absence justifiée'}</Badge>;
-            case 'FERIE_CHOME':
-                return <span className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)] text-[11px] font-semibold px-2 py-1">{libelle || 'Férié chômé'}</span>;
-            case 'FERIE_TRAVAILLE':
-                return <Badge variant="error" size="sm" className="font-bold">Férié (+100%)</Badge>;
-            case 'SAMEDI_TRAVAILLE':
-                return <Badge variant="brand" size="sm" className="font-bold">Samedi ({libelle || 'Travaillé'})</Badge>;
-            case 'DIMANCHE_TRAVAILLE':
-                return <Badge variant="purple" size="sm" className="font-bold">Dimanche (+40%)</Badge>;
-            case 'RETARD':
-                return <Badge variant="error" size="sm" className="font-bold">Retard</Badge>;
-            case 'ANOMALIE_SAISIE':
-                return <Badge variant="error" size="sm" className="font-bold">Incomplet</Badge>;
-            case 'ABSENCE_NON_JUSTIFIEE':
-                return <Badge variant="error" size="sm" className="font-bold">Absent</Badge>;
-            default:
-                return <span className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)] text-[11px] px-2 py-0.5">Non saisi</span>;
-        }
+    const getStatutPointageBadge = (row) => {
+        const variant = row.statutBadgeVariant || (row.present ? 'success' : row.conge ? 'warning' : 'neutral');
+        const label = row.statutBadgeLabel || row.libelleStatut || 'Non saisi';
+        return <Badge variant={variant} size="sm" className="font-bold">{label}</Badge>;
     };
 
     return (
@@ -71,9 +46,9 @@ export default function PointageGridTable({
                     {[
                         { id: 'ALL', label: 'Tous', count: grilleData.length },
                         { id: 'PRESENT', label: 'Présents', count: grilleData.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0)).length },
-                        { id: 'NON_SAISI', label: 'Non saisis', count: grilleData.filter(r => (!r.totalHeures || r.totalHeures === 0) && !r.conge && !r.absenceJustifiee && r.codeStatut !== 'ABSENCE_JUSTIFIEE' && r.codeStatut !== 'ABSENCE_NON_JUSTIFIEE' && !r.dispensePointage && !r.ferieChome).length },
-                        { id: 'RETARD', label: 'Retards', count: grilleData.filter(r => r.retard || (r.minutesRetard && r.minutesRetard > 0)).length },
-                        { id: 'CONGE', label: 'Congés', count: grilleData.filter(r => r.conge || r.absenceJustifiee || r.codeStatut === 'ABSENCE_JUSTIFIEE').length },
+                        { id: 'NON_SAISI', label: 'Non saisis', count: grilleData.filter(r => Boolean(r.nonSaisi)).length },
+                        { id: 'RETARD', label: 'Retards', count: grilleData.filter(r => Boolean(r.retard)).length },
+                        { id: 'CONGE', label: 'Congés', count: grilleData.filter(r => Boolean(r.conge || r.absenceJustifiee)).length },
                     ].map((tab) => {
                         const isActive = selectedStatutFilter === tab.id;
                         return (
@@ -154,14 +129,13 @@ export default function PointageGridTable({
                     </Thead>
                     <Tbody>
                         {paginatedData.map((row) => {
-                            const isCongeFull = row.typeCongeJour === 'FULL_DAY' || row.codeStatut === 'CONGE';
-                            const isCongeMatin = row.typeCongeJour === 'MATIN';
-                            const isCongeAm = row.typeCongeJour === 'APRES_MIDI';
-                            const isFerieChome = row.codeStatut === 'FERIE_CHOME' || (row.ferieJour && !row.totalHeures);
+                            const isCongeFull = Boolean(row.congeFull ?? (row.typeCongeJour === 'FULL_DAY' || row.conge));
+                            const isCongeMatin = Boolean(row.congeMatin ?? (row.typeCongeJour === 'MATIN'));
+                            const isCongeAm = Boolean(row.congeAm ?? (row.typeCongeJour === 'APRES_MIDI'));
+                            const isFerieChome = Boolean(row.ferieChome);
                             const isReadOnlyForUser = isReadOnly;
 
-                            const isAbsence = row.codeStatut === 'ABSENCE_JUSTIFIEE' || row.absenceJustifiee || row.codeStatut === 'ABSENCE_NON_JUSTIFIEE' || row.absenceNonJustifiee;
-                            const isNonSaisi = !row.totalHeures && !isCongeFull && !row.estAutonome && !isFerieChome && !isAbsence;
+                            const isNonSaisi = Boolean(row.nonSaisi);
 
                             let rowBorderCue = 'border-l-2 border-l-transparent';
                             if (isNonSaisi) rowBorderCue = 'border-l-2 border-l-amber-500';
@@ -280,7 +254,7 @@ export default function PointageGridTable({
 
                                     {/* 8. Statut */}
                                     <Td className="px-3 py-1.5 text-center">
-                                        {getStatutPointageBadge(row.codeStatut, row.libelleStatut)}
+                                        {getStatutPointageBadge(row)}
                                     </Td>
 
                                     {/* 9. Colonnes Dynamiques d'Indemnités avec Cases à cocher */}
