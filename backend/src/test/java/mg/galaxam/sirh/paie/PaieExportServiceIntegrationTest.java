@@ -16,6 +16,8 @@ import org.springframework.test.context.ActiveProfiles;
 import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -346,6 +348,98 @@ class PaieExportServiceIntegrationTest {
 
             assertEquals(expectedCnapsSal, r.getCnapsSalarial(), "CNaPS salarial trimestriel = 1% de l'assiette regularisee");
             assertEquals(expectedCnapsPat, r.getCnapsPatronal(), "CNaPS patronal trimestriel = 13% de l'assiette regularisee");
+        }
+    }
+
+    @Test
+    @DisplayName("8. Audit de Vérification : Égalité stricte Q = I + J + L + N + O + P en cas de déduction d'absences")
+    void testEtat301SafiAvecAbsences() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                // Synchroniser les séquences pour éviter les collisions avec les fixtures statiques
+                try (java.sql.Statement st = c.createStatement()) {
+                    st.execute("SELECT setval('periode_paie_id_periode_paie_seq', (SELECT COALESCE(MAX(id_periode_paie), 1) FROM periode_paie))");
+                    st.execute("SELECT setval('bulletin_paie_id_bulletin_seq', (SELECT COALESCE(MAX(id_bulletin), 1) FROM bulletin_paie))");
+                    st.execute("SELECT setval('bulletin_paie_ligne_id_ligne_seq', (SELECT COALESCE(MAX(id_ligne), 1) FROM bulletin_paie_ligne))");
+                }
+
+                // Créer une période temporaire dans la transaction
+                int idPeriodeTest = 0;
+                String sqlPer = "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode) " +
+                                "VALUES ('2026-09-TEST', 'Septembre 2026 Test', '2026-09-01', '2026-09-30', " +
+                                "(SELECT id_statut_periode FROM ref_statut_periode_paie LIMIT 1)) RETURNING id_periode_paie";
+                try (PreparedStatement psPer = c.prepareStatement(sqlPer);
+                     ResultSet rsPer = psPer.executeQuery()) {
+                    if (rsPer.next()) idPeriodeTest = rsPer.getInt(1);
+                }
+
+                // Créer un bulletin avec absence décomptée
+                mg.galaxam.sirh.model.paie.BulletinPaie bp = new mg.galaxam.sirh.model.paie.BulletinPaie();
+                bp.setIdPeriodePaie(idPeriodeTest);
+                bp.setIdEmploye(1);
+                bp.setReferenceBulletin("BL-TEST-ABS-01");
+                bp.setMatricule("EMP-ABS-TEST");
+                bp.setNomPrenom("TEST ABSENCE");
+                bp.setIntitulePoste("Mécanicien");
+                bp.setNomSite("Antananarivo - Siège");
+                bp.setTauxHoraire(new BigDecimal("5769.34"));
+                bp.setSalaireBase(new BigDecimal("1000000.00"));
+                bp.setTotalGainsBruts(new BigDecimal("900000.00")); // 1M - 100k
+                bp.setTotalCotisationsSalariales(new BigDecimal("18000.00"));
+                bp.setSalaireNetImposable(new BigDecimal("882000.00"));
+                bp.setBaseIrsaArrondie(new BigDecimal("882000.00"));
+                bp.setIrsaBrut(new BigDecimal("83900.00"));
+                bp.setReductionEnfants(BigDecimal.ZERO);
+                bp.setIrsaNet(new BigDecimal("83900.00"));
+                bp.setNetAPayer(new BigDecimal("798100.00"));
+                bp.setRegimeIntervenant("PERMANENT");
+                bp.setStatut("VALIDE");
+                bp.save(c);
+
+                // Lignes de bulletin
+                mg.galaxam.sirh.model.paie.BulletinPaieLigne lBase = new mg.galaxam.sirh.model.paie.BulletinPaieLigne();
+                lBase.setIdBulletin(bp.getIdBulletin());
+                lBase.setCodeRubrique("SALAIRE_BASE");
+                lBase.setLibelleRubrique("Salaire de base");
+                lBase.setSens("GAIN");
+                lBase.setCategorie("SALAIRE_BASE");
+                lBase.setMontantSalarial(new BigDecimal("1000000.00"));
+                lBase.setOrdre(10);
+                lBase.save(c);
+
+                mg.galaxam.sirh.model.paie.BulletinPaieLigne lAbs = new mg.galaxam.sirh.model.paie.BulletinPaieLigne();
+                lAbs.setIdBulletin(bp.getIdBulletin());
+                lAbs.setCodeRubrique("RETENUE_ABSENCE");
+                lAbs.setLibelleRubrique("Retenue pour absences");
+                lAbs.setSens("RETENUE");
+                lAbs.setCategorie("SALAIRE_BASE");
+                lAbs.setMontantSalarial(new BigDecimal("100000.00"));
+                lAbs.setOrdre(20);
+                lAbs.save(c);
+
+                mg.galaxam.sirh.model.paie.service.export.SafiExportService safiServ = new mg.galaxam.sirh.model.paie.service.export.SafiExportService();
+                List<SafiRowDto> rows = safiServ.genererDonneesSafi(idPeriodeTest, c);
+
+                SafiRowDto rowAbs = rows.stream().filter(r -> "EMP-ABS-TEST".equals(r.getMatricule())).findFirst().orElse(null);
+                assertNotNull(rowAbs, "Le salarié avec absence doit être présent dans le SAFI");
+
+                // Le salaire de base Col I doit être net d'absence = 900 000 Ar
+                assertEquals(new BigDecimal("900000.00"), rowAbs.getSalaireBase());
+                assertEquals(new BigDecimal("900000.00"), rowAbs.getSalaireBrut());
+
+                // Égalité stricte DGI e-Hetra : Q = I + J + L + N + O + P
+                BigDecimal sommeQ = rowAbs.getSalaireBase()
+                        .add(rowAbs.getIndemnitesImposables())
+                        .add(rowAbs.getAvantagesNatureImposables())
+                        .add(rowAbs.getHeuresSupplementaires())
+                        .add(rowAbs.getPrimesEtGratifications())
+                        .add(rowAbs.getAutres());
+                assertEquals(rowAbs.getSalaireBrut(), sommeQ,
+                        "L'égalité Q = I + J + L + N + O + P doit être strictement respectée même avec des absences");
+            } finally {
+                c.rollback();
+            }
         }
     }
 }

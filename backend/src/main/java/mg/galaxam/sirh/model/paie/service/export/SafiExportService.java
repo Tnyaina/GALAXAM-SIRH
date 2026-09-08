@@ -87,10 +87,14 @@ public class SafiExportService {
 
                 switch (code) {
                     case "SALAIRE_BASE":
-                    case "RETENUE_ABSENCE":
                     case "INDEMNITE_CONGE":
                     case "INDEMNITE_CONGE_PAYE":
+                    case "INDEMNITE_COMPENSATRICE_CONGE":
+                    case "INDEMNITE_PREAVIS":
                         base = base.add(mnt);
+                        break;
+                    case "RETENUE_ABSENCE":
+                        base = base.subtract(mnt);
                         break;
                     case "HEURES_SUP_30":
                     case "HEURES_SUP_50":
@@ -98,6 +102,7 @@ public class SafiExportService {
                     case "HS_150":
                     case "HEURES_NUIT":
                     case "HEURES_FERIE":
+                    case "HEURES_DIMANCHE":
                         hs = hs.add(mnt);
                         break;
                     case "PRIME_ASSIDUITE":
@@ -109,6 +114,7 @@ public class SafiExportService {
                     case "INDEMNITE_TRANSPORT":
                     case "REMBOURSEMENT_NOTE_FRAIS":
                     case "INDEMNITE_REPAS":
+                    case "INDEMNITE_LICENCIEMENT":
                         indemNonImpos = indemNonImpos.add(mnt);
                         break;
                     case "COTISATION_CNAPS":

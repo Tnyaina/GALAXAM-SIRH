@@ -573,9 +573,18 @@ public class PayrollExecutionEngine {
         if (tranches != null && !tranches.isEmpty()) {
             BigDecimal totalImpot = BigDecimal.ZERO;
             for (TrancheIrsa t : tranches) {
-                if (baseImposable.compareTo(t.seuilMin()) > 0) {
+                BigDecimal seuilMin = t.seuilMin();
+                // Normalisation de la borne inférieure :
+                // Dans le barème officiel (LF 2026), les tranches sont libellées « de 350 001 à 400 000 ».
+                // La matière imposable commence strictement au-delà du seuil de la tranche précédente (350 000 Ar).
+                if (seuilMin != null && seuilMin.compareTo(BigDecimal.ZERO) > 0) {
+                    if (seuilMin.remainder(BigDecimal.TEN).compareTo(BigDecimal.ONE) == 0) {
+                        seuilMin = seuilMin.subtract(BigDecimal.ONE);
+                    }
+                }
+                if (seuilMin != null && baseImposable.compareTo(seuilMin) > 0) {
                     BigDecimal maxTranche = t.seuilMax() != null ? t.seuilMax() : baseImposable;
-                    BigDecimal taxable = baseImposable.min(maxTranche).subtract(t.seuilMin());
+                    BigDecimal taxable = baseImposable.min(maxTranche).subtract(seuilMin);
                     if (taxable.compareTo(BigDecimal.ZERO) > 0) {
                         double taux = t.taux() >= 1.0 ? t.taux() / 100.0 : t.taux();
                         totalImpot = totalImpot.add(taxable.multiply(BigDecimal.valueOf(taux)));
