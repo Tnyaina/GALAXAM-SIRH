@@ -14,6 +14,8 @@ import mg.galaxam.sirh.model.paie.PaiePretEcheance;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet.ImpactPret;
 import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine;
+import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.CotisationResult;
 import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.TrancheIrsa;
 
 /**
@@ -27,9 +29,20 @@ public class PayrollExecutionEngine {
 
     public static final BigDecimal PLAFOND_QUOTITE_CESSIBLE = new BigDecimal("0.33333333"); // 1/3 légal (Saisies-arrêts et prêts Art. 72)
     public static final BigDecimal PLAFOND_AVANCE_EMPLOYEUR_DIXIEME = new BigDecimal("0.10"); // 1/10 légal (Avances consenties par l'employeur Art. 68)
-    public static final BigDecimal DIVISEUR_HEURES_MENSUELLES = new BigDecimal("173.3333");
+    public static final BigDecimal DIVISEUR_HEURES_MENSUELLES = new BigDecimal("173.33");
     public static final BigDecimal DIVISEUR_JOURS_TRENTIEME = new BigDecimal("30.0");
     public static final BigDecimal MULTIPLICATEUR_PLAFOND_CNAPS = new BigDecimal("8.0");
+
+    private final CalculateurPaieEngine calculateurPaieEngine;
+
+    public PayrollExecutionEngine() {
+        this(new CalculateurPaieEngine());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public PayrollExecutionEngine(CalculateurPaieEngine calculateurPaieEngine) {
+        this.calculateurPaieEngine = calculateurPaieEngine != null ? calculateurPaieEngine : new CalculateurPaieEngine();
+    }
 
     /**
      * Calcule un bulletin de paie complet à partir des données d'entrée fournies.
@@ -117,9 +130,12 @@ public class PayrollExecutionEngine {
                 libelleAbsence = "Retenue pour Absences Décomptées (1/30ème)";
             } else {
                 // Méthode légale des heures réelles (opposable Inspection du Travail)
+                BigDecimal heuresJourRef = input.getHeuresJournalieresLegales() != null && input.getHeuresJournalieresLegales().compareTo(BigDecimal.ZERO) > 0
+                        ? input.getHeuresJournalieresLegales()
+                        : new BigDecimal("8.00");
                 BigDecimal heuresACompter = nbHeuresAbsence.compareTo(BigDecimal.ZERO) > 0
                         ? nbHeuresAbsence
-                        : nbJoursAbsence.multiply(new BigDecimal("8.00")); // 8h par jour ouvré légal (40h/5j)
+                        : nbJoursAbsence.multiply(heuresJourRef);
                 montantAbsence = heuresACompter.multiply(tauxHoraire).setScale(2, RoundingMode.HALF_UP);
                 baseCalculLigne = tauxHoraire;
                 libelleAbsence = "Retenue pour Absences (" + heuresACompter + "h réelles)";
@@ -209,9 +225,12 @@ public class PayrollExecutionEngine {
 
             BigDecimal mntPrimePerf = primePerfBase.multiply(ratioPresence).setScale(2, RoundingMode.HALF_UP);
 
-            // Malus -25% si retard > 70 min et conge > 1 jour
-            if (input.getMinutesRetard() > 70 && nbJoursConges.compareTo(BigDecimal.ONE) > 0) {
-                mntPrimePerf = mntPrimePerf.multiply(new BigDecimal("0.75")).setScale(2, RoundingMode.HALF_UP);
+            // Malus performance si retard > seuil et congés > 1 jour
+            int seuilMalus = input.getSeuilRetardMalusPerformanceMinutes() > 0 ? input.getSeuilRetardMalusPerformanceMinutes() : 70;
+            if (input.getMinutesRetard() > seuilMalus && nbJoursConges.compareTo(BigDecimal.ONE) > 0) {
+                BigDecimal tauxMalus = input.getTauxMalusPerformance() != null ? input.getTauxMalusPerformance() : new BigDecimal("0.25");
+                BigDecimal coefMalus = BigDecimal.ONE.subtract(tauxMalus).max(BigDecimal.ZERO);
+                mntPrimePerf = mntPrimePerf.multiply(coefMalus).setScale(2, RoundingMode.HALF_UP);
             }
 
             lignes.add(creerLigne(bp, "PRIME_PERFORMANCE", "Prime de Performance (Proratisée)", "GAIN", "PRIME",
@@ -220,7 +239,8 @@ public class PayrollExecutionEngine {
         }
 
         BigDecimal primeAssiduite = zeroIfNull(input.getPrimeAssiduiteForfait());
-        if (primeAssiduite.compareTo(BigDecimal.ZERO) > 0 && input.getMinutesRetard() < 45) {
+        int seuilAssiduite = input.getSeuilRetardAssiduiteMinutes() > 0 ? input.getSeuilRetardAssiduiteMinutes() : 45;
+        if (primeAssiduite.compareTo(BigDecimal.ZERO) > 0 && input.getMinutesRetard() < seuilAssiduite) {
             lignes.add(creerLigne(bp, "PRIME_ASSIDUITE", "Prime d'Assiduité", "GAIN", "PRIME",
                     primeAssiduite, null, primeAssiduite, null, 100));
             totalGainsBruts = totalGainsBruts.add(primeAssiduite);
@@ -234,6 +254,16 @@ public class PayrollExecutionEngine {
             lignes.add(creerLigne(bp, "PRIME_EXCEPTIONNELLE", libelle, "GAIN", "PRIME",
                     primeExceptionnelle, null, primeExceptionnelle, null, 110));
             totalGainsBruts = totalGainsBruts.add(primeExceptionnelle);
+        }
+
+        BigDecimal regularisationPaie = zeroIfNull(input.getRegularisationPaie());
+        if (regularisationPaie.compareTo(BigDecimal.ZERO) > 0) {
+            String libelle = input.getMotifRegularisationPaie() != null && !input.getMotifRegularisationPaie().isBlank()
+                    ? "Régularisation : " + input.getMotifRegularisationPaie()
+                    : "Régularisation Congés (Restitution Absence)";
+            lignes.add(creerLigne(bp, "REGULARISATION_PAIE", libelle, "GAIN", "SALAIRE_BASE",
+                    regularisationPaie, null, regularisationPaie, null, 112));
+            totalGainsBruts = totalGainsBruts.add(regularisationPaie);
         }
 
         BigDecimal autimp = zeroIfNull(input.getAutimp());
@@ -258,10 +288,11 @@ public class PayrollExecutionEngine {
 
         // 2.1 CNaPS (plafonnée à 8x SME) & FMFP Patronale (1% sur brut total)
         if (input.isSoumisCnaps()) {
-            BigDecimal assietteCnaps = totalGainsBruts.min(plafondCnaps);
-
-            BigDecimal cnapsSal = assietteCnaps.multiply(BigDecimal.valueOf(input.getTauxCnapsSalarial())).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal cnapsPat = assietteCnaps.multiply(BigDecimal.valueOf(input.getTauxCnapsPatronal())).setScale(2, RoundingMode.HALF_UP);
+            CotisationResult resCnaps = calculateurPaieEngine.calculerCnaps(
+                    totalGainsBruts, input.getSmeNational(), input.getTauxCnapsSalarial(), input.getTauxCnapsPatronal());
+            BigDecimal assietteCnaps = resCnaps.assiette();
+            BigDecimal cnapsSal = resCnaps.partSalariale();
+            BigDecimal cnapsPat = resCnaps.partPatronale();
 
             lignes.add(creerLigne(bp, "COTISATION_CNAPS_SAL", "Cotisation CNaPS Salariale (1%)", "RETENUE", "COTISATION_SALARIALE",
                     assietteCnaps, BigDecimal.valueOf(input.getTauxCnapsSalarial() * 100), cnapsSal, null, 200));
@@ -280,20 +311,22 @@ public class PayrollExecutionEngine {
 
         // 2.2 Santé (OSTIE ou OMSI - Plafonnement à 8x SME si activé)
         if (input.isSoumisSante()) {
-            boolean estToamasina = "TMM".equalsIgnoreCase(input.getCodeSite())
-                    || (input.getNomSite() != null && input.getNomSite().toUpperCase().contains("TOAMASINA"));
+            String organe = input.getCodeSanteOrgane() != null ? input.getCodeSanteOrgane().toUpperCase() : "OSTIE";
+            boolean estOmsi = "OMSI".equals(organe);
 
-            String codeSanteSal = estToamasina ? "COTISATION_OMSI_SAL" : "COTISATION_OSTIE_SAL";
-            String libelleSanteSal = estToamasina ? "Cotisation OMSI Salariale (1.5%)" : "Cotisation OSTIE Salariale (1%)";
-            String codeSantePat = estToamasina ? "COTISATION_OMSI_PAT" : "COTISATION_OSTIE_PAT";
-            String libelleSantePat = estToamasina ? "Cotisation OMSI Patronale (5.5%)" : "Cotisation OSTIE Patronale (5%)";
+            String codeSanteSal = estOmsi ? "COTISATION_OMSI_SAL" : "COTISATION_OSTIE_SAL";
+            String libelleSanteSal = estOmsi ? "Cotisation OMSI Salariale (1.5%)" : "Cotisation OSTIE Salariale (1%)";
+            String codeSantePat = estOmsi ? "COTISATION_OMSI_PAT" : "COTISATION_OSTIE_PAT";
+            String libelleSantePat = estOmsi ? "Cotisation OMSI Patronale (5.5%)" : "Cotisation OSTIE Patronale (5%)";
 
             BigDecimal assietteSante = input.isEstPlafonneSante()
                     ? totalGainsBruts.min(plafondCnaps)
                     : totalGainsBruts;
 
-            BigDecimal santeSal = assietteSante.multiply(BigDecimal.valueOf(input.getTauxSanteSalarial())).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal santePat = assietteSante.multiply(BigDecimal.valueOf(input.getTauxSantePatronal())).setScale(2, RoundingMode.HALF_UP);
+            CotisationResult resSante = calculateurPaieEngine.calculerSante(
+                    assietteSante, input.getTauxSanteSalarial(), input.getTauxSantePatronal());
+            BigDecimal santeSal = resSante.partSalariale();
+            BigDecimal santePat = resSante.partPatronale();
 
             lignes.add(creerLigne(bp, codeSanteSal, libelleSanteSal, "RETENUE", "COTISATION_SALARIALE",
                     assietteSante, BigDecimal.valueOf(input.getTauxSanteSalarial() * 100), santeSal, null, 210));
@@ -333,7 +366,7 @@ public class PayrollExecutionEngine {
             bp.setBaseIrsaArrondie(baseIrsaArrondie);
 
             // 3.2 Calcul progressif de l'impôt brut par tranches
-            BigDecimal irsaBrut = calculerIrsaBrut(baseIrsaArrondie, input.getTranchesIrsa());
+            BigDecimal irsaBrut = calculateurPaieEngine.calculerIrsaBrut(baseIrsaArrondie, input.getTranchesIrsa());
             bp.setIrsaBrut(irsaBrut);
 
             // Arrondi supérieur à la dizaine d'Ariary
@@ -380,14 +413,13 @@ public class PayrollExecutionEngine {
         // ----------------------------------------------------------------------
         BigDecimal totalIndemnitesNet = BigDecimal.ZERO;
 
-        // 4.1 Indemnité repas (2 000 Ar par jour complet de travail à TNR)
+        // 4.1 Indemnité repas
         BigDecimal montantRepas = input.getIndemniteRepas();
         if (montantRepas == null) {
-            // Calcul automatique standard : 2 000 Ar par jour de présence validé
-            boolean estTnr = !"TMM".equalsIgnoreCase(input.getCodeSite());
-            if (estTnr) {
+            BigDecimal forfaitRepas = input.getForfaitRepasSite() != null ? input.getForfaitRepasSite() : BigDecimal.ZERO;
+            if (forfaitRepas.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal joursPresents = zeroIfNull(input.getNbJoursPresents());
-                montantRepas = joursPresents.setScale(0, RoundingMode.DOWN).multiply(new BigDecimal("2000.00"));
+                montantRepas = joursPresents.setScale(0, RoundingMode.DOWN).multiply(forfaitRepas);
             } else {
                 montantRepas = BigDecimal.ZERO;
             }
@@ -401,9 +433,7 @@ public class PayrollExecutionEngine {
         // 4.2 Indemnité de transport / déplacement
         BigDecimal montantTransport = input.getIndemniteTransport();
         if (montantTransport == null) {
-            // Forfait mensuel proratisé aux présences : TNR 31 200 Ar / TMM 53 200 Ar
-            boolean estToamasina = "TMM".equalsIgnoreCase(input.getCodeSite());
-            BigDecimal forfaitSite = estToamasina ? new BigDecimal("53200.00") : new BigDecimal("31200.00");
+            BigDecimal forfaitSite = input.getForfaitTransportSite() != null ? input.getForfaitTransportSite() : new BigDecimal("31200.00");
             BigDecimal nbPresents = zeroIfNull(input.getNbJoursPresents());
             BigDecimal ratio = nbJoursOuvrables.compareTo(BigDecimal.ZERO) > 0
                     ? nbPresents.divide(nbJoursOuvrables, 4, RoundingMode.HALF_UP).min(BigDecimal.ONE)
@@ -633,63 +663,7 @@ public class PayrollExecutionEngine {
         return complet;
     }
 
-    /**
-     * Calcule l'IRSA progressif par tranches (LF 2026).
-     */
-    private BigDecimal calculerIrsaBrut(BigDecimal baseImposable, List<TrancheIrsa> tranches) {
-        if (baseImposable == null || baseImposable.compareTo(BigDecimal.ZERO) <= 0) {
-            return BigDecimal.ZERO;
-        }
 
-        if (tranches != null && !tranches.isEmpty()) {
-            BigDecimal totalImpot = BigDecimal.ZERO;
-            for (TrancheIrsa t : tranches) {
-                BigDecimal seuilMin = t.seuilMin();
-                // Normalisation de la borne inférieure :
-                // Dans le barème officiel (LF 2026), les tranches sont libellées « de 350 001 à 400 000 ».
-                // La matière imposable commence strictement au-delà du seuil de la tranche précédente (350 000 Ar).
-                if (seuilMin != null && seuilMin.compareTo(BigDecimal.ZERO) > 0) {
-                    if (seuilMin.remainder(BigDecimal.TEN).compareTo(BigDecimal.ONE) == 0) {
-                        seuilMin = seuilMin.subtract(BigDecimal.ONE);
-                    }
-                }
-                if (seuilMin != null && baseImposable.compareTo(seuilMin) > 0) {
-                    BigDecimal maxTranche = t.seuilMax() != null ? t.seuilMax() : baseImposable;
-                    BigDecimal taxable = baseImposable.min(maxTranche).subtract(seuilMin);
-                    if (taxable.compareTo(BigDecimal.ZERO) > 0) {
-                        double taux = t.taux() >= 1.0 ? t.taux() / 100.0 : t.taux();
-                        totalImpot = totalImpot.add(taxable.multiply(BigDecimal.valueOf(taux)));
-                    }
-                }
-            }
-            return totalImpot.setScale(2, RoundingMode.HALF_UP);
-        }
-
-        // Barème par défaut standard LF 2026
-        BigDecimal impot = BigDecimal.ZERO;
-        // Tranche 1 : 0 à 350 000 (0%)
-        // Tranche 2 : 350 001 à 400 000 (5%)
-        impot = impot.add(calculerTranche(baseImposable, new BigDecimal("350000.00"), new BigDecimal("400000.00"), new BigDecimal("0.05")));
-        // Tranche 3 : 400 001 à 500 000 (10%)
-        impot = impot.add(calculerTranche(baseImposable, new BigDecimal("400000.00"), new BigDecimal("500000.00"), new BigDecimal("0.10")));
-        // Tranche 4 : 500 001 à 600 000 (15%)
-        impot = impot.add(calculerTranche(baseImposable, new BigDecimal("500000.00"), new BigDecimal("600000.00"), new BigDecimal("0.15")));
-        // Tranche 5 : 600 001 à 4 000 000 (20%)
-        impot = impot.add(calculerTranche(baseImposable, new BigDecimal("600000.00"), new BigDecimal("4000000.00"), new BigDecimal("0.20")));
-        // Tranche 6 : > 4 000 000 (25%)
-        if (baseImposable.compareTo(new BigDecimal("4000000.00")) > 0) {
-            BigDecimal taxable = baseImposable.subtract(new BigDecimal("4000000.00"));
-            impot = impot.add(taxable.multiply(new BigDecimal("0.25")));
-        }
-
-        return impot.setScale(2, RoundingMode.HALF_UP);
-    }
-
-    private BigDecimal calculerTranche(BigDecimal base, BigDecimal min, BigDecimal max, BigDecimal taux) {
-        if (base.compareTo(min) <= 0) return BigDecimal.ZERO;
-        BigDecimal taxable = base.min(max).subtract(min);
-        return taxable.multiply(taux);
-    }
 
     /**
      * Arrondit à la dizaine d'Ariary supérieure.

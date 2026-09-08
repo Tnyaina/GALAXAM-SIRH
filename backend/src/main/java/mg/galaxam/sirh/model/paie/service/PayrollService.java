@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet.ImpactPret;
 import mg.galaxam.sirh.model.paie.dto.PayrollBatchResult;
 import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
 import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.TrancheIrsa;
 
 /**
@@ -45,8 +47,15 @@ public class PayrollService {
     @Autowired
     private PayrollExecutionEngine payrollExecutionEngine;
 
-    // Cache local des id_rubrique par code
-    private final Map<String, Integer> cacheRubriques = new HashMap<>();
+    // Cache local des id_rubrique par code (thread-safe)
+    private final Map<String, Integer> cacheRubriques = new ConcurrentHashMap<>();
+
+    /**
+     * Invalide le cache local des rubriques pour forcer un rechargement depuis la base.
+     */
+    public void invalidateRubriqueCache() {
+        cacheRubriques.clear();
+    }
 
     /**
      * Calcule le bulletin d'un salarié pour une période donnée (transactionnel avec Connection fournie).
@@ -410,7 +419,7 @@ public class PayrollService {
                 "LEFT JOIN ref_mode_calcul_paie mcp ON eac.id_mode_calcul_paie = mcp.id_mode_calcul_paie " +
                 "LEFT JOIN ref_filiale fil ON ct.id_filiale = fil.id_filiale " +
                 "LEFT JOIN ref_type_intervenant tri ON ct.id_type_intervenant = tri.id_type_intervenant " +
-                "WHERE e.id_employe = ?";
+                "WHERE e.id_employe = ? AND e.est_actif = TRUE";
 
         try (PreparedStatement ps = c.prepareStatement(sqlEmploye)) {
             ps.setInt(1, idEmploye);
@@ -496,28 +505,17 @@ public class PayrollService {
                     // Fallback si la période de pointage n'a pas encore été gelée (simulation par défaut)
                     in.setNbJoursOuvrables(new BigDecimal("22.0"));
                     in.setNbJoursPresents(new BigDecimal("22.0"));
-                    in.setTotalHeuresTravaillees(new BigDecimal("173.33"));
-                    in.setHeuresNormales(new BigDecimal("173.33"));
+                    in.setTotalHeuresTravaillees(PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES);
+                    in.setHeuresNormales(PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES);
                     in.setModeCalculAbsence("HEURES_REELLES");
                 }
             }
         }
 
-        // 5.1 Taux journalier de congé dynamique (conge_journal_droit - OHATRA KAJY DROITS CONGES)
-        String sqlTauxConge = "SELECT taux_journalier_conge FROM conge_journal_droit " +
-                "WHERE id_employe = ? ORDER BY annee DESC, mois DESC LIMIT 1";
-        try (PreparedStatement psTC = c.prepareStatement(sqlTauxConge)) {
-            psTC.setInt(1, idEmploye);
-            try (ResultSet rsTC = psTC.executeQuery()) {
-                if (rsTC.next()) {
-                    BigDecimal taux = rsTC.getBigDecimal("taux_journalier_conge");
-                    if (taux != null && taux.compareTo(BigDecimal.ZERO) > 0) {
-                        in.setTauxJournalierConge(taux);
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-            // Fallback automatique sur getTauxJournalierTrentieme()
+        // 5.1 Taux journalier de congé dynamique (conge_journal_droit - OHATRA KAJY DROITS CONGES mutualisé)
+        BigDecimal tauxConge = StcService.getTauxJournalierDernier(idEmploye, in.getSalaireBaseContractuel(), c);
+        if (tauxConge.compareTo(BigDecimal.ZERO) > 0) {
+            in.setTauxJournalierConge(tauxConge);
         }
 
         // 6. Paramètres légaux et fiscaux (LF 2026 par défaut)
@@ -565,6 +563,11 @@ public class PayrollService {
                             in.setExtraDeplacement(in.getExtraDeplacement().add(montant));
                         } else if ("NOTE_DE_FRAIS".equalsIgnoreCase(codeType) || "REMBOURSEMENT_NOTE_FRAIS".equalsIgnoreCase(codeType)) {
                             in.setRemboursementNotesFrais(in.getRemboursementNotesFrais().add(montant));
+                        } else if ("REGULARISATION_CONGE".equalsIgnoreCase(codeType) || "REGULARISATION_PAIE".equalsIgnoreCase(codeType)) {
+                            in.setRegularisationPaie(in.getRegularisationPaie().add(montant));
+                            if (motif != null && !motif.isBlank()) {
+                                in.setMotifRegularisationPaie(motif);
+                            }
                         }
                     } else {
                         // RETENUE (ACOMPTE_15, AVANCE_SPECIALE, CALL_PERSO, RETENUE_DIVERSE)
@@ -613,15 +616,35 @@ public class PayrollService {
     }
 
     private void chargerParametresLegaux(PayrollCalculationInput in, Connection c) throws Exception {
-        String sqlConfig = "SELECT * FROM paie_config_legale WHERE code_version = 'LF_2026'";
-        int idConfig = 2;
-        try (PreparedStatement ps = c.prepareStatement(sqlConfig);
-             ResultSet rs = ps.executeQuery()) {
-            if (rs.next()) {
-                idConfig = rs.getInt("id_config_legale");
-                in.setSmeNational(rs.getBigDecimal("sme_national"));
-                in.setMinimumPerceptionIrsa(rs.getBigDecimal("minimum_perception_irsa"));
-                in.setDeductionParEnfant(rs.getBigDecimal("deduction_charge_famille"));
+        java.time.LocalDate dateRef = in.getDateFinPeriode() != null
+                ? in.getDateFinPeriode().toLocalDate()
+                : java.time.LocalDate.now();
+        PaieConfigLegale cfg = PaieConfigLegale.findActiveAt(c, dateRef);
+        int idConfig = 0;
+        if (cfg != null) {
+            idConfig = cfg.getIdConfigLegale();
+            in.setSmeNational(cfg.getSmeNational());
+            in.setMinimumPerceptionIrsa(cfg.getMinimumPerceptionIrsa());
+            in.setDeductionParEnfant(cfg.getDeductionChargeFamille());
+            if (cfg.getDiviseurMensuelHeures() != null && cfg.getDiviseurMensuelHeures().compareTo(BigDecimal.ZERO) > 0) {
+                in.setDiviseurMensuelHeures(cfg.getDiviseurMensuelHeures());
+            }
+        } else {
+            String sqlConfig = "SELECT * FROM paie_config_legale ORDER BY date_debut DESC LIMIT 1";
+            try (PreparedStatement ps = c.prepareStatement(sqlConfig);
+                 ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    idConfig = rs.getInt("id_config_legale");
+                    in.setSmeNational(rs.getBigDecimal("sme_national"));
+                    in.setMinimumPerceptionIrsa(rs.getBigDecimal("minimum_perception_irsa"));
+                    in.setDeductionParEnfant(rs.getBigDecimal("deduction_charge_famille"));
+                    BigDecimal diviseur = rs.getBigDecimal("diviseur_mensuel_heures");
+                    if (diviseur != null && diviseur.compareTo(BigDecimal.ZERO) > 0) {
+                        in.setDiviseurMensuelHeures(diviseur);
+                    }
+                } else {
+                    throw new IllegalStateException("Aucune configuration légale active trouvée dans paie_config_legale");
+                }
             }
         }
 
@@ -642,16 +665,27 @@ public class PayrollService {
                 }
             }
         }
+
+        if (tranches.isEmpty()) {
+            throw new IllegalStateException("Aucune tranche IRSA active trouvée en base. Vérifier la configuration paie_config_legale / bareme_irsa pour id_config=" + idConfig);
+        }
         in.setTranchesIrsa(tranches);
 
-        // Taux Santé selon site
-        boolean estToamasina = "TMM".equalsIgnoreCase(in.getCodeSite());
+        // Paramètres Santé & Indemnités selon site
+        boolean estToamasina = "TMM".equalsIgnoreCase(in.getCodeSite())
+                || (in.getNomSite() != null && in.getNomSite().toUpperCase().contains("TOAMASINA"));
         if (estToamasina) {
+            in.setCodeSanteOrgane("OMSI");
             in.setTauxSanteSalarial(0.015);
             in.setTauxSantePatronal(0.055);
+            in.setForfaitTransportSite(new BigDecimal("53200.00"));
+            in.setForfaitRepasSite(BigDecimal.ZERO);
         } else {
+            in.setCodeSanteOrgane("OSTIE");
             in.setTauxSanteSalarial(0.01);
             in.setTauxSantePatronal(0.05);
+            in.setForfaitTransportSite(new BigDecimal("31200.00"));
+            in.setForfaitRepasSite(new BigDecimal("2000.00"));
         }
 
         // Plafonnement des cotisations santé à 8x SME (Contre-Audit Axe 5)
@@ -740,14 +774,16 @@ public class PayrollService {
         }
     }
 
-    private synchronized void chargerCacheRubriques(Connection c) throws SQLException {
+    private void chargerCacheRubriques(Connection c) throws SQLException {
         if (!cacheRubriques.isEmpty()) return;
         String sql = "SELECT id_rubrique, code FROM paie_rubrique";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
+            Map<String, Integer> temp = new HashMap<>();
             while (rs.next()) {
-                cacheRubriques.put(rs.getString("code"), rs.getInt("id_rubrique"));
+                temp.put(rs.getString("code"), rs.getInt("id_rubrique"));
             }
+            cacheRubriques.putAll(temp);
         }
     }
 

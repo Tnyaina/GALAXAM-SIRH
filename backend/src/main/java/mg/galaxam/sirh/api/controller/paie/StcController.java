@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.*;
  * Base URL : /api/v1/paie/stc
  */
 @RestController
-@RequestMapping("/api/v1/paie/stc")
+@RequestMapping({"/api/v1/paie/stc", "/v1/paie/stc", "/paie/stc"})
 public class StcController {
 
     private final DataSource dataSource;

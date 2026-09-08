@@ -20,6 +20,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class CalendrierOuvrableEngine {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CalendrierOuvrableEngine.class);
+
     /**
      * Récupère l'ensemble des dates fériées ou exceptionnellement chômées pour une période et un site.
      */
@@ -57,7 +59,9 @@ public class CalendrierOuvrableEngine {
                     if (d != null) datesChomees.add(d.toLocalDate());
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("[CalendrierOuvrableEngine] Impossible de récupérer les jours fériés pour le site {}: {}", idSite, e.getMessage(), e);
+        }
 
         // 2. Périodes exceptionnellement chômées (intempéries, cyclone, fermeture administrative)
         StringBuilder sqlChomee = new StringBuilder(
@@ -89,7 +93,9 @@ public class CalendrierOuvrableEngine {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("[CalendrierOuvrableEngine] Impossible de récupérer les périodes chômées pour le site {}: {}", idSite, e.getMessage(), e);
+        }
 
         return datesChomees;
     }

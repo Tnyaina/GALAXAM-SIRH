@@ -11,6 +11,7 @@ import java.util.List;
 import mg.galaxam.sirh.api.dto.contrat.EmbaucheInitialeRequest;
 import mg.galaxam.sirh.api.dto.contrat.TransitionCarriereRequest;
 import mg.galaxam.sirh.api.dto.contrat.ValiderWorkflowRequest;
+import mg.galaxam.sirh.model.contrat.engine.CarriereTransitionValidator;
 import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -282,12 +283,7 @@ public class WorkflowRhService {
         workflow.valider(currentUserId, null, null, c);
 
         // Historiser tout ancien workflow actif pour cet employé (seul le dernier mouvement reste ACTIF)
-        try (PreparedStatement psCloseOldWf = c.prepareStatement(
-                "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
-            psCloseOldWf.setInt(1, workflow.getIdEmploye());
-            psCloseOldWf.setInt(2, workflow.getIdWorkflow());
-            psCloseOldWf.executeUpdate();
-        }
+        historiserAutresWorkflows(workflow.getIdEmploye(), workflow.getIdWorkflow(), c);
 
         if (commentaire != null && !commentaire.isBlank()) {
             appendCommentaireWorkflow(workflow.getIdWorkflow(), commentaire, c);
@@ -396,6 +392,15 @@ public class WorkflowRhService {
                 throw new IllegalArgumentException("Le contrat de Stage est réservé aux stagiaires.");
             }
 
+            // Validation exhaustive de la matrice de transition et contraintes cibles
+            CarriereTransitionValidator.validerTransition(
+                    sourceCodeContrat,
+                    req.getCodeTypeEvenement(),
+                    codeTypeContrat,
+                    codeTypeIntervenant,
+                    req.getDureeEssaiMois()
+            );
+
             // ── Règles Spécifiques : EMBAUCHE_APRES_STAGE ────────────────────────
             if ("EMBAUCHE_APRES_STAGE".equals(req.getCodeTypeEvenement())) {
                 if ("STAGE".equals(codeTypeContrat)) {
@@ -472,6 +477,16 @@ public class WorkflowRhService {
                             "Le type d'intervenant pour une réintégration avec reprise d'ancienneté doit être Salarié Permanent.");
                 }
             }
+        } else {
+            // Pour les transitions internes sans nouveau contrat (MUTATION, PROMOTION, REVALORISATION, REORGANISATION),
+            // valider l'éligibilité du contrat source et l'absence de période d'essai illégale.
+            CarriereTransitionValidator.validerTransition(
+                    sourceCodeContrat,
+                    req.getCodeTypeEvenement(),
+                    sourceCodeContrat,
+                    null,
+                    req.getDureeEssaiMois()
+            );
         }
 
         Integer idStatutBrouillon = resolveStatut("BROUILLON", c);
@@ -725,6 +740,84 @@ public class WorkflowRhService {
                     "Seul un workflow en statut BROUILLON peut être modifié. Statut actuel : " + statutCode);
         }
 
+        // Validation d'intégrité de la transition lors de la modification du brouillon
+        String evtCode = req.getCodeTypeEvenement();
+        if (evtCode == null && workflow.getIdTypeEvenementRh() != null) {
+            try (var psEvt = c.prepareStatement("SELECT code FROM ref_type_evenement_rh WHERE id_type_evenement_rh = ?")) {
+                psEvt.setInt(1, workflow.getIdTypeEvenementRh());
+                try (var rsEvt = psEvt.executeQuery()) {
+                    if (rsEvt.next()) evtCode = rsEvt.getString("code");
+                }
+            }
+        }
+
+        String sourceCodeContrat = "";
+        if (workflow.getIdContratSource() != null) {
+            try (var psSrc = c.prepareStatement(
+                    "SELECT rtc.code FROM contrat_travail ct " +
+                    "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
+                    "WHERE ct.id_contrat = ?")) {
+                psSrc.setInt(1, workflow.getIdContratSource());
+                try (var rsSrc = psSrc.executeQuery()) {
+                    if (rsSrc.next()) sourceCodeContrat = rsSrc.getString("code");
+                }
+            }
+        }
+
+        String targetCodeContrat = null;
+        Integer reqTypeId = req.getIdTypeContrat();
+        if (reqTypeId != null) {
+            try (var psTC = c.prepareStatement("SELECT code FROM ref_type_contrat WHERE id_type_contrat = ?")) {
+                psTC.setInt(1, reqTypeId);
+                try (var rsTC = psTC.executeQuery()) {
+                    if (rsTC.next()) targetCodeContrat = rsTC.getString("code");
+                }
+            }
+        } else if (workflow.getIdContratCible() != null) {
+            try (var psTC = c.prepareStatement(
+                    "SELECT rtc.code FROM contrat_travail ct " +
+                    "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
+                    "WHERE ct.id_contrat = ?")) {
+                psTC.setInt(1, workflow.getIdContratCible());
+                try (var rsTC = psTC.executeQuery()) {
+                    if (rsTC.next()) targetCodeContrat = rsTC.getString("code");
+                }
+            }
+        }
+
+        String targetCodeIntervenant = null;
+        Integer targetIntervenantId = req.getIdTypeIntervenant();
+        if (targetIntervenantId != null) {
+            try (var psTI = c.prepareStatement("SELECT code FROM ref_type_intervenant WHERE id_type_intervenant = ?")) {
+                psTI.setInt(1, targetIntervenantId);
+                try (var rsTI = psTI.executeQuery()) {
+                    if (rsTI.next()) targetCodeIntervenant = rsTI.getString("code");
+                }
+            }
+        } else if (workflow.getIdContratCible() != null) {
+            try (var psTI = c.prepareStatement(
+                    "SELECT rti.code FROM contrat_travail ct " +
+                    "JOIN ref_type_intervenant rti ON ct.id_type_intervenant = rti.id_type_intervenant " +
+                    "WHERE ct.id_contrat = ?")) {
+                psTI.setInt(1, workflow.getIdContratCible());
+                try (var rsTI = psTI.executeQuery()) {
+                    if (rsTI.next()) targetCodeIntervenant = rsTI.getString("code");
+                }
+            }
+        }
+
+        Integer essaiMois = req.getDureeEssaiMois();
+
+        if (evtCode != null) {
+            CarriereTransitionValidator.validerTransition(
+                    sourceCodeContrat,
+                    evtCode,
+                    targetCodeContrat,
+                    targetCodeIntervenant,
+                    essaiMois
+            );
+        }
+
         if (workflow.getIdAffectationCible() != null && req.getIdSite() != null) {
             EmployeAffectationCarriere affectation = new EmployeAffectationCarriere()
                     .rechercherParId(workflow.getIdAffectationCible(), c);
@@ -954,12 +1047,7 @@ public class WorkflowRhService {
         workflow.valider(currentUserId, null, null, c);
 
         // Historiser tout ancien workflow actif pour cet employé (uniquement si l'événement a pris effet immédiatement)
-        try (PreparedStatement psCloseOldWf = c.prepareStatement(
-                "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
-            psCloseOldWf.setInt(1, workflow.getIdEmploye());
-            psCloseOldWf.setInt(2, workflow.getIdWorkflow());
-            psCloseOldWf.executeUpdate();
-        }
+        historiserAutresWorkflows(workflow.getIdEmploye(), workflow.getIdWorkflow(), c);
 
         if (commentaire != null && !commentaire.isBlank()) {
             appendCommentaireWorkflow(workflow.getIdWorkflow(), commentaire, c);
@@ -1007,12 +1095,7 @@ public class WorkflowRhService {
         workflow.valider(currentUserId, null, null, c);
 
         // Historiser tout ancien workflow actif pour cet employé
-        try (PreparedStatement psCloseOldWf = c.prepareStatement(
-                "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
-            psCloseOldWf.setInt(1, workflow.getIdEmploye());
-            psCloseOldWf.setInt(2, workflow.getIdWorkflow());
-            psCloseOldWf.executeUpdate();
-        }
+        historiserAutresWorkflows(workflow.getIdEmploye(), workflow.getIdWorkflow(), c);
 
         if (commentaire != null && !commentaire.isBlank()) {
             appendCommentaireWorkflow(workflow.getIdWorkflow(), commentaire, c);
@@ -1325,12 +1408,7 @@ public class WorkflowRhService {
                     }
 
                     // 3. Historiser tout ancien workflow actif pour cet employé
-                    try (PreparedStatement psCloseOldWf = c.prepareStatement(
-                            "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
-                        psCloseOldWf.setInt(1, wf.getIdEmploye());
-                        psCloseOldWf.setInt(2, wf.getIdWorkflow());
-                        psCloseOldWf.executeUpdate();
-                    }
+                    historiserAutresWorkflows(wf.getIdEmploye(), wf.getIdWorkflow(), c);
 
                     String nomPrenom = "";
                     String typeEv = "Mouvement RH";
@@ -1679,6 +1757,16 @@ public class WorkflowRhService {
                     }
                 }
             }
+        }
+    }
+
+    private static void historiserAutresWorkflows(int idEmploye, int idWorkflowActuel, Connection c) throws SQLException {
+        String sql = "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), " +
+                     "updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            ps.setInt(2, idWorkflowActuel);
+            ps.executeUpdate();
         }
     }
 }

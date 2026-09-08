@@ -5,46 +5,9 @@
  * les délais de préavis, calculs de durées fixes et évaluations d'éligibilité.
  */
 
-/**
- * Formate une date en chaîne 'YYYY-MM-DD' pour les champs de saisie HTML input[type=date].
- * 
- * @param {string|Date|null} val
- * @returns {string}
- */
-export const formatDateForInput = (val) => {
-  if (!val) return '';
-  if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
-    return val.substring(0, 10);
-  }
-  const d = new Date(val);
-  if (isNaN(d.getTime())) return '';
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+// ─── Utilitaires Date Canoniques (Délégués à dateUtils) ─────────────────────
+export { formatDateForInput, isDateAnterieure } from './dateUtils';
 
-/**
- * Vérifie si une date est strictement antérieure à aujourd'hui (00:00:00).
- * Indique une demande de congé rétroactive ou une régularisation d'absence passée.
- * 
- * @param {string|Date|null} dateStr
- * @returns {boolean}
- */
-export const isDateAnterieure = (dateStr) => {
-  if (!dateStr) return false;
-  let dDebut;
-  if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
-    const [y, m, d] = dateStr.substring(0, 10).split('-').map(Number);
-    dDebut = new Date(y, m - 1, d, 0, 0, 0, 0);
-  } else {
-    dDebut = new Date(dateStr);
-  }
-  if (isNaN(dDebut.getTime())) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return dDebut < today;
-};
 
 /**
  * Évalue le respect du délai de préavis légal et la rétroactivité d'une demande.

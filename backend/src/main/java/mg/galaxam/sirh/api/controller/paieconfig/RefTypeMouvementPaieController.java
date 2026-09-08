@@ -19,6 +19,9 @@ public class RefTypeMouvementPaieController {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private mg.galaxam.sirh.model.paie.service.PayrollService payrollService;
+
     @GetMapping
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> listerTypesMouvement(@RequestParam(name = "tous", defaultValue = "false") boolean tous) {
@@ -68,6 +71,7 @@ public class RefTypeMouvementPaieController {
                 AuditLog.audit(c, "CREATION", "ref_type_mouvement_paie", String.valueOf(entity.getIdTypeMouvement()), null, entity);
 
                 c.commit();
+                payrollService.invalidateRubriqueCache();
                 return ResponseEntity.status(HttpStatus.CREATED).body(entity);
             } catch (Exception ex) {
                 c.rollback();
@@ -105,6 +109,7 @@ public class RefTypeMouvementPaieController {
                 AuditLog.audit(c, "MODIFICATION", "ref_type_mouvement_paie", String.valueOf(id), null, found);
 
                 c.commit();
+                payrollService.invalidateRubriqueCache();
                 return ResponseEntity.ok(found);
             } catch (Exception ex) {
                 c.rollback();

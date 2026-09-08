@@ -3,62 +3,10 @@
  * Centralise toute la logique métier pour éviter le code dupliqué ou complexe dans les composants React.
  */
 
-// ─── Formatteurs Utilitaires (Timezone-Safe) ────────────────────────────────
+// ─── Formatteurs Utilitaires Canoniques (Délégués à dateUtils et moneyUtils) ─
+export { fmtDateInput, fmtDate, fmtDateFr } from './dateUtils';
+export { fmtMoney, fmtMoneyMGA } from './moneyUtils';
 
-export function fmtDateInput(d) {
-    if (!d) return '';
-    if (d instanceof Date) {
-        if (isNaN(d.getTime())) return '';
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
-    }
-    if (typeof d === 'string') {
-        const s = d.trim();
-        if (s.includes('T')) return s.split('T')[0];
-        if (s.includes(' ')) return s.split(' ')[0];
-        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-        const parsed = new Date(s);
-        if (!isNaN(parsed.getTime())) {
-            const yyyy = parsed.getFullYear();
-            const mm = String(parsed.getMonth() + 1).padStart(2, '0');
-            const dd = String(parsed.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;
-        }
-        return s.substring(0, 10);
-    }
-    return '';
-}
-
-export function fmtDate(d) {
-    if (!d) return '-';
-    const str = fmtDateInput(d);
-    if (!str || str.length < 10) return String(d);
-    const [year, month, day] = str.substring(0, 10).split('-');
-    if (!year || !month || !day) return String(d);
-    return `${day}/${month}/${year}`;
-}
-
-export function fmtDateFr(d) {
-    const str = fmtDateInput(d);
-    if (!str) return '';
-    const [yyyy, mm, dd] = str.substring(0, 10).split('-');
-    if (!yyyy || !mm || !dd) return str;
-    return `${dd}/${mm}/${yyyy}`;
-}
-
-export function fmtMoney(val) {
-    if (val === null || val === undefined || val === '') return '-';
-    const num = Number(val);
-    if (isNaN(num)) return String(val);
-    return num.toLocaleString('fr-FR') + ' Ar';
-}
-
-export function fmtMoneyMGA(amount) {
-    if (amount === undefined || amount === null || amount === '') return '';
-    return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA', maximumFractionDigits: 0 }).format(Number(amount));
-}
 
 export function resolveId(list, idDirect, idField, libelleDirect, libelleFields = ['libelle']) {
     if (idDirect !== undefined && idDirect !== null && idDirect !== '') return String(idDirect);

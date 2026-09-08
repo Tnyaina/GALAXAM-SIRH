@@ -35,6 +35,7 @@ public class StcCalculRequest {
     private String modeReglement = "VIREMENT";
     private String commentaire;
     private boolean simulation = true;
+    private boolean desactiverEmploye = false;
 
     public StcCalculRequest() {}
 
@@ -86,4 +87,7 @@ public class StcCalculRequest {
 
     public boolean isSimulation() { return simulation; }
     public void setSimulation(boolean simulation) { this.simulation = simulation; }
+
+    public boolean isDesactiverEmploye() { return desactiverEmploye; }
+    public void setDesactiverEmploye(boolean desactiverEmploye) { this.desactiverEmploye = desactiverEmploye; }
 }

@@ -105,9 +105,13 @@ public class PaieRubrique extends ClassMere {
 
     @Override
     protected ClassMere rechercherParId(String id, Connection c) throws Exception {
+        return trouverParId(Integer.parseInt(id), c);
+    }
+
+    public static PaieRubrique trouverParId(int id, Connection c) throws Exception {
         String sql = "SELECT * FROM paie_rubrique WHERE id_rubrique = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, Integer.parseInt(id));
+            ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return mapResultSet(rs);

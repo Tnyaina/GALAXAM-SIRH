@@ -51,6 +51,42 @@ public class CalculateurPaieEngine {
     }
 
     /**
+     * Calcule l'impôt brut progressif par tranches (LF 2026).
+     * Les tranches doivent obligatoirement provenir de la configuration légale (BDD).
+     * Aucun fallback silencieux n'est autorisé.
+     */
+    public BigDecimal calculerIrsaBrut(BigDecimal baseImposable, List<TrancheIrsa> tranches) {
+        if (baseImposable == null || baseImposable.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        if (tranches == null || tranches.isEmpty()) {
+            throw new IllegalStateException("Aucune tranche IRSA définie. Les barèmes IRSA doivent être configurés en base de données.");
+        }
+
+        BigDecimal totalImpot = BigDecimal.ZERO;
+        for (TrancheIrsa t : tranches) {
+            BigDecimal seuilMin = t.seuilMin();
+            // Normalisation de la borne inférieure (ex: 350 001 Ar -> 350 000 Ar ou 350 000.01 Ar -> 350 000 Ar)
+            if (seuilMin != null && seuilMin.compareTo(BigDecimal.ZERO) > 0) {
+                if (seuilMin.remainder(BigDecimal.ONE).compareTo(new BigDecimal("0.01")) == 0) {
+                    seuilMin = seuilMin.subtract(new BigDecimal("0.01"));
+                } else if (seuilMin.remainder(BigDecimal.TEN).compareTo(BigDecimal.ONE) == 0) {
+                    seuilMin = seuilMin.subtract(BigDecimal.ONE);
+                }
+            }
+            if (seuilMin != null && baseImposable.compareTo(seuilMin) > 0) {
+                BigDecimal maxTranche = t.seuilMax() != null ? t.seuilMax() : baseImposable;
+                BigDecimal taxable = baseImposable.min(maxTranche).subtract(seuilMin);
+                if (taxable.compareTo(BigDecimal.ZERO) > 0) {
+                    double tauxEffectif = t.taux() >= 1.0 ? t.taux() / 100.0 : t.taux();
+                    totalImpot = totalImpot.add(taxable.multiply(BigDecimal.valueOf(tauxEffectif)));
+                }
+            }
+        }
+        return totalImpot.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
      * Calcule l'IRSA progressif par tranches avec déduction pour charges familiales et minimum de perception.
      */
     public BigDecimal calculerIrsa(BigDecimal baseImposable, List<TrancheIrsa> tranches, int nbEnfantsACharge) {
@@ -58,26 +94,7 @@ public class CalculateurPaieEngine {
             return MINIMUM_PERCEPTION_IRSA;
         }
 
-        BigDecimal impotBrut = BigDecimal.ZERO;
-
-        if (tranches != null && !tranches.isEmpty()) {
-            for (TrancheIrsa t : tranches) {
-                if (baseImposable.compareTo(t.seuilMin()) > 0) {
-                    BigDecimal maxTranche = t.seuilMax() != null ? t.seuilMax() : baseImposable;
-                    BigDecimal taxableDansTranche = baseImposable.min(maxTranche).subtract(t.seuilMin());
-                    if (taxableDansTranche.compareTo(BigDecimal.ZERO) > 0) {
-                        double tauxEffectif = t.taux() >= 1.0 ? t.taux() / 100.0 : t.taux();
-                        impotBrut = impotBrut.add(taxableDansTranche.multiply(BigDecimal.valueOf(tauxEffectif)));
-                    }
-                }
-            }
-        } else {
-            // Barème standard par défaut : 20% au-delà de 350 000 Ar
-            BigDecimal seuilExonere = new BigDecimal("350000.00");
-            if (baseImposable.compareTo(seuilExonere) > 0) {
-                impotBrut = baseImposable.subtract(seuilExonere).multiply(new BigDecimal("0.20"));
-            }
-        }
+        BigDecimal impotBrut = calculerIrsaBrut(baseImposable, tranches);
 
         // Déduction par enfant à charge (2 000 Ar par enfant)
         if (nbEnfantsACharge > 0) {

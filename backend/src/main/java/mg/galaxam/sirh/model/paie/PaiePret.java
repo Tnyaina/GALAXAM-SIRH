@@ -228,44 +228,75 @@ public class PaiePret extends ClassMere {
      *
      * @return Le montant total du capital restant dû ainsi soldé.
      */
-    public static BigDecimal solderPretsPourStc(Integer idEmploye, Integer idBulletinStc, Connection c) throws Exception {
+    public static BigDecimal solderPretsPourStc(Integer idEmploye, BigDecimal montantDeductionEffectif, Integer idBulletinStc, Connection c) throws Exception {
         if (idEmploye == null) return BigDecimal.ZERO;
         List<PaiePret> pretsEnCours = listerEnCoursParEmploye(idEmploye, c);
-        BigDecimal totalSolde = BigDecimal.ZERO;
+        BigDecimal totalImpute = BigDecimal.ZERO;
+        BigDecimal montantRestantAImputer = montantDeductionEffectif != null ? montantDeductionEffectif : null;
 
         for (PaiePret pret : pretsEnCours) {
             BigDecimal restant = pret.getCapitalRestantDu() != null ? pret.getCapitalRestantDu() : BigDecimal.ZERO;
-            if (restant.compareTo(BigDecimal.ZERO) > 0) {
-                totalSolde = totalSolde.add(restant);
+            if (restant.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            BigDecimal aImputer;
+            if (montantRestantAImputer == null) {
+                // Mode total sans plafond explicite
+                aImputer = restant;
+            } else {
+                aImputer = montantRestantAImputer.min(restant);
+                montantRestantAImputer = montantRestantAImputer.subtract(aImputer);
             }
 
-            // Marquer toutes les échéances résiduelles non échues comme remboursées par anticipation sur le STC
-            String sqlEch = "UPDATE paie_pret_echeance SET " +
-                    "statut = 'REMBOURSEE_ANTICIPEE', " +
-                    "montant_preleve = montant_restant_echeance, " +
-                    "montant_restant_echeance = 0, " +
-                    "id_bulletin = ?, " +
-                    "date_prelevement = CURRENT_TIMESTAMP, " +
-                    "commentaire = 'Cloture et imputation sur Solde de Tout Compte (STC)' " +
-                    "WHERE id_pret = ? AND statut IN ('A_ECHOIR', 'PRELEVEE_PARTIELLEMENT')";
-            try (PreparedStatement psEch = c.prepareStatement(sqlEch)) {
-                if (idBulletinStc != null) {
-                    psEch.setInt(1, idBulletinStc);
-                } else {
-                    psEch.setNull(1, java.sql.Types.INTEGER);
+            if (aImputer.compareTo(BigDecimal.ZERO) <= 0) continue;
+            totalImpute = totalImpute.add(aImputer);
+
+            boolean estSoldeTotal = aImputer.compareTo(restant) >= 0;
+
+            if (estSoldeTotal) {
+                // Marquer toutes les échéances résiduelles non échues comme remboursées par anticipation sur le STC
+                String sqlEch = "UPDATE paie_pret_echeance SET " +
+                        "statut = 'REMBOURSEE_ANTICIPEE', " +
+                        "montant_preleve = montant_restant_echeance, " +
+                        "montant_restant_echeance = 0, " +
+                        "id_bulletin = ?, " +
+                        "date_prelevement = CURRENT_TIMESTAMP, " +
+                        "commentaire = 'Cloture et imputation sur Solde de Tout Compte (STC)' " +
+                        "WHERE id_pret = ? AND statut IN ('A_ECHOIR', 'PRELEVEE_PARTIELLEMENT')";
+                try (PreparedStatement psEch = c.prepareStatement(sqlEch)) {
+                    if (idBulletinStc != null) {
+                        psEch.setInt(1, idBulletinStc);
+                    } else {
+                        psEch.setNull(1, java.sql.Types.INTEGER);
+                    }
+                    psEch.setInt(2, pret.getIdPret());
+                    psEch.executeUpdate();
                 }
-                psEch.setInt(2, pret.getIdPret());
-                psEch.executeUpdate();
-            }
 
-            // Clôturer le prêt
-            pret.setCapitalRembourse(pret.getMontantTotal());
-            pret.setCapitalRestantDu(BigDecimal.ZERO);
-            pret.setStatut("SOLDE");
-            pret.update(c);
+                pret.setCapitalRembourse(pret.getMontantTotal());
+                pret.setCapitalRestantDu(BigDecimal.ZERO);
+                pret.setStatut("SOLDE");
+                pret.update(c);
+            } else {
+                // Remboursement partiel : conserver le capital restant pour recouvrement contentieux
+                BigDecimal nouveauRembourse = (pret.getCapitalRembourse() != null ? pret.getCapitalRembourse() : BigDecimal.ZERO).add(aImputer);
+                BigDecimal nouveauRestant = restant.subtract(aImputer);
+
+                pret.setCapitalRembourse(nouveauRembourse);
+                pret.setCapitalRestantDu(nouveauRestant);
+                pret.setStatut("SUSPENDU");
+                String motifActuel = pret.getMotif() != null ? pret.getMotif() : "";
+                if (!motifActuel.contains("CONTENTIEUX")) {
+                    pret.setMotif((motifActuel + " [CONTENTIEUX: Solde résiduel post-STC transféré au recouvrement]").trim());
+                }
+                pret.update(c);
+            }
         }
 
-        return totalSolde;
+        return totalImpute;
+    }
+
+    public static BigDecimal solderPretsPourStc(Integer idEmploye, Integer idBulletinStc, Connection c) throws Exception {
+        return solderPretsPourStc(idEmploye, null, idBulletinStc, c);
     }
 
     /**

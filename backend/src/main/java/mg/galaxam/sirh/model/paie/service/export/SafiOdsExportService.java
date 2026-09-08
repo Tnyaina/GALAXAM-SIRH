@@ -65,11 +65,26 @@ public class SafiOdsExportService {
         // 1. Récupération des 25 colonnes réglementaires calculées
         List<SafiRowDto> donnees = safiExportService.genererDonneesSafi(idPeriode, c);
 
-        // 2. Informations de l'entreprise et de la période
         String sqlEntete = "SELECT pp.code AS code_periode, pp.libelle AS libelle_periode, " +
-                "rf.raison_sociale, rf.nif " +
+                "COALESCE(rf.raison_sociale, rf_def.raison_sociale) AS raison_sociale, " +
+                "COALESCE(rf.nif, rf_def.nif) AS nif " +
                 "FROM periode_paie pp " +
-                "LEFT JOIN ref_filiale rf ON rf.id_filiale = 1 " +
+                "LEFT JOIN LATERAL ( " +
+                "    SELECT rf1.raison_sociale, rf1.nif " +
+                "    FROM bulletin_paie bp " +
+                "    JOIN employe_affectation_carriere eac ON bp.id_employe = eac.id_employe " +
+                "    JOIN ref_site s ON eac.id_site = s.id_site " +
+                "    JOIN ref_filiale rf1 ON s.id_filiale_rattachement = rf1.id_filiale " +
+                "    WHERE bp.id_periode_paie = pp.id_periode_paie " +
+                "    LIMIT 1 " +
+                ") rf ON TRUE " +
+                "LEFT JOIN LATERAL ( " +
+                "    SELECT rf2.raison_sociale, rf2.nif " +
+                "    FROM ref_filiale rf2 " +
+                "    WHERE rf2.est_actif = TRUE " +
+                "    ORDER BY rf2.id_filiale ASC " +
+                "    LIMIT 1 " +
+                ") rf_def ON TRUE " +
                 "WHERE pp.id_periode_paie = ?";
 
         String codePeriode = "PER";

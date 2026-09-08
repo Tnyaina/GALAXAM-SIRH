@@ -96,8 +96,10 @@ public class StcIntegrationTest {
             try (Connection c = dataSource.getConnection()) {
                 String sql = "SELECT e.id_employe FROM employe e " +
                         "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
+                        "LEFT JOIN ref_categorie_professionnelle rcp ON eac.id_categorie_professionnelle = rcp.id_categorie_professionnelle " +
                         "WHERE eac.id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') " +
-                        "LIMIT 1";
+                        "AND (rcp.code = 'CADRE' OR rcp.code = 'CADRE_DIRIGEANT') " +
+                        "ORDER BY e.id_employe ASC LIMIT 1";
                 try (PreparedStatement ps = c.prepareStatement(sql);
                      ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {

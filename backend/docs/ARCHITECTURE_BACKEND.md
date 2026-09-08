@@ -23,7 +23,8 @@ mg.galaxam.sirh.model
 │   └── Employe.java
 ├── contrat
 │   ├── engine
-│   │   └── ContratValidationEngine.java    # Contrôles de fin de contrat, dates d'essai, statut
+│   │   ├── ContratValidationEngine.java    # Contrôles de fin de contrat, dates d'essai, statut
+│   │   └── CarriereTransitionValidator.java# Validation des transitions d'affectation et de salaire
 │   ├── WorkflowRhService.java
 │   └── ContratTravail.java
 ├── conge
@@ -41,6 +42,20 @@ mg.galaxam.sirh.model
 │       ├── PointageSaisieService.java      # Batch save, synchronisation indemnités, verrous statut
 │       ├── PointageAnomalieService.java    # Détection et régularisation avec sync pointage_indemnite_jour
 │       └── PointageSyntheseService.java    # Calcul global 1-clic, verrous FOR UPDATE, transmission/arbitrage DAF
+├── paie
+│   ├── engine
+│   │   └── PayrollExecutionEngine.java     # Moteur d'orchestration paie, cotisations, IRSA, STC, régularisation
+│   ├── service
+│   │   ├── PayrollService.java             # Cycle de calcul mensuel, clôture, variables de paie
+│   │   ├── StcService.java                 # Solde de tout compte, ICCP, préavis, quittance libératoire
+│   │   └── export
+│   │       ├── SafiExportService.java      # Export État 301 IRSA SAFI (25 colonnes)
+│   │       ├── SafiOdsExportService.java   # Export OpenDocument ODS
+│   │       ├── EdiIsiExportService.java    # Export TradXML EDI ISI 5% & feuille SAISIE
+│   │       └── PaieExportService.java      # Bordereaux CNaPS DNTS et Santé (OSTIE/OMSI)
+│   └── dto
+│       ├── PayrollCalculationInput.java    # DTO unifié d'entrée pour le moteur de paie
+│       └── BulletinPaieComplet.java        # Agrégat bulletin, lignes de ventilation et impacts trésorerie
 ├── dashboard
 │   ├── service
 │   │   ├── DashboardService.java
@@ -65,22 +80,20 @@ Toutes les logiques procédurales SQL ont été déplacées vers Java :
 
 ---
 
-## 4. Tests Automatisés & Couverture (147 Tests)
+## 4. Tests Automatisés & Couverture Complète (324 Tests)
 
-Le projet compte **147 tests automatisés réussis** (unitaires purs et intégration transactionnelle) :
-- `EmployeValidationEngineTest`
-- `MatriculeGeneratorEngineTest`
-- `ContratValidationEngineTest`
-- `CongeCalculateurEngineTest`
-- `PurgeFifoEngineTest`
-- `PointageCalculateurEngineTest`
-- `CalendrierOuvrableEngineTest`
-- `CalculateurPaieEngineTest`
-- `SimulationWorkflowLongTermeSirhTest` (Simulation complète de 6 ans de carrière)
-- `PointageSyntheseWorkflowIntegrationTest` (10 tests de workflow pointage, verrous A_VALIDER et synchronisation indemnités)
-- `CongeLedgerWorkflowIntegrationTest` (7 tests ledger et solde congés)
-- `SirhApiE2EIntegrationTest` (5 tests bout-en-bout API)
-- `StructureEtAdministrationIntegrationTest` (5 tests structure organisationnelle)
+Le projet compte **324 tests automatisés réussis à 100%** (unitaires purs et intégration transactionnelle) :
+- `AuditDeepInspectionExhaustifTest` (8 tests approfondis : plafonnements Art. 72 & 68, compensation 1:1, régularisation congés DAF, etc.)
+- `AuditAdversarialRemediationTest` (13 tests contradictoires et cas limites)
+- `AuditPhase5Et6VerificationTest` & `Phase1Et2AuditVerificationTest` (12 tests de conformité par phases)
+- `PayrollExecutionEngineTest` (21 tests de calculs de paie duale, cotisations et déductions)
+- `CalculateurPaieEngineTest` & `CalculateurPaieEngineAdvancedTest` (20 tests barème IRSA et cotisations sociales)
+- `PointageCalculateurEngineTest` & `CalendrierOuvrableEngineTest` (52 tests de temps de travail)
+- `CongeCalculateurEngineTest` & `PurgeFifoEngineTest` (35 tests de congés et purge triennale FIFO)
+- `CarriereTransitionValidatorTest` & `AncienneteEngineTest` (11 tests de carrière et transitions contractuelles)
+- `EmployeValidationEngineTest` & `MatriculeGeneratorEngineTest` (30 tests de conformité légale salarié)
+- `PaieExportServiceIntegrationTest` & `PaieBddModelTest` (21 tests d'exports réglementaires SAFI, EDI, CNaPS)
+- `PayrollServiceIntegrationTest`, `StcIntegrationTest`, `SirhApiE2EIntegrationTest`, etc. (101 tests d'intégration E2E)
 
 ---
 

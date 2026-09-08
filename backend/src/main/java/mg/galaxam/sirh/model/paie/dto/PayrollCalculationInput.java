@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
 import mg.galaxam.sirh.model.paie.PaiePretEcheance;
+import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.TrancheIrsa;
 
 /**
@@ -65,12 +66,16 @@ public class PayrollCalculationInput {
     private BigDecimal primeAssiduiteForfait = BigDecimal.ZERO;
     private BigDecimal primeExceptionnelle = BigDecimal.ZERO;
     private String motifPrimeExceptionnelle;
+    private BigDecimal regularisationPaie = BigDecimal.ZERO; // Régularisation congés/paie mois antérieur
+    private String motifRegularisationPaie;
     private BigDecimal autimp = BigDecimal.ZERO; // Autres primes/gains imposables
     private BigDecimal extraDeplacement = BigDecimal.ZERO; // Indemnité extra déplacement (non imposable)
 
     // 5. Indemnités non imposables (Repas, Transport, Déplacement)
     private BigDecimal indemniteTransport; // Forfait site proratisé (TNR 31 200, TMM 53 200)
+    private BigDecimal forfaitTransportSite = new BigDecimal("31200.00");
     private BigDecimal indemniteRepas;     // 2 000 Ar par jour présent complet TNR
+    private BigDecimal forfaitRepasSite = new BigDecimal("2000.00");
     private BigDecimal remboursementNotesFrais = BigDecimal.ZERO;
 
     // 6. Fiscalité & Déductions familiales
@@ -82,6 +87,7 @@ public class PayrollCalculationInput {
     private BigDecimal tauxIsi = new BigDecimal("5.00");
 
     // 7. Cotisations sociales (Taux légaux et régionaux)
+    private String codeSanteOrgane = "OSTIE";
     private double tauxCnapsSalarial = 0.01;
     private double tauxCnapsPatronal = 0.13;
     private double tauxSanteSalarial = 0.01; // OSTIE 1% (TNR) ou OMSI 1.5% (TMM)
@@ -109,18 +115,28 @@ public class PayrollCalculationInput {
     private boolean estPlafonneSante = true; // Plafonnement OSTIE / OMSI à 8x SME
     private boolean indemniteRepasImposable = false;
 
+    // 10. Paramètres configurables (seuils et durées)
+    private BigDecimal diviseurMensuelHeures = PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES;
+    private BigDecimal heuresJournalieresLegales = new BigDecimal("8.00");
+    private int seuilRetardAssiduiteMinutes = 45;
+    private int seuilRetardMalusPerformanceMinutes = 70;
+    private BigDecimal tauxMalusPerformance = new BigDecimal("0.25");
+
     // Constructeur par défaut
     public PayrollCalculationInput() {}
 
     /**
-     * Calcule ou retourne le taux horaire de référence (Base / 173.3333).
+     * Calcule ou retourne le taux horaire de référence (Base / 173.33 ou diviseur configurable).
      */
     public BigDecimal getTauxHoraireEffectif() {
         if (tauxHoraire != null && tauxHoraire.compareTo(BigDecimal.ZERO) > 0) {
             return tauxHoraire;
         }
         if (salaireBaseContractuel != null && salaireBaseContractuel.compareTo(BigDecimal.ZERO) > 0) {
-            return salaireBaseContractuel.divide(new BigDecimal("173.3333"), 4, RoundingMode.HALF_UP);
+            BigDecimal diviseur = (diviseurMensuelHeures != null && diviseurMensuelHeures.compareTo(BigDecimal.ZERO) > 0)
+                    ? diviseurMensuelHeures
+                    : PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES;
+            return salaireBaseContractuel.divide(diviseur, 4, RoundingMode.HALF_UP);
         }
         return BigDecimal.ZERO;
     }
@@ -312,6 +328,12 @@ public class PayrollCalculationInput {
     public String getMotifPrimeExceptionnelle() { return motifPrimeExceptionnelle; }
     public void setMotifPrimeExceptionnelle(String motifPrimeExceptionnelle) { this.motifPrimeExceptionnelle = motifPrimeExceptionnelle; }
 
+    public BigDecimal getRegularisationPaie() { return regularisationPaie; }
+    public void setRegularisationPaie(BigDecimal regularisationPaie) { this.regularisationPaie = regularisationPaie; }
+
+    public String getMotifRegularisationPaie() { return motifRegularisationPaie; }
+    public void setMotifRegularisationPaie(String motifRegularisationPaie) { this.motifRegularisationPaie = motifRegularisationPaie; }
+
     public BigDecimal getAutimp() { return autimp; }
     public void setAutimp(BigDecimal autimp) { this.autimp = autimp; }
 
@@ -401,4 +423,28 @@ public class PayrollCalculationInput {
 
     public boolean isSoumisIsi5() { return soumisIsi5; }
     public void setSoumisIsi5(boolean soumisIsi5) { this.soumisIsi5 = soumisIsi5; }
+
+    public String getCodeSanteOrgane() { return codeSanteOrgane; }
+    public void setCodeSanteOrgane(String codeSanteOrgane) { this.codeSanteOrgane = codeSanteOrgane; }
+
+    public BigDecimal getForfaitTransportSite() { return forfaitTransportSite; }
+    public void setForfaitTransportSite(BigDecimal forfaitTransportSite) { this.forfaitTransportSite = forfaitTransportSite; }
+
+    public BigDecimal getForfaitRepasSite() { return forfaitRepasSite; }
+    public void setForfaitRepasSite(BigDecimal forfaitRepasSite) { this.forfaitRepasSite = forfaitRepasSite; }
+
+    public BigDecimal getHeuresJournalieresLegales() { return heuresJournalieresLegales; }
+    public void setHeuresJournalieresLegales(BigDecimal heuresJournalieresLegales) { this.heuresJournalieresLegales = heuresJournalieresLegales; }
+
+    public int getSeuilRetardAssiduiteMinutes() { return seuilRetardAssiduiteMinutes; }
+    public void setSeuilRetardAssiduiteMinutes(int seuilRetardAssiduiteMinutes) { this.seuilRetardAssiduiteMinutes = seuilRetardAssiduiteMinutes; }
+
+    public int getSeuilRetardMalusPerformanceMinutes() { return seuilRetardMalusPerformanceMinutes; }
+    public void setSeuilRetardMalusPerformanceMinutes(int seuilRetardMalusPerformanceMinutes) { this.seuilRetardMalusPerformanceMinutes = seuilRetardMalusPerformanceMinutes; }
+
+    public BigDecimal getTauxMalusPerformance() { return tauxMalusPerformance; }
+    public void setTauxMalusPerformance(BigDecimal tauxMalusPerformance) { this.tauxMalusPerformance = tauxMalusPerformance; }
+
+    public BigDecimal getDiviseurMensuelHeures() { return diviseurMensuelHeures; }
+    public void setDiviseurMensuelHeures(BigDecimal diviseurMensuelHeures) { this.diviseurMensuelHeures = diviseurMensuelHeures; }
 }

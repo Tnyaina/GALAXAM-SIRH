@@ -34,7 +34,7 @@ import java.util.Map;
  * Base URL : /api/v1/paie
  */
 @RestController
-@RequestMapping("/api/v1/paie")
+@RequestMapping({"/api/v1/paie", "/v1/paie", "/paie"})
 public class PaieController {
 
     private final DataSource dataSource;

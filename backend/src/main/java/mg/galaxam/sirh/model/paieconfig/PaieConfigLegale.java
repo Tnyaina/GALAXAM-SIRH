@@ -117,7 +117,7 @@ public class PaieConfigLegale extends ClassMere {
             ps.setBigDecimal(10, deductionChargeFamille);
             ps.setString(11, arrondiBaseIrsa != null ? arrondiBaseIrsa : "CENTAINE_INF");
             ps.setBigDecimal(12, dureeHebdoLegale != null ? dureeHebdoLegale : new BigDecimal("40.00"));
-            ps.setBigDecimal(13, diviseurMensuelHeures != null ? diviseurMensuelHeures : new BigDecimal("173.3333"));
+            ps.setBigDecimal(13, diviseurMensuelHeures != null ? diviseurMensuelHeures : new BigDecimal("173.33"));
             ps.setBigDecimal(14, seuilHsTranche1 != null ? seuilHsTranche1 : new BigDecimal("8.00"));
             ps.setBigDecimal(15, plafondHsHebdo != null ? plafondHsHebdo : new BigDecimal("20.00"));
             ps.setBigDecimal(16, acquisitionCongeMensuelJours != null ? acquisitionCongeMensuelJours : new BigDecimal("2.50"));

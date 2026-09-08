@@ -27,27 +27,56 @@ Le projet est structuré en **Monorepo** et applique les principes du **Domain-D
     *   `EmployeValidationEngine` : Validation légale de l'âge minimum (16 ans), CIN 12 chiffres, coordonnées bancaires (RIB).
     *   `MatriculeGeneratorEngine` : Numérotation séquentielle et génération matricule standardisée.
     *   `ContratValidationEngine` : Gestion de la complétude contractuelle, calculs de fin de période d'essai et transitions de statuts RH.
+    *   `CarriereTransitionValidator` : Contrôle des transitions d'affectation, de salaires et de postes.
     *   `CongeCalculateurEngine` : Décompte en jours calendaires, acquisition mensuelle (2.5j), bonifications d'ancienneté (+1j par 5 ans), fractionnement et scission maladie > 30 jours.
-    *   `PurgeFifoEngine` : Algorithme FIFO exact d'expiration des congés acquis il y a plus de 36 mois.
+    *   `PurgeFifoEngine` : Algorithme FIFO exact d'expiration des congés acquis il y a plus de 36 mois (Art. 85).
     *   `PointageCalculateurEngine` : Règle de 0 tolérance aux retards, heures de nuit (>22h), déductions repas Tamatave (-1 000 Ar/j) et péréquation hebdomadaire 40h (compensation 1:1).
+    *   `CalendrierOuvrableEngine` : Calcul des jours ouvrables, chômés et fériés légaux par site.
     *   `CalculateurPaieEngine` : Cotisations CNaPS (1%/13% plafonné à 8x SMIG), OSTIE (1%/5%), barème progressif IRSA et perception minimale (3 000 Ar).
+    *   `PayrollExecutionEngine` : Moteur complet d'orchestration paie, calcul du brut, décompte d'absence horaire réel, workflow de régularisation congés DAF (`REGULARISATION_CONGE`), quotité cessible (Art. 72 - tiers légal max), avances spéciales (Art. 68 - dixième max), quittance STC et équilibre bancaire strict à la dizaine d'Ariary.
+*   **Exports Réglementaires & Déclaratifs :**
+    *   **État 301 IRSA SAFI / e-Hetra** : Fichier matriciel officiel DGI à 25 colonnes.
+    *   **EDI ISI 5%** : Format XML normalisé (`TradXML`) et feuille tabulaire pour macro DGI.
+    *   **DNTS CNaPS & FMFP** : Déclarations nominatives trimestrielles consolidées (3 mois civils).
+    *   **Organismes de Santé** : Bordereaux nominatifs trimestriels pour OSTIE (Antananarivo) et OMSI (Toamasina).
 *   **Backend (Accès Données & Infrastructure) :** API REST avec **Spring Boot** et **Spring Data JDBC** avec transactions explicites. La base de données PostgreSQL sert uniquement au stockage et aux projections relationnelles (vues `*CPL`), sans aucune logique de calcul en SQL (`INTERVAL`, `FILTER (WHERE)`, `CASE WHEN` éliminés au profit du code Java typé).
-*   **Base de Données :** PostgreSQL.
-*   **Déploiement :** Environnement conteneurisé via **Docker** et **Docker Compose**.
+*   **Base de Données :** PostgreSQL 15 conteneurisé.
+*   **Qualité & Tests :** **324 tests automatisés avec 100% de succès** (0 échec, 0 erreur) couvrant audits contradictoires, cas limites légaux, calculs fiscaux, STC et exports.
 
 ## 📁 Structure du Monorepo
 
 ```text
 galaxam-sirh/
 ├── frontend/                  # Application React / Vite
+│   ├── src/pages/             # Cockpit RH, Paie, Pointage, Congés, Administration
+│   ├── src/components/        # Design System & Composants UI
+│   └── src/utils/             # Validations et utilitaires financiers/dates
 ├── backend/                   # API Spring Boot (Java 17)
 │   ├── src/main/java/mg/galaxam/sirh/
 │   │   ├── api/               # Contrôleurs REST & DTOs
 │   │   ├── model/             # Modèles de données & Services par domaine
-│   │   │   ├── <domaine>/engine/  # Moteurs de calcul et règles métier Java
+│   │   │   ├── <domaine>/engine/  # Moteurs de calcul et règles métier Java purs
+│   │   │   ├── paie/service/export/ # Générateurs d'exports légaux (SAFI, EDI, CNaPS)
 │   │   ├── cron/              # Schedulers automatiques de maintenance et alertes
 │   │   └── securite/          # Authentification JWT & RBAC
+│   └── src/test/java/         # 324 tests automatisés (Unitaires, Intégration, Audits)
+├── docs/                      # Documentation complète d'architecture, règles métier et guides
 ├── docker-compose.yml         # Déclaration des services (PostgreSQL)
-├── .gitignore                 # Règles d'exclusion globales
 └── README.md                  # Documentation globale du projet
+```
+
+## ⚡ Commandes Utiles
+
+```bash
+# Lancer l'environnement de base de données
+docker compose up -d
+
+# Exécuter les 324 tests backend
+cd backend && mvn test
+
+# Lancer l'API Spring Boot
+cd backend && mvn spring-boot:run
+
+# Build et validation de l'interface Frontend
+cd frontend && npm run build
 ```

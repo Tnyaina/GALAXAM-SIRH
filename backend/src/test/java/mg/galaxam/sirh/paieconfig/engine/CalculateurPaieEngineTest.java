@@ -121,11 +121,16 @@ class CalculateurPaieEngineTest {
                 .compareTo(irsaAvecEnfants));
         }
 
-        @Test @DisplayName("Tranches vides -> bareme par defaut 20% au-dela de 350000")
+        @Test @DisplayName("Tranches vides -> leve IllegalStateException (aucun fallback silencieux)")
         void tranchesVides() {
-            BigDecimal irsa = engine.calculerIrsa(new BigDecimal("450000"), List.of(), 0);
-            // (450000-350000) * 20% = 20000 > minimum => 20000
-            assertEquals(0, new BigDecimal("20000.00").compareTo(irsa));
+            assertThrows(IllegalStateException.class, () ->
+                engine.calculerIrsa(new BigDecimal("450000"), List.of(), 0));
+        }
+
+        @Test @DisplayName("Tranches null -> leve IllegalStateException (aucun fallback silencieux)")
+        void tranchesNull() {
+            assertThrows(IllegalStateException.class, () ->
+                engine.calculerIrsa(new BigDecimal("450000"), null, 0));
         }
 
         @Test @DisplayName("Taux à 1% (1.0) : calculé à 0.01 et non 1.0 (100%)")

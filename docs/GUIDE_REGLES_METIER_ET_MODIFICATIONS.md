@@ -120,6 +120,10 @@ Dans GALAXAM-SIRH, une **séparation absolue des responsabilités** régit le co
 | **RG-PAIE-03** | Barème progressif par tranches IRSA | `CalculateurPaieEngine.calculerIrsa` |
 | **RG-PAIE-04** | Déduction fiscale par enfant à charge (2 000 Ar) | `CalculateurPaieEngine.calculerIrsa` |
 | **RG-PAIE-05** | Minimum légal de perception IRSA (3 000 Ar) | `CalculateurPaieEngine.calculerIrsa` |
+| **RG-PAIE-06** | Décompte des absences injustifiées au taux horaire strict | `PayrollExecutionEngine.calculer` |
+| **RG-PAIE-07** | Régularisation congés DAF au retour du salarié | `PayrollExecutionEngine` & `PayrollService` |
+| **RG-PAIE-08** | Plafonnements légaux d'endettement (Art. 72 : 1/3 max & Art. 68 : 1/10 max) | `PayrollExecutionEngine.calculer` |
+| **RG-PAIE-09** | Solde de Tout Compte (STC) & Quittance libératoire financière réconciliée | `StcService.calculerStc` |
 | **RG-SEC-01** | Restriction de création de compte (/auth/register) | `SecurityConfig` / `AuthController.register` |
 | **RG-SEC-02** | Filtrage strict des extensions de fichiers RH en GED | `DocumentRhController.televerserDocument` |
 | **RG-SEC-03** | Interdiction d'auto-octroi de dérogations d'indemnité | `DemandeCongeController.creerDemande` |
@@ -305,6 +309,38 @@ Dans GALAXAM-SIRH, une **séparation absolue des responsabilités** régit le co
 - **Contrôleur Backend :** `IrsaController.calculerSimulation` (`POST /api/paie-config/irsa/simuler`).
 - **Composants Frontend :** `ParametresModulesPanel.jsx` (Onglet Barème IRSA).
 - **Test de Validation :** `CalculateurPaieEngineTest.testCalculerIrsa()`.
+
+### RG-PAIE-06 : Décompte des absences au taux horaire strict
+- **Énoncé Métier :** Pour les salariés sans solde de congé ou en cas d'absence non rémunérée, la retenue est décomptée au taux horaire légal : $\text{Heures d'absence} \times (\text{Salaire de Base} / 173{,}3333)$. La retenue ne peut en aucun cas excéder le salaire de base de la période.
+- **Classe & Méthode :** `PayrollExecutionEngine.calculer(PayrollCalculationInput input)`
+- **Classe Appelante :** `PayrollService.calculerBulletinsPeriode(...)`.
+- **Contrôleur Backend :** `PaieController.calculer` (`POST /api/v1/paie/calculer`).
+- **Composants Frontend :** `GestionPaiePage.jsx`, `PayrollTable.jsx`.
+- **Test de Validation :** `AuditDeepInspectionExhaustifTest.testWorkflowDafAbsenceHoraireEtRegularisationConge()`.
+
+### RG-PAIE-07 : Régularisation des congés DAF au retour du salarié
+- **Énoncé Métier :** Lorsqu'un salarié justifie son absence a posteriori, la DAF enregistre un mouvement de type `REGULARISATION_CONGE` (sens `GAIN`, rubrique `REGULARISATION_PAIE`). Le montant est réintégré dans les gains bruts imposables (catégorie `SALAIRE_BASE`, ordre 112) au mois $M+1$, soumis aux cotisations et à l'IRSA.
+- **Classe & Méthodes :** `PayrollService.preparerInput(...)` et `PayrollExecutionEngine.calculer(...)`.
+- **Contrôleur Backend :** `PaieAjustementController.creerMouvement` (`POST /api/v1/paie/ajustements/mouvements`).
+- **Composants Frontend :** Modale de saisie des variables et ajustements `VariablesPaieModal.jsx`.
+- **Test de Validation :** `AuditDeepInspectionExhaustifTest.testWorkflowDafAbsenceHoraireEtRegularisationConge()`.
+
+### RG-PAIE-08 : Plafonnements légaux d'endettement salarié (Art. 72 & 68)
+- **Énoncé Métier :**
+  - **Prêts d'entreprise (Art. 72 Code du Travail)** : La quotité cessible pour le remboursement des prêts est strictement plafonnée au **tiers (33,33%)** du salaire net disponible. L'échéance excédentaire bascule en `PRELEVEE_PARTIELLEMENT` et le reliquat reste dû, sans jamais rendre le net négatif.
+  - **Avances spéciales (Art. 68 Code du Travail)** : Le remboursement d'avances en espèces consenties par l'employeur est plafonné au **dixième (10%)** des salaires échus.
+- **Classe & Méthode :** `PayrollExecutionEngine.calculer(...)` (Constantes `PLAFOND_QUOTITE_CESSIBLE` et `PLAFOND_AVANCE_EMPLOYEUR_DIXIEME`).
+- **Classe Appelante :** `PayrollService.java`.
+- **Contrôleur Backend :** `PaieController.java`.
+- **Composants Frontend :** `PaieAuditModal.jsx`.
+- **Test de Validation :** `AuditDeepInspectionExhaustifTest.testPlafonnementQuotiteCessiblePret()` et `testPlafonnementAvanceSpecialeDixieme()`.
+
+### RG-PAIE-09 : Solde de Tout Compte (STC) & Balance Quittance Libératoire
+- **Énoncé Métier :** Lors de la rupture du contrat, le STC liquide le dernier salaire proratisé, l'indemnité compensatrice de congés payés (ICCP), le préavis éventuel et l'indemnité légale de licenciement, tout en apurant l'intégralité du capital restant dû sur les prêts. La quittance libératoire est réconciliée à la dizaine d'Ariary la plus proche avec balance parfaite $\text{Total Brut} - \text{Total Retenues} \equiv \text{Net à Payer}$ et mentions Art. 53.
+- **Classe & Méthodes :** `StcService.calculerStc(...)` et `StcService.validerStc(...)`.
+- **Contrôleur Backend :** `StcController` (`/api/v1/paie/stc/preparer`, `/api/v1/paie/stc/creer`).
+- **Composants Frontend :** `SoldeToutCompteTable.jsx`, `RecuStcModal.jsx`.
+- **Test de Validation :** `StcIntegrationTest.java`.
 
 ---
 

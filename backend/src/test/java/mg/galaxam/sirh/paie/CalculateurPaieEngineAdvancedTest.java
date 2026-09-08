@@ -42,12 +42,22 @@ public class CalculateurPaieEngineAdvancedTest {
         assertEquals(0, new BigDecimal("200000.00").compareTo(res.partPatronale()));
     }
 
+    private List<CalculateurPaieEngine.TrancheIrsa> creerBaremeTest() {
+        return List.of(
+                new CalculateurPaieEngine.TrancheIrsa(BigDecimal.ZERO, new BigDecimal("350000.00"), 0.00),
+                new CalculateurPaieEngine.TrancheIrsa(new BigDecimal("350000.00"), new BigDecimal("400000.00"), 5.00),
+                new CalculateurPaieEngine.TrancheIrsa(new BigDecimal("400000.00"), new BigDecimal("500000.00"), 10.00),
+                new CalculateurPaieEngine.TrancheIrsa(new BigDecimal("500000.00"), new BigDecimal("600000.00"), 15.00),
+                new CalculateurPaieEngine.TrancheIrsa(new BigDecimal("600000.00"), null, 20.00)
+        );
+    }
+
     @Test
     @DisplayName("CALC-03 : IRSA — Minimum de perception légal garanti (3 000 Ar)")
     void testCalculerIrsaMinimumPerception() {
         // Salaire net imposable très faible (ex: 200 000 Ar, exonéré au barème)
         BigDecimal baseFaible = new BigDecimal("200000.00");
-        BigDecimal irsa = engine.calculerIrsa(baseFaible, null, 0);
+        BigDecimal irsa = engine.calculerIrsa(baseFaible, creerBaremeTest(), 0);
 
         assertEquals(0, new BigDecimal("3000.00").compareTo(irsa), "Même sans impôt calculé, le minimum légal de 3 000 Ar s'applique");
     }
@@ -55,15 +65,29 @@ public class CalculateurPaieEngineAdvancedTest {
     @Test
     @DisplayName("CALC-04 : IRSA — Déduction pour enfants à charge (2 000 Ar par enfant)")
     void testCalculerIrsaDeductionEnfants() {
+        // Barème : 800 000 Ar
+        // 0-350k : 0
+        // 350-400k : 2 500
+        // 400-500k : 10 000
+        // 500-600k : 15 000
+        // 600-800k : 200k * 20% = 40 000
+        // Brut total = 67 500 Ar
         BigDecimal baseImposable = new BigDecimal("800000.00");
+        List<CalculateurPaieEngine.TrancheIrsa> bar = creerBaremeTest();
 
-        // Barème par défaut : (800 000 - 350 000) * 20% = 90 000 Ar brut
-        BigDecimal irsaSansEnfants = engine.calculerIrsa(baseImposable, null, 0);
-        assertEquals(0, new BigDecimal("90000.00").compareTo(irsaSansEnfants));
+        BigDecimal irsaSansEnfants = engine.calculerIrsa(baseImposable, bar, 0);
+        assertEquals(0, new BigDecimal("67500.00").compareTo(irsaSansEnfants));
 
-        // Avec 3 enfants : 90 000 - (3 * 2 000) = 84 000 Ar
-        BigDecimal irsa3Enfants = engine.calculerIrsa(baseImposable, null, 3);
-        assertEquals(0, new BigDecimal("84000.00").compareTo(irsa3Enfants));
+        // Avec 3 enfants : 67 500 - (3 * 2 000) = 61 500 Ar
+        BigDecimal irsa3Enfants = engine.calculerIrsa(baseImposable, bar, 3);
+        assertEquals(0, new BigDecimal("61500.00").compareTo(irsa3Enfants));
+    }
+
+    @Test
+    @DisplayName("CALC-06 : IRSA — Exception stricte si aucune tranche configurée")
+    void testCalculerIrsaTranchesVidesOuNull() {
+        assertThrows(IllegalStateException.class, () -> engine.calculerIrsa(new BigDecimal("500000.00"), null, 0));
+        assertThrows(IllegalStateException.class, () -> engine.calculerIrsa(new BigDecimal("500000.00"), List.of(), 0));
     }
 
     @Test

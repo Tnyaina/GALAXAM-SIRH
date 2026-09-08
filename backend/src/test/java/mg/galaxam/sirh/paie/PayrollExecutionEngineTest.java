@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.TrancheIrsa;
+
 @DisplayName("PayrollExecutionEngineTest — Tests Unitaires du Moteur de Calcul de Paie")
 class PayrollExecutionEngineTest {
 
@@ -27,6 +29,17 @@ class PayrollExecutionEngineTest {
     @BeforeEach
     void setUp() {
         engine = new PayrollExecutionEngine();
+    }
+
+    private static List<TrancheIrsa> baremeLf2026() {
+        return List.of(
+            new TrancheIrsa(BigDecimal.ZERO, new BigDecimal("350000.00"), 0.0),
+            new TrancheIrsa(new BigDecimal("350000.00"), new BigDecimal("400000.00"), 5.0),
+            new TrancheIrsa(new BigDecimal("400000.00"), new BigDecimal("500000.00"), 10.0),
+            new TrancheIrsa(new BigDecimal("500000.00"), new BigDecimal("600000.00"), 15.0),
+            new TrancheIrsa(new BigDecimal("600000.00"), new BigDecimal("4000000.00"), 20.0),
+            new TrancheIrsa(new BigDecimal("4000000.00"), null, 25.0)
+        );
     }
 
     private PayrollCalculationInput creerInputBase(String matricule, BigDecimal salaireBase, String siteCode) {
@@ -60,13 +73,20 @@ class PayrollExecutionEngineTest {
         in.setSmeNational(new BigDecimal("262680.00"));
         in.setMinimumPerceptionIrsa(new BigDecimal("3000.00"));
         in.setDeductionParEnfant(new BigDecimal("2000.00"));
+        in.setTranchesIrsa(baremeLf2026());
 
         if ("TMM".equalsIgnoreCase(siteCode)) {
+            in.setCodeSanteOrgane("OMSI");
             in.setTauxSanteSalarial(0.015);
             in.setTauxSantePatronal(0.055);
+            in.setForfaitTransportSite(new BigDecimal("53200.00"));
+            in.setForfaitRepasSite(BigDecimal.ZERO);
         } else {
+            in.setCodeSanteOrgane("OSTIE");
             in.setTauxSanteSalarial(0.01);
             in.setTauxSantePatronal(0.05);
+            in.setForfaitTransportSite(new BigDecimal("31200.00"));
+            in.setForfaitRepasSite(new BigDecimal("2000.00"));
         }
 
         return in;
@@ -517,11 +537,11 @@ class PayrollExecutionEngineTest {
         inReel.setNbHeuresAbsence(new BigDecimal("8.0"));
         BulletinPaieComplet cReel = engine.calculer(inReel);
 
-        // Taux horaire = 1 000 000 / 173.3333 = 5769.2323 Ar
-        // Retenue = 8 x 5769.2323 = 46 153.86 Ar
+        // Taux horaire = 1 000 000 / 173.33 = 5769.3417 Ar
+        // Retenue = 8 x 5769.3417 = 46 154.73 Ar
         BulletinPaieLigne ligneReel = cReel.trouverLigne("RETENUE_ABSENCE");
         assertNotNull(ligneReel);
-        assertEquals(new BigDecimal("46153.86"), ligneReel.getMontantSalarial());
+        assertEquals(new BigDecimal("46154.73"), ligneReel.getMontantSalarial());
         verifierEquilibreComptable(cReel);
 
         // Cas B : Méthode contractuelle du trentième (1/30ème)

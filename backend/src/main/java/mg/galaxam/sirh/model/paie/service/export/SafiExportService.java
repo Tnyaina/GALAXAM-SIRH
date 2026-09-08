@@ -97,6 +97,7 @@ public class SafiExportService {
                         base = base.add(mnt);
                         break;
                     case "RETENUE_ABSENCE":
+                    case "RETENUE_CONGE":
                         base = base.subtract(mnt);
                         break;
                     case "HEURES_SUP_30":
@@ -112,11 +113,13 @@ public class SafiExportService {
                     case "PRIME_PERFORMANCE":
                     case "PRIME_EXCEPTIONNELLE":
                     case "PRIME_ANCIENNETE":
+                    case "AUTIMP":
                         primes = primes.add(mnt);
                         break;
                     case "INDEMNITE_TRANSPORT":
                     case "REMBOURSEMENT_NOTE_FRAIS":
                     case "INDEMNITE_REPAS":
+                    case "EXTRA_DEPLACEMENT":
                     case "INDEMNITE_LICENCIEMENT":
                         indemNonImpos = indemNonImpos.add(mnt);
                         break;
@@ -139,7 +142,6 @@ public class SafiExportService {
                 base = BigDecimal.ZERO;
             }
 
-            row.setSalaireBase(base.setScale(2, RoundingMode.HALF_UP));
             row.setIndemnitesImposables(indemImpos.setScale(2, RoundingMode.HALF_UP));
             row.setIndemnitesNonImposables(indemNonImpos.setScale(2, RoundingMode.HALF_UP));
             row.setAvantagesNatureImposables(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
@@ -154,17 +156,34 @@ public class SafiExportService {
             BigDecimal brut = bp.getTotalGainsBruts() != null ? bp.getTotalGainsBruts() : BigDecimal.ZERO;
             // Sécurisation de la cohérence arithmétique e-Hetra DGI
             BigDecimal sommeComposantes = base.add(indemImpos).add(hs).add(primes);
-            if (brut.compareTo(sommeComposantes) > 0) {
-                primes = primes.add(brut.subtract(sommeComposantes));
+            BigDecimal delta = brut.subtract(sommeComposantes);
+            if (delta.compareTo(BigDecimal.ZERO) != 0) {
+                if (primes.add(delta).compareTo(BigDecimal.ZERO) >= 0) {
+                    primes = primes.add(delta);
+                } else {
+                    base = base.add(delta);
+                    if (base.compareTo(BigDecimal.ZERO) < 0) {
+                        base = BigDecimal.ZERO;
+                    }
+                }
             }
+            row.setSalaireBase(base.setScale(2, RoundingMode.HALF_UP));
             row.setPrimesEtGratifications(primes.setScale(2, RoundingMode.HALF_UP));
-            row.setSalaireBrut(brut.setScale(2, RoundingMode.HALF_UP));
+
+            // Recalcul strict de Q = I + J + L + N + O + P pour garantir une égalité à 100% sans écart d'arrondi
+            BigDecimal brutStrict = row.getSalaireBase()
+                    .add(row.getIndemnitesImposables())
+                    .add(row.getAvantagesNatureImposables())
+                    .add(row.getHeuresSupplementaires())
+                    .add(row.getPrimesEtGratifications())
+                    .add(row.getAutres());
+            row.setSalaireBrut(brutStrict.setScale(2, RoundingMode.HALF_UP));
 
             row.setDeductionsCnaps(cnaps.setScale(2, RoundingMode.HALF_UP));
             row.setDeductionsSante(sante.setScale(2, RoundingMode.HALF_UP));
 
             // Salaire Net (T = Q - R - S)
-            BigDecimal netAvantImpot = brut.subtract(cnaps).subtract(sante);
+            BigDecimal netAvantImpot = brutStrict.subtract(cnaps).subtract(sante);
             if (netAvantImpot.compareTo(BigDecimal.ZERO) < 0) {
                 netAvantImpot = BigDecimal.ZERO;
             }

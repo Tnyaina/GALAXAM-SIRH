@@ -14,8 +14,13 @@ import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.api.dto.paie.stc.*;
 import mg.galaxam.sirh.model.conge.VSoldeCongeEmploye;
+import mg.galaxam.sirh.model.contrat.engine.AncienneteEngine;
+import mg.galaxam.sirh.model.employe.EmployeEnfant;
+import mg.galaxam.sirh.model.paie.BulletinPaie;
 import mg.galaxam.sirh.model.paie.PaiePret;
 import mg.galaxam.sirh.model.paie.PaieStc;
+import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
 import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.stereotype.Service;
@@ -28,10 +33,24 @@ import org.springframework.stereotype.Service;
 public class StcService {
 
     private final DataSource dataSource;
+    private final CalculateurPaieEngine calculateurPaieEngine;
+    private final AncienneteEngine ancienneteEngine;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public StcService(DataSource dataSource, CalculateurPaieEngine calculateurPaieEngine, AncienneteEngine ancienneteEngine) {
+        this.dataSource = dataSource;
+        this.calculateurPaieEngine = calculateurPaieEngine != null ? calculateurPaieEngine : new CalculateurPaieEngine();
+        this.ancienneteEngine = ancienneteEngine != null ? ancienneteEngine : new AncienneteEngine();
+    }
 
     public StcService(DataSource dataSource) {
-        this.dataSource = dataSource;
+        this(dataSource, new CalculateurPaieEngine(), new AncienneteEngine());
     }
+
+    public StcService() {
+        this(null, new CalculateurPaieEngine(), new AncienneteEngine());
+    }
+
 
     // =========================================================================
     // 1. PRÉPARATION ADMINISTRATIVE & COLLECTE DES DROITS
@@ -49,8 +68,8 @@ public class StcService {
         prep.setMotifRupture(motif != null ? motif : "DEMISSION");
 
         // 1. Informations de l'employé et affectation
-        String sqlEmp = "SELECT e.matricule, e.nom, e.prenom, eac.salaire_base, " +
-                "f.libelle AS fonction_nom, d.libelle AS dept_nom, s.libelle AS site_nom, " +
+        String sqlEmp = "SELECT e.matricule, e.nom, e.prenom, e.cin_numero, e.cin_date_delivrance, e.cin_lieu_delivrance, e.num_affiliation_cnaps, " +
+                "eac.salaire_base, f.libelle AS fonction_nom, d.libelle AS dept_nom, s.libelle AS site_nom, s.code_site, " +
                 "cat.code AS cat_code, ct.date_debut AS date_embauche " +
                 "FROM employe e " +
                 "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
@@ -66,35 +85,98 @@ public class StcService {
         BigDecimal salaireBase = BigDecimal.ZERO;
         String catPro = "AGENT";
 
+        boolean foundEmp = false;
         try (PreparedStatement ps = c.prepareStatement(sqlEmp)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
+                    foundEmp = true;
                     prep.setMatricule(rs.getString("matricule"));
                     String nom = rs.getString("nom");
                     String prenom = rs.getString("prenom");
                     prep.setNomComplet(((nom != null ? nom : "") + " " + (prenom != null ? prenom : "")).trim());
+                    prep.setCinNumero(rs.getString("cin_numero"));
+                    prep.setCinDateDelivrance(rs.getDate("cin_date_delivrance"));
+                    prep.setCinLieuDelivrance(rs.getString("cin_lieu_delivrance"));
+                    prep.setNumeroCnaps(rs.getString("num_affiliation_cnaps"));
                     prep.setIntitulePoste(rs.getString("fonction_nom") != null ? rs.getString("fonction_nom") : "Collaborateur");
                     prep.setDepartement(rs.getString("dept_nom"));
                     prep.setSite(rs.getString("site_nom"));
+                    prep.setCodeSite(rs.getString("code_site"));
                     catPro = rs.getString("cat_code") != null ? rs.getString("cat_code") : "AGENT";
                     prep.setCategorieProfessionnelle(catPro);
                     salaireBase = rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO;
                     prep.setSalaireBase(salaireBase);
                     dateEmbauche = rs.getDate("date_embauche");
                     prep.setDateEmbauche(dateEmbauche);
-                } else {
-                    throw new IllegalArgumentException("Dossier actif introuvable pour l'employé ID: " + idEmploye);
                 }
             }
         }
 
+        if (!foundEmp) {
+            // Fallback : Si l'employé a déjà été clôturé administrativement (ex: workflow RH de rupture exécuté au préalable),
+            // on récupère sa dernière affectation connue pour permettre le calcul et la régularisation du STC.
+            String sqlFallback = "SELECT e.matricule, e.nom, e.prenom, e.cin_numero, e.cin_date_delivrance, e.cin_lieu_delivrance, e.num_affiliation_cnaps, " +
+                    "eac.salaire_base, f.libelle AS fonction_nom, d.libelle AS dept_nom, s.libelle AS site_nom, s.code_site, " +
+                    "cat.code AS cat_code, ct.date_debut AS date_embauche " +
+                    "FROM employe e " +
+                    "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
+                    "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
+                    "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
+                    "LEFT JOIN ref_departement d ON eac.id_departement = d.id_departement " +
+                    "LEFT JOIN ref_site s ON eac.id_site = s.id_site " +
+                    "LEFT JOIN ref_categorie_professionnelle cat ON eac.id_categorie_professionnelle = cat.id_categorie_professionnelle " +
+                    "WHERE e.id_employe = ? " +
+                    "ORDER BY eac.date_debut DESC, eac.id_affectation DESC LIMIT 1";
+            try (PreparedStatement ps = c.prepareStatement(sqlFallback)) {
+                ps.setInt(1, idEmploye);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        foundEmp = true;
+                        prep.setMatricule(rs.getString("matricule"));
+                        String nom = rs.getString("nom");
+                        String prenom = rs.getString("prenom");
+                        prep.setNomComplet(((nom != null ? nom : "") + " " + (prenom != null ? prenom : "")).trim());
+                        prep.setCinNumero(rs.getString("cin_numero"));
+                        prep.setCinDateDelivrance(rs.getDate("cin_date_delivrance"));
+                        prep.setCinLieuDelivrance(rs.getString("cin_lieu_delivrance"));
+                        prep.setNumeroCnaps(rs.getString("num_affiliation_cnaps"));
+                        prep.setIntitulePoste(rs.getString("fonction_nom") != null ? rs.getString("fonction_nom") : "Collaborateur");
+                        prep.setDepartement(rs.getString("dept_nom"));
+                        prep.setSite(rs.getString("site_nom"));
+                        prep.setCodeSite(rs.getString("code_site"));
+                        catPro = rs.getString("cat_code") != null ? rs.getString("cat_code") : "AGENT";
+                        prep.setCategorieProfessionnelle(catPro);
+                        salaireBase = rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO;
+                        prep.setSalaireBase(salaireBase);
+                        dateEmbauche = rs.getDate("date_embauche");
+                        prep.setDateEmbauche(dateEmbauche);
+                    }
+                }
+            }
+        }
+
+        if (!foundEmp) {
+            throw new IllegalArgumentException("Dossier de carrière introuvable pour l'employé ID: " + idEmploye);
+        }
+
+        // Nombre d'enfants à charge éligibles à la déduction IRSA
+        try {
+            int nbEnfants = EmployeEnfant.nbEnfantsEligibles(idEmploye, dateDepartEffective, c);
+            prep.setNbEnfantsACharge(nbEnfants);
+        } catch (Exception ignored) {}
+
+
         // Taux horaire légal (173.33h mensuelles)
-        BigDecimal tauxHoraire = salaireBase.divide(new BigDecimal("173.33"), 4, RoundingMode.HALF_UP);
+        BigDecimal tauxHoraire = salaireBase.divide(PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES, 4, RoundingMode.HALF_UP);
         prep.setTauxHoraire(tauxHoraire);
 
-        // 2. Ancienneté
-        if (dateEmbauche != null) {
+        // 2. Ancienneté via AncienneteEngine (décompte complet des contrats successifs)
+        AncienneteEngine.AncienneteBilan bilan = calculerAncienneteEmploye(idEmploye, dateDepartEffective, c);
+        if (bilan != null && bilan.ansEffectifs() > 0 || (bilan != null && bilan.moisEffectifs() > 0)) {
+            prep.setAncienneteAnnees(bilan.ansEffectifs());
+            prep.setAncienneteMois(bilan.moisEffectifs());
+        } else if (dateEmbauche != null) {
             LocalDate dDebut = dateEmbauche.toLocalDate();
             LocalDate dFin = dateDepartEffective.toLocalDate();
             if (!dFin.isBefore(dDebut)) {
@@ -143,21 +225,8 @@ public class StcService {
                 : BigDecimal.ZERO;
         prep.setSoldeCongesRestant(soldeJours);
 
-        // Taux journalier valorisé TCONGE issu du Grand-Livre
-        BigDecimal tauxConge = BigDecimal.ZERO;
-        String sqlTauxConge = "SELECT taux_journalier_conge FROM conge_journal_droit " +
-                "WHERE id_employe = ? ORDER BY annee DESC, mois DESC LIMIT 1";
-        try (PreparedStatement psTC = c.prepareStatement(sqlTauxConge)) {
-            psTC.setInt(1, idEmploye);
-            try (ResultSet rsTC = psTC.executeQuery()) {
-                if (rsTC.next()) {
-                    tauxConge = rsTC.getBigDecimal("taux_journalier_conge");
-                }
-            }
-        }
-        if (tauxConge == null || tauxConge.compareTo(BigDecimal.ZERO) <= 0) {
-            tauxConge = salaireBase.divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
-        }
+        // Taux journalier valorisé TCONGE issu du Grand-Livre (mutualisé)
+        BigDecimal tauxConge = getTauxJournalierDernier(idEmploye, salaireBase, c);
         prep.setTauxJournalierConge(tauxConge);
 
         BigDecimal iccpEstimee = soldeJours.multiply(tauxConge).setScale(2, RoundingMode.HALF_UP);
@@ -238,16 +307,24 @@ public class StcService {
         res.ajouterLigne("SALAIRE_PRORATA", "Salaire au prorata du dernier mois (" + joursTravailles + "j/30)",
                 "GAIN", prep.getSalaireBase(), null, salaireProrata);
 
-        // 2. ICCP (Indemnité Compensatrice de Congés Payés)
+        // 2. ICCP (Indemnité Compensatrice de Congés Payés) ou Retenue pour congés par anticipation
         BigDecimal soldeConges = req.getSoldeConges() != null ? req.getSoldeConges() : prep.getSoldeCongesRestant();
         BigDecimal tauxConge = prep.getTauxJournalierConge();
         BigDecimal iccp = soldeConges.multiply(tauxConge).setScale(2, RoundingMode.HALF_UP);
         res.setSoldeCongesRestant(soldeConges);
         res.setTauxJournalierConge(tauxConge);
         res.setIndemniteCongesPayes(iccp);
+
+        BigDecimal gainConge = BigDecimal.ZERO;
+        BigDecimal retenueCongeAnticipe = BigDecimal.ZERO;
         if (iccp.compareTo(BigDecimal.ZERO) > 0) {
+            gainConge = iccp;
             res.ajouterLigne("INDEMNITE_COMPENSATRICE_CONGE", "Indemnité Compensatrice de Congés Payés (" + soldeConges + "j x " + tauxConge + " Ar)",
                     "GAIN", tauxConge, null, iccp);
+        } else if (iccp.compareTo(BigDecimal.ZERO) < 0) {
+            retenueCongeAnticipe = iccp.abs();
+            res.ajouterLigne("RETENUE_CONGE_ANTICIPE", "Retenue pour congés pris par anticipation (" + soldeConges.abs() + "j x " + tauxConge + " Ar)",
+                    "RETENUE", tauxConge, null, retenueCongeAnticipe);
         }
 
         // 3. Indemnités de rupture (Préavis & Licenciement)
@@ -281,28 +358,42 @@ public class StcService {
             res.ajouterLigne("AUTRES_INDEMNITES_DEPART", libAutre, "GAIN", null, null, autresIndemnites);
         }
 
-        // Total Brut STC
-        BigDecimal totalBrut = salaireProrata.add(iccp).add(indemnitePreavis).add(indemniteLicenciement).add(autresIndemnites);
+        // Total Brut STC (Somme des gains bruts)
+        BigDecimal totalBrut = salaireProrata.add(gainConge).add(indemnitePreavis).add(indemniteLicenciement).add(autresIndemnites);
         res.setTotalBrutStc(totalBrut);
 
         // 4. Cotisations Sociales & Assiette Fiscale
-        // Note légale : L'indemnité de licenciement est exonérée de cotisations et d'IRSA
-        BigDecimal assietteSociale = salaireProrata.add(iccp).add(indemnitePreavis);
+        // Note légale : L'indemnité de licenciement est exonérée de cotisations et d'IRSA.
+        // Les congés pris par anticipation s'imputent sur l'assiette brute soumise.
+        BigDecimal assietteBruteSoumise = salaireProrata.add(gainConge).subtract(retenueCongeAnticipe).max(BigDecimal.ZERO);
+        BigDecimal assietteSociale = assietteBruteSoumise.add(indemnitePreavis);
 
-        // CNaPS 1% plafonnée (8 x SME national = 8 x 262 680 = 2 101 440 Ar)
-        BigDecimal plafondCnaps = new BigDecimal("2101440.00");
-        BigDecimal baseCnaps = assietteSociale.min(plafondCnaps);
-        BigDecimal cnapsSal = baseCnaps.multiply(new BigDecimal("0.01")).setScale(2, RoundingMode.HALF_UP);
+        // Chargement dynamique des règles légales et plafonds
+        PaieConfigLegale configLegale = chargerConfigLegale(req.getDateDepart(), c);
+        BigDecimal smigRef = configLegale != null && configLegale.getSmeNational() != null
+                ? configLegale.getSmeNational()
+                : CalculateurPaieEngine.SMIG_DEFAUT;
+
+        // CNaPS 1% salariale, plafonnée à 8 x SME national
+        var resCnaps = this.calculateurPaieEngine.calculerCnaps(assietteSociale, smigRef, 0.01, 0.13);
+        BigDecimal baseCnaps = resCnaps.assiette();
+        BigDecimal cnapsSal = resCnaps.partSalariale();
         res.setCotisationCnaps(cnapsSal);
         if (cnapsSal.compareTo(BigDecimal.ZERO) > 0) {
             res.ajouterLigne("COTISATION_CNAPS_SAL", "Cotisation CNaPS Salariale (1%)", "RETENUE", baseCnaps, new BigDecimal("1.00"), cnapsSal);
         }
 
-        // Santé 1% (non plafonnée)
-        BigDecimal santeSal = assietteSociale.multiply(new BigDecimal("0.01")).setScale(2, RoundingMode.HALF_UP);
+        // Santé (OMSI 1.5% si Toamasina/TMM, OSTIE 1% sinon)
+        boolean estToamasina = "TMM".equalsIgnoreCase(prep.getCodeSite()) ||
+                (prep.getSite() != null && prep.getSite().toUpperCase().contains("TOAMASINA"));
+        double tauxSanteSal = estToamasina ? 0.015 : 0.01;
+        double tauxSantePat = estToamasina ? 0.055 : 0.05;
+        var resSante = this.calculateurPaieEngine.calculerSante(assietteSociale, tauxSanteSal, tauxSantePat);
+        BigDecimal santeSal = resSante.partSalariale();
         res.setCotisationSante(santeSal);
         if (santeSal.compareTo(BigDecimal.ZERO) > 0) {
-            res.ajouterLigne("COTISATION_SANTE_SAL", "Cotisation Santé Salariale (1%)", "RETENUE", assietteSociale, new BigDecimal("1.00"), santeSal);
+            String libelleSante = estToamasina ? "Cotisation OMSI Salariale (1.5%)" : "Cotisation OSTIE Salariale (1%)";
+            res.ajouterLigne("COTISATION_SANTE_SAL", libelleSante, "RETENUE", assietteSociale, BigDecimal.valueOf(tauxSanteSal * 100), santeSal);
         }
 
         BigDecimal totalCotis = cnapsSal.add(santeSal);
@@ -312,17 +403,23 @@ public class StcService {
         BigDecimal netImposable = assietteSociale.subtract(totalCotis).max(BigDecimal.ZERO);
         res.setNetImposable(netImposable);
 
-        // Calcul IRSA selon barème progressif (via CalculateurPaieEngine)
-        CalculateurPaieEngine engine = new CalculateurPaieEngine();
-        List<CalculateurPaieEngine.TrancheIrsa> tranches = chargerTranchesIrsa(c);
-        BigDecimal irsaNet = engine.calculerIrsa(netImposable, tranches, 0);
+        // Calcul IRSA selon barème progressif dynamique (via CalculateurPaieEngine)
+        List<CalculateurPaieEngine.TrancheIrsa> tranches = chargerTranchesIrsa(configLegale, c);
+        int nbEnfants = prep.getNbEnfantsACharge();
+        BigDecimal irsaNet = this.calculateurPaieEngine.calculerIrsa(netImposable, tranches, nbEnfants);
         res.setIrsaNet(irsaNet);
         if (irsaNet.compareTo(BigDecimal.ZERO) > 0) {
-            res.ajouterLigne("IMPOT_IRSA_NET", "Retenue à la Source IRSA (Barème Progressif LF 2026)", "RETENUE", netImposable, null, irsaNet);
+            String libelleIrsa = "Retenue à la Source IRSA (Barème Progressif " +
+                    (configLegale != null && configLegale.getCodeVersion() != null ? configLegale.getCodeVersion() : "LF") + ")";
+            res.ajouterLigne("IMPOT_IRSA_NET", libelleIrsa, "RETENUE", netImposable, null, irsaNet);
+        }
+        if (nbEnfants > 0) {
+            BigDecimal deductionMnt = CalculateurPaieEngine.DEDUCTION_PAR_ENFANT.multiply(BigDecimal.valueOf(nbEnfants));
+            res.ajouterLigne("DEDUCTION_CHARGE_FAMILLE", "Déduction IRSA Charges Familiales (" + nbEnfants + " enfant(s))", "INFO", null, null, deductionMnt);
         }
 
         // Net avant déductions d'engagements personnels
-        BigDecimal netAvantEngagements = totalBrut.subtract(totalCotis).subtract(irsaNet).max(BigDecimal.ZERO);
+        BigDecimal netAvantEngagements = totalBrut.subtract(retenueCongeAnticipe).subtract(totalCotis).subtract(irsaNet).max(BigDecimal.ZERO);
 
         // 5. Apurements des Engagements Financiers
         // Apurement Intégral des Prêts (PaiePret)
@@ -357,11 +454,17 @@ public class StcService {
             res.ajouterLigne("AUTRES_RETENUES_STC", libAutreDed, "RETENUE", null, null, autresADeduire);
         }
 
-        // 6. Net Final à Payer (arrondi bancaire à la dizaine la plus proche)
+        // 6. Net Final à Payer (arrondi bancaire officiel Ariary à la dizaine la plus proche)
         BigDecimal netFinalNonArrondi = netApresAvances.subtract(autresADeduire).max(BigDecimal.ZERO);
-        long centimes = netFinalNonArrondi.multiply(BigDecimal.ONE).longValue();
-        long arrondiDizaine = (centimes / 10L) * 10L;
-        BigDecimal netFinal = new BigDecimal(arrondiDizaine).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal netFinal = BulletinPaie.arrondirDizaineAriary(netFinalNonArrondi);
+        BigDecimal ecartArrondi = netFinal.subtract(netFinalNonArrondi);
+        if (ecartArrondi.compareTo(BigDecimal.ZERO) != 0) {
+            if (ecartArrondi.compareTo(BigDecimal.ZERO) > 0) {
+                res.ajouterLigne("AJUSTEMENT_ARRONDI", "Ajustement d'arrondi monétaire", "GAIN", null, null, ecartArrondi);
+            } else {
+                res.ajouterLigne("AJUSTEMENT_ARRONDI", "Ajustement d'arrondi monétaire", "RETENUE", null, null, ecartArrondi.abs());
+            }
+        }
         res.setNetAPayerStc(netFinal);
 
         res.setStatut(req.isSimulation() ? "SIMULATION" : "VALIDE");
@@ -433,7 +536,7 @@ public class StcService {
 
         // 3. Apurement effectif des prêts en cours (PaiePret)
         if (simulation.getSoldePretsDeduit().compareTo(BigDecimal.ZERO) > 0) {
-            PaiePret.solderPretsPourStc(req.getIdEmploye(), null, c);
+            PaiePret.solderPretsPourStc(req.getIdEmploye(), simulation.getSoldePretsDeduit(), null, c);
         }
 
         // 4. Clôture des avances en cours
@@ -446,7 +549,40 @@ public class StcService {
             psAv.executeUpdate();
         }
 
-        // 5. Audit Log
+        // 5. Désactivation optionnelle de l'employé et clôture carrière
+        // Note d'architecture (Règle Métier SIRH ACT-018 / ACT-025) :
+        // La désactivation administrative standard de l'employé incombe au Workflow de Rupture RH (WorkflowRhService).
+        // Si aucun workflow formel n'a été exécuté en amont et que le gestionnaire a requis `desactiverEmploye = true`,
+        // le statut de l'employé, son contrat et son affectation carrière active sont clos pour éviter les salariés "fantômes".
+        if (req.isDesactiverEmploye()) {
+            try (PreparedStatement psEmp = c.prepareStatement(
+                    "UPDATE employe SET est_actif = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id_employe = ?")) {
+                psEmp.setInt(1, req.getIdEmploye());
+                psEmp.executeUpdate();
+            }
+            // Clôture synchrone de l'affectation active pour cohérence stricte de la base
+            String sqlClotureAff = "UPDATE employe_affectation_carriere SET " +
+                    "id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'INACTIF' LIMIT 1), id_statut_rh), " +
+                    "date_fin = COALESCE(date_fin, ?), updated_at = CURRENT_TIMESTAMP " +
+                    "WHERE id_employe = ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF' LIMIT 1)";
+            try (PreparedStatement psAff = c.prepareStatement(sqlClotureAff)) {
+                psAff.setDate(1, req.getDateDepart());
+                psAff.setInt(2, req.getIdEmploye());
+                psAff.executeUpdate();
+            }
+            // Clôture synchrone du contrat de travail actif pour éliminer les contrats fantômes
+            String sqlClotureContrat = "UPDATE contrat_travail SET " +
+                    "id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'CLOTURE' OR code = 'ROMPU' LIMIT 1), id_statut_rh), " +
+                    "date_fin = COALESCE(date_fin, ?), updated_at = CURRENT_TIMESTAMP " +
+                    "WHERE id_employe = ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF' LIMIT 1)";
+            try (PreparedStatement psCt = c.prepareStatement(sqlClotureContrat)) {
+                psCt.setDate(1, req.getDateDepart());
+                psCt.setInt(2, req.getIdEmploye());
+                psCt.executeUpdate();
+            }
+        }
+
+        // 6. Audit Log
         AuditLog.audit(c, "VALIDATION_STC", "paie_stc", String.valueOf(entity.getIdStc()), null, entity);
 
         return simulation;
@@ -470,6 +606,10 @@ public class StcService {
         r.setIdEmploye(s.getIdEmploye());
         r.setMatricule(prep.getMatricule());
         r.setNomComplet(prep.getNomComplet());
+        r.setCinNumero(prep.getCinNumero());
+        r.setCinDateDelivrance(prep.getCinDateDelivrance());
+        r.setCinLieuDelivrance(prep.getCinLieuDelivrance());
+        r.setNumeroCnaps(prep.getNumeroCnaps());
         r.setIntitulePoste(prep.getIntitulePoste());
         r.setDepartement(prep.getDepartement());
         r.setSite(prep.getSite());
@@ -481,7 +621,18 @@ public class StcService {
         r.setSalaireProrata(s.getSalaireProrata());
         r.setSoldeCongesRestant(s.getSoldeCongesRestant());
         r.setTauxJournalierConge(s.getTauxJournalierConge());
-        r.setIndemniteCongesPayes(s.getIndemniteCongesPayes());
+
+        BigDecimal iccp = s.getIndemniteCongesPayes() != null ? s.getIndemniteCongesPayes() : BigDecimal.ZERO;
+        BigDecimal retenueCongeAnticipe = BigDecimal.ZERO;
+        if (iccp.compareTo(BigDecimal.ZERO) < 0) {
+            retenueCongeAnticipe = iccp.abs();
+            r.setIndemniteCongesPayes(BigDecimal.ZERO);
+            r.setAutresDeductions((s.getAutresDeductions() != null ? s.getAutresDeductions() : BigDecimal.ZERO).add(retenueCongeAnticipe));
+        } else {
+            r.setIndemniteCongesPayes(iccp);
+            r.setAutresDeductions(s.getAutresDeductions() != null ? s.getAutresDeductions() : BigDecimal.ZERO);
+        }
+
         r.setMoisPreavis(s.getMoisPreavis());
         r.setIndemnitePreavis(s.getIndemnitePreavis());
         r.setIndemniteLicenciement(s.getIndemniteLicenciement());
@@ -494,10 +645,21 @@ public class StcService {
 
         r.setSoldePretsApure(s.getSoldePretsDeduit());
         r.setSoldeAvancesApure(s.getSoldeAvancesDeduit());
-        r.setAutresDeductions(s.getAutresDeductions());
         BigDecimal totalRetenues = s.getTotalCotisationsSociales().add(s.getTotalIrsa())
-                .add(s.getSoldePretsDeduit()).add(s.getSoldeAvancesDeduit()).add(s.getAutresDeductions());
-        r.setTotalRetenues(totalRetenues);
+                .add(s.getSoldePretsDeduit()).add(s.getSoldeAvancesDeduit()).add(r.getAutresDeductions());
+
+        // Réconciliation stricte de l'arrondi légal à la dizaine d'Ariary pour la quittance imprimée
+        BigDecimal deltaArrondi = s.getNetAPayerStc().subtract(s.getTotalBrutStc().subtract(totalRetenues));
+        if (deltaArrondi.compareTo(BigDecimal.ZERO) > 0) {
+            r.setTotalBrut(s.getTotalBrutStc().add(deltaArrondi));
+            r.setTotalRetenues(totalRetenues);
+        } else if (deltaArrondi.compareTo(BigDecimal.ZERO) < 0) {
+            r.setTotalBrut(s.getTotalBrutStc());
+            r.setTotalRetenues(totalRetenues.add(deltaArrondi.abs()));
+        } else {
+            r.setTotalBrut(s.getTotalBrutStc());
+            r.setTotalRetenues(totalRetenues);
+        }
 
         r.setNetAPayer(s.getNetAPayerStc());
         r.setModeReglement(s.getModeReglement());
@@ -517,24 +679,110 @@ public class StcService {
         return PaieStc.lister(c);
     }
 
-    private List<CalculateurPaieEngine.TrancheIrsa> chargerTranchesIrsa(Connection c) {
+    private List<CalculateurPaieEngine.TrancheIrsa> chargerTranchesIrsa(PaieConfigLegale configLegale, Connection c) throws Exception {
         List<CalculateurPaieEngine.TrancheIrsa> list = new ArrayList<>();
-        String sql = "SELECT tranche_min, tranche_max, taux FROM bareme_irsa " +
-                "WHERE id_config_legale = (SELECT id_config_legale FROM paie_config_legale WHERE code_version = 'LF_2026' LIMIT 1) " +
-                "ORDER BY numero_tranche ASC";
-        try (PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                list.add(new CalculateurPaieEngine.TrancheIrsa(
-                        rs.getBigDecimal("tranche_min"),
-                        rs.getBigDecimal("tranche_max"),
-                        rs.getDouble("taux")
-                ));
+        String sql;
+        if (configLegale != null && configLegale.getIdConfigLegale() != null) {
+            sql = "SELECT tranche_min, tranche_max, taux FROM bareme_irsa " +
+                    "WHERE id_config_legale = ? " +
+                    "ORDER BY numero_tranche ASC";
+        } else {
+            sql = "SELECT tranche_min, tranche_max, taux FROM bareme_irsa " +
+                    "WHERE id_config_legale = (SELECT id_config_legale FROM paie_config_legale " +
+                    "WHERE date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) " +
+                    "ORDER BY date_debut DESC LIMIT 1) " +
+                    "ORDER BY numero_tranche ASC";
+        }
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            if (configLegale != null && configLegale.getIdConfigLegale() != null) {
+                ps.setInt(1, configLegale.getIdConfigLegale());
             }
-        } catch (Exception ignored) {
-            // Utilise le barème par défaut de CalculateurPaieEngine
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new CalculateurPaieEngine.TrancheIrsa(
+                            rs.getBigDecimal("tranche_min"),
+                            rs.getBigDecimal("tranche_max"),
+                            rs.getDouble("taux")
+                    ));
+                }
+            }
+        }
+        if (list.isEmpty()) {
+            throw new IllegalStateException("Aucune tranche IRSA active trouvée en base pour la configuration légale active.");
         }
         return list;
+    }
+
+    private List<CalculateurPaieEngine.TrancheIrsa> chargerTranchesIrsa(Connection c) throws Exception {
+        return chargerTranchesIrsa(null, c);
+    }
+
+    private PaieConfigLegale chargerConfigLegale(Date dateDepart, Connection c) {
+        if (dateDepart != null) {
+            try {
+                PaieConfigLegale cfg = PaieConfigLegale.findActiveAt(c, dateDepart.toLocalDate());
+                if (cfg != null) return cfg;
+            } catch (Exception ignored) {}
+        }
+        try {
+            return PaieConfigLegale.findActiveAt(c, LocalDate.now());
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    public static BigDecimal getTauxJournalierDernier(int idEmploye, BigDecimal salaireBaseFallback, Connection c) {
+        String sqlTauxConge = "SELECT taux_journalier_conge FROM conge_journal_droit " +
+                "WHERE id_employe = ? ORDER BY annee DESC, mois DESC LIMIT 1";
+        try (PreparedStatement psTC = c.prepareStatement(sqlTauxConge)) {
+            psTC.setInt(1, idEmploye);
+            try (ResultSet rsTC = psTC.executeQuery()) {
+                if (rsTC.next()) {
+                    BigDecimal taux = rsTC.getBigDecimal("taux_journalier_conge");
+                    if (taux != null && taux.compareTo(BigDecimal.ZERO) > 0) {
+                        return taux;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        if (salaireBaseFallback != null && salaireBaseFallback.compareTo(BigDecimal.ZERO) > 0) {
+            return salaireBaseFallback.divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private AncienneteEngine.AncienneteBilan calculerAncienneteEmploye(int idEmploye, Date dateDepart, Connection c) {
+        String sqlContrat = "SELECT ct.id_contrat FROM contrat_travail ct " +
+                "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                "WHERE ct.id_employe = ? ORDER BY ct.date_debut DESC LIMIT 1";
+        try (PreparedStatement ps = c.prepareStatement(sqlContrat)) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    int idContrat = rs.getInt("id_contrat");
+                    String sqlAll = "SELECT id_contrat, date_debut, date_fin, id_contrat_precedent FROM contrat_travail WHERE id_employe = ?";
+                    List<AncienneteEngine.IntervalleContrat> contrats = new ArrayList<>();
+                    try (PreparedStatement psAll = c.prepareStatement(sqlAll)) {
+                        psAll.setInt(1, idEmploye);
+                        try (ResultSet rsAll = psAll.executeQuery()) {
+                            while (rsAll.next()) {
+                                Date dDeb = rsAll.getDate("date_debut");
+                                Date dFin = rsAll.getDate("date_fin");
+                                Integer idPrec = rsAll.getObject("id_contrat_precedent") != null ? rsAll.getInt("id_contrat_precedent") : null;
+                                contrats.add(new AncienneteEngine.IntervalleContrat(
+                                        rsAll.getInt("id_contrat"),
+                                        dDeb != null ? dDeb.toLocalDate() : null,
+                                        dFin != null ? dFin.toLocalDate() : null,
+                                        idPrec
+                                ));
+                            }
+                        }
+                    }
+                    LocalDate refDate = dateDepart != null ? dateDepart.toLocalDate() : LocalDate.now();
+                    return ancienneteEngine.evaluerAnciennete(contrats, idContrat, refDate);
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     private String convertirEnLettres(BigDecimal montant) {

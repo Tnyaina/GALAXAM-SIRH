@@ -13,10 +13,16 @@ public class StcPreparationDTO {
     private Integer idEmploye;
     private String matricule;
     private String nomComplet;
+    private String cinNumero;
+    private Date cinDateDelivrance;
+    private String cinLieuDelivrance;
+    private String numeroCnaps;
     private String intitulePoste;
     private String departement;
     private String site;
+    private String codeSite;
     private String categorieProfessionnelle;
+    private int nbEnfantsACharge = 0;
     private Date dateEmbauche;
     private Date dateDepart;
     private String motifRupture;
@@ -133,4 +139,22 @@ public class StcPreparationDTO {
 
     public String getCodePeriodePaie() { return codePeriodePaie; }
     public void setCodePeriodePaie(String codePeriodePaie) { this.codePeriodePaie = codePeriodePaie; }
+
+    public String getCodeSite() { return codeSite; }
+    public void setCodeSite(String codeSite) { this.codeSite = codeSite; }
+
+    public int getNbEnfantsACharge() { return nbEnfantsACharge; }
+    public void setNbEnfantsACharge(int nbEnfantsACharge) { this.nbEnfantsACharge = nbEnfantsACharge; }
+
+    public String getCinNumero() { return cinNumero; }
+    public void setCinNumero(String cinNumero) { this.cinNumero = cinNumero; }
+
+    public Date getCinDateDelivrance() { return cinDateDelivrance; }
+    public void setCinDateDelivrance(Date cinDateDelivrance) { this.cinDateDelivrance = cinDateDelivrance; }
+
+    public String getCinLieuDelivrance() { return cinLieuDelivrance; }
+    public void setCinLieuDelivrance(String cinLieuDelivrance) { this.cinLieuDelivrance = cinLieuDelivrance; }
+
+    public String getNumeroCnaps() { return numeroCnaps; }
+    public void setNumeroCnaps(String numeroCnaps) { this.numeroCnaps = numeroCnaps; }
 }
