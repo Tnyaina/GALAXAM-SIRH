@@ -145,7 +145,13 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
       codeStatut = 'FERIE_CHOME';
     }
   } else if (isCongeFull) {
-    codeStatut = 'CONGE';
+    if (row.congePaye === false || row.codeStatut === 'ABSENCE_JUSTIFIEE') {
+      codeStatut = 'ABSENCE_JUSTIFIEE';
+    } else if (row.congeDecompteSolde === false || row.codeStatut === 'DISPENSE_POINTAGE') {
+      codeStatut = 'DISPENSE_POINTAGE';
+    } else {
+      codeStatut = 'CONGE';
+    }
   } else if (hasValidationError) {
     codeStatut = 'ANOMALIE_SAISIE';
   } else if (em === null && sm === null && ea === null && sa === null) {

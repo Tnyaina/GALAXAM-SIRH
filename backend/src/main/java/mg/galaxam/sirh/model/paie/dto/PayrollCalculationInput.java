@@ -65,6 +65,8 @@ public class PayrollCalculationInput {
     private BigDecimal primeAssiduiteForfait = BigDecimal.ZERO;
     private BigDecimal primeExceptionnelle = BigDecimal.ZERO;
     private String motifPrimeExceptionnelle;
+    private BigDecimal autimp = BigDecimal.ZERO; // Autres primes/gains imposables
+    private BigDecimal extraDeplacement = BigDecimal.ZERO; // Indemnité extra déplacement (non imposable)
 
     // 5. Indemnités non imposables (Repas, Transport, Déplacement)
     private BigDecimal indemniteTransport; // Forfait site proratisé (TNR 31 200, TMM 53 200)
@@ -86,8 +88,15 @@ public class PayrollCalculationInput {
     private double tauxSantePatronal = 0.05; // OSTIE 5% (TNR) ou OMSI 5.5% (TMM)
     private double tauxFmfpPatronal = 0.01;  // FMFP 1% patronal
 
+    // 7.1 Régime fiscal et social (piloté par ref_type_intervenant)
+    private boolean soumisCnaps = true;
+    private boolean soumisSante = true;
+    private boolean soumisIrsa = true;
+    private boolean soumisIsi5 = false;
+
     // 8. Trésorerie & Prêts
     private List<PaieAvanceAcompte> avancesAcomptes = new ArrayList<>();
+    private List<Integer> idsMouvementsGains = new ArrayList<>();
     private PaiePretEcheance echeancePretActive;
 
     // 9. Options & Flags
@@ -95,6 +104,7 @@ public class PayrollCalculationInput {
     private boolean calculerPrimeAncienneteAuto = false;
     private boolean simulation = true;
     private BigDecimal nbHeuresAbsence = BigDecimal.ZERO;
+    private BigDecimal tauxJournalierConge; // TCONGE dynamique (valorisation grand-livre congés)
     private String modeCalculAbsence = "HEURES_REELLES"; // "HEURES_REELLES" (défaut opposable) ou "TRENTIEME"
     private boolean estPlafonneSante = true; // Plafonnement OSTIE / OMSI à 8x SME
     private boolean indemniteRepasImposable = false;
@@ -120,10 +130,23 @@ public class PayrollCalculationInput {
      */
     public BigDecimal getTauxJournalierTrentieme() {
         if (salaireBaseContractuel != null && salaireBaseContractuel.compareTo(BigDecimal.ZERO) > 0) {
-            return salaireBaseContractuel.divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
+            return salaireBaseContractuel.divide(new BigDecimal("30.0"), 4, RoundingMode.HALF_UP);
         }
         return BigDecimal.ZERO;
     }
+
+    /**
+     * Retourne le taux journalier de congé effectif (TCONGE dynamique si renseigné, sinon fallback sur Base / 30).
+     */
+    public BigDecimal getTauxJournalierCongeEffectif() {
+        if (tauxJournalierConge != null && tauxJournalierConge.compareTo(BigDecimal.ZERO) > 0) {
+            return tauxJournalierConge;
+        }
+        return getTauxJournalierTrentieme();
+    }
+
+    public BigDecimal getTauxJournalierConge() { return tauxJournalierConge; }
+    public void setTauxJournalierConge(BigDecimal tauxJournalierConge) { this.tauxJournalierConge = tauxJournalierConge; }
 
     // Getters & Setters
     public Integer getIdEmploye() { return idEmploye; }
@@ -163,7 +186,38 @@ public class PayrollCalculationInput {
     public void setNomFiliale(String nomFiliale) { this.nomFiliale = nomFiliale; }
 
     public String getRegimeIntervenant() { return regimeIntervenant; }
-    public void setRegimeIntervenant(String regimeIntervenant) { this.regimeIntervenant = regimeIntervenant; }
+    public void setRegimeIntervenant(String regimeIntervenant) {
+        this.regimeIntervenant = regimeIntervenant;
+        if (regimeIntervenant != null) {
+            switch (regimeIntervenant.trim().toUpperCase()) {
+                case "CONSULTANT":
+                    this.soumisCnaps = false;
+                    this.soumisSante = false;
+                    this.soumisIrsa = false;
+                    this.soumisIsi5 = true;
+                    break;
+                case "TEMPORAIRE":
+                    this.soumisCnaps = false;
+                    this.soumisSante = false;
+                    this.soumisIrsa = false;
+                    this.soumisIsi5 = true;
+                    break;
+                case "STAGIAIRE":
+                    this.soumisCnaps = false;
+                    this.soumisSante = false;
+                    this.soumisIrsa = false;
+                    this.soumisIsi5 = false;
+                    break;
+                case "PERMANENT":
+                default:
+                    this.soumisCnaps = true;
+                    this.soumisSante = true;
+                    this.soumisIrsa = true;
+                    this.soumisIsi5 = false;
+                    break;
+            }
+        }
+    }
 
     public String getCategorieProfessionnelle() { return categorieProfessionnelle; }
     public void setCategorieProfessionnelle(String categorieProfessionnelle) { this.categorieProfessionnelle = categorieProfessionnelle; }
@@ -258,6 +312,12 @@ public class PayrollCalculationInput {
     public String getMotifPrimeExceptionnelle() { return motifPrimeExceptionnelle; }
     public void setMotifPrimeExceptionnelle(String motifPrimeExceptionnelle) { this.motifPrimeExceptionnelle = motifPrimeExceptionnelle; }
 
+    public BigDecimal getAutimp() { return autimp; }
+    public void setAutimp(BigDecimal autimp) { this.autimp = autimp; }
+
+    public BigDecimal getExtraDeplacement() { return extraDeplacement; }
+    public void setExtraDeplacement(BigDecimal extraDeplacement) { this.extraDeplacement = extraDeplacement; }
+
     public BigDecimal getIndemniteTransport() { return indemniteTransport; }
     public void setIndemniteTransport(BigDecimal indemniteTransport) { this.indemniteTransport = indemniteTransport; }
 
@@ -303,6 +363,9 @@ public class PayrollCalculationInput {
     public List<PaieAvanceAcompte> getAvancesAcomptes() { return avancesAcomptes; }
     public void setAvancesAcomptes(List<PaieAvanceAcompte> avancesAcomptes) { this.avancesAcomptes = avancesAcomptes; }
 
+    public List<Integer> getIdsMouvementsGains() { return idsMouvementsGains; }
+    public void setIdsMouvementsGains(List<Integer> idsMouvementsGains) { this.idsMouvementsGains = idsMouvementsGains; }
+
     public PaiePretEcheance getEcheancePretActive() { return echeancePretActive; }
     public void setEcheancePretActive(PaiePretEcheance echeancePretActive) { this.echeancePretActive = echeancePretActive; }
 
@@ -326,4 +389,16 @@ public class PayrollCalculationInput {
 
     public boolean isIndemniteRepasImposable() { return indemniteRepasImposable; }
     public void setIndemniteRepasImposable(boolean indemniteRepasImposable) { this.indemniteRepasImposable = indemniteRepasImposable; }
+
+    public boolean isSoumisCnaps() { return soumisCnaps; }
+    public void setSoumisCnaps(boolean soumisCnaps) { this.soumisCnaps = soumisCnaps; }
+
+    public boolean isSoumisSante() { return soumisSante; }
+    public void setSoumisSante(boolean soumisSante) { this.soumisSante = soumisSante; }
+
+    public boolean isSoumisIrsa() { return soumisIrsa; }
+    public void setSoumisIrsa(boolean soumisIrsa) { this.soumisIrsa = soumisIrsa; }
+
+    public boolean isSoumisIsi5() { return soumisIsi5; }
+    public void setSoumisIsi5(boolean soumisIsi5) { this.soumisIsi5 = soumisIsi5; }
 }

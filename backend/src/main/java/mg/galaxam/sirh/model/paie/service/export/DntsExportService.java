@@ -55,8 +55,10 @@ public class DntsExportService {
 
         int ordre = 1;
         for (BulletinPaie bp : bulletins) {
-            // Exclure les consultants sans affiliation CNaPS
-            if ("CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) || "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant())) {
+            // Exclure les consultants et intervenants sans affiliation CNaPS
+            if ("CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) 
+                    || "TEMPORAIRE".equalsIgnoreCase(bp.getRegimeIntervenant())
+                    || "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant())) {
                 continue;
             }
 

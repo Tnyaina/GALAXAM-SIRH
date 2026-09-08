@@ -244,7 +244,7 @@ class PayrollServiceIntegrationTest {
                 // Création d'un bordereau d'honoraire pour un consultant
                 PaieHonorairePrestation hono = new PaieHonorairePrestation();
                 hono.setIdPeriodePaie(1);
-                hono.setIdIntervenant(5);
+                hono.setIdIntervenant(1);
                 hono.setNomComplet("Dr RAZAFY Hery (Consultant IT)");
                 hono.setCinOuNif("101999888777");
                 hono.setIntitulePrestation("Audit Cybersécurité et Architecture Cloud");

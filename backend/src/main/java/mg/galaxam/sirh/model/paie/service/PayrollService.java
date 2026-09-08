@@ -120,14 +120,13 @@ public class PayrollService {
 
         PayrollBatchResult batch = new PayrollBatchResult(idPeriodePaie, codePeriode);
 
-        // Liste des salariés permanents / temporaires actifs (exclusion stricte des consultants / ISI 5%)
+        // Liste de tous les intervenants actifs (Permanents, Consultants, Temporaires) recevant un bulletin de paie
         String sqlEmployes = "SELECT DISTINCT e.id_employe, e.matricule FROM employe e " +
                 "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
                 "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
                 "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
                 "LEFT JOIN ref_type_intervenant tri ON ct.id_type_intervenant = tri.id_type_intervenant " +
                 "WHERE e.est_actif = true " +
-                "AND COALESCE(tri.code, 'PERMANENT') NOT IN ('CONSULTANT', 'PRESTATAIRE', 'ISI_5') " +
                 "ORDER BY e.matricule ASC";
 
         List<Integer> idsEmployes = new ArrayList<>();
@@ -305,6 +304,9 @@ public class PayrollService {
             ps.setInt(1, idPeriodePaie);
             ps.executeUpdate();
         }
+
+        // 3. Alimentation automatique du grand-livre de valorisation des congés (OHATRA KAJY DROITS CONGES)
+        mettreAJourJournalConge(idPeriodePaie, c);
     }
 
     /**
@@ -317,6 +319,23 @@ public class PayrollService {
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriodePaie, c);
         for (BulletinPaie bp : bulletins) {
             bp.rouvrirBulletin(motif, idUtilisateur, c);
+        }
+
+        // 1. Dé-imputer les avances et mouvements variables de la période pour permettre le re-calcul
+        String sqlUnfreezeAvances = "UPDATE paie_avance_acompte SET statut = 'APPROUVE', id_bulletin = NULL " +
+                "WHERE id_periode_paie = ? AND statut = 'IMPUTE_PAIE'";
+        try (PreparedStatement ps = c.prepareStatement(sqlUnfreezeAvances)) {
+            ps.setInt(1, idPeriodePaie);
+            ps.executeUpdate();
+        }
+
+        // 2. Dé-imputer les échéances de prêts prélevées sur cette période
+        String sqlUnfreezePrets = "UPDATE paie_pret_echeance SET statut = 'A_ECHOIR', montant_preleve = 0, " +
+                "montant_restant_echeance = montant_echeance, id_bulletin = NULL, id_periode_paie = NULL " +
+                "WHERE id_periode_paie = ? AND statut IN ('PRELEVEE_EN_PAIE', 'PRELEVEE_PARTIELLEMENT')";
+        try (PreparedStatement ps = c.prepareStatement(sqlUnfreezePrets)) {
+            ps.setInt(1, idPeriodePaie);
+            ps.executeUpdate();
         }
 
         String sql = "UPDATE periode_paie SET " +
@@ -375,7 +394,11 @@ public class PayrollService {
                 "cat.code AS categorie_code, " +
                 "mcp.code AS mode_calcul_code, " +
                 "fil.raison_sociale AS filiale_nom, " +
-                "tri.code AS regime_code " +
+                "tri.code AS regime_code, " +
+                "COALESCE(tri.soumis_cnaps, TRUE) AS soumis_cnaps, " +
+                "COALESCE(tri.soumis_sante, TRUE) AS soumis_sante, " +
+                "COALESCE(tri.soumis_irsa, TRUE) AS soumis_irsa, " +
+                "COALESCE(tri.soumis_isi_5, FALSE) AS soumis_isi_5 " +
                 "FROM employe e " +
                 "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
                 "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
@@ -407,6 +430,10 @@ public class PayrollService {
                     in.setCodeSite(rs.getString("code_site") != null ? rs.getString("code_site") : "TNR");
                     in.setNomFiliale(rs.getString("filiale_nom") != null ? rs.getString("filiale_nom") : "GALAXAM LOGISTICS");
                     in.setRegimeIntervenant(rs.getString("regime_code") != null ? rs.getString("regime_code") : "PERMANENT");
+                    in.setSoumisCnaps(rs.getBoolean("soumis_cnaps"));
+                    in.setSoumisSante(rs.getBoolean("soumis_sante"));
+                    in.setSoumisIrsa(rs.getBoolean("soumis_irsa"));
+                    in.setSoumisIsi5(rs.getBoolean("soumis_isi_5"));
                     in.setCategorieProfessionnelle(rs.getString("categorie_code") != null ? rs.getString("categorie_code") : "AGENT");
                     in.setModeCalculPaie(rs.getString("mode_calcul_code") != null ? rs.getString("mode_calcul_code") : "MENSUEL");
                     in.setSalaireBaseContractuel(rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO);
@@ -476,33 +503,86 @@ public class PayrollService {
             }
         }
 
+        // 5.1 Taux journalier de congé dynamique (conge_journal_droit - OHATRA KAJY DROITS CONGES)
+        String sqlTauxConge = "SELECT taux_journalier_conge FROM conge_journal_droit " +
+                "WHERE id_employe = ? ORDER BY annee DESC, mois DESC LIMIT 1";
+        try (PreparedStatement psTC = c.prepareStatement(sqlTauxConge)) {
+            psTC.setInt(1, idEmploye);
+            try (ResultSet rsTC = psTC.executeQuery()) {
+                if (rsTC.next()) {
+                    BigDecimal taux = rsTC.getBigDecimal("taux_journalier_conge");
+                    if (taux != null && taux.compareTo(BigDecimal.ZERO) > 0) {
+                        in.setTauxJournalierConge(taux);
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // Fallback automatique sur getTauxJournalierTrentieme()
+        }
+
         // 6. Paramètres légaux et fiscaux (LF 2026 par défaut)
         chargerParametresLegaux(in, c);
 
-        // 7. Avances et acomptes du mois
-        String sqlAvances = "SELECT * FROM paie_avance_acompte " +
-                "WHERE id_employe = ? AND (id_periode_paie = ? OR id_periode_paie IS NULL) " +
-                "AND statut IN ('EN_ATTENTE', 'APPROUVE') AND sens = 'RETENUE'";
+        // 7. Variables de paie, Primes, Extras et Retenues (paie_avance_acompte & ref_type_mouvement_paie)
+        String sqlMouvements = "SELECT paa.*, " +
+                "COALESCE(rtmp.code, paa.type_mouvement) AS code_effectif, " +
+                "COALESCE(rtmp.sens, paa.sens) AS sens_effectif " +
+                "FROM paie_avance_acompte paa " +
+                "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement " +
+                "WHERE paa.id_employe = ? AND (paa.id_periode_paie = ? OR paa.id_periode_paie IS NULL) " +
+                "AND paa.statut IN ('EN_ATTENTE', 'APPROUVE')";
 
         List<PaieAvanceAcompte> avances = new ArrayList<>();
-        try (PreparedStatement ps = c.prepareStatement(sqlAvances)) {
+        List<Integer> idsGains = new ArrayList<>();
+
+        try (PreparedStatement ps = c.prepareStatement(sqlMouvements)) {
             ps.setInt(1, idEmploye);
             ps.setInt(2, idPeriodePaie);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    PaieAvanceAcompte a = new PaieAvanceAcompte();
-                    a.setIdAvance(rs.getInt("id_avance"));
-                    a.setIdEmploye(rs.getInt("id_employe"));
-                    a.setTypeMouvement(rs.getString("type_mouvement"));
-                    a.setSens(rs.getString("sens"));
-                    a.setMontant(rs.getBigDecimal("montant"));
-                    a.setMotif(rs.getString("motif"));
-                    a.setStatut(rs.getString("statut"));
-                    avances.add(a);
+                    String sens = rs.getString("sens_effectif");
+                    String codeType = rs.getString("code_effectif");
+                    BigDecimal montant = rs.getBigDecimal("montant");
+                    String motif = rs.getString("motif");
+                    int idAvance = rs.getInt("id_avance");
+
+                    if (montant == null || montant.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                    if ("GAIN".equalsIgnoreCase(sens)) {
+                        idsGains.add(idAvance);
+                        if ("PRIME_PERFORMANCE".equalsIgnoreCase(codeType)) {
+                            in.setPrimePerformanceBase(in.getPrimePerformanceBase().add(montant));
+                        } else if ("PRIME_ASSIDUITE".equalsIgnoreCase(codeType)) {
+                            in.setPrimeAssiduiteForfait(in.getPrimeAssiduiteForfait().add(montant));
+                        } else if ("PRIME_EXCEPTIONNELLE".equalsIgnoreCase(codeType)) {
+                            in.setPrimeExceptionnelle(in.getPrimeExceptionnelle().add(montant));
+                            if (motif != null && !motif.isBlank()) {
+                                in.setMotifPrimeExceptionnelle(motif);
+                            }
+                        } else if ("AUTIMP".equalsIgnoreCase(codeType)) {
+                            in.setAutimp(in.getAutimp().add(montant));
+                        } else if ("EXTRA_DEPLACEMENT".equalsIgnoreCase(codeType)) {
+                            in.setExtraDeplacement(in.getExtraDeplacement().add(montant));
+                        } else if ("NOTE_DE_FRAIS".equalsIgnoreCase(codeType) || "REMBOURSEMENT_NOTE_FRAIS".equalsIgnoreCase(codeType)) {
+                            in.setRemboursementNotesFrais(in.getRemboursementNotesFrais().add(montant));
+                        }
+                    } else {
+                        // RETENUE (ACOMPTE_15, AVANCE_SPECIALE, CALL_PERSO, RETENUE_DIVERSE)
+                        PaieAvanceAcompte a = new PaieAvanceAcompte();
+                        a.setIdAvance(idAvance);
+                        a.setIdEmploye(rs.getInt("id_employe"));
+                        a.setTypeMouvement(codeType);
+                        a.setSens(sens != null ? sens : "RETENUE");
+                        a.setMontant(montant);
+                        a.setMotif(motif);
+                        a.setStatut(rs.getString("statut"));
+                        avances.add(a);
+                    }
                 }
             }
         }
         in.setAvancesAcomptes(avances);
+        in.setIdsMouvementsGains(idsGains);
 
         // 8. Échéance de prêt active
         String sqlPret = "SELECT e.* FROM paie_pret_echeance e " +
@@ -667,6 +747,121 @@ public class PayrollService {
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 cacheRubriques.put(rs.getString("code"), rs.getInt("id_rubrique"));
+            }
+        }
+    }
+
+    /**
+     * Alimente le grand-livre de valorisation des droits à congés (OHATRA KAJY DROITS CONGES)
+     * lors de la clôture de la paie.
+     */
+    private void mettreAJourJournalConge(Integer idPeriodePaie, Connection c) throws Exception {
+        String sqlPeriode = "SELECT EXTRACT(YEAR FROM date_fin)::INT AS annee, EXTRACT(MONTH FROM date_fin)::INT AS mois " +
+                "FROM periode_paie WHERE id_periode_paie = ?";
+        int annee = 2026;
+        int mois = 1;
+        try (PreparedStatement psP = c.prepareStatement(sqlPeriode)) {
+            psP.setInt(1, idPeriodePaie);
+            try (ResultSet rsP = psP.executeQuery()) {
+                if (rsP.next()) {
+                    annee = rsP.getInt("annee");
+                    mois = rsP.getInt("mois");
+                }
+            }
+        }
+
+        List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriodePaie, c);
+        for (BulletinPaie bp : bulletins) {
+            // Uniquement les salariés soumis aux congés payés légaux
+            if ("CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) || "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant())) {
+                continue;
+            }
+
+            int idEmp = bp.getIdEmploye();
+            BigDecimal base = bp.getSalaireBase() != null ? bp.getSalaireBase() : BigDecimal.ZERO;
+            BigDecimal jAbs = bp.getJoursAbsence() != null ? bp.getJoursAbsence() : BigDecimal.ZERO;
+            BigDecimal jCge = bp.getJoursConges() != null ? bp.getJoursConges() : BigDecimal.ZERO;
+
+            // Formule jours travaillés/assimilés : 30 - max(0, absence - conge)
+            BigDecimal absInjustifiees = jAbs.subtract(jCge).max(BigDecimal.ZERO);
+            BigDecimal formule = new BigDecimal("30.0").subtract(absInjustifiees).max(BigDecimal.ZERO);
+
+            // Droits acquis : 2.5 * formule / 30
+            BigDecimal droitMois = new BigDecimal("2.5").multiply(formule)
+                    .divide(new BigDecimal("30.0"), 4, RoundingMode.HALF_UP);
+
+            // Récupérer les lignes du bulletin pour net_base et hs
+            List<BulletinPaieLigne> lignes = BulletinPaieLigne.listerParBulletin(bp.getIdBulletin(), c);
+            BigDecimal netBase = base;
+            BigDecimal mntHs = BigDecimal.ZERO;
+            for (BulletinPaieLigne l : lignes) {
+                if ("RETENUE_ABSENCE".equalsIgnoreCase(l.getCodeRubrique()) || "RETENUE_CONGE".equalsIgnoreCase(l.getCodeRubrique())) {
+                    if (l.getMontantSalarial() != null) netBase = netBase.subtract(l.getMontantSalarial());
+                } else if ("INDEMNITE_CONGE".equalsIgnoreCase(l.getCodeRubrique())) {
+                    if (l.getMontantSalarial() != null) netBase = netBase.add(l.getMontantSalarial());
+                } else if ("HEURES_SUP".equalsIgnoreCase(l.getCategorie())) {
+                    if (l.getMontantSalarial() != null) mntHs = mntHs.add(l.getMontantSalarial());
+                }
+            }
+
+            BigDecimal baseTotale = netBase.add(mntHs).max(BigDecimal.ZERO);
+            BigDecimal valMois = baseTotale.multiply(droitMois).divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
+
+            // Cumul précédent
+            BigDecimal cumulJoursPrec = BigDecimal.ZERO;
+            BigDecimal cumulValPrec = BigDecimal.ZERO;
+            String sqlPrec = "SELECT cumul_jours_droit, cumul_valorisation FROM conge_journal_droit " +
+                    "WHERE id_employe = ? AND (annee < ? OR (annee = ? AND mois < ?)) " +
+                    "ORDER BY annee DESC, mois DESC LIMIT 1";
+            try (PreparedStatement psPrec = c.prepareStatement(sqlPrec)) {
+                psPrec.setInt(1, idEmp);
+                psPrec.setInt(2, annee);
+                psPrec.setInt(3, annee);
+                psPrec.setInt(4, mois);
+                try (ResultSet rsPrec = psPrec.executeQuery()) {
+                    if (rsPrec.next()) {
+                        cumulJoursPrec = rsPrec.getBigDecimal("cumul_jours_droit");
+                        cumulValPrec = rsPrec.getBigDecimal("cumul_valorisation");
+                    }
+                }
+            }
+
+            BigDecimal cumulJours = (cumulJoursPrec != null ? cumulJoursPrec : BigDecimal.ZERO).add(droitMois);
+            BigDecimal cumulVal = (cumulValPrec != null ? cumulValPrec : BigDecimal.ZERO).add(valMois);
+            BigDecimal tauxJournalier = cumulJours.compareTo(BigDecimal.ZERO) > 0
+                    ? cumulVal.divide(cumulJours, 2, RoundingMode.HALF_UP)
+                    : base.divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
+
+            String sqlUpsert = "INSERT INTO conge_journal_droit (" +
+                    "id_employe, id_periode_paie, annee, mois, salaire_base, jours_travailles_formule, " +
+                    "jours_droit_acquis, base_valorisation, valorisation_mensuelle, cumul_jours_droit, " +
+                    "cumul_valorisation, taux_journalier_conge" +
+                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                    "ON CONFLICT (id_employe, annee, mois) DO UPDATE SET " +
+                    "id_periode_paie = EXCLUDED.id_periode_paie, " +
+                    "salaire_base = EXCLUDED.salaire_base, " +
+                    "jours_travailles_formule = EXCLUDED.jours_travailles_formule, " +
+                    "jours_droit_acquis = EXCLUDED.jours_droit_acquis, " +
+                    "base_valorisation = EXCLUDED.base_valorisation, " +
+                    "valorisation_mensuelle = EXCLUDED.valorisation_mensuelle, " +
+                    "cumul_jours_droit = EXCLUDED.cumul_jours_droit, " +
+                    "cumul_valorisation = EXCLUDED.cumul_valorisation, " +
+                    "taux_journalier_conge = EXCLUDED.taux_journalier_conge";
+
+            try (PreparedStatement psUp = c.prepareStatement(sqlUpsert)) {
+                psUp.setInt(1, idEmp);
+                psUp.setInt(2, idPeriodePaie);
+                psUp.setInt(3, annee);
+                psUp.setInt(4, mois);
+                psUp.setBigDecimal(5, base);
+                psUp.setBigDecimal(6, formule);
+                psUp.setBigDecimal(7, droitMois);
+                psUp.setBigDecimal(8, baseTotale);
+                psUp.setBigDecimal(9, valMois);
+                psUp.setBigDecimal(10, cumulJours);
+                psUp.setBigDecimal(11, cumulVal);
+                psUp.setBigDecimal(12, tauxJournalier);
+                psUp.executeUpdate();
             }
         }
     }

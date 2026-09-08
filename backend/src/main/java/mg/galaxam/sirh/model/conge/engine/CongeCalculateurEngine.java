@@ -42,11 +42,48 @@ public class CongeCalculateurEngine {
     }
 
     /**
-     * Calcule l'acquisition mensuelle de congés.
+     * Calcule l'acquisition mensuelle de congés (base pleine forfaitaire).
      */
     public BigDecimal calculerAcquisitionMensuelle(int moisTravailles) {
         if (moisTravailles <= 0) return BigDecimal.ZERO;
         return TAUX_ACQUISITION_MENSUEL.multiply(BigDecimal.valueOf(moisTravailles));
+    }
+
+    /**
+     * Calcule l'acquisition mensuelle de congés proratisée aux jours d'activité effective (base 30 jours).
+     * Modèle OHATRA KAJY DROITS CONGES : nbre droit = 2.5 * formule / 30.0
+     */
+    public BigDecimal calculerAcquisitionMensuelleProratisee(BigDecimal joursTravaillesTrentieme) {
+        if (joursTravaillesTrentieme == null || joursTravaillesTrentieme.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal ratio = joursTravaillesTrentieme.divide(new BigDecimal("30.0"), 6, java.math.RoundingMode.HALF_UP)
+                .min(BigDecimal.ONE);
+        return TAUX_ACQUISITION_MENSUEL.multiply(ratio).setScale(4, java.math.RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Calcule la valorisation mensuelle du droit acquis (R*S/30).
+     * Modèle OHATRA KAJY DROITS CONGES : valorisation = base_totale * nbre_droit / 30.0
+     * où base_totale = NET_BASE + HS
+     */
+    public BigDecimal calculerValorisationDroitMensuel(BigDecimal baseTotale, BigDecimal joursDroit) {
+        if (baseTotale == null || joursDroit == null || baseTotale.compareTo(BigDecimal.ZERO) <= 0 || joursDroit.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO.setScale(2, java.math.RoundingMode.HALF_UP);
+        }
+        return baseTotale.multiply(joursDroit)
+                .divide(new BigDecimal("30.0"), 2, java.math.RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Calcule le taux journalier de congé moyen (TCONGE).
+     * Modèle OHATRA KAJY DROITS CONGES : TCONGE = Cumul Valorisation / Cumul Droits Acquis
+     */
+    public BigDecimal calculerTauxJournalierMoyen(BigDecimal cumulValorisation, BigDecimal cumulDroits) {
+        if (cumulValorisation == null || cumulDroits == null || cumulDroits.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO.setScale(2, java.math.RoundingMode.HALF_UP);
+        }
+        return cumulValorisation.divide(cumulDroits, 2, java.math.RoundingMode.HALF_UP);
     }
 
     /**

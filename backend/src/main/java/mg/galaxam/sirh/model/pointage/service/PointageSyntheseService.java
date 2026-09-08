@@ -186,9 +186,40 @@ public class PointageSyntheseService {
             Map<String, String> params,
             Connection c
     ) throws SQLException {
+        return calculerSyntheseEmploye(
+                idEmp, matricule, nom, prenom, photoUrl, idSite, siteCode, siteNom, null,
+                codeCat, isCadre, estAutonome, dateDebut, dateFin, idPeriode, codePeriode,
+                libellePeriode, statutPeriode, nbJoursOuvrablesPeriode, siteDeplacementRefMap, params, c
+        );
+    }
+
+    public PointageSyntheseMensuelleDTO calculerSyntheseEmploye(
+            int idEmp,
+            String matricule,
+            String nom,
+            String prenom,
+            String photoUrl,
+            int idSite,
+            String siteCode,
+            String siteNom,
+            Boolean horaireContinu,
+            String codeCat,
+            boolean isCadre,
+            boolean estAutonome,
+            LocalDate dateDebut,
+            LocalDate dateFin,
+            Integer idPeriode,
+            String codePeriode,
+            String libellePeriode,
+            String statutPeriode,
+            int nbJoursOuvrablesPeriode,
+            Map<Integer, Double> siteDeplacementRefMap,
+            Map<String, String> params,
+            Connection c
+    ) throws SQLException {
         double seuilHeuresJour = ParametreGlobal.getDouble(params, "SEUIL_HEURES_JOUR", 8.0);
         double seuilHsTranche1 = ParametreGlobal.getDouble(params, "SEUIL_HS_TRANCHE_1", 8.0);
-        double reductionDeplactTmm = ParametreGlobal.getDouble(params, "REDUCTION_DEPLACT_REPAS_MIDI", 1000.0);
+        double reductionDeplactRepasConfig = ParametreGlobal.getDouble(params, "REDUCTION_DEPLACT_REPAS_MIDI", 1000.0);
         double montantRepasMidiDefaut = ParametreGlobal.getDouble(params, "MONTANT_REPAS_MIDI", 2000.0);
         String seuil2eRepas1Str = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_1", "19:30");
         LocalTime seuil2eRepas1 = LocalTime.parse(seuil2eRepas1Str.length() == 5 ? seuil2eRepas1Str : seuil2eRepas1Str.substring(0, 5));
@@ -196,6 +227,46 @@ public class PointageSyntheseService {
         String seuil2eRepas2Str = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_2", "21:00");
         LocalTime seuil2eRepas2 = LocalTime.parse(seuil2eRepas2Str.length() == 5 ? seuil2eRepas2Str : seuil2eRepas2Str.substring(0, 5));
         double montant2eRepas2 = ParametreGlobal.getDouble(params, "MONTANT_2ND_REPAS_2", 4000.0);
+
+        // Résolution de l'horaire continu du site (TRUE = TNR / continu, FALSE = TMM / discontinu)
+        boolean siteHoraireContinu;
+        if (horaireContinu != null) {
+            siteHoraireContinu = horaireContinu;
+        } else {
+            String sqlHC = "SELECT COALESCE(horaire_continu, TRUE) FROM ref_site WHERE id_site = ?";
+            try (PreparedStatement psHC = c.prepareStatement(sqlHC)) {
+                psHC.setInt(1, idSite);
+                try (ResultSet rsHC = psHC.executeQuery()) {
+                    siteHoraireContinu = rsHC.next() ? rsHC.getBoolean(1) : true;
+                }
+            } catch (Exception ignored) {
+                siteHoraireContinu = true;
+            }
+        }
+
+        // Montant de référence mensuel pour le site (ex: 53 200 Ar si horaire discontinu, 31 200 Ar si horaire continu)
+        double refDeplacementSite = 0.0;
+        if (siteDeplacementRefMap != null && siteDeplacementRefMap.containsKey(idSite)) {
+            refDeplacementSite = siteDeplacementRefMap.get(idSite);
+        } else {
+            String sqlSiteInd = "SELECT c.montant_reference FROM site_indemnite_config c " +
+                                "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
+                                "WHERE c.id_site = ? AND i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE LIMIT 1";
+            try (PreparedStatement psSI = c.prepareStatement(sqlSiteInd)) {
+                psSI.setInt(1, idSite);
+                try (ResultSet rsSI = psSI.executeQuery()) {
+                    if (rsSI.next()) {
+                        refDeplacementSite = rsSI.getDouble("montant_reference");
+                    }
+                }
+            } catch (Exception ignored) {}
+            if (refDeplacementSite <= 0.0) {
+                refDeplacementSite = siteHoraireContinu ? 31200.0 : 53200.0;
+            }
+        }
+
+        // Déplacement journalier de référence proratisé sur le nombre de jours ouvrables
+        double tarifJourDeplacement = calendrierEngine.calculerProrataJournalier(refDeplacementSite, nbJoursOuvrablesPeriode);
 
         PointageSyntheseMensuelleDTO dto = new PointageSyntheseMensuelleDTO();
         dto.setIdEmploye(idEmp);
@@ -219,7 +290,7 @@ public class PointageSyntheseService {
         // en priorisant les indemnités dynamiques depuis pointage_indemnite_jour
         String sqlPtg = "SELECT p.id_pointage, p.date_pointage, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
                         "p.deplacement_matin, p.deplacement_am, p.indemnite_deplacement_recue, " +
-                        "p.indemnite_repas_recue, p.montant_repas, st.code AS statut_code, " +
+                        "p.indemnite_repas_recue, p.montant_repas, p.horaire_continu_jour, st.code AS statut_code, " +
                         "pij_repas.accorde AS dyn_repas_accorde, pij_repas.montant_calcule AS dyn_repas_montant, " +
                         "pij_dep.accorde AS dyn_dep_accorde, pij_dep.quantite AS dyn_dep_quantite " +
                         "FROM pointage_jour p " +
@@ -240,6 +311,7 @@ public class PointageSyntheseService {
         int repasCount = 0;
         double montantRepasTotal = 0.0;
         double totalTrajets = 0.0;
+        double totalMntDeplacement = 0.0;
         double cumulHeuresTravaillees = 0.0;
         double cumulHeuresNuit = 0.0;
         double cumulHeuresDimanche = 0.0;
@@ -262,7 +334,7 @@ public class PointageSyntheseService {
                     String stCode = rsPtg.getString("statut_code");
                     double th = rsPtg.getDouble("total_heures");
 
-                    boolean isAbsenceOuConge = "CONGE".equals(stCode) || "ABSENCE_NON_JUSTIFIEE".equals(stCode) || "FERIE_CHOME".equals(stCode);
+                    boolean isAbsenceOuConge = "CONGE".equals(stCode) || "ABSENCE_NON_JUSTIFIEE".equals(stCode) || "ABSENCE_JUSTIFIEE".equals(stCode) || "FERIE_CHOME".equals(stCode);
                     if ("DISPENSE_POINTAGE".equals(stCode) || (estAutonome && !isAbsenceOuConge)) {
                         if (isWeekend && th <= 0.0) {
                             th = 0.0;
@@ -310,7 +382,8 @@ public class PointageSyntheseService {
                     boolean repasEffectif = (dynRepasObj != null) ? rsPtg.getBoolean("dyn_repas_accorde") : repas;
 
                     boolean estPresentAutonome = estAutonome && !isWeekend && !isAbsenceOuConge && !"REPOS".equals(stCode);
-                    if (repasEffectif || estPresentAutonome) {
+                    boolean aPrisRepasCeJour = (repasEffectif || estPresentAutonome);
+                    if (aPrisRepasCeJour) {
                         repasCount++;
                         montantRepasTotal += calculateurEngine.calculerTotalRepasJour(
                                 true, montantRepasMidiDefaut, sa,
@@ -319,15 +392,32 @@ public class PointageSyntheseService {
                     }
 
                     // Détermination du déplacement : priorité à pointage_indemnite_jour, avec fallback sur les colonnes historiques
+                    double fractionJour = 0.0;
                     Object dynDepQteObj = rsPtg.getObject("dyn_dep_quantite");
                     if (dynDepQteObj != null) {
                         if (rsPtg.getBoolean("dyn_dep_accorde") || estPresentAutonome) {
-                            totalTrajets += rsPtg.getDouble("dyn_dep_quantite");
+                            fractionJour = rsPtg.getDouble("dyn_dep_quantite");
                         }
                     } else {
-                        if (depM || estPresentAutonome) totalTrajets += 0.5;
-                        if (depA || estPresentAutonome) totalTrajets += 0.5;
+                        if (depM || estPresentAutonome) fractionJour += 0.5;
+                        if (depA || estPresentAutonome) fractionJour += 0.5;
                     }
+                    totalTrajets += fractionJour;
+
+                    // Détermination de la déduction repas :
+                    // Si le jour (override) ou le site est à horaire continu, 0 Ar de déduction (les salariés restent sur site le midi).
+                    // Si discontinu (ex: TMM), le salarié qui reçoit son repas économise l'aller-retour midi -> déduction paramétrée (ex: 1000 Ar).
+                    Boolean hcJourObj = (rsPtg.getObject("horaire_continu_jour") != null) ? rsPtg.getBoolean("horaire_continu_jour") : null;
+                    boolean isContinuCeJour = (hcJourObj != null) ? hcJourObj : siteHoraireContinu;
+                    double reductionCeJour = isContinuCeJour ? 0.0 : reductionDeplactRepasConfig;
+
+                    double mntDepJour = calculateurEngine.calculerDeplacementJour(
+                            fractionJour,
+                            tarifJourDeplacement,
+                            aPrisRepasCeJour,
+                            reductionCeJour
+                    );
+                    totalMntDeplacement += mntDepJour;
 
                     LocalDate lundiSemaine = dPointage.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
                     parSemaine.computeIfAbsent(lundiSemaine, k -> new ArrayList<>());
@@ -404,39 +494,8 @@ public class PointageSyntheseService {
         dto.setNbJoursRepas(repasCount);
         dto.setMontantRepas(montantRepasTotal);
         dto.setNbJoursDeplacement((int) Math.round(totalTrajets));
+        dto.setMontantDeplacement(Math.round(totalMntDeplacement * 100.0) / 100.0);
         dto.setNbAnomaliesNonResolues(nbAnomalies);
-
-        boolean isSiteTmm = (siteCode != null && "TMM".equalsIgnoreCase(siteCode.trim())) ||
-                            (siteNom != null && siteNom.toLowerCase().contains("tamatave"));
-
-        // Récupération du montant de référence mensuel pour le site (ex: 53 200 Ar pour TMM, 31 200 Ar pour TNR)
-        double refDeplacementSite = 0.0;
-        if (siteDeplacementRefMap != null && siteDeplacementRefMap.containsKey(idSite)) {
-            refDeplacementSite = siteDeplacementRefMap.get(idSite);
-        } else {
-            String sqlSiteInd = "SELECT c.montant_reference FROM site_indemnite_config c " +
-                                "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
-                                "WHERE c.id_site = ? AND i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE LIMIT 1";
-            try (PreparedStatement psSI = c.prepareStatement(sqlSiteInd)) {
-                psSI.setInt(1, idSite);
-                try (ResultSet rsSI = psSI.executeQuery()) {
-                    if (rsSI.next()) {
-                        refDeplacementSite = rsSI.getDouble("montant_reference");
-                    }
-                }
-            } catch (Exception ignored) {}
-            if (refDeplacementSite <= 0.0) {
-                refDeplacementSite = isSiteTmm ? 53200.0 : 31200.0;
-            }
-        }
-
-        // Déplacement fractionnable et proratisé :
-        // Montant jour = montantReference / nbJoursOuvrables
-        // Montant par case/trajet (demi-journée) = montantJour / 2
-        // totalTrajets accumule 0.5 par case cochée (matin/soir), soit 1.0 par jour complet
-        double tarifJourDeplacement = calendrierEngine.calculerProrataJournalier(refDeplacementSite, nbJoursOuvrablesPeriode);
-        double mntDeplacement = totalTrajets * tarifJourDeplacement;
-        dto.setMontantDeplacement(Math.round(mntDeplacement * 100.0) / 100.0);
 
         return dto;
     }
@@ -495,7 +554,7 @@ public class PointageSyntheseService {
         // 2. Charger les employés éligibles avec l'affectation active durant cette période
         StringBuilder sqlEmp = new StringBuilder(
             "SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
-            "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, " +
+            "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, COALESCE(s.horaire_continu, TRUE) AS horaire_continu, " +
             "COALESCE(f.dispense_pointage, FALSE) AS est_autonome, " +
             "COALESCE(cp.code, '') AS code_categorie " +
             "FROM employe e " +
@@ -536,6 +595,7 @@ public class PointageSyntheseService {
                             rsE.getInt("id_site"),
                             rsE.getString("site_code"),
                             rsE.getString("site_nom"),
+                            rsE.getBoolean("horaire_continu"),
                             codeCat,
                             isCadre,
                             estAutonome,
@@ -891,7 +951,7 @@ public class PointageSyntheseService {
 
         StringBuilder sqlEmp = new StringBuilder(
             "SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
-            "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, " +
+            "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, COALESCE(s.horaire_continu, TRUE) AS horaire_continu, " +
             "COALESCE(f.dispense_pointage, FALSE) AS est_autonome, " +
             "COALESCE(cp.code, '') AS code_categorie " +
             "FROM employe e " +
@@ -931,6 +991,7 @@ public class PointageSyntheseService {
                             rsE.getInt("id_site"),
                             rsE.getString("site_code"),
                             rsE.getString("site_nom"),
+                            rsE.getBoolean("horaire_continu"),
                             codeCat,
                             isCadre,
                             estAutonome,

@@ -55,7 +55,10 @@ public class SafiExportService {
         int ordre = 1;
         for (BulletinPaie bp : bulletins) {
             // Filtrer les prestataires / consultants sous régime ISI (qui vont sur l'EDI ISI)
-            if ("CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) || "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant())) {
+            if ("CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) 
+                    || "TEMPORAIRE".equalsIgnoreCase(bp.getRegimeIntervenant())
+                    || "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant())
+                    || (bp.getRetenueIsi5() != null && bp.getRetenueIsi5().compareTo(BigDecimal.ZERO) > 0)) {
                 continue;
             }
 

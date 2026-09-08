@@ -81,6 +81,48 @@ class CongeCalculateurEngineTest {
         void negatif() { assertEquals(BigDecimal.ZERO, engine.calculerAcquisitionMensuelle(-5)); }
     }
 
+    @Nested @DisplayName("calculerAcquisitionMensuelleProratisee (Modèle OHATRA KAJY DROITS CONGES)")
+    class CalculerAcquisitionMensuelleProratisee {
+
+        @Test @DisplayName("30 jours travaillés = 2.5000 jours acquis")
+        void moisComplet() {
+            assertEquals(new BigDecimal("2.5000"), engine.calculerAcquisitionMensuelleProratisee(new BigDecimal("30.0")));
+        }
+
+        @Test @DisplayName("Mois 2 (Havana) : 29.99 jours -> 2.4992 jours acquis")
+        void moisDeuxHavana() {
+            assertEquals(new BigDecimal("2.4992"), engine.calculerAcquisitionMensuelleProratisee(new BigDecimal("29.99")));
+        }
+
+        @Test @DisplayName("Mois 3 (Havana) : 29.92 jours -> 2.4933 jours acquis")
+        void moisTroisHavana() {
+            assertEquals(new BigDecimal("2.4933"), engine.calculerAcquisitionMensuelleProratisee(new BigDecimal("29.92")));
+        }
+
+        @Test @DisplayName("Mois 6 (Havana) : 29.62 jours -> 2.4683 jours acquis")
+        void moisSixHavana() {
+            assertEquals(new BigDecimal("2.4683"), engine.calculerAcquisitionMensuelleProratisee(new BigDecimal("29.62")));
+        }
+    }
+
+    @Nested @DisplayName("calculerValorisationDroitMensuel & TauxJournalier (Modèle OHATRA KAJY DROITS CONGES)")
+    class CalculerValorisationEtTauxMoyen {
+
+        @Test @DisplayName("Mois 1 (Havana) : base=282 337.73 Ar, droits=2.5j -> valorisation = 23 528.14 Ar")
+        void moisUnValorisation() {
+            BigDecimal baseTotale = new BigDecimal("282337.73");
+            BigDecimal droits = new BigDecimal("2.5");
+            assertEquals(new BigDecimal("23528.14"), engine.calculerValorisationDroitMensuel(baseTotale, droits));
+        }
+
+        @Test @DisplayName("Mois 12 (Havana) : cumul_val=324 385.38 Ar, cumul_droits=29.95667j -> TCONGE = 10 828.49 Ar/j")
+        void moisDouzeTauxJournalierMoyen() {
+            BigDecimal cumulVal = new BigDecimal("324385.38");
+            BigDecimal cumulDroits = new BigDecimal("29.95667");
+            assertEquals(new BigDecimal("10828.49"), engine.calculerTauxJournalierMoyen(cumulVal, cumulDroits));
+        }
+    }
+
     @Nested @DisplayName("calculerBonificationAnciennete")
     class CalculerBonificationAnciennete {
 

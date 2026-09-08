@@ -175,8 +175,8 @@ export default function SaisieQuotidiennePage() {
         const list = Array.isArray(grilleData) ? grilleData : [];
         const all = list.length;
         const presents = list.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0)).length;
-        const conges = list.filter(r => r.conge).length;
-        const nonSaisis = list.filter(r => (!r.totalHeures || r.totalHeures === 0) && !r.conge && !r.dispensePointage && !r.ferieChome).length;
+        const conges = list.filter(r => r.conge || r.absenceJustifiee || r.codeStatut === 'ABSENCE_JUSTIFIEE').length;
+        const nonSaisis = list.filter(r => (!r.totalHeures || r.totalHeures === 0) && !r.conge && !r.absenceJustifiee && r.codeStatut !== 'ABSENCE_JUSTIFIEE' && r.codeStatut !== 'ABSENCE_NON_JUSTIFIEE' && !r.dispensePointage && !r.ferieChome).length;
         const retards = list.filter(r => r.retard || (r.minutesRetard && r.minutesRetard > 0)).length;
 
         return { ALL: all, PRESENT: presents, CONGE: conges, NON_SAISI: nonSaisis, RETARD: retards };
@@ -189,9 +189,9 @@ export default function SaisieQuotidiennePage() {
         if (statutFilter === 'PRESENT') {
             list = list.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0));
         } else if (statutFilter === 'CONGE') {
-            list = list.filter(r => r.conge);
+            list = list.filter(r => r.conge || r.absenceJustifiee || r.codeStatut === 'ABSENCE_JUSTIFIEE');
         } else if (statutFilter === 'NON_SAISI') {
-            list = list.filter(r => (!r.totalHeures || r.totalHeures === 0) && !r.conge && !r.dispensePointage && !r.ferieChome);
+            list = list.filter(r => (!r.totalHeures || r.totalHeures === 0) && !r.conge && !r.absenceJustifiee && r.codeStatut !== 'ABSENCE_JUSTIFIEE' && r.codeStatut !== 'ABSENCE_NON_JUSTIFIEE' && !r.dispensePointage && !r.ferieChome);
         } else if (statutFilter === 'RETARD') {
             list = list.filter(r => r.retard || (r.minutesRetard && r.minutesRetard > 0));
         }

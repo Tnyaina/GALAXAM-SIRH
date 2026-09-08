@@ -30,6 +30,7 @@ public class PaieAvanceAcompte extends ClassMere {
     private Integer idAvance;
     private Integer idEmploye;
     private Integer idPeriodePaie;
+    private Integer idTypeMouvement;
     private String typeMouvement; // ACOMPTE_15, AVANCE_SPECIALE, CALL_PERSO, NOTE_DE_FRAIS, PRIME_EXCEPTIONNELLE, RETENUE_DIVERSE
     private String sens = "RETENUE"; // RETENUE, GAIN
     private BigDecimal montant;
@@ -64,8 +65,8 @@ public class PaieAvanceAcompte extends ClassMere {
         String sql = "INSERT INTO paie_avance_acompte (" +
                 "id_employe, id_periode_paie, type_mouvement, sens, montant, " +
                 "date_demande, date_accord, date_paiement, mode_reglement, motif, " +
-                "statut, id_bulletin, cree_par, approuve_par" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_avance";
+                "statut, id_bulletin, cree_par, approuve_par, id_type_mouvement" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_avance";
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             int p = 1;
@@ -86,6 +87,7 @@ public class PaieAvanceAcompte extends ClassMere {
 
             if (creePar != null) ps.setInt(p++, creePar); else ps.setNull(p++, java.sql.Types.INTEGER);
             if (approuvePar != null) ps.setInt(p++, approuvePar); else ps.setNull(p++, java.sql.Types.INTEGER);
+            if (idTypeMouvement != null) ps.setInt(p++, idTypeMouvement); else ps.setNull(p++, java.sql.Types.INTEGER);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -101,7 +103,7 @@ public class PaieAvanceAcompte extends ClassMere {
         String sql = "UPDATE paie_avance_acompte SET " +
                 "id_employe = ?, id_periode_paie = ?, type_mouvement = ?, sens = ?, montant = ?, " +
                 "date_demande = ?, date_accord = ?, date_paiement = ?, mode_reglement = ?, motif = ?, " +
-                "statut = ?, id_bulletin = ?, cree_par = ?, approuve_par = ?, updated_at = CURRENT_TIMESTAMP " +
+                "statut = ?, id_bulletin = ?, cree_par = ?, approuve_par = ?, id_type_mouvement = ?, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_avance = ?";
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -123,6 +125,7 @@ public class PaieAvanceAcompte extends ClassMere {
 
             if (creePar != null) ps.setInt(p++, creePar); else ps.setNull(p++, java.sql.Types.INTEGER);
             if (approuvePar != null) ps.setInt(p++, approuvePar); else ps.setNull(p++, java.sql.Types.INTEGER);
+            if (idTypeMouvement != null) ps.setInt(p++, idTypeMouvement); else ps.setNull(p++, java.sql.Types.INTEGER);
             ps.setInt(p++, idAvance);
 
             ps.executeUpdate();
@@ -242,12 +245,28 @@ public class PaieAvanceAcompte extends ClassMere {
         return netDisponible.multiply(RATIO_AVANCE_EMPLOYEUR_MAX).setScale(2, RoundingMode.HALF_UP);
     }
 
+    public static List<PaieAvanceAcompte> listerParPeriode(Integer idPeriode, Connection c) throws Exception {
+        List<PaieAvanceAcompte> list = new ArrayList<>();
+        String sql = "SELECT * FROM paie_avance_acompte WHERE id_periode_paie = ? ORDER BY id_employe, date_demande ASC";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idPeriode);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapResultSet(rs));
+                }
+            }
+        }
+        return list;
+    }
+
     private static PaieAvanceAcompte mapResultSet(ResultSet rs) throws Exception {
         PaieAvanceAcompte a = new PaieAvanceAcompte();
         a.setIdAvance(rs.getInt("id_avance"));
         a.setIdEmploye(rs.getInt("id_employe"));
         int pId = rs.getInt("id_periode_paie");
         a.setIdPeriodePaie(rs.wasNull() ? null : pId);
+        int tmId = rs.getInt("id_type_mouvement");
+        a.setIdTypeMouvement(rs.wasNull() ? null : tmId);
         a.setTypeMouvement(rs.getString("type_mouvement"));
         a.setSens(rs.getString("sens"));
         a.setMontant(rs.getBigDecimal("montant"));
@@ -277,6 +296,9 @@ public class PaieAvanceAcompte extends ClassMere {
 
     public Integer getIdPeriodePaie() { return idPeriodePaie; }
     public void setIdPeriodePaie(Integer idPeriodePaie) { this.idPeriodePaie = idPeriodePaie; }
+
+    public Integer getIdTypeMouvement() { return idTypeMouvement; }
+    public void setIdTypeMouvement(Integer idTypeMouvement) { this.idTypeMouvement = idTypeMouvement; }
 
     public String getTypeMouvement() { return typeMouvement; }
     public void setTypeMouvement(String typeMouvement) { this.typeMouvement = typeMouvement; }

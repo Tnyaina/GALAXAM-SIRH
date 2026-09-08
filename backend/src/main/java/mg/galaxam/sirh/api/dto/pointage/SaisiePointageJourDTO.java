@@ -51,6 +51,8 @@ public class SaisiePointageJourDTO {
     private String motifAjustement;
     private Integer idPeriodePaie;
     private String libelleConge;
+    private Boolean congePaye = true;
+    private Boolean congeDecompteSolde = true;
     private Integer version; // Optimistic locking version
     private Map<String, Object> dynamicIndemnites = new HashMap<>();
 
@@ -178,16 +180,25 @@ public class SaisiePointageJourDTO {
     public Map<String, Object> getDynamicIndemnites() { return dynamicIndemnites; }
     public void setDynamicIndemnites(Map<String, Object> dynamicIndemnites) { this.dynamicIndemnites = dynamicIndemnites; }
 
+    public Boolean getCongePaye() { return congePaye; }
+    public void setCongePaye(Boolean congePaye) { this.congePaye = congePaye; }
+    public boolean isCongePaye() { return congePaye == null || congePaye; }
+
+    public Boolean getCongeDecompteSolde() { return congeDecompteSolde; }
+    public void setCongeDecompteSolde(Boolean congeDecompteSolde) { this.congeDecompteSolde = congeDecompteSolde; }
+    public boolean isCongeDecompteSolde() { return congeDecompteSolde == null || congeDecompteSolde; }
+
     // Backend-driven booleans pour l'interface UI (Zero comparaison de string en dur sur le front)
     public boolean isPresent() { return "PRESENT".equalsIgnoreCase(codeStatut); }
     public boolean isRetard() { return "RETARD".equalsIgnoreCase(codeStatut) || (minutesRetard != null && minutesRetard > 0); }
-    public boolean isConge() { return "CONGE".equalsIgnoreCase(codeStatut) || typeCongeJour != null; }
+    public boolean isConge() { return "CONGE".equalsIgnoreCase(codeStatut); }
+    public boolean isAbsenceJustifiee() { return "ABSENCE_JUSTIFIEE".equalsIgnoreCase(codeStatut); }
     public boolean isFerieTravaille() { return "FERIE_TRAVAILLE".equalsIgnoreCase(codeStatut) || (ferieJour && totalHeures != null && totalHeures > 0); }
     public boolean isFerieChome() { return ("FERIE_CHOME".equalsIgnoreCase(codeStatut) || ferieJour) && !isFerieTravaille(); }
     public boolean isDimancheTravaille() { return "DIMANCHE_TRAVAILLE".equalsIgnoreCase(codeStatut); }
     public boolean isSamediTravaille() { return "SAMEDI_TRAVAILLE".equalsIgnoreCase(codeStatut); }
     public boolean isDispensePointage() {
-        if (isFerieChome() || isConge()) return false;
+        if (isFerieChome() || isConge() || isAbsenceJustifiee()) return false;
         return estAutonome || "DISPENSE_POINTAGE".equalsIgnoreCase(codeStatut);
     }
     public boolean isAnomalie() { return "ANOMALIE_SAISIE".equalsIgnoreCase(codeStatut); }

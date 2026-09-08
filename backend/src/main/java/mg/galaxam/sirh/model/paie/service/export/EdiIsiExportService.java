@@ -72,6 +72,7 @@ public class EdiIsiExportService {
 
         for (BulletinPaie bp : bulletins) {
             boolean isConsultant = "CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) ||
+                                   "TEMPORAIRE".equalsIgnoreCase(bp.getRegimeIntervenant()) ||
                                    "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant()) ||
                                    (bp.getRetenueIsi5() != null && bp.getRetenueIsi5().compareTo(BigDecimal.ZERO) > 0);
             if (!isConsultant) continue;
@@ -144,6 +145,7 @@ public class EdiIsiExportService {
         // Lignes issues d'anciens bulletins résiduels sous régime ISI (si non encore migrés)
         for (BulletinPaie bp : bulletins) {
             boolean isConsultant = "CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) ||
+                                   "TEMPORAIRE".equalsIgnoreCase(bp.getRegimeIntervenant()) ||
                                    "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant()) ||
                                    (bp.getRetenueIsi5() != null && bp.getRetenueIsi5().compareTo(BigDecimal.ZERO) > 0);
 

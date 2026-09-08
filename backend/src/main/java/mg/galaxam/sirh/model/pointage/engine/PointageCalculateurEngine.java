@@ -73,7 +73,33 @@ public class PointageCalculateurEngine {
     }
 
     /**
-     * Calcule l'indemnité nette de déplacement journalière.
+     * Calcule l'indemnité nette de déplacement journalière (méthode maîtresse unifiée pour tous les sites).
+     *
+     * @param fractionJour             fraction de présence pour le transport (1.0 = jour entier, 0.5 = demi-journée, 0.0 = absent)
+     * @param tarifJourDeplacement     tarif journalier de référence du site (ex: 53 200 / 22 = 2 418.18 Ar à TMM, 31 200 / 22 = 1 418.18 Ar à TNR)
+     * @param aPrisRepasSurSite        indique si l'employé a bénéficié d'un repas de midi sur site ce jour-là
+     * @param reductionSiRepasSurSite  montant de la déduction si repas pris (clé REDUCTION_DEPLACT_REPAS_MIDI pour sites discontinus, 0 Ar si continu)
+     * @return indemnité nette de déplacement du jour arrondie à 2 décimales (plafonnée à min 0.0 Ar)
+     */
+    public double calculerDeplacementJour(
+            double fractionJour,
+            double tarifJourDeplacement,
+            boolean aPrisRepasSurSite,
+            double reductionSiRepasSurSite
+    ) {
+        if (fractionJour <= 0.0 || tarifJourDeplacement <= 0.0) {
+            return 0.0;
+        }
+        double brut = fractionJour * tarifJourDeplacement;
+        if (aPrisRepasSurSite && reductionSiRepasSurSite > 0.0 && brut > 0.0) {
+            brut = Math.max(0.0, brut - reductionSiRepasSurSite);
+        }
+        return Math.round(brut * 100.0) / 100.0;
+    }
+
+    /**
+     * Surcharge rétrocompatible acceptant les indicateurs booléens matin/soir et le montant par demi-trajet.
+     * Délègue à la méthode maîtresse unifiée.
      */
     public double calculerDeplacementJour(
             boolean trajetMatin,
@@ -82,12 +108,9 @@ public class PointageCalculateurEngine {
             boolean aPrisRepasSurSite,
             double reductionSiRepasSurSite
     ) {
-        int nbTrajets = (trajetMatin ? 1 : 0) + (trajetSoir ? 1 : 0);
-        double brut = nbTrajets * montantParTrajet;
-        if (aPrisRepasSurSite && reductionSiRepasSurSite > 0 && brut > 0) {
-            brut = Math.max(0.0, brut - reductionSiRepasSurSite);
-        }
-        return Math.round(brut * 100.0) / 100.0;
+        double fractionJour = (trajetMatin ? 0.5 : 0.0) + (trajetSoir ? 0.5 : 0.0);
+        double tarifJourDeplacement = montantParTrajet * 2.0;
+        return calculerDeplacementJour(fractionJour, tarifJourDeplacement, aPrisRepasSurSite, reductionSiRepasSurSite);
     }
 
     /**

@@ -132,7 +132,7 @@ SET droit_lecture = true, droit_ecriture = true, droit_validation = true;
 -- Identifiant : admin | Mot de passe : Pass1234
 -- =====================================================================
 INSERT INTO utilisateur (id_utilisateur, identifiant, mot_de_passe_hache, id_role, est_actif)
-VALUES (1, 'admin', '$2a$10$wN1.aJ1K9h6O2e1G1D9CSu4t7g8b9p0q1r2s3t4u5v6w7x8y9z0a.', 1, true)
+VALUES (1, 'admin', '$2a$10$kFlCuSS.8ywwf5a8VyPPZ.2EGr7ga9nXTf7DmZm1UQifyb2oIIuZq', 1, true)
 ON CONFLICT (id_utilisateur) DO NOTHING;
 
 SELECT setval('utilisateur_id_utilisateur_seq', (SELECT GREATEST(MAX(id_utilisateur), 1) FROM utilisateur));

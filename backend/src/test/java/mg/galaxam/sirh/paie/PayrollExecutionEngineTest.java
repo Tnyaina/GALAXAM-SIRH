@@ -211,6 +211,171 @@ class PayrollExecutionEngineTest {
     }
 
     @Test
+    @DisplayName("4.b Consultant sénior retraité (+60 ans) soumis Santé OSTIE et exonéré CNaPS/FMFP")
+    void testCalculConsultantSeniorAvecSante() {
+        PayrollCalculationInput in = creerInputBase("CONS002", new BigDecimal("2000000.00"), "TNR");
+        in.setRegimeIntervenant("CONSULTANT");
+        // Paramétrage piloté par ref_type_intervenant en base : soumis_cnaps=f, soumis_sante=t, soumis_isi_5=t
+        in.setSoumisCnaps(false);
+        in.setSoumisSante(true);
+        in.setSoumisIsi5(true);
+        in.setSoumisIrsa(false);
+
+        BulletinPaieComplet complet = engine.calculer(in);
+        BulletinPaie bp = complet.getBulletin();
+
+        // CNaPS = 0, FMFP = 0
+        assertNull(complet.trouverLigne("COTISATION_CNAPS_SAL"));
+        assertNull(complet.trouverLigne("COTISATION_CNAPS_PAT"));
+        assertNull(complet.trouverLigne("COTISATION_FMFP_PAT"));
+
+        // OSTIE active : 1% salariale = 20 000 Ar, 5% patronale = 100 000 Ar
+        BulletinPaieLigne ostieSal = complet.trouverLigne("COTISATION_OSTIE_SAL");
+        assertNotNull(ostieSal);
+        assertEquals(new BigDecimal("20000.00"), ostieSal.getMontantSalarial());
+        assertEquals(new BigDecimal("20000.00"), bp.getTotalCotisationsSalariales());
+        assertEquals(new BigDecimal("100000.00"), bp.getTotalCotisationsPatronales());
+
+        // Retenue libératoire ISI 5% = 100 000 Ar
+        assertEquals(new BigDecimal("100000.00"), bp.getRetenueIsi5());
+        assertEquals(BigDecimal.ZERO.setScale(2), bp.getIrsaNet());
+
+        verifierEquilibreComptable(complet);
+    }
+
+    @Test
+    @DisplayName("4.c Travailleur Temporaire sous régime libératoire ISI 5% sans cotisations sociales")
+    void testCalculTemporaireIsiSansCotisations() {
+        PayrollCalculationInput in = creerInputBase("TEMP001", new BigDecimal("1500000.00"), "TNR");
+        in.setRegimeIntervenant("TEMPORAIRE");
+        in.setSoumisCnaps(false);
+        in.setSoumisSante(false);
+        in.setSoumisIsi5(true);
+        in.setSoumisIrsa(false);
+
+        BulletinPaieComplet complet = engine.calculer(in);
+        BulletinPaie bp = complet.getBulletin();
+
+        // 0 cotisations sociales
+        assertEquals(BigDecimal.ZERO.setScale(2), bp.getTotalCotisationsSalariales());
+        assertEquals(BigDecimal.ZERO.setScale(2), bp.getTotalCotisationsPatronales());
+
+        // Retenue ISI 5% sur 1 500 000 = 75 000 Ar
+        assertEquals(new BigDecimal("75000.00"), bp.getRetenueIsi5());
+        assertEquals(BigDecimal.ZERO.setScale(2), bp.getIrsaNet());
+
+        verifierEquilibreComptable(complet);
+    }
+
+    @Test
+    @DisplayName("4.d Stagiaire sous gratification (exonéré de cotisations et impôts)")
+    void testCalculStagiaireGratification() {
+        PayrollCalculationInput in = creerInputBase("STAG001", new BigDecimal("300000.00"), "TNR");
+        in.setRegimeIntervenant("STAGIAIRE");
+        in.setSoumisCnaps(false);
+        in.setSoumisSante(false);
+        in.setSoumisIsi5(false);
+        in.setSoumisIrsa(false);
+
+        BulletinPaieComplet complet = engine.calculer(in);
+        BulletinPaie bp = complet.getBulletin();
+
+        assertEquals(BigDecimal.ZERO.setScale(2), bp.getTotalCotisationsSalariales());
+        assertEquals(BigDecimal.ZERO.setScale(2), bp.getTotalCotisationsPatronales());
+        assertEquals(BigDecimal.ZERO.setScale(2), bp.getRetenueIsi5());
+        assertEquals(BigDecimal.ZERO.setScale(2), bp.getIrsaNet());
+
+        // Net = Base (300 000) + Indemnités repas (44 000) + Transport (31 200) = 375 200 Ar
+        assertEquals(new BigDecimal("375200.00"), bp.getNetAPayer());
+
+        verifierEquilibreComptable(complet);
+    }
+
+    @Test
+    @DisplayName("4.e Cas Réel Modèle GALAXAM (Raketaka) : Congés 11.5j à TCONGE 19 348.12 Ar, Absences, AUTIMP")
+    void testCasReelRaketakaCongeEtAbsence() {
+        // Reproduit fidèlement la feuille 'payroll' et 'OUTPUT Colonnes E F G K L M ' du classeur réel ohatra gita
+        PayrollCalculationInput in = creerInputBase("EMP002", new BigDecimal("625000.00"), "TNR");
+        in.setNbJoursConges(new BigDecimal("11.5"));
+        in.setTauxJournalierConge(new BigDecimal("19348.12")); // TCONGE dynamique issu du grand-livre congés
+        in.setModeCalculAbsence("TRENTIEME");
+        // Absence résiduelle non-congé = 240 052.06 (total absences Excel) - 239 583.33 (déduction congés) = 468.73 Ar
+        in.setNbJoursAbsence(new BigDecimal("0.0225")); // 0.0225 x (625 000 / 30) = 468.75 Ar
+        in.setAutimp(new BigDecimal("25257.14"));
+
+        // Retenue CALL_PERSO de 21 470 Ar
+        PaieAvanceAcompte callPerso = new PaieAvanceAcompte();
+        callPerso.setTypeMouvement("CALL_PERSO");
+        callPerso.setSens("RETENUE");
+        callPerso.setMontant(new BigDecimal("21470.00"));
+        in.getAvancesAcomptes().add(callPerso);
+
+        // Désactiver repas/transport pour isoler la rémunération contractuelle comme dans le sheet payroll
+        in.setIndemniteRepas(BigDecimal.ZERO);
+        in.setIndemniteTransport(BigDecimal.ZERO);
+
+        BulletinPaieComplet complet = engine.calculer(in);
+        BulletinPaie bp = complet.getBulletin();
+
+        // 1. Déduction de congé 1/30ème (-239 583.33 Ar)
+        BulletinPaieLigne retConge = complet.trouverLigne("RETENUE_CONGE");
+        assertNotNull(retConge);
+        assertEquals(new BigDecimal("239583.33"), retConge.getMontantSalarial());
+
+        // 2. Indemnité de congés payés au TCONGE (+222 503.38 Ar)
+        BulletinPaieLigne indConge = complet.trouverLigne("INDEMNITE_CONGE");
+        assertNotNull(indConge);
+        assertEquals(new BigDecimal("222503.38"), indConge.getMontantSalarial());
+
+        // 3. Salaire Brut exact : 625 000 - 468.75 - 239 583.33 + 222 503.38 + 25 257.14 = 632 708.44 Ar (~632 708.46 Ar)
+        assertEquals(new BigDecimal("632708.44"), bp.getTotalGainsBruts());
+
+        // 4. Cotisations CNaPS et OSTIE (1% sur brut)
+        assertEquals(new BigDecimal("6327.08"), bp.getTotalCotisationsSalariales().divide(new BigDecimal("2"), 2, RoundingMode.HALF_UP));
+
+        // 5. Net imposable (NETI) = ~620 054.28 Ar
+        assertEquals(new BigDecimal("620054.28"), bp.getSalaireNetImposable());
+        assertEquals(new BigDecimal("620000.00"), bp.getBaseIrsaArrondie());
+
+        // 6. IRSA Brut = 31 500 Ar (exact à la centaine et barème LF 2026)
+        assertEquals(new BigDecimal("31500.00"), bp.getIrsaBrut());
+        assertEquals(new BigDecimal("31500.00"), bp.getIrsaNet());
+
+        // 7. Net à Payer arrondi à la dizaine d'Ariary (567 084 Ar -> 567 080 Ar)
+        assertEquals(new BigDecimal("567080.00"), bp.getNetAPayer());
+
+        verifierEquilibreComptable(complet);
+    }
+
+    @Test
+    @DisplayName("4.f Maintien pur du salaire pour congés payés sans double paiement (absence de TCONGE historique)")
+    void testMaintienCongeSansDoublePaiement() {
+        PayrollCalculationInput in = creerInputBase("EMP010", new BigDecimal("1000000.00"), "TNR");
+        in.setNbJoursConges(new BigDecimal("5.0"));
+        in.setNbJoursAbsence(BigDecimal.ZERO);
+        in.setIndemniteRepas(BigDecimal.ZERO);
+        in.setIndemniteTransport(BigDecimal.ZERO);
+
+        BulletinPaieComplet complet = engine.calculer(in);
+        BulletinPaie bp = complet.getBulletin();
+
+        // RETENUE_CONGE = 5 * (1 000 000 / 30) = 166 666.67 Ar
+        BulletinPaieLigne retConge = complet.trouverLigne("RETENUE_CONGE");
+        assertNotNull(retConge);
+        assertEquals(new BigDecimal("166666.67"), retConge.getMontantSalarial());
+
+        // INDEMNITE_CONGE = 5 * (1 000 000 / 30) = 166 666.67 Ar
+        BulletinPaieLigne indConge = complet.trouverLigne("INDEMNITE_CONGE");
+        assertNotNull(indConge);
+        assertEquals(new BigDecimal("166666.67"), indConge.getMontantSalarial());
+
+        // Les deux lignes s'annulent : le salaire brut reste strictement 1 000 000.00 Ar
+        assertEquals(new BigDecimal("1000000.00"), bp.getTotalGainsBruts());
+
+        verifierEquilibreComptable(complet);
+    }
+
+    @Test
     @DisplayName("5. Prorata d'entrée en cours de mois basé sur les heures réelles travaillées")
     void testProrataEntreeEnCoursDeMois() {
         PayrollCalculationInput in = creerInputBase("EMP005", new BigDecimal("1000000.00"), "TNR");
@@ -501,5 +666,71 @@ class PayrollExecutionEngineTest {
                 "Le salaire net à payer ne doit jamais être négatif");
         assertEquals(BigDecimal.ZERO.setScale(2), bp.getNetAPayer(), "Le net à payer doit être ramené à 0.00 Ar");
         verifierEquilibreComptable(c);
+    }
+
+    @Test
+    @DisplayName("15. Variables dynamiques de gains (AUTIMP, EXTRA_DEPLACEMENT, PRIME_PERFORMANCE)")
+    void testVariablesDynamiquesGainsEtExtras() {
+        PayrollCalculationInput in = creerInputBase("EMP_VAR_01", new BigDecimal("600000.00"), "TNR");
+        in.setNbJoursOuvrables(new BigDecimal("22.0"));
+        in.setNbJoursPresents(new BigDecimal("19.0"));
+        in.setPrimePerformanceBase(new BigDecimal("30000.00"));
+        in.setAutimp(new BigDecimal("50000.00"));
+        in.setExtraDeplacement(new BigDecimal("35000.00"));
+
+        BulletinPaieComplet complet = engine.calculer(in);
+
+        BulletinPaieLigne lPerf = complet.trouverLigne("PRIME_PERFORMANCE");
+        assertNotNull(lPerf, "La ligne PRIME_PERFORMANCE doit être présente");
+        // 30 000 * 19 / 22 = 25 909.09 Ar (ou prorata exact)
+        assertTrue(lPerf.getMontantSalarial().compareTo(new BigDecimal("25000.00")) > 0);
+
+        BulletinPaieLigne lAutimp = complet.trouverLigne("AUTIMP");
+        assertNotNull(lAutimp, "La ligne AUTIMP doit être présente");
+        assertEquals(new BigDecimal("50000.00"), lAutimp.getMontantSalarial());
+
+        BulletinPaieLigne lExtra = complet.trouverLigne("EXTRA_DEPLACEMENT");
+        assertNotNull(lExtra, "La ligne EXTRA_DEPLACEMENT doit être présente");
+        assertEquals(new BigDecimal("35000.00"), lExtra.getMontantSalarial());
+
+        verifierEquilibreComptable(complet);
+    }
+
+    @Test
+    @DisplayName("16. Retenues directes de trésorerie (CALL_PERSO, RETENUE_DIVERSE sans bridage 1/10e)")
+    void testVariablesDynamiquesRetenuesDirectesCallPerso() {
+        PayrollCalculationInput in = creerInputBase("EMP_VAR_02", new BigDecimal("600000.00"), "TNR");
+
+        PaieAvanceAcompte callPerso = new PaieAvanceAcompte();
+        callPerso.setIdAvance(101);
+        callPerso.setTypeMouvement("CALL_PERSO");
+        callPerso.setSens("RETENUE");
+        callPerso.setMontant(new BigDecimal("21470.00"));
+        callPerso.setMotif("Dépassement communication privée");
+
+        PaieAvanceAcompte retDiverse = new PaieAvanceAcompte();
+        retDiverse.setIdAvance(102);
+        retDiverse.setTypeMouvement("RETENUE_DIVERSE");
+        retDiverse.setSens("RETENUE");
+        retDiverse.setMontant(new BigDecimal("7500.00"));
+        retDiverse.setMotif("Pénalité diverse");
+
+        in.setAvancesAcomptes(List.of(callPerso, retDiverse));
+
+        BulletinPaieComplet complet = engine.calculer(in);
+
+        BulletinPaieLigne lCall = complet.trouverLigne("RETENUE_CALL_PERSO");
+        assertNotNull(lCall, "La ligne RETENUE_CALL_PERSO doit être présente");
+        assertEquals(new BigDecimal("21470.00"), lCall.getMontantSalarial());
+
+        BulletinPaieLigne lDiv = complet.trouverLigne("RETENUE_DIVERSE");
+        assertNotNull(lDiv, "La ligne RETENUE_DIVERSE doit être présente");
+        assertEquals(new BigDecimal("7500.00"), lDiv.getMontantSalarial());
+
+        // Vérifie que les IDs sont bien transmis pour imputation automatique
+        assertTrue(complet.getIdsAvancesImputees().contains(101));
+        assertTrue(complet.getIdsAvancesImputees().contains(102));
+
+        verifierEquilibreComptable(complet);
     }
 }

@@ -185,6 +185,41 @@ class PointageCalculateurEngineTest {
             double total = engine.calculerDeplacementJour(true, false, TARIF_TRAJET, true, 2000.0);
             assertEquals(0.0, total, 0.01);
         }
+
+        @Test @DisplayName("Methode maitresse TMM (horaire discontinu) avec repas pris -> deduction 1000 Ar")
+        void tmmHoraireDiscontinuAvecRepas() {
+            double tarifJourTmm = 2418.18;
+            double total = engine.calculerDeplacementJour(1.0, tarifJourTmm, true, 1000.0);
+            assertEquals(1418.18, total, 0.01);
+        }
+
+        @Test @DisplayName("Methode maitresse TMM (horaire discontinu) sans repas pris -> deduction 0 Ar")
+        void tmmHoraireDiscontinuSansRepas() {
+            double tarifJourTmm = 2418.18;
+            double total = engine.calculerDeplacementJour(1.0, tarifJourTmm, false, 1000.0);
+            assertEquals(2418.18, total, 0.01);
+        }
+
+        @Test @DisplayName("Methode maitresse TNR (horaire continu) avec repas pris -> 0 Ar deduit (salaries ne rentrent pas midi)")
+        void tnrHoraireContinuAvecRepas() {
+            double tarifJourTnr = 1418.18;
+            double total = engine.calculerDeplacementJour(1.0, tarifJourTnr, true, 0.0);
+            assertEquals(1418.18, total, 0.01);
+        }
+
+        @Test @DisplayName("Methode maitresse avec reduction configuree a 0 Ar -> aucune deduction")
+        void reductionConfigureeAZero() {
+            double tarifJourTmm = 2418.18;
+            double total = engine.calculerDeplacementJour(1.0, tarifJourTmm, true, 0.0);
+            assertEquals(2418.18, total, 0.01);
+        }
+
+        @Test @DisplayName("Methode maitresse demi-journee (fraction 0.5) sans repas -> prorata demi-journee exact")
+        void demiJourneeSansRepas() {
+            double tarifJourTmm = 2418.18;
+            double total = engine.calculerDeplacementJour(0.5, tarifJourTmm, false, 1000.0);
+            assertEquals(1209.09, total, 0.01);
+        }
     }
 
     @Nested @DisplayName("calculerTroncon (40h semaine)")

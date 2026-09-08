@@ -36,11 +36,13 @@ export default function PointageGridTable({
             case 'PRESENT':
                 return <Badge variant="success" size="sm" className="font-bold">Présent</Badge>;
             case 'DISPENSE_POINTAGE':
-                return <Badge variant="brand" size="sm" className="font-bold">Forfait 8h</Badge>;
+                return <Badge variant="brand" size="sm" className="font-bold">{libelle || 'Forfait 8h'}</Badge>;
             case 'CONGE':
                 return <Badge variant="warning" size="sm" className="font-bold">{libelle || 'Congé'}</Badge>;
             case 'CONGE_DEMI_JOURNEE':
                 return <Badge variant="warning" size="sm" className="font-bold">{libelle || 'Demi-journée'}</Badge>;
+            case 'ABSENCE_JUSTIFIEE':
+                return <Badge variant="warning" size="sm" className="font-bold">{libelle || 'Absence justifiée'}</Badge>;
             case 'FERIE_CHOME':
                 return <span className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)] text-[11px] font-semibold px-2 py-1">{libelle || 'Férié chômé'}</span>;
             case 'FERIE_TRAVAILLE':
@@ -69,9 +71,9 @@ export default function PointageGridTable({
                     {[
                         { id: 'ALL', label: 'Tous', count: grilleData.length },
                         { id: 'PRESENT', label: 'Présents', count: grilleData.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0)).length },
-                        { id: 'NON_SAISI', label: 'Non saisis', count: grilleData.filter(r => (!r.totalHeures || r.totalHeures === 0) && !r.conge && !r.dispensePointage && !r.ferieChome).length },
+                        { id: 'NON_SAISI', label: 'Non saisis', count: grilleData.filter(r => (!r.totalHeures || r.totalHeures === 0) && !r.conge && !r.absenceJustifiee && r.codeStatut !== 'ABSENCE_JUSTIFIEE' && r.codeStatut !== 'ABSENCE_NON_JUSTIFIEE' && !r.dispensePointage && !r.ferieChome).length },
                         { id: 'RETARD', label: 'Retards', count: grilleData.filter(r => r.retard || (r.minutesRetard && r.minutesRetard > 0)).length },
-                        { id: 'CONGE', label: 'Congés', count: grilleData.filter(r => r.conge).length },
+                        { id: 'CONGE', label: 'Congés', count: grilleData.filter(r => r.conge || r.absenceJustifiee || r.codeStatut === 'ABSENCE_JUSTIFIEE').length },
                     ].map((tab) => {
                         const isActive = selectedStatutFilter === tab.id;
                         return (
@@ -158,7 +160,8 @@ export default function PointageGridTable({
                             const isFerieChome = row.codeStatut === 'FERIE_CHOME' || (row.ferieJour && !row.totalHeures);
                             const isReadOnlyForUser = isReadOnly;
 
-                            const isNonSaisi = !row.totalHeures && !isCongeFull && !row.estAutonome && !isFerieChome;
+                            const isAbsence = row.codeStatut === 'ABSENCE_JUSTIFIEE' || row.absenceJustifiee || row.codeStatut === 'ABSENCE_NON_JUSTIFIEE' || row.absenceNonJustifiee;
+                            const isNonSaisi = !row.totalHeures && !isCongeFull && !row.estAutonome && !isFerieChome && !isAbsence;
 
                             let rowBorderCue = 'border-l-2 border-l-transparent';
                             if (isNonSaisi) rowBorderCue = 'border-l-2 border-l-amber-500';

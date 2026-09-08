@@ -108,4 +108,49 @@ class PointageSaisieServiceEngineIntegrationTest {
             assertFalse(CalendrierOuvrableEngine.isWeekend(lundi), "Lundi n'est pas un week-end");
         }
     }
+
+    @Nested
+    @DisplayName("Matrice de Statut Pointage selon la Typologie des Congés")
+    class CongeTypeStatutMappingTests {
+
+        @Test
+        @DisplayName("Congé sans solde qualifié en ABSENCE_JUSTIFIEE (0 indemnité de congé)")
+        void testCongeSansSoldeDevientAbsenceJustifiee() {
+            LocalDate date = LocalDate.of(2026, 8, 10); // Lundi ouvré
+            String statut = PointageSaisieService.determinerStatutJour(
+                    date, false, "FULL_DAY", false, false, false, null, null, null, null, 0, false
+            );
+            assertEquals("ABSENCE_JUSTIFIEE", statut, "Un congé sans solde doit être qualifié en ABSENCE_JUSTIFIEE");
+        }
+
+        @Test
+        @DisplayName("Congé annuel payé décompté du solde qualifié en CONGE")
+        void testCongeAnnuelPayeDevientConge() {
+            LocalDate date = LocalDate.of(2026, 8, 10);
+            String statut = PointageSaisieService.determinerStatutJour(
+                    date, false, "FULL_DAY", true, true, false, null, null, null, null, 0, false
+            );
+            assertEquals("CONGE", statut, "Un congé annuel payé doit être qualifié en CONGE");
+        }
+
+        @Test
+        @DisplayName("Congé exceptionnel payé sans décompte de solde qualifié en DISPENSE_POINTAGE (maintien salaire)")
+        void testCongeExceptionnelPayeDevientDispensePointage() {
+            LocalDate date = LocalDate.of(2026, 8, 10);
+            String statut = PointageSaisieService.determinerStatutJour(
+                    date, false, "FULL_DAY", true, false, false, null, null, null, null, 0, false
+            );
+            assertEquals("DISPENSE_POINTAGE", statut, "Une permission exceptionnelle payée doit être qualifiée en DISPENSE_POINTAGE pour maintenir le salaire sans déduire du congé annuel");
+        }
+
+        @Test
+        @DisplayName("Rétrocompatibilité : appel classique sans flags congePaye/decompteSolde retourne CONGE par défaut")
+        void testRetrocompatibiliteCongeParDefaut() {
+            LocalDate date = LocalDate.of(2026, 8, 10);
+            String statut = PointageSaisieService.determinerStatutJour(
+                    date, false, "FULL_DAY", false, null, null, null, null, 0, false
+            );
+            assertEquals("CONGE", statut, "Par défaut l'ancien appel retourne CONGE");
+        }
+    }
 }

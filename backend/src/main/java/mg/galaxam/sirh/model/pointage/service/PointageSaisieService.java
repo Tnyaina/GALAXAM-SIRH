@@ -129,13 +129,27 @@ public class PointageSaisieService {
             int retardMinutes,
             boolean hasValidationErr
     ) {
-        return determinerStatutJour(null, isFerie, typeConge, isAutonome, em, sm, ea, sa, retardMinutes, hasValidationErr);
+        return determinerStatutJour(null, isFerie, typeConge, true, true, isAutonome, em, sm, ea, sa, retardMinutes, hasValidationErr);
     }
 
     public static String determinerStatutJour(
             LocalDate date,
             boolean isFerie,
             String typeConge,
+            boolean isAutonome,
+            Time em, Time sm, Time ea, Time sa,
+            int retardMinutes,
+            boolean hasValidationErr
+    ) {
+        return determinerStatutJour(date, isFerie, typeConge, true, true, isAutonome, em, sm, ea, sa, retardMinutes, hasValidationErr);
+    }
+
+    public static String determinerStatutJour(
+            LocalDate date,
+            boolean isFerie,
+            String typeConge,
+            boolean isCongePaye,
+            boolean isCongeDecompteSolde,
             boolean isAutonome,
             Time em, Time sm, Time ea, Time sa,
             int retardMinutes,
@@ -162,6 +176,12 @@ public class PointageSaisieService {
 
         // 3. Congé journée entière
         if (isFullConge) {
+            if (!isCongePaye) {
+                return "ABSENCE_JUSTIFIEE";
+            }
+            if (!isCongeDecompteSolde) {
+                return "DISPENSE_POINTAGE";
+            }
             return "CONGE";
         }
 
@@ -612,6 +632,7 @@ public class PointageSaisieService {
 
                         // Congé approuvé ce jour
                         String sqlConge = "SELECT tc.libelle, tc.code AS type_code, COALESCE(dc.est_remunere, tc.est_paye) AS est_paye, " +
+                                          "tc.decompte_solde_acquis, " +
                                           "dc.est_demi_journee, dc.moment_demi_journee " +
                                           "FROM demande_conge dc " +
                                           "JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
@@ -629,7 +650,11 @@ public class PointageSaisieService {
                                     if (rsC.next()) {
                                         String tCode = rsC.getString("type_code");
                                         boolean estPayeConge = rsC.getBoolean("est_paye");
+                                        boolean decompteSolde = rsC.getBoolean("decompte_solde_acquis");
                                         String baseLib = rsC.getString("libelle");
+
+                                        dto.setCongePaye(estPayeConge);
+                                        dto.setCongeDecompteSolde(decompteSolde);
 
                                         if ("PERMISSION".equalsIgnoreCase(tCode)) {
                                             libelleConge = estPayeConge ? "Permission autorisée (Payée)" : "Permission autorisée (Non payée)";
@@ -710,10 +735,20 @@ public class PointageSaisieService {
                                 dto.setHeureSortieMatin("—");
                                 dto.setHeureEntreeAm("—");
                                 dto.setHeureSortieAm("—");
-                                dto.setTotalHeures(0.0);
                                 dto.setMinutesRetard(0);
-                                dto.setCodeStatut("CONGE");
-                                dto.setLibelleStatut(libelleConge != null ? libelleConge : "Congé");
+                                if (!dto.isCongePaye()) {
+                                    dto.setTotalHeures(0.0);
+                                    dto.setCodeStatut("ABSENCE_JUSTIFIEE");
+                                    dto.setLibelleStatut(libelleConge != null ? libelleConge : "Absence autorisée (Sans solde)");
+                                } else if (dto.isCongeDecompteSolde()) {
+                                    dto.setTotalHeures(0.0);
+                                    dto.setCodeStatut("CONGE");
+                                    dto.setLibelleStatut(libelleConge != null ? libelleConge : "Congé annuel");
+                                } else {
+                                    dto.setTotalHeures(8.0);
+                                    dto.setCodeStatut("DISPENSE_POINTAGE");
+                                    dto.setLibelleStatut(libelleConge != null ? libelleConge : "Absence autorisée payée");
+                                }
                                 dto.setDeplacementMatin(false);
                                 dto.setDeplacementAm(false);
                                 dto.setIndemniteRepasRecue(false);
@@ -1225,9 +1260,18 @@ public class PointageSaisieService {
                 if (codeStatut == null || codeStatut.isEmpty() || "NON_SAISI".equals(codeStatut)) {
                     codeStatut = determinerStatutJour(
                             datePtg,
-                            dto.isFerieJour(), dto.getTypeCongeJour(), dto.isEstAutonome(),
+                            dto.isFerieJour(), dto.getTypeCongeJour(),
+                            dto.isCongePaye(), dto.isCongeDecompteSolde(),
+                            dto.isEstAutonome(),
                             em, sm, ea, sa, retMins, false
                     );
+                } else if (dto.getTypeCongeJour() != null && "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) {
+                    // Sécurisation stricte côté serveur : si congé non payé, forcer ABSENCE_JUSTIFIEE
+                    if (!dto.isCongePaye()) {
+                        codeStatut = "ABSENCE_JUSTIFIEE";
+                    } else if (!dto.isCongeDecompteSolde() && "CONGE".equalsIgnoreCase(codeStatut)) {
+                        codeStatut = "DISPENSE_POINTAGE";
+                    }
                 } else if ("PRESENT".equals(codeStatut) && datePtg != null && totalH > 0) {
                     if (CalendrierOuvrableEngine.isWeekend(datePtg)) {
                         codeStatut = (datePtg.getDayOfWeek() == java.time.DayOfWeek.SATURDAY)
