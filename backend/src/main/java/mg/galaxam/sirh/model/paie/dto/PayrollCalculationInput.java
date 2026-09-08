@@ -83,6 +83,7 @@ public class PayrollCalculationInput {
     private BigDecimal smeNational = new BigDecimal("262680.00");
     private BigDecimal minimumPerceptionIrsa = new BigDecimal("3000.00");
     private BigDecimal deductionParEnfant = new BigDecimal("2000.00");
+    private BigDecimal seuilExonerationIrsa = new BigDecimal("350000.00");
     private List<TrancheIrsa> tranchesIrsa = new ArrayList<>();
     private BigDecimal tauxIsi = new BigDecimal("5.00");
 
@@ -360,6 +361,9 @@ public class PayrollCalculationInput {
 
     public BigDecimal getDeductionParEnfant() { return deductionParEnfant; }
     public void setDeductionParEnfant(BigDecimal deductionParEnfant) { this.deductionParEnfant = deductionParEnfant; }
+
+    public BigDecimal getSeuilExonerationIrsa() { return seuilExonerationIrsa; }
+    public void setSeuilExonerationIrsa(BigDecimal seuilExonerationIrsa) { this.seuilExonerationIrsa = seuilExonerationIrsa; }
 
     public List<TrancheIrsa> getTranchesIrsa() { return tranchesIrsa; }
     public void setTranchesIrsa(List<TrancheIrsa> tranchesIrsa) { this.tranchesIrsa = tranchesIrsa; }

@@ -278,44 +278,10 @@ public class PointageSaisieService {
             }
             result.put("periodeInfo", periodeInfo);
 
-            // 2. Vérification du Jour Férié Chômé (National ou spécifique au Site)
-            boolean isFerie = false;
-            String libelleFerie = null;
-            String sqlFerie = "SELECT f.libelle, f.est_chome " +
-                              "FROM ref_calendrier_ferie f " +
-                              "LEFT JOIN site_calendrier_ferie scf ON f.id_ferie = scf.id_ferie AND scf.id_site = ? " +
-                              "WHERE f.date_ferie = ? " +
-                              "  AND f.est_chome = TRUE " +
-                              "  AND (f.est_national = TRUE OR scf.id_site IS NOT NULL) " +
-                              "LIMIT 1";
-            try (PreparedStatement psF = c.prepareStatement(sqlFerie)) {
-                psF.setInt(1, idSite);
-                psF.setDate(2, date);
-                try (ResultSet rsF = psF.executeQuery()) {
-                    if (rsF.next()) {
-                        isFerie = true;
-                        libelleFerie = rsF.getString("libelle");
-                    }
-                }
-            }
-
-            // 2.bis Vérification des Périodes Exceptionnelles chômées (ref_periode_chomee, ex: intempéries, cyclone, fermeture)
-            if (!isFerie) {
-                String sqlPeriodeChomee = "SELECT libelle FROM ref_periode_chomee " +
-                                          "WHERE (id_site IS NULL OR id_site = ?) " +
-                                          "  AND ? BETWEEN date_debut AND COALESCE(date_fin, date_debut) " +
-                                          "LIMIT 1";
-                try (PreparedStatement psPC = c.prepareStatement(sqlPeriodeChomee)) {
-                    psPC.setInt(1, idSite);
-                    psPC.setDate(2, date);
-                    try (ResultSet rsPC = psPC.executeQuery()) {
-                        if (rsPC.next()) {
-                            isFerie = true;
-                            libelleFerie = rsPC.getString("libelle");
-                        }
-                    }
-                } catch (Exception ignored) {}
-            }
+            // 2. Vérification du Jour Férié Chômé / Période chômée via le moteur canonique
+            CalendrierOuvrableEngine.JourChomeInfo chomeInfo = calendrierEngine.getJourChomeInfo(date != null ? date.toLocalDate() : null, idSite, c);
+            boolean isFerie = chomeInfo.estChome();
+            String libelleFerie = chomeInfo.libelle();
             result.put("isFerie", isFerie);
             result.put("libelleFerie", libelleFerie);
 

@@ -4,7 +4,8 @@
  */
 
 // ─── Formatteurs Utilitaires Canoniques (Délégués à dateUtils et moneyUtils) ─
-export { fmtDateInput, fmtDate, fmtDateFr } from './dateUtils';
+import { fmtDateInput, fmtDate, fmtDateFr } from './dateUtils';
+export { fmtDateInput, fmtDate, fmtDateFr };
 export { fmtMoney, fmtMoneyMGA } from './moneyUtils';
 
 

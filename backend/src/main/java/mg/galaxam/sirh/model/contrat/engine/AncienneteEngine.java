@@ -178,6 +178,13 @@ public class AncienneteEngine {
      * (élimine complètement la boucle N+1 de requêtes).
      */
     public AncienneteBilan calculerAnciennete(Integer idContrat, Connection c) {
+        return calculerAnciennete(idContrat, LocalDate.now(), c);
+    }
+
+    /**
+     * Calcule l'ancienneté continue pour un contrat donné à une date de référence arbitraire (ex: date de départ STC).
+     */
+    public AncienneteBilan calculerAnciennete(Integer idContrat, LocalDate dateReference, Connection c) {
         if (idContrat == null || c == null) {
             return AncienneteBilan.vide();
         }
@@ -209,7 +216,33 @@ public class AncienneteEngine {
             return AncienneteBilan.vide();
         }
 
-        return evaluerAnciennete(contrats, idContrat, LocalDate.now());
+        LocalDate ref = dateReference != null ? dateReference : LocalDate.now();
+        return evaluerAnciennete(contrats, idContrat, ref);
+    }
+
+    /**
+     * Calcule l'ancienneté continue pour un employé à une date de référence donnée.
+     * Identifie son dernier contrat et évalue la chaîne complète.
+     */
+    public AncienneteBilan calculerAncienneteEmploye(Integer idEmploye, LocalDate dateReference, Connection c) {
+        if (idEmploye == null || c == null) {
+            return AncienneteBilan.vide();
+        }
+        String sqlContrat = "SELECT ct.id_contrat FROM contrat_travail ct " +
+                "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                "WHERE ct.id_employe = ? ORDER BY ct.date_debut DESC LIMIT 1";
+        try (PreparedStatement ps = c.prepareStatement(sqlContrat)) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    int idContrat = rs.getInt("id_contrat");
+                    return calculerAnciennete(idContrat, dateReference, c);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Erreur AncienneteEngine.calculerAncienneteEmploye : " + e.getMessage());
+        }
+        return AncienneteBilan.vide();
     }
 
     /**

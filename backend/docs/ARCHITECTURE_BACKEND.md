@@ -24,7 +24,8 @@ mg.galaxam.sirh.model
 ├── contrat
 │   ├── engine
 │   │   ├── ContratValidationEngine.java    # Contrôles de fin de contrat, dates d'essai, statut
-│   │   └── CarriereTransitionValidator.java# Validation des transitions d'affectation et de salaire
+│   │   ├── CarriereTransitionValidator.java# Validation des transitions d'affectation et de salaire
+│   │   └── AncienneteEngine.java           # Calcul unifié de l'ancienneté en mémoire Java (Carrière & STC)
 │   ├── WorkflowRhService.java
 │   └── ContratTravail.java
 ├── conge
@@ -37,11 +38,12 @@ mg.galaxam.sirh.model
 ├── pointage
 │   ├── engine
 │   │   ├── PointageCalculateurEngine.java  # Retards 0 tolérance, nuits, compensation 40h, indemnités
-│   │   └── CalendrierOuvrableEngine.java   # Jours ouvrés, ouvrables et fériés par site
+│   │   └── CalendrierOuvrableEngine.java   # Jours ouvrés, ouvrables et fériés par site (injecté dans Pointage & Congés)
 │   └── service
 │       ├── PointageSaisieService.java      # Batch save, synchronisation indemnités, verrous statut
 │       ├── PointageAnomalieService.java    # Détection et régularisation avec sync pointage_indemnite_jour
-│       └── PointageSyntheseService.java    # Calcul global 1-clic, verrous FOR UPDATE, transmission/arbitrage DAF
+│       ├── PointageSyntheseService.java    # Calcul global 1-clic, verrous FOR UPDATE, transmission/arbitrage DAF
+│       └── PointageEmployeService.java     # Fiche individuelle mensuelle de pointage (découplée du contrôleur)
 ├── paie
 │   ├── engine
 │   │   └── PayrollExecutionEngine.java     # Moteur d'orchestration paie, cotisations, IRSA, STC, régularisation
@@ -64,7 +66,7 @@ mg.galaxam.sirh.model
 │       └── NotificationRhScheduler.java    # Alertes automatiques
 └── paieconfig
     ├── engine
-    │   └── CalculateurPaieEngine.java      # Plafonds CNaPS, OSTIE, IRSA progressif, perception min.
+    │   └── CalculateurPaieEngine.java      # Moteur canonique IRSA (CGI Art. 01.03.18), CNaPS, OSTIE
     └── service
         └── PaieConfigService.java
 ```
@@ -80,14 +82,14 @@ Toutes les logiques procédurales SQL ont été déplacées vers Java :
 
 ---
 
-## 4. Tests Automatisés & Couverture Complète (324 Tests)
+## 4. Tests Automatisés & Couverture Complète (328 Tests)
 
-Le projet compte **324 tests automatisés réussis à 100%** (unitaires purs et intégration transactionnelle) :
+Le projet compte **328 tests automatisés réussis à 100%** (unitaires purs et intégration transactionnelle) :
 - `AuditDeepInspectionExhaustifTest` (8 tests approfondis : plafonnements Art. 72 & 68, compensation 1:1, régularisation congés DAF, etc.)
 - `AuditAdversarialRemediationTest` (13 tests contradictoires et cas limites)
 - `AuditPhase5Et6VerificationTest` & `Phase1Et2AuditVerificationTest` (12 tests de conformité par phases)
 - `PayrollExecutionEngineTest` (21 tests de calculs de paie duale, cotisations et déductions)
-- `CalculateurPaieEngineTest` & `CalculateurPaieEngineAdvancedTest` (20 tests barème IRSA et cotisations sociales)
+- `CalculateurPaieEngineTest` & `CalculateurPaieEngineAdvancedTest` (24 tests barème canonique IRSA et cotisations sociales)
 - `PointageCalculateurEngineTest` & `CalendrierOuvrableEngineTest` (52 tests de temps de travail)
 - `CongeCalculateurEngineTest` & `PurgeFifoEngineTest` (35 tests de congés et purge triennale FIFO)
 - `CarriereTransitionValidatorTest` & `AncienneteEngineTest` (11 tests de carrière et transitions contractuelles)

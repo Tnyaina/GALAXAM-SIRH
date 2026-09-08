@@ -85,7 +85,7 @@ export function useContractReferentiels(enabled = true, excludeEmployeId = null)
                 categoriesPro: (catRes || []).filter(isItemActive),
                 modesPaie: (paieRes || []).filter(isItemActive),
                 typesEvenementRh: (tevRes || []).filter(isItemActive),
-                employes: empArray.filter(e => e.actif !== false && e.statut !== 'INACTIF'),
+                employes: empArray.filter(e => isItemActive(e) && e.statut !== 'INACTIF' && e.statutEmploye !== 'INACTIF'),
             };
 
 

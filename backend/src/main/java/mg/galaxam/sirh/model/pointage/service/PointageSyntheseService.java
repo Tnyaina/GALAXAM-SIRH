@@ -30,6 +30,8 @@ import java.util.Set;
 @Service
 public class PointageSyntheseService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PointageSyntheseService.class);
+
     @Autowired
     private DataSource dataSource;
 
@@ -549,7 +551,9 @@ public class PointageSyntheseService {
             while (rsSIC.next()) {
                 siteDeplacementRefMap.put(rsSIC.getInt("id_site"), rsSIC.getDouble("montant_reference"));
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("[PointageSyntheseService] Erreur chargement montants référence indemnité déplacement: {}", e.getMessage());
+        }
 
         // 2. Charger les employés éligibles avec l'affectation active durant cette période
         StringBuilder sqlEmp = new StringBuilder(
@@ -560,10 +564,11 @@ public class PointageSyntheseService {
             "FROM employe e " +
             "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
+            "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
             "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
             "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
-            "WHERE 1=1 "
+            "WHERE e.est_actif = TRUE "
         );
 
         if (idSite != null && idSite > 0) {
@@ -947,7 +952,9 @@ public class PointageSyntheseService {
             while (rsSIC.next()) {
                 siteDeplacementRefMap.put(rsSIC.getInt("id_site"), rsSIC.getDouble("montant_reference"));
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("[PointageSyntheseService] Erreur chargement montants référence indemnité déplacement tronçon: {}", e.getMessage());
+        }
 
         StringBuilder sqlEmp = new StringBuilder(
             "SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
@@ -957,10 +964,11 @@ public class PointageSyntheseService {
             "FROM employe e " +
             "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
+            "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
             "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
             "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
-            "WHERE 1=1 "
+            "WHERE e.est_actif = TRUE "
         );
 
         if (idSite != null && idSite > 0) {

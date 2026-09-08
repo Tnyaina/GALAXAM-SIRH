@@ -5,12 +5,9 @@ import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import Button from '@/components/ui/forms/Button';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Pagination from '@/components/ui/navigation/Pagination';
+import { fmtDate } from '@/utils/dateUtils';
 
-const formatDate = (ts) => {
-  if (!ts) return '—';
-  const date = new Date(ts);
-  return date.toLocaleDateString('fr-FR');
-};
+const formatDate = (ts) => fmtDate(ts);
 
 export default function ValidationTable({
   demandes,

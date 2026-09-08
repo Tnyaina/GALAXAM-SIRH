@@ -9,13 +9,10 @@ import Input from '@/components/ui/forms/Input';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Modal from '@/components/ui/overlays/Modal';
+import { fmtDate } from '@/utils/dateUtils';
 
 // Utilities
-const formatDate = (timestamp) => {
-  if (!timestamp) return '-';
-  const date = new Date(timestamp);
-  return date.toLocaleDateString('fr-FR');
-};
+const formatDate = (timestamp) => fmtDate(timestamp);
 
 export default function DemandesTab({ 
   loading, 

@@ -11,15 +11,23 @@ import mg.galaxam.sirh.model.conge.RefTypeConge;
 import mg.galaxam.sirh.model.conge.VSoldeCongeEmploye;
 import mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine;
 import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
+import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
 import org.springframework.stereotype.Service;
 
 @Service
 public class CongeService {
 
     private final CongeCalculateurEngine calculateurEngine;
+    private final CalendrierOuvrableEngine calendrierOuvrableEngine;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CongeService(CongeCalculateurEngine calculateurEngine, CalendrierOuvrableEngine calendrierOuvrableEngine) {
+        this.calculateurEngine = calculateurEngine;
+        this.calendrierOuvrableEngine = calendrierOuvrableEngine != null ? calendrierOuvrableEngine : new CalendrierOuvrableEngine();
+    }
 
     public CongeService(CongeCalculateurEngine calculateurEngine) {
-        this.calculateurEngine = calculateurEngine;
+        this(calculateurEngine, new CalendrierOuvrableEngine());
     }
 
     public BigDecimal simulerNombreJours(Date dateDebut, Date dateFin, boolean estDemiJournee) {
@@ -150,24 +158,14 @@ public class CongeService {
         res.put("estDemiJournee", estDemiJournee);
         res.put("momentDemiJournee", momentDemiJournee);
 
-        // 2. Décompte calendaire détaillé (ouvrés, week-ends, fériés)
+        // 2. Décompte calendaire détaillé (ouvrés, week-ends, fériés) via le moteur canonique
         java.time.LocalDate cur = dateDebut.toLocalDate();
         java.time.LocalDate end = dateFin.toLocalDate();
         int nbWeekend = 0;
         int nbOuvres = 0;
         int nbFeries = 0;
 
-        java.util.Set<java.time.LocalDate> feries = new java.util.HashSet<>();
-        String sqlFeries = "SELECT date_ferie FROM ref_calendrier_ferie WHERE date_ferie BETWEEN ? AND ?";
-        try (PreparedStatement psF = c.prepareStatement(sqlFeries)) {
-            psF.setDate(1, dateDebut);
-            psF.setDate(2, dateFin);
-            try (ResultSet rsF = psF.executeQuery()) {
-                while (rsF.next()) {
-                    feries.add(rsF.getDate("date_ferie").toLocalDate());
-                }
-            }
-        }
+        java.util.Set<java.time.LocalDate> feries = calendrierOuvrableEngine.getDatesFeriesEtChomeesEmploye(cur, end, idEmploye, c);
         while (!cur.isAfter(end)) {
             java.time.DayOfWeek dow = cur.getDayOfWeek();
             boolean isWe = (dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY);

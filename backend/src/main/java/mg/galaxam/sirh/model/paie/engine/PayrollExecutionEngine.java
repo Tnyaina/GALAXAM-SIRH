@@ -358,48 +358,34 @@ public class PayrollExecutionEngine {
             bp.setRetenueIsi5(retenueIsi);
             bp.setIrsaNet(BigDecimal.ZERO.setScale(2));
         } else if (input.isSoumisIrsa()) {
-            // Régime Salarié : Barème progressif IRSA
-            // 3.1 Arrondi fiscal à la centaine inférieure
-            long netImposableLong = salaireNetImposable.setScale(0, RoundingMode.DOWN).longValue();
-            long baseArrondieCentaine = (netImposableLong / 100L) * 100L;
-            BigDecimal baseIrsaArrondie = BigDecimal.valueOf(baseArrondieCentaine).setScale(2, RoundingMode.HALF_UP);
-            bp.setBaseIrsaArrondie(baseIrsaArrondie);
+            // Régime Salarié : Barème progressif IRSA unifié via CalculateurPaieEngine
+            var irsaRes = calculateurPaieEngine.calculerIrsaDetaille(
+                    salaireNetImposable,
+                    input.getTranchesIrsa(),
+                    input.getNbEnfantsEligibles(),
+                    input.getDeductionParEnfant(),
+                    input.getMinimumPerceptionIrsa(),
+                    input.getSeuilExonerationIrsa()
+            );
 
-            // 3.2 Calcul progressif de l'impôt brut par tranches
-            BigDecimal irsaBrut = calculateurPaieEngine.calculerIrsaBrut(baseIrsaArrondie, input.getTranchesIrsa());
-            bp.setIrsaBrut(irsaBrut);
+            bp.setBaseIrsaArrondie(irsaRes.baseIrsaArrondie());
+            bp.setIrsaBrut(irsaRes.irsaBrut());
+            bp.setReductionEnfants(irsaRes.reductionEnfants());
 
-            // Arrondi supérieur à la dizaine d'Ariary
-            BigDecimal irsaArrondiDizaine = arrondirDizaineSuperieure(irsaBrut);
+            irsaNet = irsaRes.irsaNet().min(salaireNetImposable).setScale(2, RoundingMode.HALF_UP);
 
             lignes.add(creerLigne(bp, "IMPOT_IRSA_BRUT", "IRSA Brut (Barème Progressif 6 Tranches)", "INFO", "IMPOT",
-                    baseIrsaArrondie, null, irsaArrondiDizaine, null, 400));
+                    irsaRes.baseIrsaArrondie(), null, irsaRes.irsaArrondiDizaine(), null, 400));
 
-            // 3.3 Réduction pour charges de famille (2 000 Ar par enfant éligible)
             int nbEnfants = input.getNbEnfantsEligibles();
-            BigDecimal reductionEnfants = input.getDeductionParEnfant().multiply(BigDecimal.valueOf(nbEnfants));
-            bp.setReductionEnfants(reductionEnfants);
-
-            if (reductionEnfants.compareTo(BigDecimal.ZERO) > 0) {
+            if (irsaRes.reductionEnfants().compareTo(BigDecimal.ZERO) > 0) {
                 lignes.add(creerLigne(bp, "REDUCTION_CHARGE_FAMILLE", "Réduction IRSA pour Charges de Famille (" + nbEnfants + " enf.)",
-                        "INFO", "IMPOT", reductionEnfants, null, reductionEnfants, null, 410));
-            }
-
-            // 3.4 Impôt net dû avec application du plancher légal (3 000 Ar si revenu imposable)
-            if (salaireNetImposable.compareTo(BigDecimal.ZERO) <= 0) {
-                irsaNet = BigDecimal.ZERO.setScale(2);
-            } else {
-                BigDecimal minimumPerception = input.getMinimumPerceptionIrsa();
-                irsaNet = irsaArrondiDizaine.subtract(reductionEnfants).max(BigDecimal.ZERO);
-                irsaNet = irsaNet.max(minimumPerception);
-                // Règle fiscale protectrice (CGI Madagascar Art. 01.03.18) :
-                // La retenue IRSA ne peut excéder le montant même du salaire net imposable
-                irsaNet = irsaNet.min(salaireNetImposable).setScale(2, RoundingMode.HALF_UP);
+                        "INFO", "IMPOT", irsaRes.reductionEnfants(), null, irsaRes.reductionEnfants(), null, 410));
             }
 
             if (irsaNet.compareTo(BigDecimal.ZERO) > 0) {
                 lignes.add(creerLigne(bp, "IMPOT_IRSA_NET", "IRSA Net à Payer (Retenu à la Source)", "RETENUE", "IMPOT",
-                        baseIrsaArrondie, null, irsaNet, null, 420));
+                        irsaRes.baseIrsaArrondie(), null, irsaNet, null, 420));
             }
             bp.setIrsaNet(irsaNet);
             bp.setRetenueIsi5(BigDecimal.ZERO.setScale(2));

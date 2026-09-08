@@ -132,7 +132,7 @@ export default function PointageGridTable({
                             const isCongeFull = Boolean(row.congeFull ?? (row.typeCongeJour === 'FULL_DAY' || row.conge));
                             const isCongeMatin = Boolean(row.congeMatin ?? (row.typeCongeJour === 'MATIN'));
                             const isCongeAm = Boolean(row.congeAm ?? (row.typeCongeJour === 'APRES_MIDI'));
-                            const isFerieChome = Boolean(row.ferieChome);
+                            const _isFerieChome = Boolean(row.ferieChome);
                             const isReadOnlyForUser = isReadOnly;
 
                             const isNonSaisi = Boolean(row.nonSaisi);

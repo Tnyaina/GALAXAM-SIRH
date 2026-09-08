@@ -7,11 +7,9 @@ import Alert from '@/components/ui/feedback/Alert';
 import { Textarea, Checkbox } from '@/components/ui/forms/Input';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
+import { fmtDate } from '@/utils/dateUtils';
 
-const formatDate = (ts) => {
-  if (!ts) return '-';
-  return new Date(ts).toLocaleDateString('fr-FR');
-};
+const formatDate = (ts) => fmtDate(ts);
 
 export default function ValidationModals({
   selectedDemande,

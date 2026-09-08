@@ -51,6 +51,7 @@ graph TD
 
 **C'est le moteur mathématique et réglementaire.** Fonctions pures, déterministes, sans aucun état React ni effet de bord (`useState`, `useEffect` proscrits ici).
 
+- **`dateUtils.js`** : Source de vérité unique pour la manipulation et le formatage des dates timezone-safe (`fmtDate`, `fmtDateTime`, `fmtTime`, `fmtDateInput`). Garantit l'absence de décalage de jour lors de la sérialisation des dates ISO.
 - **`congeBusinessRules.js`** : Délais de préavis (RG-CON-06), détection des demandes rétroactives, calcul des dates de fin de congés à durée fixe (maternité 98j/119j, événements familiaux), évaluation de suffisance de solde.
 - **`pointageCalculations.js`** : Parsing d'heures sécurisé, calcul d'heures effectives matin/après-midi, pause automatique, retards cumulés, détection d'incohérences chronologiques et attribution des codes statuts.
 - **`pointageSyntheseUtils.js`** : Agrégations KPIs de semaine, consolidation mensuelle et statut de transmission DAF.

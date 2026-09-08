@@ -101,6 +101,102 @@ public class CalendrierOuvrableEngine {
     }
 
     /**
+     * Information sur le caractère chômé d'une date (férié ou période exceptionnelle).
+     */
+    public record JourChomeInfo(boolean estChome, String libelle) {
+        public static final JourChomeInfo NON_CHOME = new JourChomeInfo(false, null);
+    }
+
+    /**
+     * Détermine si une date donnée est chômée (férié chômé ou fermeture exceptionnelle) pour un site donné.
+     */
+    public JourChomeInfo getJourChomeInfo(LocalDate date, Integer idSite, Connection c) {
+        if (date == null || c == null) return JourChomeInfo.NON_CHOME;
+
+        // 1. Jour férié chômé légal (national ou spécifique au site)
+        StringBuilder sqlFerie = new StringBuilder(
+            "SELECT f.libelle FROM ref_calendrier_ferie f " +
+            "LEFT JOIN site_calendrier_ferie scf ON f.id_ferie = scf.id_ferie "
+        );
+        if (idSite != null && idSite > 0) {
+            sqlFerie.append("AND scf.id_site = ? ");
+        }
+        sqlFerie.append(
+            "WHERE f.date_ferie = ? AND f.est_chome = TRUE " +
+            "  AND (f.est_national = TRUE "
+        );
+        if (idSite != null && idSite > 0) {
+            sqlFerie.append("OR scf.id_site IS NOT NULL");
+        }
+        sqlFerie.append(") LIMIT 1");
+
+        try (PreparedStatement ps = c.prepareStatement(sqlFerie.toString())) {
+            int idx = 1;
+            if (idSite != null && idSite > 0) {
+                ps.setInt(idx++, idSite);
+            }
+            ps.setDate(idx++, java.sql.Date.valueOf(date));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new JourChomeInfo(true, rs.getString("libelle"));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[CalendrierOuvrableEngine] Erreur recherche férié pour date {}: {}", date, e.getMessage());
+        }
+
+        // 2. Période chômée exceptionnelle
+        StringBuilder sqlChomee = new StringBuilder(
+            "SELECT libelle FROM ref_periode_chomee " +
+            "WHERE ? BETWEEN date_debut AND COALESCE(date_fin, date_debut) "
+        );
+        if (idSite != null && idSite > 0) {
+            sqlChomee.append("AND (id_site IS NULL OR id_site = ?) ");
+        } else {
+            sqlChomee.append("AND id_site IS NULL ");
+        }
+        sqlChomee.append("LIMIT 1");
+
+        try (PreparedStatement ps = c.prepareStatement(sqlChomee.toString())) {
+            ps.setDate(1, java.sql.Date.valueOf(date));
+            if (idSite != null && idSite > 0) {
+                ps.setInt(2, idSite);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new JourChomeInfo(true, rs.getString("libelle"));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[CalendrierOuvrableEngine] Erreur recherche période chômée pour date {}: {}", date, e.getMessage());
+        }
+
+        return JourChomeInfo.NON_CHOME;
+    }
+
+    /**
+     * Récupère l'ensemble des dates fériées ou exceptionnellement chômées pour un employé en fonction de son site actif.
+     */
+    public Set<LocalDate> getDatesFeriesEtChomeesEmploye(LocalDate debut, LocalDate fin, Integer idEmploye, Connection c) {
+        Integer idSite = null;
+        if (idEmploye != null && c != null) {
+            String sql = "SELECT id_site FROM employe_affectation_carriere WHERE id_employe = ? ORDER BY id_affectation DESC LIMIT 1";
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
+                ps.setInt(1, idEmploye);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        int s = rs.getInt("id_site");
+                        if (!rs.wasNull()) idSite = s;
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("[CalendrierOuvrableEngine] Impossible de récupérer le site de l'employé {}: {}", idEmploye, e.getMessage());
+            }
+        }
+        return getDatesFeriesEtChomees(debut, fin, idSite, c);
+    }
+
+    /**
      * Détermine si une date donnée est un jour de week-end (Samedi ou Dimanche).
      */
     public static boolean isWeekend(LocalDate date) {

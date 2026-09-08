@@ -12,13 +12,10 @@ import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-disp
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
+import { fmtDate } from '@/utils/dateUtils';
 
 // Utilities
-const formatDate = (timestamp) => {
-  if (!timestamp) return '-';
-  const date = new Date(timestamp);
-  return date.toLocaleDateString('fr-FR');
-};
+const formatDate = (timestamp) => fmtDate(timestamp);
 
 export default function ValidationTab({ demandesAValider = [], onReload }) {
   const [selectedDemande, setSelectedDemande] = useState(null);

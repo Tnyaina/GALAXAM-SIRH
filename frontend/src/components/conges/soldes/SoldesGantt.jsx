@@ -9,12 +9,9 @@ import Button from '@/components/ui/forms/Button';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { useAuth } from '@/context/AuthContext';
+import { fmtDate } from '@/utils/dateUtils';
 
-const formatDate = (timestamp) => {
-  if (!timestamp) return '';
-  const date = new Date(timestamp);
-  return date.toLocaleDateString('fr-FR');
-};
+const formatDate = (timestamp) => fmtDate(timestamp);
 
 const getLeaveTooltip = (employeNom, item) => {
   const isDemi = Boolean(item.estDemiJournee);

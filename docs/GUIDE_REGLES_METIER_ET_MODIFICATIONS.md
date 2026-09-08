@@ -299,16 +299,21 @@ Dans GALAXAM-SIRH, une **séparation absolue des responsabilités** régit le co
 - **Composants Frontend :** `PaieConfigLegaleTab.jsx`.
 - **Test de Validation :** `CalculateurPaieEngineTest.testCalculerCnaps()`.
 
-### RG-PAIE-03, 04, 05 : Barème progressif IRSA, déductions familiales et minimum légal
+### RG-PAIE-03, 04, 05 : Barème progressif IRSA, déductions familiales et minimum légal (CGI Art. 01.03.18)
 - **Énoncé Métier :** 
-  - L'IRSA est calculé par tranches progressives (Code Général des Impôts).
+  - L'IRSA est calculé par tranches progressives selon le Code Général des Impôts (Art. 01.03.18).
+  - L'assiette imposable est obligatoirement **arrondie à la centaine d'Ariary inférieure** ($\lfloor \text{Base} / 100 \rfloor \times 100$).
+  - L'impôt brut obtenu par tranche est **arrondi à la dizaine d'Ariary supérieure** ($\lceil \text{ImpotBrut} / 10 \rceil \times 10$).
   - Une **déduction fiscale de 2 000 Ar par enfant à charge** est appliquée sur le montant d'impôt brut calculé.
-  - Dans tous les cas, l'impôt final ne peut pas être inférieur au **minimum de perception légal de 3 000 Ar**.
-- **Classe & Méthode :** `CalculateurPaieEngine.calculerIrsa(BigDecimal baseImposable, List<TrancheIrsa> tranches, int nbEnfantsACharge)`
-- **Classe Appelante :** Moteur de pré-paie et contrôleur IRSA.
-- **Contrôleur Backend :** `IrsaController.calculerSimulation` (`POST /api/paie-config/irsa/simuler`).
-- **Composants Frontend :** `ParametresModulesPanel.jsx` (Onglet Barème IRSA).
-- **Test de Validation :** `CalculateurPaieEngineTest.testCalculerIrsa()`.
+  - Dans tous les cas, l'impôt net final ne peut pas être inférieur au **minimum de perception légal de 3 000 Ar**.
+  - **Parité stricte :** Le même moteur canonique [`CalculateurPaieEngine.calculerIrsaDetaille`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/paieconfig/engine/CalculateurPaieEngine.java) est partagé entre l'orchestration mensuelle (`PayrollExecutionEngine`) et la quittance de départ (`StcService`), garantissant une conformité mathématique au centime près.
+- **Classe & Méthodes :** 
+  - `CalculateurPaieEngine.calculerIrsaDetaille(BigDecimal baseImposable, List<TrancheIrsa> tranches, int nbEnfants, BigDecimal minPerception, BigDecimal deductionParEnfant)`
+  - `CalculateurPaieEngine.calculerIrsa(BigDecimal baseImposable, List<TrancheIrsa> tranches, int nbEnfantsACharge)`
+- **Classes Appelantes :** `PayrollExecutionEngine.java`, `StcService.java`, `IrsaController.java`.
+- **Contrôleur Backend :** `IrsaController.calculerSimulation` (`POST /api/paie-config/irsa/simuler`), `PaieController`, `StcController`.
+- **Composants Frontend :** `ParametresModulesPanel.jsx` (Onglet Barème IRSA), `BulletinPaieDetailModal.jsx`, `RecuStcModal.jsx`.
+- **Test de Validation :** `CalculateurPaieEngineTest.java` et `CalculateurPaieEngineAdvancedTest.java`.
 
 ### RG-PAIE-06 : Décompte des absences au taux horaire strict
 - **Énoncé Métier :** Pour les salariés sans solde de congé ou en cas d'absence non rémunérée, la retenue est décomptée au taux horaire légal : $\text{Heures d'absence} \times (\text{Salaire de Base} / 173{,}3333)$. La retenue ne peut en aucun cas excéder le salaire de base de la période.
@@ -406,6 +411,7 @@ Cette section est le **manuel de maintenance pratique**. Lorsqu'une règle d'ent
 *Exemple : Ne plus réinitialiser l'ancienneté en cas de changement de filiale au sein du même groupe GALAXAM.*
 1. **Backend Moteur :** Ouvrir [`AncienneteEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/contrat/engine/AncienneteEngine.java).
    - Modifier la méthode `evaluerAnciennete(...)` pour accepter la chaîne de contrats même si `id_filiale` diffère.
+   - La surcharge canonique `calculerAncienneteEmploye(Integer idEmploye, LocalDate dateReference)` centralise l'accès pour la supervision de carrière (`WorkflowRhService`) et pour le solde de tout compte (`StcService`), éliminant toute duplication SQL.
 2. **Tests Unitaires :** Ajouter un cas de mutation multi-filiales dans [`AncienneteEngineTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/contrat/engine/AncienneteEngineTest.java).
 
 ---
@@ -449,7 +455,8 @@ Cette section est le **manuel de maintenance pratique**. Lorsqu'une règle d'ent
 ### Scénario 9 : Modifier le pré-remplissage et l'éligibilité de la grille de pointage
 *Exemple : Masquer de la grille de saisie les stagiaires ou intégrer une nouvelle catégorie d'employés.*
 1. **Backend Service :** Ouvrir [`PointageSaisieService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/pointage/service/PointageSaisieService.java).
-   - Méthode `chargerGrilleHebdo` : ajuster le filtre SQL sélectionnant les salariés actifs avec contrat en cours.
+   - Méthode `chargerGrilleHebdo` : utilise `CalendrierOuvrableEngine.getDatesFeriesEtChomeesEmploye` et filtre les salariés actifs (`est_actif = TRUE` et statut `ACTIF`).
+   - Pour la consultation individuelle mensuelle, la logique est isolée dans [`PointageEmployeService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/pointage/service/PointageEmployeService.java).
 2. **Frontend Composant :** `PointageGrilleSaisieHebdo.jsx` : adapter les colonnes ou les badges de statut si nécessaire.
 
 ---
@@ -474,9 +481,11 @@ Cette section est le **manuel de maintenance pratique**. Lorsqu'une règle d'ent
 
 ### Scénario 12 : Modifier la prescription triennale des congés (Purge FIFO 36 mois)
 *Exemple : Rallonger le délai de prescription de 3 ans (36 mois) à 4 ans (48 mois).*
-1. **Backend Cron :** Ouvrir [`RattrapageAutomatiqueService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/cron/RattrapageAutomatiqueService.java).
-   - Modifier la requête SQL de sélection des droits échus en remplaçant `NOW() - INTERVAL '36 months'` par `'48 months'`.
+1. **Backend Cron :** Ouvrir [`PurgeCongeScheduler.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/cron/PurgeCongeScheduler.java).
+   - Modifier le seuil de prescription calculé en Java pur :
+     `LocalDate seuilPrescription = LocalDate.now().minusMonths(48);` (aucun `INTERVAL` SQL).
 2. **Backend Moteur :** Le calcul mathématique dans [`PurgeFifoEngine.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/conge/engine/PurgeFifoEngine.java) reste inchangé car il est basé sur la somme des anciens droits transmis.
+3. **Tests Unitaires :** Exécuter `PurgeFifoEngineTest.java`.
 
 ---
 
@@ -489,13 +498,13 @@ Cette section est le **manuel de maintenance pratique**. Lorsqu'une règle d'ent
 
 ---
 
-### Scénario 14 : Mettre à jour les tranches de l'IRSA ou le minimum de perception
+### Scénario 14 : Mettre à jour les tranches de l'IRSA ou le minimum de perception (CGI Art. 01.03.18)
 *Exemple : La loi de finances modifie les tranches d'imposition ou porte le minimum de perception à 5 000 Ar.*
 1. **Base de Données :**
    - Mettre à jour le minimum de perception dans `paie_config_legale` (`minimum_perception_irsa = 5000.00`).
    - Mettre à jour les tranches dans la table `bareme_irsa` (seuil_min, seuil_max, taux).
-2. **Backend Moteur :** [`CalculateurPaieEngine.calculerIrsa`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/paieconfig/engine/CalculateurPaieEngine.java) utilise dynamiquement la liste des tranches chargées en base de données.
-3. **Tests Unitaires :** Vérifier dans `CalculateurPaieEngineTest.java`.
+2. **Backend Moteur :** [`CalculateurPaieEngine.calculerIrsaDetaille`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/paieconfig/engine/CalculateurPaieEngine.java) applique uniformément le barème pour la paie mensuelle (`PayrollExecutionEngine`) et le départ salarié (`StcService`).
+3. **Tests Unitaires :** Vérifier dans `CalculateurPaieEngineTest.java` et `CalculateurPaieEngineAdvancedTest.java`.
 
 ---
 

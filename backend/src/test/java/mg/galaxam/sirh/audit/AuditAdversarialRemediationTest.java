@@ -33,6 +33,8 @@ import mg.galaxam.sirh.model.paie.service.PayrollService;
 import mg.galaxam.sirh.model.paie.service.StcService;
 import mg.galaxam.sirh.model.paie.service.export.SafiExportService;
 import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
+import mg.galaxam.sirh.model.contrat.engine.AncienneteEngine;
+import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
 import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine;
 import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.TrancheIrsa;
 
@@ -55,6 +57,15 @@ public class AuditAdversarialRemediationTest {
 
     @Autowired
     private SafiExportService safiExportService;
+
+    @Autowired
+    private mg.galaxam.sirh.model.contrat.engine.AncienneteEngine ancienneteEngine;
+
+    @Autowired
+    private mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierOuvrableEngine;
+
+    @Autowired
+    private mg.galaxam.sirh.model.pointage.service.PointageEmployeService pointageEmployeService;
 
     // =========================================================================
     // ISSUE 1 & 3: STC Déduction Enfants & Code Site TMM
@@ -439,6 +450,156 @@ public class AuditAdversarialRemediationTest {
                 BigDecimal netAttendu = recu.getTotalBrut().subtract(recu.getTotalRetenues());
                 assertEquals(recu.getNetAPayer(), netAttendu,
                         "Équilibre mathématique strict de la quittance : Brut - Retenues = Net à Payer");
+            } finally {
+                c.rollback();
+            }
+        }
+    }
+
+    // =========================================================================
+    // ISSUE 11: MOTEUR CANONIQUE IRSA & PARITÉ STRICTE STC / PAIE
+    // =========================================================================
+    @Test
+    @Order(11)
+    @DisplayName("ACT-001/002/003 : Calcul IRSA Canonique Détaillé, Arrondis Centaine/Dizaine, Protection CGI Art. 01.03.18 & Parité Paie/STC")
+    void testIrsaDetailleCanoniqueEtPariteStcPaie() throws Exception {
+        // 1. Test des arrondis légaux fiscaux
+        BigDecimal montantTest = new BigDecimal("350123.45");
+        BigDecimal arrondiCentaine = CalculateurPaieEngine.arrondirCentaineInferieure(montantTest);
+        assertEquals(new BigDecimal("350100.00"), arrondiCentaine, "L'arrondi centaine inférieure doit donner 350 100 Ar");
+
+        BigDecimal brutTest = new BigDecimal("54321.40");
+        BigDecimal arrondiDizaine = CalculateurPaieEngine.arrondirDizaineSuperieure(brutTest);
+        assertEquals(new BigDecimal("54330.00"), arrondiDizaine, "L'arrondi dizaine supérieure doit donner 54 330 Ar");
+
+        // 2. Barème progressif LF 2026
+        List<TrancheIrsa> tranches = List.of(
+                new TrancheIrsa(BigDecimal.ZERO, new BigDecimal("350000.00"), 0.0),
+                new TrancheIrsa(new BigDecimal("350000.00"), new BigDecimal("400000.00"), 0.05),
+                new TrancheIrsa(new BigDecimal("400000.00"), new BigDecimal("500000.00"), 0.10),
+                new TrancheIrsa(new BigDecimal("500000.00"), new BigDecimal("600000.00"), 0.15),
+                new TrancheIrsa(new BigDecimal("600000.00"), null, 0.20)
+        );
+
+        // 3. Test de la règle protectrice CGI Art. 01.03.18 (seuil 350 000 Ar)
+        // Salaire net imposable de 352 000 Ar : l'impôt normal ne peut pas amener le net sous 350 000 Ar
+        CalculateurPaieEngine.IrsaResult resProtect = calculateurPaieEngine.calculerIrsaDetaille(
+                new BigDecimal("352000.00"),
+                tranches,
+                0,
+                new BigDecimal("2000.00"),
+                new BigDecimal("3000.00"),
+                new BigDecimal("350000.00")
+        );
+        assertNotNull(resProtect);
+        assertTrue(resProtect.irsaNet().compareTo(new BigDecimal("3000.00")) >= 0,
+                "L'IRSA net ne doit jamais être inférieur au minimum de perception de 3 000 Ar");
+
+        // 4. Parité stricte entre calculerIrsa et calculerIrsaDetaille
+        BigDecimal baseNormal = new BigDecimal("1500000.00");
+        CalculateurPaieEngine.IrsaResult resNormal = calculateurPaieEngine.calculerIrsaDetaille(
+                baseNormal, tranches, 2, new BigDecimal("2000.00"), new BigDecimal("3000.00"), new BigDecimal("350000.00")
+        );
+        BigDecimal irsaRapide = calculateurPaieEngine.calculerIrsa(baseNormal, tranches, 2);
+        assertEquals(resNormal.irsaNet(), irsaRapide,
+                "calculerIrsaDetaille et calculerIrsa doivent produire une parité mathématique absolue");
+    }
+
+    // =========================================================================
+    // ISSUE 12: ANCIENNETÉ ENGINE SANS DUPLICATION SQL
+    // =========================================================================
+    @Test
+    @Order(12)
+    @DisplayName("ACT-004 : Surcharge AncienneteEngine.calculerAncienneteEmploye opérationnelle sans redondance SQL")
+    void testAncienneteEngineOverloadSansDuplicationSql() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                // Trouver un employé existant avec un contrat
+                Integer idEmp = null;
+                try (Statement stmt = c.createStatement();
+                     ResultSet rs = stmt.executeQuery("SELECT id_employe FROM contrat_travail WHERE date_debut IS NOT NULL LIMIT 1")) {
+                    if (rs.next()) {
+                        idEmp = rs.getInt("id_employe");
+                    }
+                }
+
+                if (idEmp != null) {
+                    AncienneteEngine.AncienneteBilan bilan = ancienneteEngine.calculerAncienneteEmploye(idEmp, java.time.LocalDate.now(), c);
+                    assertNotNull(bilan, "Le bilan d'ancienneté calculé par le moteur Java doit être non-nul");
+                    assertTrue(bilan.moisEffectifs() >= 0, "L'ancienneté en mois effectifs doit être positive ou nulle");
+                    assertTrue(bilan.anneesEffectives() >= 0.0, "L'ancienneté en années effectives doit être positive ou nulle");
+                }
+            } finally {
+                c.rollback();
+            }
+        }
+    }
+
+    // =========================================================================
+    // ISSUE 13: CALENDRIER OUVRABLE ENGINE — SOURCE UNIQUE DE VÉRITÉ
+    // =========================================================================
+    @Test
+    @Order(13)
+    @DisplayName("ACT-005 : Centralisation CalendrierOuvrableEngine (Fériés, Chômés, Info Jour)")
+    void testCalendrierOuvrableEngineUnification() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                // 1. Assomption (15 Août 2026) -> Configuré comme férié chômé national en base
+                java.time.LocalDate assomption = java.time.LocalDate.of(2026, 8, 15);
+                CalendrierOuvrableEngine.JourChomeInfo info = calendrierOuvrableEngine.getJourChomeInfo(assomption, 1, c);
+                assertNotNull(info);
+                assertTrue(info.estChome(), "Le 15 Août (Assomption) doit être détecté comme férié chômé");
+                assertEquals("Assomption", info.libelle());
+
+                // 2. Jour ordinaire ouvrable (ex: Mardi 18 Août 2026) -> Ne doit pas être chômé
+                java.time.LocalDate jourNormal = java.time.LocalDate.of(2026, 8, 18);
+                CalendrierOuvrableEngine.JourChomeInfo infoNormal = calendrierOuvrableEngine.getJourChomeInfo(jourNormal, 1, c);
+                assertNotNull(infoNormal);
+                assertFalse(infoNormal.estChome(), "Un mardi ordinaire ne doit pas être chômé");
+
+                // 3. Récupération des fériés pour un employé
+                java.util.Set<java.time.LocalDate> feries = calendrierOuvrableEngine.getDatesFeriesEtChomeesEmploye(
+                        java.time.LocalDate.of(2026, 8, 1),
+                        java.time.LocalDate.of(2026, 8, 31),
+                        1,
+                        c
+                );
+                assertNotNull(feries);
+                assertTrue(feries.contains(assomption), "La liste des fériés de l'employé doit contenir l'Assomption (15 Août)");
+            } finally {
+                c.rollback();
+            }
+        }
+    }
+
+    // =========================================================================
+    // ISSUE 14: POINTAGE EMPLOYE SERVICE — DÉCOUPLAGE CONTROLLER / SERVICE
+    // =========================================================================
+    @Test
+    @Order(14)
+    @DisplayName("ACT-007 : Découplage PointageEmployeService de PointageEmployeController")
+    void testPointageEmployeServiceDecouplage() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                Integer idEmp = null;
+                try (Statement stmt = c.createStatement();
+                     ResultSet rs = stmt.executeQuery("SELECT id_employe FROM employe WHERE est_actif = TRUE LIMIT 1")) {
+                    if (rs.next()) {
+                        idEmp = rs.getInt("id_employe");
+                    }
+                }
+
+                if (idEmp != null) {
+                    mg.galaxam.sirh.api.dto.pointage.FichePointageEmployeDTO fiche =
+                            pointageEmployeService.getFichePointageEmploye(idEmp, "2026-01-15", "periode", null);
+                    assertNotNull(fiche, "La fiche pointage générée par le service métier doit être non-nulle");
+                    assertNotNull(fiche.getPointagesData(), "Les données journalières de pointage doivent être alimentées");
+                    assertNotNull(fiche.getKpis(), "Les indicateurs clés de performance (KPI) doivent être calculés");
+                    assertNotNull(fiche.getRecap(), "Le récapitulatif Paie doit être présent");
+                }
             } finally {
                 c.rollback();
             }

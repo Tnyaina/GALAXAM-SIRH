@@ -6,7 +6,8 @@
  */
 
 // ─── Utilitaires Date Canoniques (Délégués à dateUtils) ─────────────────────
-export { formatDateForInput, isDateAnterieure } from './dateUtils';
+import { formatDateForInput, isDateAnterieure } from './dateUtils';
+export { formatDateForInput, isDateAnterieure };
 
 
 /**

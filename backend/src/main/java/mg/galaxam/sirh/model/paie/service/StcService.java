@@ -32,6 +32,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class StcService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StcService.class);
+
     private final DataSource dataSource;
     private final CalculateurPaieEngine calculateurPaieEngine;
     private final AncienneteEngine ancienneteEngine;
@@ -164,7 +166,9 @@ public class StcService {
         try {
             int nbEnfants = EmployeEnfant.nbEnfantsEligibles(idEmploye, dateDepartEffective, c);
             prep.setNbEnfantsACharge(nbEnfants);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("[StcService] Impossible de récupérer les enfants à charge pour employé {}: {}", idEmploye, e.getMessage());
+        }
 
 
         // Taux horaire légal (173.33h mensuelles)
@@ -403,19 +407,28 @@ public class StcService {
         BigDecimal netImposable = assietteSociale.subtract(totalCotis).max(BigDecimal.ZERO);
         res.setNetImposable(netImposable);
 
-        // Calcul IRSA selon barème progressif dynamique (via CalculateurPaieEngine)
+        // Calcul IRSA selon barème progressif dynamique unifié (via CalculateurPaieEngine)
         List<CalculateurPaieEngine.TrancheIrsa> tranches = chargerTranchesIrsa(configLegale, c);
         int nbEnfants = prep.getNbEnfantsACharge();
-        BigDecimal irsaNet = this.calculateurPaieEngine.calculerIrsa(netImposable, tranches, nbEnfants);
+        BigDecimal deducParEnfant = (configLegale != null && configLegale.getDeductionChargeFamille() != null)
+                ? configLegale.getDeductionChargeFamille() : CalculateurPaieEngine.DEDUCTION_PAR_ENFANT;
+        BigDecimal minPercep = (configLegale != null && configLegale.getMinimumPerceptionIrsa() != null)
+                ? configLegale.getMinimumPerceptionIrsa() : CalculateurPaieEngine.MINIMUM_PERCEPTION_IRSA;
+        BigDecimal seuilExo = (configLegale != null && configLegale.getSeuilExonerationIrsa() != null)
+                ? configLegale.getSeuilExonerationIrsa() : new BigDecimal("350000.00");
+
+        var irsaRes = this.calculateurPaieEngine.calculerIrsaDetaille(
+                netImposable, tranches, nbEnfants, deducParEnfant, minPercep, seuilExo
+        );
+        BigDecimal irsaNet = irsaRes.irsaNet().min(netImposable).setScale(2, RoundingMode.HALF_UP);
         res.setIrsaNet(irsaNet);
         if (irsaNet.compareTo(BigDecimal.ZERO) > 0) {
             String libelleIrsa = "Retenue à la Source IRSA (Barème Progressif " +
                     (configLegale != null && configLegale.getCodeVersion() != null ? configLegale.getCodeVersion() : "LF") + ")";
-            res.ajouterLigne("IMPOT_IRSA_NET", libelleIrsa, "RETENUE", netImposable, null, irsaNet);
+            res.ajouterLigne("IMPOT_IRSA_NET", libelleIrsa, "RETENUE", irsaRes.baseIrsaArrondie(), null, irsaNet);
         }
-        if (nbEnfants > 0) {
-            BigDecimal deductionMnt = CalculateurPaieEngine.DEDUCTION_PAR_ENFANT.multiply(BigDecimal.valueOf(nbEnfants));
-            res.ajouterLigne("DEDUCTION_CHARGE_FAMILLE", "Déduction IRSA Charges Familiales (" + nbEnfants + " enfant(s))", "INFO", null, null, deductionMnt);
+        if (irsaRes.reductionEnfants().compareTo(BigDecimal.ZERO) > 0) {
+            res.ajouterLigne("DEDUCTION_CHARGE_FAMILLE", "Déduction IRSA Charges Familiales (" + nbEnfants + " enfant(s))", "INFO", null, null, irsaRes.reductionEnfants());
         }
 
         // Net avant déductions d'engagements personnels
@@ -722,11 +735,15 @@ public class StcService {
             try {
                 PaieConfigLegale cfg = PaieConfigLegale.findActiveAt(c, dateDepart.toLocalDate());
                 if (cfg != null) return cfg;
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("[StcService] Erreur recherche config légale à date {}: {}", dateDepart, e.getMessage());
+            }
         }
         try {
             return PaieConfigLegale.findActiveAt(c, LocalDate.now());
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("[StcService] Erreur recherche config légale active actuelle: {}", e.getMessage());
+        }
         return null;
     }
 
@@ -743,7 +760,9 @@ public class StcService {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("[StcService] Erreur recherche dernier taux journalier congé pour employé {}: {}", idEmploye, e.getMessage());
+        }
         if (salaireBaseFallback != null && salaireBaseFallback.compareTo(BigDecimal.ZERO) > 0) {
             return salaireBaseFallback.divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
         }
@@ -751,38 +770,8 @@ public class StcService {
     }
 
     private AncienneteEngine.AncienneteBilan calculerAncienneteEmploye(int idEmploye, Date dateDepart, Connection c) {
-        String sqlContrat = "SELECT ct.id_contrat FROM contrat_travail ct " +
-                "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                "WHERE ct.id_employe = ? ORDER BY ct.date_debut DESC LIMIT 1";
-        try (PreparedStatement ps = c.prepareStatement(sqlContrat)) {
-            ps.setInt(1, idEmploye);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    int idContrat = rs.getInt("id_contrat");
-                    String sqlAll = "SELECT id_contrat, date_debut, date_fin, id_contrat_precedent FROM contrat_travail WHERE id_employe = ?";
-                    List<AncienneteEngine.IntervalleContrat> contrats = new ArrayList<>();
-                    try (PreparedStatement psAll = c.prepareStatement(sqlAll)) {
-                        psAll.setInt(1, idEmploye);
-                        try (ResultSet rsAll = psAll.executeQuery()) {
-                            while (rsAll.next()) {
-                                Date dDeb = rsAll.getDate("date_debut");
-                                Date dFin = rsAll.getDate("date_fin");
-                                Integer idPrec = rsAll.getObject("id_contrat_precedent") != null ? rsAll.getInt("id_contrat_precedent") : null;
-                                contrats.add(new AncienneteEngine.IntervalleContrat(
-                                        rsAll.getInt("id_contrat"),
-                                        dDeb != null ? dDeb.toLocalDate() : null,
-                                        dFin != null ? dFin.toLocalDate() : null,
-                                        idPrec
-                                ));
-                            }
-                        }
-                    }
-                    LocalDate refDate = dateDepart != null ? dateDepart.toLocalDate() : LocalDate.now();
-                    return ancienneteEngine.evaluerAnciennete(contrats, idContrat, refDate);
-                }
-            }
-        } catch (Exception ignored) {}
-        return null;
+        LocalDate refDate = dateDepart != null ? dateDepart.toLocalDate() : LocalDate.now();
+        return this.ancienneteEngine.calculerAncienneteEmploye(idEmploye, refDate, c);
     }
 
     private String convertirEnLettres(BigDecimal montant) {
