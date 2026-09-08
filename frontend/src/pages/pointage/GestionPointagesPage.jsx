@@ -1,20 +1,37 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
 import PointageWorkflowNav from '@/components/pointage/PointageWorkflowNav';
+import { useState } from 'react';
 import periodePaieService from '@/services/periodePaieService';
 
 // Sous-composants Onglets en Lazy-loading pour une performance optimale
-const PointageOverviewTab = lazy(() => import('@/components/pointage/PointageOverviewTab'));
 const SaisieQuotidiennePage = lazy(() => import('@/pages/pointage/SaisieQuotidiennePage'));
 const AnomaliesPointagePage = lazy(() => import('@/pages/pointage/AnomaliesPointagePage'));
 const SynthesePointagePage = lazy(() => import('@/pages/pointage/SynthesePointagePage'));
+const SuiviPeriodePage = lazy(() => import('@/pages/pointage/SuiviPeriodePage'));
+
+// Redirection de l'ancien onglet vue-globale vers saisie (rétrocompatibilité)
+const LEGACY_TAB_MAP = { 'vue-globale': 'saisie' };
 
 export default function GestionPointagesPage() {
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeTab = searchParams.get('tab') || 'saisie';
+    const rawTab = searchParams.get('tab') || 'saisie';
+    // Résoudre les anciens onglets dépréciés
+    const activeTab = LEGACY_TAB_MAP[rawTab] || rawTab;
     const [activePeriode, setActivePeriode] = useState(null);
+
+    // Réécrire l'URL si un ancien onglet est détecté
+    useEffect(() => {
+        if (LEGACY_TAB_MAP[rawTab]) {
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.set('tab', LEGACY_TAB_MAP[rawTab]);
+                return next;
+            }, { replace: true });
+        }
+    }, [rawTab, setSearchParams]);
 
     useEffect(() => {
         const fetchActivePeriode = async () => {
@@ -59,12 +76,12 @@ export default function GestionPointagesPage() {
             {/* Contenu fluide de l'onglet actif */}
             <div className="pt-1">
                 <Suspense fallback={<SkeletonTable rows={6} columns={6} />}>
-                    {activeTab === 'vue-globale' && (
-                        <PointageOverviewTab onTabChange={handleTabChange} />
-                    )}
-
                     {activeTab === 'saisie' && (
                         <SaisieQuotidiennePage />
+                    )}
+
+                    {activeTab === 'suivi' && (
+                        <SuiviPeriodePage activePeriode={activePeriode} onTabChange={handleTabChange} />
                     )}
 
                     {activeTab === 'anomalies' && (

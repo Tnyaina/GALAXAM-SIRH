@@ -3,13 +3,16 @@ import {
     CalendarDays, 
     AlertTriangle, 
     Layers, 
-    TrendingUp, 
+    CalendarCheck2, 
     Lock
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function PointageWorkflowNav({ activePeriode = null }) {
     const [searchParams, setSearchParams] = useSearchParams();
-    const currentTab = searchParams.get('tab') || 'vue-globale';
+    const currentTab = searchParams.get('tab') || 'saisie';
+    const { hasPermission } = useAuth();
+    const isDaf = hasPermission('POINTAGE_VALIDATE');
 
     const handleSelectTab = (tabId) => {
         setSearchParams(prev => {
@@ -19,28 +22,34 @@ export default function PointageWorkflowNav({ activePeriode = null }) {
         });
     };
 
+    // Onglets organisés par workflow : Saisie (quotidien) → Suivi (fin de mois) → Anomalies (DAF) → Synthèse (consolidation)
     const tabs = [
-        {
-            tab: 'vue-globale',
-            label: 'Vue Globale',
-            icon: TrendingUp
-        },
         {
             tab: 'saisie',
             label: 'Saisie Quotidienne',
-            icon: CalendarDays
+            icon: CalendarDays,
+            showAlways: true
+        },
+        {
+            tab: 'suivi',
+            label: 'Suivi de Période',
+            icon: CalendarCheck2,
+            showAlways: true
         },
         {
             tab: 'anomalies',
             label: 'Anomalies & Retards',
-            icon: AlertTriangle
+            icon: AlertTriangle,
+            // Visible uniquement pour la DAF (contrôle global et réconciliation)
+            showAlways: false
         },
         {
             tab: 'synthese',
             label: 'Synthèse & Clôture',
-            icon: Layers
+            icon: Layers,
+            showAlways: true
         }
-    ];
+    ].filter(t => t.showAlways || isDaf);
 
     const stCode = activePeriode?.statutCode || activePeriode?.statut_code;
     const isTransmis = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
@@ -99,3 +108,4 @@ export default function PointageWorkflowNav({ activePeriode = null }) {
         </div>
     );
 }
+

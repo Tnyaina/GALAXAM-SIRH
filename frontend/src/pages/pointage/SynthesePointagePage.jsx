@@ -1,11 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock, CheckCircle, XCircle, Send, Moon, Sun, Award, Check, RotateCw } from 'lucide-react';
+import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock, ExternalLink, Send, Moon, Sun, Award, Check, RotateCw } from 'lucide-react';
 import Select from '@/components/ui/forms/Select';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
-import Modal from '@/components/ui/overlays/Modal';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import organisationService from '@/api/admin/organisationService';
 import periodePaieService from '@/services/periodePaieService';
@@ -54,14 +53,9 @@ export default function SynthesePointagePage() {
     const [devalidatingSemaine, setDevalidatingSemaine] = useState(false);
     const [actionFeedback, setActionFeedback] = useState(null);
 
-    // États d'actions DAF sur la période
-    const [updatingPeriodeStatut, setUpdatingPeriodeStatut] = useState(false);
+    // États de transmission à la DAF (action agent uniquement)
     const [transmittingDaf, setTransmittingDaf] = useState(false);
     const [showTransmissionModal, setShowTransmissionModal] = useState(false);
-    const [showRejetModal, setShowRejetModal] = useState(false);
-    const [showValiderPeriodeModal, setShowValiderPeriodeModal] = useState(false);
-    const [showCloturerPeriodeModal, setShowCloturerPeriodeModal] = useState(false);
-    const [motifRejet, setMotifRejet] = useState('');
 
     const {
         selectedPeriode,
@@ -253,108 +247,6 @@ export default function SynthesePointagePage() {
             });
         } finally {
             setCalculatingAll(false);
-        }
-    };
-
-    // Actions DAF directes sur la période
-    const handleValiderDaf = async () => {
-        if (!selectedPeriode) return;
-        setUpdatingPeriodeStatut(true);
-        try {
-            const res = await pointageSyntheseService.validerDaf({ idPeriodePaie: selectedPeriode });
-            if (res?.success) {
-                toast({
-                    title: 'Période validée par la DAF',
-                    message: 'La synthèse de pointage a été validée et gelée pour la paie.',
-                    type: 'success'
-                });
-                window.dispatchEvent(new Event('refresh-notifications'));
-                setShowValiderPeriodeModal(false);
-                const list = await periodePaieService.getAllPeriodes();
-                if (list) setPeriodes(list);
-                await fetchSemaines();
-                await fetchDetail();
-                await loadSynthese();
-            }
-        } catch (err) {
-            console.error('Erreur validation DAF:', err);
-            toast({
-                title: 'Erreur',
-                message: err?.response?.data?.error || 'Impossible de valider la période.',
-                type: 'error'
-            });
-        } finally {
-            setUpdatingPeriodeStatut(false);
-        }
-    };
-
-    const handleRejeterDaf = async () => {
-        if (!selectedPeriode || !motifRejet.trim()) return;
-        setUpdatingPeriodeStatut(true);
-        try {
-            const res = await pointageSyntheseService.rejeterDaf({
-                idPeriodePaie: selectedPeriode,
-                motif: motifRejet.trim()
-            });
-            if (res?.success) {
-                toast({
-                    title: 'Période renvoyée pour correction',
-                    message: 'La période a été réouverte pour corrections agents avec notification prioritaire.',
-                    type: 'warning'
-                });
-                window.dispatchEvent(new Event('refresh-notifications'));
-                setShowRejetModal(false);
-                setMotifRejet('');
-                const list = await periodePaieService.getAllPeriodes();
-                if (list) setPeriodes(list);
-                await fetchSemaines();
-                await fetchDetail();
-                await loadSynthese();
-            }
-        } catch (err) {
-            console.error('Erreur renvoi DAF:', err);
-            toast({
-                title: 'Erreur',
-                message: err?.response?.data?.error || 'Impossible de renvoyer la période.',
-                type: 'error'
-            });
-        } finally {
-            setUpdatingPeriodeStatut(false);
-        }
-    };
-
-    const handleUpdatePeriodeStatut = async (nouveauStatut, motif = '') => {
-        if (nouveauStatut === 'VALIDEE') {
-            await handleValiderDaf();
-            return;
-        }
-        if (nouveauStatut === 'EN_COURS' && motif) {
-            await handleRejeterDaf();
-            return;
-        }
-        if (!selectedPeriode) return;
-        setUpdatingPeriodeStatut(true);
-        try {
-            await periodePaieService.updateStatut(selectedPeriode, nouveauStatut);
-            toast({
-                title: nouveauStatut === 'CLOTUREE' ? 'Période clôturée définitivement' : 'Statut mis à jour',
-                message: `Le statut de la période a été mis à jour avec succès (${nouveauStatut}).`,
-                type: 'success'
-            });
-            setShowCloturerPeriodeModal(false);
-            const list = await periodePaieService.getAllPeriodes();
-            if (list) setPeriodes(list);
-            await fetchSemaines();
-            await loadSynthese();
-        } catch (err) {
-            console.error('Erreur mise à jour période:', err);
-            toast({
-                title: 'Erreur',
-                message: err?.response?.data?.error || 'Impossible de mettre à jour le statut de la période.',
-                type: 'error'
-            });
-        } finally {
-            setUpdatingPeriodeStatut(false);
         }
     };
 
@@ -1070,50 +962,20 @@ export default function SynthesePointagePage() {
                                                 : 'En attente de validation des semaines'}
                                         </div>
 
-                                        {/* Actions rapides DAF directement accessibles sans quitter la page */}
+                                        {/* Lien vers module Paie pour les actions DAF */}
                                         {canValidateDaf && (
-                                            <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-[var(--color-border-subtle)]">
-                                                {/* Bouton Valider Période (si A_VALIDER ou si toutes les semaines sont consolidées) */}
-                                                {!consolidationStatus.isValidee && !consolidationStatus.isCloturee && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="primary"
-                                                        size="xs"
-                                                        onClick={() => setShowValiderPeriodeModal(true)}
-                                                        className="font-bold flex items-center gap-1.5"
-                                                    >
-                                                        <CheckCircle size={12} />
-                                                        <span>Valider la période</span>
-                                                    </Button>
-                                                )}
-
-                                                {/* Bouton Rejeter / Renvoyer pour correction */}
-                                                {(consolidationStatus.isAValider || consolidationStatus.isValidee) && (
+                                            <div className="mt-2 pt-2 border-t border-[var(--color-border-subtle)]">
+                                                <Link to="/paie?tab=validation">
                                                     <Button
                                                         type="button"
                                                         variant="outline"
                                                         size="xs"
-                                                        onClick={() => setShowRejetModal(true)}
-                                                        className="font-bold text-[var(--color-danger-500)] border-[var(--color-danger-500)]/30 hover:bg-[var(--color-danger-500)]/10 flex items-center gap-1"
+                                                        className="font-bold flex items-center gap-1.5 text-[var(--color-brand-600)] border-[var(--color-brand-500)]/30 hover:bg-[var(--color-brand-500)]/8"
                                                     >
-                                                        <XCircle size={12} />
-                                                        <span>Rejeter / Renvoyer</span>
+                                                        <ExternalLink size={12} />
+                                                        <span>Valider / Clôturer dans le module Paie →</span>
                                                     </Button>
-                                                )}
-
-                                                {/* Bouton Clôture Définitive (quand validée) */}
-                                                {consolidationStatus.isValidee && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="primary"
-                                                        size="xs"
-                                                        onClick={() => setShowCloturerPeriodeModal(true)}
-                                                        className="font-bold !bg-emerald-600 hover:!bg-emerald-700 text-white flex items-center gap-1"
-                                                    >
-                                                        <Lock size={12} />
-                                                        <span>Clôturer pour Paie</span>
-                                                    </Button>
-                                                )}
+                                                </Link>
                                             </div>
                                         )}
                                     </div>
@@ -1267,70 +1129,6 @@ export default function SynthesePointagePage() {
                     loading={devalidatingSemaine}
                 />
 
-                {/* Modale DAF : Validation Finale de la Période */}
-                <ConfirmDialog
-                    isOpen={showValiderPeriodeModal}
-                    onClose={() => setShowValiderPeriodeModal(false)}
-                    onConfirm={() => handleUpdatePeriodeStatut('VALIDEE')}
-                    title={`Valider définitivement la période ${consolidationStatus.currentPeriodeObj?.libelle || ''} ?`}
-                    message="Cette action valide l'ensemble des heures consolidées, compensations et indemnités pour la DAF. La saisie quotidienne et les synthèses seront entièrement verrouillées."
-                    confirmLabel="Confirmer la validation DAF"
-                    cancelLabel="Annuler"
-                    variant="primary"
-                    loading={updatingPeriodeStatut}
-                />
-
-                {/* Modale DAF : Rejet / Renvoi pour correction avec Motif */}
-                <Modal
-                    isOpen={showRejetModal}
-                    onClose={() => setShowRejetModal(false)}
-                    title="Renvoyer la période à l'agent pour correction"
-                    icon={<XCircle className="text-[var(--color-danger-500)]" size={18} />}
-                    size="md"
-                    footer={
-                        <div className="flex items-center justify-end gap-2">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setShowRejetModal(false)}
-                                disabled={updatingPeriodeStatut}
-                            >
-                                Annuler
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="danger"
-                                size="sm"
-                                loading={updatingPeriodeStatut}
-                                disabled={updatingPeriodeStatut || !motifRejet.trim()}
-                                onClick={() => handleUpdatePeriodeStatut('EN_COURS', motifRejet)}
-                                className="font-bold"
-                            >
-                                Confirmer le renvoi
-                            </Button>
-                        </div>
-                    }
-                >
-                    <div className="space-y-3 p-1">
-                        <p className="text-xs text-[var(--color-fg-muted)]">
-                            La période sera réouverte en statut <strong>EN COURS</strong>. Une notification prioritaire contenant vos instructions sera immédiatement transmise aux agents de pointage.
-                        </p>
-                        <div>
-                            <label className="block text-[11px] font-bold text-[var(--color-fg)] mb-1">
-                                Motif du renvoi / Instructions de correction <span className="text-[var(--color-danger-500)]">*</span>
-                            </label>
-                            <textarea
-                                placeholder="Précisez obligatoirement les anomalies constatées ou les corrections attendues..."
-                                value={motifRejet}
-                                onChange={(e) => setMotifRejet(e.target.value)}
-                                rows={3}
-                                className="w-full p-2.5 text-xs bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none rounded-none text-[var(--color-fg)] resize-none"
-                            />
-                        </div>
-                    </div>
-                </Modal>
-
                 {/* Modale Agent : Transmission de la Période à la DAF */}
                 <ConfirmDialog
                     isOpen={showTransmissionModal}
@@ -1344,18 +1142,6 @@ export default function SynthesePointagePage() {
                     loading={transmittingDaf}
                 />
 
-                {/* Modale DAF : Clôture Définitive pour la Paie */}
-                <ConfirmDialog
-                    isOpen={showCloturerPeriodeModal}
-                    onClose={() => setShowCloturerPeriodeModal(false)}
-                    onConfirm={() => handleUpdatePeriodeStatut('CLOTUREE')}
-                    title={`Clôturer la période pour génération de la Paie ?`}
-                    message="Attention : La clôture est une action immuable qui archive définitivement la période. Elle atteste que les bulletins de salaire sont prêts à être générés."
-                    confirmLabel="Clôturer définitivement"
-                    cancelLabel="Annuler"
-                    variant="danger"
-                    loading={updatingPeriodeStatut}
-                />
             </div>
         </>
     );

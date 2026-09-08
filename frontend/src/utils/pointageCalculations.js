@@ -47,6 +47,9 @@ export const isRowDataModified = (row, initialList) => {
   if (Boolean(row.deplacementAm) !== Boolean(initial.deplacementAm)) return true;
   if (Boolean(row.indemniteRepasRecue) !== Boolean(initial.indemniteRepasRecue)) return true;
 
+  if ((row.codeStatut || '') !== (initial.codeStatut || '')) return true;
+  if ((row.motifAjustement || '') !== (initial.motifAjustement || '')) return true;
+
   const curDyn = JSON.stringify(row.dynamicIndemnites || {});
   const initDyn = JSON.stringify(initial.dynamicIndemnites || {});
   if (curDyn !== initDyn) return true;
@@ -155,8 +158,14 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
   } else if (hasValidationError) {
     codeStatut = 'ANOMALIE_SAISIE';
   } else if (em === null && sm === null && ea === null && sa === null) {
-    if (row.estAutonome) {
+    if (row.estAutonome || row.codeStatut === 'DISPENSE_POINTAGE') {
       codeStatut = (dayOfWeek === 0 || dayOfWeek === 6) ? 'NON_SAISI' : 'DISPENSE_POINTAGE';
+    } else if (row.codeStatut === 'ABSENCE_JUSTIFIEE') {
+      codeStatut = 'ABSENCE_JUSTIFIEE';
+    } else if (row.codeStatut === 'ABSENCE_NON_JUSTIFIEE') {
+      codeStatut = 'ABSENCE_NON_JUSTIFIEE';
+    } else if (row.codeStatut === 'CONGE') {
+      codeStatut = 'CONGE';
     } else if (dayOfWeek === 0 || dayOfWeek === 6) {
       codeStatut = 'NON_SAISI';
     } else if (row.idPointage) {
@@ -175,7 +184,15 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
   } else if (em === null && sm === null && ea !== null && sa !== null) {
     codeStatut = isCongeMatin ? (totalMinutesRetard > 0 ? 'RETARD' : 'PRESENT') : 'ANOMALIE_SAISIE';
   } else if (totalH === 0.0) {
-    codeStatut = (dayOfWeek === 0 || dayOfWeek === 6) ? 'NON_SAISI' : 'ABSENCE_NON_JUSTIFIEE';
+    if (row.codeStatut === 'ABSENCE_JUSTIFIEE') {
+      codeStatut = 'ABSENCE_JUSTIFIEE';
+    } else if (row.codeStatut === 'ABSENCE_NON_JUSTIFIEE') {
+      codeStatut = 'ABSENCE_NON_JUSTIFIEE';
+    } else if (row.codeStatut === 'CONGE') {
+      codeStatut = 'CONGE';
+    } else {
+      codeStatut = (dayOfWeek === 0 || dayOfWeek === 6) ? 'NON_SAISI' : 'ABSENCE_NON_JUSTIFIEE';
+    }
   } else if (dayOfWeek === 6 && totalH > 0) {
     codeStatut = 'SAMEDI_TRAVAILLE';
   } else if (dayOfWeek === 0 && totalH > 0) {
@@ -193,6 +210,7 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
   else if (codeStatut === 'DIMANCHE_TRAVAILLE') libelleStatut = 'Dimanche travaillé (+40%)';
   else if (codeStatut === 'DISPENSE_POINTAGE') libelleStatut = 'Cadre autonome (8h)';
   else if (codeStatut === 'CONGE') libelleStatut = row.libelleConge || 'Congé';
+  else if (codeStatut === 'ABSENCE_JUSTIFIEE') libelleStatut = row.motifAjustement ? `Absence justifiée (${row.motifAjustement})` : 'Absence justifiée';
   else if (codeStatut === 'PRESENT') libelleStatut = 'Présent';
   else if (codeStatut === 'RETARD') libelleStatut = `Retard (${totalMinutesRetard} min)`;
   else if (codeStatut === 'ANOMALIE_SAISIE') libelleStatut = 'Incomplet / Anomalie';
@@ -201,6 +219,8 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
   const isPres = codeStatut === 'PRESENT';
   const isRet = codeStatut === 'RETARD' || totalMinutesRetard > 0;
   const isCong = codeStatut === 'CONGE' || isCongeFull || isCongeMatin || isCongeAm;
+  const isAbsJust = codeStatut === 'ABSENCE_JUSTIFIEE';
+  const isAbsNonJust = codeStatut === 'ABSENCE_NON_JUSTIFIEE';
   const isFerieTrav = codeStatut === 'FERIE_TRAVAILLE';
   const isFerieCh = codeStatut === 'FERIE_CHOME' || (isFerie && !isFerieTrav);
   const isDispensePtg = !isFerieCh && !isCong && (row.estAutonome || codeStatut === 'DISPENSE_POINTAGE');
@@ -215,16 +235,19 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
     totalMinutesRetard,
     codeStatut,
     libelleStatut,
+    statutBadgeVariant: isFerieTrav ? 'error' : isFerieCh ? 'neutral' : (isRet || isAbsNonJust) ? 'danger' : (isCong || isAbsJust) ? 'warning' : isPres ? 'success' : isDispensePtg ? 'brand' : 'neutral',
+    statutBadgeLabel: libelleStatut || 'Non saisi',
     hasValidationError,
     isPauseAuto,
     present: isPres,
     retard: isRet,
     conge: isCong,
+    absenceJustifiee: isAbsJust,
+    absenceNonJustifiee: isAbsNonJust,
     ferieTravaille: isFerieTrav,
     ferieChome: isFerieCh,
     dispensePointage: isDispensePtg,
     anomalie: codeStatut === 'ANOMALIE_SAISIE',
-    absenceNonJustifiee: codeStatut === 'ABSENCE_NON_JUSTIFIEE',
     isFullDayLeave: isCongeFull,
     isHalfDayMorningLeave: isCongeMatin,
     isHalfDayAfternoonLeave: isCongeAm,
@@ -232,6 +255,7 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
     isFerieTravaille: isFerieTrav,
     isPresent: isPres,
     isRetard: isRet,
+    isAbsenceJustifiee: isAbsJust,
     isDispensePointage: isDispensePtg
   };
 };

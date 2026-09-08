@@ -7,6 +7,7 @@ import TimeInput from '@/components/ui/forms/TimeInput';
 import Badge from '@/components/ui/data-display/Badge';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { formatHeuresMinutes, formatMonnaie } from '@/utils/pointageUtils';
+import StatusPickerPopover from '@/components/pointage/StatusPickerPopover';
 
 export default function PointageGridTable({
     grilleData = [],
@@ -15,6 +16,7 @@ export default function PointageGridTable({
     selectedStatutFilter = 'ALL',
     onStatutFilterChange,
     onUpdateHours,
+    onUpdateStatut,
     onUpdateIndemnite,
     onUpdateDynamicIndemnite,
     onRegisterInputRef,
@@ -30,12 +32,6 @@ export default function PointageGridTable({
     const paginatedData = grilleData.slice(startIndex, startIndex + pageSize);
 
     const fmtMoney = (val) => formatMonnaie(val);
-
-    const getStatutPointageBadge = (row) => {
-        const variant = row.statutBadgeVariant || (row.present ? 'success' : row.conge ? 'warning' : 'neutral');
-        const label = row.statutBadgeLabel || row.libelleStatut || 'Non saisi';
-        return <Badge variant={variant} size="sm" className="font-bold">{label}</Badge>;
-    };
 
     return (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden flex flex-col">
@@ -254,7 +250,13 @@ export default function PointageGridTable({
 
                                     {/* 8. Statut */}
                                     <Td className="px-3 py-1.5 text-center">
-                                        {getStatutPointageBadge(row)}
+                                        <StatusPickerPopover
+                                            row={row}
+                                            currentStatus={row.codeStatut}
+                                            currentMotif={row.motifAjustement}
+                                            onStatusChange={(newStatut, motif) => onUpdateStatut?.(row.idEmploye, newStatut, motif)}
+                                            disabled={isReadOnlyForUser || Boolean(row.ferieChome)}
+                                        />
                                     </Td>
 
                                     {/* 9. Colonnes Dynamiques d'Indemnités avec Cases à cocher */}

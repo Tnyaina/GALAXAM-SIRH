@@ -99,31 +99,37 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 INSERT INTO role_menu (id_role, id_menu) VALUES
 (2, 'POINTAGE');
 
-DELETE FROM ref_menu WHERE id_menu IN ('POINTAGE_CLOTURE', 'POINTAGE_DEROGATIONS');
+DELETE FROM ref_menu WHERE id_menu IN ('POINTAGE_CLOTURE', 'POINTAGE_DEROGATIONS', 'POINTAGE_GENERAL');
 
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-    ('POINTAGE_GENERAL',     'Vue Globale & Pilotage',     'BarChart2',     '/pointages?tab=vue-globale', 1, 2, 'POINTAGE'),
-    ('POINTAGE_JOURNALIER',  'Saisie Quotidienne',          'ClockCheck',    '/pointages?tab=saisie',      2, 2, 'POINTAGE'),
-    ('POINTAGE_ANOMALIES',   'Gestion des Anomalies',       'AlertTriangle', '/pointages?tab=anomalies',   3, 2, 'POINTAGE'),
-    ('POINTAGE_SYNTHESE',    'Synthèse Hebdo & Mensuelle',  'FileText',      '/pointages?tab=synthese',    4, 2, 'POINTAGE')
+    ('POINTAGE_JOURNALIER',  'Saisie Quotidienne',              'ClockCheck',    '/pointages?tab=saisie',      1, 2, 'POINTAGE'),
+    ('POINTAGE_SUIVI',       'Suivi de Période & Transmission', 'CalendarCheck', '/pointages?tab=suivi',       2, 2, 'POINTAGE'),
+    ('POINTAGE_SYNTHESE',    'Synthèse & Clôture',              'Layers',        '/pointages?tab=synthese',    3, 2, 'POINTAGE'),
+    ('POINTAGE_ANOMALIES',   'Anomalies & Retards',             'AlertTriangle', '/pointages?tab=anomalies',   4, 2, 'POINTAGE')
 ON CONFLICT (id_menu) DO UPDATE SET libelle = EXCLUDED.libelle, href = EXCLUDED.href, rang = EXCLUDED.rang, icone = EXCLUDED.icone, id_pere = EXCLUDED.id_pere;
 
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-    ('PAIE_PERIODES',        'Périodes de Paie & Clôture',  'CalendarRange', '/paie?tab=periodes',         1, 2, 'PAIE_MODULE')
+    ('PAIE_VALIDATION',      'Pointage & Validation',           'ClipboardCheck', '/paie?tab=validation',      1, 2, 'PAIE_MODULE'),
+    ('PAIE_PERIODES',        'Périodes de Paie & Clôture',      'CalendarRange',  '/paie?tab=periodes',        2, 2, 'PAIE_MODULE'),
+    ('PAIE_VARIABLES',       'Variables & Ajustements',         'Sliders',        '/paie?tab=variables',       3, 2, 'PAIE_MODULE'),
+    ('PAIE_BULLETINS',       'Bulletins de Paie',               'FileSpreadsheet','/paie?tab=bulletins',       4, 2, 'PAIE_MODULE')
 ON CONFLICT (id_menu) DO UPDATE SET libelle = EXCLUDED.libelle, href = EXCLUDED.href, rang = EXCLUDED.rang, icone = EXCLUDED.icone, id_pere = EXCLUDED.id_pere;
 
 -- Attribution fine par rôle :
--- id_role 1 = ROLE_ADMIN / DAF (accès complet : Vue Globale, Saisie, Anomalies, Synthèse, Périodes de Paie)
--- id_role 2 = ROLE_AGENT_POINTAGE (accès exploitation : Vue Globale, Saisie Quotidienne, Anomalies, Synthèse Hebdo)
+-- id_role 1 = ROLE_ADMIN / DAF (accès complet : Saisie, Suivi, Synthèse, Anomalies, Paie Validation, Périodes, Variables, Bulletins)
+-- id_role 2 = ROLE_AGENT_POINTAGE (accès exploitation : Saisie Quotidienne, Suivi de Période, Synthèse & Clôture)
 INSERT INTO role_menu (id_role, id_menu) VALUES
-    (1, 'POINTAGE_GENERAL'),
     (1, 'POINTAGE_JOURNALIER'),
-    (1, 'POINTAGE_ANOMALIES'),
+    (1, 'POINTAGE_SUIVI'),
     (1, 'POINTAGE_SYNTHESE'),
+    (1, 'POINTAGE_ANOMALIES'),
+    (1, 'PAIE_VALIDATION'),
     (1, 'PAIE_PERIODES'),
-    (2, 'POINTAGE_GENERAL'),
+    (1, 'PAIE_VARIABLES'),
+    (1, 'PAIE_BULLETINS'),
     (2, 'POINTAGE_JOURNALIER'),
-    (2, 'POINTAGE_ANOMALIES'),
+    (2, 'POINTAGE_SUIVI'),
     (2, 'POINTAGE_SYNTHESE')
 ON CONFLICT DO NOTHING;
+
 

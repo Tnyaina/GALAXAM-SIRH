@@ -50,6 +50,7 @@ export default function SaisieQuotidiennePage() {
         error,
         isRowModified,
         updateRowHours,
+        updateRowStatut,
         updateRowIndemnite,
         updateRowDynamicIndemnite,
         autoFillStandardHours,
@@ -97,6 +98,10 @@ export default function SaisieQuotidiennePage() {
     // Actions
     const handleUpdateHours = (idEmploye, field, value) => {
         updateRowHours(idEmploye, field, value);
+    };
+
+    const handleUpdateStatut = (idEmploye, newStatut, motif) => {
+        updateRowStatut(idEmploye, newStatut, motif);
     };
 
     const handleUpdateIndemnite = (idEmploye, field, value) => {
@@ -387,6 +392,7 @@ export default function SaisieQuotidiennePage() {
                         selectedStatutFilter={statutFilter}
                         onStatutFilterChange={(sf) => { setStatutFilter(sf); setCurrentPage(1); }}
                         onUpdateHours={handleUpdateHours}
+                        onUpdateStatut={handleUpdateStatut}
                         onUpdateIndemnite={handleUpdateIndemnite}
                         onUpdateDynamicIndemnite={handleUpdateDynamicIndemnite}
                         onRegisterInputRef={registerInputRef}

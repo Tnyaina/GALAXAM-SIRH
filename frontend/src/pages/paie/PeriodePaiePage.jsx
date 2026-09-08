@@ -546,7 +546,7 @@ export default function PeriodePaiePage() {
                                                         icon={<ArrowRight size={13} />}
                                                         onClick={() => triggerStatutChange(p, 'A_VALIDER')}
                                                     >
-                                                        Terminer mois (À valider)
+                                                        Marquer fin de saisie
                                                     </Button>
                                                 )}
                                                 {p.statutCode === 'A_VALIDER' && (

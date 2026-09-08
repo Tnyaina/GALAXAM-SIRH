@@ -81,6 +81,49 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
         );
     };
 
+    const updateRowStatut = (idEmploye, codeStatut, motifAjustement = '') => {
+        setGrilleData((prev) =>
+            prev.map((row) => {
+                if (row.idEmploye !== idEmploye) return row;
+                let updated = {
+                    ...row,
+                    codeStatut,
+                    motifAjustement: motifAjustement || ''
+                };
+
+                if (codeStatut === 'ABSENCE_JUSTIFIEE' || codeStatut === 'ABSENCE_NON_JUSTIFIEE' || codeStatut === 'CONGE') {
+                    updated.heureEntreeMatin = '';
+                    updated.heureSortieMatin = '';
+                    updated.heureEntreeAm = '';
+                    updated.heureSortieAm = '';
+                    updated.deplacementMatin = false;
+                    updated.deplacementAm = false;
+                    updated.indemniteRepasRecue = false;
+                    updated.typeCongeJour = codeStatut === 'CONGE' ? 'FULL_DAY' : null;
+                } else if (codeStatut === 'PRESENT') {
+                    const isBlank = !updated.heureEntreeMatin && !updated.heureSortieMatin && !updated.heureEntreeAm && !updated.heureSortieAm;
+                    if (isBlank && siteParams) {
+                        updated.heureEntreeMatin = siteParams.heureDebutMatin || '08:00';
+                        updated.heureSortieMatin = siteParams.heureFinMatin || '12:00';
+                        updated.heureEntreeAm = siteParams.heureDebutAm || (siteParams.horaireContinu ? '13:00' : '14:00');
+                        updated.heureSortieAm = siteParams.heureFinAm || '17:00';
+                        updated.deplacementMatin = true;
+                        updated.deplacementAm = true;
+                    }
+                    updated.typeCongeJour = null;
+                } else if (codeStatut === 'DISPENSE_POINTAGE') {
+                    updated.heureEntreeMatin = '';
+                    updated.heureSortieMatin = '';
+                    updated.heureEntreeAm = '';
+                    updated.heureSortieAm = '';
+                    updated.typeCongeJour = null;
+                }
+
+                return calculateRowValues(updated, siteParams);
+            })
+        );
+    };
+
     const updateRowIndemnite = (idEmploye, field, value) => {
         setGrilleData((prev) =>
             prev.map((row) => {
@@ -225,6 +268,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
         isRowModified,
         resetAllChanges,
         updateRowHours,
+        updateRowStatut,
         updateRowIndemnite,
         updateRowDynamicIndemnite,
         autoFillStandardHours,
