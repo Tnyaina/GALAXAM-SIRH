@@ -133,6 +133,84 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
         );
     };
 
+    const bulkApplyStandardHours = (empIds) => {
+        if (!siteParams || !empIds || empIds.size === 0) return;
+        const hDebM = siteParams.heureDebutMatin || '08:00';
+        const hFinM = siteParams.heureFinMatin || '12:00';
+        const hDebA = siteParams.heureDebutAm || (siteParams.horaireContinu ? '13:00' : '14:00');
+        const hFinA = siteParams.heureFinAm || '17:00';
+
+        setGrilleData((prev) =>
+            prev.map((row) => {
+                if (!empIds.has(row.idEmploye)) return row;
+                if (row.codeStatut === 'CONGE' || row.estAutonome || row.ferieJour) return row;
+
+                const filled = {
+                    ...row,
+                    heureEntreeMatin: hDebM,
+                    heureSortieMatin: hFinM,
+                    heureEntreeAm: hDebA,
+                    heureSortieAm: hFinA,
+                    codeStatut: 'PRESENT',
+                    deplacementMatin: true,
+                    deplacementAm: true
+                };
+                return calculateRowValues(filled, siteParams);
+            })
+        );
+    };
+
+    const bulkApplyStatut = (empIds, codeStatut, motifAjustement = '') => {
+        if (!empIds || empIds.size === 0) return;
+        setGrilleData((prev) =>
+            prev.map((row) => {
+                if (!empIds.has(row.idEmploye)) return row;
+                // Protection des congés approuvés et des fériés chômés
+                if (row.conge || row.codeStatut === 'CONGE' || row.ferieJour || row.ferieChome) return row;
+
+                let updated = {
+                    ...row,
+                    codeStatut,
+                    motifAjustement: motifAjustement || ''
+                };
+
+                if (codeStatut === 'ABSENCE_JUSTIFIEE' || codeStatut === 'ABSENCE_NON_JUSTIFIEE' || codeStatut === 'CONGE') {
+                    updated.heureEntreeMatin = '';
+                    updated.heureSortieMatin = '';
+                    updated.heureEntreeAm = '';
+                    updated.heureSortieAm = '';
+                    updated.deplacementMatin = false;
+                    updated.deplacementAm = false;
+                    updated.indemniteRepasRecue = false;
+                    updated.typeCongeJour = codeStatut === 'CONGE' ? 'FULL_DAY' : null;
+                } else if (codeStatut === 'PRESENT') {
+                    const isBlank = !updated.heureEntreeMatin && !updated.heureSortieMatin && !updated.heureEntreeAm && !updated.heureSortieAm;
+                    if (isBlank && siteParams) {
+                        updated.heureEntreeMatin = siteParams.heureDebutMatin || '08:00';
+                        updated.heureSortieMatin = siteParams.heureFinMatin || '12:00';
+                        updated.heureEntreeAm = siteParams.heureDebutAm || (siteParams.horaireContinu ? '13:00' : '14:00');
+                        updated.heureSortieAm = siteParams.heureFinAm || '17:00';
+                        updated.deplacementMatin = true;
+                        updated.deplacementAm = true;
+                    }
+                    updated.typeCongeJour = null;
+                }
+
+                return calculateRowValues(updated, siteParams);
+            })
+        );
+    };
+
+    const bulkApplyIndemnite = (empIds, field, value) => {
+        if (!empIds || empIds.size === 0) return;
+        setGrilleData((prev) =>
+            prev.map((row) => {
+                if (!empIds.has(row.idEmploye)) return row;
+                return { ...row, [field]: value };
+            })
+        );
+    };
+
     const updateRowDynamicIndemnite = (idEmploye, idIndemnite, value, fraction) => {
         setGrilleData((prev) =>
             prev.map((row) => {
@@ -273,6 +351,9 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().to
         updateRowDynamicIndemnite,
         autoFillStandardHours,
         autoDeduceAllPauses,
+        bulkApplyStandardHours,
+        bulkApplyStatut,
+        bulkApplyIndemnite,
         saveAll
     };
 }

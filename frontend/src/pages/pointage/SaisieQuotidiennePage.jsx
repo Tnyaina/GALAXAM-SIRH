@@ -55,6 +55,9 @@ export default function SaisieQuotidiennePage() {
         updateRowDynamicIndemnite,
         autoFillStandardHours,
         autoDeduceAllPauses,
+        bulkApplyStandardHours,
+        bulkApplyStatut,
+        bulkApplyIndemnite,
         saveAll
     } = usePointageSaisie(1, new Date().toISOString().split('T')[0]);
 
@@ -355,9 +358,13 @@ export default function SaisieQuotidiennePage() {
                                     if (!selectedDate) return 'Suivante';
                                     const parts = selectedDate.split('-');
                                     if (parts.length === 3) {
-                                        const mIdx = parseInt(parts[1], 10) - 1;
+                                        const y = parseInt(parts[0], 10);
+                                        const m = parseInt(parts[1], 10) - 1;
+                                        const d = parseInt(parts[2], 10);
+                                        const targetM = d >= 26 ? (m + 1) % 12 : m;
+                                        const targetY = (d >= 26 && m === 11) ? y + 1 : y;
                                         const moisFr = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-                                        return `${moisFr[mIdx]} ${parts[0]}`;
+                                        return `${moisFr[targetM]} ${targetY}`;
                                     }
                                     return 'Suivante';
                                 })()})
@@ -395,6 +402,9 @@ export default function SaisieQuotidiennePage() {
                         onUpdateStatut={handleUpdateStatut}
                         onUpdateIndemnite={handleUpdateIndemnite}
                         onUpdateDynamicIndemnite={handleUpdateDynamicIndemnite}
+                        onBulkStandardHours={bulkApplyStandardHours}
+                        onBulkStatut={bulkApplyStatut}
+                        onBulkIndemnite={bulkApplyIndemnite}
                         onRegisterInputRef={registerInputRef}
                         onKeyDown={handleKeyDown}
                         onFocusNext={focusNext}

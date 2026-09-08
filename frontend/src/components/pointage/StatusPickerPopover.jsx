@@ -6,19 +6,15 @@ import {
     X, 
     CheckCircle2, 
     AlertTriangle, 
-    XCircle, 
-    Calendar, 
-    Briefcase,
-    HelpCircle,
-    Clock
+    XCircle
 } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 
 const STATUT_OPTIONS = [
     {
         code: 'PRESENT',
-        label: 'Présent',
-        description: 'Journée normale de travail avec calcul des heures',
+        label: 'Présent (Journée normale)',
+        description: 'Journée travaillée avec calcul standard des heures',
         icon: CheckCircle2,
         dotColor: 'bg-emerald-500',
         textColor: 'text-emerald-700 dark:text-emerald-400',
@@ -27,7 +23,7 @@ const STATUT_OPTIONS = [
     {
         code: 'ABSENCE_JUSTIFIEE',
         label: 'Absence justifiée',
-        description: 'Motif légitime (certificat, permission, urgence)',
+        description: 'Motif légitime (certificat médical, mission, urgence)',
         icon: AlertTriangle,
         dotColor: 'bg-amber-500',
         textColor: 'text-amber-700 dark:text-amber-400',
@@ -42,37 +38,21 @@ const STATUT_OPTIONS = [
         dotColor: 'bg-rose-500',
         textColor: 'text-rose-700 dark:text-rose-400',
         bgHover: 'hover:bg-rose-500/10'
-    },
-    {
-        code: 'CONGE',
-        label: 'Congé / Permission',
-        description: 'Journée de congé payé ou permission',
-        icon: Calendar,
-        dotColor: 'bg-sky-500',
-        textColor: 'text-sky-700 dark:text-sky-400',
-        bgHover: 'hover:bg-sky-500/10'
-    },
-    {
-        code: 'DISPENSE_POINTAGE',
-        label: 'Cadre autonome (Forfait 8h)',
-        description: 'Poste cadre exempt de badgeage horaire',
-        icon: Briefcase,
-        dotColor: 'bg-purple-500',
-        textColor: 'text-purple-700 dark:text-purple-400',
-        bgHover: 'hover:bg-purple-500/10'
     }
 ];
 
 const SUGGESTIONS_MOTIF = [
     'Certificat médical',
-    'Permission exceptionnelle',
     'Urgence familiale',
-    'Mission extérieure',
-    'Arrêt maladie'
+    'Mission terrain',
+    'Intempéries / Cyclone',
+    'Arrêt maladie',
+    'Permission exceptionnelle'
 ];
 
 /**
  * Popover compact de modification de statut de pointage en ligne dans la grille.
+ * Garantit l'étanchéité des règles métier (pas d'autonomie arbitraire, pas de faux congés sans workflow, motif requis pour absence justifiée).
  */
 export default function StatusPickerPopover({
     row,
@@ -88,6 +68,8 @@ export default function StatusPickerPopover({
 
     const triggerRef = useRef(null);
     const popoverRef = useRef(null);
+
+    const isAutonome = Boolean(row?.estAutonome || row?.dispensePointage);
 
     // Synchronisation avec les props
     useEffect(() => {
@@ -108,7 +90,6 @@ export default function StatusPickerPopover({
         const openAbove = spaceBelow < popoverHeight && rect.top > popoverHeight;
 
         let left = rect.left + rect.width / 2 - popoverWidth / 2;
-        // Empêcher de déborder de l'écran
         if (left < 10) left = 10;
         if (left + popoverWidth > window.innerWidth - 10) {
             left = window.innerWidth - popoverWidth - 10;
@@ -169,9 +150,14 @@ export default function StatusPickerPopover({
         };
     }, [isOpen, updatePosition]);
 
+    const isMotifValid = selectedStatut !== 'ABSENCE_JUSTIFIEE' || Boolean(motif.trim());
+
     const handleApply = (statutToApply = selectedStatut) => {
+        if (statutToApply === 'ABSENCE_JUSTIFIEE' && !motif.trim()) {
+            return; // Motif obligatoire
+        }
         if (onStatusChange) {
-            onStatusChange(statutToApply, motif);
+            onStatusChange(statutToApply, statutToApply === 'ABSENCE_JUSTIFIEE' ? motif.trim() : '');
         }
         setIsOpen(false);
     };
@@ -195,7 +181,11 @@ export default function StatusPickerPopover({
         'Non saisi'
     );
 
-    const isRetardOnly = row?.minutesRetard > 0 && currentStatus === 'PRESENT';
+    const tooltipTitle = disabled ? (
+        row?.conge ? `En congé approuvé (${row?.libelleConge || 'Congé payé'}) — Piloté par le module Congés` :
+        row?.ferieChome ? 'Férié chômé non modifiable' :
+        'Période verrouillée'
+    ) : 'Cliquer pour modifier le statut du jour';
 
     return (
         <>
@@ -204,7 +194,7 @@ export default function StatusPickerPopover({
                 type="button"
                 disabled={disabled}
                 onClick={handleToggle}
-                title={disabled ? (row?.ferieChome ? 'Férié chômé non modifiable' : 'Période verrouillée') : 'Cliquer pour modifier le statut du jour'}
+                title={tooltipTitle}
                 className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded transition-all select-none group border border-transparent ${
                     disabled
                         ? 'cursor-default opacity-85'
@@ -243,7 +233,7 @@ export default function StatusPickerPopover({
                             <span className="font-bold text-[12px]">Modifier le statut</span>
                             {row?.nom && (
                                 <span className="text-[10px] text-[var(--color-fg-muted)] truncate max-w-[220px]">
-                                    {row.nom} {row.prenom}
+                                    {row.nom} {row.prenom} {isAutonome && '· Cadre'}
                                 </span>
                             )}
                         </div>
@@ -256,11 +246,10 @@ export default function StatusPickerPopover({
                         </button>
                     </div>
 
-                    {/* Liste des statuts */}
-                    <div className="space-y-1 max-h-[220px] overflow-y-auto pr-0.5">
+                    {/* Liste des statuts d'absence / présence */}
+                    <div className="space-y-1 pr-0.5">
                         {STATUT_OPTIONS.map((opt) => {
                             const isSelected = selectedStatut === opt.code;
-                            const Icon = opt.icon;
 
                             return (
                                 <button
@@ -268,7 +257,6 @@ export default function StatusPickerPopover({
                                     type="button"
                                     onClick={() => {
                                         setSelectedStatut(opt.code);
-                                        // Si le statut ne demande pas de motif, on peut appliquer directement
                                         if (!opt.requiresMotif) {
                                             handleApply(opt.code);
                                         }
@@ -298,17 +286,17 @@ export default function StatusPickerPopover({
                         })}
                     </div>
 
-                    {/* Zone de motif si Absence justifiée */}
+                    {/* Zone de motif si Absence justifiée (obligatoire) */}
                     {selectedStatut === 'ABSENCE_JUSTIFIEE' && (
                         <div className="mt-2.5 pt-2 border-t border-[var(--color-border-subtle)] space-y-2">
                             <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                                Motif ou Justification
+                                Motif ou Justification <span className="text-[var(--color-danger-500)]">*</span>
                             </label>
                             <input
                                 type="text"
                                 value={motif}
                                 onChange={(e) => setMotif(e.target.value)}
-                                placeholder="Ex: Certificat médical, urgence..."
+                                placeholder="Ex: Certificat médical, mission, urgence..."
                                 autoFocus
                                 className="w-full px-2.5 py-1.5 text-xs bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded focus:outline-none focus:border-brand-500 text-[var(--color-fg)]"
                             />
@@ -328,8 +316,10 @@ export default function StatusPickerPopover({
                         </div>
                     )}
 
+
+
                     {/* Boutons d'action */}
-                    <div className="mt-3 pt-2 border-t border-[var(--color-border-subtle)] flex items-center justify-end gap-2">
+                    <div className="mt-2.5 pt-2 border-t border-[var(--color-border-subtle)] flex items-center justify-end gap-2">
                         <button
                             type="button"
                             onClick={() => setIsOpen(false)}
@@ -339,8 +329,13 @@ export default function StatusPickerPopover({
                         </button>
                         <button
                             type="button"
+                            disabled={!isMotifValid}
                             onClick={() => handleApply(selectedStatut)}
-                            className="inline-flex items-center gap-1 px-3 py-1 text-[11px] font-bold bg-brand-600 hover:bg-brand-700 text-white rounded shadow-xs cursor-pointer"
+                            className={`inline-flex items-center gap-1 px-3 py-1 text-[11px] font-bold rounded shadow-xs cursor-pointer ${
+                                !isMotifValid
+                                    ? 'bg-gray-400 dark:bg-gray-600 text-white cursor-not-allowed opacity-60'
+                                    : 'bg-brand-600 hover:bg-brand-700 text-white'
+                            }`}
                         >
                             <Check size={12} />
                             Appliquer

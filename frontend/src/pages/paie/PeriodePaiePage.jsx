@@ -64,17 +64,31 @@ const MOIS_FR = [
 ];
 
 const computeNextPeriodeSuggestion = (periodesList) => {
+    // Cycle de paie standard : du 26 du mois M-1 au 25 du mois M
     if (!periodesList || periodesList.length === 0) {
         const now = new Date();
         const y = now.getFullYear();
-        const m = now.getMonth();
-        const mPad = String(m + 1).padStart(2, '0');
-        const lastDay = new Date(y, m + 1, 0).getDate();
+        const m = now.getMonth(); // 0 à 11
+        const d = now.getDate();
+
+        let targetY = y;
+        let targetM = d >= 26 ? m + 1 : m;
+        if (targetM > 11) {
+            targetM = 0;
+            targetY += 1;
+        }
+
+        const prevM = targetM === 0 ? 11 : targetM - 1;
+        const prevY = targetM === 0 ? targetY - 1 : targetY;
+
+        const startPad = String(prevM + 1).padStart(2, '0');
+        const endPad = String(targetM + 1).padStart(2, '0');
+
         return {
-            code: `${y}-${mPad}`,
-            libelle: `${MOIS_FR[m]} ${y}`,
-            dateDebut: `${y}-${mPad}-01`,
-            dateFin: `${y}-${mPad}-${String(lastDay).padStart(2, '0')}`,
+            code: `${targetY}-${endPad}`,
+            libelle: `${MOIS_FR[targetM]} ${targetY}`,
+            dateDebut: `${prevY}-${startPad}-26`,
+            dateFin: `${targetY}-${endPad}-25`,
             baseLibelle: null
         };
     }
@@ -110,14 +124,18 @@ const computeNextPeriodeSuggestion = (periodesList) => {
         nextMonth = now.getMonth();
     }
 
-    const mPad = String(nextMonth + 1).padStart(2, '0');
-    const lastDay = new Date(nextYear, nextMonth + 1, 0).getDate();
+    // Cycle 26 au 25 pour le mois nextMonth
+    const prevMonth = nextMonth === 0 ? 11 : nextMonth - 1;
+    const prevYear = nextMonth === 0 ? nextYear - 1 : nextYear;
+
+    const startPad = String(prevMonth + 1).padStart(2, '0');
+    const endPad = String(nextMonth + 1).padStart(2, '0');
 
     return {
-        code: `${nextYear}-${mPad}`,
+        code: `${nextYear}-${endPad}`,
         libelle: `${MOIS_FR[nextMonth]} ${nextYear}`,
-        dateDebut: `${nextYear}-${mPad}-01`,
-        dateFin: `${nextYear}-${mPad}-${String(lastDay).padStart(2, '0')}`,
+        dateDebut: `${prevYear}-${startPad}-26`,
+        dateFin: `${nextYear}-${endPad}-25`,
         baseLibelle: latest.libelle || latest.code
     };
 };
@@ -129,13 +147,29 @@ const computePeriodeForDate = (dateStr) => {
         if (parts.length === 3) {
             const y = parseInt(parts[0], 10);
             const m = parseInt(parts[1], 10) - 1; // 0 à 11
-            const mPad = String(m + 1).padStart(2, '0');
-            const lastDay = new Date(y, m + 1, 0).getDate();
+            const d = parseInt(parts[2], 10);
+
+            // Règle du cycle 26 -> 25 :
+            // Si le jour >= 26, la date appartient à la paie du mois suivant (M+1)
+            // Si le jour <= 25, la date appartient à la paie du mois en cours (M)
+            let targetYear = y;
+            let targetMonth = d >= 26 ? m + 1 : m;
+            if (targetMonth > 11) {
+                targetMonth = 0;
+                targetYear += 1;
+            }
+
+            const startMonth = targetMonth === 0 ? 11 : targetMonth - 1;
+            const startYear = targetMonth === 0 ? targetYear - 1 : targetYear;
+
+            const startMonthPad = String(startMonth + 1).padStart(2, '0');
+            const targetMonthPad = String(targetMonth + 1).padStart(2, '0');
+
             return {
-                code: `${y}-${mPad}`,
-                libelle: `${MOIS_FR[m]} ${y}`,
-                dateDebut: `${y}-${mPad}-01`,
-                dateFin: `${y}-${mPad}-${String(lastDay).padStart(2, '0')}`,
+                code: `${targetYear}-${targetMonthPad}`,
+                libelle: `${MOIS_FR[targetMonth]} ${targetYear}`,
+                dateDebut: `${startYear}-${startMonthPad}-26`,
+                dateFin: `${targetYear}-${targetMonthPad}-25`,
                 baseLibelle: null
             };
         }
@@ -205,6 +239,56 @@ export default function PeriodePaiePage() {
             dateFin: nextSuggestion.dateFin
         });
         setIsCreateModalOpen(true);
+    };
+
+    const handleApplyCycle2625 = () => {
+        let y, m;
+        if (newPeriode.code && newPeriode.code.includes('-')) {
+            const parts = newPeriode.code.split('-');
+            y = parseInt(parts[0], 10);
+            m = parseInt(parts[1], 10) - 1;
+        } else if (newPeriode.dateFin) {
+            const parts = newPeriode.dateFin.split('-');
+            y = parseInt(parts[0], 10);
+            m = parseInt(parts[1], 10) - 1;
+        } else {
+            const now = new Date();
+            y = now.getFullYear();
+            m = now.getMonth();
+        }
+        const prevM = m === 0 ? 11 : m - 1;
+        const prevY = m === 0 ? y - 1 : y;
+        const startPad = String(prevM + 1).padStart(2, '0');
+        const endPad = String(m + 1).padStart(2, '0');
+        setNewPeriode(prev => ({
+            ...prev,
+            dateDebut: `${prevY}-${startPad}-26`,
+            dateFin: `${y}-${endPad}-25`
+        }));
+    };
+
+    const handleApplyCycleCivil = () => {
+        let y, m;
+        if (newPeriode.code && newPeriode.code.includes('-')) {
+            const parts = newPeriode.code.split('-');
+            y = parseInt(parts[0], 10);
+            m = parseInt(parts[1], 10) - 1;
+        } else if (newPeriode.dateFin) {
+            const parts = newPeriode.dateFin.split('-');
+            y = parseInt(parts[0], 10);
+            m = parseInt(parts[1], 10) - 1;
+        } else {
+            const now = new Date();
+            y = now.getFullYear();
+            m = now.getMonth();
+        }
+        const mPad = String(m + 1).padStart(2, '0');
+        const lastDay = new Date(y, m + 1, 0).getDate();
+        setNewPeriode(prev => ({
+            ...prev,
+            dateDebut: `${y}-${mPad}-01`,
+            dateFin: `${y}-${mPad}-${String(lastDay).padStart(2, '0')}`
+        }));
     };
 
     const handleOpenCreateBlank = () => {
@@ -648,19 +732,42 @@ export default function PeriodePaiePage() {
                         onChange={e => setNewPeriode({ ...newPeriode, libelle: e.target.value })}
                         required
                     />
-                    <div className="grid grid-cols-2 gap-4">
-                        <DatePicker
-                            label="Date de début"
-                            value={newPeriode.dateDebut}
-                            onChange={val => setNewPeriode({ ...newPeriode, dateDebut: val })}
-                            required
-                        />
-                        <DatePicker
-                            label="Date de fin"
-                            value={newPeriode.dateFin}
-                            onChange={val => setNewPeriode({ ...newPeriode, dateFin: val })}
-                            required
-                        />
+                    <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-[var(--color-fg)]">Plage de dates</span>
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={handleApplyCycle2625}
+                                    className="px-2 py-0.5 text-[10.5px] font-medium bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/30 hover:bg-brand-500/20 transition-colors cursor-pointer"
+                                    title="Appliquer le cycle standard de paie du 26 au 25"
+                                >
+                                    Cycle 26 au 25 (Standard)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleApplyCycleCivil}
+                                    className="px-2 py-0.5 text-[10.5px] font-medium bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)] hover:text-[var(--color-fg)] transition-colors cursor-pointer"
+                                    title="Appliquer le mois civil du 1er au dernier jour"
+                                >
+                                    Mois civil (1 au 31)
+                                </button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <DatePicker
+                                label="Date de début"
+                                value={newPeriode.dateDebut}
+                                onChange={val => setNewPeriode({ ...newPeriode, dateDebut: val })}
+                                required
+                            />
+                            <DatePicker
+                                label="Date de fin"
+                                value={newPeriode.dateFin}
+                                onChange={val => setNewPeriode({ ...newPeriode, dateFin: val })}
+                                required
+                            />
+                        </div>
                     </div>
 
                     {/* Bloc Synthèse Dynamique Calculée Côté Serveur (Backend-Driven) */}

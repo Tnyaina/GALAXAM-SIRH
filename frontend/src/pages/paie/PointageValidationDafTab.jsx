@@ -12,7 +12,8 @@ import {
     Sun,
     Award,
     Search,
-    ClipboardCheck
+    ClipboardCheck,
+    FileSpreadsheet
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -28,6 +29,7 @@ import organisationService from '@/api/admin/organisationService';
 import periodePaieService from '@/services/periodePaieService';
 import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 import { formatMonnaie } from '@/utils/pointageUtils';
+import { exportPointageValidationToExcel } from '@/utils/excelExportUtils';
 
 export default function PointageValidationDafTab() {
     const { hasPermission } = useAuth();
@@ -43,6 +45,7 @@ export default function PointageValidationDafTab() {
     const [semaines, setSemaines] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [alertFilter, setAlertFilter] = useState('ALL');
 
     const [showValiderModal, setShowValiderModal] = useState(false);
     const [showRejetModal, setShowRejetModal] = useState(false);
@@ -116,15 +119,53 @@ export default function PointageValidationDafTab() {
         totalRetardMins: syntheseData.reduce((a, r) => a + (r.totalMinutesRetard || 0), 0)
     }), [syntheseData]);
 
+    const alertCounts = useMemo(() => ({
+        all: syntheseData.length,
+        hs: syntheseData.filter(r => (r.heuresHs30 || 0) > 0 || (r.heuresHs50 || 0) > 0).length,
+        nuit: syntheseData.filter(r => (r.heuresNuitTotal || 0) > 0).length,
+        retard: syntheseData.filter(r => (r.totalMinutesRetard || 0) > 0).length,
+        absence: syntheseData.filter(r => (r.heuresAbsenceRetenues || 0) > 0).length,
+    }), [syntheseData]);
+
     const filteredData = useMemo(() => {
-        if (!searchTerm.trim()) return syntheseData;
+        let list = syntheseData;
+        if (alertFilter === 'HS') {
+            list = list.filter(r => (r.heuresHs30 || 0) > 0 || (r.heuresHs50 || 0) > 0);
+        } else if (alertFilter === 'NUIT') {
+            list = list.filter(r => (r.heuresNuitTotal || 0) > 0);
+        } else if (alertFilter === 'RETARD') {
+            list = list.filter(r => (r.totalMinutesRetard || 0) > 0);
+        } else if (alertFilter === 'ABSENCE') {
+            list = list.filter(r => (r.heuresAbsenceRetenues || 0) > 0);
+        }
+
+        if (!searchTerm.trim()) return list;
         const t = searchTerm.toLowerCase();
-        return syntheseData.filter(r =>
+        return list.filter(r =>
             (r.nom && r.nom.toLowerCase().includes(t)) ||
             (r.prenom && r.prenom.toLowerCase().includes(t)) ||
             (r.matricule && r.matricule.toLowerCase().includes(t))
         );
-    }, [syntheseData, searchTerm]);
+    }, [syntheseData, alertFilter, searchTerm]);
+
+    const handleExportExcel = () => {
+        if (!filteredData || filteredData.length === 0) {
+            toast({ title: 'Export impossible', message: 'Aucune donnée disponible à exporter pour cette sélection.', type: 'warning' });
+            return;
+        }
+        const siteObj = sites.find(s => s.idSite === selectedSite);
+        const siteNom = siteObj ? (siteObj.libelle || siteObj.codeSite) : 'Tous les sites';
+        try {
+            exportPointageValidationToExcel({
+                periode: currentPeriodeObj,
+                siteNom,
+                syntheseData: filteredData
+            });
+            toast({ title: 'Export Excel généré', message: `${filteredData.length} collaborateurs exportés avec succès.`, type: 'success' });
+        } catch (err) {
+            toast({ title: 'Erreur lors de l’export', message: err?.message || 'Une erreur est survenue.', type: 'error' });
+        }
+    };
 
     const handleValiderPeriode = async () => {
         if (!selectedPeriode) return;
@@ -196,30 +237,46 @@ export default function PointageValidationDafTab() {
             <SEO title="Validation Pointage DAF | GALAXAM SIRH" description="Tableau de bord DAF pour la validation et clôture des périodes." />
             <div className="space-y-3 max-w-[1600px] mx-auto">
 
-                {/* Barre de contrôle */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex flex-wrap items-center gap-3 shadow-xs">
-                    <Select
-                        options={periodes.map(p => ({ value: p.idPeriodePaie, label: `${p.libelle || p.code} — ${p.statutLibelle || p.statutCode}` }))}
-                        value={selectedPeriode}
-                        onChange={val => setSelectedPeriode(val)}
-                        className="h-[32px] text-xs min-w-[240px] flex-1"
-                    />
-                    <Select
-                        options={[{ value: 0, label: 'Tous les sites' }, ...sites.map(s => ({ value: s.idSite, label: `${s.codeSite || s.code || `Site #${s.idSite}`} — ${s.libelle}` }))]}
-                        value={selectedSite}
-                        onChange={val => setSelectedSite(Number(val))}
-                        className="h-[32px] text-xs min-w-[200px] flex-1"
-                    />
-                    <div className="relative flex-1 min-w-[180px]">
-                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
-                        <input type="text" placeholder="Nom, matricule…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                            className="w-full pl-7 pr-3 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:border-brand-500 h-[32px]" />
+                {/* Barre de contrôle bien structurée */}
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                    <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[320px]">
+                        <Select
+                            options={periodes.map(p => ({ value: p.idPeriodePaie, label: `${p.libelle || p.code} — ${p.statutLibelle || p.statutCode}` }))}
+                            value={selectedPeriode}
+                            onChange={val => setSelectedPeriode(val)}
+                            className="h-[32px] text-xs min-w-[220px]"
+                        />
+                        <Select
+                            options={[{ value: 0, label: 'Tous les sites' }, ...sites.map(s => ({ value: s.idSite, label: `${s.codeSite || s.code || `Site #${s.idSite}`} — ${s.libelle}` }))]}
+                            value={selectedSite}
+                            onChange={val => setSelectedSite(Number(val))}
+                            className="h-[32px] text-xs min-w-[180px]"
+                        />
+                        <div className="relative min-w-[180px] flex-1">
+                            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
+                            <input type="text" placeholder="Nom, matricule…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                className="w-full pl-7 pr-3 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:border-brand-500 h-[32px]" />
+                        </div>
                     </div>
-                    {currentPeriodeObj && (
-                        <Badge variant={isCloturee ? 'success' : isValidee ? 'primary' : isAValider ? 'warning' : 'info'} size="sm" className="font-bold uppercase tracking-wider shrink-0">
-                            {currentPeriodeObj.statutLibelle || currentPeriodeObj.statutCode}
-                        </Badge>
-                    )}
+
+                    <div className="flex items-center gap-3 shrink-0">
+                        {currentPeriodeObj && (
+                            <Badge variant={isCloturee ? 'success' : isValidee ? 'primary' : isAValider ? 'warning' : 'info'} size="sm" className="font-bold uppercase tracking-wider">
+                                {currentPeriodeObj.statutLibelle || currentPeriodeObj.statutCode}
+                            </Badge>
+                        )}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleExportExcel}
+                            icon={<FileSpreadsheet size={14} className="text-emerald-600 dark:text-emerald-400" />}
+                            className="text-xs h-[32px] font-medium"
+                            title="Exporter les données affichées au format Excel (CSV universel)"
+                        >
+                            Exporter Excel
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Motif rejet si renvoyé */}
@@ -309,14 +366,40 @@ export default function PointageValidationDafTab() {
                     </div>
                 )}
 
-                {/* Tableau nominatif mensuel */}
+                {/* Tableau nominatif mensuel avec vision différentielle & alertes DAF */}
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
-                    <div className="px-4 py-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-2">
-                            <ClipboardCheck size={14} className="text-brand-500" />
-                            Tableau Nominatif — {currentPeriodeObj?.libelle || 'Période sélectionnée'}
-                        </h3>
-                        <span className="text-xs font-mono text-[var(--color-fg-muted)]">{filteredData.length} salarié(s)</span>
+                    <div className="px-4 py-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex flex-wrap items-center justify-between gap-2">
+                        {/* Filtres de vision différentielle DAF */}
+                        <div className="flex items-center gap-1.5 overflow-x-auto">
+                            {[
+                                { id: 'ALL', label: 'Tous', count: alertCounts.all },
+                                { id: 'HS', label: 'Heures Sup', count: alertCounts.hs, color: 'text-[var(--color-purple-700)] dark:text-[var(--color-purple-400)]' },
+                                { id: 'NUIT', label: 'Nuit', count: alertCounts.nuit, color: 'text-indigo-600 dark:text-indigo-400' },
+                                { id: 'RETARD', label: 'Retards', count: alertCounts.retard, color: 'text-amber-600 dark:text-amber-400' },
+                                { id: 'ABSENCE', label: 'Déficit / Absences', count: alertCounts.absence, color: 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' },
+                            ].map(tab => {
+                                const isActive = alertFilter === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        onClick={() => setAlertFilter(tab.id)}
+                                        className={`px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer border h-[26px] flex items-center shrink-0 ${
+                                            isActive
+                                                ? 'bg-brand-600 border-brand-600 text-white font-bold'
+                                                : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
+                                        }`}
+                                    >
+                                        <span>{tab.label}</span>
+                                        <span className={`ml-1.5 font-mono text-[10px] ${isActive ? 'opacity-95 font-bold' : tab.count > 0 ? (tab.color || 'font-bold') : 'opacity-60'}`}>
+                                            {tab.count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <span className="text-xs font-mono text-[var(--color-fg-muted)]">{filteredData.length} salarié(s) affiché(s)</span>
                     </div>
                     {loading ? (
                         <div className="p-12 text-center text-xs text-[var(--color-fg-muted)] flex items-center justify-center gap-2">

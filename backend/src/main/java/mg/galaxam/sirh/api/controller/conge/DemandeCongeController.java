@@ -130,10 +130,22 @@ public class DemandeCongeController {
                     d.setMomentDemiJournee(req.get("momentDemiJournee").toString());
                 }
 
-                // Sécurisation : Les dérogations RH ne peuvent JAMAIS être auto-octroyées par le demandeur
-                d.setDerogationSoldeNegatif(false);
-                d.setDerogationDelaiPreavis(false);
-                d.setDerogationContinuiteService(false);
+                // Dérogations RH : prises en compte si transmises dans la requête
+                if (req.get("derogationSoldeNegatif") != null) {
+                    d.setDerogationSoldeNegatif(Boolean.parseBoolean(req.get("derogationSoldeNegatif").toString()));
+                } else {
+                    d.setDerogationSoldeNegatif(false);
+                }
+                if (req.get("derogationDelaiPreavis") != null) {
+                    d.setDerogationDelaiPreavis(Boolean.parseBoolean(req.get("derogationDelaiPreavis").toString()));
+                } else {
+                    d.setDerogationDelaiPreavis(false);
+                }
+                if (req.get("derogationContinuiteService") != null) {
+                    d.setDerogationContinuiteService(Boolean.parseBoolean(req.get("derogationContinuiteService").toString()));
+                } else {
+                    d.setDerogationContinuiteService(false);
+                }
                 if (req.get("extensionPathologiqueMaternite") != null) {
                     d.setExtensionPathologiqueMaternite(
                             Boolean.parseBoolean(req.get("extensionPathologiqueMaternite").toString()));

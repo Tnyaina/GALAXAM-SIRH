@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Moon } from 'lucide-react';
+import { Moon, ClockCheck, AlertTriangle, Car, Check, X, CheckSquare, Clock, UserX } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
 import TimeInput from '@/components/ui/forms/TimeInput';
+import Button from '@/components/ui/forms/Button';
+import Modal from '@/components/ui/overlays/Modal';
 import Badge from '@/components/ui/data-display/Badge';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { formatHeuresMinutes, formatMonnaie } from '@/utils/pointageUtils';
@@ -19,6 +22,9 @@ export default function PointageGridTable({
     onUpdateStatut,
     onUpdateIndemnite,
     onUpdateDynamicIndemnite,
+    onBulkStandardHours,
+    onBulkStatut,
+    onBulkIndemnite,
     onRegisterInputRef,
     onKeyDown,
     onFocusNext,
@@ -30,6 +36,68 @@ export default function PointageGridTable({
 }) {
     const startIndex = (currentPage - 1) * pageSize;
     const paginatedData = grilleData.slice(startIndex, startIndex + pageSize);
+
+    // État de sélection multiple (Bulk actions)
+    const [selectedEmpIds, setSelectedEmpIds] = useState(new Set());
+    const [showCollectiveAbsenceModal, setShowCollectiveAbsenceModal] = useState(false);
+    const [collectiveMotif, setCollectiveMotif] = useState('');
+
+    const toggleSelectRow = (idEmploye) => {
+        setSelectedEmpIds(prev => {
+            const next = new Set(prev);
+            if (next.has(idEmploye)) next.delete(idEmploye);
+            else next.add(idEmploye);
+            return next;
+        });
+    };
+
+    const isAllSelected = paginatedData.length > 0 && paginatedData.every(r => selectedEmpIds.has(r.idEmploye));
+    const isSomeSelected = paginatedData.some(r => selectedEmpIds.has(r.idEmploye)) && !isAllSelected;
+
+    const toggleSelectAll = () => {
+        if (isAllSelected) {
+            setSelectedEmpIds(prev => {
+                const next = new Set(prev);
+                paginatedData.forEach(r => next.delete(r.idEmploye));
+                return next;
+            });
+        } else {
+            setSelectedEmpIds(prev => {
+                const next = new Set(prev);
+                paginatedData.forEach(r => next.add(r.idEmploye));
+                return next;
+            });
+        }
+    };
+
+    const handleClearSelection = () => {
+        setSelectedEmpIds(new Set());
+    };
+
+    const handleApplyBulkStandard = () => {
+        if (selectedEmpIds.size === 0) return;
+        onBulkStandardHours?.(selectedEmpIds);
+        handleClearSelection();
+    };
+
+    const handleOpenCollectiveAbsence = () => {
+        setCollectiveMotif('');
+        setShowCollectiveAbsenceModal(true);
+    };
+
+    const handleConfirmCollectiveAbsence = () => {
+        if (selectedEmpIds.size === 0) return;
+        onBulkStatut?.(selectedEmpIds, 'ABSENCE_JUSTIFIEE', collectiveMotif || 'Absence collective');
+        setShowCollectiveAbsenceModal(false);
+        handleClearSelection();
+    };
+
+    const handleApplyBulkTransport = () => {
+        if (selectedEmpIds.size === 0) return;
+        onBulkIndemnite?.(selectedEmpIds, 'deplacementMatin', true);
+        onBulkIndemnite?.(selectedEmpIds, 'deplacementAm', true);
+        handleClearSelection();
+    };
 
     const fmtMoney = (val) => formatMonnaie(val);
 
@@ -83,7 +151,18 @@ export default function PointageGridTable({
                     <Thead className="sticky top-0 z-10">
                         {/* Ligne 1 d'en-tête (Titres de Blocs) */}
                         <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                            <Th className="px-5 py-2.5 w-[220px]">Employé</Th>
+                            <Th className="w-10 px-3 py-2.5 text-center">
+                                <input
+                                    type="checkbox"
+                                    checked={isAllSelected}
+                                    ref={el => { if (el) el.indeterminate = isSomeSelected; }}
+                                    onChange={toggleSelectAll}
+                                    disabled={isReadOnly}
+                                    className="w-3.5 h-3.5 rounded accent-brand-600 cursor-pointer align-middle"
+                                    title={isAllSelected ? "Tout désélectionner" : "Sélectionner tous les employés de la page"}
+                                />
+                            </Th>
+                            <Th className="px-4 py-2.5 w-[210px]">Employé</Th>
                             <Th className="px-2 py-2.5 text-center border-l border-[var(--color-border-subtle)]" colSpan={2}>
                                 Matin
                             </Th>
@@ -112,7 +191,8 @@ export default function PointageGridTable({
                         </Tr>
                         {/* Ligne 2 d'en-tête (Sous-colonnes Entrée / Sortie) */}
                         <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider sticky top-[38px] z-10">
-                            <Th className="px-5 py-1.5"></Th>
+                            <Th className="w-10 px-3 py-1.5 text-center"></Th>
+                            <Th className="px-4 py-1.5"></Th>
                             <Th className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">Entrée</Th>
                             <Th className="px-2 py-1.5 text-center">Sortie</Th>
                             <Th className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">Retour</Th>
@@ -139,6 +219,18 @@ export default function PointageGridTable({
 
                             return (
                                 <Tr key={row.idEmploye} className={`border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors ${rowBorderCue}`}>
+                                    {/* 0. Case à cocher de sélection */}
+                                    <Td className="w-10 px-3 py-2 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedEmpIds.has(row.idEmploye)}
+                                            onChange={() => toggleSelectRow(row.idEmploye)}
+                                            disabled={isReadOnlyForUser}
+                                            className="w-3.5 h-3.5 rounded accent-brand-600 cursor-pointer align-middle"
+                                            aria-label={`Sélectionner ${row.nom}`}
+                                        />
+                                    </Td>
+
                                     {/* 1. Identification Salarié */}
                                     <Td className="px-3.5 py-2">
                                         <div className="flex items-center gap-2.5 min-w-[210px]">
@@ -255,7 +347,7 @@ export default function PointageGridTable({
                                             currentStatus={row.codeStatut}
                                             currentMotif={row.motifAjustement}
                                             onStatusChange={(newStatut, motif) => onUpdateStatut?.(row.idEmploye, newStatut, motif)}
-                                            disabled={isReadOnlyForUser || Boolean(row.ferieChome)}
+                                            disabled={isReadOnlyForUser || Boolean(row.ferieChome) || Boolean(row.conge)}
                                         />
                                     </Td>
 
@@ -373,6 +465,125 @@ export default function PointageGridTable({
                 onPageChange={onPageChange}
                 onPageSizeChange={onPageSizeChange}
             />
+
+            {/* Barre flottante d'actions groupées (Bulk actions) */}
+            {selectedEmpIds.size > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-[var(--color-surface)] border border-[var(--color-border)] shadow-2xl px-5 py-2.5 flex items-center gap-4 animate-in slide-in-from-bottom-3 duration-200">
+                    {/* 1. Compteur & Désélection */}
+                    <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                            {selectedEmpIds.size} sélectionné{selectedEmpIds.size > 1 ? 's' : ''}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={handleClearSelection}
+                            className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] underline underline-offset-2 ml-1 cursor-pointer"
+                        >
+                            Annuler
+                        </button>
+                    </div>
+
+                    {/* Séparateur vertical */}
+                    <div className="h-5 w-px bg-[var(--color-border-subtle)]" />
+
+                    {/* 2. Actions structurées avec espacement aéré */}
+                    <div className="flex items-center gap-2.5">
+                        <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={handleApplyBulkStandard}
+                            icon={<Clock size={13} className="text-emerald-500" />}
+                            title="Remplir 8h standard pour les lignes sélectionnées"
+                        >
+                            Heures standard (8h)
+                        </Button>
+
+                        <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={handleApplyBulkTransport}
+                            icon={<Car size={13} className="text-blue-500" />}
+                            title="Cocher transport Matin + Soir pour la sélection"
+                        >
+                            Transport A/R
+                        </Button>
+
+                        <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={handleOpenCollectiveAbsence}
+                            icon={<UserX size={13} className="text-amber-500" />}
+                            title="Déclarer une absence collective pour toute la sélection"
+                        >
+                            Absence collective…
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modale de déclaration d'absence collective */}
+            <Modal
+                isOpen={showCollectiveAbsenceModal}
+                onClose={() => setShowCollectiveAbsenceModal(false)}
+                title="Absence collective"
+                size="md"
+                icon={<UserX size={18} className="text-amber-500" />}
+                footer={
+                    <div className="flex items-center justify-end gap-3 w-full">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowCollectiveAbsenceModal(false)}
+                        >
+                            Annuler
+                        </Button>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleConfirmCollectiveAbsence}
+                            className="bg-amber-600 hover:bg-amber-700 text-white border-none"
+                        >
+                            Appliquer l'absence
+                        </Button>
+                    </div>
+                }
+            >
+                <div className="space-y-4 py-2">
+                    <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                        Appliquer le statut <strong>Absence justifiée</strong> à{' '}
+                        <strong className="text-[var(--color-fg)]">{selectedEmpIds.size} collaborateur{selectedEmpIds.size > 1 ? 's' : ''}</strong> sélectionnés.
+                    </p>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1.5">
+                            Motif de l'absence
+                        </label>
+                        <input
+                            type="text"
+                            value={collectiveMotif}
+                            onChange={(e) => setCollectiveMotif(e.target.value)}
+                            placeholder="Ex: Intempéries, coupure générale, formation..."
+                            className="w-full px-3 py-2 text-xs border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-brand-500"
+                        />
+                    </div>
+
+                    <div>
+                        <span className="block text-[11px] text-[var(--color-fg-muted)] mb-1.5 font-medium">Suggestions rapides :</span>
+                        <div className="flex flex-wrap gap-1.5">
+                            {['Intempéries / Cyclone', 'Coupure réseau / électricité', 'Formation interne', "Événement d'entreprise", 'Mission terrain'].map((suggestion) => (
+                                <button
+                                    key={suggestion}
+                                    type="button"
+                                    onClick={() => setCollectiveMotif(suggestion)}
+                                    className="px-2 py-1 text-[11px] bg-[var(--color-bg-subtle)] hover:bg-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] border border-[var(--color-border-subtle)] transition-colors cursor-pointer"
+                                >
+                                    {suggestion}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
