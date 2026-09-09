@@ -1199,9 +1199,12 @@ public class PointageSaisieService {
                 "accorde = EXCLUDED.accorde, " +
                 "updated_at = CURRENT_TIMESTAMP";
 
-        // Chargement des horaires configurés par site
+        // Chargement des horaires et plafonds configurés par site
         Map<Integer, LocalTime[]> siteHoraires = new HashMap<>();
-        String sqlSites = "SELECT id_site, heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi, COALESCE(horaire_continu, TRUE) AS horaire_continu FROM ref_site";
+        String sqlSites = "SELECT s.id_site, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
+                "COALESCE(s.horaire_continu, TRUE) AS horaire_continu, t.heure_plafond " +
+                "FROM ref_site s " +
+                "LEFT JOIN ref_tolerance_arrivee_pointage t ON s.id_site = t.id_site";
         try (PreparedStatement psSites = c.prepareStatement(sqlSites);
              ResultSet rsSites = psSites.executeQuery()) {
             while (rsSites.next()) {
@@ -1210,14 +1213,17 @@ public class PointageSaisieService {
                 Time hfm = rsSites.getTime("heure_fin_matin");
                 Time hda = rsSites.getTime("heure_debut_apres_midi");
                 Time hfa = rsSites.getTime("heure_fin_apres_midi");
+                Time hp = rsSites.getTime("heure_plafond");
                 boolean cont = rsSites.getBoolean("horaire_continu");
 
                 LocalTime ltDebM = hdm != null ? hdm.toLocalTime() : LocalTime.of(8, 0);
                 LocalTime ltFinM = hfm != null ? hfm.toLocalTime() : LocalTime.of(12, 0);
                 LocalTime ltDebA = hda != null ? hda.toLocalTime() : (cont ? LocalTime.of(13, 0) : LocalTime.of(14, 0));
                 LocalTime ltFinA = hfa != null ? hfa.toLocalTime() : (cont ? LocalTime.of(17, 0) : LocalTime.of(18, 0));
+                LocalTime ltPlafond = hp != null ? hp.toLocalTime() : LocalTime.of(7, 30);
 
-                siteHoraires.put(sId, new LocalTime[]{ltDebM, ltFinM, ltDebA, ltFinA});
+                // Index: 0=debM, 1=finM, 2=debA, 3=finA, 4=plafondArrivee
+                siteHoraires.put(sId, new LocalTime[]{ltDebM, ltFinM, ltDebA, ltFinA, ltPlafond});
             }
         } catch (Exception ignored) {}
 
@@ -1274,7 +1280,7 @@ public class PointageSaisieService {
                 }
 
                 LocalTime[] sH = siteHoraires.getOrDefault(idSiteRow, new LocalTime[]{
-                        LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0)
+                        LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0), LocalTime.of(7, 30)
                 });
                 LocalTime siteDebM = sH[0];
                 LocalTime siteFinM = sH[1];
@@ -1286,6 +1292,24 @@ public class PointageSaisieService {
                 Time ea = parseTime(dto.getHeureEntreeAm());
                 Time sa = parseTime(dto.getHeureSortieAm());
 
+                // =========================================================================
+                // RÈGLE MÉTIER GALAXAM - Tolérance d'arrivée / Heure minimale (ex: 07h30)
+                // Écrêtage de l'arrivée anticipée pour le calcul des heures travaillées effectives.
+                // NOTE IMPORTANTE : La valeur brute badgée/saisie (ex: 07:21) reste TOUJOURS
+                // stockée telle quelle en base de données pour la traçabilité d'audit.
+                //
+                // POUR ACTIVER L'ÉCRÊTAGE : Décommenter le bloc ci-dessous le jour où l'entreprise
+                // souhaite appliquer le plafond :
+                /*
+                LocalTime ltPlafondSite = sH.length > 4 ? sH[4] : null;
+                LocalTime ltEmEcrete = (em != null && ltPlafondSite != null)
+                        ? CALCULATEUR_ENGINE.ecreterArriveeAuPlafond(em.toLocalTime(), ltPlafondSite)
+                        : (em != null ? em.toLocalTime() : null);
+                Time emEffectif = ltEmEcrete != null ? Time.valueOf(ltEmEcrete) : em;
+                */
+                Time emEffectif = em; // Actuellement désactivé : calcul sur l'heure brute saisie
+                // =========================================================================
+
                 boolean isPauseAuto = (em != null && sa != null && sm == null && ea == null);
                 double hMatin;
                 double hAm;
@@ -1293,10 +1317,10 @@ public class PointageSaisieService {
                 if (isPauseAuto) {
                     Time smEff = Time.valueOf(siteFinM);
                     Time eaEff = Time.valueOf(siteDebA);
-                    hMatin = calcHours(em, smEff);
+                    hMatin = calcHours(emEffectif, smEff);
                     hAm = calcHours(eaEff, sa);
                 } else {
-                    hMatin = calcHours(em, sm);
+                    hMatin = calcHours(emEffectif, sm);
                     hAm = calcHours(ea, sa);
                 }
 

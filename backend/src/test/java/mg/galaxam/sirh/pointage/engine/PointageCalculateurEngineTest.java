@@ -53,6 +53,42 @@ class PointageCalculateurEngineTest {
         }
     }
 
+    @Nested @DisplayName("ecreterArriveeAuPlafond")
+    class EcreterArriveeAuPlafond {
+
+        @Test @DisplayName("Arrivee avant le plafond (ex: 07:21 avec plafond 07:30) -> ramenee a 07:30")
+        void arriveeAvantPlafond() {
+            LocalTime arrivee = LocalTime.of(7, 21);
+            LocalTime plafond = LocalTime.of(7, 30);
+            assertEquals(LocalTime.of(7, 30), engine.ecreterArriveeAuPlafond(arrivee, plafond));
+        }
+
+        @Test @DisplayName("Arrivee exactement au plafond (07:30) -> conservee a 07:30")
+        void arriveeAuPlafondExact() {
+            LocalTime arrivee = LocalTime.of(7, 30);
+            LocalTime plafond = LocalTime.of(7, 30);
+            assertEquals(LocalTime.of(7, 30), engine.ecreterArriveeAuPlafond(arrivee, plafond));
+        }
+
+        @Test @DisplayName("Arrivee apres le plafond (ex: 07:45 avec plafond 07:30) -> conservee a 07:45")
+        void arriveeApresPlafond() {
+            LocalTime arrivee = LocalTime.of(7, 45);
+            LocalTime plafond = LocalTime.of(7, 30);
+            assertEquals(LocalTime.of(7, 45), engine.ecreterArriveeAuPlafond(arrivee, plafond));
+        }
+
+        @Test @DisplayName("Arrivee null -> null")
+        void arriveeNull() {
+            assertNull(engine.ecreterArriveeAuPlafond(null, LocalTime.of(7, 30)));
+        }
+
+        @Test @DisplayName("Plafond null -> conserve arrivee brute")
+        void plafondNull() {
+            LocalTime arrivee = LocalTime.of(7, 21);
+            assertEquals(arrivee, engine.ecreterArriveeAuPlafond(arrivee, null));
+        }
+    }
+
     @Nested @DisplayName("calculerHeuresNuit")
     class CalculerHeuresNuit {
 

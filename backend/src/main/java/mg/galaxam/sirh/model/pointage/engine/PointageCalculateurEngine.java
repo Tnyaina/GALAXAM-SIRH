@@ -28,6 +28,23 @@ public class PointageCalculateurEngine {
     }
 
     /**
+     * Écrête l'heure d'arrivée matinale au plafond autorisé (ref_tolerance_arrivee_pointage).
+     * Si l'employé arrive avant le plafond (ex: 07:21 alors que le plafond est 07:30),
+     * l'heure retenue pour le calcul du temps effectif est ramenée au plafond (07:30).
+     *
+     * @param arrivee        heure réelle d'arrivée (ex: 07:21)
+     * @param heurePlafond   seuil minimal autorisé (ex: 07:30)
+     * @return heure effective d'arrivée pour le calcul des heures travaillées
+     */
+    public LocalTime ecreterArriveeAuPlafond(LocalTime arrivee, LocalTime heurePlafond) {
+        if (arrivee == null) return null;
+        if (heurePlafond != null && arrivee.isBefore(heurePlafond)) {
+            return heurePlafond;
+        }
+        return arrivee;
+    }
+
+    /**
      * Détecte et calcule les heures de nuit selon les seuils configurés.
      */
     public double calculerHeuresNuit(LocalTime sortie, LocalTime debutNuit, LocalTime finNuit) {

@@ -242,10 +242,13 @@ public class PointageAnomalieService {
 
             Integer idSite = null;
             if (idPointage > 0) {
-                String sqlSite = "SELECT s.id_site, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, COALESCE(s.horaire_continu, TRUE) AS horaire_continu " +
+                String sqlSite = "SELECT s.id_site, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
+                                 "COALESCE(s.horaire_continu, TRUE) AS horaire_continu, t.heure_plafond " +
                                  "FROM pointage_jour p " +
                                  "JOIN ref_site s ON p.id_site = s.id_site " +
+                                 "LEFT JOIN ref_tolerance_arrivee_pointage t ON s.id_site = t.id_site " +
                                  "WHERE p.id_pointage = ?";
+                LocalTime sitePlafond = LocalTime.of(7, 30);
                 try (PreparedStatement psS = c.prepareStatement(sqlSite)) {
                     psS.setInt(1, idPointage);
                     try (ResultSet rsS = psS.executeQuery()) {
@@ -255,6 +258,7 @@ public class PointageAnomalieService {
                             Time hfm = rsS.getTime("heure_fin_matin");
                             Time hda = rsS.getTime("heure_debut_apres_midi");
                             Time hfa = rsS.getTime("heure_fin_apres_midi");
+                            Time hp = rsS.getTime("heure_plafond");
                             boolean cont = rsS.getBoolean("horaire_continu");
 
                             if (hdm != null) siteDebM = hdm.toLocalTime();
@@ -263,6 +267,7 @@ public class PointageAnomalieService {
                             else if (!cont) siteDebA = LocalTime.of(14, 0);
                             if (hfa != null) siteFinA = hfa.toLocalTime();
                             else if (!cont) siteFinA = LocalTime.of(18, 0);
+                            if (hp != null) sitePlafond = hp.toLocalTime();
                         }
                     }
                 }
@@ -270,15 +275,28 @@ public class PointageAnomalieService {
                 idSite = ((Number) payload.get("idSite")).intValue();
             }
 
+            // =========================================================================
+            // RÈGLE MÉTIER GALAXAM - Tolérance d'arrivée / Heure minimale (ex: 07h30)
+            // Écrêtage de l'arrivée anticipée pour le calcul des heures travaillées effectives.
+            //
+            // POUR ACTIVER L'ÉCRÊTAGE : Décommenter ci-dessous :
+            /*
+            Time emEffectif = (em != null && sitePlafond != null && em.toLocalTime().isBefore(sitePlafond))
+                    ? Time.valueOf(sitePlafond)
+                    : em;
+            */
+            Time emEffectif = em; // Actuellement désactivé : calcul sur l'heure brute saisie
+            // =========================================================================
+
             boolean isPauseAuto = (em != null && sa != null && sm == null && ea == null);
             double hMatin;
             double hAm;
 
             if (isPauseAuto) {
-                hMatin = PointageSaisieService.calcHours(em, Time.valueOf(siteFinM));
+                hMatin = PointageSaisieService.calcHours(emEffectif, Time.valueOf(siteFinM));
                 hAm = PointageSaisieService.calcHours(Time.valueOf(siteDebA), sa);
             } else {
-                hMatin = PointageSaisieService.calcHours(em, sm);
+                hMatin = PointageSaisieService.calcHours(emEffectif, sm);
                 hAm = PointageSaisieService.calcHours(ea, sa);
             }
 
