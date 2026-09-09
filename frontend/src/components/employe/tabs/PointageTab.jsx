@@ -464,7 +464,11 @@ export default function PointageTab({ idEmploye }) {
                                         pointages.map((ptg, idx) => {
                                             const isWeekend = ptg.statut === 'REPOS';
                                             const valDplt = (ptg.deplacementMatin ? 0.5 : 0) + (ptg.deplacementAm ? 0.5 : 0);
-                                            const valRepas = ptg.nbRepas || (ptg.indemniteRepas ? 1 : 0);
+                                            const isContinu = Boolean(
+                                                ptg.horaireContinuJour || 
+                                                ptg.horaireContinu || 
+                                                (ptg.sortiePause === '12:00' && ptg.retourPause === '12:00')
+                                            );
 
                                             return (
                                                 <Tr
@@ -480,12 +484,22 @@ export default function PointageTab({ idEmploye }) {
                                                     <Td className="font-mono text-xs text-center py-2.5 px-3">
                                                         {ptg.entree}
                                                     </Td>
-                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                        {ptg.sortiePause}
-                                                    </Td>
-                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                        {ptg.retourPause}
-                                                    </Td>
+                                                    {isContinu ? (
+                                                        <Td colSpan={2} className="text-center py-2.5 px-2 bg-amber-500/[0.04]">
+                                                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-800 dark:text-amber-200 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/25" title="Journée continue sans pause">
+                                                                ⚡ Continu
+                                                            </span>
+                                                        </Td>
+                                                    ) : (
+                                                        <>
+                                                            <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                                {ptg.sortiePause}
+                                                            </Td>
+                                                            <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                                {ptg.retourPause}
+                                                            </Td>
+                                                        </>
+                                                    )}
                                                     <Td className="font-mono text-xs text-center py-2.5 px-3">
                                                         {ptg.sortie}
                                                     </Td>

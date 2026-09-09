@@ -288,11 +288,18 @@ public class PointageAnomalieService {
             Time emEffectif = em; // Actuellement désactivé : calcul sur l'heure brute saisie
             // =========================================================================
 
-            boolean isPauseAuto = (em != null && sa != null && sm == null && ea == null);
+            Boolean horaireContinuJour = payload.get("horaireContinuJour") != null
+                    ? Boolean.parseBoolean(String.valueOf(payload.get("horaireContinuJour")))
+                    : (payload.get("horaireContinu") != null ? Boolean.parseBoolean(String.valueOf(payload.get("horaireContinu"))) : null);
+            boolean isJourneeContinue = Boolean.TRUE.equals(horaireContinuJour);
+            boolean isPauseAuto = (!isJourneeContinue && em != null && sa != null && sm == null && ea == null);
             double hMatin;
             double hAm;
 
-            if (isPauseAuto) {
+            if (isJourneeContinue) {
+                hMatin = PointageSaisieService.calcHours(emEffectif, sa);
+                hAm = 0.0;
+            } else if (isPauseAuto) {
                 hMatin = PointageSaisieService.calcHours(emEffectif, Time.valueOf(siteFinM));
                 hAm = PointageSaisieService.calcHours(Time.valueOf(siteDebA), sa);
             } else {
@@ -305,7 +312,7 @@ public class PointageAnomalieService {
 
             int retMatin = PointageSaisieService.calcMinutesRetard(em, siteDebM);
             int retAm = 0;
-            if (!isPauseAuto && ea != null) {
+            if (!isJourneeContinue && !isPauseAuto && ea != null) {
                 if (sm != null && siteDebA.isAfter(siteFinM)) {
                     long pauseTheorique = java.time.Duration.between(siteFinM, siteDebA).toMinutes();
                     LocalTime ltSm = sm.toLocalTime();
@@ -433,10 +440,10 @@ public class PointageAnomalieService {
                     "id_employe, id_periode_paie, id_site, date_pointage, " +
                     "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
                     "heures_matin, heures_am, total_heures, minutes_retard, heures_nuit, " +
-                    "motif_ajustement, id_statut_jour, montant_total_indemnites, version, created_at, updated_at " +
+                    "motif_ajustement, id_statut_jour, montant_total_indemnites, horaire_continu_jour, version, created_at, updated_at " +
                     ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
                     "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                    "?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id_pointage";
+                    "?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id_pointage";
                 try (PreparedStatement psIns = c.prepareStatement(sqlInsert)) {
                     psIns.setInt(1, idEmp);
                     psIns.setObject(2, idPer);
@@ -454,6 +461,7 @@ public class PointageAnomalieService {
                     psIns.setString(14, motif);
                     psIns.setString(15, codeStatut);
                     psIns.setDouble(16, mntTotalInd);
+                    psIns.setBoolean(17, isJourneeContinue);
                     try (ResultSet rsIns = psIns.executeQuery()) {
                         if (rsIns.next()) {
                             int newId = rsIns.getInt(1);
@@ -486,7 +494,7 @@ public class PointageAnomalieService {
                              "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, " +
                              "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
                              "motif_ajustement = ?, id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                             "montant_total_indemnites = ?, " +
+                             "montant_total_indemnites = ?, horaire_continu_jour = ?, " +
                              "version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id_pointage = ? AND version = ?";
 
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -502,8 +510,9 @@ public class PointageAnomalieService {
                     ps.setString(10, motif);
                     ps.setString(11, codeStatut);
                     ps.setDouble(12, mntTotalInd);
-                    ps.setInt(13, idPointage);
-                    ps.setInt(14, providedVer);
+                    ps.setBoolean(13, isJourneeContinue);
+                    ps.setInt(14, idPointage);
+                    ps.setInt(15, providedVer);
                     int rows = ps.executeUpdate();
                     if (rows == 0) {
                         throw new IllegalStateException("Conflit de modification concurrente sur le pointage ID " + idPointage + ". La ligne a été modifiée par un tiers.");

@@ -256,7 +256,7 @@ public class PointageEmployeService {
 
         String sqlPointage = "SELECT p.id_pointage, p.date_pointage, p.heure_entree_matin, p.heure_sortie_matin, " +
                 "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
-                "p.montant_total_indemnites, s.code AS code_statut, " +
+                "p.horaire_continu_jour, p.montant_total_indemnites, s.code AS code_statut, " +
                 "pij_repas.accorde AS repas_accorde, pij_repas.montant_calcule AS repas_montant, " +
                 "pij_dep.accorde AS dep_accorde, pij_dep.quantite AS dep_quantite, pij_dep.fraction AS dep_fraction " +
                 "FROM pointage_jour p " +
@@ -285,6 +285,7 @@ public class PointageEmployeService {
                     r.totalHeures = rs.getDouble("total_heures");
                     r.heuresNuit = rs.getDouble("heures_nuit");
                     r.minutesRetard = rs.getInt("minutes_retard");
+                    r.horaireContinuJour = Boolean.TRUE.equals(rs.getObject("horaire_continu_jour"));
 
                     boolean depAccorde = Boolean.TRUE.equals(rs.getObject("dep_accorde"));
                     r.indemniteDeplacementRecue = depAccorde;
@@ -405,6 +406,7 @@ public class PointageEmployeService {
                 dto.setSortiePause(rec.sortieMatin != null ? rec.sortieMatin.toString().substring(0, 5) : "—");
                 dto.setRetourPause(rec.entreeAm != null ? rec.entreeAm.toString().substring(0, 5) : "—");
                 dto.setSortie(rec.sortieAm != null ? rec.sortieAm.toString().substring(0, 5) : "—");
+                dto.setHoraireContinuJour(rec.horaireContinuJour);
 
                 double totalH = rec.totalHeures;
                 boolean isWeekendRec = (curr.getDayOfWeek() == DayOfWeek.SATURDAY || curr.getDayOfWeek() == DayOfWeek.SUNDAY);
@@ -812,5 +814,6 @@ public class PointageEmployeService {
         boolean indemniteRepasRecue;
         double montantRepas;
         String codeStatut;
+        boolean horaireContinuJour;
     }
 }

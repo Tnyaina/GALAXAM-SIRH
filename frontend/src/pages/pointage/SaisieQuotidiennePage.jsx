@@ -73,6 +73,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         error,
         isRowModified,
         updateRowHours,
+        toggleRowHoraireContinu,
         updateRowStatut,
         updateRowIndemnite,
         updateRowDynamicIndemnite,
@@ -136,6 +137,10 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         updateRowHours(idEmploye, field, value);
     };
 
+    const handleToggleHoraireContinu = (idEmploye) => {
+        toggleRowHoraireContinu(idEmploye);
+    };
+
     const handleUpdateStatut = (idEmploye, newStatut, motif) => {
         updateRowStatut(idEmploye, newStatut, motif);
     };
@@ -167,8 +172,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     };
 
     const focusNext = (idEmploye, fieldIndex) => {
-        const nextIndex = fieldIndex + 1;
-        if (nextIndex <= 3) {
+        for (let nextIndex = fieldIndex + 1; nextIndex <= 3; nextIndex++) {
             const nextEl = inputRefs.current[idEmploye]?.[nextIndex];
             if (nextEl && !nextEl.disabled) {
                 nextEl.focus();
@@ -190,10 +194,22 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     };
 
     const handleKeyDown = (e, idEmploye, fieldIndex) => {
-        if (e.key === 'ArrowRight' && fieldIndex < 3) {
-            inputRefs.current[idEmploye]?.[fieldIndex + 1]?.focus();
-        } else if (e.key === 'ArrowLeft' && fieldIndex > 0) {
-            inputRefs.current[idEmploye]?.[fieldIndex - 1]?.focus();
+        if (e.key === 'ArrowRight') {
+            for (let nextIndex = fieldIndex + 1; nextIndex <= 3; nextIndex++) {
+                const nextEl = inputRefs.current[idEmploye]?.[nextIndex];
+                if (nextEl && !nextEl.disabled) {
+                    nextEl.focus();
+                    break;
+                }
+            }
+        } else if (e.key === 'ArrowLeft') {
+            for (let prevIndex = fieldIndex - 1; prevIndex >= 0; prevIndex--) {
+                const prevEl = inputRefs.current[idEmploye]?.[prevIndex];
+                if (prevEl && !prevEl.disabled) {
+                    prevEl.focus();
+                    break;
+                }
+            }
         } else if (e.key === 'ArrowDown') {
             const keys = Object.keys(inputRefs.current);
             const currIdx = keys.indexOf(String(idEmploye));
@@ -455,6 +471,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                         selectedStatutFilter={statutFilter}
                         onStatutFilterChange={(sf) => { setStatutFilter(sf); setCurrentPage(1); }}
                         onUpdateHours={handleUpdateHours}
+                        onToggleHoraireContinu={handleToggleHoraireContinu}
                         onUpdateStatut={handleUpdateStatut}
                         onUpdateIndemnite={handleUpdateIndemnite}
                         onUpdateDynamicIndemnite={handleUpdateDynamicIndemnite}

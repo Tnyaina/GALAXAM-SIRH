@@ -94,6 +94,25 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         );
     };
 
+    const toggleRowHoraireContinu = (idEmploye) => {
+        setGrilleData((prev) =>
+            prev.map((row) => {
+                if (row.idEmploye !== idEmploye) return row;
+                const nextVal = !row.horaireContinu;
+                const updated = {
+                    ...row,
+                    horaireContinu: nextVal,
+                    horaireContinuJour: nextVal
+                };
+                if (nextVal) {
+                    updated.heureSortieMatin = '';
+                    updated.heureEntreeAm = '';
+                }
+                return calculateRowValues(updated, siteParams);
+            })
+        );
+    };
+
     const updateRowStatut = (idEmploye, codeStatut, motifAjustement = '') => {
         setGrilleData((prev) =>
             prev.map((row) => {
@@ -359,6 +378,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         isRowModified,
         resetAllChanges,
         updateRowHours,
+        toggleRowHoraireContinu,
         updateRowStatut,
         updateRowIndemnite,
         updateRowDynamicIndemnite,

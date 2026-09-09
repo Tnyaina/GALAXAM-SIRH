@@ -46,6 +46,7 @@ export const isRowDataModified = (row, initialList) => {
   if (Boolean(row.deplacementMatin) !== Boolean(initial.deplacementMatin)) return true;
   if (Boolean(row.deplacementAm) !== Boolean(initial.deplacementAm)) return true;
   if (Boolean(row.indemniteRepasRecue) !== Boolean(initial.indemniteRepasRecue)) return true;
+  if (Boolean(row.horaireContinu) !== Boolean(initial.horaireContinu)) return true;
 
   if ((row.codeStatut || '') !== (initial.codeStatut || '')) return true;
   if ((row.motifAjustement || '') !== (initial.motifAjustement || '')) return true;
@@ -77,21 +78,28 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
   const isCongeMatin = row.typeCongeJour === 'MATIN';
   const isCongeAm = row.typeCongeJour === 'APRES_MIDI';
 
-  // Cas Pause automatique (Entrée matin et sortie soir uniquement)
-  const isPauseAuto = (em !== null && sa !== null && sm === null && ea === null);
+  const isJourneeContinue = Boolean(row.horaireContinu || row.horaireContinuJour);
+
+  // Cas Pause automatique (Entrée matin et sortie soir uniquement) — uniquement si PAS journée continue
+  const isPauseAuto = (!isJourneeContinue && em !== null && sa !== null && sm === null && ea === null);
   let smEffectif = sm;
   let eaEffectif = ea;
 
-  if (isPauseAuto) {
-    smEffectif = parseMinutes(sParams?.heureFinMatin || '12:00');
-    eaEffectif = parseMinutes(sParams?.heureDebutAm || (sParams?.horaireContinu ? '13:00' : '14:00'));
+  let totalMins = 0;
+  if (isJourneeContinue && em !== null && sa !== null) {
+    totalMins = (sa >= em) ? (sa - em) : 0;
+  } else {
+    if (isPauseAuto) {
+      smEffectif = parseMinutes(sParams?.heureFinMatin || '12:00');
+      eaEffectif = parseMinutes(sParams?.heureDebutAm || (sParams?.horaireContinu ? '13:00' : '14:00'));
+    }
+
+    let hMatin = (em !== null && smEffectif !== null && smEffectif >= em) ? (smEffectif - em) : 0;
+    let hAm = (eaEffectif !== null && sa !== null && sa >= eaEffectif) ? (sa - eaEffectif) : 0;
+
+    // RÈGLE CRITIQUE : Si férié chômé ou congé complet sans heures saisies -> 0h de travail effectif
+    totalMins = (isFerie && em === null && ea === null) || isCongeFull ? 0 : (hMatin + hAm);
   }
-
-  let hMatin = (em !== null && smEffectif !== null && smEffectif >= em) ? (smEffectif - em) : 0;
-  let hAm = (eaEffectif !== null && sa !== null && sa >= eaEffectif) ? (sa - eaEffectif) : 0;
-
-  // RÈGLE CRITIQUE : Si férié chômé ou congé complet sans heures saisies -> 0h de travail effectif
-  let totalMins = (isFerie && em === null && ea === null) || isCongeFull ? 0 : (hMatin + hAm);
   let totalH = Math.round((totalMins / 60.0) * 100) / 100;
 
   // Validation chronologique des badgeages
@@ -108,7 +116,7 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
 
   let retMatin = (em !== null && startMatinNormal !== null && em > startMatinNormal) ? (em - startMatinNormal) : 0;
   let retAm = 0;
-  if (!isPauseAuto && ea !== null && startAmNormal !== null) {
+  if (!isJourneeContinue && !isPauseAuto && ea !== null && startAmNormal !== null) {
     if (sm !== null && endMatinNormal !== null && startAmNormal > endMatinNormal) {
       const pauseTheorique = startAmNormal - endMatinNormal;
       if (sm > endMatinNormal) {
@@ -173,7 +181,7 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
     } else {
       codeStatut = 'NON_SAISI';
     }
-  } else if (isPauseAuto) {
+  } else if (isJourneeContinue || isPauseAuto) {
     if (dayOfWeek === 6) codeStatut = 'SAMEDI_TRAVAILLE';
     else if (dayOfWeek === 0) codeStatut = 'DIMANCHE_TRAVAILLE';
     else codeStatut = totalMinutesRetard > 0 ? 'RETARD' : 'PRESENT';

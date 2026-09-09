@@ -22,8 +22,11 @@ public class PointageJourDTO {
     private Double montantRepas;        // ex: 2000.0 ou 4000.0
     private boolean indemniteDeplacement;
     private Double montantDeplacement;  // Montant proratisé journalier (si applicable)
+    private boolean horaireContinuJour; // Indique si la journée a été réalisée en continu (sans pause méridienne)
 
     // Getters et Setters
+    public boolean isHoraireContinuJour() { return horaireContinuJour; }
+    public void setHoraireContinuJour(boolean horaireContinuJour) { this.horaireContinuJour = horaireContinuJour; }
     public boolean isDeplacementMatin() { return deplacementMatin; }
     public void setDeplacementMatin(boolean deplacementMatin) { this.deplacementMatin = deplacementMatin; }
 

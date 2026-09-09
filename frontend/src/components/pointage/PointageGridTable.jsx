@@ -31,7 +31,8 @@ export default function PointageGridTable({
     pageSize = 25,
     onPageChange,
     onPageSizeChange,
-    isReadOnly = false
+    isReadOnly = false,
+    onToggleHoraireContinu
 }) {
     const startIndex = (currentPage - 1) * pageSize;
     const paginatedData = grilleData.slice(startIndex, startIndex + pageSize);
@@ -262,6 +263,20 @@ export default function PointageGridTable({
                                                             {row.badgeProfilLabel}
                                                         </span>
                                                     )}
+                                                    {!isReadOnlyForUser && !isCongeFull && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onToggleHoraireContinu?.(row.idEmploye)}
+                                                            className={`text-[9px] px-1.5 py-0.2 font-sans font-semibold rounded border transition-colors cursor-pointer shrink-0 ${
+                                                                row.horaireContinu 
+                                                                    ? 'bg-amber-500/20 text-amber-800 dark:text-amber-200 border-amber-500/40 hover:bg-amber-500/30' 
+                                                                    : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
+                                                            }`}
+                                                            title={row.horaireContinu ? "Journée continue active (sans pause déjeuner). Cliquer pour rétablir la pause." : "Activer la journée continue (sans pause déjeuner 1h)"}
+                                                        >
+                                                            {row.horaireContinu ? '⚡ Continu' : 'Pause'}
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -280,31 +295,54 @@ export default function PointageGridTable({
                                         />
                                     </Td>
 
-                                    {/* 3. Sortie Matin */}
-                                    <Td className="px-2 py-1.5 text-center">
-                                        <TimeInput
-                                            inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 1, el)}
-                                            value={row.heureSortieMatin}
-                                            disabled={isReadOnlyForUser || isCongeFull || isCongeMatin}
-                                            onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieMatin', val)}
-                                            onKeyDown={(e) => onKeyDown(e, row.idEmploye, 1)}
-                                            onComplete={() => onFocusNext(row.idEmploye, 1)}
-                                            className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
-                                        />
-                                    </Td>
+                                    {/* 3 & 4. Sortie Matin + Retour Midi (ou Continu sans pause) */}
+                                    {row.horaireContinu ? (
+                                        <Td colSpan={2} className="px-2 py-1.5 text-center bg-amber-500/5 dark:bg-amber-500/10 border-l border-[var(--color-border-subtle)]">
+                                            <div className="flex items-center justify-center gap-1.5 py-0.5">
+                                                <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300 select-none">
+                                                    ⚡ Continu (sans pause)
+                                                </span>
+                                                {!isReadOnlyForUser && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onToggleHoraireContinu?.(row.idEmploye)}
+                                                        className="text-[10px] text-[var(--color-fg-muted)] hover:text-danger-600 underline cursor-pointer ml-1"
+                                                        title="Rétablir la saisie de pause déjeuner"
+                                                    >
+                                                        Modifier
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </Td>
+                                    ) : (
+                                        <>
+                                            {/* 3. Sortie Matin */}
+                                            <Td className="px-2 py-1.5 text-center">
+                                                <TimeInput
+                                                    inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 1, el)}
+                                                    value={row.heureSortieMatin}
+                                                    disabled={isReadOnlyForUser || isCongeFull || isCongeMatin}
+                                                    onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieMatin', val)}
+                                                    onKeyDown={(e) => onKeyDown(e, row.idEmploye, 1)}
+                                                    onComplete={() => onFocusNext(row.idEmploye, 1)}
+                                                    className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
+                                                />
+                                            </Td>
 
-                                    {/* 4. Retour Pause Midi */}
-                                    <Td className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
-                                        <TimeInput
-                                            inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 2, el)}
-                                            value={row.heureEntreeAm}
-                                            disabled={isReadOnlyForUser || isCongeFull || isCongeAm}
-                                            onChange={(val) => onUpdateHours(row.idEmploye, 'heureEntreeAm', val)}
-                                            onKeyDown={(e) => onKeyDown(e, row.idEmploye, 2)}
-                                            onComplete={() => onFocusNext(row.idEmploye, 2)}
-                                            className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
-                                        />
-                                    </Td>
+                                            {/* 4. Retour Pause Midi */}
+                                            <Td className="px-2 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
+                                                <TimeInput
+                                                    inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 2, el)}
+                                                    value={row.heureEntreeAm}
+                                                    disabled={isReadOnlyForUser || isCongeFull || isCongeAm}
+                                                    onChange={(val) => onUpdateHours(row.idEmploye, 'heureEntreeAm', val)}
+                                                    onKeyDown={(e) => onKeyDown(e, row.idEmploye, 2)}
+                                                    onComplete={() => onFocusNext(row.idEmploye, 2)}
+                                                    className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
+                                                />
+                                            </Td>
+                                        </>
+                                    )}
 
                                     {/* 5. Sortie Soir */}
                                     <Td className="px-2 py-1.5 text-center">

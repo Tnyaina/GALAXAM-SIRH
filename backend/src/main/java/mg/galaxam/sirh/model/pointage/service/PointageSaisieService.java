@@ -693,7 +693,7 @@ public class PointageSaisieService {
                         String sqlPtg = "SELECT p.id_pointage, COALESCE(p.version, 1) AS version, p.heure_entree_matin, p.heure_sortie_matin, " +
                                         "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.minutes_retard, " +
                                         "p.heures_nuit, p.motif_ajustement, st.code AS statut_code, st.libelle AS statut_libelle, " +
-                                        "p.montant_total_indemnites " +
+                                        "p.montant_total_indemnites, p.horaire_continu_jour " +
                                         "FROM pointage_jour p " +
                                         "LEFT JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
                                         "WHERE p.id_employe = ? AND p.date_pointage = ?";
@@ -722,6 +722,7 @@ public class PointageSaisieService {
                                     dto.setMotifAjustement(rsPtg.getString("motif_ajustement"));
                                     dto.setCodeStatut(rsPtg.getString("statut_code"));
                                     dto.setLibelleStatut(rsPtg.getString("statut_libelle"));
+                                    dto.setHoraireContinu(Boolean.TRUE.equals(rsPtg.getObject("horaire_continu_jour")));
 
                                     boolean depM = false;
                                     boolean depA = false;
@@ -1178,17 +1179,17 @@ public class PointageSaisieService {
                 "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, " +
                 "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
                 "motif_ajustement = ?, id_statut_jour = COALESCE((SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT')), " +
-                "montant_total_indemnites = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP " +
+                "montant_total_indemnites = ?, horaire_continu_jour = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_pointage = ? AND version = ? RETURNING id_pointage, version";
 
         String sqlInsert = "INSERT INTO pointage_jour (" +
                 "id_employe, date_pointage, id_periode_paie, id_site, " +
                 "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
                 "heures_matin, heures_am, total_heures, minutes_retard, heures_nuit, " +
-                "motif_ajustement, id_statut_jour, montant_total_indemnites, version, updated_at" +
+                "motif_ajustement, id_statut_jour, montant_total_indemnites, horaire_continu_jour, version, updated_at" +
                 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
                 "COALESCE((SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT')), " +
-                "?, 1, CURRENT_TIMESTAMP) RETURNING id_pointage, version";
+                "?, ?, ?, 1, CURRENT_TIMESTAMP) RETURNING id_pointage, version";
 
         String sqlDynInd = "INSERT INTO pointage_indemnite_jour (" +
                 "id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde, updated_at" +
@@ -1310,11 +1311,16 @@ public class PointageSaisieService {
                 Time emEffectif = em; // Actuellement désactivé : calcul sur l'heure brute saisie
                 // =========================================================================
 
-                boolean isPauseAuto = (em != null && sa != null && sm == null && ea == null);
+                boolean isJourneeContinue = dto.isHoraireContinu();
+                boolean isPauseAuto = (!isJourneeContinue && em != null && sa != null && sm == null && ea == null);
                 double hMatin;
                 double hAm;
 
-                if (isPauseAuto) {
+                if (isJourneeContinue) {
+                    // Journée continue (sans pause méridienne) : calcul direct entrée -> sortie
+                    hMatin = calcHours(emEffectif, sa);
+                    hAm = 0.0;
+                } else if (isPauseAuto) {
                     Time smEff = Time.valueOf(siteFinM);
                     Time eaEff = Time.valueOf(siteDebA);
                     hMatin = calcHours(emEffectif, smEff);
@@ -1330,7 +1336,7 @@ public class PointageSaisieService {
                 // Calcul du retard précis et juste selon le site
                 int retMatin = calcMinutesRetard(em, siteDebM);
                 int retAm = 0;
-                if (!isPauseAuto && ea != null) {
+                if (!isJourneeContinue && !isPauseAuto && ea != null) {
                     if (sm != null && siteDebA.isAfter(siteFinM)) {
                         long pauseTheorique = Duration.between(siteFinM, siteDebA).toMinutes();
                         LocalTime ltSm = sm.toLocalTime();
@@ -1464,8 +1470,9 @@ public class PointageSaisieService {
                     psUp.setString(10, dto.getMotifAjustement());
                     psUp.setString(11, codeStatut);
                     psUp.setDouble(12, mntTotalInd);
-                    psUp.setInt(13, existingIdPointage);
-                    psUp.setInt(14, dto.getVersion());
+                    psUp.setBoolean(13, dto.isHoraireContinu());
+                    psUp.setInt(14, existingIdPointage);
+                    psUp.setInt(15, dto.getVersion());
 
                     try (ResultSet rsUp = psUp.executeQuery()) {
                         if (rsUp.next()) {
@@ -1501,6 +1508,7 @@ public class PointageSaisieService {
                     psIns.setString(14, dto.getMotifAjustement());
                     psIns.setString(15, codeStatut);
                     psIns.setDouble(16, mntTotalInd);
+                    psIns.setBoolean(17, dto.isHoraireContinu());
 
                     try (ResultSet rsIns = psIns.executeQuery()) {
                         if (rsIns.next()) {

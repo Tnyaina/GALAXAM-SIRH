@@ -60,6 +60,7 @@ export default function DafAjustementPointageModal({
         heureSortieMatin: '',
         heureEntreeAm: '',
         heureSortieAm: '',
+        horaireContinuJour: false,
         statutCode: 'PRESENT',
         deplacementMatin: true,
         deplacementAm: true,
@@ -71,9 +72,20 @@ export default function DafAjustementPointageModal({
         setSelectedJour(ptg);
         const cleanTime = (val) => (val && val !== '-' && val !== '—') ? val : '';
         const em = cleanTime(ptg.entree) || cleanTime(ptg.heureEntreeMatin) || '08:00';
-        const sm = cleanTime(ptg.sortiePause) || cleanTime(ptg.heureSortieMatin) || '12:00';
-        const ea = cleanTime(ptg.retourPause) || cleanTime(ptg.heureEntreeAm) || '13:00';
+        let sm = cleanTime(ptg.sortiePause) || cleanTime(ptg.heureSortieMatin) || '12:00';
+        let ea = cleanTime(ptg.retourPause) || cleanTime(ptg.heureEntreeAm) || '13:00';
         const sa = cleanTime(ptg.sortie) || cleanTime(ptg.heureSortieAm) || '17:00';
+
+        const isContinu = Boolean(
+            ptg.horaireContinuJour || 
+            ptg.horaireContinu || 
+            (sm === '12:00' && ea === '12:00')
+        );
+
+        if (isContinu) {
+            sm = '';
+            ea = '';
+        }
 
         let st = ptg.statut || ptg.statutCode || ptg.codeStatutJour;
         if (!st || st === 'AUTONOME') st = 'PRESENT';
@@ -83,6 +95,7 @@ export default function DafAjustementPointageModal({
             heureSortieMatin: sm,
             heureEntreeAm: ea,
             heureSortieAm: sa,
+            horaireContinuJour: isContinu,
             statutCode: st,
             deplacementMatin: ptg.deplacementMatin !== false,
             deplacementAm: ptg.deplacementAm !== false,
@@ -220,47 +233,107 @@ export default function DafAjustementPointageModal({
                                 />
                             </div>
 
-                            {/* Horaires Matin */}
-                            <div>
-                                <label className="block text-[11px] font-bold text-[var(--color-fg)] mb-1">
-                                    Plage du Matin (Entrée — Sortie)
-                                </label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Input
-                                        type="time"
-                                        value={formData.heureEntreeMatin}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, heureEntreeMatin: e.target.value }))}
-                                        className="h-[32px] text-xs font-mono"
-                                    />
-                                    <Input
-                                        type="time"
-                                        value={formData.heureSortieMatin}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, heureSortieMatin: e.target.value }))}
-                                        className="h-[32px] text-xs font-mono"
-                                    />
+                            {/* Option Journée continue */}
+                            <div className="sm:col-span-2 bg-amber-500/10 border border-amber-500/25 rounded-md p-2.5 flex items-center justify-between">
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                                        ⚡ Journée continue (Sans pause déjeuner)
+                                    </span>
+                                    <span className="text-[11px] text-[var(--color-fg-muted)]">
+                                        Pas de déduction automatique d'1h de pause. Durée calculée directement entre l'Entrée et la Sortie.
+                                    </span>
                                 </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.horaireContinuJour}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                horaireContinuJour: checked,
+                                                heureSortieMatin: checked ? '' : prev.heureSortieMatin,
+                                                heureEntreeAm: checked ? '' : prev.heureEntreeAm
+                                            }));
+                                        }}
+                                        className="w-4 h-4 rounded accent-brand-600 cursor-pointer"
+                                    />
+                                </label>
                             </div>
 
-                            {/* Horaires Après-midi */}
-                            <div>
-                                <label className="block text-[11px] font-bold text-[var(--color-fg)] mb-1">
-                                    Plage Après-midi (Retour — Sortie)
-                                </label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Input
-                                        type="time"
-                                        value={formData.heureEntreeAm}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, heureEntreeAm: e.target.value }))}
-                                        className="h-[32px] text-xs font-mono"
-                                    />
-                                    <Input
-                                        type="time"
-                                        value={formData.heureSortieAm}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, heureSortieAm: e.target.value }))}
-                                        className="h-[32px] text-xs font-mono"
-                                    />
-                                </div>
-                            </div>
+                            {formData.horaireContinuJour ? (
+                                <>
+                                    {/* Entrée continue */}
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-[var(--color-fg)] mb-1">
+                                            Heure d'Entrée
+                                        </label>
+                                        <Input
+                                            type="time"
+                                            value={formData.heureEntreeMatin}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, heureEntreeMatin: e.target.value }))}
+                                            className="h-[32px] text-xs font-mono"
+                                        />
+                                    </div>
+
+                                    {/* Sortie continue */}
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-[var(--color-fg)] mb-1">
+                                            Heure de Sortie
+                                        </label>
+                                        <Input
+                                            type="time"
+                                            value={formData.heureSortieAm}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, heureSortieAm: e.target.value }))}
+                                            className="h-[32px] text-xs font-mono"
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Horaires Matin */}
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-[var(--color-fg)] mb-1">
+                                            Plage du Matin (Entrée — Sortie)
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Input
+                                                type="time"
+                                                value={formData.heureEntreeMatin}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, heureEntreeMatin: e.target.value }))}
+                                                className="h-[32px] text-xs font-mono"
+                                            />
+                                            <Input
+                                                type="time"
+                                                value={formData.heureSortieMatin}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, heureSortieMatin: e.target.value }))}
+                                                className="h-[32px] text-xs font-mono"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Horaires Après-midi */}
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-[var(--color-fg)] mb-1">
+                                            Plage Après-midi (Retour — Sortie)
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Input
+                                                type="time"
+                                                value={formData.heureEntreeAm}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, heureEntreeAm: e.target.value }))}
+                                                className="h-[32px] text-xs font-mono"
+                                            />
+                                            <Input
+                                                type="time"
+                                                value={formData.heureSortieAm}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, heureSortieAm: e.target.value }))}
+                                                className="h-[32px] text-xs font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            )}
 
                             {/* Indemnités accordées */}
                             <div className="sm:col-span-2 flex items-center gap-4 pt-1 flex-wrap">
@@ -385,12 +458,22 @@ export default function DafAjustementPointageModal({
                                             const dateFormatted = dateVal ? fmtDate(dateVal) : `${ptg.date} (${ptg.jour || ''})`;
                                             
                                             const cleanT = (val) => (val && val !== '-' && val !== '—') ? val : null;
-                                            const matinStr = (cleanT(ptg.entree) && cleanT(ptg.sortiePause))
-                                                ? `${cleanT(ptg.entree)} - ${cleanT(ptg.sortiePause)}`
-                                                : (cleanT(ptg.entree) ? cleanT(ptg.entree) : '—');
-                                            const amStr = (cleanT(ptg.retourPause) && cleanT(ptg.sortie))
-                                                ? `${cleanT(ptg.retourPause)} - ${cleanT(ptg.sortie)}`
-                                                : (cleanT(ptg.sortie) ? cleanT(ptg.sortie) : '—');
+                                            const isContinuRow = Boolean(
+                                                ptg.horaireContinuJour || 
+                                                ptg.horaireContinu || 
+                                                (cleanT(ptg.sortiePause) === '12:00' && cleanT(ptg.retourPause) === '12:00')
+                                            );
+
+                                            const matinStr = isContinuRow
+                                                ? (cleanT(ptg.entree) ? `${cleanT(ptg.entree)}` : '—')
+                                                : ((cleanT(ptg.entree) && cleanT(ptg.sortiePause))
+                                                    ? `${cleanT(ptg.entree)} - ${cleanT(ptg.sortiePause)}`
+                                                    : (cleanT(ptg.entree) ? cleanT(ptg.entree) : '—'));
+                                            const amStr = isContinuRow
+                                                ? (cleanT(ptg.sortie) ? `${cleanT(ptg.sortie)}` : '—')
+                                                : ((cleanT(ptg.retourPause) && cleanT(ptg.sortie))
+                                                    ? `${cleanT(ptg.retourPause)} - ${cleanT(ptg.sortie)}`
+                                                    : (cleanT(ptg.sortie) ? cleanT(ptg.sortie) : '—'));
                                             
                                             const heuresStr = ptg.heures || (totalH > 0 ? formatHeuresMinutes(totalH, true) : (isRepos ? '00h00' : '08h00'));
                                             const ecartStr = ptg.ecart || (ptg.minutesRetard > 0 ? `+${ptg.minutesRetard}m` : '00 min');

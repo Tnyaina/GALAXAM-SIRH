@@ -179,6 +179,8 @@ public class SaisiePointageJourDTO {
 
     public boolean isHoraireContinu() { return horaireContinu; }
     public void setHoraireContinu(boolean horaireContinu) { this.horaireContinu = horaireContinu; }
+    public boolean isHoraireContinuJour() { return horaireContinu; }
+    public void setHoraireContinuJour(boolean horaireContinuJour) { this.horaireContinu = horaireContinuJour; }
 
     public boolean isSiteIndemniteDeplacementActif() { return siteIndemniteDeplacementActif; }
     public void setSiteIndemniteDeplacementActif(boolean siteIndemniteDeplacementActif) { this.siteIndemniteDeplacementActif = siteIndemniteDeplacementActif; }
