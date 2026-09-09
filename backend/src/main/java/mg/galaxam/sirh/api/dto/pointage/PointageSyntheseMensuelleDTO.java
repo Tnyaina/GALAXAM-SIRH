@@ -63,6 +63,17 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
     // Contrôle & intégrité
     private int nbAnomaliesNonResolues;
 
+    // Décomposition par semaine (tronçons 40h ISO et compensation 1:1)
+    private java.util.List<PointageTronconSemaineDTO> tronconsSemaine = new java.util.ArrayList<>();
+
+    public java.util.List<PointageTronconSemaineDTO> getTronconsSemaine() {
+        return tronconsSemaine;
+    }
+
+    public void setTronconsSemaine(java.util.List<PointageTronconSemaineDTO> tronconsSemaine) {
+        this.tronconsSemaine = tronconsSemaine != null ? tronconsSemaine : new java.util.ArrayList<>();
+    }
+
     public PointageSyntheseMensuelleDTO() {}
 
     public Integer getIdEmploye() {

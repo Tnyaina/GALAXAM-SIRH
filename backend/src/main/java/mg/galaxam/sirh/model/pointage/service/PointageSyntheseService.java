@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.model.pointage.service;
 
 import mg.galaxam.sirh.api.dto.pointage.PointageSyntheseMensuelleDTO;
+import mg.galaxam.sirh.api.dto.pointage.PointageTronconSemaineDTO;
 import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
 import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -461,6 +462,8 @@ public class PointageSyntheseService {
         double totalHsBrutes = 0.0;
         double totalRetardCompense = 0.0;
         double totalHeuresDeficit = 0.0;
+        List<PointageTronconSemaineDTO> tronconsList = new ArrayList<>();
+        int semIndex = 1;
 
         for (Map.Entry<LocalDate, List<Map<String, Object>>> entry : parSemaine.entrySet()) {
             LocalDate lundi = entry.getKey();
@@ -468,6 +471,12 @@ public class PointageSyntheseService {
 
             // Compter les jours ouvrés du tronçon dans la période
             int joursOuvresTroncon = 0;
+            LocalDate finTroncon = lundi.plusDays(6);
+            if (finTroncon.isAfter(dateFin)) {
+                finTroncon = dateFin;
+            }
+            LocalDate debutTroncon = lundi.isBefore(dateDebut) ? dateDebut : lundi;
+
             for (int i = 0; i < 7; i++) {
                 LocalDate cur = lundi.plusDays(i);
                 if (!cur.isBefore(dateDebut) && !cur.isAfter(dateFin)) {
@@ -491,7 +500,35 @@ public class PointageSyntheseService {
             totalHsBrutes += res.heuresHsBrutes;
             totalRetardCompense += res.retardCompense;
             totalHeuresDeficit += res.heuresDeficit;
+
+            PointageTronconSemaineDTO tDto = new PointageTronconSemaineDTO();
+            tDto.setIdEmploye(idEmp);
+            tDto.setMatricule(matricule);
+            tDto.setNom(nom);
+            tDto.setPrenom(prenom);
+            tDto.setPhotoUrl(photoUrl);
+            tDto.setIdSite(idSite);
+            tDto.setSiteNom(siteNom);
+            tDto.setCodeCategorie(codeCat);
+            tDto.setEstCadre(isCadre);
+            tDto.setIdPeriodePaie(idPeriode);
+            tDto.setDebutSemaine(debutTroncon.toString());
+            tDto.setFinSemaine(finTroncon.toString());
+            tDto.setNumeroSemaine(semIndex++);
+            tDto.setNbJoursTroncon(joursOuvresTroncon);
+            tDto.setSeuilHeuresTroncon(res.seuilHeuresTroncon);
+            tDto.setTotalHeuresTravaillees(Math.round(res.totalHeuresTravaillees * 100.0) / 100.0);
+            tDto.setHeuresRetard(Math.round(res.heuresRetard * 100.0) / 100.0);
+            tDto.setHeuresHsBrutes(Math.round(res.heuresHsBrutes * 100.0) / 100.0);
+            tDto.setHeuresCompensees(Math.round(res.retardCompense * 100.0) / 100.0);
+            tDto.setHeuresHsNettes(Math.round(res.heuresHsNettes * 100.0) / 100.0);
+            tDto.setHeuresDeficit(Math.round(res.heuresDeficit * 100.0) / 100.0);
+            tDto.setHeuresHs30(Math.round(res.heuresHs30 * 100.0) / 100.0);
+            tDto.setHeuresHs50(Math.round(res.heuresHs50 * 100.0) / 100.0);
+            tronconsList.add(tDto);
         }
+
+        dto.setTronconsSemaine(tronconsList);
 
         dto.setNbJoursPresents(presents);
         dto.setNbJoursConge(conges);

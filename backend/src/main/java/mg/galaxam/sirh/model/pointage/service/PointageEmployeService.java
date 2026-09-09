@@ -347,7 +347,6 @@ public class PointageEmployeService {
         double totalHeuresRealisees = 0.0;
         int totalMinutesRetard = 0;
         int nbOccurrencesRetard = 0;
-        double totalHeuresSupp = 0.0;
         int nbAbsences = 0;
 
         // Totaux Indemnités & Majorations détaillées
@@ -375,8 +374,6 @@ public class PointageEmployeService {
         double totalHeuresNuit = 0.0;
         double totalHeuresDimanche = 0.0;
         double totalHeuresFerie = 0.0;
-        double totalHeuresHs30 = 0.0;
-        double totalHeuresHs50 = 0.0;
 
         LocalDate today = LocalDate.now();
 
@@ -483,14 +480,12 @@ public class PointageEmployeService {
                 if ("DIMANCHE_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
                     totalHeuresRealisees += totalH;
-                    totalHeuresSupp += totalH;
                     totalHeuresDimanche += totalH;
                     dto.setEcart("+" + dto.getHeures() + " (Maj. 40%)");
                     dto.setEcartPositif(true);
                 } else if ("FERIE_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
                     totalHeuresRealisees += totalH;
-                    totalHeuresSupp += totalH;
                     totalHeuresFerie += totalH;
                     dto.setEcart("+" + dto.getHeures() + " (Gratif. 100%)");
                     dto.setEcartPositif(true);
@@ -505,14 +500,6 @@ public class PointageEmployeService {
                     int dM = (int) Math.round((diff - dH) * 60);
                     dto.setEcart(String.format("+%02dh%02d", dH, dM));
                     dto.setEcartPositif(true);
-                    totalHeuresSupp += diff;
-
-                    if (diff <= 8.0) {
-                        totalHeuresHs30 += diff;
-                    } else {
-                        totalHeuresHs30 += 8.0;
-                        totalHeuresHs50 += (diff - 8.0);
-                    }
                 } else {
                     dto.setEcart("00 min");
                     dto.setEcartPositif(true);
@@ -684,11 +671,35 @@ public class PointageEmployeService {
 
         double heuresRealisees = (synDto != null && synDto.getTotalHeuresTravaillees() > 0) ? synDto.getTotalHeuresTravaillees() : totalHeuresRealisees;
         int retardsMins = synDto != null ? synDto.getTotalMinutesRetard() : totalMinutesRetard;
-        double hs30 = synDto != null ? synDto.getHeuresHs30() : totalHeuresHs30;
-        double hs50 = synDto != null ? synDto.getHeuresHs50() : totalHeuresHs50;
+        double hs30 = synDto != null ? synDto.getHeuresHs30() : 0.0;
+        double hs50 = synDto != null ? synDto.getHeuresHs50() : 0.0;
+        double hsNettes = hs30 + hs50;
+        double hsBrutes = synDto != null ? synDto.getSurplusBrut() : 0.0;
+        double retardCompense = synDto != null ? synDto.getRetardCompense() : 0.0;
+        double deficitNet = synDto != null ? synDto.getHeuresAbsenceRetenues() : (retardsMins / 60.0);
         double hNuit = synDto != null ? synDto.getHeuresNuitTotal() : totalHeuresNuit;
         double hDim = synDto != null ? synDto.getHeuresDimancheTotal() : totalHeuresDimanche;
         double hFer = synDto != null ? synDto.getHeuresFerieTotal() : totalHeuresFerie;
+
+        int retH = retardsMins / 60;
+        int retM = retardsMins % 60;
+        String retardCumuleStr = String.format("%02dh%02d", retH, retM);
+
+        int compH = (int) Math.floor(retardCompense);
+        int compM = (int) Math.round((retardCompense - compH) * 60);
+        String retardCompenseStr = String.format("%02dh%02d", compH, compM);
+
+        int defH = (int) Math.floor(deficitNet);
+        int defM = (int) Math.round((deficitNet - defH) * 60);
+        String deficitNetStr = String.format("%02dh%02d", defH, defM);
+
+        int hsBrutH = (int) Math.floor(hsBrutes);
+        int hsBrutM = (int) Math.round((hsBrutes - hsBrutH) * 60);
+        String hsBrutesStr = String.format("%02dh%02d", hsBrutH, hsBrutM);
+
+        int hsNetH = (int) Math.floor(hsNettes);
+        int hsNetM = (int) Math.round((hsNettes - hsNetH) * 60);
+        String hsNettesStr = String.format("%02dh%02d", hsNetH, hsNetM);
 
         // Repas : priorité à synDto si renseigné en base, sinon total calculé en mémoire (ex: cadres/autonomes)
         double mntRep = (synDto != null && synDto.getMontantRepas() > 0) ? synDto.getMontantRepas() : totalRepasMontant;
@@ -707,10 +718,15 @@ public class PointageEmployeService {
         kpis.put("joursPrevus", totalJoursOuvrables + " prévus");
         kpis.put("heuresRealisees", String.format("%02dh%02d", (int) Math.floor(heuresRealisees), (int) Math.round((heuresRealisees - Math.floor(heuresRealisees)) * 60)));
         kpis.put("heuresObjectif", String.format("objectif %02dh00", hTheoriquesInt));
-        kpis.put("retardCumule", String.format("%02dh%02d", retardsMins / 60, retardsMins % 60));
+        kpis.put("retardCumule", retardCumuleStr);
         kpis.put("retardOccurrences", nbOccurrencesRetard + " occurrences");
-        kpis.put("heuresSupp", String.format("%02dh%02d", (int) Math.floor(hs30 + hs50), (int) Math.round(((hs30 + hs50) - Math.floor(hs30 + hs50)) * 60)));
-        kpis.put("heuresSuppStatut", "à valider");
+        kpis.put("retardCompense", retardCompenseStr);
+        kpis.put("retardNet", deficitNetStr);
+        kpis.put("heuresDeficit", deficitNetStr);
+        kpis.put("heuresSupp", hsNettesStr);
+        kpis.put("heuresSuppBrutes", hsBrutesStr);
+        kpis.put("heuresSuppNettes", hsNettesStr);
+        kpis.put("heuresSuppStatut", (hsNettes > 0) ? "à valider" : (hsBrutes > 0 ? "compensées" : "aucune"));
         kpis.put("absences", String.format("%02d j", synDto != null ? synDto.getNbJoursAbsence() : nbAbsences));
         kpis.put("absencesStatut", nbAbsences > 0 ? "justifiée" : "aucune");
 
@@ -730,13 +746,20 @@ public class PointageEmployeService {
         kpis.put("heuresDimanche", String.format("%.1fh", hDim));
         kpis.put("heuresFerie", String.format("%.1fh", hFer));
 
-        // Récapitulatif
+        // Récapitulatif Unifié
         Map<String, String> recap = new LinkedHashMap<>();
         recap.put("tempsTheorique", String.format("%02dh00", hTheoriquesInt));
         recap.put("tempsRealise", kpis.get("heuresRealisees"));
         recap.put("tempsAbsence", String.format("%02dh00", (synDto != null ? synDto.getNbJoursAbsence() : nbAbsences) * 8));
-        recap.put("heuresSupp", kpis.get("heuresSupp"));
-        recap.put("retards", kpis.get("retardCumule"));
+        recap.put("retards", retardCumuleStr);
+        recap.put("retardCompense", retardCompenseStr);
+        recap.put("retardNet", deficitNetStr);
+        recap.put("heuresDeficit", deficitNetStr);
+        recap.put("heuresSupp", hsNettesStr);
+        recap.put("heuresSuppBrutes", hsBrutesStr);
+        recap.put("heuresSuppNettes", hsNettesStr);
+        recap.put("hasCompensation", String.valueOf(retardCompense > 0 || hsBrutes > 0));
+        recap.put("compensationSolde", (deficitNet > 0) ? ("-" + deficitNetStr) : (hsNettes > 0 ? ("+" + hsNettesStr) : "00h00"));
         recap.put("indemniteRepas", String.format("%d repas (%s)", nbRep, kpis.get("montantRepasTotal")));
         recap.put("indemniteTrajets", String.format("%.0f trajets aller/retour (%s)", totalTrajetsCount * 2, kpis.get("montantDeplacementTotal")));
         recap.put("totalIndemnites", kpis.get("totalIndemnitesMois"));
@@ -768,6 +791,7 @@ public class PointageEmployeService {
         result.setRecap(recap);
         result.setReglesAppliquees(regles);
         result.setPointagesData(list);
+        result.setBilansHebdo(synDto != null ? synDto.getTronconsSemaine() : java.util.Collections.emptyList());
 
         return result;
     }

@@ -500,31 +500,41 @@ INSERT INTO ref_type_cotisation (id_type_cotisation, id_config_legale, code, lib
 (5, 2, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 5, TRUE, '2026-01-01');
 SELECT setval('ref_type_cotisation_id_type_cotisation_seq', (SELECT GREATEST(MAX(id_type_cotisation), 5) FROM ref_type_cotisation));
 
--- Cotisations par Site
+-- Cotisations par Site (TNR: CNAPS+OSTIE, TMM: CNAPS+OMSI)
 INSERT INTO site_cotisation (id_site, id_type_cotisation, est_plafonne_sante) VALUES
 (1, 1, TRUE),
 (1, 2, TRUE),
 (2, 1, TRUE),
 (2, 3, TRUE);
 
--- Barème IRSA Officiel 2026 (6 Tranches)
-INSERT INTO bareme_irsa (id_tranche, id_config_legale, numero_tranche, tranche_min, tranche_max, taux, date_debut) VALUES
-(1, 2, 1, 0.00, 350000.00, 0.00, '2026-01-01'),
-(2, 2, 2, 350001.00, 400000.00, 5.00, '2026-01-01'),
-(3, 2, 3, 400001.00, 500000.00, 10.00, '2026-01-01'),
-(4, 2, 4, 500001.00, 600000.00, 15.00, '2026-01-01'),
-(5, 2, 5, 600001.00, 4000000.00, 20.00, '2026-01-01'),
-(6, 2, 6, 4000001.00, NULL, 25.00, '2026-01-01');
-SELECT setval('bareme_irsa_id_tranche_seq', (SELECT GREATEST(MAX(id_tranche), 6) FROM bareme_irsa));
+-- Barèmes IRSA Officiels (LF_2024: 5 Tranches, LF_2026: 6 Tranches)
+INSERT INTO bareme_irsa (id_config_legale, numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin) VALUES
+(1, 1, 0.00, 350000.00, 0.00, '2024-01-01', '2025-12-31'),
+(1, 2, 350001.00, 400000.00, 5.00, '2024-01-01', '2025-12-31'),
+(1, 3, 400001.00, 500000.00, 10.00, '2024-01-01', '2025-12-31'),
+(1, 4, 500001.00, 600000.00, 15.00, '2024-01-01', '2025-12-31'),
+(1, 5, 600001.00, NULL, 20.00, '2024-01-01', '2025-12-31'),
+(2, 1, 0.00, 350000.00, 0.00, '2026-01-01', NULL),
+(2, 2, 350001.00, 400000.00, 5.00, '2026-01-01', NULL),
+(2, 3, 400001.00, 500000.00, 10.00, '2026-01-01', NULL),
+(2, 4, 500001.00, 600000.00, 15.00, '2026-01-01', NULL),
+(2, 5, 600001.00, 4000000.00, 20.00, '2026-01-01', NULL),
+(2, 6, 4000001.00, NULL, 25.00, '2026-01-01', NULL);
+SELECT setval('bareme_irsa_id_tranche_seq', (SELECT GREATEST(MAX(id_tranche), 11) FROM bareme_irsa));
 
--- Majorations d'Heures Supplémentaires & Spéciales
-INSERT INTO ref_taux_majoration (id_taux_majoration, id_config_legale, type_majoration, taux, description, date_debut) VALUES
-(1, 2, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine', '2026-01-01'),
-(2, 2, 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure', '2026-01-01'),
-(3, 2, 'NUIT', 0.30, 'Heures de nuit (22h - 05h)', '2026-01-01'),
-(4, 2, 'DIMANCHE', 0.40, 'Travail le dimanche', '2026-01-01'),
-(5, 2, 'FERIE', 1.00, 'Travail jour férié', '2026-01-01');
-SELECT setval('ref_taux_majoration_id_taux_majoration_seq', (SELECT GREATEST(MAX(id_taux_majoration), 5) FROM ref_taux_majoration));
+-- Majorations d'Heures Supplémentaires & Spéciales (LF_2024 et LF_2026)
+INSERT INTO ref_taux_majoration (id_config_legale, type_majoration, taux, description, date_debut, date_fin) VALUES
+(1, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine', '2024-01-01', '2025-12-31'),
+(1, 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure', '2024-01-01', '2025-12-31'),
+(1, 'NUIT', 0.30, 'Heures de nuit (22h - 05h)', '2024-01-01', '2025-12-31'),
+(1, 'DIMANCHE', 0.40, 'Travail le dimanche', '2024-01-01', '2025-12-31'),
+(1, 'FERIE', 1.00, 'Travail jour férié', '2024-01-01', '2025-12-31'),
+(2, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine', '2026-01-01', NULL),
+(2, 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure', '2026-01-01', NULL),
+(2, 'NUIT', 0.30, 'Heures de nuit (22h - 05h)', '2026-01-01', NULL),
+(2, 'DIMANCHE', 0.40, 'Travail le dimanche', '2026-01-01', NULL),
+(2, 'FERIE', 1.00, 'Travail jour férié', '2026-01-01', NULL);
+SELECT setval('ref_taux_majoration_id_taux_majoration_seq', (SELECT GREATEST(MAX(id_taux_majoration), 10) FROM ref_taux_majoration));
 
 -- Catalogue des Rubriques de Paie (Plan Standard 37 Rubriques Canoniques)
 INSERT INTO paie_rubrique (id_rubrique, code, libelle, categorie, type_valeur, sens, soumis_cnaps, soumis_sante, soumis_irsa, est_fixe, ordre_affichage, description) VALUES

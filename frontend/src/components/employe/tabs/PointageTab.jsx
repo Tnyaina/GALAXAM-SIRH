@@ -14,7 +14,11 @@ import {
     DollarSign,
     Moon,
     RotateCcw,
-    ExternalLink
+    ExternalLink,
+    Scale,
+    CheckCircle2,
+    ChevronDown,
+    ChevronUp
 } from 'lucide-react';
 import pointageEmployeService from '@/api/pointage/pointageEmployeService';
 import periodePaieService from '@/services/periodePaieService';
@@ -34,6 +38,22 @@ export default function PointageTab({ idEmploye }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [ficheData, setFicheData] = useState(null);
+    const [showHebdoDetail, setShowHebdoDetail] = useState(true);
+
+    const formatHeuresMinutes = (val, withSign = false) => {
+        if (val === null || val === undefined || isNaN(val)) return '00h00';
+        const num = Number(val);
+        const absVal = Math.abs(num);
+        const hours = Math.floor(absVal);
+        const minutes = Math.round((absVal - hours) * 60);
+        const finalHours = minutes === 60 ? hours + 1 : hours;
+        const finalMinutes = minutes === 60 ? 0 : minutes;
+
+        const formatted = `${String(finalHours).padStart(2, '0')}h${String(finalMinutes).padStart(2, '0')}`;
+        if (num < 0) return `-${formatted}`;
+        if (withSign && num > 0) return `+${formatted}`;
+        return formatted;
+    };
 
     // 1. Charger la liste des périodes de paie officielles
     useEffect(() => {
@@ -342,7 +362,7 @@ export default function PointageTab({ idEmploye }) {
                             </div>
                         </div>
 
-                        {/* KPI 2 : Retard Cumulé */}
+                        {/* KPI 2 : Retard Cumulé & Compensation */}
                         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs relative overflow-hidden">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
@@ -354,17 +374,23 @@ export default function PointageTab({ idEmploye }) {
                                 <span className={`text-2xl font-bold font-mono ${kpis.retardCumule && kpis.retardCumule !== '00h00' && kpis.retardCumule !== '0h' ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' : 'text-[var(--color-fg)]'}`}>
                                     {kpis.retardCumule || '00h00'}
                                 </span>
-                                <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                                    {kpis.retardOccurrences || '0 occurrence'}
-                                </p>
+                                <div className="text-xs text-[var(--color-fg-muted)] mt-0.5 truncate" title={recap.retardCompense && recap.retardCompense !== '00h00' ? `${recap.retardCompense} compensé · ${recap.retardNet || recap.heuresDeficit} déduit en paie` : undefined}>
+                                    {recap.retardCompense && recap.retardCompense !== '00h00' ? (
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                            {recap.retardCompense} compensé · <span className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-bold">{recap.retardNet || recap.heuresDeficit} déduit</span>
+                                        </span>
+                                    ) : (
+                                        kpis.retardOccurrences || '0 occurrence'
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        {/* KPI 3 : Heures Supplémentaires */}
+                        {/* KPI 3 : Heures Supplémentaires Nettes Payées */}
                         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs relative overflow-hidden">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
-                                    Heures Supplémentaires
+                                    Heures Sup. Nettes
                                 </span>
                                 <div className={`w-2.5 h-2.5 rounded-full ${kpis.heuresSupp && kpis.heuresSupp !== '00h00' && kpis.heuresSupp !== '0h' ? 'bg-[var(--color-success-500)]' : 'bg-[var(--color-border)]'}`} />
                             </div>
@@ -372,9 +398,15 @@ export default function PointageTab({ idEmploye }) {
                                 <span className={`text-2xl font-bold font-mono ${kpis.heuresSupp && kpis.heuresSupp !== '00h00' && kpis.heuresSupp !== '0h' ? 'text-[var(--color-success-500)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
                                     {kpis.heuresSupp || '00h00'}
                                 </span>
-                                <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                                    {kpis.heuresSuppStatut || 'à valider'}
-                                </p>
+                                <div className="text-xs text-[var(--color-fg-muted)] mt-0.5 truncate">
+                                    {recap.heuresSuppBrutes && recap.heuresSuppBrutes !== '00h00' && recap.heuresSuppBrutes !== kpis.heuresSupp ? (
+                                        <span className="text-[var(--color-info-600)] dark:text-[var(--color-info-300)]" title={`Surplus brut : ${recap.heuresSuppBrutes}, absorbé à hauteur de ${recap.retardCompense} par les retards`}>
+                                            Surplus brut : {recap.heuresSuppBrutes}
+                                        </span>
+                                    ) : (
+                                        kpis.heuresSuppStatut || 'à valider'
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -537,16 +569,101 @@ export default function PointageTab({ idEmploye }) {
                         </div>
                     </div>
 
+                    {/* 3.1 Volet Déroulant : Bilan par Tronçon Hebdomadaire (Compensation 40h - RG-PTG-05) */}
+                    {showHebdoDetail && ficheData?.bilansHebdo && ficheData.bilansHebdo.length > 0 && (
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--color-border-subtle)] pb-2.5">
+                                <div className="flex items-center gap-2">
+                                    <Scale size={16} className="text-[var(--color-brand-500)] shrink-0" />
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                                        Décomposition Hebdomadaire &amp; Compensation 1:1 (Règle RG-PTG-05)
+                                    </h4>
+                                </div>
+                                <span className="text-[11px] text-[var(--color-fg-muted)] font-mono">
+                                    Base 40h/semaine · Surplus brut compense retards
+                                </span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <Thead>
+                                        <Th className="text-xs py-2.5 px-3 font-bold uppercase">Tronçon Hebdo</Th>
+                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Jours Ovr.</Th>
+                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Seuil (40h)</Th>
+                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Réalisé</Th>
+                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Retards</Th>
+                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Surplus Brut</Th>
+                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase text-emerald-600">Compensé (1:1)</Th>
+                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Solde Net</Th>
+                                    </Thead>
+                                    <Tbody>
+                                        {ficheData.bilansHebdo.map((b, idx) => {
+                                            const hasDeficit = b.heuresDeficit > 0;
+                                            const hasHs = b.heuresHsNettes > 0;
+                                            return (
+                                                <Tr key={idx}>
+                                                    <Td className="font-mono text-xs font-bold py-2 px-3">
+                                                        Semaine {b.numeroSemaine || idx + 1} ({b.debutSemaine} au {b.finSemaine})
+                                                    </Td>
+                                                    <Td className="text-xs text-center py-2 px-3">{b.nbJoursTroncon} j</Td>
+                                                    <Td className="font-mono text-xs text-center py-2 px-3">{formatHeuresMinutes(b.seuilHeuresTroncon)}</Td>
+                                                    <Td className="font-mono text-xs text-center font-bold py-2 px-3">{formatHeuresMinutes(b.totalHeuresTravaillees)}</Td>
+                                                    <Td className={`font-mono text-xs text-center py-2 px-3 ${b.heuresRetard > 0 ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-bold' : 'text-[var(--color-fg-muted)]'}`}>
+                                                        {b.heuresRetard > 0 ? formatHeuresMinutes(b.heuresRetard) : '00h00'}
+                                                    </Td>
+                                                    <Td className={`font-mono text-xs text-center py-2 px-3 ${b.heuresHsBrutes > 0 ? 'text-[var(--color-info-600)] dark:text-[var(--color-info-300)] font-bold' : 'text-[var(--color-fg-muted)]'}`}>
+                                                        {b.heuresHsBrutes > 0 ? formatHeuresMinutes(b.heuresHsBrutes, true) : '00h00'}
+                                                    </Td>
+                                                    <Td className="font-mono text-xs text-center py-2 px-3 font-bold text-emerald-600 dark:text-emerald-400">
+                                                        {b.heuresCompensees > 0 ? `-${formatHeuresMinutes(b.heuresCompensees)}` : '—'}
+                                                    </Td>
+                                                    <Td className="text-center py-2 px-3">
+                                                        {hasDeficit ? (
+                                                            <Badge variant="danger" size="sm" className="font-mono font-bold">
+                                                                -{formatHeuresMinutes(b.heuresDeficit)} RETENUE
+                                                            </Badge>
+                                                        ) : hasHs ? (
+                                                            <Badge variant="success" size="sm" className="font-mono font-bold">
+                                                                +{formatHeuresMinutes(b.heuresHsNettes)} NETTES
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge variant="neutral" size="sm" className="font-mono text-[10px]">
+                                                                ÉQUILIBRÉ (00h00)
+                                                            </Badge>
+                                                        )}
+                                                    </Td>
+                                                </Tr>
+                                            );
+                                        })}
+                                    </Tbody>
+                                </Table>
+                            </div>
+                        </div>
+                    )}
+
                     {/* 4. Grille de Synthèse Mensuelle, Indemnités & Règles (Pied de page modulaire aéré) */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch pt-2">
-                        {/* Carte 1 : Temps de Présence */}
+                        {/* Carte 1 : Temps de Présence & Bilan Compensation */}
                         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col justify-between space-y-3">
                             <div>
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-2 flex items-center gap-1.5">
-                                    <TrendingUp size={14} className="text-[var(--color-brand-500)]" />
-                                    Temps de Présence
-                                </h4>
-                                <div className="space-y-2 text-xs pt-1">
+                                <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-1.5">
+                                        <TrendingUp size={14} className="text-[var(--color-brand-500)]" />
+                                        Temps de Présence
+                                    </h4>
+                                    {ficheData?.bilansHebdo && ficheData.bilansHebdo.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowHebdoDetail(prev => !prev)}
+                                            className="text-[11px] font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] hover:underline flex items-center gap-0.5 cursor-pointer"
+                                            title="Afficher ou masquer la décomposition par semaine"
+                                        >
+                                            <Scale size={12} />
+                                            <span>{showHebdoDetail ? 'Masquer tronçons' : 'Détail 40h'}</span>
+                                            {showHebdoDetail ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="space-y-1.5 text-xs pt-2">
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Temps théorique</span>
                                         <span className="font-mono font-bold text-[var(--color-fg)]">{recap.tempsTheorique || '168h00'}</span>
@@ -562,16 +679,45 @@ export default function PointageTab({ idEmploye }) {
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-[var(--color-fg-muted)]">Heures supplémentaires</span>
-                                        <span className={`font-mono ${recap.heuresSupp && recap.heuresSupp !== '00h00' && recap.heuresSupp !== '0h' ? 'font-bold text-[var(--color-info-600)] dark:text-[var(--color-info-200)]' : 'text-[var(--color-fg-muted)]'}`}>
-                                            {recap.heuresSupp || '00h00'}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-[var(--color-fg-muted)]">Retards</span>
+                                        <span className="text-[var(--color-fg-muted)]">Retards constatés</span>
                                         <span className={`font-mono ${recap.retards && recap.retards !== '00h00' && recap.retards !== '0h' ? 'font-bold text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' : 'text-[var(--color-fg-muted)]'}`}>
                                             {recap.retards || '00h00'}
                                         </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[var(--color-fg-muted)]">Surplus brut (HS brutes)</span>
+                                        <span className={`font-mono ${recap.heuresSuppBrutes && recap.heuresSuppBrutes !== '00h00' ? 'font-bold text-[var(--color-info-600)] dark:text-[var(--color-info-300)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                            {recap.heuresSuppBrutes || recap.heuresSupp || '00h00'}
+                                        </span>
+                                    </div>
+
+                                    {/* Bloc Compensation Hebdomadaire RG-PTG-05 */}
+                                    <div className="mt-2.5 pt-2 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/70 p-2.5 rounded-none space-y-1.5">
+                                        <div className="flex items-center justify-between text-[10.5px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
+                                            <span className="flex items-center gap-1">
+                                                <Scale size={12} className="text-[var(--color-brand-500)]" />
+                                                Compensation Hebdo
+                                            </span>
+                                            <span className="text-[10px] text-[var(--color-fg-subtle)] font-normal font-mono"></span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-[var(--color-fg-muted)]">Retard compensé</span>
+                                            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                                {recap.retardCompense && recap.retardCompense !== '00h00' ? `-${recap.retardCompense}` : '00h00'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-[var(--color-fg-muted)]">Déficit net (Retenue Paie)</span>
+                                            <span className={`font-mono font-bold ${recap.retardNet && recap.retardNet !== '00h00' ? 'text-[var(--color-danger-500)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                                {recap.retardNet || recap.heuresDeficit || '00h00'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs pt-1 border-t border-[var(--color-border-subtle)]/60">
+                                            <span className="font-semibold text-[var(--color-fg)]">Heures sup. nettes payées</span>
+                                            <span className={`font-mono font-bold ${recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
+                                                {recap.heuresSuppNettes || recap.heuresSupp || '00h00'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

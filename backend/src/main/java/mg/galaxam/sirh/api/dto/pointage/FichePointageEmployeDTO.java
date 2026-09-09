@@ -13,6 +13,10 @@ public class FichePointageEmployeDTO {
     private Map<String, String> recap;
     private Map<String, String> reglesAppliquees;
     private List<PointageJourDTO> pointagesData;
+    private List<PointageTronconSemaineDTO> bilansHebdo;
+
+    public List<PointageTronconSemaineDTO> getBilansHebdo() { return bilansHebdo; }
+    public void setBilansHebdo(List<PointageTronconSemaineDTO> bilansHebdo) { this.bilansHebdo = bilansHebdo; }
 
     public Integer getIdPeriode() { return idPeriode; }
     public void setIdPeriode(Integer idPeriode) { this.idPeriode = idPeriode; }
