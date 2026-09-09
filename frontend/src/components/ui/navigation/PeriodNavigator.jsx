@@ -138,7 +138,7 @@ export default function PeriodNavigator({
                     className="flex items-center justify-between gap-3 px-3 py-1.5 cursor-pointer hover:bg-[var(--color-bg-subtle)] transition-colors select-none"
                 >
                     <span className="text-xs sm:text-[13px] font-bold text-[var(--color-fg)] tracking-tight">
-                        {getFormattedLabel()}
+                        {getFormattedLabel() || 'Sélectionner une date'}
                     </span>
 
                     <CalendarIcon size={14} className="text-[var(--color-fg)] hover:text-[var(--color-brand-500)] shrink-0 transition-colors" />

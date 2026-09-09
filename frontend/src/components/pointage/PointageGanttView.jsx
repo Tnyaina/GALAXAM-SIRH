@@ -69,30 +69,36 @@ export default function PointageGanttView({
                         <ChevronLeft size={14} />
                     </button>
                     <div className="flex items-center gap-1 overflow-x-auto px-1">
-                        {semaines.map((sem) => {
-                            const isSelected = sem.dateDebut === selectedSemaine?.dateDebut;
-                            return (
-                                <button
-                                    key={sem.dateDebut || sem.id}
-                                    type="button"
-                                    onClick={() => onSelectSemaine(sem)}
-                                    disabled={loadingGantt}
-                                    className={`flex items-center gap-1.5 px-2.5 py-1 text-[10.5px] font-semibold whitespace-nowrap border transition-all cursor-pointer disabled:opacity-50 ${isSelected
-                                            ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] border-[var(--color-brand-500)]/40 font-bold'
-                                            : 'text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] hover:border-[var(--color-border)]'
-                                        }`}
-                                >
-                                    <Calendar size={11} />
-                                    <span>{sem.title}</span>
-                                    {sem.estValidee && <CheckCircle2 size={10} className="text-[var(--color-success-600)]" />}
-                                    {sem.nbAnomalies > 0 && !sem.estValidee && (
-                                        <span className="px-1 py-0.5 text-[8px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 leading-none">
-                                            {sem.nbAnomalies}
-                                        </span>
-                                    )}
-                                </button>
-                            );
-                        })}
+                        {semaines.length === 0 ? (
+                            <span className="text-[11px] text-[var(--color-fg-muted)] italic px-2 py-0.5 select-none">
+                                {loadingGantt ? 'Chargement des semaines…' : 'Aucune semaine disponible pour cette période'}
+                            </span>
+                        ) : (
+                            semaines.map((sem) => {
+                                const isSelected = sem.dateDebut === selectedSemaine?.dateDebut;
+                                return (
+                                    <button
+                                        key={sem.dateDebut || sem.id}
+                                        type="button"
+                                        onClick={() => onSelectSemaine(sem)}
+                                        disabled={loadingGantt}
+                                        className={`flex items-center gap-1.5 px-2.5 py-1 text-[10.5px] font-semibold whitespace-nowrap border transition-all cursor-pointer disabled:opacity-50 ${isSelected
+                                                ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] border-[var(--color-brand-500)]/40 font-bold'
+                                                : 'text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] hover:border-[var(--color-border)]'
+                                            }`}
+                                    >
+                                        <Calendar size={11} />
+                                        <span>{sem.title}</span>
+                                        {sem.estValidee && <CheckCircle2 size={10} className="text-[var(--color-success-600)]" />}
+                                        {sem.nbAnomalies > 0 && !sem.estValidee && (
+                                            <span className="px-1 py-0.5 text-[8px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 leading-none">
+                                                {sem.nbAnomalies}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })
+                        )}
                     </div>
                     <button
                         type="button"

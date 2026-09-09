@@ -37,11 +37,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const isDaf = hasPermission('POINTAGE_VALIDATE');
 
     const [periodes, setPeriodes] = useState([]);
-    const [selectedPeriode, setSelectedPeriode] = useState('');
+    const [selectedPeriode, setSelectedPeriode] = useState(() => searchParams.get('periode') || (activePeriode?.idPeriodePaie ? String(activePeriode.idPeriodePaie) : ''));
     const [selectedEmployeToAdjust, setSelectedEmployeToAdjust] = useState(null);
     const [adjustInitialDate, setAdjustInitialDate] = useState(null);
     const [sites, setSites] = useState([]);
-    const [selectedSite, setSelectedSite] = useState(0);
+    const [selectedSite, setSelectedSite] = useState(() => Number(searchParams.get('site') || 0));
     const [syntheseData, setSyntheseData] = useState([]);
     const [semaines, setSemaines] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -84,7 +84,13 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         || resPeriodes.find(p => p.statutCode === 'A_VALIDER' || p.statutCode === 'TRANSMIS_DAF')
                         || resPeriodes.find(p => p.statutCode === 'EN_COURS')
                         || resPeriodes[0];
-                    setSelectedPeriode(String(activeP.idPeriodePaie));
+                    if (activeP) {
+                        const pid = String(activeP.idPeriodePaie);
+                        setSelectedPeriode(pid);
+                        if (!paramPeriode) {
+                            setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('periode', pid); return n; }, { replace: true });
+                        }
+                    }
                 }
                 if (resSites) {
                     setSites(resSites);
@@ -98,6 +104,21 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         init();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Sécurité : auto-sélection dès que la liste des périodes est disponible
+    useEffect(() => {
+        if (periodes.length > 0 && !selectedPeriode) {
+            const activeP = (activePeriode ? periodes.find(p => p.idPeriodePaie === activePeriode.idPeriodePaie) : null)
+                || periodes.find(p => p.statutCode === 'A_VALIDER' || p.statutCode === 'TRANSMIS_DAF')
+                || periodes.find(p => p.statutCode === 'EN_COURS')
+                || periodes[0];
+            if (activeP) {
+                const pid = String(activeP.idPeriodePaie);
+                setSelectedPeriode(pid);
+                setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('periode', pid); return n; }, { replace: true });
+            }
+        }
+    }, [periodes, selectedPeriode, activePeriode, setSearchParams]);
+
     // Synchronisation réactive avec activePeriode provenant du parent
     useEffect(() => {
         if (activePeriode?.idPeriodePaie && String(activePeriode.idPeriodePaie) !== String(selectedPeriode)) {
@@ -110,11 +131,12 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         if (!selectedPeriode) return;
         setLoading(true);
         try {
+            const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
             const [resSemaines, resSynthese] = await Promise.all([
-                pointageSyntheseService.getSemaines({ idPeriodePaie: selectedPeriode, idSite: selectedSite || undefined }),
+                pointageSyntheseService.getSemaines({ idPeriodePaie: selectedPeriode, idSite: siteParam }),
                 pointageSyntheseService.getSynthese({
                     idPeriodePaie: selectedPeriode,
-                    idSite: selectedSite || undefined,
+                    idSite: siteParam,
                     search: debouncedSearch.trim() || undefined,
                     filtre: alertFilter !== 'ALL' ? alertFilter : undefined,
                     page: currentPage,
@@ -191,9 +213,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 days.push(`${yyyy}-${mm}-${dd}`);
                 curr.setDate(curr.getDate() + 1);
             }
+            const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
             const results = await Promise.all(
                 days.map(date =>
-                    pointageSaisieService.getGrilleSaisie({ idSite: selectedSite || undefined, date })
+                    pointageSaisieService.getGrilleSaisie({ idSite: siteParam, date })
                         .then(res => ({ date, rows: res?.grilleData || res?.employes || (Array.isArray(res) ? res : []) }))
                         .catch(() => ({ date, rows: [] }))
                 )
@@ -263,9 +286,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         if (!selectedPeriode) return;
         setRecalculating(true);
         try {
+            const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
             const res = await pointageSyntheseService.calculerTout({
                 idPeriodePaie: selectedPeriode,
-                idSite: selectedSite || undefined
+                idSite: siteParam
             });
             if (res?.success) {
                 toast({
@@ -353,7 +377,17 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             <Building2 size={14} className="text-[var(--color-fg-muted)] shrink-0" />
                             <Select
                                 value={String(selectedSite)}
-                                onChange={(val) => { setSelectedSite(Number(val)); setCurrentPage(1); }}
+                                onChange={(val) => {
+                                    const sId = Number(val);
+                                    setSelectedSite(sId);
+                                    setCurrentPage(1);
+                                    setSearchParams(prev => {
+                                        const n = new URLSearchParams(prev);
+                                        if (sId > 0) n.set('site', String(sId));
+                                        else n.delete('site');
+                                        return n;
+                                    });
+                                }}
                                 options={[
                                     { value: '0', label: 'Tous les sites' },
                                     ...sites.map(s => ({ value: String(s.idSite || s.id), label: s.libelle || s.nom }))

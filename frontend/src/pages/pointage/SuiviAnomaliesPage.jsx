@@ -93,7 +93,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                     setSites(resSites);
                     const paramSite = searchParams.get('site');
                     if (paramSite) setSelectedSite(Number(paramSite));
-                    else if (resSites.length > 0) setSelectedSite(resSites[0].idSite);
+                    else setSelectedSite(0);
                 }
             } catch (err) {
                 console.error('Erreur init SuiviAnomaliesPage:', err);
@@ -114,9 +114,10 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         if (!selectedPeriode) return;
         setLoading(true);
         try {
+            const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
             const res = await pointageSyntheseService.getSemaines({
                 idPeriodePaie: selectedPeriode,
-                idSite: selectedSite || undefined
+                idSite: siteParam
             });
             if (res?.semaines) setSemaines(res.semaines);
         } catch (err) {
@@ -133,7 +134,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         if (selectedPeriode) {
             updateAnomalieFilters({
                 idPeriodePaie: selectedPeriode,
-                idSite: selectedSite || 0,
+                idSite: Number(selectedSite) > 0 ? Number(selectedSite) : 0,
                 search: searchAnomalie
             });
         }
@@ -167,9 +168,10 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         if (!selectedPeriode) return;
         setCalculating(true);
         try {
+            const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
             const res = await pointageSyntheseService.calculerTout({
                 idPeriodePaie: selectedPeriode,
-                idSite: selectedSite || undefined
+                idSite: siteParam
             });
             if (res?.success) {
                 toast({ title: 'Synthese calculee', message: `${res.nbSemaines || 'Toutes les'} semaines calculees avec succes.`, type: 'success' });
@@ -184,9 +186,10 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         if (!selectedPeriode) return;
         setTransmitting(true);
         try {
+            const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
             const res = await pointageSyntheseService.transmettreDaf({
                 idPeriodePaie: selectedPeriode,
-                idSite: selectedSite || undefined
+                idSite: siteParam
             });
             if (res?.success) {
                 toast({ title: 'Periode transmise a la DAF', message: 'La saisie passe en lecture seule jusqu\'a validation.', type: 'success' });
@@ -270,6 +273,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                         setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('periode', val); return n; });
                                     }
                                 }}
+                                placeholder="Sélectionner une période..."
                                 containerClassName="w-60 sm:w-72"
                                 className="h-[32px] text-xs font-semibold"
                             />
@@ -281,8 +285,14 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 options={siteOptions}
                                 value={selectedSite}
                                 onChange={val => {
-                                    setSelectedSite(Number(val));
-                                    setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('site', val); return n; });
+                                    const sId = Number(val);
+                                    setSelectedSite(sId);
+                                    setSearchParams(prev => {
+                                        const n = new URLSearchParams(prev);
+                                        if (sId > 0) n.set('site', String(sId));
+                                        else n.delete('site');
+                                        return n;
+                                    });
                                 }}
                                 containerClassName="w-44 sm:w-52"
                                 className="h-[32px] text-xs font-semibold"

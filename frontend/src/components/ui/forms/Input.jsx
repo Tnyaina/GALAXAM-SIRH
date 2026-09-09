@@ -138,7 +138,7 @@ export function Select({
         `}
         {...props}
       >
-        {children}
+        {children || <option value="" disabled>Sélectionner...</option>}
       </select>
       {error && <p className="text-[11px] text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
       {hintText && !error && <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}

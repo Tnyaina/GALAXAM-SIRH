@@ -12,6 +12,7 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
     private String prenom;
     private String photoUrl;
     private Integer idSite;
+    private String siteCode;
     private String siteNom;
     private String codeCategorie;
     private String libelleCategorie;
@@ -122,6 +123,14 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
 
     public void setIdSite(Integer idSite) {
         this.idSite = idSite;
+    }
+
+    public String getSiteCode() {
+        return siteCode;
+    }
+
+    public void setSiteCode(String siteCode) {
+        this.siteCode = siteCode;
     }
 
     public String getSiteNom() {

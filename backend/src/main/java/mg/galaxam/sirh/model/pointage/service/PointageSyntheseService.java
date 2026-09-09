@@ -292,6 +292,7 @@ public class PointageSyntheseService {
         dto.setPrenom(prenom);
         dto.setPhotoUrl(photoUrl);
         dto.setIdSite(idSite);
+        dto.setSiteCode(siteCode);
         dto.setSiteNom(siteNom);
         dto.setCodeCategorie(codeCat);
         dto.setLibelleCategorie(isCadre ? "Cadre" : "Employé");
@@ -638,7 +639,7 @@ public class PointageSyntheseService {
         );
 
         if (idSite != null && idSite > 0) {
-            sqlEmp.append("AND a.id_site = ? ");
+            sqlEmp.append("AND (a.id_site = ? OR EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND pj.id_site = ?)) ");
         }
         sqlEmp.append("ORDER BY e.id_employe, a.date_debut DESC");
 
@@ -648,6 +649,8 @@ public class PointageSyntheseService {
             psE.setDate(pIdx++, Date.valueOf(dateFin));
             psE.setDate(pIdx++, Date.valueOf(dateDebut));
             if (idSite != null && idSite > 0) {
+                psE.setInt(pIdx++, idSite);
+                psE.setInt(pIdx++, idPeriode);
                 psE.setInt(pIdx++, idSite);
             }
             try (ResultSet rsE = psE.executeQuery()) {
@@ -755,12 +758,16 @@ public class PointageSyntheseService {
             "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
             "WHERE e.est_actif = TRUE "
         );
-        if (idSite != null && idSite > 0) sqlTot.append("AND a.id_site = ? ");
+        if (idSite != null && idSite > 0) sqlTot.append("AND (a.id_site = ? OR EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND pj.id_site = ?)) ");
         try (PreparedStatement psTot = c.prepareStatement(sqlTot.toString())) {
             int pIdx = 1;
             psTot.setDate(pIdx++, Date.valueOf(dateFin));
             psTot.setDate(pIdx++, Date.valueOf(dateDebut));
-            if (idSite != null && idSite > 0) psTot.setInt(pIdx++, idSite);
+            if (idSite != null && idSite > 0) {
+                psTot.setInt(pIdx++, idSite);
+                psTot.setInt(pIdx++, idPeriode);
+                psTot.setInt(pIdx++, idSite);
+            }
             try (ResultSet rsTot = psTot.executeQuery()) {
                 if (rsTot.next()) countAll = rsTot.getInt(1);
             }
@@ -778,7 +785,7 @@ public class PointageSyntheseService {
             "(SELECT COUNT(DISTINCT pj.id_employe) FROM pointage_jour pj JOIN ref_statut_pointage_jour spj ON pj.id_statut_jour = spj.id_statut_jour JOIN employe e ON pj.id_employe = e.id_employe WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE AND spj.code LIKE '%ABS%' " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + ") AS count_absence, " +
             "(SELECT COUNT(DISTINCT e.id_employe) FROM employe e WHERE e.est_actif = TRUE AND (" +
             "   EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + " AND pj.total_heures > 8.0) " +
-            "   OR EXISTS (SELECT 1 FROM pointage_semaine_calcule psc WHERE psc.id_employe = e.id_employe AND psc.id_periode_paie = ? " + (idSite != null && idSite > 0 ? "AND psc.id_site = ? " : "") + " AND (psc.heures_hs_30 > 0 OR psc.heures_hs_50 > 0))" +
+            "   OR EXISTS (SELECT 1 FROM pointage_semaine_calcule psc WHERE psc.id_employe = e.id_employe AND psc.id_periode_paie = ? " + (idSite != null && idSite > 0 ? "AND EXISTS (SELECT 1 FROM pointage_jour pj2 WHERE pj2.id_employe = e.id_employe AND pj2.id_periode_paie = ? AND pj2.id_site = ?) " : "") + " AND (psc.heures_hs_30 > 0 OR psc.heures_hs_50 > 0))" +
             ")) AS count_hs"
         );
         try (PreparedStatement psAl = c.prepareStatement(sqlAl.toString())) {
@@ -792,7 +799,10 @@ public class PointageSyntheseService {
             psAl.setInt(aIdx++, idPeriode);
             if (idSite != null && idSite > 0) psAl.setInt(aIdx++, idSite);
             psAl.setInt(aIdx++, idPeriode);
-            if (idSite != null && idSite > 0) psAl.setInt(aIdx++, idSite);
+            if (idSite != null && idSite > 0) {
+                psAl.setInt(aIdx++, idPeriode);
+                psAl.setInt(aIdx++, idSite);
+            }
             try (ResultSet rsAl = psAl.executeQuery()) {
                 if (rsAl.next()) {
                     countNuit = rsAl.getInt("count_nuit");
@@ -830,7 +840,9 @@ public class PointageSyntheseService {
             "FROM pointage_semaine_calcule psc JOIN employe e ON psc.id_employe = e.id_employe " +
             "WHERE psc.id_periode_paie = ? AND e.est_actif = TRUE "
         );
-        if (idSite != null && idSite > 0) sqlHs.append("AND psc.id_site = ? ");
+        if (idSite != null && idSite > 0) {
+            sqlHs.append("AND EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = psc.id_employe AND pj.id_periode_paie = psc.id_periode_paie AND pj.id_site = ?) ");
+        }
         try (PreparedStatement psHs = c.prepareStatement(sqlHs.toString())) {
             psHs.setInt(1, idPeriode);
             if (idSite != null && idSite > 0) psHs.setInt(2, idSite);
@@ -866,7 +878,9 @@ public class PointageSyntheseService {
         List<Object> filterParams = new ArrayList<>();
 
         if (idSite != null && idSite > 0) {
-            whereFilter.append("AND a.id_site = ? ");
+            whereFilter.append("AND (a.id_site = ? OR EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND pj.id_site = ?)) ");
+            filterParams.add(idSite);
+            filterParams.add(idPeriode);
             filterParams.add(idSite);
         }
 
@@ -1208,12 +1222,16 @@ public class PointageSyntheseService {
                               "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
                               "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
                               "WHERE COALESCE(f.dispense_pointage, FALSE) = FALSE " +
-                              (idSite != null && idSite > 0 ? "AND a.id_site = ? " : "");
+                              (idSite != null && idSite > 0 ? "AND (a.id_site = ? OR EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND pj.id_site = ?)) " : "");
             try (PreparedStatement psEmp = c.prepareStatement(sqlNbEmp)) {
                 int empIdx = 1;
                 psEmp.setDate(empIdx++, Date.valueOf(dateFinTroncon));
                 psEmp.setDate(empIdx++, Date.valueOf(dateDebutTroncon));
-                if (idSite != null && idSite > 0) psEmp.setInt(empIdx++, idSite);
+                if (idSite != null && idSite > 0) {
+                    psEmp.setInt(empIdx++, idSite);
+                    psEmp.setInt(empIdx++, idPeriode);
+                    psEmp.setInt(empIdx++, idSite);
+                }
                 try (ResultSet rsEmp = psEmp.executeQuery()) {
                     if (rsEmp.next()) nbSalariesActifs = rsEmp.getInt(1);
                 }
@@ -1223,10 +1241,14 @@ public class PointageSyntheseService {
 
             // Vérifier si cette semaine est déjà validée / calculée dans pointage_semaine_calcule
             boolean estValidee = false;
-            String sqlCheckValidee = "SELECT COUNT(*) FROM pointage_semaine_calcule WHERE id_periode_paie = ? AND debut_semaine = ?";
+            String sqlCheckValidee = "SELECT COUNT(*) FROM pointage_semaine_calcule psc WHERE psc.id_periode_paie = ? AND psc.debut_semaine = ?" +
+                                     (idSite != null && idSite > 0 ? " AND EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = psc.id_employe AND pj.id_periode_paie = psc.id_periode_paie AND pj.id_site = ?)" : "");
             try (PreparedStatement psVal = c.prepareStatement(sqlCheckValidee)) {
                 psVal.setInt(1, idPeriode);
                 psVal.setDate(2, Date.valueOf(dateDebutTroncon));
+                if (idSite != null && idSite > 0) {
+                    psVal.setInt(3, idSite);
+                }
                 try (ResultSet rsVal = psVal.executeQuery()) {
                     if (rsVal.next() && rsVal.getInt(1) > 0) {
                         estValidee = true;
@@ -1368,7 +1390,7 @@ public class PointageSyntheseService {
         );
 
         if (idSite != null && idSite > 0) {
-            sqlEmp.append("AND a.id_site = ? ");
+            sqlEmp.append("AND (a.id_site = ? OR EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND pj.id_site = ?)) ");
         }
         sqlEmp.append("ORDER BY e.id_employe, a.date_debut DESC");
 
@@ -1377,6 +1399,8 @@ public class PointageSyntheseService {
             psE.setDate(pIdx++, Date.valueOf(dateFinTroncon));
             psE.setDate(pIdx++, Date.valueOf(dateDebutTroncon));
             if (idSite != null && idSite > 0) {
+                psE.setInt(pIdx++, idSite);
+                psE.setInt(pIdx++, idPeriode);
                 psE.setInt(pIdx++, idSite);
             }
             try (ResultSet rsE = psE.executeQuery()) {

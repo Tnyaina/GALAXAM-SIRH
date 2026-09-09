@@ -201,8 +201,8 @@ export default function PointageTab({ idEmploye }) {
                             <button
                                 type="button"
                                 onClick={() => handleNavigatePeriode(-1)}
-                                disabled={currIndexInList >= periodesList.length - 1}
-                                className={`px-3 py-2 text-[var(--color-fg)] transition-colors cursor-pointer ${currIndexInList >= periodesList.length - 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--color-bg-subtle)]'
+                                disabled={currIndexInList < 0 || currIndexInList >= periodesList.length - 1}
+                                className={`px-3 py-2 text-[var(--color-fg)] transition-colors cursor-pointer ${currIndexInList < 0 || currIndexInList >= periodesList.length - 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--color-bg-subtle)]'
                                     }`}
                                 title="Période précédente"
                             >
@@ -221,11 +221,20 @@ export default function PointageTab({ idEmploye }) {
                                     }}
                                     className="bg-transparent text-sm font-bold text-[var(--color-fg)] border-none outline-none cursor-pointer pr-2"
                                 >
-                                    {periodesList.map((p) => (
-                                        <option key={p.idPeriodePaie} value={p.idPeriodePaie} className="bg-[var(--color-surface)] text-[var(--color-fg)] font-medium">
-                                            {p.libelle || p.code} ({p.dateDebut} au {p.dateFin})
-                                        </option>
-                                    ))}
+                                    {periodesList.length === 0 ? (
+                                        <option value="" disabled>Sélectionner une période...</option>
+                                    ) : (
+                                        <>
+                                            {!selectedPeriodeId && (
+                                                <option value="" disabled>Sélectionner une période...</option>
+                                            )}
+                                            {periodesList.map((p) => (
+                                                <option key={p.idPeriodePaie} value={p.idPeriodePaie} className="bg-[var(--color-surface)] text-[var(--color-fg)] font-medium">
+                                                    {p.libelle || p.code} ({p.dateDebut} au {p.dateFin})
+                                                </option>
+                                            ))}
+                                        </>
+                                    )}
                                 </select>
                             </div>
                             <span className="h-5 w-[1px] bg-[var(--color-border-subtle)]" />
