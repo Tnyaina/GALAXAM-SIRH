@@ -472,7 +472,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                         { v: 'HS', label: `HS (${alertCounts.hs})`, icon: TrendingUp },
                                         { v: 'NUIT', label: `Nuit (${alertCounts.nuit})`, icon: Moon },
                                         { v: 'RETARD', label: `Retards (${alertCounts.retard})`, icon: Clock },
-                                        { v: 'ABSENCE', label: `Absences (${alertCounts.absence})`, icon: AlertTriangle },
+                                        { v: 'ABSENCE', label: `Déficit / Abs. (${alertCounts.absence})`, icon: AlertTriangle },
                                     ].map(opt => (
                                         <button
                                             key={opt.v}
@@ -596,9 +596,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     <Clock size={11} /> Retards
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-18">
+                                            <Th className="text-center w-24" title="Déficit d'heures nettes (retards non compensés à décompter en paie) ou jours d'absence">
                                                 <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-300">
-                                                    <AlertTriangle size={11} /> Abs.
+                                                    <AlertTriangle size={11} /> Déficit/Abs
                                                 </span>
                                             </Th>
                                             <Th className="text-center w-14">Action</Th>
@@ -709,12 +709,18 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     </Td>
                                                     <Td className="text-center">
                                                         {(row.heuresAbsenceRetenues || 0) > 0 ? (
-                                                            <span className="inline-block font-mono text-xs text-rose-700 dark:text-rose-300 font-bold bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20">
-                                                                {Math.round(row.heuresAbsenceRetenues * 10) / 10}h
+                                                            <span
+                                                                className="inline-block font-mono text-[11px] text-rose-700 dark:text-rose-300 font-bold bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20 cursor-help"
+                                                                title={`Déficit d'heures net à retenir en paie : ${row.heuresAbsenceRetenues}h (retards non compensés par les heures sup)`}
+                                                            >
+                                                                {Math.round(row.heuresAbsenceRetenues * 10) / 10}h déf.
                                                             </span>
                                                         ) : (row.nbJoursAbsence || 0) > 0 ? (
-                                                            <span className="inline-block font-mono text-xs text-rose-700 dark:text-rose-300 font-bold bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20">
-                                                                {row.nbJoursAbsence}j
+                                                            <span
+                                                                className="inline-block font-mono text-[11px] text-rose-700 dark:text-rose-300 font-bold bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20 cursor-help"
+                                                                title={`Absence non justifiée : ${row.nbJoursAbsence} jour(s)`}
+                                                            >
+                                                                {row.nbJoursAbsence}j abs.
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>

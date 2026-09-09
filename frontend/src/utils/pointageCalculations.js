@@ -86,16 +86,21 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
   let eaEffectif = ea;
 
   let totalMins = 0;
+  let hMatin = 0;
+  let hAm = 0;
+
   if (isJourneeContinue && em !== null && sa !== null) {
     totalMins = (sa >= em) ? (sa - em) : 0;
+    hMatin = totalMins;
+    hAm = 0;
   } else {
     if (isPauseAuto) {
       smEffectif = parseMinutes(sParams?.heureFinMatin || '12:00');
       eaEffectif = parseMinutes(sParams?.heureDebutAm || (sParams?.horaireContinu ? '13:00' : '14:00'));
     }
 
-    let hMatin = (em !== null && smEffectif !== null && smEffectif >= em) ? (smEffectif - em) : 0;
-    let hAm = (eaEffectif !== null && sa !== null && sa >= eaEffectif) ? (sa - eaEffectif) : 0;
+    hMatin = (em !== null && smEffectif !== null && smEffectif >= em) ? (smEffectif - em) : 0;
+    hAm = (eaEffectif !== null && sa !== null && sa >= eaEffectif) ? (sa - eaEffectif) : 0;
 
     // RÈGLE CRITIQUE : Si férié chômé ou congé complet sans heures saisies -> 0h de travail effectif
     totalMins = (isFerie && em === null && ea === null) || isCongeFull ? 0 : (hMatin + hAm);

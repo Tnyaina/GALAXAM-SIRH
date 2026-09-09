@@ -3,7 +3,8 @@ import {
     Save, 
     Edit3,
     UserCheck,
-    ArrowLeft
+    ArrowLeft,
+    FastForward
 } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
@@ -193,8 +194,8 @@ export default function DafAjustementPointageModal({
             onClose={onClose}
             title={`Ajustement DAF — ${employeNomEffective} (${matriculeEffective})`}
             icon={<UserCheck className="w-5 h-5 text-brand-500" />}
-            size="2xl"
-            className="max-w-[820px]"
+            size="4xl"
+            className="max-w-6xl w-full"
         >
             <div className="space-y-4 text-xs font-sans">
                 {error && <Alert type="error" message={error} />}
@@ -237,7 +238,8 @@ export default function DafAjustementPointageModal({
                             <div className="sm:col-span-2 bg-amber-500/10 border border-amber-500/25 rounded-md p-2.5 flex items-center justify-between">
                                 <div className="flex flex-col">
                                     <span className="text-xs font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                                        ⚡ Journée continue (Sans pause déjeuner)
+                                        <FastForward size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                                        Journée continue (Sans pause déjeuner)
                                     </span>
                                     <span className="text-[11px] text-[var(--color-fg-muted)]">
                                         Pas de déduction automatique d'1h de pause. Durée calculée directement entre l'Entrée et la Sortie.
@@ -410,7 +412,7 @@ export default function DafAjustementPointageModal({
                             <span className="font-mono font-bold">{pointagesList.length} jour(s) enregistrés</span>
                         </div>
 
-                        <div className="overflow-x-auto border border-[var(--color-border-subtle)] max-h-[420px] overflow-y-auto">
+                        <div className="overflow-x-auto border border-[var(--color-border-subtle)] max-h-[62vh] overflow-y-auto">
                             <Table className="w-full text-left border-collapse text-[11.5px]">
                                 <Thead className="sticky top-0 bg-[var(--color-surface)] shadow-2xs z-10">
                                     <Tr className="border-b border-[var(--color-border-subtle)] text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">

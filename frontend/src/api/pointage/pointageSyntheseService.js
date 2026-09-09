@@ -24,17 +24,17 @@ export const pointageSyntheseService = {
 
     validerSemaine: async ({ idPeriodePaie, dateDebut, dateFin, idSite }) => {
         const response = await apiClient.post('/pointages/synthese/semaines/valider', {
-            idPeriodePaie,
+            idPeriodePaie: Number(idPeriodePaie),
             dateDebut,
             dateFin,
-            idSite
+            idSite: idSite != null && idSite !== '' ? Number(idSite) : undefined
         });
         return response.data;
     },
 
     devaliderSemaine: async ({ idPeriodePaie, dateDebut }) => {
         const response = await apiClient.post('/pointages/synthese/semaines/devalider', {
-            idPeriodePaie,
+            idPeriodePaie: Number(idPeriodePaie),
             dateDebut
         });
         return response.data;
@@ -42,30 +42,30 @@ export const pointageSyntheseService = {
 
     calculerTout: async ({ idPeriodePaie, idSite }) => {
         const response = await apiClient.post('/pointages/synthese/calculer-tout', {
-            idPeriodePaie,
-            idSite
+            idPeriodePaie: Number(idPeriodePaie),
+            idSite: idSite != null && idSite !== '' ? Number(idSite) : undefined
         });
         return response.data;
     },
 
     transmettreDaf: async ({ idPeriodePaie, idSite }) => {
         const response = await apiClient.post('/pointages/synthese/transmettre-daf', {
-            idPeriodePaie,
-            idSite
+            idPeriodePaie: Number(idPeriodePaie),
+            idSite: idSite != null && idSite !== '' ? Number(idSite) : undefined
         });
         return response.data;
     },
 
     validerDaf: async ({ idPeriodePaie }) => {
         const response = await apiClient.post('/pointages/synthese/valider-daf', {
-            idPeriodePaie
+            idPeriodePaie: Number(idPeriodePaie)
         });
         return response.data;
     },
 
     rejeterDaf: async ({ idPeriodePaie, motif }) => {
         const response = await apiClient.post('/pointages/synthese/rejeter-daf', {
-            idPeriodePaie,
+            idPeriodePaie: Number(idPeriodePaie),
             motif
         });
         return response.data;

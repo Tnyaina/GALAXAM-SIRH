@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Moon, Car, Clock, UserX } from 'lucide-react';
+import { Moon, Car, Clock, UserX, FastForward } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
@@ -274,7 +274,11 @@ export default function PointageGridTable({
                                                             }`}
                                                             title={row.horaireContinu ? "Journée continue active (sans pause déjeuner). Cliquer pour rétablir la pause." : "Activer la journée continue (sans pause déjeuner 1h)"}
                                                         >
-                                                            {row.horaireContinu ? '⚡ Continu' : 'Pause'}
+                                                            {row.horaireContinu ? (
+                                                                <span className="inline-flex items-center gap-1">
+                                                                    <FastForward size={9} className="shrink-0" /> Continu
+                                                                </span>
+                                                            ) : 'Pause'}
                                                         </button>
                                                     )}
                                                 </div>
@@ -299,8 +303,8 @@ export default function PointageGridTable({
                                     {row.horaireContinu ? (
                                         <Td colSpan={2} className="px-2 py-1.5 text-center bg-amber-500/5 dark:bg-amber-500/10 border-l border-[var(--color-border-subtle)]">
                                             <div className="flex items-center justify-center gap-1.5 py-0.5">
-                                                <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300 select-none">
-                                                    ⚡ Continu (sans pause)
+                                                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-300 select-none">
+                                                    <FastForward size={11} className="shrink-0 text-amber-600 dark:text-amber-400" /> Continu (sans pause)
                                                 </span>
                                                 {!isReadOnlyForUser && (
                                                     <button
@@ -403,8 +407,12 @@ export default function PointageGridTable({
 
                                         if (isFractionnable) {
                                             const montantTrajet = ind.montantTrajet || Math.round(montantJour / 2.0);
-                                            const matVal = dynObj.matin !== undefined ? dynObj.matin : (row.deplacementMatin !== false && isAccordee);
-                                            const amVal = dynObj.am !== undefined ? dynObj.am : (row.deplacementAm !== false && isAccordee);
+                                            const matVal = !isCongeFull && (row.deplacementMatin !== undefined
+                                                ? Boolean(row.deplacementMatin)
+                                                : (dynObj.matin !== undefined ? Boolean(dynObj.matin) : (dynObj.accordee !== false)));
+                                            const amVal = !isCongeFull && (row.deplacementAm !== undefined
+                                                ? Boolean(row.deplacementAm)
+                                                : (dynObj.am !== undefined ? Boolean(dynObj.am) : (dynObj.accordee !== false)));
 
                                             return (
                                                 <Td key={ind.idIndemnite} className="px-3 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
@@ -452,9 +460,11 @@ export default function PointageGridTable({
                                         // Indemnité journalière standard (Repas, etc.)
                                         const isRepas = ind.code === 'REPAS';
                                         const useGlobalIfZero = !!ind.useGlobalIfZero;
-                                        const checked = isRepas
-                                            ? (row.indemniteRepasRecue !== undefined ? !!row.indemniteRepasRecue : (useGlobalIfZero ? false : isAccordee))
-                                            : (useGlobalIfZero ? (dynObj.accordee === true) : isAccordee);
+                                        const checked = !isCongeFull && (isRepas
+                                            ? (row.indemniteRepasRecue !== undefined 
+                                                ? Boolean(row.indemniteRepasRecue) 
+                                                : (dynObj.accordee !== undefined ? Boolean(dynObj.accordee) : (useGlobalIfZero ? false : isAccordee)))
+                                            : (dynObj.accordee !== undefined ? Boolean(dynObj.accordee) : (useGlobalIfZero ? false : isAccordee)));
                                         const montantEffectif = useGlobalIfZero && checked
                                             ? (ind.montantGlobal || ind.montantJour || 0)
                                             : (ind.montantJour || ind.montantReference || 0);

@@ -421,10 +421,11 @@ public class PointageSyntheseService {
                     totalTrajets += fractionJour;
 
                     // Détermination de la déduction repas :
-                    // Si le jour (override) ou le site est à horaire continu, 0 Ar de déduction (les salariés restent sur site le midi).
-                    // Si discontinu (ex: TMM), le salarié qui reçoit son repas économise l'aller-retour midi -> déduction paramétrée (ex: 1000 Ar).
+                    // RÈGLE MÉTIER GALAXAM :
+                    // • Antananarivo (TNR, siteHoraireContinu = TRUE) : forfait transport continu (2 trajets/j) -> JAMAIS de déduction repas (0 Ar).
+                    // • Tamatave (TMM, siteHoraireContinu = FALSE) : forfait transport 4 trajets/j -> déduction de 1 000 Ar SI ET SEULEMENT SI repas reçu sur site ET journée non continue.
                     Boolean hcJourObj = (rsPtg.getObject("horaire_continu_jour") != null) ? rsPtg.getBoolean("horaire_continu_jour") : null;
-                    boolean isContinuCeJour = (hcJourObj != null) ? hcJourObj : siteHoraireContinu;
+                    boolean isContinuCeJour = siteHoraireContinu || (hcJourObj != null && hcJourObj);
                     double reductionCeJour = isContinuCeJour ? 0.0 : reductionDeplactRepasConfig;
 
                     double mntDepJour = calculateurEngine.calculerDeplacementJour(

@@ -909,8 +909,20 @@ public class PointageSaisieService {
                             }
                             for (Map<String, Object> sInd : siteIndemnites) {
                                 int idInd = (int) sInd.get("idIndemnite");
+                                String codeInd = (String) sInd.get("code");
+                                boolean isDep = "DEPLACEMENT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd);
+                                boolean isRep = "REPAS".equalsIgnoreCase(codeInd);
+
                                 if (savedDyn.containsKey(idInd)) {
-                                    dynMap.put(String.valueOf(idInd), savedDyn.get(idInd));
+                                    Map<String, Object> item = savedDyn.get(idInd);
+                                    if (isDep) {
+                                        item.put("matin", dto.isDeplacementMatin());
+                                        item.put("am", dto.isDeplacementAm());
+                                        item.put("accordee", dto.isDeplacementMatin() || dto.isDeplacementAm());
+                                    } else if (isRep) {
+                                        item.put("accordee", dto.isIndemniteRepasRecue());
+                                    }
+                                    dynMap.put(String.valueOf(idInd), item);
                                 } else {
                                     double mntJour = (double) sInd.get("montantJour");
                                     double mntGlobal = sInd.get("montantGlobal") != null ? (double) sInd.get("montantGlobal") : mntJour;
@@ -922,6 +934,10 @@ public class PointageSaisieService {
                                     item.put("accordee", acc);
                                     item.put("montantApplique", useGlobal ? mntGlobal : mntJour);
                                     item.put("fractionJour", acc ? 1.0 : 0.0);
+                                    if (isDep) {
+                                        item.put("matin", acc && dto.isDeplacementMatin());
+                                        item.put("am", acc && dto.isDeplacementAm());
+                                    }
                                     dynMap.put(String.valueOf(idInd), item);
                                 }
                             }
@@ -991,6 +1007,11 @@ public class PointageSaisieService {
                                 // Si coché, on applique le montant global (MONTANT_REPAS_MIDI) si site = 0
                                 item.put("montantApplique", useGlobal ? mntGlobal : mntJour);
                                 item.put("fractionJour", acc ? 1.0 : 0.0);
+                                String codeInd = (String) sInd.get("code");
+                                if ("DEPLACEMENT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd)) {
+                                    item.put("matin", acc && dto.isDeplacementMatin());
+                                    item.put("am", acc && dto.isDeplacementAm());
+                                }
                                 dynMap.put(String.valueOf(idInd), item);
                             }
                         }
@@ -1189,7 +1210,7 @@ public class PointageSaisieService {
                 "motif_ajustement, id_statut_jour, montant_total_indemnites, horaire_continu_jour, version, updated_at" +
                 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
                 "COALESCE((SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT')), " +
-                "?, ?, ?, 1, CURRENT_TIMESTAMP) RETURNING id_pointage, version";
+                "?, ?, 1, CURRENT_TIMESTAMP) RETURNING id_pointage, version";
 
         String sqlDynInd = "INSERT INTO pointage_indemnite_jour (" +
                 "id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde, updated_at" +
@@ -1527,33 +1548,40 @@ public class PointageSaisieService {
                 // Synchronisation systématique dans la table dynamique pointage_indemnite_jour
                 Integer idIndRepas = idIndemniteByCode.get("REPAS");
                 if (idIndRepas != null) {
+                    boolean repasAccorde = !estNonTravaille && dto.isIndemniteRepasRecue();
                     psDyn.setInt(1, idPtg);
                     psDyn.setInt(2, idIndRepas);
-                    psDyn.setDouble(3, 1.0);
-                    psDyn.setDouble(4, mntRepasJour);
-                    psDyn.setBoolean(5, dto.isIndemniteRepasRecue());
+                    psDyn.setDouble(3, repasAccorde ? 1.0 : 0.0);
+                    psDyn.setDouble(4, repasAccorde ? mntRepasJour : 0.0);
+                    psDyn.setBoolean(5, repasAccorde);
                     psDyn.executeUpdate();
                 }
 
                 Integer idIndDep = idIndemniteByCode.get("DEPLACEMENT");
                 if (idIndDep == null) idIndDep = idIndemniteByCode.get("TRANSPORT");
                 if (idIndDep != null) {
-                    double qteDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
+                    boolean depAccorde = !estNonTravaille && depRecue;
+                    double qteDep = depAccorde ? ((depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0)) : 0.0;
+                    double mntDep = depAccorde ? mntDepJour : 0.0;
                     psDyn.setInt(1, idPtg);
                     psDyn.setInt(2, idIndDep);
                     psDyn.setDouble(3, qteDep);
-                    psDyn.setDouble(4, mntDepJour);
-                    psDyn.setBoolean(5, depRecue);
+                    psDyn.setDouble(4, mntDep);
+                    psDyn.setBoolean(5, depAccorde);
                     psDyn.executeUpdate();
                 }
 
                 if (dto.getDynamicIndemnites() != null) {
                     for (Map.Entry<String, Object> entry : dto.getDynamicIndemnites().entrySet()) {
                         int idInd = Integer.parseInt(entry.getKey());
+                        // NE PAS écraser REPAS et DEPLACEMENT qui sont gérés avec précision ci-dessus
+                        if ((idIndRepas != null && idInd == idIndRepas) || (idIndDep != null && idInd == idIndDep)) {
+                            continue;
+                        }
                         if (entry.getValue() instanceof Map<?, ?> vals) {
-                            boolean acc = Boolean.TRUE.equals(vals.get("accordee"));
-                            double mnt = vals.get("montantApplique") != null ? Double.parseDouble(vals.get("montantApplique").toString()) : 0.0;
-                            double frac = vals.get("fractionJour") != null ? Double.parseDouble(vals.get("fractionJour").toString()) : (acc ? 1.0 : 0.0);
+                            boolean acc = !estNonTravaille && Boolean.TRUE.equals(vals.get("accordee"));
+                            double mnt = estNonTravaille ? 0.0 : (vals.get("montantApplique") != null ? Double.parseDouble(vals.get("montantApplique").toString()) : 0.0);
+                            double frac = estNonTravaille ? 0.0 : (vals.get("fractionJour") != null ? Double.parseDouble(vals.get("fractionJour").toString()) : (acc ? 1.0 : 0.0));
 
                             psDyn.setInt(1, idPtg);
                             psDyn.setInt(2, idInd);

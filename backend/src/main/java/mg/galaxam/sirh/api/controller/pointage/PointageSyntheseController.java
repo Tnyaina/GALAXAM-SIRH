@@ -118,10 +118,13 @@ public class PointageSyntheseController {
     ) {
         Map<String, Object> resp = new HashMap<>();
         try {
-            int idPeriode = ((Number) body.get("idPeriodePaie")).intValue();
+            Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
+            if (idPeriode == null || idPeriode <= 0) {
+                throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
+            }
             String dateDebutStr = (String) body.get("dateDebut");
             String dateFinStr = (String) body.get("dateFin");
-            Integer idSite = body.get("idSite") != null ? ((Number) body.get("idSite")).intValue() : null;
+            Integer idSite = parseInteger(body.get("idSite"));
             if (idSite != null && idSite <= 0) idSite = null;
 
             java.time.LocalDate dDebut = java.time.LocalDate.parse(dateDebutStr);
@@ -145,7 +148,10 @@ public class PointageSyntheseController {
     ) {
         Map<String, Object> resp = new HashMap<>();
         try {
-            int idPeriode = ((Number) body.get("idPeriodePaie")).intValue();
+            Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
+            if (idPeriode == null || idPeriode <= 0) {
+                throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
+            }
             String dateDebutStr = (String) body.get("dateDebut");
             java.time.LocalDate dDebut = java.time.LocalDate.parse(dateDebutStr);
 
@@ -171,8 +177,11 @@ public class PointageSyntheseController {
     ) {
         Map<String, Object> resp = new HashMap<>();
         try {
-            int idPeriode = ((Number) body.get("idPeriodePaie")).intValue();
-            Integer idSite = body.get("idSite") != null ? ((Number) body.get("idSite")).intValue() : null;
+            Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
+            if (idPeriode == null || idPeriode <= 0) {
+                throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
+            }
+            Integer idSite = parseInteger(body.get("idSite"));
             if (idSite != null && idSite <= 0) idSite = null;
 
             Integer currentUserId = resolveCurrentUserId();
@@ -197,8 +206,11 @@ public class PointageSyntheseController {
     ) {
         Map<String, Object> resp = new HashMap<>();
         try {
-            int idPeriode = ((Number) body.get("idPeriodePaie")).intValue();
-            Integer idSite = body.get("idSite") != null ? ((Number) body.get("idSite")).intValue() : null;
+            Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
+            if (idPeriode == null || idPeriode <= 0) {
+                throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
+            }
+            Integer idSite = parseInteger(body.get("idSite"));
             if (idSite != null && idSite <= 0) idSite = null;
 
             Integer currentUserId = resolveCurrentUserId();
@@ -223,7 +235,10 @@ public class PointageSyntheseController {
     ) {
         Map<String, Object> resp = new HashMap<>();
         try {
-            int idPeriode = ((Number) body.get("idPeriodePaie")).intValue();
+            Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
+            if (idPeriode == null || idPeriode <= 0) {
+                throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
+            }
             Integer currentUserId = resolveCurrentUserId();
             Map<String, Object> res = pointageSyntheseService.validerParDaf(idPeriode, currentUserId);
             return ResponseEntity.ok(res);
@@ -246,7 +261,10 @@ public class PointageSyntheseController {
     ) {
         Map<String, Object> resp = new HashMap<>();
         try {
-            int idPeriode = ((Number) body.get("idPeriodePaie")).intValue();
+            Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
+            if (idPeriode == null || idPeriode <= 0) {
+                throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
+            }
             String motif = (String) body.get("motif");
             Integer currentUserId = resolveCurrentUserId();
             Map<String, Object> res = pointageSyntheseService.rejeterParDaf(idPeriode, motif, currentUserId);
@@ -257,6 +275,21 @@ public class PointageSyntheseController {
             resp.put("error", "Erreur lors du renvoi pour correction : " + e.getMessage());
             return ResponseEntity.badRequest().body(resp);
         }
+    }
+
+    private Integer parseInteger(Object val) {
+        if (val == null) return null;
+        if (val instanceof Number n) return n.intValue();
+        if (val instanceof String s) {
+            String trimmed = s.trim();
+            if (trimmed.isEmpty()) return null;
+            try {
+                return Integer.parseInt(trimmed);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private Integer resolveCurrentUserId() {

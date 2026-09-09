@@ -130,8 +130,14 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                     updated.heureSortieAm = '';
                     updated.deplacementMatin = false;
                     updated.deplacementAm = false;
+                    updated.indemniteDeplacementRecue = false;
                     updated.indemniteRepasRecue = false;
                     updated.typeCongeJour = codeStatut === 'CONGE' ? 'FULL_DAY' : null;
+                    const dynReset = {};
+                    Object.keys(updated.dynamicIndemnites || {}).forEach(k => {
+                        dynReset[k] = { ...updated.dynamicIndemnites[k], accordee: false, fractionJour: 0.0, matin: false, am: false, montantApplique: 0.0 };
+                    });
+                    updated.dynamicIndemnites = dynReset;
                 } else if (codeStatut === 'PRESENT') {
                     const isBlank = !updated.heureEntreeMatin && !updated.heureSortieMatin && !updated.heureEntreeAm && !updated.heureSortieAm;
                     if (isBlank && siteParams) {
@@ -141,13 +147,8 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                         updated.heureSortieAm = siteParams.heureFinAm || '17:00';
                         updated.deplacementMatin = true;
                         updated.deplacementAm = true;
+                        updated.indemniteDeplacementRecue = true;
                     }
-                    updated.typeCongeJour = null;
-                } else if (codeStatut === 'DISPENSE_POINTAGE') {
-                    updated.heureEntreeMatin = '';
-                    updated.heureSortieMatin = '';
-                    updated.heureEntreeAm = '';
-                    updated.heureSortieAm = '';
                     updated.typeCongeJour = null;
                 }
 
@@ -160,7 +161,45 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         setGrilleData((prev) =>
             prev.map((row) => {
                 if (row.idEmploye !== idEmploye) return row;
-                return { ...row, [field]: value };
+                const boolVal = Boolean(value);
+                const updated = { ...row, [field]: boolVal };
+                const existingDyn = { ...(row.dynamicIndemnites || {}) };
+                const siteInds = siteIndemnites || [];
+
+                if (field === 'deplacementMatin' || field === 'deplacementAm') {
+                    const depInd = siteInds.find(i => i.code === 'DEPLACEMENT' || i.code === 'TRANSPORT');
+                    if (depInd) {
+                        const idKey = String(depInd.idIndemnite);
+                        const curEntry = { ...(existingDyn[idKey] || {}) };
+                        const newMatin = field === 'deplacementMatin' ? boolVal : Boolean(updated.deplacementMatin);
+                        const newAm = field === 'deplacementAm' ? boolVal : Boolean(updated.deplacementAm);
+                        curEntry.matin = newMatin;
+                        curEntry.am = newAm;
+                        curEntry.accordee = newMatin || newAm;
+                        curEntry.fractionJour = (newMatin ? 0.5 : 0.0) + (newAm ? 0.5 : 0.0);
+                        const mntJour = depInd.montantJour || depInd.montantReference || 0;
+                        curEntry.montantApplique = Math.round(curEntry.fractionJour * mntJour * 100.0) / 100.0;
+                        existingDyn[idKey] = curEntry;
+                        updated.indemniteDeplacementRecue = newMatin || newAm;
+                    }
+                } else if (field === 'indemniteRepasRecue') {
+                    const repasInd = siteInds.find(i => i.code === 'REPAS');
+                    if (repasInd) {
+                        const idKey = String(repasInd.idIndemnite);
+                        const curEntry = { ...(existingDyn[idKey] || {}) };
+                        curEntry.accordee = boolVal;
+                        curEntry.fractionJour = boolVal ? 1.0 : 0.0;
+                        const mntRepas = repasInd.useGlobalIfZero && boolVal 
+                            ? (repasInd.montantGlobal || 2000) 
+                            : (repasInd.montantJour || repasInd.montantReference || 0);
+                        curEntry.montantApplique = boolVal ? mntRepas : 0.0;
+                        existingDyn[idKey] = curEntry;
+                        updated.montantRepas = boolVal ? mntRepas : 0.0;
+                    }
+                }
+
+                updated.dynamicIndemnites = existingDyn;
+                return updated;
             })
         );
     };
@@ -185,7 +224,8 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                     heureSortieAm: hFinA,
                     codeStatut: 'PRESENT',
                     deplacementMatin: true,
-                    deplacementAm: true
+                    deplacementAm: true,
+                    indemniteDeplacementRecue: true
                 };
                 return calculateRowValues(filled, siteParams);
             })
@@ -213,8 +253,14 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                     updated.heureSortieAm = '';
                     updated.deplacementMatin = false;
                     updated.deplacementAm = false;
+                    updated.indemniteDeplacementRecue = false;
                     updated.indemniteRepasRecue = false;
                     updated.typeCongeJour = codeStatut === 'CONGE' ? 'FULL_DAY' : null;
+                    const dynReset = {};
+                    Object.keys(updated.dynamicIndemnites || {}).forEach(k => {
+                        dynReset[k] = { ...updated.dynamicIndemnites[k], accordee: false, fractionJour: 0.0, matin: false, am: false, montantApplique: 0.0 };
+                    });
+                    updated.dynamicIndemnites = dynReset;
                 } else if (codeStatut === 'PRESENT') {
                     const isBlank = !updated.heureEntreeMatin && !updated.heureSortieMatin && !updated.heureEntreeAm && !updated.heureSortieAm;
                     if (isBlank && siteParams) {
@@ -224,6 +270,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                         updated.heureSortieAm = siteParams.heureFinAm || '17:00';
                         updated.deplacementMatin = true;
                         updated.deplacementAm = true;
+                        updated.indemniteDeplacementRecue = true;
                     }
                     updated.typeCongeJour = null;
                 }
@@ -235,36 +282,53 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
 
     const bulkApplyIndemnite = (empIds, field, value) => {
         if (!empIds || empIds.size === 0) return;
-        setGrilleData((prev) =>
-            prev.map((row) => {
-                if (!empIds.has(row.idEmploye)) return row;
-                return { ...row, [field]: value };
-            })
-        );
+        empIds.forEach(idEmp => {
+            updateRowIndemnite(idEmp, field, value);
+        });
     };
 
     const updateRowDynamicIndemnite = (idEmploye, idIndemnite, value, fraction) => {
         setGrilleData((prev) =>
             prev.map((row) => {
                 if (row.idEmploye !== idEmploye) return row;
-                const existingDyn = row.dynamicIndemnites || {};
-                const current = existingDyn[String(idIndemnite)] || {};
-                let updatedEntry = { ...current };
+                const existingDyn = { ...(row.dynamicIndemnites || {}) };
+                const current = { ...(existingDyn[String(idIndemnite)] || {}) };
+                const updated = { ...row };
+                const siteInds = siteIndemnites || [];
+                const indConfig = siteInds.find(i => i.idIndemnite === idIndemnite);
+                const isRep = indConfig?.code === 'REPAS';
+                const boolVal = Boolean(value);
 
                 if (fraction === 'MATIN') {
-                    updatedEntry.matin = value;
+                    current.matin = boolVal;
+                    updated.deplacementMatin = boolVal;
+                    const curAm = updated.deplacementAm !== undefined ? Boolean(updated.deplacementAm) : Boolean(current.am);
+                    current.accordee = boolVal || curAm;
+                    current.fractionJour = (boolVal ? 0.5 : 0.0) + (curAm ? 0.5 : 0.0);
+                    updated.indemniteDeplacementRecue = current.accordee;
                 } else if (fraction === 'APRES_MIDI') {
-                    updatedEntry.am = value;
+                    current.am = boolVal;
+                    updated.deplacementAm = boolVal;
+                    const curMat = updated.deplacementMatin !== undefined ? Boolean(updated.deplacementMatin) : Boolean(current.matin);
+                    current.accordee = curMat || boolVal;
+                    current.fractionJour = (curMat ? 0.5 : 0.0) + (boolVal ? 0.5 : 0.0);
+                    updated.indemniteDeplacementRecue = current.accordee;
                 } else {
-                    updatedEntry.accordee = value;
-                    updatedEntry.fractionJour = value ? 1.0 : 0.0;
+                    current.accordee = boolVal;
+                    current.fractionJour = boolVal ? 1.0 : 0.0;
+                    if (isRep) {
+                        updated.indemniteRepasRecue = boolVal;
+                        const mnt = indConfig?.useGlobalIfZero && boolVal 
+                            ? (indConfig?.montantGlobal || 2000) 
+                            : (indConfig?.montantJour || indConfig?.montantReference || 0);
+                        current.montantApplique = boolVal ? mnt : 0.0;
+                        updated.montantRepas = boolVal ? mnt : 0.0;
+                    }
                 }
 
-                const updatedDyn = {
-                    ...existingDyn,
-                    [String(idIndemnite)]: updatedEntry
-                };
-                return { ...row, dynamicIndemnites: updatedDyn };
+                existingDyn[String(idIndemnite)] = current;
+                updated.dynamicIndemnites = existingDyn;
+                return updated;
             })
         );
     };

@@ -18,7 +18,8 @@ import {
     Scale,
     CheckCircle2,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    FastForward
 } from 'lucide-react';
 import pointageEmployeService from '@/api/pointage/pointageEmployeService';
 import periodePaieService from '@/services/periodePaieService';
@@ -473,6 +474,7 @@ export default function PointageTab({ idEmploye }) {
                                         pointages.map((ptg, idx) => {
                                             const isWeekend = ptg.statut === 'REPOS';
                                             const valDplt = (ptg.deplacementMatin ? 0.5 : 0) + (ptg.deplacementAm ? 0.5 : 0);
+                                            const valRepas = ptg.nbRepas || (ptg.indemniteRepas ? 1 : 0);
                                             const isContinu = Boolean(
                                                 ptg.horaireContinuJour || 
                                                 ptg.horaireContinu || 
@@ -495,8 +497,8 @@ export default function PointageTab({ idEmploye }) {
                                                     </Td>
                                                     {isContinu ? (
                                                         <Td colSpan={2} className="text-center py-2.5 px-2 bg-amber-500/[0.04]">
-                                                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-800 dark:text-amber-200 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/25" title="Journée continue sans pause">
-                                                                ⚡ Continu
+                                                            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-800 dark:text-amber-200 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/25" title="Journée continue sans pause">
+                                                                <FastForward size={11} className="shrink-0" /> Continu
                                                             </span>
                                                         </Td>
                                                     ) : (
