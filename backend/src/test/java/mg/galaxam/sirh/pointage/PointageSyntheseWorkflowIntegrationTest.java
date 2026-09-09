@@ -116,7 +116,11 @@ public class PointageSyntheseWorkflowIntegrationTest {
         try (Connection c = dataSource.getConnection()) {
             // Lundi 24 Août : 14.5h dont 1.5h de nuit, panier = 4000 Ar
             try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT total_heures, heures_nuit, montant_repas FROM pointage_jour WHERE id_employe = 4 AND date_pointage = '2026-08-24'")) {
+                    "SELECT p.total_heures, p.heures_nuit, pij.montant_calcule AS montant_repas " +
+                    "FROM pointage_jour p " +
+                    "JOIN pointage_indemnite_jour pij ON p.id_pointage = pij.id_pointage " +
+                    "JOIN ref_indemnite ri ON pij.id_indemnite = ri.id_indemnite AND ri.code = 'REPAS' " +
+                    "WHERE p.id_employe = 4 AND p.date_pointage = '2026-08-24'")) {
                 ResultSet rs = ps.executeQuery();
                 assertTrue(rs.next());
                 assertEquals(14.5, rs.getDouble("total_heures"), 0.01);
@@ -126,7 +130,11 @@ public class PointageSyntheseWorkflowIntegrationTest {
 
             // Mardi 25 Août : 14h dont 1h de nuit, panier = 4000 Ar
             try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT total_heures, heures_nuit, montant_repas FROM pointage_jour WHERE id_employe = 4 AND date_pointage = '2026-08-25'")) {
+                    "SELECT p.total_heures, p.heures_nuit, pij.montant_calcule AS montant_repas " +
+                    "FROM pointage_jour p " +
+                    "JOIN pointage_indemnite_jour pij ON p.id_pointage = pij.id_pointage " +
+                    "JOIN ref_indemnite ri ON pij.id_indemnite = ri.id_indemnite AND ri.code = 'REPAS' " +
+                    "WHERE p.id_employe = 4 AND p.date_pointage = '2026-08-25'")) {
                 ResultSet rs = ps.executeQuery();
                 assertTrue(rs.next());
                 assertEquals(14.0, rs.getDouble("total_heures"), 0.01);
@@ -439,14 +447,14 @@ public class PointageSyntheseWorkflowIntegrationTest {
 
                 // Restauration de l'état initial
                 try (PreparedStatement ps = c.prepareStatement(
-                        "UPDATE pointage_jour SET deplacement_matin = true, deplacement_am = true, " +
-                        "indemnite_deplacement_recue = true, indemnite_repas_recue = true WHERE id_pointage = ?")) {
+                        "UPDATE pointage_indemnite_jour SET accorde = true, quantite = 1.0 WHERE id_pointage = ?")) {
                     ps.setInt(1, idPtg);
                     ps.executeUpdate();
                 }
                 try (PreparedStatement ps = c.prepareStatement(
-                        "UPDATE pointage_indemnite_jour SET accorde = true, quantite = 1.0 WHERE id_pointage = ?")) {
+                        "UPDATE pointage_jour SET montant_total_indemnites = COALESCE((SELECT SUM(montant_calcule) FROM pointage_indemnite_jour WHERE id_pointage = ? AND accorde = true), 0) WHERE id_pointage = ?")) {
                     ps.setInt(1, idPtg);
+                    ps.setInt(2, idPtg);
                     ps.executeUpdate();
                 }
             }

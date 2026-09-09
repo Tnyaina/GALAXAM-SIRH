@@ -305,10 +305,9 @@ public class PointageSyntheseService {
         // Charger tous les pointages quotidiens de cet employé sur [dateDebut, dateFin]
         // en priorisant les indemnités dynamiques depuis pointage_indemnite_jour
         String sqlPtg = "SELECT p.id_pointage, p.date_pointage, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
-                        "p.deplacement_matin, p.deplacement_am, p.indemnite_deplacement_recue, " +
-                        "p.indemnite_repas_recue, p.montant_repas, p.horaire_continu_jour, st.code AS statut_code, " +
+                        "p.horaire_continu_jour, st.code AS statut_code, " +
                         "pij_repas.accorde AS dyn_repas_accorde, pij_repas.montant_calcule AS dyn_repas_montant, " +
-                        "pij_dep.accorde AS dyn_dep_accorde, pij_dep.quantite AS dyn_dep_quantite " +
+                        "pij_dep.accorde AS dyn_dep_accorde, pij_dep.quantite AS dyn_dep_quantite, pij_dep.fraction AS dyn_dep_fraction " +
                         "FROM pointage_jour p " +
                         "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
                         "LEFT JOIN pointage_indemnite_jour pij_repas ON p.id_pointage = pij_repas.id_pointage " +
@@ -362,9 +361,6 @@ public class PointageSyntheseService {
 
                     double hn = rsPtg.getDouble("heures_nuit");
                     int ret = rsPtg.getInt("minutes_retard");
-                    boolean depM = rsPtg.getBoolean("deplacement_matin");
-                    boolean depA = rsPtg.getBoolean("deplacement_am");
-                    boolean repas = rsPtg.getBoolean("indemnite_repas_recue");
                     Time saTime = rsPtg.getTime("heure_sortie_am");
                     LocalTime sa = saTime != null ? saTime.toLocalTime() : null;
 
@@ -392,21 +388,14 @@ public class PointageSyntheseService {
                     cumulHeuresNuit += hn;
                     totalMinsRetard += (estAutonome ? 0 : ret);
 
-                    // Saisie quotidienne est la vérité finale :
-                    // Priorité à pointage_indemnite_jour, avec fallback sur les colonnes historiques
+                    // Saisie quotidienne est la vérité finale depuis pointage_indemnite_jour
                     Object dynRepasObj = rsPtg.getObject("dyn_repas_accorde");
-                    boolean repasEffectif = (dynRepasObj != null) ? rsPtg.getBoolean("dyn_repas_accorde") : repas;
+                    boolean repasEffectif = (dynRepasObj != null) && rsPtg.getBoolean("dyn_repas_accorde");
 
                     boolean estPresentAutonome = estAutonome && !isWeekend && !isAbsenceOuConge && !"REPOS".equals(stCode);
                     boolean estTravailleOuPresent = ("PRESENT".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode) 
                             || "DIMANCHE_TRAVAILLE".equals(stCode) || "FERIE_TRAVAILLE".equals(stCode)
                             || estPresentAutonome || th > 0.0);
-
-                    // Un collaborateur absent, en congé, en férié chômé ou en repos ne se déplace pas au travail
-                    if (!estTravailleOuPresent) {
-                        depM = false;
-                        depA = false;
-                    }
 
                     boolean aPrisRepasCeJour = estTravailleOuPresent && (repasEffectif || estPresentAutonome);
                     if (aPrisRepasCeJour) {
@@ -417,18 +406,15 @@ public class PointageSyntheseService {
                         );
                     }
 
-                    // Détermination du déplacement : priorité à pointage_indemnite_jour, avec fallback sur les colonnes historiques
+                    // Détermination du déplacement : source de vérité pointage_indemnite_jour
                     double fractionJour = 0.0;
                     Object dynDepQteObj = rsPtg.getObject("dyn_dep_quantite");
                     if (dynDepQteObj != null) {
                         if (estTravailleOuPresent && (rsPtg.getBoolean("dyn_dep_accorde") || estPresentAutonome)) {
                             fractionJour = rsPtg.getDouble("dyn_dep_quantite");
                         }
-                    } else {
-                        if (estTravailleOuPresent) {
-                            if (depM || estPresentAutonome) fractionJour += 0.5;
-                            if (depA || estPresentAutonome) fractionJour += 0.5;
-                        }
+                    } else if (estTravailleOuPresent && estPresentAutonome) {
+                        fractionJour = 1.0;
                     }
                     totalTrajets += fractionJour;
 

@@ -80,12 +80,17 @@ public class PointageAnomalieService {
                 "p.id_site, s.libelle AS site_nom, p.date_pointage, " +
                 "p.heure_entree_matin, p.heure_sortie_matin, p.heure_entree_am, p.heure_sortie_am, " +
                 "p.total_heures, p.minutes_retard, st.code AS statut_code, st.libelle AS statut_libelle, " +
-                "p.motif_ajustement, p.deplacement_matin, p.deplacement_am, p.indemnite_repas_recue, " +
+                "p.motif_ajustement, p.montant_total_indemnites, " +
+                "pij_repas.accorde AS repas_accorde, pij_dep.accorde AS dep_accorde, pij_dep.quantite AS dep_quantite, pij_dep.fraction AS dep_fraction, " +
                 "ltr_conge.libelle_conge AS demande_en_attente_libelle " +
                 "FROM pointage_jour p " +
                 "JOIN employe e ON p.id_employe = e.id_employe " +
                 "LEFT JOIN ref_site s ON p.id_site = s.id_site " +
                 "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
+                "LEFT JOIN pointage_indemnite_jour pij_repas ON p.id_pointage = pij_repas.id_pointage " +
+                "    AND pij_repas.id_indemnite = (SELECT id_indemnite FROM ref_indemnite WHERE code = 'REPAS' LIMIT 1) " +
+                "LEFT JOIN pointage_indemnite_jour pij_dep ON p.id_pointage = pij_dep.id_pointage " +
+                "    AND pij_dep.id_indemnite IN (SELECT id_indemnite FROM ref_indemnite WHERE code IN ('DEPLACEMENT', 'TRANSPORT') LIMIT 1) " +
                 "LEFT JOIN LATERAL (" +
                 "   SELECT tc.libelle AS libelle_conge FROM demande_conge dc " +
                 "   JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
@@ -154,9 +159,26 @@ public class PointageAnomalieService {
                         dto.setStatutCode(rs.getString("statut_code"));
                         dto.setStatutLibelle(rs.getString("statut_libelle"));
                         dto.setMotifAjustement(rs.getString("motif_ajustement"));
-                        dto.setDeplacementMatin(rs.getBoolean("deplacement_matin"));
-                        dto.setDeplacementAm(rs.getBoolean("deplacement_am"));
-                        dto.setIndemniteRepasRecue(rs.getBoolean("indemnite_repas_recue"));
+
+                        boolean depAccorde = Boolean.TRUE.equals(rs.getObject("dep_accorde"));
+                        double depQte = rs.getDouble("dep_quantite");
+                        String depFrac = rs.getString("dep_fraction");
+                        if (depAccorde) {
+                            if ("MATIN".equalsIgnoreCase(depFrac)) {
+                                dto.setDeplacementMatin(true);
+                                dto.setDeplacementAm(false);
+                            } else if ("APRES_MIDI".equalsIgnoreCase(depFrac)) {
+                                dto.setDeplacementMatin(false);
+                                dto.setDeplacementAm(true);
+                            } else {
+                                dto.setDeplacementMatin(depQte > 0);
+                                dto.setDeplacementAm(depQte >= 1.0);
+                            }
+                        } else {
+                            dto.setDeplacementMatin(false);
+                            dto.setDeplacementAm(false);
+                        }
+                        dto.setIndemniteRepasRecue(Boolean.TRUE.equals(rs.getObject("repas_accorde")));
                         dto.setDemandeEnAttenteLibelle(rs.getString("demande_en_attente_libelle"));
 
                         String stCode = dto.getStatutCode();
@@ -386,17 +408,17 @@ public class PointageAnomalieService {
             double fractionDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
             double mntDepJour = Math.round(fractionDep * (31200.0 / 22.0) * 100.0) / 100.0;
             double mntRepasJour = repas ? 2000.0 : 0.0;
+            double mntTotalInd = (repas ? mntRepasJour : 0.0) + ((depM || depA) ? mntDepJour : 0.0);
 
             if (idPointage <= 0) {
                 String sqlInsert = "INSERT INTO pointage_jour (" +
                     "id_employe, id_periode_paie, id_site, date_pointage, " +
                     "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
                     "heures_matin, heures_am, total_heures, minutes_retard, heures_nuit, " +
-                    "motif_ajustement, id_statut_jour, deplacement_matin, deplacement_am, " +
-                    "indemnite_deplacement_recue, indemnite_repas_recue, montant_repas, montant_deplacement_jour, version, created_at, updated_at " +
+                    "motif_ajustement, id_statut_jour, montant_total_indemnites, version, created_at, updated_at " +
                     ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
                     "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                    "?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id_pointage";
+                    "?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id_pointage";
                 try (PreparedStatement psIns = c.prepareStatement(sqlInsert)) {
                     psIns.setInt(1, idEmp);
                     psIns.setObject(2, idPer);
@@ -413,12 +435,7 @@ public class PointageAnomalieService {
                     psIns.setDouble(13, hNuit);
                     psIns.setString(14, motif);
                     psIns.setString(15, codeStatut);
-                    psIns.setBoolean(16, depM);
-                    psIns.setBoolean(17, depA);
-                    psIns.setBoolean(18, depM || depA);
-                    psIns.setBoolean(19, repas);
-                    psIns.setDouble(20, mntRepasJour);
-                    psIns.setDouble(21, mntDepJour);
+                    psIns.setDouble(16, mntTotalInd);
                     try (ResultSet rsIns = psIns.executeQuery()) {
                         if (rsIns.next()) {
                             int newId = rsIns.getInt(1);
@@ -451,8 +468,7 @@ public class PointageAnomalieService {
                              "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, " +
                              "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
                              "motif_ajustement = ?, id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                             "deplacement_matin = ?, deplacement_am = ?, indemnite_deplacement_recue = ?, indemnite_repas_recue = ?, " +
-                             "montant_repas = ?, montant_deplacement_jour = ?, " +
+                             "montant_total_indemnites = ?, " +
                              "version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id_pointage = ? AND version = ?";
 
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -467,14 +483,9 @@ public class PointageAnomalieService {
                     ps.setDouble(9, hNuit);
                     ps.setString(10, motif);
                     ps.setString(11, codeStatut);
-                    ps.setBoolean(12, depM);
-                    ps.setBoolean(13, depA);
-                    ps.setBoolean(14, depM || depA);
-                    ps.setBoolean(15, repas);
-                    ps.setDouble(16, mntRepasJour);
-                    ps.setDouble(17, mntDepJour);
-                    ps.setInt(18, idPointage);
-                    ps.setInt(19, providedVer);
+                    ps.setDouble(12, mntTotalInd);
+                    ps.setInt(13, idPointage);
+                    ps.setInt(14, providedVer);
                     int rows = ps.executeUpdate();
                     if (rows == 0) {
                         throw new IllegalStateException("Conflit de modification concurrente sur le pointage ID " + idPointage + ". La ligne a été modifiée par un tiers.");
@@ -512,6 +523,14 @@ public class PointageAnomalieService {
             psDyn.setDouble(4, mntDepJour);
             psDyn.setBoolean(5, depM || depA);
             psDyn.executeUpdate();
+
+            // Mise à jour du montant_total_indemnites dénormalisé
+            try (PreparedStatement psUp = c.prepareStatement(
+                    "UPDATE pointage_jour SET montant_total_indemnites = COALESCE((SELECT SUM(montant_calcule) FROM pointage_indemnite_jour WHERE id_pointage = ? AND accorde = true), 0) WHERE id_pointage = ?")) {
+                psUp.setInt(1, idPointage);
+                psUp.setInt(2, idPointage);
+                psUp.executeUpdate();
+            }
         } catch (Exception ignored) {
         }
     }

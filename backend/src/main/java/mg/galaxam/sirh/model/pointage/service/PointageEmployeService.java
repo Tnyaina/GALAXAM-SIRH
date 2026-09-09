@@ -256,10 +256,15 @@ public class PointageEmployeService {
 
         String sqlPointage = "SELECT p.id_pointage, p.date_pointage, p.heure_entree_matin, p.heure_sortie_matin, " +
                 "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
-                "p.deplacement_matin, p.deplacement_am, p.indemnite_deplacement_recue, " +
-                "p.indemnite_repas_recue, p.montant_repas, s.code AS code_statut " +
+                "p.montant_total_indemnites, s.code AS code_statut, " +
+                "pij_repas.accorde AS repas_accorde, pij_repas.montant_calcule AS repas_montant, " +
+                "pij_dep.accorde AS dep_accorde, pij_dep.quantite AS dep_quantite, pij_dep.fraction AS dep_fraction " +
                 "FROM pointage_jour p " +
                 "JOIN ref_statut_pointage_jour s ON p.id_statut_jour = s.id_statut_jour " +
+                "LEFT JOIN pointage_indemnite_jour pij_repas ON p.id_pointage = pij_repas.id_pointage " +
+                "    AND pij_repas.id_indemnite = (SELECT id_indemnite FROM ref_indemnite WHERE code = 'REPAS' LIMIT 1) " +
+                "LEFT JOIN pointage_indemnite_jour pij_dep ON p.id_pointage = pij_dep.id_pointage " +
+                "    AND pij_dep.id_indemnite IN (SELECT id_indemnite FROM ref_indemnite WHERE code IN ('DEPLACEMENT', 'TRANSPORT') LIMIT 1) " +
                 "WHERE p.id_employe = ? AND p.date_pointage BETWEEN ? AND ?";
 
         try (Connection c = dataSource.getConnection();
@@ -280,11 +285,29 @@ public class PointageEmployeService {
                     r.totalHeures = rs.getDouble("total_heures");
                     r.heuresNuit = rs.getDouble("heures_nuit");
                     r.minutesRetard = rs.getInt("minutes_retard");
-                    r.deplacementMatin = rs.getBoolean("deplacement_matin");
-                    r.deplacementAm = rs.getBoolean("deplacement_am");
-                    r.indemniteDeplacementRecue = rs.getBoolean("indemnite_deplacement_recue");
-                    r.indemniteRepasRecue = rs.getBoolean("indemnite_repas_recue");
-                    r.montantRepas = rs.getDouble("montant_repas");
+
+                    boolean depAccorde = Boolean.TRUE.equals(rs.getObject("dep_accorde"));
+                    r.indemniteDeplacementRecue = depAccorde;
+                    double depQte = rs.getDouble("dep_quantite");
+                    String depFrac = rs.getString("dep_fraction");
+                    if (depAccorde) {
+                        if ("MATIN".equalsIgnoreCase(depFrac)) {
+                            r.deplacementMatin = true;
+                            r.deplacementAm = false;
+                        } else if ("APRES_MIDI".equalsIgnoreCase(depFrac)) {
+                            r.deplacementMatin = false;
+                            r.deplacementAm = true;
+                        } else {
+                            r.deplacementMatin = depQte > 0;
+                            r.deplacementAm = depQte >= 1.0;
+                        }
+                    } else {
+                        r.deplacementMatin = false;
+                        r.deplacementAm = false;
+                    }
+
+                    r.indemniteRepasRecue = Boolean.TRUE.equals(rs.getObject("repas_accorde"));
+                    r.montantRepas = rs.getDouble("repas_montant");
                     r.codeStatut = rs.getString("code_statut");
                     pointageMap.put(r.datePointage, r);
                 }

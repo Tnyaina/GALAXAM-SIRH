@@ -693,8 +693,7 @@ public class PointageSaisieService {
                         String sqlPtg = "SELECT p.id_pointage, COALESCE(p.version, 1) AS version, p.heure_entree_matin, p.heure_sortie_matin, " +
                                         "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.minutes_retard, " +
                                         "p.heures_nuit, p.motif_ajustement, st.code AS statut_code, st.libelle AS statut_libelle, " +
-                                        "p.deplacement_matin, p.deplacement_am, p.indemnite_deplacement_recue, p.indemnite_repas_recue, " +
-                                        "p.montant_deplacement_jour, p.montant_repas " +
+                                        "p.montant_total_indemnites " +
                                         "FROM pointage_jour p " +
                                         "LEFT JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
                                         "WHERE p.id_employe = ? AND p.date_pointage = ?";
@@ -724,21 +723,56 @@ public class PointageSaisieService {
                                     dto.setCodeStatut(rsPtg.getString("statut_code"));
                                     dto.setLibelleStatut(rsPtg.getString("statut_libelle"));
 
-                                    boolean depM = rsPtg.getBoolean("deplacement_matin");
-                                    boolean depA = rsPtg.getBoolean("deplacement_am");
-                                    boolean depRecueDb = rsPtg.getBoolean("indemnite_deplacement_recue");
-                                    boolean depRecue = depRecueDb || depM || depA;
+                                    boolean depM = false;
+                                    boolean depA = false;
+                                    boolean depRecue = false;
+                                    double mntDepDb = 0.0;
+                                    boolean repasRecue = false;
+                                    double mntRepasDb = 0.0;
+
+                                    try (PreparedStatement psInd = c.prepareStatement(
+                                            "SELECT ri.code, pij.fraction, pij.quantite, pij.montant_calcule, pij.accorde " +
+                                            "FROM pointage_indemnite_jour pij " +
+                                            "JOIN ref_indemnite ri ON pij.id_indemnite = ri.id_indemnite " +
+                                            "WHERE pij.id_pointage = ?")) {
+                                        psInd.setInt(1, rsPtg.getInt("id_pointage"));
+                                        try (ResultSet rsInd = psInd.executeQuery()) {
+                                            while (rsInd.next()) {
+                                                String codeInd = rsInd.getString("code");
+                                                boolean accorde = rsInd.getBoolean("accorde");
+                                                double mntCalc = rsInd.getDouble("montant_calcule");
+                                                String fraction = rsInd.getString("fraction");
+                                                double qte = rsInd.getDouble("quantite");
+
+                                                if ("REPAS".equalsIgnoreCase(codeInd)) {
+                                                    repasRecue = accorde;
+                                                    mntRepasDb = mntCalc;
+                                                } else if ("DEPLACEMENT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd)) {
+                                                    depRecue = accorde;
+                                                    mntDepDb = mntCalc;
+                                                    if (accorde) {
+                                                        if ("MATIN".equalsIgnoreCase(fraction)) {
+                                                            depM = true;
+                                                        } else if ("APRES_MIDI".equalsIgnoreCase(fraction)) {
+                                                            depA = true;
+                                                        } else {
+                                                            depM = qte > 0;
+                                                            depA = qte >= 1.0;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
                                     dto.setDeplacementMatin(depM);
                                     dto.setDeplacementAm(depA);
                                     dto.setIndemniteDeplacementRecue(depRecue);
 
                                     double fractionDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
-                                    double mntDepDb = rsPtg.getDouble("montant_deplacement_jour");
                                     dto.setMontantDeplacement(mntDepDb > 0 ? mntDepDb : (depRecue ? Math.round(fractionDep * montantDeplacementJour * 100.0) / 100.0 : 0.0));
 
-                                    boolean repasRecue = rsPtg.getBoolean("indemnite_repas_recue");
                                     dto.setIndemniteRepasRecue(repasRecue);
-                                    double mntRepasDb = rsPtg.getDouble("montant_repas");
                                     dto.setMontantRepas(repasRecue ? (mntRepasDb > 0 ? mntRepasDb : (siteRepasInclusParDefaut ? montantRepasSite : mntRepasMidiGlobal)) : 0.0);
                                 }
                             }
@@ -1144,19 +1178,17 @@ public class PointageSaisieService {
                 "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, " +
                 "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
                 "motif_ajustement = ?, id_statut_jour = COALESCE((SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT')), " +
-                "deplacement_matin = ?, deplacement_am = ?, indemnite_deplacement_recue = ?, indemnite_repas_recue = ?, " +
-                "montant_repas = ?, montant_deplacement_jour = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP " +
+                "montant_total_indemnites = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_pointage = ? AND version = ? RETURNING id_pointage, version";
 
         String sqlInsert = "INSERT INTO pointage_jour (" +
                 "id_employe, date_pointage, id_periode_paie, id_site, " +
                 "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
                 "heures_matin, heures_am, total_heures, minutes_retard, heures_nuit, " +
-                "motif_ajustement, id_statut_jour, deplacement_matin, deplacement_am, " +
-                "indemnite_deplacement_recue, indemnite_repas_recue, montant_repas, montant_deplacement_jour, version, updated_at" +
+                "motif_ajustement, id_statut_jour, montant_total_indemnites, version, updated_at" +
                 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
                 "COALESCE((SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT')), " +
-                "?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP) RETURNING id_pointage, version";
+                "?, 1, CURRENT_TIMESTAMP) RETURNING id_pointage, version";
 
         String sqlDynInd = "INSERT INTO pointage_indemnite_jour (" +
                 "id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde, updated_at" +
@@ -1395,6 +1427,7 @@ public class PointageSaisieService {
                                 + " (version attendue: " + currentDbVersion + ", version fournie: " + dto.getVersion() + "). Veuillez recharger la grille.");
                     }
 
+                    double mntTotalInd = (dto.isIndemniteRepasRecue() ? mntRepasJour : 0.0) + (depRecue ? mntDepJour : 0.0);
                     psUp.setTime(1, em);
                     psUp.setTime(2, sm);
                     psUp.setTime(3, ea);
@@ -1406,14 +1439,9 @@ public class PointageSaisieService {
                     psUp.setDouble(9, hNuit);
                     psUp.setString(10, dto.getMotifAjustement());
                     psUp.setString(11, codeStatut);
-                    psUp.setBoolean(12, depM);
-                    psUp.setBoolean(13, depA);
-                    psUp.setBoolean(14, depRecue);
-                    psUp.setBoolean(15, dto.isIndemniteRepasRecue());
-                    psUp.setDouble(16, mntRepasJour);
-                    psUp.setDouble(17, mntDepJour);
-                    psUp.setInt(18, existingIdPointage);
-                    psUp.setInt(19, dto.getVersion());
+                    psUp.setDouble(12, mntTotalInd);
+                    psUp.setInt(13, existingIdPointage);
+                    psUp.setInt(14, dto.getVersion());
 
                     try (ResultSet rsUp = psUp.executeQuery()) {
                         if (rsUp.next()) {
@@ -1432,6 +1460,7 @@ public class PointageSaisieService {
                         continue;
                     }
 
+                    double mntTotalInd = (dto.isIndemniteRepasRecue() ? mntRepasJour : 0.0) + (depRecue ? mntDepJour : 0.0);
                     psIns.setInt(1, dto.getIdEmploye());
                     psIns.setDate(2, Date.valueOf(dto.getDatePointage()));
                     psIns.setObject(3, idPer);
@@ -1447,12 +1476,7 @@ public class PointageSaisieService {
                     psIns.setDouble(13, hNuit);
                     psIns.setString(14, dto.getMotifAjustement());
                     psIns.setString(15, codeStatut);
-                    psIns.setBoolean(16, depM);
-                    psIns.setBoolean(17, depA);
-                    psIns.setBoolean(18, depRecue);
-                    psIns.setBoolean(19, dto.isIndemniteRepasRecue());
-                    psIns.setDouble(20, mntRepasJour);
-                    psIns.setDouble(21, mntDepJour);
+                    psIns.setDouble(16, mntTotalInd);
 
                     try (ResultSet rsIns = psIns.executeQuery()) {
                         if (rsIns.next()) {
@@ -1507,6 +1531,14 @@ public class PointageSaisieService {
                             psDyn.executeUpdate();
                         }
                     }
+                }
+
+                // Recalcul du montant_total_indemnites dénormalisé depuis pointage_indemnite_jour
+                try (PreparedStatement psUpdateTotal = c.prepareStatement(
+                        "UPDATE pointage_jour SET montant_total_indemnites = COALESCE((SELECT SUM(montant_calcule) FROM pointage_indemnite_jour WHERE id_pointage = ? AND accorde = true), 0) WHERE id_pointage = ?")) {
+                    psUpdateTotal.setInt(1, idPtg);
+                    psUpdateTotal.setInt(2, idPtg);
+                    psUpdateTotal.executeUpdate();
                 }
             }
         }

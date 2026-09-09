@@ -143,14 +143,6 @@ export default function Login() {
                                 required
                             />
 
-                            <div className="flex items-center justify-end -mt-1">
-                                <a
-                                    href="/mot-de-passe-oublie"
-                                    className="text-xs font-semibold text-[var(--color-brand-500)] hover:text-[var(--color-brand-hover)] hover:underline focus:outline-none"
-                                >
-                                    Mot de passe oublié ?
-                                </a>
-                            </div>
 
                             <Button
                                 type="submit"

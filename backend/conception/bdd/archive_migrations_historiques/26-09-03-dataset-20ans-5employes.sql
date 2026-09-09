@@ -8,6 +8,8 @@ INSERT INTO periode_paie (id_periode_paie, id_statut_periode, code, libelle, dat
 VALUES (1, 2, '2026-08', 'Août 2026', '2026-08-01', '2026-08-31')
 ON CONFLICT (id_periode_paie) DO UPDATE 
 SET id_statut_periode = 2, code = '2026-08', libelle = 'Août 2026', date_debut = '2026-08-01', date_fin = '2026-08-31';
+SELECT setval('periode_paie_id_periode_paie_seq', (SELECT GREATEST(MAX(id_periode_paie), 1) FROM periode_paie));
+
 
 -- 2. JOUR FÉRIÉ LÉGAL : 15 AOÛT (ASSOMPTION)
 INSERT INTO ref_calendrier_ferie (id_ferie, date_ferie, libelle, est_chome, est_national)
@@ -237,7 +239,7 @@ ON CONFLICT (id_employe, date_pointage) DO NOTHING;
 -- Lundi 17 Août : Retard 10 min (arrivée 08:10 -> 10 minutes retard).
 -- Vendredi 21 Août : Compensation retard (départ 17:30 -> total 8.5h).
 -- Tous les midis ouvrés : Repas pris sur site -> Déduction Tamatave active.
-INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, minutes_retard, indemnite_deplacement_recue, indemnite_repas_recue, montant_repas, version)
+INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, minutes_retard, montant_total_indemnites, version)
 SELECT 
     2, 1, 2, d::date, 1,
     CASE 
@@ -255,7 +257,7 @@ SELECT
     CASE WHEN d::date = '2026-08-12' THEN 7.00 WHEN d::date = '2026-08-21' THEN 4.50 ELSE 4.00 END,
     CASE WHEN d::date = '2026-08-12' THEN 11.00 WHEN d::date = '2026-08-17' THEN 7.83 WHEN d::date = '2026-08-21' THEN 8.50 ELSE 8.00 END,
     CASE WHEN d::date = '2026-08-17' THEN 10 ELSE 0 END,
-    true, true, 2000.00, 1
+    2000.00, 1
 FROM generate_series('2026-08-01'::date, '2026-08-31'::date, '1 day'::interval) d
 WHERE EXTRACT(DOW FROM d) BETWEEN 1 AND 5 AND d::date != '2026-08-15'
 ON CONFLICT (id_employe, date_pointage) DO NOTHING;
@@ -268,24 +270,24 @@ FROM generate_series('2026-08-03'::date, '2026-08-07'::date, '1 day'::interval) 
 ON CONFLICT (id_employe, date_pointage) DO NOTHING;
 
 -- Reste du mois (du 10 au 31 Août) : Présente normalement
-INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, indemnite_deplacement_recue, indemnite_repas_recue, montant_repas, version)
+INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, montant_total_indemnites, version)
 SELECT 
     3, 1, 1, d::date, 1,
     '08:00:00'::time, '12:00:00'::time, '13:00:00'::time, '17:00:00'::time,
     4.00, 4.00, 8.00,
-    true, true, 2000.00, 1
+    2000.00, 1
 FROM generate_series('2026-08-10'::date, '2026-08-31'::date, '1 day'::interval) d
 WHERE EXTRACT(DOW FROM d) BETWEEN 1 AND 5 AND d::date != '2026-08-15'
 ON CONFLICT (id_employe, date_pointage) DO NOTHING;
 
 -- D. EMPLOYE 4 (Chauffeur / Transit TMM, Site 2 TMM) : Travail intensif et nuit en Semaine 35
 -- Semaines normales (01-21 Août & 31 Août) : 08:00-12:00, 13:00-17:00
-INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, indemnite_deplacement_recue, indemnite_repas_recue, montant_repas, version)
+INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, montant_total_indemnites, version)
 SELECT 
     4, 1, 2, d::date, 1,
     '08:00:00'::time, '12:00:00'::time, '13:00:00'::time, '17:00:00'::time,
     4.00, 4.00, 8.00,
-    true, true, 2000.00, 1
+    2000.00, 1
 FROM generate_series('2026-08-01'::date, '2026-08-31'::date, '1 day'::interval) d
 WHERE EXTRACT(DOW FROM d) BETWEEN 1 AND 5 
   AND d::date NOT BETWEEN '2026-08-24' AND '2026-08-28'
@@ -294,31 +296,31 @@ ON CONFLICT (id_employe, date_pointage) DO NOTHING;
 
 -- Semaine 35 (du 24 au 28 Août) : Déchargements portuaires nocturnes
 -- Lundi 24 : 08:00-12:00 (4h) & 13:00-23:30 (10.5h) -> total 14.5h, dont 1.5h de nuit (>22h), 2 paniers repas
-INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, heures_nuit, indemnite_deplacement_recue, indemnite_repas_recue, montant_repas, version)
-VALUES (4, 1, 2, '2026-08-24', 1, '08:00:00', '12:00:00', '13:00:00', '23:30:00', 4.00, 10.50, 14.50, 1.50, true, true, 4000.00, 1)
+INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, heures_nuit, montant_total_indemnites, version)
+VALUES (4, 1, 2, '2026-08-24', 1, '08:00:00', '12:00:00', '13:00:00', '23:30:00', 4.00, 10.50, 14.50, 1.50, 4000.00, 1)
 ON CONFLICT (id_employe, date_pointage) DO NOTHING;
 
 -- Mardi 25 : 08:00-12:00 (4h) & 13:00-23:00 (10h) -> total 14h, dont 1h de nuit (>22h), 2 paniers repas
-INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, heures_nuit, indemnite_deplacement_recue, indemnite_repas_recue, montant_repas, version)
-VALUES (4, 1, 2, '2026-08-25', 1, '08:00:00', '12:00:00', '13:00:00', '23:00:00', 4.00, 10.00, 14.00, 1.00, true, true, 4000.00, 1)
+INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, heures_nuit, montant_total_indemnites, version)
+VALUES (4, 1, 2, '2026-08-25', 1, '08:00:00', '12:00:00', '13:00:00', '23:00:00', 4.00, 10.00, 14.00, 1.00, 4000.00, 1)
 ON CONFLICT (id_employe, date_pointage) DO NOTHING;
 
 -- Mercredi 26 & Jeudi 27 : 08:00-12:00 & 13:00-18:00 (9h/jour)
-INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, indemnite_deplacement_recue, indemnite_repas_recue, montant_repas, version)
+INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, montant_total_indemnites, version)
 VALUES 
-(4, 1, 2, '2026-08-26', 1, '08:00:00', '12:00:00', '13:00:00', '18:00:00', 4.00, 5.00, 9.00, true, true, 2000.00, 1),
-(4, 1, 2, '2026-08-27', 1, '08:00:00', '12:00:00', '13:00:00', '18:00:00', 4.00, 5.00, 9.00, true, true, 2000.00, 1),
+(4, 1, 2, '2026-08-26', 1, '08:00:00', '12:00:00', '13:00:00', '18:00:00', 4.00, 5.00, 9.00, 2000.00, 1),
+(4, 1, 2, '2026-08-27', 1, '08:00:00', '12:00:00', '13:00:00', '18:00:00', 4.00, 5.00, 9.00, 2000.00, 1),
 -- Vendredi 28 : 08:00-12:00 & 13:00-17:00 (8h)
-(4, 1, 2, '2026-08-28', 1, '08:00:00', '12:00:00', '13:00:00', '17:00:00', 4.00, 4.00, 8.00, true, true, 2000.00, 1)
+(4, 1, 2, '2026-08-28', 1, '08:00:00', '12:00:00', '13:00:00', '17:00:00', 4.00, 4.00, 8.00, 2000.00, 1)
 ON CONFLICT (id_employe, date_pointage) DO NOTHING;
 
 -- E. EMPLOYE 5 (Aide-Comptable VA, Site 1 TNR) : Présent uniquement à partir du 17 Août
-INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, indemnite_deplacement_recue, indemnite_repas_recue, montant_repas, version)
+INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, heures_matin, heures_am, total_heures, montant_total_indemnites, version)
 SELECT 
     5, 1, 1, d::date, 1,
     '08:00:00'::time, '12:00:00'::time, '13:00:00'::time, '17:00:00'::time,
     4.00, 4.00, 8.00,
-    true, true, 2000.00, 1
+    2000.00, 1
 FROM generate_series('2026-08-17'::date, '2026-08-31'::date, '1 day'::interval) d
 WHERE EXTRACT(DOW FROM d) BETWEEN 1 AND 5
 ON CONFLICT (id_employe, date_pointage) DO NOTHING;
@@ -330,3 +332,14 @@ VALUES
 (3, 1, 1, '2026-08-15', 7, 1),
 (4, 1, 2, '2026-08-15', 7, 1)
 ON CONFLICT (id_employe, date_pointage) DO NOTHING;
+
+-- G. ALIMENTATION DES INDEMNITÉS JOURNALIÈRES DANS LA TABLE DÉDIÉE (pointage_indemnite_jour)
+INSERT INTO pointage_indemnite_jour (id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde)
+SELECT p.id_pointage, 2, 'JOUR_ENTIER', CASE WHEN p.montant_total_indemnites >= 4000.00 THEN 2.0 ELSE 1.0 END, p.montant_total_indemnites, true
+FROM pointage_jour p
+WHERE p.montant_total_indemnites > 0
+ON CONFLICT DO NOTHING;
+
+SELECT setval('pointage_jour_id_pointage_seq', (SELECT GREATEST(MAX(id_pointage), 1) FROM pointage_jour));
+SELECT setval('pointage_indemnite_jour_id_pointage_indemnite_seq', (SELECT GREATEST(MAX(id_pointage_indemnite), 1) FROM pointage_indemnite_jour));
+

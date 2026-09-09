@@ -63,7 +63,7 @@ public class Utilisateur extends ClassMere {
             throw new IllegalArgumentException("L'identifiant doit contenir entre 3 et 50 caractères.");
         }
 
-        if (!identifiant.matches("^[A-Za-z0-9._-]+$")) {
+        if (!identifiant.matches("^[A-Za-z0-9._@-]+$")) {
             throw new IllegalArgumentException("L'identifiant contient des caractères invalides.");
         }
 
