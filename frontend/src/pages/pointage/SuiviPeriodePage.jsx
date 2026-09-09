@@ -9,7 +9,9 @@ import {
     BarChart2,
     Info,
     Lock,
-    Layers
+    Layers,
+    Calendar,
+    Building2
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -25,7 +27,7 @@ import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 /**
  * SuiviPeriodePage — Vue agent de suivi de période & transmission DAF.
  * Remplace l'ancien onglet "Vue Globale" (vue-globale) supprimé.
- * La DAF n'a aucune action ici — tout est dans /paie?tab=validation.
+ * Les actions d'arbitrage et clôture DAF sont dans l'onglet Arbitrage DAF (/pointage?tab=validation).
  */
 export default function SuiviPeriodePage({ activePeriode, onTabChange }) {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -185,37 +187,55 @@ export default function SuiviPeriodePage({ activePeriode, onTabChange }) {
                 description="Suivi du cycle de saisie mensuel, état des semaines et transmission à la DAF."
             />
 
-            <div className="space-y-3 max-w-[1200px] mx-auto">
+            <div className="space-y-3 w-full">
 
-                {/* ─── BARRE DE SÉLECTION ──────────────────────────────────── */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex flex-wrap items-center gap-3 shadow-xs">
-                    <Select
-                        options={periodeOptions}
-                        value={selectedPeriode}
-                        onChange={val => {
-                            setSelectedPeriode(val);
-                            setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('periode', val); return n; });
-                        }}
-                        className="h-[32px] text-xs min-w-[220px] flex-1"
-                    />
-                    <Select
-                        options={siteOptions}
-                        value={selectedSite}
-                        onChange={val => {
-                            setSelectedSite(Number(val));
-                            setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('site', val); return n; });
-                        }}
-                        className="h-[32px] text-xs min-w-[180px] flex-1"
-                    />
-                    {currentPeriodeObj && (
-                        <Badge
-                            variant={isCloturee ? 'success' : isValidee ? 'primary' : isAValider ? 'warning' : 'info'}
-                            size="sm"
-                            className="font-bold uppercase tracking-wider shrink-0"
-                        >
-                            {currentPeriodeObj.statutLibelle || currentPeriodeObj.statutCode}
-                        </Badge>
-                    )}
+                {/* ─── BARRE DE SÉLECTION UNIFIÉE & COMPACTE ──────────────────── */}
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-3 py-2 sm:px-3.5 sm:py-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-2xs">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        {/* 1. Sélecteur de Période */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <Calendar size={14} className="text-brand-500 shrink-0" />
+                            <Select
+                                options={periodeOptions}
+                                value={selectedPeriode}
+                                onChange={val => {
+                                    setSelectedPeriode(val);
+                                    setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('periode', val); return n; });
+                                }}
+                                containerClassName="w-60 sm:w-72"
+                                className="h-[32px] text-xs font-semibold"
+                            />
+                        </div>
+
+                        <div className="h-5 w-px bg-[var(--color-border-subtle)] hidden sm:block shrink-0" />
+
+                        {/* 2. Sélecteur de Site */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <Building2 size={14} className="text-[var(--color-fg-muted)] shrink-0" />
+                            <Select
+                                options={siteOptions}
+                                value={selectedSite}
+                                onChange={val => {
+                                    setSelectedSite(Number(val));
+                                    setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('site', val); return n; });
+                                }}
+                                containerClassName="w-44 sm:w-52"
+                                className="h-[32px] text-xs font-semibold"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 ml-auto">
+                        {currentPeriodeObj && (
+                            <Badge
+                                variant={isCloturee ? 'success' : isValidee ? 'primary' : isAValider ? 'warning' : 'info'}
+                                size="sm"
+                                className="font-bold uppercase tracking-wider"
+                            >
+                                {currentPeriodeObj.statutLibelle || currentPeriodeObj.statutCode}
+                            </Badge>
+                        )}
+                    </div>
                 </div>
 
                 {/* ─── BANNIÈRE REJET DAF ───────────────────────────────────── */}
@@ -259,8 +279,8 @@ export default function SuiviPeriodePage({ activePeriode, onTabChange }) {
                             </span>
                         </div>
                         {isAValider && (
-                            <Link to="/paie?tab=validation" className="text-xs font-bold text-brand-600 hover:underline shrink-0">
-                                Espace DAF →
+                            <Link to="/pointages?tab=validation" className="text-xs font-bold text-brand-600 hover:underline shrink-0">
+                                Arbitrage DAF →
                             </Link>
                         )}
                     </div>
@@ -343,7 +363,7 @@ export default function SuiviPeriodePage({ activePeriode, onTabChange }) {
                                 if (sem.estValidee) {
                                     statusClass = 'bg-[var(--color-success-500)]/6 border-[var(--color-success-500)]/30';
                                     badgeVariant = 'success';
-                                    badgeLabel = 'Calculée ✓';
+                                    badgeLabel = 'Calculée';
                                 } else if (sem.nbAnomalies > 0) {
                                     statusClass = 'bg-[var(--color-warning-500)]/8 border-[var(--color-warning-500)]/35';
                                     badgeVariant = 'warning';
@@ -469,7 +489,7 @@ export default function SuiviPeriodePage({ activePeriode, onTabChange }) {
                     <Info size={15} className="text-brand-500 shrink-0 mt-0.5" />
                     <div>
                         <span className="font-semibold text-[var(--color-fg)]">Workflow mensuel en 3 étapes :</span>
-                        <span className="ml-2">Résolvez les anomalies → Calculez les semaines → Transmettez à la DAF. La DAF valide ou renvoie depuis le module <Link to="/paie?tab=validation" className="text-brand-600 hover:underline font-semibold">Paie → Pointage & Validation</Link>.</span>
+                        <span className="ml-2">Résolvez les anomalies → Calculez les semaines → Transmettez à la DAF. La DAF valide ou renvoie depuis l'onglet <Link to="/pointages?tab=validation" className="text-brand-600 hover:underline font-semibold">Pointage → Arbitrage DAF</Link>.</span>
                     </div>
                 </div>
             </div>

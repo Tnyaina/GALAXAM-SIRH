@@ -1,6 +1,6 @@
-import { lazy, Suspense } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { CalendarRange, Banknote, ClipboardCheck, SlidersHorizontal, FileText } from 'lucide-react';
+import { lazy, Suspense, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { CalendarRange, Banknote, SlidersHorizontal, FileText } from 'lucide-react';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -8,7 +8,6 @@ import SEO from '@/components/system/SEO';
 
 // Lazy loading des composants onglets
 const PeriodePaiePage = lazy(() => import('@/pages/paie/PeriodePaiePage'));
-const PointageValidationDafTab = lazy(() => import('@/pages/paie/PointageValidationDafTab'));
 
 // Stubs temporaires pour les onglets en cours de développement
 const VariablesPaieStub = () => (
@@ -29,7 +28,17 @@ const BulletinsPaieStub = () => (
 
 export default function GestionPaiePage() {
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeTab = searchParams.get('tab') || 'periodes';
+    const navigate = useNavigate();
+    const rawTab = searchParams.get('tab') || 'periodes';
+
+    // Rétrocompatibilité : redirection de l'ancien onglet validation vers le cockpit Pointage
+    useEffect(() => {
+        if (rawTab === 'validation') {
+            navigate('/pointages?tab=validation', { replace: true });
+        }
+    }, [rawTab, navigate]);
+
+    const activeTab = rawTab === 'validation' ? 'periodes' : rawTab;
 
     const handleTabChange = (tabId) => {
         setSearchParams(prev => {
@@ -44,11 +53,6 @@ export default function GestionPaiePage() {
             id: 'periodes',
             label: 'Périodes de Paie',
             icon: CalendarRange
-        },
-        {
-            id: 'validation',
-            label: 'Pointage & Validation',
-            icon: ClipboardCheck
         },
         {
             id: 'variables',
@@ -87,9 +91,6 @@ export default function GestionPaiePage() {
                 <Suspense fallback={<SkeletonTable rows={6} cols={6} />}>
                     {activeTab === 'periodes' && (
                         <PeriodePaiePage />
-                    )}
-                    {activeTab === 'validation' && (
-                        <PointageValidationDafTab />
                     )}
                     {activeTab === 'variables' && (
                         <VariablesPaieStub />

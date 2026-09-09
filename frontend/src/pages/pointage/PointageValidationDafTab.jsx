@@ -14,7 +14,10 @@ import {
     Search,
     ClipboardCheck,
     FileSpreadsheet,
-    Edit3
+    Edit3,
+    Calendar,
+    Building2,
+    X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -99,7 +102,7 @@ export default function PointageValidationDafTab() {
 
     const currentPeriodeObj = useMemo(() =>
         periodes.find(p => p.idPeriodePaie === Number(selectedPeriode)) || null,
-    [periodes, selectedPeriode]);
+        [periodes, selectedPeriode]);
 
     const stCode = currentPeriodeObj?.statutCode;
     const isAValider = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
@@ -238,31 +241,64 @@ export default function PointageValidationDafTab() {
     return (
         <>
             <SEO title="Validation Pointage DAF | GALAXAM SIRH" description="Tableau de bord DAF pour la validation et clôture des périodes." />
-            <div className="space-y-3 max-w-[1600px] mx-auto">
+            <div className="space-y-3 w-full">
 
-                {/* Barre de contrôle bien structurée */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-                    <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[320px]">
-                        <Select
-                            options={periodes.map(p => ({ value: p.idPeriodePaie, label: `${p.libelle || p.code} — ${p.statutLibelle || p.statutCode}` }))}
-                            value={selectedPeriode}
-                            onChange={val => setSelectedPeriode(val)}
-                            className="h-[32px] text-xs min-w-[220px]"
-                        />
-                        <Select
-                            options={[{ value: 0, label: 'Tous les sites' }, ...sites.map(s => ({ value: s.idSite, label: `${s.codeSite || s.code || `Site #${s.idSite}`} — ${s.libelle}` }))]}
-                            value={selectedSite}
-                            onChange={val => setSelectedSite(Number(val))}
-                            className="h-[32px] text-xs min-w-[180px]"
-                        />
-                        <div className="relative min-w-[180px] flex-1">
-                            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
-                            <input type="text" placeholder="Nom, matricule…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full pl-7 pr-3 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:border-brand-500 h-[32px]" />
+                {/* Barre de Filtres & Contrôle Standardisée */}
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-3 py-2 sm:px-3.5 sm:py-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-2xs">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        {/* 1. Sélecteur de Période */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <Calendar size={14} className="text-brand-500 shrink-0" />
+                            <Select
+                                options={periodes.map(p => ({ value: p.idPeriodePaie, label: `${p.libelle || p.code} — ${p.statutLibelle || p.statutCode}` }))}
+                                value={selectedPeriode}
+                                onChange={val => setSelectedPeriode(val)}
+                                containerClassName="w-60 sm:w-72"
+                                className="h-[32px] text-xs font-semibold"
+                            />
+                        </div>
+
+                        <div className="h-5 w-px bg-[var(--color-border-subtle)] hidden sm:block shrink-0" />
+
+                        {/* 2. Sélecteur de Site */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <Building2 size={14} className="text-[var(--color-fg-muted)] shrink-0" />
+                            <Select
+                                options={[{ value: 0, label: 'Tous les sites' }, ...sites.map(s => ({ value: s.idSite, label: `${s.codeSite || s.code || `Site #${s.idSite}`} — ${s.libelle}` }))]}
+                                value={selectedSite}
+                                onChange={val => setSelectedSite(Number(val))}
+                                containerClassName="w-44 sm:w-52"
+                                className="h-[32px] text-xs font-semibold"
+                            />
+                        </div>
+
+                        <div className="h-5 w-px bg-[var(--color-border-subtle)] hidden sm:block shrink-0" />
+
+                        {/* 3. Recherche employé */}
+                        <div className="relative w-44 sm:w-56 shrink-0">
+                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none" />
+                            <input
+                                type="text"
+                                placeholder="Nom, matricule…"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="w-full pl-8 pr-7 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:border-brand-500 h-[32px]"
+                            />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchTerm('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-0.5 cursor-pointer"
+                                    title="Effacer la recherche"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
+                    {/* Statut & Actions */}
+                    <div className="flex items-center gap-2 shrink-0 ml-auto">
                         {currentPeriodeObj && (
                             <Badge variant={isCloturee ? 'success' : isValidee ? 'primary' : isAValider ? 'warning' : 'info'} size="sm" className="font-bold uppercase tracking-wider">
                                 {currentPeriodeObj.statutLibelle || currentPeriodeObj.statutCode}
@@ -275,7 +311,7 @@ export default function PointageValidationDafTab() {
                             onClick={handleExportExcel}
                             icon={<FileSpreadsheet size={14} className="text-emerald-600 dark:text-emerald-400" />}
                             className="text-xs h-[32px] font-medium"
-                            title="Exporter les données affichées au format Excel (CSV universel)"
+                            title="Exporter les données affichées au format Excel"
                         >
                             Exporter Excel
                         </Button>
@@ -301,7 +337,7 @@ export default function PointageValidationDafTab() {
                                 <div className="flex items-center gap-2 mb-1">
                                     {isAValider && <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-ping" />}
                                     <h3 className="text-sm font-bold text-[var(--color-fg)]">
-                                        {isAValider ? '⚡ Arbitrage requis — Période transmise par les agents' : '✅ Période validée DAF — Prête pour clôture'}
+                                        {isAValider ? ' Arbitrage requis — Période transmise par les agents' : 'Période validée DAF — Prête pour clôture'}
                                     </h3>
                                 </div>
                                 <p className="text-xs text-[var(--color-fg-muted)]">
@@ -387,11 +423,10 @@ export default function PointageValidationDafTab() {
                                         key={tab.id}
                                         type="button"
                                         onClick={() => setAlertFilter(tab.id)}
-                                        className={`px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer border h-[26px] flex items-center shrink-0 ${
-                                            isActive
+                                        className={`px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer border h-[26px] flex items-center shrink-0 ${isActive
                                                 ? 'bg-brand-600 border-brand-600 text-white font-bold'
                                                 : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
-                                        }`}
+                                            }`}
                                     >
                                         <span>{tab.label}</span>
                                         <span className={`ml-1.5 font-mono text-[10px] ${isActive ? 'opacity-95 font-bold' : tab.count > 0 ? (tab.color || 'font-bold') : 'opacity-60'}`}>
@@ -441,7 +476,20 @@ export default function PointageValidationDafTab() {
                                                 <Link to={`/employes/${row.idEmploye}?tab=pointage`} className="hover:text-brand-600 hover:underline text-[var(--color-fg)]" title={`${row.nom} ${row.prenom}`}>
                                                     {row.nom} {row.prenom}
                                                 </Link>
-                                                <span className="block text-[10px] font-mono text-[var(--color-fg-muted)]">{row.matricule} {row.estCadre && '· CADRE'}</span>
+                                                <div className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--color-fg-muted)] mt-0.5">
+                                                    <span>{row.matricule}</span>
+                                                    {row.badgeProfilLabel && (
+                                                        <span
+                                                            className={`text-[9px] font-bold px-1 py-0.2 tracking-wide shrink-0 ${
+                                                                row.badgeProfilVariant === 'purple'
+                                                                    ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300'
+                                                                    : 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                                                            }`}
+                                                        >
+                                                            {row.badgeProfilLabel}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </Td>
                                             <Td className="py-2.5 px-3 text-xs text-[var(--color-fg-muted)]">{row.siteNom || `Site #${row.idSite}`}</Td>
                                             <Td className="py-2.5 px-2 text-center font-mono">{row.nbJoursPresents} j</Td>
@@ -558,7 +606,7 @@ export default function PointageValidationDafTab() {
                 onClose={() => setShowCloturerModal(false)}
                 onConfirm={handleCloturerPeriode}
                 title="Clôturer la période pour génération de la Paie ?"
-                message="⚠️ Action irréversible. La clôture archive définitivement la période et déclenche la génération des bulletins de salaire."
+                message="Action irréversible. La clôture archive définitivement la période et déclenche la génération des bulletins de salaire."
                 confirmLabel="Clôturer définitivement"
                 cancelLabel="Annuler"
                 variant="danger"

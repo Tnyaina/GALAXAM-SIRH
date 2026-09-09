@@ -233,7 +233,7 @@ export default function StatusPickerPopover({
                             <span className="font-bold text-[12px]">Modifier le statut</span>
                             {row?.nom && (
                                 <span className="text-[10px] text-[var(--color-fg-muted)] truncate max-w-[220px]">
-                                    {row.nom} {row.prenom} {isAutonome && '· Cadre'}
+                                    {row.nom} {row.prenom} {isAutonome ? (row.estCadre ? '· Cadre autonome' : '· Autonome') : (row.estCadre ? '· Cadre' : '')}
                                 </span>
                             )}
                         </div>

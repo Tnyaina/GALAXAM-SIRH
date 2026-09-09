@@ -109,6 +109,12 @@ public class PointageSyntheseService {
      * @param minutesRetard Total des minutes de retard constatées sur ce tronçon
      * @param isCadre Salarié cadre (pas de HS payées, mais surplus compense retards)
      */
+    public static boolean isCadreCategorie(String codeCat) {
+        if (codeCat == null) return false;
+        String c = codeCat.trim().toUpperCase();
+        return c.contains("CADRE") || "C".equals(c) || "HC".equals(c) || "DIRIGEANT".equals(c);
+    }
+
     private static final mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine CALCULATEUR_ENGINE =
             new mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine();
 
@@ -437,6 +443,10 @@ public class PointageSyntheseService {
         if (estAutonome && presents == 0 && conges == 0 && absences == 0) {
             presents = nbJoursOuvrablesPeriode;
             cumulHeuresTravaillees = nbJoursOuvrablesPeriode * seuilHeuresJour;
+            repasCount = presents;
+            montantRepasTotal = repasCount * montantRepasMidiDefaut;
+            totalTrajets = presents;
+            totalMntDeplacement = Math.round(presents * tarifJourDeplacement);
         }
 
         // Calcul de la compensation hebdomadaire par tronçon
@@ -487,7 +497,20 @@ public class PointageSyntheseService {
         dto.setSurplusBrut(Math.round(totalHsBrutes * 100.0) / 100.0);
         dto.setHeuresHs30(Math.round(totalHs30 * 100.0) / 100.0);
         dto.setHeuresHs50(Math.round(totalHs50 * 100.0) / 100.0);
-        dto.setHeuresNuitTotal(Math.round(cumulHeuresNuit * 100.0) / 100.0);
+
+        // REGLE GESTION CADRES & HEURES DE NUIT :
+        // Les cadres au forfait n'ont pas de majoration HS ni d'heures de nuit payees en sus par defaut.
+        // Pour activer la remuneration des heures de nuit pour les cadres, decommenter le bloc ci-dessous :
+        /*
+        if (isCadre) {
+            dto.setHeuresNuitTotal(Math.round(cumulHeuresNuit * 100.0) / 100.0);
+        }
+        */
+        if (isCadre) {
+            dto.setHeuresNuitTotal(0.0);
+        } else {
+            dto.setHeuresNuitTotal(Math.round(cumulHeuresNuit * 100.0) / 100.0);
+        }
         dto.setHeuresDimancheTotal(Math.round(cumulHeuresDimanche * 100.0) / 100.0);
         dto.setHeuresFerieTotal(Math.round(cumulHeuresFerie * 100.0) / 100.0);
         dto.setRetardCompense(Math.round(totalRetardCompense * 100.0) / 100.0);
@@ -589,7 +612,7 @@ public class PointageSyntheseService {
                     int idEmp = rsE.getInt("id_employe");
                     boolean estAutonome = rsE.getBoolean("est_autonome");
                     String codeCat = rsE.getString("code_categorie");
-                    boolean isCadre = estAutonome || "C".equalsIgnoreCase(codeCat) || "HC".equalsIgnoreCase(codeCat);
+                    boolean isCadre = isCadreCategorie(codeCat);
 
                     PointageSyntheseMensuelleDTO dto = calculerSyntheseEmploye(
                             idEmp,
@@ -988,7 +1011,7 @@ public class PointageSyntheseService {
                     int idEmp = rsE.getInt("id_employe");
                     boolean estAutonome = rsE.getBoolean("est_autonome");
                     String codeCat = rsE.getString("code_categorie");
-                    boolean isCadre = estAutonome || "C".equalsIgnoreCase(codeCat) || "HC".equalsIgnoreCase(codeCat);
+                    boolean isCadre = isCadreCategorie(codeCat);
 
                     PointageSyntheseMensuelleDTO dto = calculerSyntheseEmploye(
                             idEmp,

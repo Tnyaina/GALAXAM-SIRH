@@ -5,11 +5,12 @@ export default function Select({
     onChange,
     disabled = false,
     className = '',
+    containerClassName = '',
     placeholder,
     ...props
 }) {
     return (
-        <div className="flex flex-col gap-1 w-full">
+        <div className={`flex flex-col ${label ? 'gap-1' : ''} ${containerClassName || 'w-full'}`}>
             {label && (
                 <label className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)]">
                     {label}

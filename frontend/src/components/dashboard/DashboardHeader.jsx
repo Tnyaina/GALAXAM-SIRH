@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { RefreshCw, AlertTriangle, CalendarRange } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import Button from '@/components/ui/forms/Button';
 import { Skeleton } from '@/components/ui/feedback/Skeleton';
+import periodePaieService from '@/services/periodePaieService';
 
 export default function DashboardHeader({
     loading,
@@ -13,9 +15,32 @@ export default function DashboardHeader({
     demandesCongeAValiderCount = 0,
     totalAlertesContrats = 0
 }) {
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
+    const isDaf = hasPermission('POINTAGE_VALIDATE');
     const toast = useToast();
     const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [activePeriode, setActivePeriode] = useState(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        const fetchPeriode = async () => {
+            try {
+                const list = await periodePaieService.getAllPeriodes();
+                if (isMounted && list && list.length > 0) {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const found = list.find(p => p.statutCode === 'A_VALIDER' || p.statutCode === 'TRANSMIS_DAF')
+                        || list.find(p => p.statutCode === 'EN_COURS')
+                        || list.find(p => p.dateDebut <= todayStr && p.dateFin >= todayStr)
+                        || list[0];
+                    setActivePeriode(found);
+                }
+            } catch (err) {
+                console.error('[DashboardHeader] Erreur période active:', err);
+            }
+        };
+        fetchPeriode();
+        return () => { isMounted = false; };
+    }, [lastRefresh]);
 
     const now = new Date();
     const greeting =
@@ -78,6 +103,33 @@ export default function DashboardHeader({
                                     ? ` ${totalAlertesContrats} alerte(s) de contrat nécessitent votre attention.`
                                     : 'Tout est à jour dans l\'application SIRH.'}
                         </p>
+                    )}
+
+                    {/* Indicateur de période RH active (DSH-001) */}
+                    {activePeriode && (
+                        <div className="mt-2.5 flex items-center gap-2">
+                            <Link
+                                to={activePeriode.statutCode === 'A_VALIDER' && isDaf ? '/pointages?tab=validation' : '/pointages?tab=suivi'}
+                                className="inline-flex items-center gap-2 px-2.5 py-1 bg-white/10 hover:bg-white/20 border border-white/20 text-xs text-white transition-all group shadow-2xs"
+                                title="Accéder au cockpit de la période active"
+                            >
+                                <span className={`inline-block w-2 h-2 rounded-full ${
+                                    activePeriode.statutCode === 'A_VALIDER' ? 'bg-amber-300 animate-pulse' : 'bg-emerald-400 animate-pulse'
+                                }`} />
+                                <span className="font-semibold text-[11px] text-[var(--color-brand-200)] uppercase tracking-wider">Période RH :</span>
+                                <span className="font-bold text-xs text-white font-mono">{activePeriode.libelle || activePeriode.code}</span>
+                                <span className={`px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider ${
+                                    activePeriode.statutCode === 'A_VALIDER' 
+                                        ? 'bg-amber-400 text-amber-950 font-extrabold' 
+                                        : activePeriode.statutCode === 'EN_COURS'
+                                        ? 'bg-emerald-400/90 text-emerald-950 font-bold'
+                                        : 'bg-white/20 text-white'
+                                }`}>
+                                    {activePeriode.statutLibelle || activePeriode.statutCode || 'Active'}
+                                </span>
+                                <span className="text-[11px] text-[var(--color-brand-200)] group-hover:translate-x-0.5 transition-transform font-bold">→</span>
+                            </Link>
+                        </div>
                     )}
                 </div>
                 <div className="flex flex-col items-end gap-2">

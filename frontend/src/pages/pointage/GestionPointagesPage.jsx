@@ -11,27 +11,16 @@ const SaisieQuotidiennePage = lazy(() => import('@/pages/pointage/SaisieQuotidie
 const AnomaliesPointagePage = lazy(() => import('@/pages/pointage/AnomaliesPointagePage'));
 const SynthesePointagePage = lazy(() => import('@/pages/pointage/SynthesePointagePage'));
 const SuiviPeriodePage = lazy(() => import('@/pages/pointage/SuiviPeriodePage'));
+const PointageValidationDafTab = lazy(() => import('@/pages/pointage/PointageValidationDafTab'));
 
-// Redirection de l'ancien onglet vue-globale vers saisie (rétrocompatibilité)
-const LEGACY_TAB_MAP = { 'vue-globale': 'saisie' };
+const VALID_TABS = ['saisie', 'suivi', 'anomalies', 'synthese', 'validation'];
 
 export default function GestionPointagesPage() {
     const [searchParams, setSearchParams] = useSearchParams();
-    const rawTab = searchParams.get('tab') || 'saisie';
-    // Résoudre les anciens onglets dépréciés
-    const activeTab = LEGACY_TAB_MAP[rawTab] || rawTab;
+    const rawTab = (searchParams.get('tab') || 'saisie').toLowerCase();
+    const normalizedTab = rawTab === 'arbitrage' ? 'validation' : rawTab;
+    const activeTab = VALID_TABS.includes(normalizedTab) ? normalizedTab : 'saisie';
     const [activePeriode, setActivePeriode] = useState(null);
-
-    // Réécrire l'URL si un ancien onglet est détecté
-    useEffect(() => {
-        if (LEGACY_TAB_MAP[rawTab]) {
-            setSearchParams(prev => {
-                const next = new URLSearchParams(prev);
-                next.set('tab', LEGACY_TAB_MAP[rawTab]);
-                return next;
-            }, { replace: true });
-        }
-    }, [rawTab, setSearchParams]);
 
     useEffect(() => {
         const fetchActivePeriode = async () => {
@@ -64,7 +53,7 @@ export default function GestionPointagesPage() {
     };
 
     return (
-        <div className="space-y-3 max-w-[1600px] mx-auto w-full font-sans pb-8">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans pb-8">
             <SEO 
                 title="Pointage & Présences | GALAXAM SIRH" 
                 description="Cockpit de gestion des temps, badgeages, anomalies, majorations HS et clôture de paie." 
@@ -74,7 +63,7 @@ export default function GestionPointagesPage() {
             <PointageWorkflowNav activePeriode={activePeriode} />
 
             {/* Contenu fluide de l'onglet actif */}
-            <div className="pt-1">
+            <div className="pt-1 w-full">
                 <Suspense fallback={<SkeletonTable rows={6} columns={6} />}>
                     {activeTab === 'saisie' && (
                         <SaisieQuotidiennePage />
@@ -90,6 +79,10 @@ export default function GestionPointagesPage() {
 
                     {activeTab === 'synthese' && (
                         <SynthesePointagePage />
+                    )}
+
+                    {activeTab === 'validation' && (
+                        <PointageValidationDafTab />
                     )}
                 </Suspense>
             </div>

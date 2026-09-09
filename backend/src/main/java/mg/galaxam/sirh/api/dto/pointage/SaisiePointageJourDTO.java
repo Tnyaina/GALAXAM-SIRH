@@ -28,7 +28,8 @@ public class SaisiePointageJourDTO {
     private String codeStatut; // PRESENT, RETARD, ABSENCE_NON_JUSTIFIEE, DISPENSE_POINTAGE, CONGE, etc.
     private String libelleStatut;
 
-    private boolean estAutonome; // Cadre / Dispense de pointage
+    private boolean estAutonome; // Dispense de pointage horaire (poste/fonction)
+    private boolean estCadre;    // Categorie cadre (forfait conventionnel)
     private String typeCongeJour; // FULL_DAY, MATIN, APRES_MIDI, null
     private boolean ferieJour;
     private String libelleFerie;
@@ -40,7 +41,9 @@ public class SaisiePointageJourDTO {
     private boolean siteIndemniteDeplacementActif;
     private boolean siteIndemniteRepasActif;
     private boolean estDerogeDeplacement;
+    private String motifDerogationDeplacement;
     private boolean estDerogeRepas;
+    private String motifDerogationRepas;
 
     private boolean indemniteDeplacementRecue;
     private boolean deplacementMatin = true;
@@ -56,7 +59,36 @@ public class SaisiePointageJourDTO {
     private Integer version; // Optimistic locking version
     private Map<String, Object> dynamicIndemnites = new HashMap<>();
 
+    // Proprietes Backend-Driven pour l affichage IHM sans calculs front
+    private String badgeProfilCode;
+    private String badgeProfilLabel;
+    private String badgeProfilVariant;
+    private String badgeProfilTooltip;
+    private String labelDerogationDeplacement;
+    private String labelDerogationRepas;
+
     // Getters et Setters
+    public String getBadgeProfilCode() { return badgeProfilCode; }
+    public void setBadgeProfilCode(String badgeProfilCode) { this.badgeProfilCode = badgeProfilCode; }
+
+    public String getBadgeProfilLabel() { return badgeProfilLabel; }
+    public void setBadgeProfilLabel(String badgeProfilLabel) { this.badgeProfilLabel = badgeProfilLabel; }
+
+    public String getBadgeProfilVariant() { return badgeProfilVariant; }
+    public void setBadgeProfilVariant(String badgeProfilVariant) { this.badgeProfilVariant = badgeProfilVariant; }
+
+    public String getBadgeProfilTooltip() { return badgeProfilTooltip; }
+    public void setBadgeProfilTooltip(String badgeProfilTooltip) { this.badgeProfilTooltip = badgeProfilTooltip; }
+
+    public String getLabelDerogationDeplacement() { return labelDerogationDeplacement; }
+    public void setLabelDerogationDeplacement(String labelDerogationDeplacement) { this.labelDerogationDeplacement = labelDerogationDeplacement; }
+
+    public String getLabelDerogationRepas() { return labelDerogationRepas; }
+    public void setLabelDerogationRepas(String labelDerogationRepas) { this.labelDerogationRepas = labelDerogationRepas; }
+
+    public boolean isCadreAutonome() { return estAutonome && estCadre; }
+    public boolean isCadreBadgeant() { return !estAutonome && estCadre; }
+    public boolean isAutonomeNonCadre() { return estAutonome && !estCadre; }
     public Integer getVersion() { return version; }
     public void setVersion(Integer version) { this.version = version; }
 
@@ -153,11 +185,20 @@ public class SaisiePointageJourDTO {
     public boolean isSiteIndemniteRepasActif() { return siteIndemniteRepasActif; }
     public void setSiteIndemniteRepasActif(boolean siteIndemniteRepasActif) { this.siteIndemniteRepasActif = siteIndemniteRepasActif; }
 
+    public boolean isEstCadre() { return estCadre; }
+    public void setEstCadre(boolean estCadre) { this.estCadre = estCadre; }
+
     public boolean isEstDerogeDeplacement() { return estDerogeDeplacement; }
     public void setEstDerogeDeplacement(boolean estDerogeDeplacement) { this.estDerogeDeplacement = estDerogeDeplacement; }
 
+    public String getMotifDerogationDeplacement() { return motifDerogationDeplacement; }
+    public void setMotifDerogationDeplacement(String motifDerogationDeplacement) { this.motifDerogationDeplacement = motifDerogationDeplacement; }
+
     public boolean isEstDerogeRepas() { return estDerogeRepas; }
     public void setEstDerogeRepas(boolean estDerogeRepas) { this.estDerogeRepas = estDerogeRepas; }
+
+    public String getMotifDerogationRepas() { return motifDerogationRepas; }
+    public void setMotifDerogationRepas(String motifDerogationRepas) { this.motifDerogationRepas = motifDerogationRepas; }
 
     public boolean isIndemniteDeplacementRecue() { return indemniteDeplacementRecue; }
     public void setIndemniteDeplacementRecue(boolean indemniteDeplacementRecue) { this.indemniteDeplacementRecue = indemniteDeplacementRecue; }

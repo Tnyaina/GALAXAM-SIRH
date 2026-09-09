@@ -153,6 +153,20 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
         this.dispensePointage = dispensePointage;
     }
 
+    public String getBadgeProfilLabel() {
+        if (dispensePointage && estCadre) return "CADRE AUTO";
+        if (dispensePointage) return "AUTONOME";
+        if (estCadre) return "CADRE";
+        return null;
+    }
+
+    public String getBadgeProfilVariant() {
+        if (dispensePointage && estCadre) return "purple";
+        if (dispensePointage) return "brand";
+        if (estCadre) return "indigo";
+        return null;
+    }
+
     public Integer getIdPeriodePaie() {
         return idPeriodePaie;
     }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
     Clock,
     Printer,
@@ -12,7 +13,8 @@ import {
     Bus,
     DollarSign,
     Moon,
-    RotateCcw
+    RotateCcw,
+    ExternalLink
 } from 'lucide-react';
 import pointageEmployeService from '@/api/pointage/pointageEmployeService';
 import periodePaieService from '@/services/periodePaieService';
@@ -128,6 +130,8 @@ export default function PointageTab({ idEmploye }) {
                 return <Badge variant="danger" size="sm" className="font-bold">ABSENT</Badge>;
             case 'NON_CONCERNE':
                 return <Badge variant="neutral" size="sm" className="text-[10px]">NON CONCERNÉ</Badge>;
+            case 'PLANIFIE':
+                return <Badge variant="neutral" size="sm" className="font-semibold text-neutral-600 dark:text-neutral-300">PLANIFIÉ</Badge>;
             case 'NON_ECHU':
                 return <span className="text-[11px] text-[var(--color-fg-subtle)]">—</span>;
             default:
@@ -247,6 +251,14 @@ export default function PointageTab({ idEmploye }) {
                 </div>
 
                 <div className="flex items-center gap-2 self-end md:self-auto">
+                    <Link
+                        to="/pointages?tab=saisie"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-500)]/10 hover:bg-[var(--color-brand-500)]/20 border border-[var(--color-brand-500)]/30 transition-colors"
+                        title="Ouvrir le module de saisie quotidienne pour toute l'équipe"
+                    >
+                        <span>Saisie d'équipe</span>
+                        <ExternalLink size={13} />
+                    </Link>
                     <Button
                         type="button"
                         variant="outline"

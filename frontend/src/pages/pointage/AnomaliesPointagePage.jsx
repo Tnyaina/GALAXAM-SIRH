@@ -142,7 +142,7 @@ export default function AnomaliesPointagePage() {
                 description="Suivi et régularisation des anomalies, retards et absences de pointage."
             />
 
-            <div className="space-y-3.5 max-w-[1600px] mx-auto pb-12">
+            <div className="space-y-3.5 w-full pb-12">
                 {/* 1. Cartes de Statistiques interactives (cliquables pour filtrer) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                     <button

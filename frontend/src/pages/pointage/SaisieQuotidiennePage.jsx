@@ -313,7 +313,7 @@ export default function SaisieQuotidiennePage() {
                 description="Saisie opérationnelle, suivi des retards, heures de nuit et indemnités journalières."
             />
 
-            <div className="space-y-2 max-w-[1440px] mx-auto pb-6">
+            <div className="space-y-2.5 w-full pb-6">
 
                 {/* 1. Barre de Commande Unifiée */}
                 <PointageToolbar

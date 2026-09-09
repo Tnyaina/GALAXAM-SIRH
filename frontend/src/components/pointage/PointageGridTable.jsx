@@ -252,9 +252,16 @@ export default function PointageGridTable({
                                                 </p>
                                                 <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--color-fg-muted)] mt-0.5">
                                                     <span>{row.matricule}</span>
-                                                    {row.estAutonome && (
-                                                        <span className="bg-[var(--color-info-500)]/15 text-[var(--color-info-600)] dark:text-[var(--color-info-200)] text-[9px] font-bold px-1 py-0.2 tracking-wide shrink-0">
-                                                            AUTONOME
+                                                    {row.badgeProfilLabel && (
+                                                        <span
+                                                            className={`text-[9px] font-bold px-1 py-0.2 tracking-wide shrink-0 ${
+                                                                row.badgeProfilVariant === 'purple'
+                                                                    ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300'
+                                                                    : 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                                                            }`}
+                                                            title={row.badgeProfilTooltip || row.badgeProfilLabel}
+                                                        >
+                                                            {row.badgeProfilLabel}
                                                         </span>
                                                     )}
                                                 </div>
@@ -365,35 +372,43 @@ export default function PointageGridTable({
 
                                             return (
                                                 <Td key={ind.idIndemnite} className="px-3 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
-                                                    <div className="flex items-center justify-center gap-3">
-                                                        <label className={`inline-flex items-center gap-1 text-[11px] font-semibold ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet aller (matin) — ${fmtMoney(montantTrajet)}`}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={matVal}
-                                                                disabled={isReadOnlyForUser || isCongeFull}
-                                                                onChange={(e) => {
-                                                                    onUpdateIndemnite(row.idEmploye, 'deplacementMatin', e.target.checked);
-                                                                    onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'MATIN');
-                                                                }}
-                                                                className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
-                                                            />
-                                                            <span className={matVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>Aller</span>
-                                                        </label>
+                                                    {row.estDerogeDeplacement ? (
+                                                        <div className="flex items-center justify-center">
+                                                            <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] px-1.5 py-0.5" title={row.motifDerogationDeplacement || 'Exclu deplacement (ex: vehicule de fonction)'}>
+                                                                {row.labelDerogationDeplacement || 'Vehicule'}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center justify-center gap-3">
+                                                            <label className={`inline-flex items-center gap-1 text-[11px] font-semibold ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet aller (matin) — ${fmtMoney(montantTrajet)}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={matVal}
+                                                                    disabled={isReadOnlyForUser || isCongeFull}
+                                                                    onChange={(e) => {
+                                                                        onUpdateIndemnite(row.idEmploye, 'deplacementMatin', e.target.checked);
+                                                                        onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'MATIN');
+                                                                    }}
+                                                                    className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
+                                                                />
+                                                                <span className={matVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>Aller</span>
+                                                            </label>
 
-                                                        <label className={`inline-flex items-center gap-1 text-[11px] font-semibold ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet retour (soir) — ${fmtMoney(montantTrajet)}`}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={amVal}
-                                                                disabled={isReadOnlyForUser || isCongeFull}
-                                                                onChange={(e) => {
-                                                                    onUpdateIndemnite(row.idEmploye, 'deplacementAm', e.target.checked);
-                                                                    onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'APRES_MIDI');
-                                                                }}
-                                                                className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
-                                                            />
-                                                            <span className={amVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>Retour</span>
-                                                        </label>
-                                                    </div>
+                                                            <label className={`inline-flex items-center gap-1 text-[11px] font-semibold ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet retour (soir) — ${fmtMoney(montantTrajet)}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={amVal}
+                                                                    disabled={isReadOnlyForUser || isCongeFull}
+                                                                    onChange={(e) => {
+                                                                        onUpdateIndemnite(row.idEmploye, 'deplacementAm', e.target.checked);
+                                                                        onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'APRES_MIDI');
+                                                                    }}
+                                                                    className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
+                                                                />
+                                                                <span className={amVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>Retour</span>
+                                                            </label>
+                                                        </div>
+                                                    )}
                                                 </Td>
                                             );
                                         }
@@ -410,43 +425,50 @@ export default function PointageGridTable({
 
                                         return (
                                             <Td key={ind.idIndemnite} className="px-3 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
-                                                <div className="flex flex-col items-center justify-center gap-1">
-                                                    <label
-                                                        className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`}
-                                                        title={useGlobalIfZero
-                                                            ? `Non inclus dans les indemnités du site — Si coché, applique le paramètre global : ${fmtMoney(ind.montantGlobal || 0)}/j`
-                                                            : `Accordée — ${fmtMoney(montantEffectif)}`
-                                                        }
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={checked}
-                                                            disabled={isReadOnlyForUser || isCongeFull}
-                                                            onChange={(e) => {
-                                                                if (isRepas) {
-                                                                    onUpdateIndemnite(row.idEmploye, 'indemniteRepasRecue', e.target.checked);
-                                                                }
-                                                                onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked);
-                                                            }}
-                                                            className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
-                                                        />
-                                                        <span className={checked
-                                                            ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold'
-                                                            : useGlobalIfZero ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--color-fg-muted)]'
-                                                        }>
-                                                            {checked && montantEffectif > 0
-                                                                ? fmtMoney(montantEffectif)
-                                                                : useGlobalIfZero ? <span className="text-[10px] opacity-70">Manuel</span> : '0 Ar'
+                                                {isRepas && row.estDerogeRepas ? (
+                                                    <div className="flex items-center justify-center">
+                                                        <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] px-1.5 py-0.5" title={row.motifDerogationRepas || 'Exclu indemnite repas (ex: cantine prise en charge)'}>
+                                                            {row.labelDerogationRepas || 'Exclu repas'}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center justify-center gap-1">
+                                                        <label
+                                                            className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`}
+                                                            title={useGlobalIfZero
+                                                                ? `Non inclus dans les indemnites du site — Si coche, applique le parametre global : ${fmtMoney(ind.montantGlobal || 0)}/j`
+                                                                : `Accordee — ${fmtMoney(montantEffectif)}`
                                                             }
-                                                        </span>
-                                                    </label>
-                                                    {/* Badge discret si repas non inclus par défaut dans ce site */}
-                                                    {useGlobalIfZero && !checked && (
-                                                        <span className="text-[9px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 leading-tight">
-                                                            opt.
-                                                        </span>
-                                                    )}
-                                                </div>
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={checked}
+                                                                disabled={isReadOnlyForUser || isCongeFull}
+                                                                onChange={(e) => {
+                                                                    if (isRepas) {
+                                                                        onUpdateIndemnite(row.idEmploye, 'indemniteRepasRecue', e.target.checked);
+                                                                    }
+                                                                    onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked);
+                                                                }}
+                                                                className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
+                                                            />
+                                                            <span className={checked
+                                                                ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold'
+                                                                : useGlobalIfZero ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--color-fg-muted)]'
+                                                            }>
+                                                                {checked && montantEffectif > 0
+                                                                    ? fmtMoney(montantEffectif)
+                                                                    : useGlobalIfZero ? <span className="text-[10px] opacity-70">Manuel</span> : '0 Ar'
+                                                                }
+                                                            </span>
+                                                        </label>
+                                                        {useGlobalIfZero && !checked && (
+                                                            <span className="text-[9px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 leading-tight">
+                                                                opt.
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </Td>
                                         );
                                     })}

@@ -82,10 +82,17 @@ export default function Router() {
                     {/* ---------------------------------------------------- */}
                     <Route element={<ProtectedRoute requiredPermission="POINTAGE_READ" allowedRoles={["ROLE_ADMIN", "ROLE_AGENT_POINTAGE"]} />}>
                         <Route path="/pointages" element={<GestionPointagesPage />} />
+                        <Route path="/pointage" element={<GestionPointagesPage />} />
                         <Route path="/pointages/saisie" element={<Navigate to="/pointages?tab=saisie" replace />} />
+                        <Route path="/pointage/saisie" element={<Navigate to="/pointages?tab=saisie" replace />} />
                         <Route path="/pointages/anomalies" element={<Navigate to="/pointages?tab=anomalies" replace />} />
+                        <Route path="/pointage/anomalies" element={<Navigate to="/pointages?tab=anomalies" replace />} />
                         <Route path="/pointages/synthese" element={<Navigate to="/pointages?tab=synthese" replace />} />
-                        <Route path="/pointages/periodes" element={<Navigate to="/paie?tab=periodes" replace />} />
+                        <Route path="/pointage/synthese" element={<Navigate to="/pointages?tab=synthese" replace />} />
+                        <Route path="/pointages/validation" element={<Navigate to="/pointages?tab=validation" replace />} />
+                        <Route path="/pointage/validation" element={<Navigate to="/pointages?tab=validation" replace />} />
+                        <Route path="/pointages/arbitrage" element={<Navigate to="/pointages?tab=validation" replace />} />
+                        <Route path="/pointage/arbitrage" element={<Navigate to="/pointages?tab=validation" replace />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}

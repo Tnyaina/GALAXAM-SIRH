@@ -523,6 +523,26 @@ public class PointageEmployeService {
                 } else if (isWeekend) {
                     dto.setHeures("00h00");
                     dto.setStatut("REPOS");
+                } else if (curr.isAfter(today)) {
+                    // Jour futur dans le mois en cours (non échu)
+                    // Pour un autonome : planification indicative sans incrémenter les compteurs à date
+                    if (isAutonome) {
+                        double totalH = (dureeJourMins / 60.0);
+                        int intHours = (int) totalH;
+                        int intMins = (int) Math.round((totalH - intHours) * 60);
+                        dto.setHeures(String.format("%02dh%02d", intHours, intMins));
+                        dto.setStatut("PLANIFIE");
+                        dto.setEcart("—");
+                        dto.setEcartPositif(true);
+                        dto.setDeplacementMatin(false);
+                        dto.setDeplacementAm(false);
+                        dto.setIndemniteRepas(false);
+                        dto.setNbRepas(0);
+                        dto.setMontantRepas(0.0);
+                    } else {
+                        dto.setHeures("—");
+                        dto.setStatut("NON_ECHU");
+                    }
                 } else if (isAutonome) {
                     double totalH = (dureeJourMins / 60.0);
                     int intHours = (int) totalH;
@@ -541,9 +561,6 @@ public class PointageEmployeService {
                     totalTrajetsCount += 1.0;
                     totalJoursTravailles++;
                     totalHeuresRealisees += totalH;
-                } else if (curr.isAfter(today)) {
-                    dto.setHeures("—");
-                    dto.setStatut("NON_ECHU");
                 } else {
                     dto.setHeures("00h00");
                     dto.setStatut("ABSENT");
@@ -589,7 +606,8 @@ public class PointageEmployeService {
                         }
 
                         String codeCat = rsCar.getString("code_categorie");
-                        boolean isCadre = rsCar.getBoolean("est_autonome") || "C".equalsIgnoreCase(codeCat) || "HC".equalsIgnoreCase(codeCat);
+                        boolean estAutonomeEmp = rsCar.getBoolean("est_autonome");
+                        boolean isCadre = PointageSyntheseService.isCadreCategorie(codeCat);
 
                         synDto = syntheseService.calculerSyntheseEmploye(
                                 idEmploye,
@@ -602,7 +620,7 @@ public class PointageEmployeService {
                                 rsCar.getString("site_nom"),
                                 codeCat,
                                 isCadre,
-                                rsCar.getBoolean("est_autonome"),
+                                estAutonomeEmp,
                                 startDate,
                                 endDate,
                                 resolvedIdPeriode,

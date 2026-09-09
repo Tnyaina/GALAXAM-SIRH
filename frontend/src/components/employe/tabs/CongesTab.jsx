@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Plus, RefreshCw, CalendarDays } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Calendar, Plus, RefreshCw, CalendarDays, ExternalLink } from 'lucide-react';
 import congeService from '@/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
@@ -131,6 +132,14 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            to="/conges"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-500)]/10 hover:bg-[var(--color-brand-500)]/20 border border-[var(--color-brand-500)]/30 transition-colors"
+            title="Ouvrir le module de gestion globale des congés"
+          >
+            <span>Module Congés</span>
+            <ExternalLink size={12} />
+          </Link>
           <Button
             variant="ghost"
             size="xs"

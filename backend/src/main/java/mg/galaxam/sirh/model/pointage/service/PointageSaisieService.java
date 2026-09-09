@@ -468,11 +468,13 @@ public class PointageSaisieService {
             String sqlEmpAff = "SELECT e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
                                "a.id_site, a.date_debut AS aff_debut, a.date_fin AS aff_fin, " +
                                "rsa.code AS code_statut_aff, " +
+                               "COALESCE(cp.code, '') AS code_categorie, " +
                                "COALESCE(f.dispense_pointage, FALSE) AS dispense_pointage " +
                                "FROM employe e " +
                                "LEFT JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
                                "LEFT JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh " +
                                "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
+                               "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
                                "WHERE e.est_actif = TRUE " +
                                "ORDER BY e.nom, e.prenom, (a.date_fin IS NULL) DESC, a.date_debut DESC";
 
@@ -487,6 +489,9 @@ public class PointageSaisieService {
                         cnd.nom = rsEA.getString("nom");
                         cnd.prenom = rsEA.getString("prenom");
                         cnd.photoUrl = rsEA.getString("photo_url");
+                        String codeCat = rsEA.getString("code_categorie");
+                        cnd.codeCategorie = codeCat;
+                        cnd.isCadre = PointageSyntheseService.isCadreCategorie(codeCat);
                         empInfoMap.put(idEmp, cnd);
                     }
 
@@ -593,6 +598,27 @@ public class PointageSaisieService {
                 dto.setIdSite(idSite);
                 dto.setIdPeriodePaie(idPeriode);
                 dto.setEstAutonome(isAutonome);
+                dto.setEstCadre(empCand.isCadre);
+                dto.setCodeCategorie(empCand.codeCategorie);
+
+                // Profil Backend-Driven : pour un rendu direct en front sans logique conditionnelle
+                if (isAutonome && empCand.isCadre) {
+                    dto.setBadgeProfilCode("CADRE_AUTO");
+                    dto.setBadgeProfilLabel("CADRE AUTO");
+                    dto.setBadgeProfilVariant("purple");
+                    dto.setBadgeProfilTooltip("Cadre autonome (forfait sans HS payees)");
+                } else if (isAutonome) {
+                    dto.setBadgeProfilCode("AUTONOME");
+                    dto.setBadgeProfilLabel("AUTONOME");
+                    dto.setBadgeProfilVariant("brand");
+                    dto.setBadgeProfilTooltip("Autonome dispense de pointage");
+                } else if (empCand.isCadre) {
+                    dto.setBadgeProfilCode("CADRE");
+                    dto.setBadgeProfilLabel("CADRE");
+                    dto.setBadgeProfilVariant("purple");
+                    dto.setBadgeProfilTooltip("Cadre soumis au badgeage");
+                }
+
                 dto.setFerieJour(isFerie);
                 dto.setLibelleFerie(libelleFerie);
 
@@ -726,7 +752,7 @@ public class PointageSaisieService {
                                 dto.setTotalHeures(isAutonome ? 4.0 : 0.0);
                                 dto.setMinutesRetard(0);
                                 dto.setCodeStatut(isAutonome ? "DISPENSE_POINTAGE" : "NON_SAISI");
-                                dto.setLibelleStatut(isAutonome ? "Cadre autonome (4h)" : "Congé Matin");
+                                dto.setLibelleStatut(isAutonome ? "Autonome (4h)" : "Congé Matin");
                                 dto.setDeplacementMatin(false);
                                 dto.setDeplacementAm(true);
                                 dto.setIndemniteRepasRecue(false);
@@ -738,12 +764,12 @@ public class PointageSaisieService {
                                 dto.setTotalHeures(isAutonome ? 4.0 : 0.0);
                                 dto.setMinutesRetard(0);
                                 dto.setCodeStatut(isAutonome ? "DISPENSE_POINTAGE" : "NON_SAISI");
-                                dto.setLibelleStatut(isAutonome ? "Cadre autonome (4h)" : "Congé Après-midi");
+                                dto.setLibelleStatut(isAutonome ? "Autonome (4h)" : "Congé Après-midi");
                                 dto.setDeplacementMatin(true);
                                 dto.setDeplacementAm(false);
                                 dto.setIndemniteRepasRecue(siteRepasInclusParDefaut);
                             } else if (CalendrierOuvrableEngine.isWeekend(targetDate)) {
-                                // Week-end sans pointage existant : repos de fin de semaine par défaut pour tous (y compris cadre autonome)
+                                // Week-end sans pointage existant : repos de fin de semaine par défaut pour tous (y compris autonome)
                                 dto.setHeureEntreeMatin("");
                                 dto.setHeureSortieMatin("");
                                 dto.setHeureEntreeAm("");
@@ -763,7 +789,7 @@ public class PointageSaisieService {
                                 dto.setTotalHeures(8.0);
                                 dto.setMinutesRetard(0);
                                 dto.setCodeStatut("DISPENSE_POINTAGE");
-                                dto.setLibelleStatut("Cadre autonome (8h)");
+                                dto.setLibelleStatut("Autonome (8h)");
                                 dto.setDeplacementMatin(true);
                                 dto.setDeplacementAm(true);
                                 dto.setIndemniteRepasRecue(siteRepasInclusParDefaut);
@@ -823,9 +849,11 @@ public class PointageSaisieService {
                             // 2. Calcul par défaut avec vérification des dérogations (exclusions) individuelles
                             Set<Integer> exclusionsIndemnites = new HashSet<>();
                             boolean excluDeplacement = false;
+                            String motifExcluDeplacement = null;
                             boolean excluRepas = false;
+                            String motifExcluRepas = null;
 
-                            String sqlDerog = "SELECT d.id_indemnite, i.code, d.beneficie " +
+                            String sqlDerog = "SELECT d.id_indemnite, i.code, d.beneficie, d.motif " +
                                               "FROM employe_indemnite_derogation d " +
                                               "JOIN ref_indemnite i ON d.id_indemnite = i.id_indemnite " +
                                               "WHERE d.id_employe = ? AND d.date_debut <= ? AND (d.date_fin IS NULL OR d.date_fin >= ?)";
@@ -838,12 +866,15 @@ public class PointageSaisieService {
                                         boolean beneficie = rsDerog.getBoolean("beneficie");
                                         int idIndDerog = rsDerog.getInt("id_indemnite");
                                         String codeInd = rsDerog.getString("code");
+                                        String motif = rsDerog.getString("motif");
                                         if (!beneficie) {
                                             exclusionsIndemnites.add(idIndDerog);
                                             if ("TRANSPORT".equalsIgnoreCase(codeInd) || "DEPLACEMENT".equalsIgnoreCase(codeInd)) {
                                                 excluDeplacement = true;
+                                                motifExcluDeplacement = motif;
                                             } else if ("REPAS".equalsIgnoreCase(codeInd)) {
                                                 excluRepas = true;
+                                                motifExcluRepas = motif;
                                             }
                                         }
                                     }
@@ -853,9 +884,15 @@ public class PointageSaisieService {
                             if (excluDeplacement) {
                                 dto.setDeplacementMatin(false);
                                 dto.setDeplacementAm(false);
+                                dto.setEstDerogeDeplacement(true);
+                                dto.setMotifDerogationDeplacement(motifExcluDeplacement != null ? motifExcluDeplacement : "Dérogation transport");
+                                dto.setLabelDerogationDeplacement("Vehicule");
                             }
                             if (excluRepas) {
                                 dto.setIndemniteRepasRecue(false);
+                                dto.setEstDerogeRepas(true);
+                                dto.setMotifDerogationRepas(motifExcluRepas != null ? motifExcluRepas : "Dérogation repas");
+                                dto.setLabelDerogationRepas("Exclu repas");
                             }
 
                             for (Map<String, Object> sInd : siteIndemnites) {
@@ -1397,6 +1434,8 @@ public class PointageSaisieService {
         String prenom;
         String photoUrl;
         boolean isAutonome;
+        boolean isCadre;
+        String codeCategorie;
     }
 
     private static class AffCandidat {

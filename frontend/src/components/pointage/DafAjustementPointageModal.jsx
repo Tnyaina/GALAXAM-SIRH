@@ -27,8 +27,11 @@ import { formatHeuresMinutes } from '@/utils/pointageUtils';
 
 const STATUT_OPTIONS = [
     { value: 'PRESENT', label: 'Présent (Journée normale)' },
+    { value: 'AUTONOME', label: 'Autonome (Cadre / Forfait)' },
+    { value: 'CONGE', label: 'Congé / Permission payée' },
     { value: 'ABSENCE_JUSTIFIEE', label: 'Absence justifiée' },
-    { value: 'ABSENCE_NON_JUSTIFIEE', label: 'Absence non justifiée (décomptée)' }
+    { value: 'ABSENCE_NON_JUSTIFIEE', label: 'Absence non justifiée (décomptée)' },
+    { value: 'REPOS', label: 'Repos hebdomadaire / Férié chômé' }
 ];
 
 export default function DafAjustementPointageModal({
@@ -69,8 +72,8 @@ export default function DafAjustementPointageModal({
                 period: 'periode',
                 idPeriode
             });
-            // Les pointages journaliers sont dans res.pointages ou res.jours
-            const list = res?.pointages || res?.jours || res?.lignes || [];
+            // Les pointages journaliers sont renvoyés dans res.pointagesData (PointageJourDTO)
+            const list = res?.pointagesData || res?.pointages || res?.jours || res?.lignes || [];
             setPointagesList(list);
         } catch (err) {
             console.error('Erreur chargement fiche pointage DAF:', err);
@@ -89,15 +92,24 @@ export default function DafAjustementPointageModal({
 
     const handleSelectJour = (ptg) => {
         setSelectedJour(ptg);
+        const cleanTime = (val) => (val && val !== '-' && val !== '—') ? val : '';
+        const em = cleanTime(ptg.entree) || cleanTime(ptg.heureEntreeMatin) || '08:00';
+        const sm = cleanTime(ptg.sortiePause) || cleanTime(ptg.heureSortieMatin) || '12:00';
+        const ea = cleanTime(ptg.retourPause) || cleanTime(ptg.heureEntreeAm) || '13:00';
+        const sa = cleanTime(ptg.sortie) || cleanTime(ptg.heureSortieAm) || '17:00';
+
+        let st = ptg.statut || ptg.statutCode || ptg.codeStatutJour;
+        if (!st || st === 'AUTONOME') st = 'PRESENT';
+
         setFormData({
-            heureEntreeMatin: ptg.heureEntreeMatin || '08:00',
-            heureSortieMatin: ptg.heureSortieMatin || '12:00',
-            heureEntreeAm: ptg.heureEntreeAm || '13:00',
-            heureSortieAm: ptg.heureSortieAm || '17:00',
-            statutCode: ptg.codeStatutJour || ptg.statutCode || (ptg.present ? 'PRESENT' : 'ABSENCE_NON_JUSTIFIEE'),
+            heureEntreeMatin: em,
+            heureSortieMatin: sm,
+            heureEntreeAm: ea,
+            heureSortieAm: sa,
+            statutCode: st,
             deplacementMatin: ptg.deplacementMatin !== false,
             deplacementAm: ptg.deplacementAm !== false,
-            indemniteRepasRecue: ptg.indemniteRepasRecue !== false,
+            indemniteRepasRecue: (ptg.indemniteRepas ?? ptg.indemniteRepasRecue) !== false,
             motifAjustement: ptg.motifAjustement || 'Rectification directe DAF'
         });
     };
@@ -115,11 +127,12 @@ export default function DafAjustementPointageModal({
 
         setSaving(true);
         try {
+            const dateStr = selectedJour.dateComplete || selectedJour.datePointage || selectedJour.date;
             const payload = {
                 ...formData,
                 idEmploye,
                 idPeriodePaie: idPeriode,
-                datePointage: selectedJour.datePointage || selectedJour.date,
+                datePointage: dateStr,
                 idSite: selectedJour.idSite || 1
             };
 
@@ -128,7 +141,7 @@ export default function DafAjustementPointageModal({
             if (ok) {
                 toast({
                     title: 'Pointage rectifié',
-                    message: `Le pointage du ${fmtDate(payload.datePointage)} a été rectifié par la DAF.`,
+                    message: `Le pointage du ${fmtDate(dateStr) || dateStr} a été rectifié par la DAF.`,
                     type: 'success'
                 });
                 setSelectedJour(null);
@@ -175,7 +188,7 @@ export default function DafAjustementPointageModal({
                                 <ArrowLeft size={14} /> Retour à la liste des jours
                             </button>
                             <span className="font-bold text-[var(--color-fg)]">
-                                Journée du {fmtDate(selectedJour.datePointage || selectedJour.date)}
+                                Journée du {fmtDate(selectedJour.dateComplete || selectedJour.datePointage) || selectedJour.dateComplete || selectedJour.date}
                             </span>
                         </div>
 
@@ -342,56 +355,71 @@ export default function DafAjustementPointageModal({
                                         </Tr>
                                     ) : (
                                         pointagesList.map((ptg) => {
-                                            const hasAnomalie = Boolean(ptg.anomalieSaisie || ptg.absenceNonJustifiee || (ptg.minutesRetard > 0 && !ptg.motifAjustement));
-                                            const isConge = Boolean(ptg.conge || ptg.absenceJustifiee);
-                                            const dateVal = ptg.datePointage || ptg.date;
+                                            const isAbsent = ptg.statut === 'ABSENT' || ptg.statut === 'ABSENCE_NON_JUSTIFIEE';
+                                            const isConge = ptg.statut === 'CONGE' || Boolean(ptg.typeConge);
+                                            const isRetard = ptg.statut === 'RETARD' || (ptg.ecart && ptg.ecart.startsWith('-') && !ptg.ecartPositif);
+                                            const isRepos = ptg.statut === 'REPOS';
+                                            const isPlanifie = ptg.statut === 'PLANIFIE' || ptg.statut === 'NON_ECHU';
+                                            const isAutonome = ptg.statut === 'AUTONOME' || ptg.statut === 'DISPENSE_POINTAGE';
+                                            const isPresent = ptg.statut === 'PRESENT' || isAutonome || ptg.present;
+                                            const hasAnomalie = Boolean(ptg.anomalieSaisie || isAbsent || isRetard || ptg.statut === 'ANOMALIE');
+
+                                            const dateVal = ptg.dateComplete || ptg.datePointage;
+                                            const dateFormatted = dateVal ? fmtDate(dateVal) : `${ptg.date} (${ptg.jour || ''})`;
+                                            
+                                            const cleanT = (val) => (val && val !== '-' && val !== '—') ? val : null;
+                                            const matinStr = (cleanT(ptg.entree) && cleanT(ptg.sortiePause))
+                                                ? `${cleanT(ptg.entree)} - ${cleanT(ptg.sortiePause)}`
+                                                : (cleanT(ptg.entree) ? cleanT(ptg.entree) : '—');
+                                            const amStr = (cleanT(ptg.retourPause) && cleanT(ptg.sortie))
+                                                ? `${cleanT(ptg.retourPause)} - ${cleanT(ptg.sortie)}`
+                                                : (cleanT(ptg.sortie) ? cleanT(ptg.sortie) : '—');
+                                            
+                                            const heuresStr = ptg.heures || (ptg.totalHeures ? formatHeuresMinutes(ptg.totalHeures, true) : (isRepos ? '00h00' : '08h00'));
+                                            const ecartStr = ptg.ecart || (ptg.minutesRetard > 0 ? `+${ptg.minutesRetard}m` : '00 min');
 
                                             return (
                                                 <Tr
-                                                    key={ptg.idPointage || dateVal}
+                                                    key={ptg.idPointage || ptg.dateComplete || ptg.date}
                                                     className={`border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/50 transition-colors ${
                                                         hasAnomalie ? 'bg-amber-500/[0.04]' : ''
                                                     }`}
                                                 >
                                                     <Td className="py-2 px-3 font-medium">
-                                                        <span>{fmtDate(dateVal)}</span>
+                                                        <span>{dateFormatted}</span>
                                                         {hasAnomalie && (
                                                             <span className="block text-[9.5px] font-bold text-amber-700 dark:text-amber-400">
-                                                                ⚠ Anomalie détectée
+                                                                Anomalie détectée
                                                             </span>
                                                         )}
                                                     </Td>
                                                     <Td className="py-2 px-2 text-center">
                                                         <Badge
                                                             variant={
+                                                                isPlanifie ? 'neutral' :
                                                                 isConge ? 'warning' :
-                                                                ptg.absenceNonJustifiee ? 'danger' :
-                                                                ptg.present ? 'success' : 'neutral'
+                                                                isAbsent ? 'danger' :
+                                                                isRetard ? 'warning' :
+                                                                isAutonome ? 'brand' :
+                                                                isRepos ? 'neutral' :
+                                                                isPresent ? 'success' : 'neutral'
                                                             }
                                                             size="xs"
                                                         >
-                                                            {ptg.libelleStatut || (ptg.present ? 'Présent' : isConge ? 'Congé' : 'Absent')}
+                                                            {isPlanifie ? 'Planifié' : (ptg.statut || (isPresent ? 'Présent' : isConge ? 'Congé' : 'Absent'))}
                                                         </Badge>
                                                     </Td>
                                                     <Td className="py-2 px-2 text-center font-mono text-[11px]">
-                                                        {ptg.heureEntreeMatin && ptg.heureSortieMatin
-                                                            ? `${ptg.heureEntreeMatin.substring(0, 5)} - ${ptg.heureSortieMatin.substring(0, 5)}`
-                                                            : '—'}
+                                                        {matinStr}
                                                     </Td>
                                                     <Td className="py-2 px-2 text-center font-mono text-[11px]">
-                                                        {ptg.heureEntreeAm && ptg.heureSortieAm
-                                                            ? `${ptg.heureEntreeAm.substring(0, 5)} - ${ptg.heureSortieAm.substring(0, 5)}`
-                                                            : '—'}
+                                                        {amStr}
                                                     </Td>
                                                     <Td className="py-2 px-2 text-center font-mono font-bold">
-                                                        {formatHeuresMinutes(ptg.totalHeures || 0, true)}
+                                                        {heuresStr}
                                                     </Td>
                                                     <Td className="py-2 px-2 text-center font-mono">
-                                                        {ptg.minutesRetard > 0 ? (
-                                                            <span className="text-danger-600 font-bold">+{ptg.minutesRetard}m</span>
-                                                        ) : (
-                                                            <span className="text-[var(--color-fg-subtle)]">0</span>
-                                                        )}
+                                                        {ecartStr}
                                                     </Td>
                                                     <Td className="py-2 px-3 text-right">
                                                         <Button

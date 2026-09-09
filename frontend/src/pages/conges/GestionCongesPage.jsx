@@ -74,7 +74,7 @@ export default function GestionCongesPage() {
   ];
 
   return (
-    <div className="space-y-5 max-w-[1440px] mx-auto w-full font-sans pb-12">
+    <div className="space-y-4 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans pb-8">
       <SEO title="Congés & Absences" description="Gestion des demandes de congés et soldes." />
 
       <PageHeader

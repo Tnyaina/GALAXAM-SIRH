@@ -4,7 +4,8 @@ import {
     AlertTriangle, 
     Layers, 
     CalendarCheck2, 
-    Lock
+    Lock,
+    ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -22,7 +23,11 @@ export default function PointageWorkflowNav({ activePeriode = null }) {
         });
     };
 
-    // Onglets organisés par workflow : Saisie (quotidien) → Suivi (fin de mois) → Anomalies (DAF) → Synthèse (consolidation)
+    const stCode = activePeriode?.statutCode || activePeriode?.statut_code;
+    const isTransmis = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
+    const isCloturee = stCode === 'CLOTUREE' || stCode === 'VALIDEE';
+
+    // Onglets organisés par workflow : Saisie → Suivi → Anomalies → Synthèse → Arbitrage DAF
     const tabs = [
         {
             tab: 'saisie',
@@ -48,12 +53,15 @@ export default function PointageWorkflowNav({ activePeriode = null }) {
             label: 'Synthèse & Clôture',
             icon: Layers,
             showAlways: true
+        },
+        {
+            tab: 'validation',
+            label: 'Validation DAF',
+            icon: ShieldCheck,
+            showAlways: false,
+            badge: isTransmis ? 'À valider' : null
         }
     ].filter(t => t.showAlways || isDaf);
-
-    const stCode = activePeriode?.statutCode || activePeriode?.statut_code;
-    const isTransmis = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
-    const isCloturee = stCode === 'CLOTUREE' || stCode === 'VALIDEE';
 
     return (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs flex flex-wrap items-center justify-between gap-3 px-2 py-1.5">
@@ -77,6 +85,11 @@ export default function PointageWorkflowNav({ activePeriode = null }) {
                         >
                             <Icon size={14} className={isActive ? 'text-[var(--color-brand-500)]' : 'text-[var(--color-fg-muted)]'} />
                             <span>{t.label}</span>
+                            {t.badge && (
+                                <span className="ml-1 px-1.5 py-0.2 text-[9px] font-bold uppercase bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40">
+                                    {t.badge}
+                                </span>
+                            )}
                         </button>
                     );
                 })}

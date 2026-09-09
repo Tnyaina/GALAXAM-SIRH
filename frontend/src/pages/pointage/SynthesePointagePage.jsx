@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock, ExternalLink, Send, Moon, Sun, Award, Check, RotateCw } from 'lucide-react';
+import { Search, Clock, Layers, CalendarRange, CheckCircle2, AlertTriangle, Info, Lock, Unlock, ExternalLink, Send, Moon, Sun, Award, Check, RotateCw, Calendar, Building2, X } from 'lucide-react';
 import Select from '@/components/ui/forms/Select';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
@@ -335,47 +335,89 @@ export default function SynthesePointagePage() {
                 description="Consolidation hebdomadaire et mensuelle des heures travaillées, retards et indemnités pour la paie."
             />
 
-            <div className="space-y-2 max-w-[1600px] mx-auto pb-8">
-                {/* Filtres compact (1 ligne) */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-3 py-2 shadow-xs flex items-center gap-3 flex-wrap lg:flex-nowrap">
-                    <Select
-                        options={periodeOptions}
-                        value={selectedPeriode}
-                        onChange={(val) => {
-                            setSelectedPeriode(val);
-                            setSearchParams(prev => {
-                                const next = new URLSearchParams(prev);
-                                if (val) next.set('periode', val);
-                                else next.delete('periode');
-                                return next;
-                            });
-                        }}
-                        className="h-[32px] text-xs min-w-[200px] flex-1"
-                    />
-                    <Select
-                        options={siteOptions}
-                        value={selectedSite}
-                        onChange={(val) => {
-                            setSelectedSite(val);
-                            setSearchParams(prev => {
-                                const next = new URLSearchParams(prev);
-                                if (val) next.set('site', val);
-                                else next.delete('site');
-                                return next;
-                            });
-                        }}
-                        className="h-[32px] text-xs min-w-[180px] flex-1"
-                    />
-                    <div className="relative flex-1 min-w-[160px]">
-                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
-                        <input
-                            type="text"
-                            placeholder="Nom, matricule…"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-7 pr-3 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:border-brand-500 h-[32px]"
-                        />
+            <div className="space-y-3 w-full pb-8">
+                {/* Barre de Filtres & Contrôle Standardisée */}
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-3 py-2 sm:px-3.5 sm:py-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        {/* 1. Sélecteur de Période */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <Calendar size={14} className="text-brand-500 shrink-0" />
+                            <Select
+                                options={periodeOptions}
+                                value={selectedPeriode}
+                                onChange={(val) => {
+                                    setSelectedPeriode(val);
+                                    setSearchParams(prev => {
+                                        const next = new URLSearchParams(prev);
+                                        if (val) next.set('periode', val);
+                                        else next.delete('periode');
+                                        return next;
+                                    });
+                                }}
+                                containerClassName="w-60 sm:w-72"
+                                className="h-[32px] text-xs font-semibold"
+                            />
+                        </div>
+
+                        <div className="h-5 w-px bg-[var(--color-border-subtle)] hidden sm:block shrink-0" />
+
+                        {/* 2. Sélecteur de Site */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <Building2 size={14} className="text-[var(--color-fg-muted)] shrink-0" />
+                            <Select
+                                options={siteOptions}
+                                value={selectedSite}
+                                onChange={(val) => {
+                                    setSelectedSite(val);
+                                    setSearchParams(prev => {
+                                        const next = new URLSearchParams(prev);
+                                        if (val) next.set('site', val);
+                                        else next.delete('site');
+                                        return next;
+                                    });
+                                }}
+                                containerClassName="w-44 sm:w-52"
+                                className="h-[32px] text-xs font-semibold"
+                            />
+                        </div>
+
+                        <div className="h-5 w-px bg-[var(--color-border-subtle)] hidden sm:block shrink-0" />
+
+                        {/* 3. Recherche employé */}
+                        <div className="relative w-44 sm:w-56 shrink-0">
+                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none" />
+                            <input
+                                type="text"
+                                placeholder="Nom, matricule…"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-8 pr-7 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:border-brand-500 h-[32px]"
+                            />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchTerm('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-0.5 cursor-pointer"
+                                    title="Effacer la recherche"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                        </div>
                     </div>
+
+                    {/* Statut de la Période */}
+                    {consolidationStatus.currentPeriodeObj && (
+                        <div className="flex items-center gap-2 shrink-0 ml-auto">
+                            <Badge
+                                variant={consolidationStatus.isCloturee ? 'success' : consolidationStatus.isValidee ? 'primary' : consolidationStatus.isAValider ? 'warning' : 'info'}
+                                size="sm"
+                                className="font-bold uppercase tracking-wider"
+                            >
+                                {consolidationStatus.currentPeriodeObj.statutLibelle || consolidationStatus.currentPeriodeObj.statutCode}
+                            </Badge>
+                        </div>
+                    )}
                 </div>
 
                 {/* BANNIÈRE D'ALERTE : Période renvoyée par la DAF pour correction */}
@@ -660,7 +702,7 @@ export default function SynthesePointagePage() {
                                 <div className="px-5 py-2.5 bg-[var(--color-brand-500)]/5 border-b border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-muted)] flex items-center gap-2">
                                     <Info size={14} className="text-[var(--color-brand-500)] shrink-0" />
                                     <span>
-                                        <strong>Principe de Compensation Hebdomadaire 1:1 :</strong> Le <em>Surplus Brut</em> (Réalisées − Base) éponge d'abord les <em>Retards</em> de la semaine. Le surplus net restant est ensuite distribué en <strong>HS 30 %</strong> (jusqu'à 8h) puis en <strong>HS 50 %</strong>.
+                                        <strong>Principe de Compensation Hebdomadaire 1:1 :</strong> Le Surplus Brut (Réalisées − Base) éponge d'abord les Retards de la semaine. Le surplus net restant est ensuite distribué en <strong>HS 30 %</strong> (jusqu'à 8h) puis en <strong>HS 50 %</strong>.
                                     </span>
                                 </div>
 
@@ -711,14 +753,15 @@ export default function SynthesePointagePage() {
                                                             </div>
                                                             <div className="flex items-center gap-1.5 mt-0.5 text-[10px] font-mono text-[var(--color-fg-muted)]">
                                                                 <span>{row.matricule}</span>
-                                                                {row.estCadre && (
-                                                                    <span className="text-[9px] font-bold uppercase px-1 py-0.2 rounded bg-neutral-500/10 text-neutral-600 dark:text-neutral-300 border border-neutral-500/20">
-                                                                        CADRE
-                                                                    </span>
-                                                                )}
-                                                                {row.dispensePointage && (
-                                                                    <span className="text-[9px] font-bold uppercase px-1 py-0.2 rounded bg-brand-500/10 text-brand-700 dark:text-brand-300 border border-brand-500/20">
-                                                                        AUTONOME
+                                                                {row.badgeProfilLabel && (
+                                                                    <span
+                                                                        className={`text-[9px] font-bold px-1 py-0.2 tracking-wide shrink-0 ${
+                                                                            row.badgeProfilVariant === 'purple'
+                                                                                ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300'
+                                                                                : 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                                                                        }`}
+                                                                    >
+                                                                        {row.badgeProfilLabel}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -962,10 +1005,10 @@ export default function SynthesePointagePage() {
                                                 : 'En attente de validation des semaines'}
                                         </div>
 
-                                        {/* Lien vers module Paie pour les actions DAF */}
+                                        {/* Lien vers onglet Arbitrage DAF */}
                                         {canValidateDaf && (
                                             <div className="mt-2 pt-2 border-t border-[var(--color-border-subtle)]">
-                                                <Link to="/paie?tab=validation">
+                                                <Link to="/pointages?tab=validation">
                                                     <Button
                                                         type="button"
                                                         variant="outline"
@@ -973,7 +1016,7 @@ export default function SynthesePointagePage() {
                                                         className="font-bold flex items-center gap-1.5 text-[var(--color-brand-600)] border-[var(--color-brand-500)]/30 hover:bg-[var(--color-brand-500)]/8"
                                                     >
                                                         <ExternalLink size={12} />
-                                                        <span>Valider / Clôturer dans le module Paie →</span>
+                                                        <span>Arbitrer &amp; Clôturer dans l'onglet DAF →</span>
                                                     </Button>
                                                 </Link>
                                             </div>
@@ -1035,9 +1078,20 @@ export default function SynthesePointagePage() {
                                                     >
                                                         {row.nom} {row.prenom}
                                                     </Link>
-                                                    <span className="block text-[10px] font-mono text-[var(--color-fg-muted)]">
-                                                        {row.matricule} {row.estCadre && '· CADRE'}
-                                                    </span>
+                                                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--color-fg-muted)] mt-0.5">
+                                                        <span>{row.matricule}</span>
+                                                        {row.badgeProfilLabel && (
+                                                            <span
+                                                                className={`text-[9px] font-bold px-1 py-0.2 tracking-wide shrink-0 ${
+                                                                    row.badgeProfilVariant === 'purple'
+                                                                        ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300'
+                                                                        : 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                                                                }`}
+                                                            >
+                                                                {row.badgeProfilLabel}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </Td>
                                                 <Td className="py-2.5 px-3 text-xs text-[var(--color-fg-muted)]">
                                                     {row.siteNom || `Site #${row.idSite}`}
