@@ -136,3 +136,68 @@ export function isDateAnterieure(dateStr) {
     today.setHours(0, 0, 0, 0);
     return dDebut < today;
 }
+
+/**
+ * Retourne la date courante sous forme "YYYY-MM-DD" de manière timezone-safe (fuseau local du navigateur).
+ * Évite le bug classique de new Date().toISOString() qui renvoie la veille avant 03h00 du matin à Madagascar (UTC+3).
+ * 
+ * @returns {string} Ex: "2026-09-09"
+ */
+export function getTodayDateString() {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Vérifie si une date (YYYY-MM-DD ou Date) est strictement dans le futur par rapport à aujourd'hui.
+ * 
+ * @param {string|Date|null|undefined} dateStr
+ * @returns {boolean}
+ */
+export function isDateInFuture(dateStr) {
+    if (!dateStr) return false;
+    const str = fmtDateInput(dateStr);
+    if (!str || str.length < 10) return false;
+    return str.substring(0, 10) > getTodayDateString();
+}
+
+/**
+ * Vérifie si une date correspond exactement à aujourd'hui.
+ * 
+ * @param {string|Date|null|undefined} dateStr
+ * @returns {boolean}
+ */
+export function isDateToday(dateStr) {
+    if (!dateStr) return false;
+    const str = fmtDateInput(dateStr);
+    if (!str || str.length < 10) return false;
+    return str.substring(0, 10) === getTodayDateString();
+}
+
+/**
+ * Vérifie si une date est strictement antérieure à aujourd'hui.
+ * 
+ * @param {string|Date|null|undefined} dateStr
+ * @returns {boolean}
+ */
+export function isDateInPast(dateStr) {
+    if (!dateStr) return false;
+    const str = fmtDateInput(dateStr);
+    if (!str || str.length < 10) return false;
+    return str.substring(0, 10) < getTodayDateString();
+}
+
+/**
+ * Vérifie si une semaine entière (définie par dateDebut) commence strictement dans le futur.
+ * 
+ * @param {string} dateDebutSemaine 
+ * @returns {boolean}
+ */
+export function isWeekInFuture(dateDebutSemaine) {
+    if (!dateDebutSemaine) return false;
+    return isDateInFuture(dateDebutSemaine);
+}
+

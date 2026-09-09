@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw, AlertTriangle, CalendarRange } from 'lucide-react';
+import { RefreshCw, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import Button from '@/components/ui/forms/Button';
 import { Skeleton } from '@/components/ui/feedback/Skeleton';
 import periodePaieService from '@/services/periodePaieService';
+import { getTodayDateString } from '@/utils/dateUtils';
 
 export default function DashboardHeader({
     loading,
@@ -27,7 +28,7 @@ export default function DashboardHeader({
             try {
                 const list = await periodePaieService.getAllPeriodes();
                 if (isMounted && list && list.length > 0) {
-                    const todayStr = new Date().toISOString().split('T')[0];
+                    const todayStr = getTodayDateString();
                     const found = list.find(p => p.statutCode === 'A_VALIDER' || p.statutCode === 'TRANSMIS_DAF')
                         || list.find(p => p.statutCode === 'EN_COURS')
                         || list.find(p => p.dateDebut <= todayStr && p.dateFin >= todayStr)

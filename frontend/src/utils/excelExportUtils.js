@@ -6,6 +6,8 @@
  * avec respect des accents et caractères malgaches dans Microsoft Excel, LibreOffice Calc et Google Sheets.
  */
 
+import { getTodayDateString } from './dateUtils';
+
 /**
  * Formate un nombre pour l'export Excel (ex: 8.5 -> "8,50" ou "8.50").
  */
@@ -90,17 +92,17 @@ export function exportPointageValidationToExcel({ periode, siteNom = 'Tous les s
 
     // 3. Lignes de données
     syntheseData.forEach(row => {
-        const hNorm = Number(row.heuresNormales || row.totalHeures || 0);
-        const hs30 = Number(row.heuresSupplementaires30 || row.heuresHs30 || 0);
-        const hs50 = Number(row.heuresSupplementaires50 || row.heuresHs50 || 0);
-        const hTot = Number(row.totalHeures || 0);
-        const hNuit = Number(row.heuresNuit || 0);
-        const retMin = Number(row.minutesRetard || row.totalMinutesRetard || 0);
-        const jPres = Number(row.joursPresents || row.totalJoursPresents || 0);
-        const jAbs = Number(row.joursAbsents || row.totalJoursAbsents || 0);
-        const jCong = Number(row.joursConges || 0);
-        const mRepas = Number(row.totalIndemniteRepas || row.montantRepas || 0);
-        const mDepl = Number(row.totalIndemniteDeplacement || row.montantDeplacement || 0);
+        const hNorm = Number(row.heuresNormales || 0);
+        const hs30 = Number(row.heuresHs30 || row.heuresSupplementaires30 || 0);
+        const hs50 = Number(row.heuresHs50 || row.heuresSupplementaires50 || 0);
+        const hTot = Number(row.totalHeuresTravaillees || row.totalHeures || 0);
+        const hNuit = Number(row.heuresNuitTotal || row.heuresNuit || 0);
+        const retMin = Number(row.totalMinutesRetard || row.minutesRetard || 0);
+        const jPres = Number(row.nbJoursPresents ?? row.joursPresents ?? row.totalJoursPresents ?? 0);
+        const jAbs = Number(row.nbJoursAbsence ?? row.joursAbsents ?? row.totalJoursAbsents ?? 0);
+        const jCong = Number(row.nbJoursConge ?? row.joursConges ?? 0);
+        const mRepas = Number(row.montantRepas || row.totalIndemniteRepas || 0);
+        const mDepl = Number(row.montantDeplacement || row.totalIndemniteDeplacement || 0);
 
         totHNorm += hNorm;
         totHs30 += hs30;
@@ -168,7 +170,7 @@ export function exportPointageValidationToExcel({ periode, siteNom = 'Tous les s
 
     // 6. Téléchargement immédiat
     const codePeriodeClean = (periode?.code || 'periode').replace(/[^a-zA-Z0-9-_]/g, '_');
-    const dateFileClean = new Date().toISOString().split('T')[0];
+    const dateFileClean = getTodayDateString();
     const fileName = `Synthese_Pointage_${codePeriodeClean}_${dateFileClean}.csv`;
 
     const link = document.createElement('a');

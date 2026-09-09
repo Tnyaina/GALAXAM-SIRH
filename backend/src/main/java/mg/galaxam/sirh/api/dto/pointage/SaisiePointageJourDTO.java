@@ -48,6 +48,7 @@ public class SaisiePointageJourDTO {
     private boolean indemniteDeplacementRecue;
     private boolean deplacementMatin = true;
     private boolean deplacementAm = true;
+    private Double montantDeplacement;
     private boolean indemniteRepasRecue;
     private Double montantRepas;
 
@@ -200,7 +201,7 @@ public class SaisiePointageJourDTO {
     public String getMotifDerogationRepas() { return motifDerogationRepas; }
     public void setMotifDerogationRepas(String motifDerogationRepas) { this.motifDerogationRepas = motifDerogationRepas; }
 
-    public boolean isIndemniteDeplacementRecue() { return indemniteDeplacementRecue; }
+    public boolean isIndemniteDeplacementRecue() { return indemniteDeplacementRecue || deplacementMatin || deplacementAm; }
     public void setIndemniteDeplacementRecue(boolean indemniteDeplacementRecue) { this.indemniteDeplacementRecue = indemniteDeplacementRecue; }
 
     public boolean isDeplacementMatin() { return deplacementMatin; }
@@ -208,6 +209,9 @@ public class SaisiePointageJourDTO {
 
     public boolean isDeplacementAm() { return deplacementAm; }
     public void setDeplacementAm(boolean deplacementAm) { this.deplacementAm = deplacementAm; }
+
+    public Double getMontantDeplacement() { return montantDeplacement; }
+    public void setMontantDeplacement(Double montantDeplacement) { this.montantDeplacement = montantDeplacement; }
 
     public boolean isIndemniteRepasRecue() { return indemniteRepasRecue; }
     public void setIndemniteRepasRecue(boolean indemniteRepasRecue) { this.indemniteRepasRecue = indemniteRepasRecue; }
@@ -230,6 +234,7 @@ public class SaisiePointageJourDTO {
     public boolean isCongeDecompteSolde() { return congeDecompteSolde == null || congeDecompteSolde; }
 
     // Backend-driven booleans pour l'interface UI (Zero comparaison de string en dur sur le front)
+    public boolean isRepos() { return "REPOS".equalsIgnoreCase(codeStatut); }
     public boolean isPresent() { return "PRESENT".equalsIgnoreCase(codeStatut); }
     public boolean isRetard() { return "RETARD".equalsIgnoreCase(codeStatut) || (minutesRetard != null && minutesRetard > 0); }
     public boolean isConge() { return "CONGE".equalsIgnoreCase(codeStatut); }
@@ -239,7 +244,7 @@ public class SaisiePointageJourDTO {
     public boolean isDimancheTravaille() { return "DIMANCHE_TRAVAILLE".equalsIgnoreCase(codeStatut); }
     public boolean isSamediTravaille() { return "SAMEDI_TRAVAILLE".equalsIgnoreCase(codeStatut); }
     public boolean isDispensePointage() {
-        if (isFerieChome() || isConge() || isAbsenceJustifiee()) return false;
+        if (isFerieChome() || isConge() || isAbsenceJustifiee() || isRepos()) return false;
         return estAutonome || "DISPENSE_POINTAGE".equalsIgnoreCase(codeStatut);
     }
     public boolean isAnomalie() { return "ANOMALIE_SAISIE".equalsIgnoreCase(codeStatut); }
@@ -247,7 +252,7 @@ public class SaisiePointageJourDTO {
     public boolean isAbsence() { return isAbsenceJustifiee() || isAbsenceNonJustifiee(); }
 
     public boolean isNonSaisi() {
-        if (isConge() || isAbsenceJustifiee() || isAbsenceNonJustifiee() || isFerieChome() || isFerieTravaille() || isDimancheTravaille() || isSamediTravaille()) {
+        if (isRepos() || isConge() || isAbsenceJustifiee() || isAbsenceNonJustifiee() || isFerieChome() || isFerieTravaille() || isDimancheTravaille() || isSamediTravaille()) {
             return false;
         }
         if (estAutonome || isDispensePointage()) {
@@ -261,6 +266,7 @@ public class SaisiePointageJourDTO {
     public boolean isCongeAm() { return "APRES_MIDI".equalsIgnoreCase(typeCongeJour); }
 
     public String getStatutBadgeVariant() {
+        if (isRepos()) return "neutral";
         if (isFerieTravaille()) return "error";
         if (isFerieChome()) return "neutral";
         if (isDimancheTravaille()) return "purple";
@@ -272,6 +278,7 @@ public class SaisiePointageJourDTO {
     }
 
     public String getStatutBadgeLabel() {
+        if (isRepos()) return "Repos";
         if (libelleStatut != null && !libelleStatut.trim().isEmpty() && !"Non saisi".equalsIgnoreCase(libelleStatut)) {
             return libelleStatut;
         }

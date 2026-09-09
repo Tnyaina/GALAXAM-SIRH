@@ -24,10 +24,11 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import PeriodNavigator from '@/components/ui/navigation/PeriodNavigator';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
+import { getTodayDateString } from '@/utils/dateUtils';
 
 export default function PointageTab({ idEmploye }) {
     const [periodView, setPeriodView] = useState('periode');
-    const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(() => getTodayDateString());
     const [selectedPeriodeId, setSelectedPeriodeId] = useState(null);
     const [periodesList, setPeriodesList] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -42,7 +43,7 @@ export default function PointageTab({ idEmploye }) {
                 if (data && Array.isArray(data) && data.length > 0) {
                     setPeriodesList(data);
                     // Déterminer la période courante ou la plus récente
-                    const todayStr = new Date().toISOString().split('T')[0];
+                    const todayStr = getTodayDateString();
                     const activeP = data.find(p => p.dateDebut <= todayStr && p.dateFin >= todayStr) || data[0];
                     if (activeP) {
                         setSelectedPeriodeId(activeP.idPeriodePaie);
@@ -163,8 +164,8 @@ export default function PointageTab({ idEmploye }) {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                            setSelectedDate(new Date().toISOString().split('T')[0]);
-                            const todayStr = new Date().toISOString().split('T')[0];
+                            const todayStr = getTodayDateString();
+                            setSelectedDate(todayStr);
                             const activeP = periodesList.find(p => p.dateDebut <= todayStr && p.dateFin >= todayStr);
                             if (activeP) setSelectedPeriodeId(activeP.idPeriodePaie);
                         }}
@@ -630,7 +631,7 @@ export default function PointageTab({ idEmploye }) {
                                                 <div className="min-w-0">
                                                     <div className="text-xs font-bold text-[var(--color-fg)]">Transport &amp; Déplacement</div>
                                                     <div className="text-[11px] text-[var(--color-fg-muted)] truncate">
-                                                        {kpis.totalTrajets || '0 trajet'} (A/R) · Prorata 21 j ouvrables
+                                                        {kpis.totalTrajets || '0 trajet'} (AR) · Prorata 21 j ouvrables
                                                     </div>
                                                 </div>
                                             </div>

@@ -13,6 +13,7 @@ import CarriereModalsManager from '@/components/carriere/modals/CarriereModalsMa
 
 // Utilitaires
 import { trouverWorkflowPlanifieFutur } from '@/utils/carriereUtils';
+import { getTodayDateString } from '@/utils/dateUtils';
 
 export default function CarriereTab({
     idEmploye,
@@ -46,7 +47,7 @@ export default function CarriereTab({
         : [];
     const workflowCplActif = workflowsValidesDuContrat[0] || null;
 
-    const todayStr = new Date().toISOString().substring(0, 10);
+    const todayStr = getTodayDateString();
     const workflowPlanifieFutur = trouverWorkflowPlanifieFutur(workflowsList, contratActif?.idContrat, todayStr);
     const estEssaiRenouveleFlag = etatEssai?.estRenouvele;
 

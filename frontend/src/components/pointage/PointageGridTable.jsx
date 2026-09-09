@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Moon, ClockCheck, AlertTriangle, Car, Check, X, CheckSquare, Clock, UserX } from 'lucide-react';
+import { Moon, Car, Clock, UserX } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
 import TimeInput from '@/components/ui/forms/TimeInput';
 import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
-import Badge from '@/components/ui/data-display/Badge';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { formatHeuresMinutes, formatMonnaie } from '@/utils/pointageUtils';
 import StatusPickerPopover from '@/components/pointage/StatusPickerPopover';
@@ -254,11 +253,10 @@ export default function PointageGridTable({
                                                     <span>{row.matricule}</span>
                                                     {row.badgeProfilLabel && (
                                                         <span
-                                                            className={`text-[9px] font-bold px-1 py-0.2 tracking-wide shrink-0 ${
-                                                                row.badgeProfilVariant === 'purple'
+                                                            className={`text-[9px] font-bold px-1 py-0.2 tracking-wide shrink-0 ${row.badgeProfilVariant === 'purple'
                                                                     ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300'
                                                                     : 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
-                                                            }`}
+                                                                }`}
                                                             title={row.badgeProfilTooltip || row.badgeProfilLabel}
                                                         >
                                                             {row.badgeProfilLabel}
@@ -527,7 +525,7 @@ export default function PointageGridTable({
                             icon={<Car size={13} className="text-blue-500" />}
                             title="Cocher transport Matin + Soir pour la sélection"
                         >
-                            Transport A/R
+                            Transport AR
                         </Button>
 
                         <Button

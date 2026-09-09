@@ -26,17 +26,35 @@ public class PointageSyntheseController {
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> getSynthese(
             @RequestParam(defaultValue = "0") int idPeriodePaie,
-            @RequestParam(required = false) Integer idSite
+            @RequestParam(required = false) Integer idSite,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "ALL") String filtre,
+            @RequestParam(required = false, defaultValue = "1") int page,
+            @RequestParam(required = false, defaultValue = "25") int size
     ) {
         Map<String, Object> resp = new HashMap<>();
         if (idPeriodePaie <= 0) {
             resp.put("synthese", java.util.Collections.emptyList());
+            resp.put("totalElements", 0);
+            resp.put("totalPages", 0);
+            resp.put("currentPage", 1);
+            resp.put("pageSize", size);
             return ResponseEntity.ok(resp);
         }
         try {
-            List<PointageSyntheseMensuelleDTO> data = pointageSyntheseService.getSynthesePeriode(idPeriodePaie, idSite);
-            resp.put("synthese", data);
-            return ResponseEntity.ok(resp);
+            if (page <= 0 && size <= 0) {
+                // Mode non-paginé pour compatibilité ascendante si demandé
+                List<PointageSyntheseMensuelleDTO> data = pointageSyntheseService.getSynthesePeriode(idPeriodePaie, idSite);
+                resp.put("synthese", data);
+                resp.put("totalElements", data.size());
+                resp.put("totalPages", 1);
+                resp.put("currentPage", 1);
+                resp.put("pageSize", data.size());
+                return ResponseEntity.ok(resp);
+            }
+            Map<String, Object> data = pointageSyntheseService.getSynthesePeriodePaginee(
+                    idPeriodePaie, idSite, search, filtre, page, size);
+            return ResponseEntity.ok(data);
         } catch (Exception e) {
             e.printStackTrace();
             resp.put("error", "Erreur lors du calcul de la synthèse : " + e.getMessage());

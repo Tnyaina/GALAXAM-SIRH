@@ -27,7 +27,7 @@ public class PointageSaisieController {
     @GetMapping
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> getGrilleSaisie(
-            @RequestParam int idSite,
+            @RequestParam(defaultValue = "0") int idSite,
             @RequestParam String date
     ) {
         try {

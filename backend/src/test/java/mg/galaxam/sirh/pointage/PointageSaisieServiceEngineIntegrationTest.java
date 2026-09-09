@@ -153,4 +153,34 @@ class PointageSaisieServiceEngineIntegrationTest {
             assertEquals("CONGE", statut, "Par défaut l'ancien appel retourne CONGE");
         }
     }
+
+    @Nested
+    @DisplayName("Validation Temporelle & Garde-fous Dates Futures")
+    class ValidationTemporelleTests {
+
+        @Test
+        @DisplayName("verifierEligibilitePointage rejette formellement toute date future (EAT UTC+3)")
+        void testRejetDateFuture() {
+            PointageSaisieService service = new PointageSaisieService();
+            LocalDate futureDate = LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo")).plusDays(2);
+            java.sql.Date sqlFutureDate = java.sql.Date.valueOf(futureDate);
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class, () -> {
+                service.verifierEligibilitePointage(null, 1, 1, sqlFutureDate);
+            });
+
+            assertTrue(ex.getMessage().contains("Impossible d'enregistrer un pointage pour une date future"),
+                    "Le message d'erreur doit expliciter l'interdiction de pointage dans le futur");
+        }
+
+        @Test
+        @DisplayName("verifierEligibilitePointage rejette une date nulle")
+        void testRejetDateNulle() {
+            PointageSaisieService service = new PointageSaisieService();
+            assertThrows(IllegalArgumentException.class, () -> {
+                service.verifierEligibilitePointage(null, 1, 1, null);
+            });
+        }
+    }
 }
+

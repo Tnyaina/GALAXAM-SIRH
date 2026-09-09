@@ -1,11 +1,12 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, Clock, Sparkles } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { useToast } from '@/components/ui/feedback/Toast';
 import SEO from '@/components/system/SEO';
 import { useAuth } from '@/context/AuthContext';
 import organisationService from '@/api/admin/organisationService';
+import { getTodayDateString, isDateInFuture } from '@/utils/dateUtils';
 
 import PointageFerieAlert from '@/components/pointage/PointageFerieAlert';
 import PointageToolbar from '@/components/pointage/PointageToolbar';
@@ -14,13 +15,35 @@ import PointageRecapModal from '@/components/pointage/PointageRecapModal';
 import usePointageSaisie from '@/hooks/pointage/usePointageSaisie';
 import useDebounce from '@/hooks/useDebounce';
 
-export default function SaisieQuotidiennePage() {
+export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectPeriode = null }) {
     const { toast } = useToast();
     const { hasPermission } = useAuth();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [sites, setSites] = useState([]);
     const canWrite = hasPermission('POINTAGE_WRITE');
     const canValidate = hasPermission('POINTAGE_VALIDATE');
+
+    const todayStr = getTodayDateString();
+    const paramDate = searchParams.get('date');
+    const paramSite = searchParams.get('site');
+
+    // Déterminer la date par défaut en cohérence avec la période active
+    const defaultDate = useMemo(() => {
+        if (paramDate) return paramDate;
+        if (activePeriode?.dateDebut && activePeriode?.dateFin) {
+            if (todayStr >= activePeriode.dateDebut && todayStr <= activePeriode.dateFin) {
+                return todayStr;
+            }
+            if (todayStr > activePeriode.dateFin) {
+                return activePeriode.dateFin;
+            }
+            return activePeriode.dateDebut;
+        }
+        return todayStr;
+    }, [paramDate, activePeriode?.dateDebut, activePeriode?.dateFin, todayStr]);
+
+    const initialSite = paramSite ? Number(paramSite) : 1;
 
     useEffect(() => {
         const fetchSites = async () => {
@@ -59,7 +82,7 @@ export default function SaisieQuotidiennePage() {
         bulkApplyStatut,
         bulkApplyIndemnite,
         saveAll
-    } = usePointageSaisie(1, new Date().toISOString().split('T')[0]);
+    } = usePointageSaisie(initialSite, defaultDate);
 
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 350);
@@ -88,11 +111,21 @@ export default function SaisieQuotidiennePage() {
     const handleSiteChange = (siteId) => {
         setSelectedSite(siteId);
         setCurrentPage(1);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('site', String(siteId));
+            return next;
+        });
     };
 
     const handleDateChange = (dateStr) => {
         setSelectedDate(dateStr);
         setCurrentPage(1);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('date', dateStr);
+            return next;
+        });
     };
 
     // Modales
@@ -213,14 +246,17 @@ export default function SaisieQuotidiennePage() {
         );
     }, [grilleData, statutFilter, debouncedSearch]);
 
+    const isFuture = isDateInFuture(selectedDate);
+
     const isReadOnly = useMemo(() => {
+        if (isFuture) return true;
         if (!canWrite) return true;
         if (!periodeInfo) return true;
         const statut = periodeInfo.statut_code;
         if (statut === 'VALIDEE' || statut === 'CLOTUREE') return true;
         if (statut === 'A_VALIDER' && !canValidate) return true;
         return false;
-    }, [periodeInfo, canValidate, canWrite]);
+    }, [isFuture, periodeInfo, canValidate, canWrite]);
 
     const currentSiteObj = sites.find(s => s.idSite === selectedSite);
     const siteLabel = currentSiteObj
@@ -335,6 +371,26 @@ export default function SaisieQuotidiennePage() {
                     saving={saving}
                     dirtyCount={dirtyCount}
                 />
+
+                {/* 1.bis Alert : Date future */}
+                {isFuture && (
+                    <div className="bg-amber-500/10 border-l-4 border-l-amber-500 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-3 shadow-xs flex-wrap">
+                        <div className="flex items-center gap-2.5">
+                            <AlertCircle size={16} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                            <div>
+                                <span className="font-bold">Date future ({selectedDate})</span>
+                                <span className="ml-2 text-[11px] opacity-85">— Conformément aux règles d'intégrité temporelle du SIRH, la saisie et la modification des pointages sont strictement désactivées pour les dates non échues.</span>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => handleDateChange(getTodayDateString())}
+                            className="px-3 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-none cursor-pointer transition-colors shrink-0 shadow-xs"
+                        >
+                            Revenir à aujourd'hui ({getTodayDateString()})
+                        </button>
+                    </div>
+                )}
 
                 {/* 2. Alert : Aucune période de paie ouverte */}
                 {!periodeInfo && !loading && (

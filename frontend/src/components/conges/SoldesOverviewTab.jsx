@@ -3,6 +3,7 @@ import { SkeletonCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { getErrorMessage } from '@/api/apiClient';
 import congeService from '@/api/congeService';
+import { fmtDateInput } from '@/utils/dateUtils';
 
 // Hook Logique
 import { useSoldesOverview } from '@/hooks/conges/useSoldesOverview';
@@ -154,8 +155,8 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], refe
     setDemandeModalState({
       isOpen: true,
       idEmploye: d?.idEmploye || null,
-      dateDebut: d?.dateDebut ? new Date(d.dateDebut).toISOString().split('T')[0] : null,
-      dateFin: d?.dateFin ? new Date(d.dateFin).toISOString().split('T')[0] : null,
+      dateDebut: d?.dateDebut ? fmtDateInput(d.dateDebut) : null,
+      dateFin: d?.dateFin ? fmtDateInput(d.dateFin) : null,
       initialDemande: d
     });
   };

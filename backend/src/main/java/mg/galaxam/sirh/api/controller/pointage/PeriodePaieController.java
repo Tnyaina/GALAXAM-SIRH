@@ -16,6 +16,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -260,6 +261,27 @@ public class PeriodePaieController {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                // Contrôle temporel : interdiction de valider une période non commencée ou de clôturer une période non échue
+                if ("VALIDEE".equals(newStatutCode) || "CLOTUREE".equals(newStatutCode)) {
+                    String sqlDates = "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
+                    try (PreparedStatement psD = c.prepareStatement(sqlDates)) {
+                        psD.setInt(1, id);
+                        try (ResultSet rsD = psD.executeQuery()) {
+                            if (rsD.next()) {
+                                Date dDeb = rsD.getDate("date_debut");
+                                Date dFin = rsD.getDate("date_fin");
+                                LocalDate today = LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo"));
+                                if (dDeb != null && dDeb.toLocalDate().isAfter(today)) {
+                                    throw new IllegalStateException("Action interdite : Impossible de valider ou clôturer une période entièrement future (début : " + dDeb + ").");
+                                }
+                                if ("CLOTUREE".equals(newStatutCode) && dFin != null && dFin.toLocalDate().isAfter(today)) {
+                                    throw new IllegalStateException("Action interdite : Impossible de clôturer une période dont le terme n'est pas encore échu (fin : " + dFin + ").");
+                                }
+                            }
+                        }
+                    }
+                }
+
                 int rows;
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
                     int pIdx = 1;

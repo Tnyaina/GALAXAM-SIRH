@@ -1,20 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
-    Clock, 
-    AlertTriangle, 
-    CheckCircle2, 
     Save, 
     Edit3,
-    Calendar,
-    X,
     UserCheck,
-    ChevronRight,
     ArrowLeft
 } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
-import Input, { Textarea } from '@/components/ui/forms/Input';
+import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Loading from '@/components/ui/feedback/Loading';
@@ -27,6 +21,8 @@ import { formatHeuresMinutes } from '@/utils/pointageUtils';
 
 const STATUT_OPTIONS = [
     { value: 'PRESENT', label: 'Présent (Journée normale)' },
+    { value: 'DIMANCHE_TRAVAILLE', label: 'Dimanche travaillé (Majoré)' },
+    { value: 'SAMEDI_TRAVAILLE', label: 'Samedi travaillé' },
     { value: 'AUTONOME', label: 'Autonome (Cadre / Forfait)' },
     { value: 'CONGE', label: 'Congé / Permission payée' },
     { value: 'ABSENCE_JUSTIFIEE', label: 'Absence justifiée' },
@@ -37,12 +33,20 @@ const STATUT_OPTIONS = [
 export default function DafAjustementPointageModal({
     isOpen,
     onClose,
-    idEmploye,
-    employeNom,
-    matricule,
-    idPeriode,
+    employe = null,
+    idEmploye: propIdEmploye,
+    employeNom: propEmployeNom,
+    matricule: propMatricule,
+    idPeriode: propIdPeriode,
+    idPeriodePaie: propIdPeriodePaie,
+    initialDate = null,
     onSuccess
 }) {
+    const idEmployeEffective = employe?.idEmploye || propIdEmploye;
+    const employeNomEffective = employe ? `${employe.nom || ''} ${employe.prenom || ''}`.trim() : (propEmployeNom || 'Salarié');
+    const matriculeEffective = employe?.matricule || propMatricule || '';
+    const idPeriodeEffective = propIdPeriode || propIdPeriodePaie || employe?.idPeriodePaie;
+
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -63,34 +67,7 @@ export default function DafAjustementPointageModal({
         motifAjustement: ''
     });
 
-    const loadFiche = useCallback(async () => {
-        if (!idEmploye || !idPeriode) return;
-        setLoading(true);
-        setError('');
-        try {
-            const res = await pointageEmployeService.getFicheEmploye(idEmploye, {
-                period: 'periode',
-                idPeriode
-            });
-            // Les pointages journaliers sont renvoyés dans res.pointagesData (PointageJourDTO)
-            const list = res?.pointagesData || res?.pointages || res?.jours || res?.lignes || [];
-            setPointagesList(list);
-        } catch (err) {
-            console.error('Erreur chargement fiche pointage DAF:', err);
-            setError("Impossible de charger les pointages de la période pour ce salarié.");
-        } finally {
-            setLoading(false);
-        }
-    }, [idEmploye, idPeriode]);
-
-    useEffect(() => {
-        if (isOpen) {
-            setSelectedJour(null);
-            loadFiche();
-        }
-    }, [isOpen, loadFiche]);
-
-    const handleSelectJour = (ptg) => {
+    const handleSelectJour = useCallback((ptg) => {
         setSelectedJour(ptg);
         const cleanTime = (val) => (val && val !== '-' && val !== '—') ? val : '';
         const em = cleanTime(ptg.entree) || cleanTime(ptg.heureEntreeMatin) || '08:00';
@@ -112,7 +89,44 @@ export default function DafAjustementPointageModal({
             indemniteRepasRecue: (ptg.indemniteRepas ?? ptg.indemniteRepasRecue) !== false,
             motifAjustement: ptg.motifAjustement || 'Rectification directe DAF'
         });
-    };
+    }, []);
+
+    const loadFiche = useCallback(async () => {
+        if (!idEmployeEffective || !idPeriodeEffective) {
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        setError('');
+        try {
+            const res = await pointageEmployeService.getFicheEmploye(idEmployeEffective, {
+                period: 'periode',
+                idPeriode: idPeriodeEffective
+            });
+            // Les pointages journaliers sont renvoyés dans res.pointagesData (PointageJourDTO)
+            const list = res?.pointagesData || res?.pointages || res?.jours || res?.lignes || [];
+            setPointagesList(list);
+
+            if (initialDate && list.length > 0) {
+                const match = list.find(p => (p.dateComplete === initialDate || p.datePointage === initialDate || p.date === initialDate));
+                if (match) {
+                    handleSelectJour(match);
+                }
+            }
+        } catch (err) {
+            console.error('Erreur chargement fiche pointage DAF:', err);
+            setError("Impossible de charger les pointages de la période pour ce salarié.");
+        } finally {
+            setLoading(false);
+        }
+    }, [idEmployeEffective, idPeriodeEffective, initialDate, handleSelectJour]);
+
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedJour(null);
+            loadFiche();
+        }
+    }, [isOpen, loadFiche]);
 
     const handleSaveAjustement = async (e) => {
         e.preventDefault();
@@ -130,8 +144,8 @@ export default function DafAjustementPointageModal({
             const dateStr = selectedJour.dateComplete || selectedJour.datePointage || selectedJour.date;
             const payload = {
                 ...formData,
-                idEmploye,
-                idPeriodePaie: idPeriode,
+                idEmploye: idEmployeEffective,
+                idPeriodePaie: idPeriodeEffective,
                 datePointage: dateStr,
                 idSite: selectedJour.idSite || 1
             };
@@ -164,10 +178,10 @@ export default function DafAjustementPointageModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={`Ajustement DAF — ${employeNom || 'Salarié'} (${matricule || ''})`}
+            title={`Ajustement DAF — ${employeNomEffective} (${matriculeEffective})`}
             icon={<UserCheck className="w-5 h-5 text-brand-500" />}
             size="2xl"
-            className="max-w-[780px]"
+            className="max-w-[820px]"
         >
             <div className="space-y-4 text-xs font-sans">
                 {error && <Alert type="error" message={error} />}
@@ -208,58 +222,48 @@ export default function DafAjustementPointageModal({
 
                             {/* Horaires Matin */}
                             <div>
-                                <label className="block text-[11px] font-medium text-[var(--color-fg-muted)] mb-1">
-                                    Entrée Matin
+                                <label className="block text-[11px] font-bold text-[var(--color-fg)] mb-1">
+                                    Plage du Matin (Entrée — Sortie)
                                 </label>
-                                <Input
-                                    type="time"
-                                    value={formData.heureEntreeMatin}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, heureEntreeMatin: e.target.value }))}
-                                    disabled={formData.statutCode !== 'PRESENT'}
-                                    className="h-[32px] text-xs font-mono"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[11px] font-medium text-[var(--color-fg-muted)] mb-1">
-                                    Sortie Matin
-                                </label>
-                                <Input
-                                    type="time"
-                                    value={formData.heureSortieMatin}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, heureSortieMatin: e.target.value }))}
-                                    disabled={formData.statutCode !== 'PRESENT'}
-                                    className="h-[32px] text-xs font-mono"
-                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Input
+                                        type="time"
+                                        value={formData.heureEntreeMatin}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, heureEntreeMatin: e.target.value }))}
+                                        className="h-[32px] text-xs font-mono"
+                                    />
+                                    <Input
+                                        type="time"
+                                        value={formData.heureSortieMatin}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, heureSortieMatin: e.target.value }))}
+                                        className="h-[32px] text-xs font-mono"
+                                    />
+                                </div>
                             </div>
 
                             {/* Horaires Après-midi */}
                             <div>
-                                <label className="block text-[11px] font-medium text-[var(--color-fg-muted)] mb-1">
-                                    Entrée Après-midi
+                                <label className="block text-[11px] font-bold text-[var(--color-fg)] mb-1">
+                                    Plage Après-midi (Retour — Sortie)
                                 </label>
-                                <Input
-                                    type="time"
-                                    value={formData.heureEntreeAm}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, heureEntreeAm: e.target.value }))}
-                                    disabled={formData.statutCode !== 'PRESENT'}
-                                    className="h-[32px] text-xs font-mono"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[11px] font-medium text-[var(--color-fg-muted)] mb-1">
-                                    Sortie Après-midi
-                                </label>
-                                <Input
-                                    type="time"
-                                    value={formData.heureSortieAm}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, heureSortieAm: e.target.value }))}
-                                    disabled={formData.statutCode !== 'PRESENT'}
-                                    className="h-[32px] text-xs font-mono"
-                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Input
+                                        type="time"
+                                        value={formData.heureEntreeAm}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, heureEntreeAm: e.target.value }))}
+                                        className="h-[32px] text-xs font-mono"
+                                    />
+                                    <Input
+                                        type="time"
+                                        value={formData.heureSortieAm}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, heureSortieAm: e.target.value }))}
+                                        className="h-[32px] text-xs font-mono"
+                                    />
+                                </div>
                             </div>
 
                             {/* Indemnités accordées */}
-                            <div className="sm:col-span-2 flex flex-wrap items-center gap-4 pt-2 border-t border-[var(--color-border-subtle)]">
+                            <div className="sm:col-span-2 flex items-center gap-4 pt-1 flex-wrap">
                                 <label className="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] font-semibold">
                                     <input
                                         type="checkbox"
@@ -267,7 +271,7 @@ export default function DafAjustementPointageModal({
                                         onChange={(e) => setFormData(prev => ({ ...prev, indemniteRepasRecue: e.target.checked }))}
                                         className="rounded accent-brand-600"
                                     />
-                                    <span>Indemnité repas accordée</span>
+                                    <span>Indemnité repas accordée (2 000 Ar)</span>
                                 </label>
                                 <label className="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] font-semibold">
                                     <input
@@ -329,7 +333,7 @@ export default function DafAjustementPointageModal({
                     /* Vue 1 : Tableau des jours du mois pour ce salarié */
                     <div className="space-y-3">
                         <div className="flex items-center justify-between text-[11px] text-[var(--color-fg-muted)]">
-                            <span>Sélectionnez la journée à rectifier pour ajuster les heures ou le statut :</span>
+                            <span>Sélectionnez la journée à rectifier pour ajuster les heures, statuts ou indemnités :</span>
                             <span className="font-mono font-bold">{pointagesList.length} jour(s) enregistrés</span>
                         </div>
 
@@ -343,28 +347,41 @@ export default function DafAjustementPointageModal({
                                         <Th className="py-2 px-2 text-center">Après-midi</Th>
                                         <Th className="py-2 px-2 text-center">Total</Th>
                                         <Th className="py-2 px-2 text-center">Retard</Th>
+                                        <Th className="py-2 px-2 text-center">Repas</Th>
+                                        <Th className="py-2 px-2 text-center">Déplac.</Th>
                                         <Th className="py-2 px-3 text-right">Action</Th>
                                     </Tr>
                                 </Thead>
                                 <Tbody>
                                     {pointagesList.length === 0 ? (
                                         <Tr>
-                                            <Td colSpan={7} className="py-8 text-center text-[var(--color-fg-muted)]">
+                                            <Td colSpan={9} className="py-8 text-center text-[var(--color-fg-muted)]">
                                                 Aucun pointage trouvé pour cette période.
                                             </Td>
                                         </Tr>
                                     ) : (
                                         pointagesList.map((ptg) => {
-                                            const isAbsent = ptg.statut === 'ABSENT' || ptg.statut === 'ABSENCE_NON_JUSTIFIEE';
-                                            const isConge = ptg.statut === 'CONGE' || Boolean(ptg.typeConge);
-                                            const isRetard = ptg.statut === 'RETARD' || (ptg.ecart && ptg.ecart.startsWith('-') && !ptg.ecartPositif);
-                                            const isRepos = ptg.statut === 'REPOS';
+                                            const dateVal = ptg.dateComplete || ptg.datePointage;
+                                            const dObj = dateVal ? new Date(dateVal + 'T00:00:00') : null;
+                                            const dow = dObj ? dObj.getDay() : -1;
+                                            const isSunday = dow === 0;
+                                            const isSaturday = dow === 6;
+                                            const isWeekend = isSunday || isSaturday;
+
+                                            const totalH = Number(ptg.totalHeures || (ptg.heures ? parseFloat(ptg.heures) : 0));
+                                            const hasWorked = totalH > 0;
+
+                                            const isAbsent = ptg.statut === 'ABSENT' || ptg.statut === 'ABSENCE_NON_JUSTIFIEE' || ptg.codeStatut === 'ABSENCE_NON_JUSTIFIEE';
+                                            const isConge = ptg.statut === 'CONGE' || ptg.codeStatut === 'CONGE' || Boolean(ptg.typeConge);
+                                            const isRetard = ptg.statut === 'RETARD' || (ptg.ecart && ptg.ecart.startsWith('-') && !ptg.ecartPositif) || (ptg.minutesRetard > 0);
+                                            const isRepos = (isWeekend && !hasWorked) || ptg.statut === 'REPOS' || ptg.codeStatut === 'REPOS';
+                                            const isDimancheTrav = isSunday && hasWorked;
+                                            const isSamediTrav = isSaturday && hasWorked;
                                             const isPlanifie = ptg.statut === 'PLANIFIE' || ptg.statut === 'NON_ECHU';
-                                            const isAutonome = ptg.statut === 'AUTONOME' || ptg.statut === 'DISPENSE_POINTAGE';
-                                            const isPresent = ptg.statut === 'PRESENT' || isAutonome || ptg.present;
+                                            const isAutonome = (ptg.statut === 'AUTONOME' || ptg.statut === 'DISPENSE_POINTAGE') && !isWeekend;
+                                            const isPresent = (ptg.statut === 'PRESENT' || hasWorked || ptg.present) && !isRepos && !isDimancheTrav && !isSamediTrav;
                                             const hasAnomalie = Boolean(ptg.anomalieSaisie || isAbsent || isRetard || ptg.statut === 'ANOMALIE');
 
-                                            const dateVal = ptg.dateComplete || ptg.datePointage;
                                             const dateFormatted = dateVal ? fmtDate(dateVal) : `${ptg.date} (${ptg.jour || ''})`;
                                             
                                             const cleanT = (val) => (val && val !== '-' && val !== '—') ? val : null;
@@ -375,8 +392,14 @@ export default function DafAjustementPointageModal({
                                                 ? `${cleanT(ptg.retourPause)} - ${cleanT(ptg.sortie)}`
                                                 : (cleanT(ptg.sortie) ? cleanT(ptg.sortie) : '—');
                                             
-                                            const heuresStr = ptg.heures || (ptg.totalHeures ? formatHeuresMinutes(ptg.totalHeures, true) : (isRepos ? '00h00' : '08h00'));
+                                            const heuresStr = ptg.heures || (totalH > 0 ? formatHeuresMinutes(totalH, true) : (isRepos ? '00h00' : '08h00'));
                                             const ecartStr = ptg.ecart || (ptg.minutesRetard > 0 ? `+${ptg.minutesRetard}m` : '00 min');
+
+                                            // Repas & Déplacement statut
+                                            const aRepas = ptg.indemniteRepasRecue || ptg.indemniteRepas || ptg.repas;
+                                            const depM = ptg.deplacementMatin !== false;
+                                            const depA = ptg.deplacementAm !== false;
+                                            const aDeplacement = ptg.indemniteDeplacementRecue || (depM || depA);
 
                                             return (
                                                 <Tr
@@ -396,6 +419,8 @@ export default function DafAjustementPointageModal({
                                                     <Td className="py-2 px-2 text-center">
                                                         <Badge
                                                             variant={
+                                                                isDimancheTrav ? 'purple' :
+                                                                isSamediTrav ? 'brand' :
                                                                 isPlanifie ? 'neutral' :
                                                                 isConge ? 'warning' :
                                                                 isAbsent ? 'danger' :
@@ -406,7 +431,11 @@ export default function DafAjustementPointageModal({
                                                             }
                                                             size="xs"
                                                         >
-                                                            {isPlanifie ? 'Planifié' : (ptg.statut || (isPresent ? 'Présent' : isConge ? 'Congé' : 'Absent'))}
+                                                            {isDimancheTrav ? 'Dimanche (+40%)' :
+                                                             isSamediTrav ? 'Samedi' :
+                                                             isRepos ? 'Repos' :
+                                                             isPlanifie ? 'Planifié' :
+                                                             (ptg.statut || (isPresent ? 'Présent' : isConge ? 'Congé' : 'Absent'))}
                                                         </Badge>
                                                     </Td>
                                                     <Td className="py-2 px-2 text-center font-mono text-[11px]">
@@ -420,6 +449,24 @@ export default function DafAjustementPointageModal({
                                                     </Td>
                                                     <Td className="py-2 px-2 text-center font-mono">
                                                         {ecartStr}
+                                                    </Td>
+                                                    <Td className="py-2 px-2 text-center font-mono text-[10.5px]">
+                                                        {aRepas ? (
+                                                            <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/20">
+                                                                2 000 Ar
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[var(--color-fg-subtle)]">—</span>
+                                                        )}
+                                                    </Td>
+                                                    <Td className="py-2 px-2 text-center font-mono text-[10px]">
+                                                        {aDeplacement && hasWorked ? (
+                                                            <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/20">
+                                                                {depM && depA ? 'M+A' : depM ? 'Matin' : 'Soir'}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[var(--color-fg-subtle)]">—</span>
+                                                        )}
                                                     </Td>
                                                     <Td className="py-2 px-3 text-right">
                                                         <Button

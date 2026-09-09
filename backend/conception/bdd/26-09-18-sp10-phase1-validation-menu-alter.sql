@@ -10,19 +10,21 @@ BEGIN;
 DELETE FROM role_menu WHERE id_menu = 'PAIE_VALIDATION';
 DELETE FROM ref_menu WHERE id_menu = 'PAIE_VALIDATION';
 
--- 2. Insertion / mise à jour du sous-menu sous le module Pointage
+-- 2. Insertion / mise à jour des sous-menus sous le module Pointage (Workflow unifié 3 étapes)
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-    ('POINTAGE_JOURNALIER',  'Saisie Quotidienne',              'ClockCheck',    '/pointages?tab=saisie',      1, 2, 'POINTAGE'),
-    ('POINTAGE_SUIVI',       'Suivi de Période & Transmission', 'CalendarCheck', '/pointages?tab=suivi',       2, 2, 'POINTAGE'),
-    ('POINTAGE_ANOMALIES',   'Anomalies & Retards',             'AlertTriangle', '/pointages?tab=anomalies',   3, 2, 'POINTAGE'),
-    ('POINTAGE_SYNTHESE',    'Synthèse & Clôture',              'Layers',        '/pointages?tab=synthese',    4, 2, 'POINTAGE'),
-    ('POINTAGE_VALIDATION',  'Arbitrage DAF',                   'ShieldCheck',   '/pointages?tab=validation',  5, 2, 'POINTAGE')
+    ('POINTAGE_JOURNALIER',  'Saisie Quotidienne',  'ClockCheck',    '/pointages?tab=saisie',     1, 2, 'POINTAGE'),
+    ('POINTAGE_SUIVI',       'Suivi & Anomalies',   'CalendarCheck', '/pointages?tab=suivi',      2, 2, 'POINTAGE'),
+    ('POINTAGE_VALIDATION',  'Arbitrage DAF',       'ShieldCheck',   '/pointages?tab=validation', 3, 2, 'POINTAGE')
 ON CONFLICT (id_menu) DO UPDATE SET 
     libelle = EXCLUDED.libelle, 
     href = EXCLUDED.href, 
     rang = EXCLUDED.rang, 
     icone = EXCLUDED.icone, 
     id_pere = EXCLUDED.id_pere;
+
+-- Nettoyage des sous-menus obsolètes intégrés
+DELETE FROM role_menu WHERE id_menu IN ('POINTAGE_ANOMALIES', 'POINTAGE_SYNTHESE');
+DELETE FROM ref_menu WHERE id_menu IN ('POINTAGE_ANOMALIES', 'POINTAGE_SYNTHESE');
 
 -- 3. Réorganisation des sous-menus de Paie
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
@@ -41,19 +43,17 @@ ON CONFLICT (id_menu) DO UPDATE SET
 INSERT INTO role_menu (id_role, id_menu) VALUES
     (1, 'POINTAGE_JOURNALIER'),
     (1, 'POINTAGE_SUIVI'),
-    (1, 'POINTAGE_ANOMALIES'),
-    (1, 'POINTAGE_SYNTHESE'),
     (1, 'POINTAGE_VALIDATION'),
     (1, 'PAIE_PERIODES'),
     (1, 'PAIE_VARIABLES'),
     (1, 'PAIE_BULLETINS')
 ON CONFLICT DO NOTHING;
 
--- id_role 2 = ROLE_AGENT_POINTAGE (accès exploitation sans anomalies ni validation DAF)
+-- id_role 2 = ROLE_AGENT_POINTAGE (accès exploitation uniquement : Saisie et Suivi)
 INSERT INTO role_menu (id_role, id_menu) VALUES
     (2, 'POINTAGE_JOURNALIER'),
-    (2, 'POINTAGE_SUIVI'),
-    (2, 'POINTAGE_SYNTHESE')
+    (2, 'POINTAGE_SUIVI')
 ON CONFLICT DO NOTHING;
 
 COMMIT;
+

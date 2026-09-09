@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, RotateCcw } from 'lucide-react';
+import { getTodayDateString, isDateInFuture } from '@/utils/dateUtils';
 
 /**
  * PeriodNavigator — Composant professionnel de navigation temporelle.
@@ -37,6 +38,13 @@ export default function PeriodNavigator({
     };
 
     const currDate = parseDate(selectedDate);
+    const todayStr = getTodayDateString();
+
+    const isFutureBlocked = !allowFutureDates && (
+        (viewPeriod === 'jour' && selectedDate >= todayStr) ||
+        (viewPeriod === 'semaine' && isDateInFuture(selectedDate)) ||
+        (viewPeriod === 'mois' && selectedDate?.substring(0, 7) >= todayStr.substring(0, 7))
+    );
 
     // Navigation précédent / suivant selon la granularité
     const handleNavigate = (delta) => {
@@ -48,12 +56,17 @@ export default function PeriodNavigator({
         } else if (viewPeriod === 'mois') {
             d.setMonth(d.getMonth() + delta);
         }
-        onDateChange(formatDateToISO(d));
+        const nextDateStr = formatDateToISO(d);
+        if (!allowFutureDates && delta > 0 && nextDateStr > todayStr) {
+            return;
+        }
+        onDateChange(nextDateStr);
     };
 
     const handleToday = () => {
-        onDateChange(formatDateToISO(new Date()));
+        onDateChange(getTodayDateString());
     };
+
 
     // Formater l'étiquette affichée
     const getFormattedLabel = () => {
@@ -135,7 +148,7 @@ export default function PeriodNavigator({
                         ref={dateInputRef}
                         type="date"
                         value={selectedDate}
-                        max={!allowFutureDates ? new Date().toISOString().substring(0, 10) : undefined}
+                        max={!allowFutureDates ? todayStr : undefined}
                         onChange={(e) => e.target.value && onDateChange(e.target.value)}
                         className="sr-only"
                     />
@@ -148,13 +161,13 @@ export default function PeriodNavigator({
                 <button
                     type="button"
                     onClick={() => handleNavigate(1)}
-                    disabled={!allowFutureDates && viewPeriod === 'jour' && currDate >= new Date(new Date().setHours(0,0,0,0))}
-                    className={`px-2.5 py-1.5 text-[var(--color-fg)] transition-colors cursor-pointer ${
-                        (!allowFutureDates && viewPeriod === 'jour' && currDate >= new Date(new Date().setHours(0,0,0,0)))
-                        ? 'opacity-40 cursor-not-allowed'
-                        : 'hover:bg-[var(--color-bg-subtle)]'
+                    disabled={isFutureBlocked}
+                    className={`px-2.5 py-1.5 text-[var(--color-fg)] transition-colors ${
+                        isFutureBlocked
+                            ? 'opacity-30 cursor-not-allowed pointer-events-none'
+                            : 'hover:bg-[var(--color-bg-subtle)] cursor-pointer'
                     }`}
-                    title="Suivant"
+                    title={isFutureBlocked ? "Navigation future non autorisée pour la saisie" : "Suivant"}
                 >
                     <ChevronRight size={14} />
                 </button>

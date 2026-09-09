@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import congeService from '@/api/congeService';
 import useDebounce from '@/hooks/useDebounce';
+import { getTodayDateString, fmtDateInput } from '@/utils/dateUtils';
 
 const getMonday = (d) => {
   const date = new Date(d);
@@ -17,13 +18,13 @@ export function useSoldesOverview(demandesGlobales = []) {
   const [filterMode, setFilterMode] = useState('TOUS'); // 'TOUS' | 'ABSENTS'
 
   // Navigation Mensuelle
-  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [currentMonth, setCurrentMonth] = useState(() => getTodayDateString().slice(0, 7)); // YYYY-MM
   const [yearStr, monthStr] = currentMonth.split('-');
   const year = parseInt(yearStr, 10);
   const month = parseInt(monthStr, 10);
   const daysInMonth = new Date(year, month, 0).getDate();
   const daysArray = useMemo(() => Array.from({ length: daysInMonth }, (_, i) => i + 1), [daysInMonth]);
-  const isMoisActuel = currentMonth === new Date().toISOString().slice(0, 7);
+  const isMoisActuel = currentMonth === getTodayDateString().slice(0, 7);
 
   // Navigation Hebdomadaire
   const [currentWeekMonday, setCurrentWeekMonday] = useState(() => getMonday(new Date()));
@@ -32,7 +33,7 @@ export function useSoldesOverview(demandesGlobales = []) {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(currentWeekMonday);
       d.setDate(d.getDate() + i);
-      const dateStr = d.toISOString().slice(0, 10);
+      const dateStr = fmtDateInput(d);
       const dayOfWeek = d.toLocaleDateString('fr-FR', { weekday: 'short' });
       const dayNumber = d.getDate();
       const isWeekend = d.getDay() === 0 || d.getDay() === 6;
@@ -43,7 +44,7 @@ export function useSoldesOverview(demandesGlobales = []) {
 
   const weekStartStr = weekDaysArray[0].date;
   const weekEndStr = weekDaysArray[6].date;
-  const isSemaineActuelle = getMonday(new Date()).toISOString().slice(0, 10) === currentWeekMonday.toISOString().slice(0, 10);
+  const isSemaineActuelle = fmtDateInput(getMonday(new Date())) === fmtDateInput(currentWeekMonday);
 
   // Handlers de navigation
   const handlePrevMonth = () => {
@@ -61,7 +62,7 @@ export function useSoldesOverview(demandesGlobales = []) {
   };
 
   const handleTodayMonth = () => {
-    setCurrentMonth(new Date().toISOString().slice(0, 7));
+    setCurrentMonth(getTodayDateString().slice(0, 7));
   };
 
   const handlePrevWeek = () => {

@@ -269,7 +269,7 @@ public class PointageSaisieService {
                         periodeInfo.put("statut_libelle", rsP.getString("statut_libelle"));
                         int ouvrables = 0;
                         if (dDeb != null && dFin != null) {
-                            ouvrables = calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), idSite, c);
+                            ouvrables = calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), idSite > 0 ? idSite : null, c);
                         }
                         if (ouvrables == 0) ouvrables = 22;
                         periodeInfo.put("nbJoursOuvrables", ouvrables);
@@ -279,7 +279,7 @@ public class PointageSaisieService {
             result.put("periodeInfo", periodeInfo);
 
             // 2. Vérification du Jour Férié Chômé / Période chômée via le moteur canonique
-            CalendrierOuvrableEngine.JourChomeInfo chomeInfo = calendrierEngine.getJourChomeInfo(date != null ? date.toLocalDate() : null, idSite, c);
+            CalendrierOuvrableEngine.JourChomeInfo chomeInfo = calendrierEngine.getJourChomeInfo(date != null ? date.toLocalDate() : null, idSite > 0 ? idSite : null, c);
             boolean isFerie = chomeInfo.estChome();
             String libelleFerie = chomeInfo.libelle();
             result.put("isFerie", isFerie);
@@ -287,18 +287,18 @@ public class PointageSaisieService {
 
             // 3. Paramètres Horaires du Site (directement depuis ref_site)
             Map<String, Object> siteParams = new HashMap<>();
-            String sqlSite = "SELECT s.id_site, s.code_site, s.libelle, " +
-                             "s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
-                             "COALESCE(s.horaire_continu, TRUE) AS horaire_continu " +
-                             "FROM ref_site s " +
-                             "WHERE s.id_site = ?";
+            String sqlSite = (idSite > 0)
+                ? "SELECT s.id_site, s.code_site, s.libelle, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, COALESCE(s.horaire_continu, TRUE) AS horaire_continu FROM ref_site s WHERE s.id_site = ?"
+                : "SELECT s.id_site, s.code_site, s.libelle, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, COALESCE(s.horaire_continu, TRUE) AS horaire_continu FROM ref_site s ORDER BY s.id_site LIMIT 1";
             try (PreparedStatement ps = c.prepareStatement(sqlSite)) {
-                ps.setInt(1, idSite);
+                if (idSite > 0) {
+                    ps.setInt(1, idSite);
+                }
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
-                        siteParams.put("idSite", rs.getInt("id_site"));
-                        siteParams.put("codeSite", rs.getString("code_site"));
-                        siteParams.put("libelle", rs.getString("libelle"));
+                        siteParams.put("idSite", idSite > 0 ? rs.getInt("id_site") : 0);
+                        siteParams.put("codeSite", idSite > 0 ? rs.getString("code_site") : "TOUS");
+                        siteParams.put("libelle", idSite > 0 ? rs.getString("libelle") : "Tous les sites");
                         Time hdm = rs.getTime("heure_debut_matin");
                         Time hfm = rs.getTime("heure_fin_matin");
                         Time hda = rs.getTime("heure_debut_apres_midi");
@@ -332,13 +332,13 @@ public class PointageSaisieService {
             boolean siteRepasInclusParDefaut = false;
 
             List<Map<String, Object>> siteIndemnites = new ArrayList<>();
-            String sqlSiteInd = "SELECT c.id_indemnite, i.code, i.libelle, COALESCE(i.fractionnable, FALSE) AS fractionnable, " +
-                                "c.periodicite, c.montant_reference " +
-                                "FROM site_indemnite_config c " +
-                                "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
-                                "WHERE c.id_site = ? AND c.est_actif = TRUE AND c.periodicite != 'FIXE_MENSUEL' ORDER BY i.libelle";
+            String sqlSiteInd = (idSite > 0)
+                ? "SELECT c.id_indemnite, i.code, i.libelle, COALESCE(i.fractionnable, FALSE) AS fractionnable, c.periodicite, c.montant_reference FROM site_indemnite_config c JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite WHERE c.id_site = ? AND c.est_actif = TRUE AND c.periodicite != 'FIXE_MENSUEL' ORDER BY i.libelle"
+                : "SELECT c.id_indemnite, i.code, i.libelle, COALESCE(i.fractionnable, FALSE) AS fractionnable, c.periodicite, c.montant_reference FROM site_indemnite_config c JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite WHERE c.id_site = (SELECT MIN(id_site) FROM ref_site) AND c.est_actif = TRUE AND c.periodicite != 'FIXE_MENSUEL' ORDER BY i.libelle";
             try (PreparedStatement psI = c.prepareStatement(sqlSiteInd)) {
-                psI.setInt(1, idSite);
+                if (idSite > 0) {
+                    psI.setInt(1, idSite);
+                }
                 try (ResultSet rsI = psI.executeQuery()) {
                     while (rsI.next()) {
                         Map<String, Object> ind = new HashMap<>();
@@ -413,12 +413,18 @@ public class PointageSaisieService {
             // 5. Salariés rattachés au site pour la date demandée (Logique métier en code Java)
             LocalDate targetDate = date.toLocalDate();
 
-            // A. Salariés ayant déjà un pointage sur ce site pour cette date
+            // A. Salariés ayant déjà un pointage pour cette date
             Set<Integer> existingPtgEmpIds = new HashSet<>();
-            String sqlPtgIds = "SELECT DISTINCT id_employe FROM pointage_jour WHERE id_site = ? AND date_pointage = ?";
+            String sqlPtgIds = (idSite > 0)
+                ? "SELECT DISTINCT id_employe FROM pointage_jour WHERE id_site = ? AND date_pointage = ?"
+                : "SELECT DISTINCT id_employe FROM pointage_jour WHERE date_pointage = ?";
             try (PreparedStatement psPtgIds = c.prepareStatement(sqlPtgIds)) {
-                psPtgIds.setInt(1, idSite);
-                psPtgIds.setDate(2, date);
+                if (idSite > 0) {
+                    psPtgIds.setInt(1, idSite);
+                    psPtgIds.setDate(2, date);
+                } else {
+                    psPtgIds.setDate(1, date);
+                }
                 try (ResultSet rsPtgIds = psPtgIds.executeQuery()) {
                     while (rsPtgIds.next()) {
                         existingPtgEmpIds.add(rsPtgIds.getInt("id_employe"));
@@ -543,35 +549,50 @@ public class PointageSaisieService {
                 boolean rattachAuSite = false;
                 boolean isAutonome = false;
 
-                // Chercher d'abord si une affectation sur ce site couvre précisément la date
-                for (AffCandidat a : affs) {
-                    if (a.idSite == idSite) {
+                if (idSite <= 0) {
+                    rattachAuSite = true;
+                    for (AffCandidat a : affs) {
                         boolean covers = (a.dateDebut == null || !targetDate.isBefore(a.dateDebut)) &&
                                          (a.dateFin == null || !targetDate.isAfter(a.dateFin));
                         if (covers) {
-                            rattachAuSite = true;
                             isAutonome = a.dispensePointage;
                             break;
                         }
                     }
-                }
-
-                // Si pas de couverture stricte, vérifier si l'affectation active est sur ce site
-                if (!rattachAuSite) {
-                    for (AffCandidat a : affs) {
-                        if (a.idSite == idSite && (a.dateFin == null || "ACTIF".equalsIgnoreCase(a.codeStatut))) {
-                            rattachAuSite = true;
-                            isAutonome = a.dispensePointage;
-                            break;
-                        }
-                    }
-                }
-
-                // Ou si un pointage existe déjà pour ce salarié sur ce site
-                if (hasPtg) {
-                    rattachAuSite = true;
-                    if (!affs.isEmpty()) {
+                    if (!isAutonome && !affs.isEmpty()) {
                         isAutonome = affs.get(0).dispensePointage;
+                    }
+                } else {
+                    // Chercher d'abord si une affectation sur ce site couvre précisément la date
+                    for (AffCandidat a : affs) {
+                        if (a.idSite == idSite) {
+                            boolean covers = (a.dateDebut == null || !targetDate.isBefore(a.dateDebut)) &&
+                                             (a.dateFin == null || !targetDate.isAfter(a.dateFin));
+                            if (covers) {
+                                rattachAuSite = true;
+                                isAutonome = a.dispensePointage;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Si pas de couverture stricte, vérifier si l'affectation active est sur ce site
+                    if (!rattachAuSite) {
+                        for (AffCandidat a : affs) {
+                            if (a.idSite == idSite && (a.dateFin == null || "ACTIF".equalsIgnoreCase(a.codeStatut))) {
+                                rattachAuSite = true;
+                                isAutonome = a.dispensePointage;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Ou si un pointage existe déjà pour ce salarié sur ce site
+                    if (hasPtg) {
+                        rattachAuSite = true;
+                        if (!affs.isEmpty()) {
+                            isAutonome = affs.get(0).dispensePointage;
+                        }
                     }
                 }
 
@@ -672,7 +693,8 @@ public class PointageSaisieService {
                         String sqlPtg = "SELECT p.id_pointage, COALESCE(p.version, 1) AS version, p.heure_entree_matin, p.heure_sortie_matin, " +
                                         "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.minutes_retard, " +
                                         "p.heures_nuit, p.motif_ajustement, st.code AS statut_code, st.libelle AS statut_libelle, " +
-                                        "p.deplacement_matin, p.deplacement_am, p.indemnite_repas_recue " +
+                                        "p.deplacement_matin, p.deplacement_am, p.indemnite_deplacement_recue, p.indemnite_repas_recue, " +
+                                        "p.montant_deplacement_jour, p.montant_repas " +
                                         "FROM pointage_jour p " +
                                         "LEFT JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
                                         "WHERE p.id_employe = ? AND p.date_pointage = ?";
@@ -701,9 +723,23 @@ public class PointageSaisieService {
                                     dto.setMotifAjustement(rsPtg.getString("motif_ajustement"));
                                     dto.setCodeStatut(rsPtg.getString("statut_code"));
                                     dto.setLibelleStatut(rsPtg.getString("statut_libelle"));
-                                    dto.setDeplacementMatin(rsPtg.getBoolean("deplacement_matin"));
-                                    dto.setDeplacementAm(rsPtg.getBoolean("deplacement_am"));
-                                    dto.setIndemniteRepasRecue(rsPtg.getBoolean("indemnite_repas_recue"));
+
+                                    boolean depM = rsPtg.getBoolean("deplacement_matin");
+                                    boolean depA = rsPtg.getBoolean("deplacement_am");
+                                    boolean depRecueDb = rsPtg.getBoolean("indemnite_deplacement_recue");
+                                    boolean depRecue = depRecueDb || depM || depA;
+                                    dto.setDeplacementMatin(depM);
+                                    dto.setDeplacementAm(depA);
+                                    dto.setIndemniteDeplacementRecue(depRecue);
+
+                                    double fractionDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
+                                    double mntDepDb = rsPtg.getDouble("montant_deplacement_jour");
+                                    dto.setMontantDeplacement(mntDepDb > 0 ? mntDepDb : (depRecue ? Math.round(fractionDep * montantDeplacementJour * 100.0) / 100.0 : 0.0));
+
+                                    boolean repasRecue = rsPtg.getBoolean("indemnite_repas_recue");
+                                    dto.setIndemniteRepasRecue(repasRecue);
+                                    double mntRepasDb = rsPtg.getDouble("montant_repas");
+                                    dto.setMontantRepas(repasRecue ? (mntRepasDb > 0 ? mntRepasDb : (siteRepasInclusParDefaut ? montantRepasSite : mntRepasMidiGlobal)) : 0.0);
                                 }
                             }
                         }
@@ -780,7 +816,10 @@ public class PointageSaisieService {
                                 dto.setLibelleStatut("Repos de fin de semaine");
                                 dto.setDeplacementMatin(false);
                                 dto.setDeplacementAm(false);
+                                dto.setIndemniteDeplacementRecue(false);
+                                dto.setMontantDeplacement(0.0);
                                 dto.setIndemniteRepasRecue(false);
+                                dto.setMontantRepas(0.0);
                             } else if (isAutonome) {
                                 dto.setHeureEntreeMatin((String) siteParams.get("heureDebutMatin"));
                                 dto.setHeureSortieMatin((String) siteParams.get("heureFinMatin"));
@@ -792,7 +831,10 @@ public class PointageSaisieService {
                                 dto.setLibelleStatut("Autonome (8h)");
                                 dto.setDeplacementMatin(true);
                                 dto.setDeplacementAm(true);
+                                dto.setIndemniteDeplacementRecue(true);
+                                dto.setMontantDeplacement(montantDeplacementJour);
                                 dto.setIndemniteRepasRecue(siteRepasInclusParDefaut);
+                                dto.setMontantRepas(siteRepasInclusParDefaut ? (montantRepasSite > 0 ? montantRepasSite : mntRepasMidiGlobal) : 0.0);
                             } else {
                                 dto.setHeureEntreeMatin("");
                                 dto.setHeureSortieMatin("");
@@ -804,7 +846,10 @@ public class PointageSaisieService {
                                 dto.setLibelleStatut("Non saisi");
                                 dto.setDeplacementMatin(true);
                                 dto.setDeplacementAm(true);
+                                dto.setIndemniteDeplacementRecue(true);
+                                dto.setMontantDeplacement(montantDeplacementJour);
                                 dto.setIndemniteRepasRecue(siteRepasInclusParDefaut);
+                                dto.setMontantRepas(siteRepasInclusParDefaut ? (montantRepasSite > 0 ? montantRepasSite : mntRepasMidiGlobal) : 0.0);
                             }
                         }
 
@@ -968,7 +1013,18 @@ public class PointageSaisieService {
      * Doit être appelé sur TOUS les chemins d'écriture de pointage.
      */
     public void verifierEligibilitePointage(Connection c, int idEmploye, int idSite, Date datePointage) throws SQLException {
-        // 1. Vérifier existence et statut actif
+        if (datePointage == null) {
+            throw new IllegalArgumentException("La date de pointage est requise.");
+        }
+        LocalDate dtPtg = datePointage.toLocalDate();
+
+        // 1. Contrôle temporel strict : interdiction absolue de pointage dans le futur (fuseau Madagascar UTC+3)
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo"));
+        if (dtPtg.isAfter(today)) {
+            throw new IllegalStateException("Action interdite : Impossible d'enregistrer un pointage pour une date future (" + dtPtg + "). La date maximale autorisée est " + today + ".");
+        }
+
+        // 2. Vérifier existence et statut actif
         String sqlEmp = "SELECT est_actif FROM employe WHERE id_employe = ?";
         boolean estActif = false;
         try (PreparedStatement ps = c.prepareStatement(sqlEmp)) {
@@ -985,9 +1041,7 @@ public class PointageSaisieService {
             throw new IllegalStateException("L'employé ID " + idEmploye + " est inactif.");
         }
 
-        LocalDate dtPtg = datePointage.toLocalDate();
-
-        // 2. Vérifier date d'embauche en Java
+        // 3. Vérifier date d'embauche en Java
         String sqlCt = "SELECT MIN(date_debut) AS date_embauche FROM contrat_travail WHERE id_employe = ?";
         try (PreparedStatement ps = c.prepareStatement(sqlCt)) {
             ps.setInt(1, idEmploye);
@@ -1091,7 +1145,7 @@ public class PointageSaisieService {
                 "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
                 "motif_ajustement = ?, id_statut_jour = COALESCE((SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT')), " +
                 "deplacement_matin = ?, deplacement_am = ?, indemnite_deplacement_recue = ?, indemnite_repas_recue = ?, " +
-                "montant_repas = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP " +
+                "montant_repas = ?, montant_deplacement_jour = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_pointage = ? AND version = ? RETURNING id_pointage, version";
 
         String sqlInsert = "INSERT INTO pointage_jour (" +
@@ -1099,10 +1153,10 @@ public class PointageSaisieService {
                 "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
                 "heures_matin, heures_am, total_heures, minutes_retard, heures_nuit, " +
                 "motif_ajustement, id_statut_jour, deplacement_matin, deplacement_am, " +
-                "indemnite_deplacement_recue, indemnite_repas_recue, montant_repas, version, updated_at" +
+                "indemnite_deplacement_recue, indemnite_repas_recue, montant_repas, montant_deplacement_jour, version, updated_at" +
                 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
                 "COALESCE((SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT')), " +
-                "?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP) RETURNING id_pointage, version";
+                "?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP) RETURNING id_pointage, version";
 
         String sqlDynInd = "INSERT INTO pointage_indemnite_jour (" +
                 "id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde, updated_at" +
@@ -1135,6 +1189,17 @@ public class PointageSaisieService {
             }
         } catch (Exception ignored) {}
 
+        Map<Integer, Double> siteDeplacementJourMap = new HashMap<>();
+        String sqlSiteDep = "SELECT c.id_site, c.montant_reference FROM site_indemnite_config c " +
+                            "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
+                            "WHERE i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE";
+        try (PreparedStatement psSD = c.prepareStatement(sqlSiteDep);
+             ResultSet rsSD = psSD.executeQuery()) {
+            while (rsSD.next()) {
+                siteDeplacementJourMap.put(rsSD.getInt("id_site"), rsSD.getDouble("montant_reference") / 22.0);
+            }
+        } catch (Exception ignored) {}
+
         try (PreparedStatement psFindPer = c.prepareStatement(sqlFindPer);
              PreparedStatement psCheckPer = c.prepareStatement(sqlCheckPer);
              PreparedStatement psCheckRow = c.prepareStatement(sqlCheckRow);
@@ -1148,6 +1213,8 @@ public class PointageSaisieService {
                 }
 
                 int idSiteRow = dto.getIdSite() != null ? dto.getIdSite() : 1;
+                double refMoisJour = siteDeplacementJourMap.getOrDefault(idSiteRow, 31200.0 / 22.0);
+                double montantDeplacementJour = Math.round(refMoisJour * 100.0) / 100.0;
                 Date dtPtg = Date.valueOf(dto.getDatePointage());
 
                 // 1. Contrôle P0-1 : Éligibilité stricte au pointage à l'écriture (Employé actif + Contrat ACTIF + Affectation ACTIVE sur le site)
@@ -1297,6 +1364,25 @@ public class PointageSaisieService {
                     }
                 }
 
+                boolean estNonTravaille = "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())
+                        || (dto.isFerieJour() && totalH <= 0.0)
+                        || "CONGE".equalsIgnoreCase(codeStatut)
+                        || "FERIE_CHOME".equalsIgnoreCase(codeStatut)
+                        || "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(codeStatut)
+                        || "ABSENCE_JUSTIFIEE".equalsIgnoreCase(codeStatut)
+                        || "REPOS".equalsIgnoreCase(codeStatut)
+                        || (isWeekendPtg && totalH <= 0.0);
+
+                if (estNonTravaille) {
+                    depM = false;
+                    depA = false;
+                    depRecue = false;
+                    mntRepasJour = 0.0;
+                }
+
+                double fractionDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
+                double mntDepJour = Math.round(fractionDep * montantDeplacementJour * 100.0) / 100.0;
+
                 int idPtg;
                 if (existingIdPointage != null) {
                     if (dto.getVersion() == null) {
@@ -1325,8 +1411,9 @@ public class PointageSaisieService {
                     psUp.setBoolean(14, depRecue);
                     psUp.setBoolean(15, dto.isIndemniteRepasRecue());
                     psUp.setDouble(16, mntRepasJour);
-                    psUp.setInt(17, existingIdPointage);
-                    psUp.setInt(18, dto.getVersion());
+                    psUp.setDouble(17, mntDepJour);
+                    psUp.setInt(18, existingIdPointage);
+                    psUp.setInt(19, dto.getVersion());
 
                     try (ResultSet rsUp = psUp.executeQuery()) {
                         if (rsUp.next()) {
@@ -1337,11 +1424,11 @@ public class PointageSaisieService {
                         }
                     }
                 } else {
-                    // En week-end, on n'insère QUE les salariés réellement pointés (avec heures) ou ayant un congé approuvé
+                    // En week-end ou jour férié chômé, on n'insère QUE les salariés réellement pointés (avec heures) ou ayant un congé approuvé
                     // Évite que les autres salariés soient insérés à 0h et marqués absents
                     boolean sansHeures = (em == null && sm == null && ea == null && sa == null && totalH <= 0.0);
                     boolean sansConge = (dto.getTypeCongeJour() == null || dto.getTypeCongeJour().isEmpty());
-                    if (isWeekendPtg && sansHeures && sansConge) {
+                    if ((isWeekendPtg || dto.isFerieJour()) && sansHeures && sansConge) {
                         continue;
                     }
 
@@ -1365,6 +1452,7 @@ public class PointageSaisieService {
                     psIns.setBoolean(18, depRecue);
                     psIns.setBoolean(19, dto.isIndemniteRepasRecue());
                     psIns.setDouble(20, mntRepasJour);
+                    psIns.setDouble(21, mntDepJour);
 
                     try (ResultSet rsIns = psIns.executeQuery()) {
                         if (rsIns.next()) {
@@ -1398,7 +1486,7 @@ public class PointageSaisieService {
                     psDyn.setInt(1, idPtg);
                     psDyn.setInt(2, idIndDep);
                     psDyn.setDouble(3, qteDep);
-                    psDyn.setDouble(4, 0.0);
+                    psDyn.setDouble(4, mntDepJour);
                     psDyn.setBoolean(5, depRecue);
                     psDyn.executeUpdate();
                 }

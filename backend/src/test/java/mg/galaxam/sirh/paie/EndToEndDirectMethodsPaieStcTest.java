@@ -75,6 +75,8 @@ public class EndToEndDirectMethodsPaieStcTest {
                         "DELETE FROM paie_pret_echeance WHERE id_pret IN (SELECT id_pret FROM paie_pret WHERE id_employe IN (SELECT id_employe FROM employe WHERE matricule = 'EMP-DIR-001'))",
                         "DELETE FROM paie_pret WHERE id_employe IN (SELECT id_employe FROM employe WHERE matricule = 'EMP-DIR-001')",
                         "DELETE FROM pointage_cumul_periode WHERE id_employe IN (SELECT id_employe FROM employe WHERE matricule = 'EMP-DIR-001')",
+                        "DELETE FROM pointage_semaine_calcule WHERE id_employe IN (SELECT id_employe FROM employe WHERE matricule = 'EMP-DIR-001')",
+                        "DELETE FROM pointage_jour WHERE id_employe IN (SELECT id_employe FROM employe WHERE matricule = 'EMP-DIR-001')",
                         "DELETE FROM conge_journal_droit WHERE id_employe IN (SELECT id_employe FROM employe WHERE matricule = 'EMP-DIR-001')",
                         "DELETE FROM mouvement_solde_conge WHERE id_employe IN (SELECT id_employe FROM employe WHERE matricule = 'EMP-DIR-001')",
                         "DELETE FROM notification_rh WHERE id_employe_concerne IN (SELECT id_employe FROM employe WHERE matricule = 'EMP-DIR-001')",

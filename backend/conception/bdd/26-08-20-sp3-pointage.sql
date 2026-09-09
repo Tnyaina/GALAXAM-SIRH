@@ -51,6 +51,8 @@ CREATE TABLE periode_paie (
     date_debut DATE NOT NULL,
     date_fin DATE NOT NULL,
     id_statut_periode INTEGER NOT NULL REFERENCES ref_statut_periode_paie(id_statut_periode),
+    date_transmission TIMESTAMP,
+    transmis_par INTEGER REFERENCES utilisateur(id_utilisateur),
     date_validation TIMESTAMP,
     valide_par INTEGER REFERENCES utilisateur(id_utilisateur),
     motif_rejet TEXT,
@@ -147,6 +149,9 @@ CREATE TABLE pointage_jour (
 
     motif_ajustement TEXT,
     saisi_par INTEGER REFERENCES utilisateur(id_utilisateur),
+    ajuste_par_daf BOOLEAN DEFAULT FALSE,
+    ajuste_par INTEGER REFERENCES utilisateur(id_utilisateur),
+    date_ajustement TIMESTAMP,
 
     -- Traçabilité des lignes matérialisées automatiquement (congé validé / jour férié chômé)
     id_demande_conge INTEGER REFERENCES demande_conge(id_demande_conge),

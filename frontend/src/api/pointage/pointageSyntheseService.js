@@ -1,9 +1,9 @@
 import apiClient from '../apiClient';
 
 export const pointageSyntheseService = {
-    getSynthese: async ({ idPeriodePaie, idSite }) => {
+    getSynthese: async ({ idPeriodePaie, idSite, search, filtre, page = 1, size = 25 }) => {
         const response = await apiClient.get('/pointages/synthese', {
-            params: { idPeriodePaie, idSite }
+            params: { idPeriodePaie, idSite, search, filtre, page, size }
         });
         return response.data;
     },

@@ -12,13 +12,44 @@ function sortByRang(items) {
     return [...items].sort((a, b) => (a.rang ?? 0) - (b.rang ?? 0));
 }
 
+const normalizePath = (p) => {
+    return (p || '').split('?')[0].replace(/\/+$/, '');
+};
+
 const isUrlMatch = (href, location) => {
     if (!href || href === '#') return false;
-    const fullPath = location.pathname + location.search;
-    if (href.includes('?')) {
-        return fullPath === href;
+
+    const targetBase = normalizePath(href);
+    const currentBase = normalizePath(location.pathname);
+
+    if (targetBase !== currentBase) {
+        // Gérer les sous-routes (ex: /employes/42 correspond au menu /employes)
+        if (targetBase !== '' && targetBase !== '/' && currentBase.startsWith(targetBase + '/')) {
+            return true;
+        }
+        return false;
     }
-    return location.pathname === href;
+
+    // Si le lien du menu a des paramètres d'URL (ex: ?tab=validation),
+    // vérifier que tous les paramètres définis dans le href sont présents avec la même valeur
+    if (href.includes('?')) {
+        const targetParams = new URLSearchParams(href.split('?')[1]);
+        const currentParams = new URLSearchParams(location.search);
+        for (const [key, val] of targetParams.entries()) {
+            if (currentParams.get(key) !== val) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Si le lien n'a pas de paramètres d'URL, mais que l'URL courante a ?tab=...,
+    // ne pas matcher s'il existe des menus frères spécialisés par tab
+    if (!href.includes('?') && location.search.includes('tab=')) {
+        return false;
+    }
+
+    return true;
 };
 
 const isChildActive = (node, location) => {
@@ -119,16 +150,17 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
                     color: isActive ? 'var(--color-sidebar-fg-active)' : 'var(--color-sidebar-fg)',
                     borderColor: isActive ? 'var(--color-sidebar-brand)' : 'transparent'
                 }}
-                className="
-                    group relative flex items-center gap-2.5 pr-3 py-2 text-xs font-medium
-                    border-l-2 rounded-none  
+                className={`
+                    group relative flex items-center gap-2.5 pr-3 py-2 text-xs
+                    border-l-[3px] rounded-none transition-colors
                     hover:bg-[var(--color-sidebar-hover-bg)] hover:text-[var(--color-sidebar-fg-hover)]
-                "
+                    ${isActive ? 'font-semibold' : 'font-medium'}
+                `}
             >
                 {createElement(getMenuIcon(item.icone), {
                     size: 16,
-                    className: 'shrink-0 opacity-90 group-hover:opacity-100',
-                    strokeWidth: 1.85,
+                    className: `shrink-0 ${isActive ? 'text-[var(--color-sidebar-brand)] opacity-100' : 'opacity-80 group-hover:opacity-100'}`,
+                    strokeWidth: isActive ? 2.1 : 1.85,
                 })}
                 <span className={`truncate ${collapsed ? 'lg:hidden' : ''}`}>{item.libelle}</span>
             </NavLink>

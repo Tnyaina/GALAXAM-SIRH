@@ -51,6 +51,7 @@ export default function PointageToolbar({
                             viewPeriod="jour"
                             selectedDate={selectedDate}
                             onDateChange={(val) => onDateChange(val)}
+                            allowFutureDates={false}
                             className="h-[32px]"
                         />
                     </div>

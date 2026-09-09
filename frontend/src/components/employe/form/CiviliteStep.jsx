@@ -1,6 +1,7 @@
 import Input, { Select, AutocompleteInput } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
 import { Wand2 } from 'lucide-react';
+import { fmtDateInput } from '@/utils/dateUtils';
 
 export default function CiviliteStep({
     formData,
@@ -51,7 +52,7 @@ export default function CiviliteStep({
                 label="Date de Naissance" 
                 required 
                 type="date" 
-                max={new Date(new Date().setFullYear(new Date().getFullYear() - 16)).toISOString().split('T')[0]}
+                max={fmtDateInput(new Date(new Date().setFullYear(new Date().getFullYear() - 16)))}
                 value={formData.dateNaissance} 
                 onChange={e => set('dateNaissance', e.target.value)} 
                 hint="Âge légal minimum : 16 ans"

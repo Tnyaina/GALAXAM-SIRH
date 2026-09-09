@@ -1,4 +1,4 @@
-import { User, Calendar, MapPin, Heart, Phone, Mail, Landmark, Shield, CreditCard, Baby, ShieldAlert, Briefcase } from 'lucide-react';
+import { User, Calendar, MapPin, Heart, Phone, Mail, Landmark, Shield, CreditCard, Baby, ShieldAlert } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 

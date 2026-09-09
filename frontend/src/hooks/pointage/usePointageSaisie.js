@@ -1,10 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import pointageSaisieService from '@/api/pointage/pointageSaisieService';
 import { isRowDataModified, calculerLignePointageTempsReel } from '@/utils/pointageCalculations';
+import { getTodayDateString } from '@/utils/dateUtils';
 
-export function usePointageSaisie(initialSiteId = 1, initialDate = new Date().toISOString().split('T')[0]) {
+export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateString()) {
     const [selectedSite, setSelectedSite] = useState(initialSiteId);
     const [selectedDate, setSelectedDate] = useState(initialDate);
+
+    useEffect(() => {
+        if (initialDate && initialDate !== selectedDate) {
+            setSelectedDate(initialDate);
+        }
+    }, [initialDate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        if (initialSiteId && initialSiteId !== selectedSite) {
+            setSelectedSite(initialSiteId);
+        }
+    }, [initialSiteId]); // eslint-disable-line react-hooks/exhaustive-deps
     const [grilleData, setGrilleData] = useState([]);
     const [initialGrilleData, setInitialGrilleData] = useState([]);
     const [siteParams, setSiteParams] = useState(null);

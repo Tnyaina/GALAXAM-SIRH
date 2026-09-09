@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.model.pointage.service;
 
 import mg.galaxam.sirh.api.dto.pointage.PointageAnomalieDTO;
+import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +28,9 @@ public class PointageAnomalieService {
 
     @Autowired
     private PointageSaisieService pointageSaisieService;
+
+    @Autowired
+    private PointageSyntheseService pointageSyntheseService;
 
     /**
      * Recherche les anomalies pour un filtre donné (anomalies de saisie, retards non justifiés et jours ouvrés non saisis)
@@ -366,16 +370,33 @@ public class PointageAnomalieService {
                 }
             }
 
+            boolean isNonTravaille = "CONGE".equalsIgnoreCase(codeStatut)
+                    || "FERIE_CHOME".equalsIgnoreCase(codeStatut)
+                    || "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(codeStatut)
+                    || "ABSENCE_JUSTIFIEE".equalsIgnoreCase(codeStatut)
+                    || "REPOS".equalsIgnoreCase(codeStatut)
+                    || (datePtg != null && CalendrierOuvrableEngine.isWeekend(datePtg.toLocalDate()) && totalH <= 0.0);
+
+            if (isNonTravaille) {
+                depM = false;
+                depA = false;
+                repas = false;
+            }
+
+            double fractionDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
+            double mntDepJour = Math.round(fractionDep * (31200.0 / 22.0) * 100.0) / 100.0;
+            double mntRepasJour = repas ? 2000.0 : 0.0;
+
             if (idPointage <= 0) {
                 String sqlInsert = "INSERT INTO pointage_jour (" +
                     "id_employe, id_periode_paie, id_site, date_pointage, " +
                     "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
                     "heures_matin, heures_am, total_heures, minutes_retard, heures_nuit, " +
                     "motif_ajustement, id_statut_jour, deplacement_matin, deplacement_am, " +
-                    "indemnite_deplacement_recue, indemnite_repas_recue, version, created_at, updated_at " +
+                    "indemnite_deplacement_recue, indemnite_repas_recue, montant_repas, montant_deplacement_jour, version, created_at, updated_at " +
                     ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
                     "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                    "?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id_pointage";
+                    "?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id_pointage";
                 try (PreparedStatement psIns = c.prepareStatement(sqlInsert)) {
                     psIns.setInt(1, idEmp);
                     psIns.setObject(2, idPer);
@@ -396,10 +417,15 @@ public class PointageAnomalieService {
                     psIns.setBoolean(17, depA);
                     psIns.setBoolean(18, depM || depA);
                     psIns.setBoolean(19, repas);
+                    psIns.setDouble(20, mntRepasJour);
+                    psIns.setDouble(21, mntDepJour);
                     try (ResultSet rsIns = psIns.executeQuery()) {
                         if (rsIns.next()) {
                             int newId = rsIns.getInt(1);
-                            syncIndemniteJour(c, newId, repas, depM, depA);
+                            syncIndemniteJour(c, newId, repas, depM, depA, mntDepJour, mntRepasJour);
+                            if (idPer != null && datePtg != null) {
+                                pointageSyntheseService.recalculerSemainePourDate(idPer, datePtg.toLocalDate(), idSite, c);
+                            }
                             return true;
                         }
                     }
@@ -426,6 +452,7 @@ public class PointageAnomalieService {
                              "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
                              "motif_ajustement = ?, id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
                              "deplacement_matin = ?, deplacement_am = ?, indemnite_deplacement_recue = ?, indemnite_repas_recue = ?, " +
+                             "montant_repas = ?, montant_deplacement_jour = ?, " +
                              "version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id_pointage = ? AND version = ?";
 
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -444,20 +471,25 @@ public class PointageAnomalieService {
                     ps.setBoolean(13, depA);
                     ps.setBoolean(14, depM || depA);
                     ps.setBoolean(15, repas);
-                    ps.setInt(16, idPointage);
-                    ps.setInt(17, providedVer);
+                    ps.setDouble(16, mntRepasJour);
+                    ps.setDouble(17, mntDepJour);
+                    ps.setInt(18, idPointage);
+                    ps.setInt(19, providedVer);
                     int rows = ps.executeUpdate();
                     if (rows == 0) {
                         throw new IllegalStateException("Conflit de modification concurrente sur le pointage ID " + idPointage + ". La ligne a été modifiée par un tiers.");
                     }
-                    syncIndemniteJour(c, idPointage, repas, depM, depA);
+                    syncIndemniteJour(c, idPointage, repas, depM, depA, mntDepJour, mntRepasJour);
+                    if (idPer != null && datePtg != null) {
+                        pointageSyntheseService.recalculerSemainePourDate(idPer, datePtg.toLocalDate(), idSite, c);
+                    }
                     return rows > 0;
                 }
             }
         }
     }
 
-    private void syncIndemniteJour(Connection c, int idPointage, boolean repas, boolean depM, boolean depA) {
+    private void syncIndemniteJour(Connection c, int idPointage, boolean repas, boolean depM, boolean depA, double mntDepJour, double mntRepasJour) {
         String sqlDyn = "INSERT INTO pointage_indemnite_jour (id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde, updated_at) " +
                 "VALUES (?, (SELECT id_indemnite FROM ref_indemnite WHERE code = ? LIMIT 1), 'JOUR_ENTIER', ?, ?, ?, CURRENT_TIMESTAMP) " +
                 "ON CONFLICT (id_pointage, id_indemnite, fraction) DO UPDATE SET " +
@@ -468,7 +500,7 @@ public class PointageAnomalieService {
             psDyn.setInt(1, idPointage);
             psDyn.setString(2, "REPAS");
             psDyn.setDouble(3, 1.0);
-            psDyn.setDouble(4, repas ? 2000.0 : 0.0);
+            psDyn.setDouble(4, mntRepasJour);
             psDyn.setBoolean(5, repas);
             psDyn.executeUpdate();
 
@@ -477,7 +509,7 @@ public class PointageAnomalieService {
             psDyn.setInt(1, idPointage);
             psDyn.setString(2, "DEPLACEMENT");
             psDyn.setDouble(3, qteDep);
-            psDyn.setDouble(4, 0.0);
+            psDyn.setDouble(4, mntDepJour);
             psDyn.setBoolean(5, depM || depA);
             psDyn.executeUpdate();
         } catch (Exception ignored) {

@@ -403,10 +403,20 @@ public class PointageEmployeService {
 
                 totalHeuresNuit += rec.heuresNuit;
 
-                // Calcul Indemnités journalières
-                boolean aDroitRepas = rec.indemniteRepasRecue || (isAutonome && !isWeekendRec);
-                boolean depM = rec.deplacementMatin || (isAutonome && !isWeekendRec);
-                boolean depA = rec.deplacementAm || (isAutonome && !isWeekendRec);
+                // Calcul Indemnités journalières : strictement conditionné à une présence ou travail effectif
+                boolean isNonTravaille = "CONGE".equalsIgnoreCase(rec.codeStatut)
+                        || "FERIE_CHOME".equalsIgnoreCase(rec.codeStatut)
+                        || "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(rec.codeStatut)
+                        || "ABSENCE_JUSTIFIEE".equalsIgnoreCase(rec.codeStatut)
+                        || "REPOS".equalsIgnoreCase(rec.codeStatut)
+                        || "NON_CONCERNE".equalsIgnoreCase(rec.codeStatut)
+                        || (isWeekendRec && totalH <= 0.0);
+
+                boolean estTravailleOuPresent = !isNonTravaille && (totalH > 0.0 || (isAutonome && !isWeekendRec));
+
+                boolean aDroitRepas = estTravailleOuPresent && (rec.indemniteRepasRecue || isAutonome);
+                boolean depM = estTravailleOuPresent && (rec.deplacementMatin || isAutonome);
+                boolean depA = estTravailleOuPresent && (rec.deplacementAm || isAutonome);
 
                 dto.setDeplacementMatin(depM);
                 dto.setDeplacementAm(depA);
@@ -505,6 +515,7 @@ public class PointageEmployeService {
                 dto.setEcart("—");
                 dto.setDeplacementMatin(false);
                 dto.setDeplacementAm(false);
+                dto.setIndemniteDeplacement(false);
                 dto.setIndemniteRepas(false);
                 dto.setNbRepas(0);
                 dto.setMontantRepas(0.0);
@@ -536,6 +547,7 @@ public class PointageEmployeService {
                         dto.setEcartPositif(true);
                         dto.setDeplacementMatin(false);
                         dto.setDeplacementAm(false);
+                        dto.setIndemniteDeplacement(false);
                         dto.setIndemniteRepas(false);
                         dto.setNbRepas(0);
                         dto.setMontantRepas(0.0);
@@ -553,6 +565,7 @@ public class PointageEmployeService {
                     dto.setEcartPositif(true);
                     dto.setDeplacementMatin(true);
                     dto.setDeplacementAm(true);
+                    dto.setIndemniteDeplacement(true);
                     dto.setIndemniteRepas(true);
                     dto.setNbRepas(1);
                     dto.setMontantRepas(tarifRepasDefaut);

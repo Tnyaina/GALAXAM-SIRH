@@ -1,5 +1,6 @@
 import { Users, AlertTriangle, CheckCircle2, Calendar, Clock, AlertCircle } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
+import { fmtDateInput } from '@/utils/dateUtils';
 
 const formatDateFr = (val) => {
   if (!val) return '';
@@ -34,7 +35,7 @@ export default function ConflitsPostePreview({
 
     let cur = new Date(winStart);
     while (cur <= winEnd) {
-      const dateStr = cur.toISOString().slice(0, 10);
+      const dateStr = fmtDateInput(cur);
       const isWeekend = cur.getDay() === 0 || cur.getDay() === 6;
       const dayNum = cur.getDate();
       const dayLabel = cur.toLocaleDateString('fr-FR', { weekday: 'short' });
@@ -206,8 +207,8 @@ export default function ConflitsPostePreview({
 
                       {/* Barre du congé collègue */}
                       {(() => {
-                        const sStr = typeof col.dateDebut === 'string' ? col.dateDebut.substring(0, 10) : new Date(col.dateDebut).toISOString().slice(0, 10);
-                        const eStr = typeof col.dateFin === 'string' ? col.dateFin.substring(0, 10) : new Date(col.dateFin).toISOString().slice(0, 10);
+                        const sStr = fmtDateInput(col.dateDebut);
+                        const eStr = fmtDateInput(col.dateFin);
                         const pos = calculateBarPosition(sStr, eStr);
                         if (!pos.visible) return null;
                         return (
