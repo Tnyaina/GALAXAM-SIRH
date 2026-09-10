@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
-    Scale, TrendingUp, CheckCircle2, Clock, Edit2,
+    Scale, TrendingUp, CheckCircle2, Clock, Edit2, Eye, X,
     Banknote, Percent, Timer, Palmtree, Info, FileText, AlertTriangle,
-    Sparkles
+    Sparkles, Trash2
 } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
@@ -97,11 +97,14 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
     const isRevalorisation = mode === 'revaloriser';
     const isEdit          = mode === 'edit';
     const isInit          = mode === 'init';
+    const isView          = mode === 'view';
+    const isReadOnly      = isView;
 
     const TITLES = {
         revaloriser: { title: 'Nouvelle Loi de Finances — Date d\'Application', icon: <TrendingUp size={18} />, submit: 'Appliquer la nouvelle LF' },
         init:        { title: 'Initialiser le premier exercice fiscal', icon: <Sparkles size={18} />, submit: 'Créer l\'exercice' },
         edit:        { title: 'Corriger les valeurs de l\'exercice', icon: <Edit2 size={18} />, submit: 'Enregistrer la correction' },
+        view:        { title: 'Détails de l\'exercice archivé', icon: <Eye size={18} />, submit: null },
     };
     const meta = TITLES[mode] || TITLES.init;
 
@@ -113,10 +116,14 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                    size="4xl"
             footer={
                 <>
-                    <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={loading}>Annuler</Button>
-                    <Button type="submit" form="exercice-form" variant="primary" size="sm" loading={loading}>
-                        {meta.submit}
+                    <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={loading}>
+                        {isView ? 'Fermer' : 'Annuler'}
                     </Button>
+                    {!isView && (
+                        <Button type="submit" form="exercice-form" variant="primary" size="sm" loading={loading}>
+                            {meta.submit}
+                        </Button>
+                    )}
                 </>
             }
         >
@@ -151,6 +158,15 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                         </p>
                     </div>
                 )}
+                {isView && (
+                    <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3.5 flex items-start gap-3">
+                        <Eye size={16} className="text-[var(--color-fg-muted)] shrink-0 mt-0.5" />
+                        <p className="text-xs text-[var(--color-fg-muted)]">
+                            <strong>Consultation en lecture seule.</strong> Cet exercice est archivé et ne peut plus être modifié.
+                            Ces valeurs ont été appliquées aux bulletins de paie de la période correspondante.
+                        </p>
+                    </div>
+                )}
 
                 {/* SECTION 1 : Identification (Pleine largeur) */}
                 <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-4 space-y-3">
@@ -158,18 +174,21 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                         <div>
                             <Input
-                                label="Code Version *"
-                                required
+                                label="Code Version"
+                                required={!isReadOnly}
+                                readOnly={isReadOnly}
+                                disabled={isReadOnly}
                                 value={formData.codeVersion}
-                                onChange={e => upd('codeVersion', e.target.value)}
+                                onChange={e => !isReadOnly && upd('codeVersion', e.target.value)}
                                 placeholder="Ex : LF_2027"
                                 hint="Clé unique d'archive (ex: LF_2027)"
                             />
                         </div>
                         <div className="md:col-span-3">
                             <Input
-                                label="Libellé complet *"
-                                required
+                                label="Libellé complet"
+                                required={!isReadOnly}
+                                disabled={isReadOnly}
                                 value={formData.libelle}
                                 onChange={e => upd('libelle', e.target.value)}
                                 placeholder="Ex : Loi de Finances 2027 (Loi n°2026-XXX) — Barème IRSA 6 tranches"
@@ -178,9 +197,10 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                         </div>
                         <div className="md:col-span-2">
                             <Input
-                                label={isRevalorisation ? "Date d'application (Date d'effet) *" : "Date de début *"}
+                                label={isRevalorisation ? "Date d'application (Date d'effet)" : "Date de début"}
                                 type="date"
-                                required
+                                required={!isReadOnly}
+                                disabled={isReadOnly}
                                 value={formData.dateDebut}
                                 onChange={e => upd('dateDebut', e.target.value)}
                                 hint={isRevalorisation ? "Date à partir de laquelle ces règles s'appliquent" : "Premier jour de validité"}
@@ -191,6 +211,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 <Input
                                     label="Date de fin (laisser vide si indéterminé)"
                                     type="date"
+                                    disabled={isReadOnly}
                                     value={formData.dateFin}
                                     onChange={e => upd('dateFin', e.target.value)}
                                     hint="Généralement vide (clôturé automatiquement lors de la prochaine LF)"
@@ -219,27 +240,30 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                             />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Input
-                                    label="SME National (Ariary) *"
+                                    label="SME National (Ariary)"
                                     type="number"
-                                    required
+                                    required={!isReadOnly}
+                                    disabled={isReadOnly}
                                     value={formData.smeNational}
                                     onChange={e => upd('smeNational', e.target.value)}
                                     hint="Secteur non agricole"
                                 />
                                 <Input
-                                    label="SME Agricole (Ariary) *"
+                                    label="SME Agricole (Ariary)"
                                     type="number"
-                                    required
+                                    required={!isReadOnly}
+                                    disabled={isReadOnly}
                                     value={formData.smeAgricole}
                                     onChange={e => upd('smeAgricole', e.target.value)}
                                     hint="Secteur agricole"
                                 />
                                 <div className="sm:col-span-2">
                                     <Input
-                                        label="Multiplicateur Plafond Social (× SME) *"
+                                        label="Multiplicateur Plafond Social (× SME)"
                                         type="number"
                                         step="0.01"
-                                        required
+                                        required={!isReadOnly}
+                                        disabled={isReadOnly}
                                         value={formData.plafondCotisationNbSme}
                                         onChange={e => upd('plafondCotisationNbSme', e.target.value)}
                                         hint="Facteur légal pour le plafond CNaPS / Santé (défaut : 8 × SME)"
@@ -271,26 +295,29 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                             />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Input
-                                    label="Seuil d'exonération (Ar) *"
+                                    label="Seuil d'exonération (Ar)"
                                     type="number"
-                                    required
+                                    required={!isReadOnly}
+                                    disabled={isReadOnly}
                                     value={formData.seuilExonerationIrsa}
                                     onChange={e => upd('seuilExonerationIrsa', e.target.value)}
                                     hint="Revenu imposable ≤ ce montant exonéré"
                                 />
                                 <Input
-                                    label="Minimum de perception (Ar) *"
+                                    label="Minimum de perception (Ar)"
                                     type="number"
-                                    required
+                                    required={!isReadOnly}
+                                    disabled={isReadOnly}
                                     value={formData.minimumPerceptionIrsa}
                                     onChange={e => upd('minimumPerceptionIrsa', e.target.value)}
                                     hint="Plancher légal d'impôt exigible (ex: 3 000 Ar)"
                                 />
                                 <div className="sm:col-span-2">
                                     <Input
-                                        label="Déduction / personne à charge (Ar) *"
+                                        label="Déduction / personne à charge (Ar)"
                                         type="number"
-                                        required
+                                        required={!isReadOnly}
+                                        disabled={isReadOnly}
                                         value={formData.deductionChargeFamille}
                                         onChange={e => upd('deductionChargeFamille', e.target.value)}
                                         hint="Enfants légitimes et personnes à charge déclarées"
@@ -317,10 +344,11 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                         />
                         <div className="grid grid-cols-2 gap-3">
                             <Input
-                                label="Durée légale hebdo (h) *"
+                                label="Durée légale hebdo (h)"
                                 type="number"
                                 step="0.5"
-                                required
+                                required={!isReadOnly}
+                                disabled={isReadOnly}
                                 value={formData.dureeHebdoLegale}
                                 onChange={e => {
                                     upd('dureeHebdoLegale', e.target.value);
@@ -329,28 +357,31 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 hint="Référence nationale (40h)"
                             />
                             <Input
-                                label="Diviseur mensuel (h) *"
+                                label="Diviseur mensuel (h)"
                                 type="number"
                                 step="0.0001"
-                                required
+                                required={!isReadOnly}
+                                disabled={isReadOnly}
                                 value={formData.diviseurMensuelHeures}
                                 onChange={e => upd('diviseurMensuelHeures', e.target.value)}
                                 hint={`Calcul automatique : (${formData.dureeHebdoLegale || '40'}h × 52 sem.) / 12 mois = ${formData.diviseurMensuelHeures || '173.3333'}h`}
                             />
                             <Input
-                                label="Seuil HS Tranche 1 (+30%) *"
+                                label="Seuil HS Tranche 1 (+30%)"
                                 type="number"
                                 step="0.5"
-                                required
+                                required={!isReadOnly}
+                                disabled={isReadOnly}
                                 value={formData.seuilHsTranche1}
                                 onChange={e => upd('seuilHsTranche1', e.target.value)}
                                 hint="Ex : 8 = 8 premières heures maj. à 30%"
                             />
                             <Input
-                                label="Plafond HS / Semaine (h) *"
+                                label="Plafond HS / Semaine (h)"
                                 type="number"
                                 step="0.5"
-                                required
+                                required={!isReadOnly}
+                                disabled={isReadOnly}
                                 value={formData.plafondHsHebdo}
                                 onChange={e => upd('plafondHsHebdo', e.target.value)}
                                 hint="Limite légale max (ex: 20h)"
@@ -368,18 +399,20 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                         />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <Input
-                                label="Acquisition mensuelle (jours) *"
+                                label="Acquisition mensuelle (jours)"
                                 type="number"
                                 step="0.01"
-                                required
+                                required={!isReadOnly}
+                                disabled={isReadOnly}
                                 value={formData.acquisitionCongeMensuelJours}
                                 onChange={e => upd('acquisitionCongeMensuelJours', e.target.value)}
                                 hint="2.5 j/mois (= 30 jours ouvrables/an)"
                             />
                             <Input
-                                label="Diviseur valorisation (jours) *"
+                                label="Diviseur valorisation (jours)"
                                 type="number"
-                                required
+                                required={!isReadOnly}
+                                disabled={isReadOnly}
                                 value={formData.diviseurValorisationCongeJours}
                                 onChange={e => upd('diviseurValorisationCongeJours', e.target.value)}
                                 hint="Valorisation: Brut ÷ 30 (calendaire)"
@@ -406,10 +439,13 @@ export default function ReglementationFiscaleTab() {
     const [modalError, setModalError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [showModal, setShowModal] = useState(false);
-    const [modalMode, setModalMode] = useState('init'); // 'init' | 'revaloriser' | 'edit'
+    const [modalMode, setModalMode] = useState('init'); // 'init' | 'revaloriser' | 'edit' | 'view'
     const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({ ...EMPTY_FORM });
     const [showArchived, setShowArchived] = useState(false);
+    // Confirmation annulation exercice programmé
+    const [confirmAnnulation, setConfirmAnnulation] = useState(null); // { id, codeVersion } | null
+    const [annulationLoading, setAnnulationLoading] = useState(false);
     const toast = useToast();
     const todayStr = fmtDateInput(new Date());
 
@@ -465,6 +501,49 @@ export default function ReglementationFiscaleTab() {
         setEditingId(null);
         setModalError(null);
         setShowModal(true);
+    };
+
+    // ---- Ouverture "Détails" : lecture seule pour un exercice archivé ----
+    const handleOpenView = (config) => {
+        setFormData({
+            codeVersion:              config.codeVersion ?? '',
+            libelle:                  config.libelle ?? '',
+            dateDebut:                fmtDateInput(config.dateDebut) ?? '',
+            dateFin:                  fmtDateInput(config.dateFin) ?? '',
+            smeNational:              String(config.smeNational ?? ''),
+            smeAgricole:              String(config.smeAgricole ?? ''),
+            plafondCotisationNbSme:   String(config.plafondCotisationNbSme ?? '8'),
+            seuilExonerationIrsa:     String(config.seuilExonerationIrsa ?? ''),
+            minimumPerceptionIrsa:    String(config.minimumPerceptionIrsa ?? ''),
+            deductionChargeFamille:   String(config.deductionChargeFamille ?? ''),
+            arrondiBaseIrsa:          config.arrondiBaseIrsa ?? 'CENTAINE_INF',
+            dureeHebdoLegale:         String(config.dureeHebdoLegale ?? '40'),
+            diviseurMensuelHeures:    String(config.diviseurMensuelHeures ?? '173.3333'),
+            seuilHsTranche1:          String(config.seuilHsTranche1 ?? '8'),
+            plafondHsHebdo:           String(config.plafondHsHebdo ?? '20'),
+            acquisitionCongeMensuelJours:   String(config.acquisitionCongeMensuelJours ?? '2.5'),
+            diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? '30'),
+        });
+        setModalMode('view');
+        setEditingId(null);
+        setModalError(null);
+        setShowModal(true);
+    };
+
+    // ---- Annulation d'un exercice PROGRAMMÉ ----
+    const handleAnnuler = async (id, codeVersion) => {
+        setAnnulationLoading(true);
+        try {
+            await paieConfigService.annulerConfigProgrammee(id);
+            toast({ title: 'Exercice annulé', message: `"${codeVersion}" a été supprimé. L'exercice précédent est de nouveau en vigueur.`, type: 'success' });
+            setConfirmAnnulation(null);
+            load();
+        } catch (err) {
+            const msg = err.response?.data || 'Erreur lors de l\'annulation.';
+            toast({ title: 'Annulation impossible', message: typeof msg === 'string' ? msg : JSON.stringify(msg), type: 'error' });
+        } finally {
+            setAnnulationLoading(false);
+        }
     };
 
     // ---- Ouverture "Corriger" : correction immédiate d'un exercice existant ----
@@ -689,13 +768,15 @@ export default function ReglementationFiscaleTab() {
                 {displayedConfigs.map((config) => {
                     const statut = getStatut(config);
                     const isActive = statut === 'EN_VIGUEUR';
+                    const isProgramme = statut === 'PROGRAMME';
+                    const isArchive = statut === 'ARCHIVE';
                     return (
                         <div
                             key={config.idConfigLegale}
                             className={`border flex items-center gap-4 px-4 py-3 transition-all ${
                                 isActive
                                     ? 'bg-[var(--color-success-500)]/5 border-[var(--color-success-500)]/30'
-                                    : statut === 'PROGRAMME'
+                                    : isProgramme
                                     ? 'bg-[var(--color-brand-500)]/5 border-[var(--color-brand-500)]/25'
                                     : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] opacity-55'
                             }`}
@@ -714,13 +795,49 @@ export default function ReglementationFiscaleTab() {
                                 <span><span className="font-bold text-[var(--color-fg)]">{config.dureeHebdoLegale}h</span><br/>Légale</span>
                                 <span><span className="font-bold text-[var(--color-fg)]">{fmtAr(config.plafondCotisationMensuel)}</span><br/>Plafond social</span>
                             </div>
-                            <button
-                                onClick={() => handleOpenEdit(config)}
-                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] transition-colors shrink-0"
-                                title="Corriger les valeurs de cet exercice"
-                            >
-                                <Edit2 size={14} />
-                            </button>
+
+                            {/* Actions selon le statut */}
+                            <div className="flex items-center gap-1 shrink-0">
+                                {/* ARCHIVÉ → bouton Détails (lecture seule) */}
+                                {isArchive && (
+                                    <button
+                                        onClick={() => handleOpenView(config)}
+                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+                                        title="Voir les détails de cet exercice archivé"
+                                    >
+                                        <Eye size={14} />
+                                    </button>
+                                )}
+                                {/* EN_VIGUEUR → bouton Corriger */}
+                                {isActive && (
+                                    <button
+                                        onClick={() => handleOpenEdit(config)}
+                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+                                        title="Corriger les valeurs de cet exercice"
+                                    >
+                                        <Edit2 size={14} />
+                                    </button>
+                                )}
+                                {/* PROGRAMMÉ → bouton Corriger + bouton Annuler */}
+                                {isProgramme && (
+                                    <>
+                                        <button
+                                            onClick={() => handleOpenEdit(config)}
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+                                            title="Corriger les valeurs de cet exercice"
+                                        >
+                                            <Edit2 size={14} />
+                                        </button>
+                                        <button
+                                            onClick={() => setConfirmAnnulation({ id: config.idConfigLegale, codeVersion: config.codeVersion })}
+                                            className="p-1.5 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 transition-colors"
+                                            title="Annuler cet exercice programmé (finallement aucun changement)"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     );
                 })}
@@ -737,6 +854,49 @@ export default function ReglementationFiscaleTab() {
                 setFormData={setFormData}
                 activeConfig={activeConfig}
             />
+
+            {/* ---- Modal de confirmation d'annulation ---- */}
+            {confirmAnnulation && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xl p-6 max-w-md w-full mx-4">
+                        <div className="flex items-start gap-3 mb-4">
+                            <div className="p-2 bg-[var(--color-danger-500)]/10 shrink-0">
+                                <Trash2 size={20} className="text-[var(--color-danger-500)]" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-[var(--color-fg)] text-sm mb-1">
+                                    Annuler l'exercice programmé
+                                </h3>
+                                <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                                    Vous êtes sur le point d'annuler <strong className="text-[var(--color-fg)]">{confirmAnnulation.codeVersion}</strong>.
+                                    Cette action supprimera définitivement cet exercice et
+                                    l'exercice précédent sera remis <strong>en vigueur</strong> sans date de fin.
+                                </p>
+                                <p className="text-[11px] text-[var(--color-warning-600)] mt-2">
+                                    ⚠ Les barèmes IRSA et majorations associés seront également supprimés.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                variant="ghost" size="sm"
+                                onClick={() => setConfirmAnnulation(null)}
+                                disabled={annulationLoading}
+                            >
+                                Conserver
+                            </Button>
+                            <Button
+                                variant="danger" size="sm"
+                                loading={annulationLoading}
+                                onClick={() => handleAnnuler(confirmAnnulation.id, confirmAnnulation.codeVersion)}
+                                icon={<Trash2 size={13} />}
+                            >
+                                Annuler la LF programmée
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

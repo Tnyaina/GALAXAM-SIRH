@@ -367,7 +367,9 @@ INSERT INTO ref_categorie_professionnelle (id_categorie_professionnelle, code, l
 (2, 'A', 'Agent', 'Techniciens et agents', TRUE, FALSE, FALSE);
 SELECT setval('ref_categorie_professionnelle_id_categorie_professionnelle_seq', (SELECT GREATEST(MAX(id_categorie_professionnelle), 2) FROM ref_categorie_professionnelle));
 
--- Configuration Légale de Paie (Lois de Finances 2024 et 2026)
+-- Configuration Légale de Paie :
+-- 1. LF_2024_2025 (applicable du 01/01/2024 au 31/12/2025) : SME 262 680 Ar, Plafond CNaPS 2 101 440 Ar, Barème 5 tranches (couvre les tests déc 2025 : 26 nov - 25 déc)
+-- 2. LF_2026 (en vigueur depuis le 01/01/2026) : Revalorisation SME 300 000 Ar (agricole 304 300 Ar), Plafond CNaPS 2 400 000 Ar, Barème 6 tranches (25%), Min IRSA 3 000 Ar
 INSERT INTO paie_config_legale (
     id_config_legale, code_version, libelle, date_debut, date_fin,
     sme_national, sme_agricole, plafond_cotisation_nb_sme,
@@ -377,10 +379,10 @@ INSERT INTO paie_config_legale (
 ) VALUES 
 (
     1,
-    'LF_2024',
-    'Loi de Finances 2024 — Barème IRSA 5 tranches, SME 200 000 Ar',
+    'LF_2024_2025',
+    'Loi de Finances / Réglementation 2024-2025 — SME 262 680 Ar, Plafond CNaPS 2 101 440 Ar',
     '2024-01-01', '2025-12-31',
-    200000.00, 205000.00, 8.00,
+    262680.00, 266500.00, 8.00,
     350000.00, 2000.00, 2000.00, 'CENTAINE_INF',
     40.00, 173.3333, 8.00, 20.00,
     2.50, 30
@@ -388,9 +390,9 @@ INSERT INTO paie_config_legale (
 (
     2,
     'LF_2026',
-    'Loi de Finances 2026 (Loi n°2025-021) — Nouveau barème IRSA 6 tranches (25%), SME 262 680 Ar',
+    'Loi de Finances 2026 — Revalorisation SME 300 000 Ar, Plafond CNaPS 2 400 000 Ar, Min IRSA 3 000 Ar',
     '2026-01-01', NULL,
-    262680.00, 266500.00, 8.00,
+    300000.00, 304300.00, 8.00,
     350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
     40.00, 173.3333, 8.00, 20.00,
     2.50, 30

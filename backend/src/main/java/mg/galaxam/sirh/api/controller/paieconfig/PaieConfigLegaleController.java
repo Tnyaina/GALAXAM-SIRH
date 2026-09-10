@@ -152,6 +152,39 @@ public class PaieConfigLegaleController {
         }
     }
 
+    /**
+     * Annulation d'un exercice PROGRAMMÉ (date_debut > aujourd'hui).
+     * Interdit sur les exercices EN_VIGUEUR ou ARCHIVÉ.
+     * Restaure automatiquement le date_fin=NULL de l'exercice précédent.
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> annulerProgramme(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                PaieConfigLegale cible = PaieConfigLegale.findById(id, c);
+                if (cible == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Exercice fiscal introuvable.");
+                }
+                PaieConfigLegale.annulerProgramme(id, c);
+                AuditLog.audit(c, "ANNULATION_PROGRAMME", "paie_config_legale",
+                        String.valueOf(id), cible, null);
+                c.commit();
+                return ResponseEntity.ok("L'exercice programmé \"" + cible.getCodeVersion() + "\" a été annulé et l'exercice précédent a été réactivé.");
+            } catch (IllegalStateException ex) {
+                c.rollback();
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
     private PaieConfigLegale mapFromRequest(PaieConfigLegaleRequest r) {
         PaieConfigLegale p = new PaieConfigLegale();
         p.setCodeVersion(r.getCodeVersion());

@@ -493,11 +493,11 @@ LIMIT 1;
 
 -- Cotisations Sociales Référentielles
 INSERT INTO ref_type_cotisation (id_type_cotisation, id_config_legale, code, libelle, taux_salarial, taux_patronal, plafonne, ordre, est_actif, date_debut) VALUES
-(1, 2, 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, TRUE, 1, TRUE, '2026-01-01'),
-(2, 2, 'OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, TRUE, 1, TRUE, '2026-01-01'),
-(3, 2, 'OMSI',  'Organisation Médicale Inter-entreprises', 1.50, 5.50, TRUE, 1, TRUE, '2026-01-01'),
-(4, 2, 'ISI',   'Impôt Synthétique Intermédiaire', 0.00, 5.00, TRUE, 1, TRUE, '2026-01-01'),
-(5, 2, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 5, TRUE, '2026-01-01');
+(1, 2, 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, TRUE, 1, TRUE, '2024-01-01'),
+(2, 2, 'OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, TRUE, 1, TRUE, '2024-01-01'),
+(3, 2, 'OMSI',  'Organisation Médicale Inter-entreprises', 1.50, 5.50, TRUE, 1, TRUE, '2024-01-01'),
+(4, 2, 'ISI',   'Impôt Synthétique Intermédiaire', 0.00, 5.00, TRUE, 1, TRUE, '2024-01-01'),
+(5, 2, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 5, TRUE, '2024-01-01');
 SELECT setval('ref_type_cotisation_id_type_cotisation_seq', (SELECT GREATEST(MAX(id_type_cotisation), 5) FROM ref_type_cotisation));
 
 -- Cotisations par Site (TNR: CNAPS+OSTIE, TMM: CNAPS+OMSI)
@@ -507,7 +507,7 @@ INSERT INTO site_cotisation (id_site, id_type_cotisation, est_plafonne_sante) VA
 (2, 1, TRUE),
 (2, 3, TRUE);
 
--- Barèmes IRSA Officiels (LF_2024: 5 Tranches, LF_2026: 6 Tranches)
+-- Barèmes IRSA Officiels (LF_2024_2025: 5 Tranches jusqu'au 31/12/2025, LF_2026: 6 Tranches dès le 01/01/2026)
 INSERT INTO bareme_irsa (id_config_legale, numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin) VALUES
 (1, 1, 0.00, 350000.00, 0.00, '2024-01-01', '2025-12-31'),
 (1, 2, 350001.00, 400000.00, 5.00, '2024-01-01', '2025-12-31'),
@@ -522,7 +522,7 @@ INSERT INTO bareme_irsa (id_config_legale, numero_tranche, tranche_min, tranche_
 (2, 6, 4000001.00, NULL, 25.00, '2026-01-01', NULL);
 SELECT setval('bareme_irsa_id_tranche_seq', (SELECT GREATEST(MAX(id_tranche), 11) FROM bareme_irsa));
 
--- Majorations d'Heures Supplémentaires & Spéciales (LF_2024 et LF_2026)
+-- Majorations d'Heures Supplémentaires & Spéciales (LF_2024_2025 et LF_2026)
 INSERT INTO ref_taux_majoration (id_config_legale, type_majoration, taux, description, date_debut, date_fin) VALUES
 (1, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine', '2024-01-01', '2025-12-31'),
 (1, 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure', '2024-01-01', '2025-12-31'),

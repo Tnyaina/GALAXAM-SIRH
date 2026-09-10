@@ -38,6 +38,11 @@ const paieConfigService = {
         const response = await apiClient.put(`/paie/config-legale/${id}`, data);
         return response.data;
     },
+    /** Annule un exercice PROGRAMMÉ (date_debut dans le futur) — interdit sur EN_VIGUEUR et ARCHIVÉ */
+    annulerConfigProgrammee: async (id) => {
+        const response = await apiClient.delete(`/paie/config-legale/${id}`);
+        return response.data;
+    },
 
     // ----------------------------------------------------
     // COTISATIONS SOCIALES & SANTE

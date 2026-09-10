@@ -135,7 +135,43 @@ public class PaieConfigLegale extends ClassMere {
     @Override
     protected void supprimer(Connection c) throws Exception {
         throw new UnsupportedOperationException(
-            "La suppression d'un exercice fiscal est interdite. Utilisez la clôture par date_fin.");
+            "La suppression directe est interdite. Utilisez annulerProgramme() pour annuler un exercice non encore en vigueur.");
+    }
+
+    /**
+     * Annule un exercice PROGRAMMÉ (date_debut > aujourd'hui) :
+     * 1. Vérifie que l'exercice n'est pas encore en vigueur.
+     * 2. Supprime l'exercice.
+     * 3. Réouvre le date_fin de l'exercice précédent (le remet à NULL).
+     * La transaction est gérée par l'appelant.
+     */
+    public static void annulerProgramme(int idConfigLegale, Connection c) throws Exception {
+        // Charger l'exercice à annuler
+        PaieConfigLegale cible = findById(idConfigLegale, c);
+        if (cible == null) {
+            throw new IllegalArgumentException("Exercice fiscal introuvable : " + idConfigLegale);
+        }
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (cible.getDateDebut() == null || !cible.getDateDebut().toLocalDate().isAfter(today)) {
+            throw new IllegalStateException(
+                "Seul un exercice PROGRAMMÉ (date_debut dans le futur) peut être annulé. "
+                + "L'exercice '" + cible.getCodeVersion() + "' est déjà en vigueur ou archivé.");
+        }
+        // Réouvrir le date_fin de l'exercice précédent (celui qui avait été clôturé lors de la revalorisation)
+        String reopenSql = "UPDATE paie_config_legale SET date_fin = NULL "
+                + "WHERE id_config_legale != ? AND date_fin = ?";
+        try (PreparedStatement ps = c.prepareStatement(reopenSql)) {
+            // date_fin du précédent = dateDebut de la cible - 1 jour
+            ps.setInt(1, idConfigLegale);
+            ps.setDate(2, java.sql.Date.valueOf(cible.getDateDebut().toLocalDate().minusDays(1)));
+            ps.executeUpdate();
+        }
+        // Supprimer l'exercice programmé (et ses tables filles en CASCADE)
+        String deleteSql = "DELETE FROM paie_config_legale WHERE id_config_legale = ?";
+        try (PreparedStatement ps = c.prepareStatement(deleteSql)) {
+            ps.setInt(1, idConfigLegale);
+            ps.executeUpdate();
+        }
     }
 
     @Override
