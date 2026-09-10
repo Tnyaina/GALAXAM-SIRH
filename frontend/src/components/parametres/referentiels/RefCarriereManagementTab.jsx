@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Award, CreditCard, ArrowUpRight } from 'lucide-react';
+import { Edit2, Award, CreditCard, ArrowUpRight } from 'lucide-react';
 import contratService from '@/api/employe/contratService';
 import Input, { Textarea, Checkbox } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
@@ -53,13 +53,6 @@ export default function RefCarriereManagementTab() {
         loadData();
     }, []);
 
-    const handleOpenCreateCp = () => {
-        setSelectedCp(null);
-        setFormDataCp({ code: '', libelle: '', description: '', estEligibleHs: true, actif: true });
-        setModalError('');
-        setShowModalCp(true);
-    };
-
     const handleOpenEditCp = (cp) => {
         setSelectedCp(cp);
         setFormDataCp({
@@ -83,15 +76,12 @@ export default function RefCarriereManagementTab() {
             return;
         }
 
+        if (!selectedCp) return;
+
         setSubmitting(true);
         try {
-            if (selectedCp) {
-                await contratService.updateCategoriePro(selectedCp.idCategorieProfessionnelle, formDataCp);
-                setActionSuccess(`Catégorie "${formDataCp.libelle}" modifiée avec succès.`);
-            } else {
-                await contratService.createCategoriePro(formDataCp);
-                setActionSuccess(`Nouvelle catégorie "${formDataCp.libelle}" créée.`);
-            }
+            await contratService.updateCategoriePro(selectedCp.idCategorieProfessionnelle, formDataCp);
+            setActionSuccess(`Catégorie "${formDataCp.libelle}" modifiée avec succès.`);
             setShowModalCp(false);
             loadData();
         } catch (err) {
@@ -118,14 +108,6 @@ export default function RefCarriereManagementTab() {
                         </h2>
                         <p className="text-xs text-[var(--color-fg-muted)]">Classification socioprofessionnelle des emplois (Cadres, Agents de maîtrise, Employés, Ouvriers)</p>
                     </div>
-                    <Button
-                        onClick={handleOpenCreateCp}
-                        variant="primary"
-                        size="sm"
-                        iconLeft={<Plus size={16} />}
-                    >
-                        Nouvelle Catégorie
-                    </Button>
                 </div>
 
                 {loading ? (
@@ -137,9 +119,7 @@ export default function RefCarriereManagementTab() {
                         <EmptyState 
                             icon={Award}
                             title="Aucune catégorie professionnelle"
-                            description="Vous n'avez pas encore configuré de catégorie professionnelle."
-                            actionLabel="Créer une catégorie"
-                            onAction={handleOpenCreateCp}
+                            description="Aucune catégorie professionnelle répertoriée."
                         />
                     </div>
                 ) : (
@@ -248,7 +228,7 @@ export default function RefCarriereManagementTab() {
             <Modal
                 isOpen={showModalCp}
                 onClose={() => setShowModalCp(false)}
-                title={selectedCp ? 'Modifier la Catégorie Professionnelle' : 'Nouvelle Catégorie Professionnelle'}
+                title="Modifier la Catégorie Professionnelle"
                 icon={<Award size={18} />}
                 size="md"
                 footer={
@@ -257,7 +237,7 @@ export default function RefCarriereManagementTab() {
                             Annuler
                         </Button>
                         <Button type="submit" form="cp-form" variant="primary" size="sm" loading={submitting}>
-                            {selectedCp ? "Enregistrer" : "Créer la catégorie"}
+                            Enregistrer
                         </Button>
                     </>
                 }
@@ -267,7 +247,7 @@ export default function RefCarriereManagementTab() {
                     <Input
                         label="Code Catégorie"
                         required
-                        disabled={!!selectedCp}
+                        disabled
                         value={formDataCp.code}
                         onChange={e => setFormDataCp({ ...formDataCp, code: e.target.value.toUpperCase() })}
                         placeholder="Ex: CADRE, AM, EMP, OUV"

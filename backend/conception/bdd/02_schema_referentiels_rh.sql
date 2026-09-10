@@ -233,10 +233,10 @@ INSERT INTO ref_filiale (id_filiale, code_filiale, raison_sociale, nif, stat, se
 SELECT setval('ref_filiale_id_filiale_seq', (SELECT GREATEST(MAX(id_filiale), 2) FROM ref_filiale));
 
 -- Banques
-INSERT INTO ref_banque (id_banque, code_banque, nom_banque, code_swift) VALUES
-(1, 'BOA', 'Bank of Africa Madagascar', 'AFRIMGMG'),
-(2, 'BNI', 'BNI Madagascar', 'BNIMA3MG'),
-(3, 'BFV', 'Société Générale Madagasikara', 'SOGEMGMG');
+INSERT INTO ref_banque (code_banque, nom_banque, code_swift) VALUES
+('BOA', 'Bank of Africa Madagascar', 'AFRIMGMG'),
+('BNI', 'BNI Madagascar', 'CLMDMGMG'),
+('BFV', 'BRED Madagasikara (ex-BFV)', 'BFAVMGMG');
 SELECT setval('ref_banque_id_banque_seq', (SELECT GREATEST(MAX(id_banque), 3) FROM ref_banque));
 
 -- Sites

@@ -34,7 +34,7 @@ export default function SecuriteAdminPanel() {
                 icon={Shield}
                 breadcrumbs={[
                     { label: 'Tableau de bord', href: '/dashboard' },
-                    { label: 'Paramètres', href: '/parametres/securite' },
+                    { label: 'Paramètres', href: '/admin/organisation' },
                     { label: 'Sécurité & Contrôle d\'Accès' }
                 ]}
             />

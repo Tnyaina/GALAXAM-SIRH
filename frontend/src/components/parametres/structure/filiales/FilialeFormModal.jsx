@@ -89,10 +89,16 @@ export default function FilialeFormModal({
                     <Input
                         label="Seuil d'Alerte Effectif (Délégués du personnel / CSE)"
                         type="number"
-                        min="1"
-                        value={formData.seuilEffectifAlerte}
-                        onChange={(e) => setFormData({ ...formData, seuilEffectifAlerte: parseInt(e.target.value) || 0 })}
-                        hint="Génère une alerte lorsque l'effectif actif de cette filiale atteint ce palier réglementaire."
+                        min="0"
+                        value={formData.seuilEffectifAlerte ?? ''}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            setFormData({
+                                ...formData,
+                                seuilEffectifAlerte: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0)
+                            });
+                        }}
+                        hint="Palier réglementaire (ex: 19 pour les délégués du personnel). Renseignez 0 pour désactiver l'alerte (sans seuil)."
                     />
                 </div>
             </form>

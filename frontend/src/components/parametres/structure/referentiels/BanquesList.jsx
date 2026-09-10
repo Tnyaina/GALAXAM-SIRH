@@ -1,11 +1,14 @@
-import { Plus, Edit2, Landmark } from 'lucide-react';
+import { Plus, Edit2, Power, Landmark } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
+
 export default function BanquesList({
     banques = [],
     onOpenCreate,
     onOpenEdit,
+    onToggleStatus,
 }) {
     return (
         <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
@@ -27,6 +30,7 @@ export default function BanquesList({
                     <Th>Code Banque</Th>
                     <Th>Nom de la Banque</Th>
                     <Th>Code SWIFT / BIC</Th>
+                    <Th>Statut</Th>
                     <Th className="text-right">Actions</Th>
                 </Thead>
                 <Tbody>
@@ -36,20 +40,42 @@ export default function BanquesList({
                                 <Td isData className="font-bold text-[var(--color-brand-500)]">{b.codeBanque}</Td>
                                 <Td className="font-semibold text-[var(--color-fg)]">{b.nomBanque}</Td>
                                 <Td isData muted className="text-xs">{b.codeSwift || '—'}</Td>
+                                <Td>
+                                    <Badge variant={b.estActif !== false ? 'success' : 'default'} size="sm" dot>
+                                        {b.estActif !== false ? "Actif" : "Désactivé"}
+                                    </Badge>
+                                </Td>
                                 <Td className="text-right">
-                                    <button
-                                        onClick={() => onOpenEdit(b)}
-                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
-                                        title="Modifier"
-                                    >
-                                        <Edit2 size={16} />
-                                    </button>
+                                    <div className="flex justify-end items-center gap-1.5">
+                                        <button
+                                            onClick={() => onOpenEdit(b)}
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            title="Modifier"
+                                            aria-label={`Modifier ${b.nomBanque}`}
+                                        >
+                                            <Edit2 size={15} />
+                                        </button>
+                                        {onToggleStatus && (
+                                            <button
+                                                onClick={() => onToggleStatus(b)}
+                                                className={`p-1.5 rounded-none cursor-pointer transition-colors ${
+                                                    b.estActif !== false
+                                                        ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
+                                                        : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
+                                                }`}
+                                                title={b.estActif !== false ? "Désactiver" : "Réactiver"}
+                                                aria-label={b.estActif !== false ? `Désactiver ${b.nomBanque}` : `Activer ${b.nomBanque}`}
+                                            >
+                                                <Power size={15} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </Td>
                             </Tr>
                         ))
                     ) : (
                         <Tr>
-                            <Td colSpan={4} className="p-0">
+                            <Td colSpan={5} className="p-0">
                                 <EmptyState title="Aucune banque" description="Aucun établissement bancaire configuré." />
                             </Td>
                         </Tr>

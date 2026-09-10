@@ -34,7 +34,7 @@ export default function OrganisationAdminPanel() {
                 icon={Building2}
                 breadcrumbs={[
                     { label: 'Tableau de bord', href: '/dashboard' },
-                    { label: 'Paramètres', href: '/parametres/organisation' },
+                    { label: 'Paramètres', href: '/admin/organisation' },
                     { label: 'Organisation & Structure' }
                 ]}
             />

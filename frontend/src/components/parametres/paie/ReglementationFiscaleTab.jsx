@@ -20,8 +20,12 @@ const parseSafe = (v, fallback = 0) => { const n = parseFloat(v); return isNaN(n
 
 function getStatut(config) {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const debut = config.dateDebut ? new Date(config.dateDebut) : null;
+    if (debut) debut.setHours(0, 0, 0, 0);
     const fin = config.dateFin ? new Date(config.dateFin) : null;
+    if (fin) fin.setHours(23, 59, 59, 999);
+
     if (!debut) return 'INCONNU';
     if (debut > today) return 'PROGRAMME';
     if (!fin || fin >= today) return 'EN_VIGUEUR';

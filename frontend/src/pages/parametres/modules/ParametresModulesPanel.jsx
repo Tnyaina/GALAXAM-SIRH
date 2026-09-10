@@ -96,7 +96,7 @@ export default function ParametresModulesPanel() {
                 icon={Wrench}
                 breadcrumbs={[
                     { label: 'Tableau de bord', href: '/dashboard' },
-                    { label: 'Paramètres', href: '/parametres/modules' },
+                    { label: 'Paramètres', href: '/admin/organisation' },
                     { label: 'Paramétrage des Modules' }
                 ]}
             />

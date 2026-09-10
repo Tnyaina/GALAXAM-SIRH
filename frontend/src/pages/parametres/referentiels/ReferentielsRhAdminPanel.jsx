@@ -34,7 +34,7 @@ export default function ReferentielsRhAdminPanel() {
                 icon={BookType}
                 breadcrumbs={[
                     { label: 'Tableau de bord', href: '/dashboard' },
-                    { label: 'Paramètres', href: '/parametres/referentiels' },
+                    { label: 'Paramètres', href: '/admin/organisation' },
                     { label: 'Référentiels Métier & Documents' }
                 ]}
             />

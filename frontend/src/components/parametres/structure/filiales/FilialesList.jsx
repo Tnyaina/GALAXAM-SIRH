@@ -34,8 +34,12 @@ export default function FilialesList({
                             <Td isData muted className="text-xs">{f.nif || '-'}</Td>
                             <Td isData muted className="text-xs">{f.stat || '-'}</Td>
                             <Td>
-                                <span className="px-2 py-0.5 bg-[var(--color-bg-subtle)] text-[var(--color-fg)] font-data text-xs font-semibold rounded-none border border-[var(--color-border-subtle)]">
-                                    {f.seuilEffectifAlerte ?? 19} pers.
+                                <span className={`px-2 py-0.5 font-data text-xs font-semibold rounded-none border ${
+                                    (f.seuilEffectifAlerte ?? 19) > 0
+                                        ? 'bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border-[var(--color-border-subtle)]'
+                                        : 'bg-transparent text-[var(--color-fg-muted)] border-dashed border-[var(--color-border-subtle)]'
+                                }`}>
+                                    {(f.seuilEffectifAlerte ?? 19) > 0 ? `${f.seuilEffectifAlerte ?? 19} pers.` : 'Sans seuil'}
                                 </span>
                             </Td>
                             <Td>

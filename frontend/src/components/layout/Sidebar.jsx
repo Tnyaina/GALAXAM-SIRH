@@ -1,4 +1,4 @@
-import { useState, useEffect, createElement } from 'react';
+import { useState, useEffect, useMemo, createElement } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { X, ChevronDown, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { getMenuIcon } from '@/utils/iconRegistry';
@@ -16,7 +16,18 @@ const normalizePath = (p) => {
     return (p || '').split('?')[0].replace(/\/+$/, '');
 };
 
-const isUrlMatch = (href, location) => {
+const getAllMenuHrefs = (items = []) => {
+    let hrefs = [];
+    for (const item of items) {
+        if (item.href) hrefs.push(item.href);
+        if (item.sousMenus?.length) {
+            hrefs = hrefs.concat(getAllMenuHrefs(item.sousMenus));
+        }
+    }
+    return hrefs;
+};
+
+const isUrlMatch = (href, location, allHrefs = []) => {
     if (!href || href === '#') return false;
 
     const targetBase = normalizePath(href);
@@ -43,33 +54,50 @@ const isUrlMatch = (href, location) => {
         return true;
     }
 
-    // Si le lien n'a pas de paramètres d'URL, mais que l'URL courante a ?tab=...,
-    // ne pas matcher s'il existe des menus frères spécialisés par tab
-    if (!href.includes('?') && location.search.includes('tab=')) {
-        return false;
+    // Si le lien n'a pas de paramètres d'URL, mais que l'URL courante a des query params :
+    // Ne désactiver ce lien QUE s'il existe dans le menu un AUTRE lien configuré sur la même
+    // route de base avec des paramètres qui correspondent exactement à l'URL courante.
+    if (location.search && allHrefs.length > 0) {
+        const currentParams = new URLSearchParams(location.search);
+        const hasSpecializedSibling = allHrefs.some(otherHref => {
+            if (!otherHref || otherHref === href || !otherHref.includes('?')) return false;
+            if (normalizePath(otherHref) !== currentBase) return false;
+            const otherParams = new URLSearchParams(otherHref.split('?')[1]);
+            let matches = true;
+            for (const [key, val] of otherParams.entries()) {
+                if (currentParams.get(key) !== val) {
+                    matches = false;
+                    break;
+                }
+            }
+            return matches;
+        });
+        if (hasSpecializedSibling) {
+            return false;
+        }
     }
 
     return true;
 };
 
-const isChildActive = (node, location) => {
+const isChildActive = (node, location, allHrefs = []) => {
     if (!node.sousMenus) return false;
-    return node.sousMenus.some(child => (child.href && isUrlMatch(child.href, location)) || isChildActive(child, location));
+    return node.sousMenus.some(child => (child.href && isUrlMatch(child.href, location, allHrefs)) || isChildActive(child, location, allHrefs));
 };
 
-function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }) {
+function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar, allHrefs = [] }) {
     const location = useLocation();
     const hasChildren = item.sousMenus?.length > 0;
     const paddingLeft = `${16 + depth * 16}px`;
 
-    const [expanded, setExpanded] = useState(() => hasChildren && isChildActive(item, location));
+    const [expanded, setExpanded] = useState(() => hasChildren && isChildActive(item, location, allHrefs));
 
     useEffect(() => {
-        if (hasChildren && isChildActive(item, location)) {
+        if (hasChildren && isChildActive(item, location, allHrefs)) {
             setExpanded(prev => (prev ? prev : true));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location.pathname, location.search, hasChildren, item]);
+    }, [location.pathname, location.search, hasChildren, item, allHrefs]);
 
     const handleParentClick = () => {
         if (collapsed) {
@@ -127,6 +155,7 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
                                 depth={depth + 1}
                                 collapsed={collapsed}
                                 onRequestExpandSidebar={onRequestExpandSidebar}
+                                allHrefs={allHrefs}
                             />
                         ))}
                     </ul>
@@ -135,7 +164,7 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
         );
     }
 
-    const isActive = isUrlMatch(item.href, location);
+    const isActive = isUrlMatch(item.href, location, allHrefs);
 
     return (
         <li>
@@ -170,6 +199,7 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar }
 
 export default function Sidebar({ open, onClose, menu = [], loading, error }) {
     const sorted = sortByRang(menu);
+    const allHrefs = useMemo(() => getAllMenuHrefs(menu), [menu]);
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
@@ -221,12 +251,16 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                         shadow-sm cursor-pointer
                     "
                 >
-                    {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+                    {collapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
                 </button>
 
                 {/* Header Brand avec Avatar carré */}
                 <div className={`flex items-center h-12 border-b border-[var(--color-sidebar-border)] shrink-0 px-3.5 ${collapsed ? 'lg:justify-center lg:px-0' : 'justify-between'}`}>
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <NavLink
+                        to="/dashboard"
+                        onClick={onClose}
+                        className="flex items-center gap-2.5 min-w-0"
+                    >
                         <Avatar name="Galaxam SIRH" size="xs" shape="square" />
                         <span
                             style={{ color: 'var(--color-sidebar-fg-active)' }}
@@ -234,7 +268,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                         >
                             Galaxam SIRH
                         </span>
-                    </div>
+                    </NavLink>
                     <Button
                         variant="ghost"
                         size="xs"
@@ -245,10 +279,10 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                     />
                 </div>
 
-                {/* Éléments de navigation */}
-                <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2.5">
+                {/* Navigation Principale Scrollable */}
+                <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
                     {loading && (
-                        <div className="px-4 space-y-2">
+                        <div className="space-y-2 p-2">
                             {[...Array(5)].map((_, i) => (
                                 <div key={i} className="h-8 bg-[var(--color-sidebar-hover-bg)]  rounded-none" />
                             ))}
@@ -268,6 +302,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                                     onClose={onClose}
                                     collapsed={collapsed}
                                     onRequestExpandSidebar={() => setCollapsed(false)}
+                                    allHrefs={allHrefs}
                                 />
                             ))}
                         </ul>

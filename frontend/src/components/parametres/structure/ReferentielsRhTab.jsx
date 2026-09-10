@@ -6,6 +6,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
 import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 
 import TypesContratList from './referentiels/TypesContratList';
 import TypeContratFormModal from './referentiels/TypeContratFormModal';
@@ -36,6 +37,17 @@ export default function ReferentielsRhTab() {
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+
+    // Confirmation de statut (désactivation / activation)
+    const [confirmState, setConfirmState] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmLabel: '',
+        variant: 'danger',
+        loading: false,
+        onConfirm: () => {}
+    });
 
     // Modale Contrat
     const [showContratModal, setShowContratModal] = useState(false);
@@ -79,13 +91,6 @@ export default function ReferentielsRhTab() {
     }, []);
 
     // Handlers Type Contrat
-    const handleOpenCreateContrat = () => {
-        setEditingContrat(null);
-        setContratFormData({ code: '', libelle: '', exigeDateFin: false });
-        setActionError(null);
-        setShowContratModal(true);
-    };
-
     const handleOpenEditContrat = (tc) => {
         setEditingContrat(tc);
         setContratFormData({ code: tc.code, libelle: tc.libelle, exigeDateFin: tc.exigeDateFin !== false });
@@ -101,15 +106,11 @@ export default function ReferentielsRhTab() {
             setActionError("Le code et le libellé sont obligatoires.");
             return;
         }
+        if (!editingContrat) return;
         setSubmitting(true);
         try {
-            if (editingContrat) {
-                await organisationService.updateTypeContrat(editingContrat.idTypeContrat, contratFormData);
-                toast({ title: 'Succès', message: `Type de contrat "${contratFormData.libelle}" modifié.`, type: 'success' });
-            } else {
-                await organisationService.createTypeContrat(contratFormData);
-                toast({ title: 'Succès', message: `Type de contrat "${contratFormData.libelle}" créé.`, type: 'success' });
-            }
+            await organisationService.updateTypeContrat(editingContrat.idTypeContrat, contratFormData);
+            toast({ title: 'Succès', message: `Type de contrat "${contratFormData.libelle}" modifié.`, type: 'success' });
             setShowContratModal(false);
             loadData();
         } catch (err) {
@@ -120,12 +121,6 @@ export default function ReferentielsRhTab() {
     };
 
     // Handlers Type Intervenant
-    const handleOpenCreateIntervenant = () => {
-        setEditingIntervenant(null);
-        setIntervenantFormData({ code: '', libelle: '', soumisIrsa: true, soumisIsi5: false, soumisCnaps: true, soumisSante: true });
-        setActionError(null);
-        setShowIntervenantModal(true);
-    };
 
     const handleOpenEditIntervenant = (ti) => {
         setEditingIntervenant(ti);
@@ -149,15 +144,11 @@ export default function ReferentielsRhTab() {
             setActionError("Le code et le libellé sont obligatoires.");
             return;
         }
+        if (!editingIntervenant) return;
         setSubmitting(true);
         try {
-            if (editingIntervenant) {
-                await organisationService.updateTypeIntervenant(editingIntervenant.idTypeIntervenant, intervenantFormData);
-                toast({ title: 'Succès', message: `Type d'intervenant "${intervenantFormData.libelle}" modifié.`, type: 'success' });
-            } else {
-                await organisationService.createTypeIntervenant(intervenantFormData);
-                toast({ title: 'Succès', message: `Type d'intervenant "${intervenantFormData.libelle}" créé.`, type: 'success' });
-            }
+            await organisationService.updateTypeIntervenant(editingIntervenant.idTypeIntervenant, intervenantFormData);
+            toast({ title: 'Succès', message: `Type d'intervenant "${intervenantFormData.libelle}" modifié.`, type: 'success' });
             setShowIntervenantModal(false);
             loadData();
         } catch (err) {
@@ -208,6 +199,100 @@ export default function ReferentielsRhTab() {
         }
     };
 
+    // Handlers Activation / Désactivation
+    const handleToggleContratStatus = (tc) => {
+        const isDeactivating = tc.estActif !== false;
+        setConfirmState({
+            isOpen: true,
+            title: isDeactivating ? `Désactiver le type de contrat "${tc.libelle}" ?` : `Réactiver le type de contrat "${tc.libelle}" ?`,
+            message: isDeactivating
+                ? `La désactivation de ce type de contrat empêchera sa sélection lors de la création ou modification de contrats. Les contrats existants resteront valides et historisés.`
+                : `Ce type de contrat sera de nouveau disponible immédiatement pour les contrats des collaborateurs.`,
+            confirmLabel: isDeactivating ? "Désactiver" : "Réactiver",
+            variant: isDeactivating ? "danger" : "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    if (isDeactivating) {
+                        await organisationService.deactivateTypeContrat(tc.idTypeContrat);
+                        toast({ title: 'Succès', message: `Type de contrat "${tc.libelle}" désactivé.`, type: 'success' });
+                    } else {
+                        await organisationService.activateTypeContrat(tc.idTypeContrat);
+                        toast({ title: 'Succès', message: `Type de contrat "${tc.libelle}" réactivé.`, type: 'success' });
+                    }
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    loadData();
+                } catch (err) {
+                    setActionError(err.response?.data || "Erreur lors du changement de statut.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                }
+            }
+        });
+    };
+
+    const handleToggleIntervenantStatus = (ti) => {
+        const isDeactivating = ti.estActif !== false;
+        setConfirmState({
+            isOpen: true,
+            title: isDeactivating ? `Désactiver le type d'intervenant "${ti.libelle}" ?` : `Réactiver le type d'intervenant "${ti.libelle}" ?`,
+            message: isDeactivating
+                ? `La désactivation de ce régime intervenant empêchera son attribution aux nouveaux dossiers. Les données existantes resteront historisées.`
+                : `Ce type d'intervenant sera de nouveau disponible immédiatement.`,
+            confirmLabel: isDeactivating ? "Désactiver" : "Réactiver",
+            variant: isDeactivating ? "danger" : "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    if (isDeactivating) {
+                        await organisationService.deactivateTypeIntervenant(ti.idTypeIntervenant);
+                        toast({ title: 'Succès', message: `Type d'intervenant "${ti.libelle}" désactivé.`, type: 'success' });
+                    } else {
+                        await organisationService.activateTypeIntervenant(ti.idTypeIntervenant);
+                        toast({ title: 'Succès', message: `Type d'intervenant "${ti.libelle}" réactivé.`, type: 'success' });
+                    }
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    loadData();
+                } catch (err) {
+                    setActionError(err.response?.data || "Erreur lors du changement de statut.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                }
+            }
+        });
+    };
+
+    const handleToggleBanqueStatus = (b) => {
+        const isDeactivating = b.estActif !== false;
+        setConfirmState({
+            isOpen: true,
+            title: isDeactivating ? `Désactiver la banque "${b.nomBanque}" ?` : `Réactiver la banque "${b.nomBanque}" ?`,
+            message: isDeactivating
+                ? `La désactivation de cet établissement bancaire empêchera sa sélection pour les nouveaux comptes bancaires employés. Les coordonnées existantes resteront intactes.`
+                : `Cette banque sera de nouveau sélectionnable immédiatement pour les règlements et virements de paie.`,
+            confirmLabel: isDeactivating ? "Désactiver" : "Réactiver",
+            variant: isDeactivating ? "danger" : "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    if (isDeactivating) {
+                        await organisationService.deactivateBanque(b.idBanque);
+                        toast({ title: 'Succès', message: `Banque "${b.nomBanque}" désactivée.`, type: 'success' });
+                    } else {
+                        await organisationService.activateBanque(b.idBanque);
+                        toast({ title: 'Succès', message: `Banque "${b.nomBanque}" réactivée.`, type: 'success' });
+                    }
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    loadData();
+                } catch (err) {
+                    setActionError(err.response?.data || "Erreur lors du changement de statut.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                }
+            }
+        });
+    };
+
     if (loading && typesContrat.length === 0) {
         return (
             <div className="p-4">
@@ -236,16 +321,16 @@ export default function ReferentielsRhTab() {
             {activeSection === 'contrats' && (
                 <TypesContratList
                     typesContrat={typesContrat}
-                    onOpenCreate={handleOpenCreateContrat}
                     onOpenEdit={handleOpenEditContrat}
+                    onToggleStatus={handleToggleContratStatus}
                 />
             )}
 
             {activeSection === 'intervenants' && (
                 <TypesIntervenantList
                     typesIntervenant={typesIntervenant}
-                    onOpenCreate={handleOpenCreateIntervenant}
                     onOpenEdit={handleOpenEditIntervenant}
+                    onToggleStatus={handleToggleIntervenantStatus}
                 />
             )}
 
@@ -254,6 +339,7 @@ export default function ReferentielsRhTab() {
                     banques={banques}
                     onOpenCreate={handleOpenCreateBanque}
                     onOpenEdit={handleOpenEditBanque}
+                    onToggleStatus={handleToggleBanqueStatus}
                 />
             )}
 
@@ -288,6 +374,17 @@ export default function ReferentielsRhTab() {
                 setFormData={setBanqueFormData}
                 actionError={actionError}
                 submitting={submitting}
+            />
+
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmLabel={confirmState.confirmLabel}
+                variant={confirmState.variant}
+                loading={confirmState.loading}
+                onConfirm={confirmState.onConfirm}
+                onCancel={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
             />
         </div>
     );

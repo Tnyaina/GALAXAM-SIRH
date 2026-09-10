@@ -125,11 +125,17 @@ export default function FilialesSitesTab() {
 
         setSubmitting(true);
         try {
+            const payload = {
+                ...filialeFormData,
+                seuilEffectifAlerte: filialeFormData.seuilEffectifAlerte === '' || filialeFormData.seuilEffectifAlerte == null
+                    ? 0
+                    : Number(filialeFormData.seuilEffectifAlerte)
+            };
             if (selectedFiliale) {
-                await organisationService.updateFiliale(selectedFiliale.idFiliale, filialeFormData);
+                await organisationService.updateFiliale(selectedFiliale.idFiliale, payload);
                 toast({ title: 'Succès', message: `La filiale "${filialeFormData.raisonSociale}" a été modifiée.`, type: 'success' });
             } else {
-                await organisationService.createFiliale(filialeFormData);
+                await organisationService.createFiliale(payload);
                 toast({ title: 'Succès', message: `La filiale "${filialeFormData.raisonSociale}" a été créée.`, type: 'success' });
             }
             setShowFilialeModal(false);

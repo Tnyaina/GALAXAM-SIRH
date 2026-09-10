@@ -231,8 +231,8 @@ INSERT INTO ref_type_intervenant (code, libelle, soumis_irsa, soumis_isi_5, soum
 -- 6. Banques
 INSERT INTO ref_banque (code_banque, nom_banque, code_swift) VALUES
 ('BOA', 'Bank of Africa Madagascar', 'AFRIMGMG'),
-('BNI', 'BNI Madagascar', 'BNIMA3MG'),
-('BFV', 'Société Générale Madagasikara', 'SOGEMGMG');
+('BNI', 'BNI Madagascar', 'CLMDMGMG'),
+('BFV', 'BRED Madagasikara (ex-BFV)', 'BFAVMGMG');
 
 -- 7. Indemnités & Configuration des Sites (Conforme aux spécifications réelles)
 INSERT INTO ref_indemnite (code, libelle, imposable_irsa, fractionnable) VALUES

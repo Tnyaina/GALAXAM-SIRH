@@ -8,7 +8,7 @@ export default function TypeIntervenantFormModal({
     isOpen,
     onClose,
     onSubmit,
-    editingIntervenant,
+    _editingIntervenant,
     formData,
     setFormData,
     actionError,
@@ -18,7 +18,7 @@ export default function TypeIntervenantFormModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={editingIntervenant ? "Modifier le Type d'Intervenant" : "Nouveau Type d'Intervenant"}
+            title="Modifier le Type d'Intervenant"
             icon={<UserCheck size={18} />}
             size="md"
             footer={
@@ -27,7 +27,7 @@ export default function TypeIntervenantFormModal({
                         Annuler
                     </Button>
                     <Button type="submit" form="intervenant-form" variant="primary" size="sm" loading={submitting}>
-                        {editingIntervenant ? "Enregistrer" : "Créer le type"}
+                        Enregistrer
                     </Button>
                 </>
             }
@@ -38,7 +38,7 @@ export default function TypeIntervenantFormModal({
                 <Input
                     label="Code du Type d'Intervenant"
                     required
-                    disabled={!!editingIntervenant}
+                    disabled
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                     placeholder="Ex: SALARIE, CONSULTANT, STAGIAIRE"

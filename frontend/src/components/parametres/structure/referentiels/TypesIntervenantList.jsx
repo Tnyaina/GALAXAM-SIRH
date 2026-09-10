@@ -1,13 +1,12 @@
-import { Plus, Edit2, UserCheck } from 'lucide-react';
-import Button from '@/components/ui/forms/Button';
+import { Edit2, Power, UserCheck } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 
 export default function TypesIntervenantList({
     typesIntervenant = [],
-    onOpenCreate,
     onOpenEdit,
+    onToggleStatus,
 }) {
     return (
         <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
@@ -19,9 +18,6 @@ export default function TypesIntervenantList({
                     </h3>
                     <p className="text-xs text-[var(--color-fg-muted)]">Salarié national, Expatrié, Consultant, Stagiaire...</p>
                 </div>
-                <Button onClick={onOpenCreate} variant="primary" size="sm" iconLeft={<Plus size={16} />}>
-                    Nouveau Type
-                </Button>
             </div>
 
             <Table>
@@ -32,6 +28,7 @@ export default function TypesIntervenantList({
                     <Th className="text-center">ISI 5%</Th>
                     <Th className="text-center">CNaPS</Th>
                     <Th className="text-center">Santé</Th>
+                    <Th>Statut</Th>
                     <Th className="text-right">Actions</Th>
                 </Thead>
                 <Tbody>
@@ -60,20 +57,42 @@ export default function TypesIntervenantList({
                                         {ti.soumisSante ? 'Oui' : 'Non'}
                                     </Badge>
                                 </Td>
+                                <Td>
+                                    <Badge variant={ti.estActif !== false ? 'success' : 'default'} size="sm" dot>
+                                        {ti.estActif !== false ? "Actif" : "Désactivé"}
+                                    </Badge>
+                                </Td>
                                 <Td className="text-right">
-                                    <button
-                                        onClick={() => onOpenEdit(ti)}
-                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none  cursor-pointer"
-                                        title="Modifier"
-                                    >
-                                        <Edit2 size={16} />
-                                    </button>
+                                    <div className="flex justify-end items-center gap-1.5">
+                                        <button
+                                            onClick={() => onOpenEdit(ti)}
+                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            title="Modifier"
+                                            aria-label={`Modifier ${ti.libelle}`}
+                                        >
+                                            <Edit2 size={15} />
+                                        </button>
+                                        {onToggleStatus && (
+                                            <button
+                                                onClick={() => onToggleStatus(ti)}
+                                                className={`p-1.5 rounded-none cursor-pointer transition-colors ${
+                                                    ti.estActif !== false
+                                                        ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
+                                                        : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
+                                                }`}
+                                                title={ti.estActif !== false ? "Désactiver" : "Réactiver"}
+                                                aria-label={ti.estActif !== false ? `Désactiver ${ti.libelle}` : `Activer ${ti.libelle}`}
+                                            >
+                                                <Power size={15} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </Td>
                             </Tr>
                         ))
                     ) : (
                         <Tr>
-                            <Td colSpan={7} className="p-0">
+                            <Td colSpan={8} className="p-0">
                                 <EmptyState title="Aucun type d'intervenant" description="Aucun type d'intervenant configuré." />
                             </Td>
                         </Tr>

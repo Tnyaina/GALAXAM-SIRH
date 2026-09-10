@@ -8,7 +8,7 @@ export default function TypeContratFormModal({
     isOpen,
     onClose,
     onSubmit,
-    editingContrat,
+    _editingContrat,
     formData,
     setFormData,
     actionError,
@@ -18,7 +18,7 @@ export default function TypeContratFormModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={editingContrat ? "Modifier le Type de Contrat" : "Nouveau Type de Contrat"}
+            title="Modifier le Type de Contrat"
             icon={<FileText size={18} />}
             size="md"
             footer={
@@ -27,7 +27,7 @@ export default function TypeContratFormModal({
                         Annuler
                     </Button>
                     <Button type="submit" form="contrat-form" variant="primary" size="sm" loading={submitting}>
-                        {editingContrat ? "Enregistrer" : "Créer le type"}
+                        Enregistrer
                     </Button>
                 </>
             }
@@ -38,7 +38,7 @@ export default function TypeContratFormModal({
                 <Input
                     label="Code du Contrat"
                     required
-                    disabled={!!editingContrat}
+                    disabled
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                     placeholder="Ex: CDI, CDD, STAGE, INTERIM"
