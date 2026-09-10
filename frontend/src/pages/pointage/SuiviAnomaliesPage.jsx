@@ -235,15 +235,20 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     };
 
     // Callback de succès après régularisation
-    const handleSaveRegularisation = async (regularisationData) => {
-        if (!selectedAnomalie) return;
-        const res = await regulariser(selectedAnomalie.idPointage, regularisationData);
-        if (res && res.success) {
+    const handleSaveRegularisation = async (arg1, arg2) => {
+        const payload = arg2 !== undefined ? arg2 : arg1;
+        const idPtg = (arg2 !== undefined ? arg1 : selectedAnomalie?.idPointage) || selectedAnomalie?.idPointage;
+        if (!idPtg || !payload) return false;
+
+        const res = await regulariser(idPtg, payload);
+        if (res && (res.success || res === true)) {
             setIsModalOpen(false);
             setSelectedAnomalie(null);
             toast.success(res.message || 'Anomalie régularisée avec succès.');
+            return true;
         } else {
-            toast.error(res?.error || 'Erreur lors de la régularisation.');
+            toast.error(res?.error || res?.message || 'Erreur lors de la régularisation.');
+            return false;
         }
     };
 

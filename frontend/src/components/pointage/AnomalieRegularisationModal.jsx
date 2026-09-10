@@ -1,9 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
     Clock, 
-    Calendar, 
     Palmtree, 
-    AlertCircle, 
     CheckCircle2, 
     FileText, 
     Shield, 
@@ -149,7 +147,8 @@ export default function AnomalieRegularisationModal({
                 idEmploye: anomalie.idEmploye,
                 idPeriodePaie: anomalie.idPeriodePaie,
                 idSite: anomalie.idSite,
-                datePointage: anomalie.datePointage
+                datePointage: anomalie.datePointage,
+                horaireContinuJour: activeTab === 'HEURES' ? horaireContinu : false
             };
 
             if (activeTab === 'HEURES') {
@@ -185,7 +184,7 @@ export default function AnomalieRegularisationModal({
             }
 
             if (onSuccess) {
-                const ok = await onSuccess(anomalie.idPointage, payload);
+                const ok = await onSuccess(payload);
                 if (ok) {
                     onClose();
                 }
@@ -647,7 +646,7 @@ export default function AnomalieRegularisationModal({
                                 </div>
                                 <div className="text-[11px] text-[var(--color-fg-muted)] flex items-center gap-1.5">
                                     <Info className="w-3.5 h-3.5 text-[var(--color-info)] shrink-0" />
-                                    <span>Formule Paie Galaxam : Déduction nette = (Salaire Base ÷ 173.3333) × Heures non travaillées.</span>
+                                    <span>Formule Paie : Déduction nette = (Salaire Base ÷ 173.33) × Heures non travaillées.</span>
                                 </div>
                             </div>
                         )}

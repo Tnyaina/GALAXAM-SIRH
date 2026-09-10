@@ -407,8 +407,8 @@ class PayrollExecutionEngineTest {
 
         BulletinPaieComplet complet = engine.calculer(in);
 
-        // Taux horaire = 1 000 000 / 173.3333 = 5769.2312 Ar/h
-        // Salaire proratisé = 80 x 5769.2312 = 461 538.50 Ar
+        // Taux horaire = 1 000 000 / 173.33 = 5769.3417 Ar/h
+        // Salaire proratisé = 80 x 5769.3417 = 461 547.34 Ar
         BigDecimal brutCalcule = complet.getBulletin().getTotalGainsBruts();
         assertTrue(brutCalcule.compareTo(new BigDecimal("460000.00")) > 0);
         assertTrue(brutCalcule.compareTo(new BigDecimal("465000.00")) < 0);

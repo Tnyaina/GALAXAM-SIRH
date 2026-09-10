@@ -210,7 +210,7 @@ CREATE TABLE paie_config_legale (
     deduction_charge_famille NUMERIC(12,2) NOT NULL,
     arrondi_base_irsa VARCHAR(20) NOT NULL DEFAULT 'CENTAINE_INF',
     duree_hebdo_legale NUMERIC(5,2) NOT NULL DEFAULT 40.00,
-    diviseur_mensuel_heures NUMERIC(7,4) NOT NULL DEFAULT 173.3333,
+    diviseur_mensuel_heures NUMERIC(7,4) NOT NULL DEFAULT 173.33,
     seuil_hs_tranche1 NUMERIC(5,2) NOT NULL DEFAULT 8.00,
     plafond_hs_hebdo NUMERIC(5,2) NOT NULL DEFAULT 20.00,
     acquisition_conge_mensuel_jours NUMERIC(4,2) NOT NULL DEFAULT 2.50,
@@ -384,7 +384,7 @@ INSERT INTO paie_config_legale (
     '2024-01-01', '2025-12-31',
     262680.00, 266500.00, 8.00,
     350000.00, 2000.00, 2000.00, 'CENTAINE_INF',
-    40.00, 173.3333, 8.00, 20.00,
+    40.00, 173.33, 8.00, 20.00,
     2.50, 30
 ),
 (
@@ -394,7 +394,7 @@ INSERT INTO paie_config_legale (
     '2026-01-01', NULL,
     300000.00, 304300.00, 8.00,
     350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
-    40.00, 173.3333, 8.00, 20.00,
+    40.00, 173.33, 8.00, 20.00,
     2.50, 30
 );
 SELECT setval('paie_config_legale_id_config_legale_seq', (SELECT GREATEST(MAX(id_config_legale), 2) FROM paie_config_legale));

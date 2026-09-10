@@ -158,6 +158,7 @@ export default function DafAjustementPointageModal({
             const dateStr = selectedJour.dateComplete || selectedJour.datePointage || selectedJour.date;
             const payload = {
                 ...formData,
+                version: selectedJour.version ?? 1,
                 idEmploye: idEmployeEffective,
                 idPeriodePaie: idPeriodeEffective,
                 datePointage: dateStr,

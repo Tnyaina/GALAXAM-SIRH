@@ -68,7 +68,7 @@ L'inventaire technique du repository GALAXAM démontre une architecture amont so
 
 ### 2.1 Ce qui existe déjà dans le projet :
 * **Base de données PostgreSQL (61 tables actives)** :
-  * `paie_config_legale` : Pivot d'immutabilité des millésimes fiscaux (LF_2024, LF_2026). Contient le SME national (262 680 Ar), SME agricole, multiplicateur plafond (8×), seuil d'exonération (350 000 Ar), minimum de perception (3 000 Ar), déduction enfant (2 000 Ar), diviseur mensuel (173.3333h), diviseur congés (30j).
+  * `paie_config_legale` : Pivot d'immutabilité des millésimes fiscaux (LF_2024, LF_2026). Contient le SME national (262 680 Ar), SME agricole, multiplicateur plafond (8×), seuil d'exonération (350 000 Ar), minimum de perception (3 000 Ar), déduction enfant (2 000 Ar), diviseur mensuel (173.33h), diviseur congés (30j).
   * `ref_type_cotisation` & `site_cotisation` : Types de cotisations et rattachement par site (CNaPS 1%/13%, OSTIE 1%/5% à TNR, OMSI 1.5%/5.5% à TMM).
   * `bareme_irsa` : 6 tranches d'IRSA officielles millésimées (0% à 350 000 Ar, 5%, 10%, 15%, 20%, 25% au-delà de 4 000 000 Ar).
   * `ref_taux_majoration` : Taux légaux (HS 30%, HS 50%, Nuit 30%, Dimanche 40%, Férié 100%).
@@ -277,7 +277,7 @@ Pour éliminer les risques d'erreur et accélérer le traitement mensuel, la fro
 | `PER_JR_OUVR`| Jours Ouvrables Période | Calendrier | Nombre de jours ouvrables du mois | Integer | Jours | `fn_jours_ouvrables` | Calcul | Lundi-Vendredi hors fériés chômés | - | - | - | Non | Non | Oui (Décompte)| Oui | Confirmé |
 | `PER_JR_PRES`| Jours Présents Réels | Pointage | Nombre de jours travaillés pointés | Decimal | Jours | `pointage_cumul_periode` | Calcul | Somme des présences validées | - | - | - | Non | Non | Oui (Décompte)| Oui | Confirmé |
 | `SAL_BASE` | Salaire de Base Contractuel | Contractuel | Rémunération contractuelle mensuelle | Decimal | MGA | `employe_affectation_carriere` | Fixe | Salaire contractuel de base | - | - | - | Oui | Oui | Oui | Oui | Confirmé |
-| `SAL_TX_HOR` | Taux Horaire Contractuel | Dérivé | Taux de base horaire | Decimal | MGA/h | Calcul Moteur | Calcul | $SAL\_BASE / 173.3333$ | $SAL\_BASE$ | - | - | - | - | Oui | Oui | Confirmé |
+| `SAL_TX_HOR` | Taux Horaire Contractuel | Dérivé | Taux de base horaire | Decimal | MGA/h | Calcul Moteur | Calcul | $SAL\_BASE / 173.33$ | $SAL\_BASE$ | - | - | - | - | Oui | Oui | Confirmé |
 | `NBABS` | Nombre de Jours d'Absence | Pointage | Jours d'absence non rémunérés | Decimal | Jours | `pointage_cumul_periode` | Calcul | Absences injustifiées + sans solde | - | - | - | - | - | Oui | Oui | Confirmé |
 | `MNT_ABS` | Retenue pour Absences | Rémunération | Montant déduit pour absences | Decimal | MGA | Calcul Moteur | Calcul | $NBABS \times (SAL\_BASE / 30)$ | $SAL\_BASE$ | $1/30$ | - | Réduit Brut| Réduit Cotis.| Oui | Oui | Confirmé |
 | `NBCONGE` | Jours de Congés Pris | Congés | Jours de congés payés posés | Decimal | Jours | `demande_conge` / Pointage | Calcul | Somme jours CP validés du mois | - | - | - | - | - | Oui | Oui | Confirmé |
@@ -448,7 +448,7 @@ Tous les paramètres légaux et d'entreprise sont isolés dans `paie_config_lega
 * `sme_national` (262 680 Ar) & `plafond_cotisation_nb_sme` (8.00).
 * `seuil_exoneration_irsa` (350 000 Ar) & `minimum_perception_irsa` (3 000 Ar / 2 000 Ar).
 * `deduction_charge_famille` (2 000 Ar / enfant).
-* `diviseur_mensuel_heures` (173.3333h) & `diviseur_valorisation_conge_jours` (30j).
+* `diviseur_mensuel_heures` (173.33h) & `diviseur_valorisation_conge_jours` (30j).
 * Taux et plafonds de cotisations (`ref_type_cotisation`).
 * Barème des tranches fiscales (`bareme_irsa`).
 * Forfaits indemnités de site (`site_indemnite_config`).
@@ -566,7 +566,7 @@ Tous les paramètres légaux et d'entreprise sont isolés dans `paie_config_lega
 * `sme_national` (262 680 Ar) & `plafond_cotisation_nb_sme` (8.00).
 * `seuil_exoneration_irsa` (350 000 Ar) & `minimum_perception_irsa` (dynamique).
 * `deduction_charge_famille` (2 000 Ar / enfant).
-* `diviseur_mensuel_heures` (173.3333h) & `diviseur_valorisation_conge_jours` (30j).
+* `diviseur_mensuel_heures` (173.33h) & `diviseur_valorisation_conge_jours` (30j).
 * Taux et plafonds de cotisations (`ref_type_cotisation`).
 * Barème des tranches fiscales (`bareme_irsa`).
 * Forfaits indemnités de site (`site_indemnite_config`).

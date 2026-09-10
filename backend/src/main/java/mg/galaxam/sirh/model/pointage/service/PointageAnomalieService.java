@@ -500,18 +500,18 @@ public class PointageAnomalieService {
      * Recalcul automatique et immédiat des synthèses hebdomadaires et mensuelles.
      */
     public boolean regulariserPointage(int idPointage, Map<String, Object> payload) throws SQLException {
-        String typeRegularisation = (String) payload.getOrDefault("typeRegularisation", "HEURES");
-        String optionAbsence = (String) payload.getOrDefault("optionAbsence", "");
-        String motif = (String) payload.get("motifAjustement");
+        String typeRegularisation = payload.get("typeRegularisation") != null ? payload.get("typeRegularisation").toString() : "HEURES";
+        String optionAbsence = payload.get("optionAbsence") != null ? payload.get("optionAbsence").toString() : "";
+        String motif = payload.get("motifAjustement") != null ? payload.get("motifAjustement").toString() : null;
 
-        Time em = PointageSaisieService.parseTime((String) payload.get("heureEntreeMatin"));
-        Time sm = PointageSaisieService.parseTime((String) payload.get("heureSortieMatin"));
-        Time ea = PointageSaisieService.parseTime((String) payload.get("heureEntreeAm"));
-        Time sa = PointageSaisieService.parseTime((String) payload.get("heureSortieAm"));
+        Time em = PointageSaisieService.parseTime(payload.get("heureEntreeMatin") != null ? payload.get("heureEntreeMatin").toString() : null);
+        Time sm = PointageSaisieService.parseTime(payload.get("heureSortieMatin") != null ? payload.get("heureSortieMatin").toString() : null);
+        Time ea = PointageSaisieService.parseTime(payload.get("heureEntreeAm") != null ? payload.get("heureEntreeAm").toString() : null);
+        Time sa = PointageSaisieService.parseTime(payload.get("heureSortieAm") != null ? payload.get("heureSortieAm").toString() : null);
 
-        boolean depM = Boolean.TRUE.equals(payload.get("deplacementMatin"));
-        boolean depA = Boolean.TRUE.equals(payload.get("deplacementAm"));
-        boolean repas = Boolean.TRUE.equals(payload.get("indemniteRepasRecue"));
+        boolean depM = parseBoolean(payload.get("deplacementMatin"));
+        boolean depA = parseBoolean(payload.get("deplacementAm"));
+        boolean repas = parseBoolean(payload.get("indemniteRepasRecue"));
 
         try (Connection c = dataSource.getConnection()) {
             LocalTime siteDebM = LocalTime.of(8, 0);
@@ -548,13 +548,15 @@ public class PointageAnomalieService {
                     }
                 }
             } else if (payload.get("idSite") != null) {
-                idSite = ((Number) payload.get("idSite")).intValue();
+                idSite = parseInteger(payload.get("idSite"));
             }
 
-            Boolean horaireContinuJour = payload.get("horaireContinuJour") != null
-                    ? Boolean.parseBoolean(String.valueOf(payload.get("horaireContinuJour")))
-                    : (payload.get("horaireContinu") != null ? Boolean.parseBoolean(String.valueOf(payload.get("horaireContinu"))) : null);
-            boolean isJourneeContinue = Boolean.TRUE.equals(horaireContinuJour);
+            boolean isJourneeContinue = false;
+            if (payload.get("horaireContinuJour") != null) {
+                isJourneeContinue = parseBoolean(payload.get("horaireContinuJour"));
+            } else if (payload.get("horaireContinu") != null) {
+                isJourneeContinue = parseBoolean(payload.get("horaireContinu"));
+            }
 
             // 1. Identification du pointage, employé, période, date
             Integer idEmp = null;
@@ -581,9 +583,13 @@ public class PointageAnomalieService {
                     }
                 }
             } else {
-                if (payload.get("idEmploye") != null) idEmp = ((Number) payload.get("idEmploye")).intValue();
-                if (payload.get("idPeriodePaie") != null) idPer = ((Number) payload.get("idPeriodePaie")).intValue();
-                if (payload.get("datePointage") != null) datePtg = Date.valueOf((String) payload.get("datePointage"));
+                if (payload.get("idEmploye") != null) idEmp = parseInteger(payload.get("idEmploye"));
+                if (payload.get("idPeriodePaie") != null) idPer = parseInteger(payload.get("idPeriodePaie"));
+                if (payload.get("datePointage") != null) {
+                    try {
+                        datePtg = Date.valueOf(payload.get("datePointage").toString().trim());
+                    } catch (Exception ignored) {}
+                }
             }
 
             if (idEmp == null || datePtg == null) {
@@ -645,8 +651,7 @@ public class PointageAnomalieService {
 
                 if ("CONGE_PAYE".equalsIgnoreCase(optionAbsence) || "CONGE".equalsIgnoreCase(codeStatut)) {
                     codeStatut = "CONGE";
-                    double nbJours = (payload.get("nbJoursCongeDecompte") != null) 
-                            ? ((Number) payload.get("nbJoursCongeDecompte")).doubleValue() : 1.0;
+                    double nbJours = parseDouble(payload.get("nbJoursCongeDecompte"), 1.0);
                     if (nbJours <= 0) nbJours = 1.0;
 
                     // Créer la demande de congé annuel et débiter le solde dans mouvement_solde_conge
@@ -853,11 +858,10 @@ public class PointageAnomalieService {
                     throw eIns;
                 }
             } else {
-                if (payload.get("version") == null) {
-                    throw new IllegalStateException("Le champ 'version' est obligatoire pour régulariser le pointage existant ID " + idPointage + ".");
-                }
-                int providedVer = ((Number) payload.get("version")).intValue();
-                if (currentVersion != null && providedVer != currentVersion) {
+                Integer providedVer = parseInteger(payload.get("version"));
+                if (providedVer == null) {
+                    providedVer = currentVersion != null ? currentVersion : 1;
+                } else if (currentVersion != null && !providedVer.equals(currentVersion)) {
                     throw new IllegalStateException("Conflit de modification concurrente sur le pointage ID " + idPointage
                             + " (version attendue: " + currentVersion + ", version fournie: " + providedVer + "). Veuillez recharger.");
                 }
@@ -932,5 +936,31 @@ public class PointageAnomalieService {
             }
         } catch (Exception ignored) {
         }
+    }
+
+    private static Integer parseInteger(Object val) {
+        if (val == null) return null;
+        if (val instanceof Number n) return n.intValue();
+        try {
+            return Integer.parseInt(val.toString().trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static double parseDouble(Object val, double defaultValue) {
+        if (val == null) return defaultValue;
+        if (val instanceof Number n) return n.doubleValue();
+        try {
+            return Double.parseDouble(val.toString().trim());
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    private static boolean parseBoolean(Object val) {
+        if (val == null) return false;
+        if (val instanceof Boolean b) return b;
+        return "true".equalsIgnoreCase(val.toString().trim());
     }
 }

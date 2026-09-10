@@ -90,7 +90,7 @@ const EMPTY_FORM = {
     smeNational: '262680', smeAgricole: '266500', plafondCotisationNbSme: '8',
     seuilExonerationIrsa: '350000', minimumPerceptionIrsa: '3000', deductionChargeFamille: '2000',
     arrondiBaseIrsa: 'CENTAINE_INF',
-    dureeHebdoLegale: '40', diviseurMensuelHeures: '173.3333', seuilHsTranche1: '8', plafondHsHebdo: '20',
+    dureeHebdoLegale: '40', diviseurMensuelHeures: '173.33', seuilHsTranche1: '8', plafondHsHebdo: '20',
     acquisitionCongeMensuelJours: '2.5', diviseurValorisationCongeJours: '30',
     tranchesIrsa: DEFAULT_TRANCHES_IRSA,
 };
@@ -503,12 +503,12 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                             <Input
                                 label="Diviseur mensuel (h)"
                                 type="number"
-                                step="0.0001"
+                                step="0.01"
                                 required={!isReadOnly}
                                 disabled={isReadOnly}
                                 value={formData.diviseurMensuelHeures}
                                 onChange={e => upd('diviseurMensuelHeures', e.target.value)}
-                                hint={`Calcul automatique : (${formData.dureeHebdoLegale || '40'}h × 52 sem.) / 12 mois = ${formData.diviseurMensuelHeures || '173.3333'}h`}
+                                hint={`Calcul automatique : (${formData.dureeHebdoLegale || '40'}h × 52 sem.) / 12 mois = ${formData.diviseurMensuelHeures || '173.33'}h`}
                             />
                             <Input
                                 label="Seuil HS Tranche 1 (+30%)"
@@ -672,7 +672,7 @@ export default function ReglementationFiscaleTab() {
             deductionChargeFamille:   String(activeConfig.deductionChargeFamille ?? ''),
             arrondiBaseIrsa:          activeConfig.arrondiBaseIrsa ?? 'CENTAINE_INF',
             dureeHebdoLegale:         String(activeConfig.dureeHebdoLegale ?? '40'),
-            diviseurMensuelHeures:    String(activeConfig.diviseurMensuelHeures ?? '173.3333'),
+            diviseurMensuelHeures:    String(activeConfig.diviseurMensuelHeures ?? '173.33'),
             seuilHsTranche1:          String(activeConfig.seuilHsTranche1 ?? '8'),
             plafondHsHebdo:           String(activeConfig.plafondHsHebdo ?? '20'),
             acquisitionCongeMensuelJours:   String(activeConfig.acquisitionCongeMensuelJours ?? '2.5'),
@@ -702,7 +702,7 @@ export default function ReglementationFiscaleTab() {
             deductionChargeFamille:   String(config.deductionChargeFamille ?? ''),
             arrondiBaseIrsa:          config.arrondiBaseIrsa ?? 'CENTAINE_INF',
             dureeHebdoLegale:         String(config.dureeHebdoLegale ?? '40'),
-            diviseurMensuelHeures:    String(config.diviseurMensuelHeures ?? '173.3333'),
+            diviseurMensuelHeures:    String(config.diviseurMensuelHeures ?? '173.33'),
             seuilHsTranche1:          String(config.seuilHsTranche1 ?? '8'),
             plafondHsHebdo:           String(config.plafondHsHebdo ?? '20'),
             acquisitionCongeMensuelJours:   String(config.acquisitionCongeMensuelJours ?? '2.5'),
@@ -752,7 +752,7 @@ export default function ReglementationFiscaleTab() {
             deductionChargeFamille:   String(config.deductionChargeFamille ?? ''),
             arrondiBaseIrsa:          config.arrondiBaseIrsa ?? 'CENTAINE_INF',
             dureeHebdoLegale:         String(config.dureeHebdoLegale ?? '40'),
-            diviseurMensuelHeures:    String(config.diviseurMensuelHeures ?? '173.3333'),
+            diviseurMensuelHeures:    String(config.diviseurMensuelHeures ?? '173.33'),
             seuilHsTranche1:          String(config.seuilHsTranche1 ?? '8'),
             plafondHsHebdo:           String(config.plafondHsHebdo ?? '20'),
             acquisitionCongeMensuelJours:   String(config.acquisitionCongeMensuelJours ?? '2.5'),
@@ -789,7 +789,7 @@ export default function ReglementationFiscaleTab() {
         deductionChargeFamille:       parseSafe(formData.deductionChargeFamille),
         arrondiBaseIrsa:              formData.arrondiBaseIrsa || 'CENTAINE_INF',
         dureeHebdoLegale:             parseSafe(formData.dureeHebdoLegale, 40),
-        diviseurMensuelHeures:        parseSafe(formData.diviseurMensuelHeures, 173.3333),
+        diviseurMensuelHeures:        parseSafe(formData.diviseurMensuelHeures, 173.33),
         seuilHsTranche1:              parseSafe(formData.seuilHsTranche1, 8),
         plafondHsHebdo:               parseSafe(formData.plafondHsHebdo, 20),
         acquisitionCongeMensuelJours: parseSafe(formData.acquisitionCongeMensuelJours, 2.5),

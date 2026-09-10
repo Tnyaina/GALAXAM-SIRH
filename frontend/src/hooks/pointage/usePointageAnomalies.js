@@ -57,14 +57,17 @@ export function usePointageAnomalies(initialFilters = {}) {
     const regulariser = async (idPointage, payload) => {
         try {
             const res = await pointageAnomalieService.regulariser(idPointage, payload);
-            if (res && res.success) {
+            if (res && (res.success || res.status === 200)) {
                 await loadAnomalies();
-                return true;
+                return res;
             }
-            return false;
+            return res || { success: false, error: 'Échec de la régularisation.' };
         } catch (err) {
             console.error('Erreur régularisation anomalie:', err);
-            return false;
+            return {
+                success: false,
+                error: err?.response?.data?.message || err?.message || 'Erreur serveur lors de la régularisation.'
+            };
         }
     };
 
