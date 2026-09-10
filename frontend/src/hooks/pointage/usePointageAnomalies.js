@@ -14,7 +14,10 @@ export function usePointageAnomalies(initialFilters = {}) {
     const debouncedSearch = useDebounce(filters.search, 350);
 
     const [anomalies, setAnomalies] = useState([]);
-    const [stats, setStats] = useState({ total: 0, incomplets: 0, retards: 0, absences: 0 });
+    const [stats, setStats] = useState({ total: 0, incomplets: 0, retards: 0, absences: 0, critiques: 0, hautes: 0, moyennes: 0, faibles: 0, bloquantes: 0 });
+    const [semaines, setSemaines] = useState([]);
+    const [kpis, setKpis] = useState({});
+    const [periode, setPeriode] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
@@ -29,7 +32,10 @@ export function usePointageAnomalies(initialFilters = {}) {
             const data = await pointageAnomalieService.getAnomalies(queryParams, { signal });
             if (data) {
                 setAnomalies(data.anomalies || []);
-                setStats(data.stats || { total: 0, incomplets: 0, retards: 0, absences: 0 });
+                setStats(data.stats || { total: 0, incomplets: 0, retards: 0, absences: 0, critiques: 0, hautes: 0, moyennes: 0, faibles: 0, bloquantes: 0 });
+                setSemaines(data.semaines || []);
+                setKpis(data.kpis || {});
+                setPeriode(data.periode || null);
             }
         } catch (err) {
             if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') {
@@ -69,6 +75,9 @@ export function usePointageAnomalies(initialFilters = {}) {
     return {
         anomalies,
         stats,
+        semaines,
+        kpis,
+        periode,
         filters,
         loading,
         error,

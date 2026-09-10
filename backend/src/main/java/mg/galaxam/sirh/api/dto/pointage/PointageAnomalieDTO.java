@@ -37,8 +37,41 @@ public class PointageAnomalieDTO {
     private String periodeCode;
     private String periodeLibelle;
     private String statutPeriodeCode;
+    private Integer version = 1;
+
+    // Nouveaux champs d'alignement maquette & gestion congés
+    private String severite = "MOYENNE"; // 'CRITIQUE', 'HAUTE', 'MOYENNE', 'FAIBLE'
+    private String semaineCode; // 'S1', 'S2', etc.
+    private String statutAnomalie = "todo"; // 'todo', 'done'
+    private boolean bloquantTransmission = false;
+    private Double soldeCongesRestant = 0.0;
+    private Double soldeCongesPris = 0.0;
+    private Double soldeCongesAcquis = 0.0;
 
     // Getters and Setters
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+
+    public String getSeverite() { return severite; }
+    public void setSeverite(String severite) { this.severite = severite; }
+
+    public String getSemaineCode() { return semaineCode; }
+    public void setSemaineCode(String semaineCode) { this.semaineCode = semaineCode; }
+
+    public String getStatutAnomalie() { return statutAnomalie; }
+    public void setStatutAnomalie(String statutAnomalie) { this.statutAnomalie = statutAnomalie; }
+
+    public boolean isBloquantTransmission() { return bloquantTransmission; }
+    public void setBloquantTransmission(boolean bloquantTransmission) { this.bloquantTransmission = bloquantTransmission; }
+
+    public Double getSoldeCongesRestant() { return soldeCongesRestant; }
+    public void setSoldeCongesRestant(Double soldeCongesRestant) { this.soldeCongesRestant = soldeCongesRestant; }
+
+    public Double getSoldeCongesPris() { return soldeCongesPris; }
+    public void setSoldeCongesPris(Double soldeCongesPris) { this.soldeCongesPris = soldeCongesPris; }
+
+    public Double getSoldeCongesAcquis() { return soldeCongesAcquis; }
+    public void setSoldeCongesAcquis(Double soldeCongesAcquis) { this.soldeCongesAcquis = soldeCongesAcquis; }
     public Boolean getDeplacementMatin() { return deplacementMatin; }
     public void setDeplacementMatin(Boolean deplacementMatin) { this.deplacementMatin = deplacementMatin; }
 

@@ -1713,13 +1713,13 @@ public class PointageSyntheseService {
                 // 3. Verifier s'il reste des anomalies bloquantes sur TOUS les sites (la periode_paie etant globale)
                 String sqlAnomalies = "SELECT COUNT(*) FROM pointage_jour p " +
                                       "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
-                                      "WHERE p.id_periode_paie = ? AND st.code IN ('ANOMALIE_SAISIE', 'ABSENCE_NON_JUSTIFIEE')";
+                                      "WHERE p.id_periode_paie = ? AND (st.code = 'ANOMALIE_SAISIE' OR (st.code = 'ABSENCE_NON_JUSTIFIEE' AND (p.motif_ajustement IS NULL OR TRIM(p.motif_ajustement) = '')))";
                 try (PreparedStatement psA = c.prepareStatement(sqlAnomalies)) {
                     psA.setInt(1, idPeriode);
                     try (ResultSet rsA = psA.executeQuery()) {
                         if (rsA.next() && rsA.getInt(1) > 0) {
                             int count = rsA.getInt(1);
-                            throw new IllegalStateException("Transmission impossible : il reste " + count + " anomalie(s) ou absence(s) non regularisee(s) sur cette periode. Veuillez les regulariser avant transmission.");
+                            throw new IllegalStateException("Transmission impossible : il reste " + count + " anomalie(s) bloquante(s) (incomplet ou absence sans motif) sur cette période. Veuillez les régulariser avant transmission.");
                         }
                     }
                 }

@@ -27,16 +27,17 @@ export function ToastProvider({ children }) {
   }, []);
 
   const toast = useMemo(() => {
-    return Object.assign(
+    const t = Object.assign(
       (args) => toastFn(args),
       {
-        toast: (args) => toastFn(args),
         success: (msg, title) => toastFn({ type: 'success', message: typeof msg === 'string' ? msg : msg?.message, title: title || (typeof msg === 'object' ? msg?.title : undefined) }),
         error: (msg, title) => toastFn({ type: 'error', message: typeof msg === 'string' ? msg : msg?.message, title: title || (typeof msg === 'object' ? msg?.title : undefined) }),
         warning: (msg, title) => toastFn({ type: 'warning', message: typeof msg === 'string' ? msg : msg?.message, title: title || (typeof msg === 'object' ? msg?.title : undefined) }),
         info: (msg, title) => toastFn({ type: 'info', message: typeof msg === 'string' ? msg : msg?.message, title: title || (typeof msg === 'object' ? msg?.title : undefined) })
       }
     );
+    t.toast = t;
+    return t;
   }, [toastFn]);
 
   const remove = (id) => setToasts(prev => prev.filter(t => t.id !== id));

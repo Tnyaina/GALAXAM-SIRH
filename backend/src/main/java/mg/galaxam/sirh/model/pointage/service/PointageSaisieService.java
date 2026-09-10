@@ -754,12 +754,17 @@ public class PointageSaisieService {
                                                     if (accorde) {
                                                         if ("MATIN".equalsIgnoreCase(fraction)) {
                                                             depM = true;
+                                                            depA = false;
                                                         } else if ("APRES_MIDI".equalsIgnoreCase(fraction)) {
+                                                            depM = false;
                                                             depA = true;
                                                         } else {
                                                             depM = qte > 0;
                                                             depA = qte >= 1.0;
                                                         }
+                                                    } else {
+                                                        depM = false;
+                                                        depA = false;
                                                     }
                                                 }
                                             }
@@ -893,16 +898,30 @@ public class PointageSaisieService {
 
                         if (hasExisting && dto.getIdPointage() != null) {
                             // 1. Charger depuis pointage_indemnite_jour si déjà enregistré
-                            String sqlLoadDyn = "SELECT id_indemnite, accorde, quantite, montant_calcule FROM pointage_indemnite_jour WHERE id_pointage = ?";
+                            String sqlLoadDyn = "SELECT id_indemnite, fraction, accorde, quantite, montant_calcule FROM pointage_indemnite_jour WHERE id_pointage = ?";
                             Map<Integer, Map<String, Object>> savedDyn = new HashMap<>();
                             try (PreparedStatement psDynL = c.prepareStatement(sqlLoadDyn)) {
                                 psDynL.setInt(1, dto.getIdPointage());
                                 try (ResultSet rsDynL = psDynL.executeQuery()) {
                                     while (rsDynL.next()) {
                                         Map<String, Object> item = new HashMap<>();
-                                        item.put("accordee", rsDynL.getBoolean("accorde"));
+                                        boolean acc = rsDynL.getBoolean("accorde");
+                                        String frac = rsDynL.getString("fraction");
+                                        double qte = rsDynL.getDouble("quantite");
+                                        item.put("accordee", acc);
                                         item.put("montantApplique", rsDynL.getDouble("montant_calcule"));
-                                        item.put("fractionJour", rsDynL.getDouble("quantite"));
+                                        item.put("fractionJour", qte);
+                                        item.put("fraction", frac);
+                                        if ("MATIN".equalsIgnoreCase(frac)) {
+                                            item.put("matin", acc);
+                                            item.put("am", false);
+                                        } else if ("APRES_MIDI".equalsIgnoreCase(frac)) {
+                                            item.put("matin", false);
+                                            item.put("am", acc);
+                                        } else {
+                                            item.put("matin", acc && qte > 0);
+                                            item.put("am", acc && qte >= 1.0);
+                                        }
                                         savedDyn.put(rsDynL.getInt("id_indemnite"), item);
                                     }
                                 }
@@ -1214,7 +1233,7 @@ public class PointageSaisieService {
 
         String sqlDynInd = "INSERT INTO pointage_indemnite_jour (" +
                 "id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde, updated_at" +
-                ") VALUES (?, ?, 'JOUR_ENTIER', ?, ?, ?, CURRENT_TIMESTAMP) " +
+                ") VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) " +
                 "ON CONFLICT (id_pointage, id_indemnite, fraction) DO UPDATE SET " +
                 "quantite = EXCLUDED.quantite, " +
                 "montant_calcule = EXCLUDED.montant_calcule, " +
@@ -1405,9 +1424,34 @@ public class PointageSaisieService {
                     );
                 }
 
+                Integer idIndDep = idIndemniteByCode.get("DEPLACEMENT");
+                if (idIndDep == null) idIndDep = idIndemniteByCode.get("TRANSPORT");
+                Integer idIndRepas = idIndemniteByCode.get("REPAS");
+
                 boolean depM = dto.isDeplacementMatin();
                 boolean depA = dto.isDeplacementAm();
+                boolean repasRecue = dto.isIndemniteRepasRecue();
+
+                if (dto.getDynamicIndemnites() != null) {
+                    if (idIndDep != null && dto.getDynamicIndemnites().containsKey(String.valueOf(idIndDep))) {
+                        Object val = dto.getDynamicIndemnites().get(String.valueOf(idIndDep));
+                        if (val instanceof Map<?, ?> m) {
+                            if (m.get("matin") != null) depM = Boolean.TRUE.equals(m.get("matin"));
+                            if (m.get("am") != null) depA = Boolean.TRUE.equals(m.get("am"));
+                        }
+                    }
+                    if (idIndRepas != null && dto.getDynamicIndemnites().containsKey(String.valueOf(idIndRepas))) {
+                        Object val = dto.getDynamicIndemnites().get(String.valueOf(idIndRepas));
+                        if (val instanceof Map<?, ?> m) {
+                            if (m.get("accordee") != null) repasRecue = Boolean.TRUE.equals(m.get("accordee"));
+                        }
+                    }
+                }
                 boolean depRecue = depM || depA;
+                dto.setDeplacementMatin(depM);
+                dto.setDeplacementAm(depA);
+                dto.setIndemniteDeplacementRecue(depRecue);
+                dto.setIndemniteRepasRecue(repasRecue);
 
                 String codeStatut = dto.getCodeStatut();
                 if (codeStatut == null || codeStatut.isEmpty() || "NON_SAISI".equals(codeStatut)) {
@@ -1551,9 +1595,10 @@ public class PointageSaisieService {
                     boolean repasAccorde = !estNonTravaille && dto.isIndemniteRepasRecue();
                     psDyn.setInt(1, idPtg);
                     psDyn.setInt(2, idIndRepas);
-                    psDyn.setDouble(3, repasAccorde ? 1.0 : 0.0);
-                    psDyn.setDouble(4, repasAccorde ? mntRepasJour : 0.0);
-                    psDyn.setBoolean(5, repasAccorde);
+                    psDyn.setString(3, "JOUR_ENTIER");
+                    psDyn.setDouble(4, repasAccorde ? 1.0 : 0.0);
+                    psDyn.setDouble(5, repasAccorde ? mntRepasJour : 0.0);
+                    psDyn.setBoolean(6, repasAccorde);
                     psDyn.executeUpdate();
                 }
 
@@ -1563,11 +1608,13 @@ public class PointageSaisieService {
                     boolean depAccorde = !estNonTravaille && depRecue;
                     double qteDep = depAccorde ? ((depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0)) : 0.0;
                     double mntDep = depAccorde ? mntDepJour : 0.0;
+                    String fracDep = (depM && depA) ? "JOUR_ENTIER" : (depM ? "MATIN" : (depA ? "APRES_MIDI" : "JOUR_ENTIER"));
                     psDyn.setInt(1, idPtg);
                     psDyn.setInt(2, idIndDep);
-                    psDyn.setDouble(3, qteDep);
-                    psDyn.setDouble(4, mntDep);
-                    psDyn.setBoolean(5, depAccorde);
+                    psDyn.setString(3, fracDep);
+                    psDyn.setDouble(4, qteDep);
+                    psDyn.setDouble(5, mntDep);
+                    psDyn.setBoolean(6, depAccorde);
                     psDyn.executeUpdate();
                 }
 
@@ -1581,13 +1628,15 @@ public class PointageSaisieService {
                         if (entry.getValue() instanceof Map<?, ?> vals) {
                             boolean acc = !estNonTravaille && Boolean.TRUE.equals(vals.get("accordee"));
                             double mnt = estNonTravaille ? 0.0 : (vals.get("montantApplique") != null ? Double.parseDouble(vals.get("montantApplique").toString()) : 0.0);
-                            double frac = estNonTravaille ? 0.0 : (vals.get("fractionJour") != null ? Double.parseDouble(vals.get("fractionJour").toString()) : (acc ? 1.0 : 0.0));
+                            double fracQte = estNonTravaille ? 0.0 : (vals.get("fractionJour") != null ? Double.parseDouble(vals.get("fractionJour").toString()) : (acc ? 1.0 : 0.0));
+                            String fracStr = (vals.get("fraction") != null && !vals.get("fraction").toString().isBlank()) ? vals.get("fraction").toString() : "JOUR_ENTIER";
 
                             psDyn.setInt(1, idPtg);
                             psDyn.setInt(2, idInd);
-                            psDyn.setDouble(3, frac);
-                            psDyn.setDouble(4, mnt);
-                            psDyn.setBoolean(5, acc);
+                            psDyn.setString(3, fracStr);
+                            psDyn.setDouble(4, fracQte);
+                            psDyn.setDouble(5, mnt);
+                            psDyn.setBoolean(6, acc);
                             psDyn.executeUpdate();
                         }
                     }

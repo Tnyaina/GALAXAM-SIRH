@@ -1,76 +1,88 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-    CalendarCheck2, AlertTriangle, CheckCircle2, Clock,
-    Send, BarChart2, Info, Lock, Layers, Calendar, Building2,
-    Search, ShieldAlert, Wrench
+    Clock,
+    AlertTriangle,
+    CheckCircle2,
+    Calendar,
+    Send,
+    Search,
+    Shield,
+    RefreshCw,
+    Building2,
+    Layers,
+    Filter,
+    Users,
+    Banknote,
+    Lock,
+    Eye,
+    XCircle
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
-import Badge from '@/components/ui/data-display/Badge';
 import Select from '@/components/ui/forms/Select';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import Badge from '@/components/ui/data-display/Badge';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
-import Modal from '@/components/ui/overlays/Modal';
 import SEO from '@/components/system/SEO';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { getFullPhotoUrl } from '@/utils/fileUtils';
+import { fmtDate } from '@/utils/carriereUtils';
 import organisationService from '@/api/admin/organisationService';
 import periodePaieService from '@/services/periodePaieService';
 import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 import usePointageAnomalies from '@/hooks/pointage/usePointageAnomalies';
-import { filtrerAnomaliesParType } from '@/utils/pointageUtils';
+import Pagination from '@/components/ui/navigation/Pagination';
+import AnomalieRegularisationModal from '@/components/pointage/AnomalieRegularisationModal';
 
-/**
- * SuiviAnomaliesPage — Etape 2 du cockpit Pointage.
- * Agent : progression mensuelle + anomalies inline + transmission DAF.
- * DAF   : lecture seule (transmission deja faite).
- */
 export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onTabChange }) {
     const [searchParams, setSearchParams] = useSearchParams();
     const { hasPermission } = useAuth();
-    const { toast } = useToast();
+    const toastContext = useToast();
+    const toast = toastContext?.toast || toastContext;
     const canWrite = hasPermission('POINTAGE_WRITE');
 
+    // Sélecteurs de contexte (Période & Site)
     const [periodes, setPeriodes] = useState([]);
-    const [selectedPeriode, setSelectedPeriode] = useState('');
+    const [selectedPeriodeId, setSelectedPeriodeId] = useState('');
     const [sites, setSites] = useState([]);
-    const [selectedSite, setSelectedSite] = useState(0);
+    const [selectedSiteId, setSelectedSiteId] = useState(0);
 
-    const [semaines, setSemaines] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // Filtres anomalies & Pagination
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterType, setFilterType] = useState('ALL');
+    const [filterSeverite, setFilterSeverite] = useState('ALL');
+    const [filterSemaine, setFilterSemaine] = useState('ALL'); // 'ALL', 'S1', 'S2', ...
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(8);
+
+    // Modale de régularisation
+    const [selectedAnomalie, setSelectedAnomalie] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    // État de transmission DAF & calculs
     const [transmitting, setTransmitting] = useState(false);
     const [calculating, setCalculating] = useState(false);
-    const [showTransmissionModal, setShowTransmissionModal] = useState(false);
+    const [showTransmissionConfirm, setShowTransmissionConfirm] = useState(false);
 
-    // Anomalies
+    // Hook unifié des anomalies & semaines
     const {
         anomalies,
-        stats: anomalieStats,
-        filters: _anomalieFilters,
-        loading: loadingAnomalies,
-        updateFilters: updateAnomalieFilters,
+        stats,
+        semaines,
+        kpis,
+        periode: periodeData,
+        loading,
+        updateFilters,
+        loadAnomalies,
         regulariser
     } = usePointageAnomalies();
 
-    const [typeFilter, setTypeFilter] = useState('ALL');
-    const [searchAnomalie, setSearchAnomalie] = useState('');
-    const [selectedAnomalie, setSelectedAnomalie] = useState(null);
-    const [isRegModal, setIsRegModal] = useState(false);
-    const [regForm, setRegForm] = useState({
-        statutCode: 'PRESENT',
-        heureEntreeMatin: '08:00',
-        heureSortieMatin: '12:00',
-        heureEntreeAm: '13:00',
-        heureSortieAm: '17:00',
-        motifAjustement: '',
-        deplacementMatin: false,
-        deplacementAm: false,
-        indemniteRepasRecue: false
-    });
-    const [saving, setSaving] = useState(false);
+    // Horodatage de dernière mise à jour
+    const [lastUpdated, setLastUpdated] = useState(() => new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
 
-    // Chargement initial
+    // Chargement initial des référentiels (périodes & sites)
     useEffect(() => {
         const init = async () => {
             try {
@@ -86,626 +98,696 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         || found
                         || resPeriodes.find(p => p.statutCode === 'EN_COURS')
                         || resPeriodes[0];
-                    setSelectedPeriode(active.idPeriodePaie);
-                    updateAnomalieFilters({ idPeriodePaie: active.idPeriodePaie });
+                    if (active) {
+                        const pid = String(active.idPeriodePaie);
+                        setSelectedPeriodeId(pid);
+                        updateFilters({ idPeriodePaie: active.idPeriodePaie });
+                        if (!paramPeriode) {
+                            setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('periode', pid); return n; }, { replace: true });
+                        }
+                    }
                 }
                 if (resSites) {
                     setSites(resSites);
                     const paramSite = searchParams.get('site');
-                    if (paramSite) setSelectedSite(Number(paramSite));
-                    else setSelectedSite(0);
+                    if (paramSite) setSelectedSiteId(Number(paramSite));
                 }
             } catch (err) {
-                console.error('Erreur init SuiviAnomaliesPage:', err);
+                console.error('Erreur initialisation SuiviAnomaliesPage:', err);
             }
         };
         init();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Synchronisation réactive avec activePeriode provenant du parent
+    // Synchronisation si le parent change activePeriode
     useEffect(() => {
-        if (activePeriode?.idPeriodePaie && String(activePeriode.idPeriodePaie) !== String(selectedPeriode)) {
-            setSelectedPeriode(activePeriode.idPeriodePaie);
-            updateAnomalieFilters({ idPeriodePaie: activePeriode.idPeriodePaie });
+        if (activePeriode?.idPeriodePaie && String(activePeriode.idPeriodePaie) !== String(selectedPeriodeId)) {
+            const pid = String(activePeriode.idPeriodePaie);
+            setSelectedPeriodeId(pid);
+            updateFilters({ idPeriodePaie: activePeriode.idPeriodePaie });
         }
     }, [activePeriode?.idPeriodePaie]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const loadSemaines = useCallback(async () => {
-        if (!selectedPeriode) return;
-        setLoading(true);
-        try {
-            const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
-            const res = await pointageSyntheseService.getSemaines({
-                idPeriodePaie: selectedPeriode,
-                idSite: siteParam
-            });
-            if (res?.semaines) setSemaines(res.semaines);
-        } catch (err) {
-            console.error('Erreur chargement semaines:', err);
-        } finally {
-            setLoading(false);
-        }
-    }, [selectedPeriode, selectedSite]);
-
-    useEffect(() => { loadSemaines(); }, [loadSemaines]);
-
-    // Sync filtres anomalies avec periode/site selectionnes
+    // Synchronisation filtres avec hook
     useEffect(() => {
-        if (selectedPeriode) {
-            updateAnomalieFilters({
-                idPeriodePaie: selectedPeriode,
-                idSite: Number(selectedSite) > 0 ? Number(selectedSite) : 0,
-                search: searchAnomalie
+        if (selectedPeriodeId) {
+            updateFilters({
+                idPeriodePaie: Number(selectedPeriodeId),
+                idSite: Number(selectedSiteId) > 0 ? Number(selectedSiteId) : 0,
+                search: searchQuery
             });
+            setLastUpdated(new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
         }
-    }, [selectedPeriode, selectedSite, searchAnomalie]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [selectedPeriodeId, selectedSiteId, searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Période courante
     const currentPeriodeObj = useMemo(() =>
-        periodes.find(p => p.idPeriodePaie === Number(selectedPeriode)) || null,
-    [periodes, selectedPeriode]);
+        periodes.find(p => String(p.idPeriodePaie) === String(selectedPeriodeId)) || null,
+    [periodes, selectedPeriodeId]);
 
     const stCode = currentPeriodeObj?.statutCode;
-    const isEnCours = stCode === 'EN_COURS' || !stCode;
+    const isEnCours = stCode === 'EN_COURS' || stCode === 'OUVERTE' || !stCode;
     const isAValider = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
-    const isValidee = stCode === 'VALIDEE';
+    const isValidee = stCode === 'VALIDEE_DAF';
     const isCloturee = stCode === 'CLOTUREE';
-    const isReadOnly = isAValider || isValidee || isCloturee;
+    const isLocked = isAValider || isValidee || isCloturee;
 
-    const workflowStatus = useMemo(() => {
-        const totalSemaines = semaines.length;
-        const semainesValideesCount = semaines.filter(s => s.estValidee).length;
-        const totalAnomalies = anomalieStats?.total || 0;
-        const allValidees = totalSemaines > 0 && semainesValideesCount === totalSemaines;
-        const progressPercent = totalSemaines > 0 ? Math.round((semainesValideesCount / totalSemaines) * 100) : 0;
-        return { totalSemaines, semainesValideesCount, totalAnomalies, allValidees, progressPercent };
-    }, [semaines, anomalieStats]);
+    // Anomalies bloquantes pour la transmission DAF
+    const nbBloquantes = useMemo(() => {
+        return (anomalies || []).filter(a => a.bloquantTransmission && a.statutAnomalie !== 'done').length;
+    }, [anomalies]);
 
-    const filteredAnomalies = useMemo(() =>
-        filtrerAnomaliesParType(anomalies, typeFilter),
-    [anomalies, typeFilter]);
+    // Semaines restantes non saisies / non clôturées
+    const nbSemainesRestantes = useMemo(() => {
+        return (semaines || []).filter(s => s.statutSemaine !== 'CLOTUREE' && (s.progressPercent || 0) < 100).length;
+    }, [semaines]);
 
-    const handleCalculerTout = async () => {
-        if (!selectedPeriode) return;
-        setCalculating(true);
-        try {
-            const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
-            const res = await pointageSyntheseService.calculerTout({
-                idPeriodePaie: selectedPeriode,
-                idSite: siteParam
-            });
-            if (res?.success) {
-                toast({ title: 'Synthese calculee', message: `${res.nbSemaines || 'Toutes les'} semaines calculees avec succes.`, type: 'success' });
-                await loadSemaines();
+    // Filtrage dynamique des anomalies
+    const filteredAnomalies = useMemo(() => {
+        return (anomalies || []).filter(ano => {
+            // Filtre par semaine sélectionnée dans les cartes S1..S5
+            if (filterSemaine !== 'ALL' && ano.semaineCode !== filterSemaine) {
+                return false;
             }
-        } catch (err) {
-            toast({ title: 'Erreur de calcul', message: err?.response?.data?.error || 'Impossible de calculer.', type: 'error' });
-        } finally { setCalculating(false); }
-    };
-
-    const handleTransmettreDaf = async () => {
-        if (!selectedPeriode) return;
-        setTransmitting(true);
-        try {
-            const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
-            const res = await pointageSyntheseService.transmettreDaf({
-                idPeriodePaie: selectedPeriode,
-                idSite: siteParam
-            });
-            if (res?.success) {
-                toast({ title: 'Periode transmise a la DAF', message: 'La saisie passe en lecture seule jusqu\'a validation.', type: 'success' });
-                window.dispatchEvent(new Event('refresh-notifications'));
-                setShowTransmissionModal(false);
-                const list = await periodePaieService.getAllPeriodes();
-                if (list) setPeriodes(list);
-                await loadSemaines();
+            // Filtre sévérité
+            if (filterSeverite !== 'ALL' && ano.severite !== filterSeverite) {
+                return false;
             }
-        } catch (err) {
-            toast({ title: 'Transmission impossible', message: err?.response?.data?.error || 'Impossible de transmettre.', type: 'error' });
-        } finally { setTransmitting(false); }
-    };
-
-    const openReg = (anom) => {
-        setSelectedAnomalie(anom);
-        const isAbsent = anom.typeAnomalie === 'ABSENCE' || anom.statutCode === 'ABSENCE_NON_JUSTIFIEE' || anom.statutCode === 'NON_SAISI';
-        setRegForm({
-            statutCode: isAbsent ? 'PRESENT' : (anom.statutCode || 'PRESENT'),
-            heureEntreeMatin: anom.heureEntreeMatin || '08:00',
-            heureSortieMatin: anom.heureSortieMatin || '12:00',
-            heureEntreeAm: anom.heureEntreeAm || '13:00',
-            heureSortieAm: anom.heureSortieAm || '17:00',
-            motifAjustement: ''
+            // Filtre type
+            if (filterType !== 'ALL') {
+                if (filterType === 'ABSENCE' && ano.typeAnomalie !== 'ABSENCE') return false;
+                if (filterType === 'INCOMPLET' && ano.typeAnomalie !== 'INCOMPLET') return false;
+                if (filterType === 'RETARD' && ano.typeAnomalie !== 'RETARD') return false;
+            }
+            // Recherche textuelle
+            if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase();
+                const nomComplet = `${ano.nom || ''} ${ano.prenom || ''}`.toLowerCase();
+                const mat = (ano.matricule || '').toLowerCase();
+                const desc = (ano.descriptionAnomalie || '').toLowerCase();
+                if (!nomComplet.includes(q) && !mat.includes(q) && !desc.includes(q)) {
+                    return false;
+                }
+            }
+            return true;
         });
-        setIsRegModal(true);
+    }, [anomalies, filterSemaine, filterSeverite, filterType, searchQuery]);
+
+    // Pagination
+    const totalPages = Math.ceil(filteredAnomalies.length / pageSize) || 1;
+    const paginatedAnomalies = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredAnomalies.slice(start, start + pageSize);
+    }, [filteredAnomalies, currentPage, pageSize]);
+
+    // Gestion de l'ouverture de la modale de régularisation
+    const handleOpenRegularisation = (anomalie) => {
+        setSelectedAnomalie(anomalie);
+        setIsModalOpen(true);
     };
 
-    const handleReg = async () => {
+    // Callback de succès après régularisation
+    const handleSaveRegularisation = async (regularisationData) => {
         if (!selectedAnomalie) return;
-        setSaving(true);
-        const ok = await regulariser(selectedAnomalie.idPointage, regForm);
-        setSaving(false);
-        if (ok) {
-            toast({ title: 'Anomalie regularisee', type: 'success' });
-            setIsRegModal(false);
+        const res = await regulariser(selectedAnomalie.idPointage, regularisationData);
+        if (res && res.success) {
+            setIsModalOpen(false);
+            setSelectedAnomalie(null);
+            toast.success(res.message || 'Anomalie régularisée avec succès.');
         } else {
-            toast({ title: 'Erreur lors de la regularisation', type: 'error' });
+            toast.error(res?.error || 'Erreur lors de la régularisation.');
         }
     };
 
-    const periodeOptions = periodes.map(p => ({
-        value: p.idPeriodePaie,
-        label: `${p.libelle || p.code} (${p.statutLibelle || p.statutCode})`
-    }));
+    // Recalcul manuel des synthèses hebdomadaires
+    const handleRecalculerSemaines = async () => {
+        if (!selectedPeriodeId) return;
+        setCalculating(true);
+        try {
+            const siteParam = Number(selectedSiteId) > 0 ? Number(selectedSiteId) : undefined;
+            const res = await pointageSyntheseService.calculerTout({
+                idPeriodePaie: Number(selectedPeriodeId),
+                idSite: siteParam
+            });
+            await loadAnomalies();
+            toast.success(res?.message || 'Synthèses hebdomadaires et anomalies recalculées avec succès.');
+        } catch (err) {
+            console.error('Erreur calcul semaines:', err);
+            toast.error(err?.response?.data?.error || 'Erreur lors du recalcul des semaines.');
+        } finally {
+            setCalculating(false);
+        }
+    };
 
-    const siteOptions = [
-        { value: 0, label: 'Tous les sites' },
-        ...sites.map(s => ({ value: s.idSite, label: `${s.codeSite || s.code || `Site #${s.idSite}`} — ${s.libelle}` }))
-    ];
-
-    const typeOptions = [
-        { value: 'ALL', label: `Toutes (${anomalieStats?.total || 0})` },
-        { value: 'INCOMPLET', label: `Incomplets (${anomalieStats?.incomplets || 0})` },
-        { value: 'RETARD', label: `Retards (${anomalieStats?.retards || 0})` },
-        { value: 'ABSENCE', label: `Absences (${anomalieStats?.absences || 0})` },
-    ];
+    // Transmission officielle à la DAF
+    const handleTransmettreDaf = async () => {
+        if (!selectedPeriodeId || nbBloquantes > 0) return;
+        setTransmitting(true);
+        try {
+            const siteParam = Number(selectedSiteId) > 0 ? Number(selectedSiteId) : undefined;
+            const res = await pointageSyntheseService.transmettreDaf({
+                idPeriodePaie: Number(selectedPeriodeId),
+                idSite: siteParam
+            });
+            if (res && res.success) {
+                toast.success('Période transmise à la DAF avec succès.');
+                setShowTransmissionConfirm(false);
+                const updatedList = await periodePaieService.getAllPeriodes();
+                if (updatedList) setPeriodes(updatedList);
+                await loadAnomalies();
+                if (onTabChange) {
+                    onTabChange('arbitrage');
+                }
+            } else {
+                toast.error(res?.message || 'Erreur lors de la transmission.');
+            }
+        } catch (err) {
+            console.error('Erreur transmission DAF:', err);
+            toast.error(err?.response?.data?.error || 'Impossible de transmettre la période à la DAF.');
+        } finally {
+            setTransmitting(false);
+        }
+    };
 
     return (
-        <>
+        <div className="space-y-4 pb-32 font-sans animate-in fade-in duration-300">
             <SEO
-                title="Suivi & Anomalies | GALAXAM SIRH"
-                description="Suivi de progression mensuel, gestion des anomalies et transmission a la DAF."
+                title="Suivi &amp; Anomalies — Pointage | GALAXAM SIRH"
+                description="Suivi de la progression hebdomadaire, détection proactive et régularisation d'anomalies de pointage."
             />
 
-            <div className="space-y-3 w-full">
-
-                {/* Barre de selection */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-3 py-2 flex flex-wrap items-center justify-between gap-2.5 shadow-2xs">
-                    <div className="flex flex-wrap items-center gap-2.5">
-                        <div className="flex items-center gap-1.5 shrink-0">
-                            <Calendar size={14} className="text-brand-500 shrink-0" />
-                            <Select
-                                options={periodeOptions}
-                                value={selectedPeriode}
-                                onChange={val => {
-                                    setSelectedPeriode(val);
-                                    if (onSelectPeriode) {
-                                        onSelectPeriode(val);
-                                    } else {
-                                        setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('periode', val); return n; });
-                                    }
-                                }}
-                                placeholder="Sélectionner une période..."
-                                containerClassName="w-60 sm:w-72"
-                                className="h-[32px] text-xs font-semibold"
-                            />
-                        </div>
-                        <div className="h-5 w-px bg-[var(--color-border-subtle)] hidden sm:block shrink-0" />
-                        <div className="flex items-center gap-1.5 shrink-0">
-                            <Building2 size={14} className="text-[var(--color-fg-muted)] shrink-0" />
-                            <Select
-                                options={siteOptions}
-                                value={selectedSite}
-                                onChange={val => {
-                                    const sId = Number(val);
-                                    setSelectedSite(sId);
+            {/* ---------- HEADER CONTEXTE & ACTIONS (COHÉRENCE DAF) ---------- */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 shadow-xs">
+                <div className="flex items-center gap-3 flex-wrap">
+                    {/* Période */}
+                    <div className="flex items-center gap-1.5 min-w-[220px]">
+                        <Calendar size={14} className="text-[var(--color-brand-500)] shrink-0" />
+                        <Select
+                            value={String(selectedPeriodeId || '')}
+                            onChange={(val) => {
+                                const pid = String(val);
+                                setSelectedPeriodeId(pid);
+                                setCurrentPage(1);
+                                if (onSelectPeriode) {
+                                    onSelectPeriode(Number(pid));
+                                } else {
                                     setSearchParams(prev => {
-                                        const n = new URLSearchParams(prev);
-                                        if (sId > 0) n.set('site', String(sId));
-                                        else n.delete('site');
-                                        return n;
-                                    });
-                                }}
-                                containerClassName="w-44 sm:w-52"
-                                className="h-[32px] text-xs font-semibold"
-                            />
+                                        const next = new URLSearchParams(prev);
+                                        next.set('periode', pid);
+                                        return next;
+                                    }, { replace: true });
+                                }
+                            }}
+                            options={periodes.map(p => ({
+                                value: String(p.idPeriodePaie),
+                                label: p.libelle || p.code
+                            }))}
+                            className="text-xs h-[32px]"
+                        />
+                    </div>
+
+                    {/* Site */}
+                    <div className="flex items-center gap-1.5 min-w-[200px]">
+                        <Building2 size={14} className="text-[var(--color-brand-500)] shrink-0" />
+                        <Select
+                            value={String(selectedSiteId)}
+                            onChange={(val) => {
+                                const sid = Number(val);
+                                setSelectedSiteId(sid);
+                                setCurrentPage(1);
+                                setSearchParams(prev => {
+                                    const next = new URLSearchParams(prev);
+                                    if (sid > 0) next.set('site', String(sid));
+                                    else next.delete('site');
+                                    return next;
+                                }, { replace: true });
+                            }}
+                            options={[
+                                { value: '0', label: 'Tous les sites (Global)' },
+                                ...sites.map(s => ({ value: String(s.idSite || s.id), label: `${s.code} — ${s.libelle || s.nom}` }))
+                            ]}
+                            className="text-xs h-[32px]"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 ml-auto">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        loading={calculating}
+                        onClick={handleRecalculerSemaines}
+                        icon={<RefreshCw size={13} className={calculating ? 'animate-spin' : ''} />}
+                        className="text-xs h-[32px] font-semibold"
+                        title="Recalculer et actualiser l'ensemble des semaines et cumuls"
+                    >
+                        <span className="hidden md:inline">Actualiser les calculs</span>
+                        <span className="md:hidden">Actualiser</span>
+                    </Button>
+                </div>
+            </div>
+
+            {/* ---------- KPI CARDS — 5 INDICATEURS CLÉS ---------- */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                {[
+                    { label: 'Salariés suivis', value: kpis?.collaborateursSuivis || 0, icon: Users, color: 'text-brand-600 dark:text-brand-400' },
+                    { label: 'Jours pointés', value: `${kpis?.joursSaisis || 0} / ${kpis?.joursTheoriques || 0} j`, icon: Calendar, color: 'text-sky-600 dark:text-sky-400' },
+                    { label: 'Heures travaillées', value: `${Math.round(kpis?.heuresCumulees || 0)}h`, icon: Clock, color: 'text-indigo-600 dark:text-indigo-400' },
+                    { label: 'Anomalies actives', value: `${kpis?.anomaliesActives || 0}`, badge: kpis?.anomaliesCritiques > 0 ? `${kpis.anomaliesCritiques} crit.` : null, icon: AlertTriangle, color: 'text-amber-600 dark:text-amber-400' },
+                    { label: 'Indemnités prév.', value: `${Math.round(kpis?.indemnitesPrevisionnelles || 0).toLocaleString('fr-FR')} Ar`, icon: Banknote, color: 'text-emerald-600 dark:text-emerald-400' },
+                ].map(kpi => (
+                    <div key={kpi.label} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex items-center gap-3">
+                        <kpi.icon size={20} className={`${kpi.color} shrink-0`} />
+                        <div className="min-w-0">
+                            <div className="text-[11px] font-semibold text-[var(--color-fg-muted)] truncate">{kpi.label}</div>
+                            <div className="text-base sm:text-lg font-bold font-mono text-[var(--color-fg)] flex items-center gap-1.5">
+                                <span>{kpi.value}</span>
+                                {kpi.badge && (
+                                    <span className="text-[10px] font-sans px-1.5 py-0.2 bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 font-bold border border-rose-200">
+                                        {kpi.badge}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                        {currentPeriodeObj && (
-                            <Badge
-                                variant={isCloturee ? 'success' : isValidee ? 'primary' : isAValider ? 'warning' : 'info'}
-                                size="sm"
-                                className="font-bold uppercase tracking-wider"
+                ))}
+            </div>
+
+            {/* ---------- VUE HEBDOMADAIRE (S1 - S5) INTERACTIVE ---------- */}
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-hidden">
+                <div className="p-3 border-b border-[var(--color-border-subtle)] flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                        <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
+                            <Layers size={14} className="text-[var(--color-brand-500)]" />
+                            Progression hebdomadaire (S1 — S5)
+                        </h2>
+                        <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                            Avancement réel de la saisie. Cliquez sur une semaine pour filtrer le tableau des anomalies.
+                        </p>
+                    </div>
+                    {filterSemaine !== 'ALL' && (
+                        <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => setFilterSemaine('ALL')}
+                            className="text-xs text-[var(--color-brand-500)]"
+                        >
+                            Afficher toutes les semaines (Annuler le filtre {filterSemaine})
+                        </Button>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-[var(--color-border-subtle)]">
+                    {semaines && semaines.length > 0 ? (
+                        semaines.map((sem) => {
+                            const isSelected = filterSemaine === sem.semaineCode;
+                            return (
+                                <div
+                                    key={sem.semaineCode}
+                                    onClick={() => setFilterSemaine(prev => prev === sem.semaineCode ? 'ALL' : sem.semaineCode)}
+                                    className={`p-3.5 transition-all cursor-pointer relative group ${
+                                        sem.isCurrent ? 'bg-brand-50/20 dark:bg-brand-950/10' : ''
+                                    } ${isSelected ? 'bg-brand-50/50 dark:bg-brand-950/30 border-l-4 border-l-[var(--color-brand-500)]' : 'hover:bg-[var(--color-bg-subtle)]'}`}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-bold text-xs text-[var(--color-fg)]">
+                                            {sem.titre}
+                                        </span>
+                                        {sem.isCurrent && (
+                                            <span className="text-[10px] font-bold text-[var(--color-brand-500)] uppercase bg-brand-50 dark:bg-brand-950/40 px-1.5 py-0.5 border border-[var(--color-brand-500)]/30">
+                                                En cours
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5 mb-2.5 font-mono">
+                                        {sem.dates}
+                                    </div>
+
+                                    {/* Ligne Saisis */}
+                                    <div className="flex items-center justify-between text-xs mb-1">
+                                        <span className="text-[var(--color-fg-muted)]">Saisis</span>
+                                        <span className="font-mono font-semibold text-[var(--color-fg)]">
+                                            {sem.joursSaisis} / {sem.joursTheoriques} j
+                                        </span>
+                                    </div>
+
+                                    {/* Barre de progression */}
+                                    <div className="w-full h-1.5 bg-[var(--color-border-subtle)] overflow-hidden mb-2.5">
+                                        <div 
+                                            className="h-full bg-[var(--color-brand-500)] transition-all duration-300"
+                                            style={{ width: `${sem.progressPercent || 0}%` }}
+                                        />
+                                    </div>
+
+                                    {/* Ligne Heures */}
+                                    <div className="flex items-center justify-between text-xs mb-2.5">
+                                        <span className="text-[var(--color-fg-muted)]">Heures</span>
+                                        <span className="font-mono font-semibold text-[var(--color-fg)]">
+                                            {sem.heuresCumulees}h
+                                        </span>
+                                    </div>
+
+                                    {/* Badge statut anomalies */}
+                                    <div className="flex items-center justify-between pt-1 border-t border-[var(--color-border-subtle)]">
+                                        {sem.nbAnomalies > 0 ? (
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                                <AlertTriangle size={10} />
+                                                {sem.nbAnomalies} anomalie{sem.nbAnomalies > 1 ? 's' : ''}
+                                            </span>
+                                        ) : sem.joursSaisis > 0 ? (
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                                <CheckCircle2 size={10} />
+                                                Conforme
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] text-[var(--color-fg-muted)] font-medium">
+                                                À venir
+                                            </span>
+                                        )}
+
+                                        <span className="text-[10px] font-bold text-[var(--color-brand-500)] group-hover:underline">
+                                            {isSelected ? 'Filtré ✓' : 'Filtrer →'}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <div className="col-span-5 p-6 text-center text-xs text-[var(--color-fg-muted)]">
+                            Aucune donnée de semaine disponible pour cette sélection.
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* ---------- SECTION ANOMALIES DE POINTAGE ---------- */}
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-hidden" id="anomalies">
+                {/* Header & Filtres */}
+                <div className="p-3 border-b border-[var(--color-border-subtle)] flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                        <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
+                            <Shield size={14} className="text-[var(--color-brand-500)]" />
+                            Anomalies de pointage &amp; Saisies incomplètes
+                        </h2>
+                        <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                            {filteredAnomalies.length} anomalie{filteredAnomalies.length > 1 ? 's' : ''} détectée{filteredAnomalies.length > 1 ? 's' : ''}
+                            {nbBloquantes > 0 && ` — dont ${nbBloquantes} bloquante(s) avant transmission DAF`}
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Recherche Employé */}
+                        <div className="relative">
+                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
+                            <input
+                                type="text"
+                                placeholder="Rechercher nom, matricule…"
+                                value={searchQuery}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                className="text-xs pl-7 pr-3 py-1 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] w-44 focus:w-56 transition-all focus:border-[var(--color-brand-500)] outline-none"
+                            />
+                        </div>
+
+                        {/* Filtre Type */}
+                        <select
+                            value={filterType}
+                            onChange={(e) => {
+                                setFilterType(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="text-xs py-1 px-2.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] outline-none focus:border-[var(--color-brand-500)] cursor-pointer"
+                        >
+                            <option value="ALL">Tous les types</option>
+                            <option value="ABSENCE">Absence non justifiée</option>
+                            <option value="INCOMPLET">Pointage incomplet / Non saisi</option>
+                            <option value="RETARD">Retards</option>
+                        </select>
+
+                        {/* Filtre Sévérité */}
+                        <select
+                            value={filterSeverite}
+                            onChange={(e) => {
+                                setFilterSeverite(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="text-xs py-1 px-2.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] outline-none focus:border-[var(--color-brand-500)] cursor-pointer"
+                        >
+                            <option value="ALL">Toutes sévérités</option>
+                            <option value="CRITIQUE">Critique (Bloquant DAF)</option>
+                            <option value="HAUTE">Élevée</option>
+                            <option value="MOYENNE">Moyenne</option>
+                            <option value="FAIBLE">Faible</option>
+                        </select>
+
+                        {/* Reset filtre semaine si actif */}
+                        {filterSemaine !== 'ALL' && (
+                            <button
+                                type="button"
+                                onClick={() => setFilterSemaine('ALL')}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 bg-brand-50 dark:bg-brand-950/40 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]"
                             >
-                                {currentPeriodeObj.statutLibelle || currentPeriodeObj.statutCode}
-                            </Badge>
+                                <span>{filterSemaine}</span>
+                                <span className="text-xs">×</span>
+                            </button>
                         )}
                     </div>
                 </div>
 
-                {/* Banniere rejet DAF */}
-                {currentPeriodeObj?.motifRejet && isEnCours && (
-                    <div className="p-3.5 bg-amber-500/10 border border-amber-500/40 flex items-start gap-3 shadow-xs">
-                        <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                            <strong className="block text-xs uppercase font-bold tracking-wider text-amber-800 dark:text-amber-300">
-                                Periode renvoyee par la DAF pour correction
-                            </strong>
-                            <p className="text-xs mt-1 font-mono bg-amber-500/15 p-2 border border-amber-500/30">
-                                {currentPeriodeObj.motifRejet}
-                            </p>
-                            <p className="text-[11.5px] text-amber-800 dark:text-amber-300 mt-1.5">
-                                Regularisez les anomalies, recalculez et re-transmettez a la DAF.
-                            </p>
-                        </div>
-                    </div>
-                )}
+                {/* Légende de sévérité */}
+                <div className="px-3 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex items-center gap-5 text-[11px] text-[var(--color-fg-muted)] flex-wrap">
+                    <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 bg-[#B23B34]" />
+                        <strong className="text-[var(--color-fg)]">Critique :</strong> Bloque la transmission DAF (oubli d'horaire ou absence sans statut)
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 bg-[#B5720A]" />
+                        <strong className="text-[var(--color-fg)]">Élevée :</strong> Absence qualifiée à justifier
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 bg-[#345C82]" />
+                        <strong className="text-[var(--color-fg)]">Moyenne :</strong> Retard ou écart mineur
+                    </span>
+                </div>
 
-                {/* Bandeau transmis/valide/cloture */}
-                {isReadOnly && (
-                    <div className={`p-3.5 border flex items-center gap-3 ${
-                        isCloturee ? 'bg-[var(--color-success-500)]/6 border-[var(--color-success-500)]/30' :
-                        isValidee  ? 'bg-brand-500/8 border-brand-500/30' :
-                                     'bg-amber-500/8 border-amber-500/30'
-                    }`}>
-                        {isCloturee ? <CheckCircle2 size={18} className="text-[var(--color-success-600)] shrink-0" /> :
-                         isValidee  ? <Lock size={18} className="text-brand-500 shrink-0" /> :
-                                      <Send size={18} className="text-amber-600 shrink-0" />}
-                        <div className="flex-1 text-xs">
-                            <strong className="block font-bold text-[var(--color-fg)]">
-                                {isCloturee ? 'Periode cloturee'
-                                 : isValidee ? 'Periode validee par la DAF'
-                                 : 'Periode transmise a la DAF — En cours d\'arbitrage'}
-                            </strong>
-                            <span className="text-[var(--color-fg-muted)]">
-                                {isCloturee ? 'Bulletins de paie disponibles.' :
-                                 isValidee  ? 'Les donnees de pointage sont gelees.' :
-                                 'La saisie est verrouillee jusqu\'a la decision DAF.'}
-                            </span>
-                        </div>
-                    </div>
-                )}
+                {/* Tableau des anomalies */}
+                <Table size="sm" divided>
+                    <Thead>
+                        <Tr>
+                            <Th className="min-w-[200px]">Salarié</Th>
+                            <Th className="text-center w-20">Semaine</Th>
+                            <Th className="w-24">Date</Th>
+                            <Th className="min-w-[220px]">Type &amp; Description</Th>
+                            <Th className="w-24 text-center">Sévérité</Th>
+                            <Th className="w-28 text-center">Statut</Th>
+                            <Th className="w-24 text-right">Action</Th>
+                        </Tr>
+                    </Thead>
+                    <Tbody>
+                        {paginatedAnomalies && paginatedAnomalies.length > 0 ? (
+                            paginatedAnomalies.map((ano) => {
+                                const sevBorderColor = 
+                                    ano.severite === 'CRITIQUE' ? 'border-l-[#B23B34]' :
+                                    ano.severite === 'HAUTE' ? 'border-l-[#B5720A]' :
+                                    ano.severite === 'MOYENNE' ? 'border-l-[#345C82]' : 'border-l-[#6E7266]';
 
-                {/* ─── PROGRESSION DU MOIS ─── */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-4">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <BarChart2 size={16} className="text-brand-500" />
-                            <h3 className="text-sm font-bold text-[var(--color-fg)]">
-                                Progression — {currentPeriodeObj?.libelle || 'Periode active'}
-                            </h3>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {isEnCours && canWrite && (
-                                <Button type="button" variant="outline" size="sm" loading={calculating} onClick={handleCalculerTout}
-                                    className="font-bold text-xs flex items-center gap-1.5 shadow-xs">
-                                    <Layers size={13} className={calculating ? 'animate-spin' : ''} />
-                                    <span>Calculer tout</span>
-                                </Button>
-                            )}
-                            {workflowStatus.allValidees && isEnCours && canWrite && (
-                                <Button type="button" variant="primary" size="sm" loading={transmitting}
-                                    onClick={() => setShowTransmissionModal(true)}
-                                    className="font-bold text-xs flex items-center gap-1.5 shadow-xs">
-                                    <Send size={13} />
-                                    <span>Transmettre a la DAF</span>
-                                </Button>
-                            )}
-                        </div>
-                    </div>
+                                const isDone = ano.statutAnomalie === 'done';
 
-                    {/* Barre de progression */}
-                    <div className="mb-4">
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                            <span className="text-[var(--color-fg-muted)]">
-                                {workflowStatus.semainesValideesCount} / {workflowStatus.totalSemaines} semaine(s) calculee(s)
-                            </span>
-                            <span className={`font-bold font-mono ${workflowStatus.allValidees ? 'text-[var(--color-success-600)]' : 'text-brand-600'}`}>
-                                {workflowStatus.progressPercent}%
-                            </span>
-                        </div>
-                        <div className="w-full h-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] overflow-hidden">
-                            <div
-                                className={`h-full transition-all duration-500 ${workflowStatus.allValidees ? 'bg-[var(--color-success-500)]' : 'bg-brand-500'}`}
-                                style={{ width: `${workflowStatus.progressPercent}%` }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Cards semaines */}
-                    {loading ? (
-                        <div className="text-center text-xs text-[var(--color-fg-muted)] py-8 flex items-center justify-center gap-2">
-                            <Clock size={14} className="animate-spin text-brand-500" />Chargement...
-                        </div>
-                    ) : semaines.length === 0 ? (
-                        <div className="text-center text-xs text-[var(--color-fg-muted)] py-8">
-                            Aucune semaine disponible. Cliquez sur "Calculer tout" pour demarrer.
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                            {semaines.map((sem) => {
-                                let statusClass = 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)]';
-                                let badgeVariant = 'default';
-                                let badgeLabel = 'En saisie';
-                                if (sem.estValidee) {
-                                    statusClass = 'bg-[var(--color-success-500)]/6 border-[var(--color-success-500)]/30';
-                                    badgeVariant = 'success';
-                                    badgeLabel = 'Calculee';
-                                } else if (sem.nbAnomalies > 0) {
-                                    statusClass = 'bg-amber-500/8 border-amber-500/35';
-                                    badgeVariant = 'warning';
-                                    badgeLabel = `${sem.nbAnomalies} anomalie(s)`;
-                                } else if (sem.totalPointages > 0) {
-                                    statusClass = 'bg-brand-500/6 border-brand-500/25';
-                                    badgeVariant = 'brand';
-                                    badgeLabel = 'Prete';
-                                }
                                 return (
-                                    <div key={sem.id} className={`p-2.5 border flex flex-col gap-1.5 ${statusClass}`}>
-                                        <div className="flex items-center justify-between gap-1">
-                                            <span className="text-xs font-bold text-[var(--color-fg)] truncate">{sem.title}</span>
-                                            {sem.estValidee && <CheckCircle2 size={13} className="text-[var(--color-success-600)] shrink-0" />}
-                                        </div>
-                                        <p className="text-[10.5px] font-mono text-[var(--color-fg-muted)] truncate">{sem.dates}</p>
-                                        <div className="pt-1 border-t border-[var(--color-border-subtle)]/60">
-                                            <Badge variant={badgeVariant} size="xs" className="!text-[9px] !px-1.5 font-bold">
-                                                {badgeLabel}
-                                            </Badge>
-                                        </div>
-                                        {!isReadOnly && !sem.estValidee && onTabChange && (
-                                            <button type="button" onClick={() => onTabChange('saisie', { date: sem.dateDebut })}
-                                                className="text-[10px] text-brand-600 hover:underline font-semibold text-left cursor-pointer mt-0.5">
-                                                Saisir →
-                                            </button>
-                                        )}
-                                    </div>
+                                    <Tr
+                                        key={`${ano.idPointage}-${ano.idEmploye}-${ano.datePointage}`}
+                                        className={`border-l-4 ${sevBorderColor}`}
+                                    >
+                                        {/* Employé */}
+                                        <Td>
+                                            <div className="flex items-center gap-2">
+                                                <Avatar
+                                                    src={getFullPhotoUrl(ano.photoUrl)}
+                                                    name={`${ano.nom || ''} ${ano.prenom || ''}`}
+                                                    size="sm"
+                                                />
+                                                <div>
+                                                    <div className="font-bold text-[var(--color-fg)]">
+                                                        {ano.nom} {ano.prenom}
+                                                    </div>
+                                                    <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                                        {ano.matricule}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </Td>
+
+                                        {/* Semaine */}
+                                        <Td className="text-center">
+                                            <span className="font-mono font-bold px-1.5 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] text-[11px]">
+                                                {ano.semaineCode || 'S1'}
+                                            </span>
+                                        </Td>
+
+                                        {/* Date */}
+                                        <Td className="font-mono font-medium text-[var(--color-fg)]">
+                                            {fmtDate(ano.datePointage)}
+                                        </Td>
+
+                                        {/* Type & Description */}
+                                        <Td>
+                                            <div className="font-semibold text-[var(--color-fg)]">
+                                                {ano.typeAnomalie === 'INCOMPLET' ? 'Pointage non saisi / Incomplet' :
+                                                 ano.typeAnomalie === 'ABSENCE' ? 'Absence non justifiée' :
+                                                 ano.typeAnomalie === 'RETARD' ? `Retard (${ano.minutesRetard || 0} min)` :
+                                                 ano.typeAnomalie}
+                                            </div>
+                                            <div className="text-[11px] text-[var(--color-fg-muted)] truncate max-w-xs">
+                                                {ano.motifAjustement ? (
+                                                    <span className="text-[var(--color-brand-500)] font-medium">
+                                                        Motif : {ano.motifAjustement}
+                                                    </span>
+                                                ) : (
+                                                    ano.descriptionAnomalie
+                                                )}
+                                            </div>
+                                        </Td>
+
+                                        {/* Sévérité Chip */}
+                                        <Td className="text-center">
+                                            <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 ${
+                                                ano.severite === 'CRITIQUE' ? 'bg-[#FBEAE8] text-[#B23B34] dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800' :
+                                                ano.severite === 'HAUTE' ? 'bg-[#FCEFDD] text-[#B5720A] dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800' :
+                                                ano.severite === 'MOYENNE' ? 'bg-[#E8F0F7] text-[#345C82] dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800' :
+                                                'bg-[#EFEEE6] text-[#6E7266] dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200'
+                                            }`}>
+                                                {ano.severite === 'CRITIQUE' ? 'Critique' :
+                                                 ano.severite === 'HAUTE' ? 'Élevée' :
+                                                 ano.severite === 'MOYENNE' ? 'Moyenne' : 'Faible'}
+                                            </span>
+                                        </Td>
+
+                                        {/* Statut */}
+                                        <Td className="text-center">
+                                            {isDone ? (
+                                                <span className="text-[var(--color-brand-500)] font-semibold inline-flex items-center gap-1 text-[11px]">
+                                                    <CheckCircle2 size={12} />
+                                                    Régularisé
+                                                </span>
+                                            ) : (
+                                                <span className="text-amber-600 dark:text-amber-400 font-semibold inline-flex items-center gap-1 text-[11px]">
+                                                    <Clock size={12} />
+                                                    À régulariser
+                                                </span>
+                                            )}
+                                        </Td>
+
+                                        {/* Action */}
+                                        <Td className="text-right">
+                                            <Button
+                                                variant={isDone ? 'ghost' : 'outline'}
+                                                size="xs"
+                                                onClick={() => handleOpenRegularisation(ano)}
+                                                disabled={isLocked || !canWrite}
+                                                className="font-bold text-[11px] h-[28px]"
+                                            >
+                                                {isDone ? 'Modifier' : 'Régulariser'}
+                                            </Button>
+                                        </Td>
+                                    </Tr>
                                 );
-                            })}
-                        </div>
-                    )}
-                </div>
+                            })
+                        ) : (
+                            <Tr>
+                                <Td colSpan={7} className="py-12 text-center text-xs text-[var(--color-fg-muted)]">
+                                    {loading ? 'Chargement des anomalies…' : 'Aucune anomalie détectée pour cette sélection.'}
+                                </Td>
+                            </Tr>
+                        )}
+                    </Tbody>
+                </Table>
 
-                {/* ─── ANOMALIES INLINE ─── */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-4">
-                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
-                            <AlertTriangle size={16} className="text-amber-600" />
-                            <h3 className="text-sm font-bold text-[var(--color-fg)]">
-                                Anomalies de Pointage
-                                {workflowStatus.totalAnomalies > 0 && (
-                                    <span className="ml-2 px-2 py-0.5 text-[10px] font-black border bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40">
-                                        {workflowStatus.totalAnomalies}
-                                    </span>
-                                )}
-                            </h3>
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <div className="relative">
-                                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
-                                <input
-                                    type="text"
-                                    value={searchAnomalie}
-                                    onChange={e => setSearchAnomalie(e.target.value)}
-                                    placeholder="Rechercher employe..."
-                                    className="pl-7 pr-3 h-[30px] text-xs border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:outline-none focus:border-[var(--color-brand-500)] w-40"
-                                />
+                {/* Pagination officielle Galaxam */}
+                <Pagination
+                    currentPage={currentPage}
+                    totalItems={filteredAnomalies.length}
+                    pageSize={pageSize}
+                    pageSizeOptions={[8, 15, 25, 50]}
+                    onPageChange={(p) => setCurrentPage(p)}
+                    onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(1); }}
+                />
+            </div>
+
+            {/* ---------- BARRE DE TRANSMISSION FIXÉE EN BAS (STICKY) ---------- */}
+            <div className="sticky bottom-0 z-20 bg-[var(--color-surface)] text-[var(--color-fg)] shadow-2xl border border-[var(--color-border-subtle)] border-t-2 border-t-[var(--color-brand-500)] p-3.5">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-5 flex-wrap">
+                        {/* Statut des points bloquants */}
+                        {nbBloquantes > 0 ? (
+                            <div className="flex items-center gap-2 text-xs font-semibold text-rose-600 dark:text-rose-400">
+                                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+                                <span>{nbBloquantes} point(s) bloquant(s) avant transmission (pointages incomplets ou absences non justifiées)</span>
                             </div>
-                            <Select
-                                options={typeOptions}
-                                value={typeFilter}
-                                onChange={setTypeFilter}
-                                containerClassName="w-40"
-                                className="h-[30px] text-xs"
-                            />
+                        ) : (
+                            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                <CheckCircle2 size={15} className="text-emerald-500" />
+                                <span>Toutes les anomalies bloquantes sont régularisées — Période prête pour transmission DAF</span>
+                            </div>
+                        )}
+
+                        {/* Semaines restantes */}
+                        <div className="text-xs text-[var(--color-fg-muted)] flex items-center gap-2 border-l border-[var(--color-border-subtle)] pl-4">
+                            <span>Progression de saisie :</span>
+                            <span className="font-mono font-bold text-[var(--color-fg)]">
+                                {semaines.length - nbSemainesRestantes} / {semaines.length} semaine(s)
+                            </span>
                         </div>
                     </div>
 
-                    {loadingAnomalies ? (
-                        <div className="text-center text-xs text-[var(--color-fg-muted)] py-8 flex items-center justify-center gap-2">
-                            <Clock size={14} className="animate-spin text-brand-500" />Chargement des anomalies...
-                        </div>
-                    ) : filteredAnomalies.length === 0 ? (
-                        <div className="flex items-center justify-center gap-3 py-8 text-xs text-[var(--color-fg-muted)]">
-                            <CheckCircle2 size={18} className="text-[var(--color-success-600)]" />
-                            <span>Aucune anomalie{typeFilter !== 'ALL' ? ' de ce type' : ''} pour cette periode.</span>
-                        </div>
-                    ) : (
-                        <div className="divide-y divide-[var(--color-border-subtle)]">
-                            {filteredAnomalies.slice(0, 20).map((anom) => (
-                                <div key={anom.idPointage} className="flex items-center gap-3 py-2.5 hover:bg-[var(--color-bg-subtle)] px-1 transition-colors">
-                                    <Avatar
-                                        src={getFullPhotoUrl(anom.photoUrl)}
-                                        name={`${anom.nom} ${anom.prenom}`}
-                                        size="sm"
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-xs font-semibold text-[var(--color-fg)] truncate">
-                                            {anom.nom} {anom.prenom}
-                                        </div>
-                                        <div className="text-[10.5px] text-[var(--color-fg-muted)] flex items-center gap-1.5 flex-wrap mt-0.5">
-                                            <span className="font-mono">{anom.datePointage}</span>
-                                            {anom.typeAnomalie && (
-                                                <span className={`px-1.5 py-0.5 text-[9px] font-bold border ${
-                                                    anom.typeAnomalie === 'ABSENCE' ? 'bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)]/40 text-[var(--color-danger-600)]'
-                                                    : anom.typeAnomalie === 'RETARD' ? 'bg-orange-500/10 border-orange-500/40 text-orange-700'
-                                                    : 'bg-amber-500/10 border-amber-500/40 text-amber-700'
-                                                }`}>
-                                                    {anom.typeAnomalie}
-                                                </span>
-                                            )}
-                                            {(anom.descriptionAnomalie || anom.description) && (
-                                                <span className="opacity-70 truncate max-w-[240px]">
-                                                    {anom.descriptionAnomalie || anom.description}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {canWrite && !isReadOnly && (
-                                        <button
-                                            type="button"
-                                            onClick={() => openReg(anom)}
-                                            className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold border border-[var(--color-border)] hover:bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-all cursor-pointer shrink-0"
-                                        >
-                                            <Wrench size={10} />
-                                            Regulariser
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                            {filteredAnomalies.length > 20 && (
-                                <div className="text-center text-xs text-[var(--color-fg-muted)] pt-3">
-                                    + {filteredAnomalies.length - 20} anomalie(s) supplementaire(s). Affinez les filtres pour les voir.
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* ─── CHECKLIST DE CLOTURE ─── */}
-                {isEnCours && (
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                            <CalendarCheck2 size={16} className="text-brand-500" />
-                            <h3 className="text-sm font-bold text-[var(--color-fg)]">Checklist de Transmission</h3>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {/* Etape 1 */}
-                            <div className={`p-3 border flex items-start gap-2.5 ${
-                                workflowStatus.totalAnomalies === 0
-                                    ? 'bg-[var(--color-success-500)]/6 border-[var(--color-success-500)]/30'
-                                    : 'bg-amber-500/8 border-amber-500/35'
-                            }`}>
-                                {workflowStatus.totalAnomalies === 0
-                                    ? <CheckCircle2 size={16} className="text-[var(--color-success-600)] shrink-0 mt-0.5" />
-                                    : <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />}
-                                <div className="text-xs">
-                                    <div className="font-bold">1. Anomalies resolues</div>
-                                    <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                        {workflowStatus.totalAnomalies === 0 ? 'Aucune anomalie' : `${workflowStatus.totalAnomalies} a regulariser`}
-                                    </div>
-                                </div>
-                            </div>
-                            {/* Etape 2 */}
-                            <div className={`p-3 border flex items-start gap-2.5 ${
-                                workflowStatus.allValidees
-                                    ? 'bg-[var(--color-success-500)]/6 border-[var(--color-success-500)]/30'
-                                    : 'bg-sky-500/8 border-sky-500/30'
-                            }`}>
-                                {workflowStatus.allValidees
-                                    ? <CheckCircle2 size={16} className="text-[var(--color-success-600)] shrink-0 mt-0.5" />
-                                    : <Layers size={16} className="text-sky-600 shrink-0 mt-0.5" />}
-                                <div className="text-xs">
-                                    <div className="font-bold">2. Semaines calculees</div>
-                                    <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                        {workflowStatus.semainesValideesCount}/{workflowStatus.totalSemaines} pretes
-                                    </div>
-                                    {!workflowStatus.allValidees && canWrite && (
-                                        <button onClick={handleCalculerTout} disabled={calculating}
-                                            className="text-[11px] text-brand-600 hover:underline font-bold mt-1 inline-block text-left cursor-pointer disabled:opacity-50">
-                                            {calculating ? 'Calcul...' : 'Calculer tout →'}
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                            {/* Etape 3 */}
-                            <div className={`p-3 border flex items-start gap-2.5 ${
-                                workflowStatus.allValidees && workflowStatus.totalAnomalies === 0
-                                    ? 'bg-brand-500/8 border-brand-500/35'
-                                    : 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)] opacity-60'
-                            }`}>
-                                <Send size={16} className={`${workflowStatus.allValidees ? 'text-brand-600' : 'text-[var(--color-fg-muted)]'} shrink-0 mt-0.5`} />
-                                <div className="text-xs">
-                                    <div className="font-bold">3. Transmission DAF</div>
-                                    <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                        {workflowStatus.allValidees && workflowStatus.totalAnomalies === 0
-                                            ? 'Pret a transmettre'
-                                            : 'En attente etapes 1 et 2'}
-                                    </div>
-                                    {workflowStatus.allValidees && workflowStatus.totalAnomalies === 0 && canWrite && (
-                                        <button onClick={() => setShowTransmissionModal(true)}
-                                            className="text-[11px] text-brand-600 hover:underline font-bold mt-1 inline-block cursor-pointer">
-                                            Transmettre →
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Info workflow */}
-                <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3.5 flex items-start gap-2.5 text-xs text-[var(--color-fg-muted)]">
-                    <Info size={15} className="text-brand-500 shrink-0 mt-0.5" />
-                    <div>
-                        <span className="font-semibold text-[var(--color-fg)]">Workflow :</span>
-                        <span className="ml-2">Regularisez les anomalies, calculez toutes les semaines, puis transmettez a la DAF. La DAF examine les details et valide depuis l'etape Arbitrage DAF.</span>
+                    {/* Bouton de transmission DAF */}
+                    <div className="flex items-center gap-3">
+                        <Button
+                            variant="primary"
+                            size="md"
+                            onClick={() => setShowTransmissionConfirm(true)}
+                            disabled={nbBloquantes > 0 || isLocked || !canWrite || transmitting}
+                            loading={transmitting}
+                            icon={<Send size={14} />}
+                            title={
+                                nbBloquantes > 0
+                                    ? `Résolvez les ${nbBloquantes} anomalie(s) bloquante(s) pour débloquer la transmission.`
+                                    : isLocked
+                                    ? 'Cette période est déjà transmise ou validée.'
+                                    : 'Transmettre officiellement la synthèse à la DAF.'
+                            }
+                        >
+                            Transmettre à la DAF
+                        </Button>
                     </div>
                 </div>
             </div>
 
-            {/* Modale confirmation transmission */}
+            {/* Modale de régularisation intelligente */}
+            <AnomalieRegularisationModal
+                isOpen={isModalOpen}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    setSelectedAnomalie(null);
+                }}
+                anomalie={selectedAnomalie}
+                onSuccess={handleSaveRegularisation}
+            />
+
+            {/* Dialogue de confirmation de transmission DAF */}
             <ConfirmDialog
-                isOpen={showTransmissionModal}
-                onClose={() => setShowTransmissionModal(false)}
+                isOpen={showTransmissionConfirm}
+                onClose={() => setShowTransmissionConfirm(false)}
                 onConfirm={handleTransmettreDaf}
-                title={`Transmettre ${currentPeriodeObj?.libelle || ''} a la DAF ?`}
-                message="Toutes les semaines sont calculees. La saisie sera verrouillee jusqu'a la decision de la DAF."
-                confirmLabel="Confirmer et Transmettre"
-                cancelLabel="Annuler"
+                title="Confirmer la transmission à la DAF"
+                message="Êtes-vous sûr de vouloir transmettre la période de pointage à la DAF ? Cette action fige la saisie pour les agents de site et déclenche la notification officielle auprès de la DAF."
+                confirmText="Confirmer et transmettre"
+                cancelText="Annuler"
                 variant="primary"
                 loading={transmitting}
             />
-
-            {/* Modale de regularisation d'anomalie */}
-            <Modal
-                isOpen={isRegModal}
-                onClose={() => setIsRegModal(false)}
-                title={`Regulariser — ${selectedAnomalie?.nom} ${selectedAnomalie?.prenom}`}
-                size="md"
-            >
-                {selectedAnomalie && (
-                    <div className="space-y-3 text-xs">
-                        <div className="bg-amber-500/10 border border-amber-500/30 p-2.5 flex items-center gap-2">
-                            <ShieldAlert size={14} className="text-amber-600 shrink-0" />
-                            <span className="font-semibold text-amber-800 dark:text-amber-300">
-                                {selectedAnomalie.datePointage} — {selectedAnomalie.typeAnomalie || selectedAnomalie.description || 'Anomalie'}
-                            </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div>
-                                <label className="block text-[10.5px] font-semibold text-[var(--color-fg-muted)] mb-1">Entree matin</label>
-                                <input type="time" value={regForm.heureEntreeMatin}
-                                    onChange={e => setRegForm(f => ({ ...f, heureEntreeMatin: e.target.value }))}
-                                    className="w-full h-8 px-2 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]" />
-                            </div>
-                            <div>
-                                <label className="block text-[10.5px] font-semibold text-[var(--color-fg-muted)] mb-1">Sortie matin</label>
-                                <input type="time" value={regForm.heureSortieMatin}
-                                    onChange={e => setRegForm(f => ({ ...f, heureSortieMatin: e.target.value }))}
-                                    className="w-full h-8 px-2 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]" />
-                            </div>
-                            <div>
-                                <label className="block text-[10.5px] font-semibold text-[var(--color-fg-muted)] mb-1">Entree apres-midi</label>
-                                <input type="time" value={regForm.heureEntreeAm}
-                                    onChange={e => setRegForm(f => ({ ...f, heureEntreeAm: e.target.value }))}
-                                    className="w-full h-8 px-2 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]" />
-                            </div>
-                            <div>
-                                <label className="block text-[10.5px] font-semibold text-[var(--color-fg-muted)] mb-1">Sortie apres-midi</label>
-                                <input type="time" value={regForm.heureSortieAm}
-                                    onChange={e => setRegForm(f => ({ ...f, heureSortieAm: e.target.value }))}
-                                    className="w-full h-8 px-2 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]" />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-[10.5px] font-semibold text-[var(--color-fg-muted)] mb-1">Motif de regularisation</label>
-                            <textarea value={regForm.motifAjustement}
-                                onChange={e => setRegForm(f => ({ ...f, motifAjustement: e.target.value }))}
-                                rows={2}
-                                placeholder="Ex: Oubli de badgeage, presence confirmee par responsable..."
-                                className="w-full px-2 py-1.5 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:outline-none focus:border-[var(--color-brand-500)] resize-none"
-                            />
-                        </div>
-                        <div className="flex justify-end gap-2 pt-1">
-                            <Button type="button" variant="ghost" size="sm" onClick={() => setIsRegModal(false)}>
-                                Annuler
-                            </Button>
-                            <Button type="button" variant="primary" size="sm" loading={saving} onClick={handleReg}>
-                                Regulariser
-                            </Button>
-                        </div>
-                    </div>
-                )}
-            </Modal>
-        </>
+        </div>
     );
 }

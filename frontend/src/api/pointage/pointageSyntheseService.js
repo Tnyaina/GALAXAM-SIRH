@@ -48,6 +48,10 @@ export const pointageSyntheseService = {
         return response.data;
     },
 
+    calculerSemaines: async ({ idPeriodePaie, idSite }) => {
+        return pointageSyntheseService.calculerTout({ idPeriodePaie, idSite });
+    },
+
     transmettreDaf: async ({ idPeriodePaie, idSite }) => {
         const response = await apiClient.post('/pointages/synthese/transmettre-daf', {
             idPeriodePaie: Number(idPeriodePaie),
