@@ -78,6 +78,12 @@ const contratService = {
         return response.data;
     },
 
+    confirmerEssaiDirectement: async (idEmploye, data) => {
+        const response = await apiClient.post(`/employes/${idEmploye}/workflows/essai/confirmer-directement`, data);
+        window.dispatchEvent(new Event('refresh-notifications'));
+        return response.data;
+    },
+
     /**
      * Modifier un workflow en statut BROUILLON avant validation DAF.
      * PUT /workflows/{idWorkflow}

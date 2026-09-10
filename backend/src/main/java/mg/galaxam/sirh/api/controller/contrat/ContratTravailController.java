@@ -212,9 +212,10 @@ public class ContratTravailController {
 
             // canConfirm : vrai si période EN_COURS et aucune confirmation planifiée
             boolean canConfirm = aPeriodeEnCours && !estConfirme;
-            // canRenew : vrai si période EN_COURS ET renouvellements faits < max ET aucune
-            // confirmation planifiée
-            boolean canRenew = aPeriodeEnCours && (nombreRenouvellements < maxRenouvellements) && !estConfirme;
+            // Le renouvellement doit être conclu avant l'échéance. Une confirmation
+            // tardive reste possible afin d'acter un oubli administratif.
+            boolean canRenew = aPeriodeEnCours && !isEssaiEchu
+                    && (nombreRenouvellements < maxRenouvellements) && !estConfirme;
 
             return ResponseEntity.ok(new EtatEssaiDTO(
                     aPeriodeEnCours, isDernierJour, isEssaiEchu, false, nombreRenouvellements > 0,

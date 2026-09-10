@@ -126,6 +126,25 @@ public class WorkflowRhController {
         }
     }
 
+    @PostMapping("/employes/{idEmploye}/workflows/essai/confirmer-directement")
+    @PreAuthorize("hasAuthority('EMPLOYE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> confirmerEssaiDirectement(
+            @PathVariable Integer idEmploye, @RequestBody TransitionCarriereRequest req) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                WorkflowRhCPL result = workflowRhService.confirmerEssaiDirectement(idEmploye, req, getCurrentUserId(), c);
+                c.commit();
+                return ResponseEntity.status(HttpStatus.CREATED).body(result);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur lors de la décision d'essai.");
+        }
+    }
+
     @PutMapping("/workflows/{idWorkflow}")
     @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> modifierBrouillonWorkflow(

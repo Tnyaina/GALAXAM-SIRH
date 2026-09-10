@@ -133,12 +133,7 @@ export default function ConfirmationEssaiModal({
                 commentaire: commentaire ? commentaire.trim() : null,
             };
 
-            let res;
-            if (isEditMode && wfId) {
-                res = await contratService.modifierBrouillonWorkflow(wfId, payload);
-            } else {
-                res = await contratService.creerBrouillonTransition(idEmploye, payload);
-            }
+            const res = await contratService.confirmerEssaiDirectement(idEmploye, payload);
 
             if (onSuccess) onSuccess(res);
             onClose();

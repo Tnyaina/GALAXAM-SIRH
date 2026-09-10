@@ -240,7 +240,7 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (11, 'REDUCTION_DEPLACT_REPAS_MIDI', 'POINTAGE', '1000', 'Déduction indemnité déplacement (en Ar) si repas midi reçu sur site TMM', '2026-01-01', NULL),
 (12, 'SEUIL_HEURES_JOUR', 'RH_GENERAL', '8', 'Durée normale d une journée de travail (utilisée par Pointage)', '2026-01-01', NULL),
 (13, 'SEUIL_HEURES_SEMAINE', 'RH_GENERAL', '40', 'Durée légale hebdomadaire normale (40h, Code du Travail Art. 83)', '2026-01-01', NULL),
-(14, 'DUREE_MAX_CDD_MOIS', 'CONTRAT', '24', 'Durée maximale cumulée d un CDD et de ses renouvellements (24 mois / 2 ans). Au-delà, requalification en CDI de plein droit.', '2026-01-01', NULL),
+(14, 'DUREE_MAX_CDD_MOIS', 'CONTRAT', '72', 'Durée maximale cumulée d un CDD et de ses deux renouvellements (72 mois / 6 ans). Chaque CDD ne peut excéder 24 mois.', '2026-01-01', NULL),
 (15, 'NB_MAX_RENOUVELLEMENTS_CDD', 'CONTRAT', '2', 'Nombre maximal de renouvellements d un CDD par avenant (2 fois max). Au 3ème renouvellement, requalification en CDI.', '2026-01-01', NULL),
 (16, 'MAX_RENOUVELLEMENTS_ESSAI', 'RH_GENERAL', '1', 'Nombre maximal de renouvellements autorisés pour une période d essai (droit malgache : 1 seul renouvellement)', '2026-01-01', NULL),
 (17, 'DIVISEUR_JOURS_CALENDAIRE_CONGE', 'CONGE', '30', 'Diviseur en jours calendaires/mois pour valoriser un jour de congé payé : (Salaire de base + HS) ÷ 30. Cohérent avec le décompte calendaire (sam/dim/fériés comptés).', '2026-01-01', NULL),

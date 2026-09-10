@@ -349,12 +349,11 @@ export function useTransitionForm({
             let res;
             if (isEditMode && initialData?.workflow?.idWorkflow) {
                 res = await contratService.modifierBrouillonWorkflow(
-                    idEmploye,
                     initialData.workflow.idWorkflow,
                     payload
                 );
             } else {
-                res = await contratService.creerTransitionCarriere(idEmploye, payload);
+                res = await contratService.creerBrouillonTransition(idEmploye, payload);
             }
 
             if (onSuccess) {

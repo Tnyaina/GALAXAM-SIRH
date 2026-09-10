@@ -49,6 +49,7 @@ public class TransitionCarriereRequest {
     // ─── INFORMATIONS WORKFLOW ───
     private Date dateEffet; // Date de prise d'effet de la transition (obligatoire)
     private String motif;   // Motif/justification du mouvement
+    private String commentaire; // Trace de la décision/workflow
 
     public TransitionCarriereRequest() {}
 
@@ -133,4 +134,7 @@ public class TransitionCarriereRequest {
 
     public String getMotif() { return motif; }
     public void setMotif(String motif) { this.motif = motif; }
+
+    public String getCommentaire() { return commentaire; }
+    public void setCommentaire(String commentaire) { this.commentaire = commentaire; }
 }

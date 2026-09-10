@@ -145,10 +145,11 @@ public class WorkflowRhService {
             throw new IllegalArgumentException("ID du workflow obligatoire pour la validation.");
         }
 
-        // 1. Verrouillage pessimiste strict du workflow pour sérialiser les validations concurrentes
+        // 1. Verrouillage pessimiste strict du workflow pour sérialiser les validations
+        // concurrentes
         String sqlLock = "SELECT w.id_statut_rh, s.code FROM workflow_rh w " +
-                         "JOIN ref_statut_rh s ON w.id_statut_rh = s.id_statut_rh " +
-                         "WHERE w.id_workflow = ? FOR UPDATE";
+                "JOIN ref_statut_rh s ON w.id_statut_rh = s.id_statut_rh " +
+                "WHERE w.id_workflow = ? FOR UPDATE";
         try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
             psLock.setInt(1, idWorkflow);
             try (ResultSet rsLock = psLock.executeQuery()) {
@@ -180,7 +181,8 @@ public class WorkflowRhService {
                 }
             }
             case "RENOUVELLEMENT_CDD", "TRANSFORMATION_CDI", "EMBAUCHE_APRES_STAGE", "MUTATION", "PROMOTION",
-                    "REVALORISATION", "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI", "REPRISE_CONSULTANT", "REORGANISATION" ->
+                    "REVALORISATION", "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI", "REPRISE_CONSULTANT",
+                    "REORGANISATION" ->
                 validerTransition(workflow, req, currentUserId, c);
             case "FIN_CONTRAT", "RUPTURE_ESSAI", "DEMISSION", "LICENCIEMENT", "RUPTURE_CONVENTIONNELLE",
                     "DEPART_RETRAITE" ->
@@ -282,7 +284,8 @@ public class WorkflowRhService {
                 : null;
         workflow.valider(currentUserId, null, null, c);
 
-        // Historiser tout ancien workflow actif pour cet employé (seul le dernier mouvement reste ACTIF)
+        // Historiser tout ancien workflow actif pour cet employé (seul le dernier
+        // mouvement reste ACTIF)
         historiserAutresWorkflows(workflow.getIdEmploye(), workflow.getIdWorkflow(), c);
 
         if (commentaire != null && !commentaire.isBlank()) {
@@ -330,32 +333,14 @@ public class WorkflowRhService {
         }
 
         boolean exigeNouveauContrat = List
-                .of("TRANSFORMATION_CDI", "RENOUVELLEMENT_CDD", "EMBAUCHE_APRES_STAGE", "REPRISE_CONSULTANT", "REPRISE_ANCIENNETE")
+                .of("TRANSFORMATION_CDI", "RENOUVELLEMENT_CDD", "EMBAUCHE_APRES_STAGE", "REPRISE_CONSULTANT",
+                        "REPRISE_ANCIENNETE")
                 .contains(req.getCodeTypeEvenement());
 
-        // ── Garde-fous d'éligibilité du contrat source ────────────────────────────
-        if ("EMBAUCHE_APRES_STAGE".equals(req.getCodeTypeEvenement())) {
-            if (!"STAGE".equals(sourceCodeContrat)) {
-                throw new IllegalArgumentException(
-                        "L'événement 'Passage Stage vers CDD/CDI' n'est applicable qu'à un collaborateur sous convention de Stage.");
-            }
-        }
-        if ("TRANSFORMATION_CDI".equals(req.getCodeTypeEvenement())) {
-            if (!"CDD".equals(sourceCodeContrat) && !"TEMPORAIRE".equals(sourceCodeContrat)) {
-                throw new IllegalArgumentException(
-                        "La transformation en CDI requiert un contrat source de type CDD ou Temporaire.");
-            }
-        }
-        if ("RENOUVELLEMENT_CDD".equals(req.getCodeTypeEvenement())) {
-            if (!"CDD".equals(sourceCodeContrat)) {
-                throw new IllegalArgumentException(
-                        "Le renouvellement de CDD requiert un contrat source de type CDD.");
-            }
-        }
-        if (!exigeNouveauContrat && "STAGE".equals(sourceCodeContrat)) {
-            throw new IllegalArgumentException(
-                    "Un collaborateur sous convention de Stage ne peut pas faire l'objet d'un avenant interne (mutation/promotion/salaire). Veuillez procéder à un 'Passage Stage vers CDD/CDI'.");
-        }
+        // ── Validation centralisée de la matrice ─────────────────────────────────
+        // Les règles métier ne sont plus dupliquées ici : CarriereTransitionRuleEngine
+        // est la source unique de vérité. Les validations dynamiques sont effectuées
+        // avec le contexte DB lorsque le contrat source est connu.
 
         if (exigeNouveauContrat) {
             if (req.getIdTypeContrat() == null) {
@@ -392,101 +377,31 @@ public class WorkflowRhService {
                 throw new IllegalArgumentException("Le contrat de Stage est réservé aux stagiaires.");
             }
 
-            // Validation exhaustive de la matrice de transition et contraintes cibles
+            // Validation exhaustive de la matrice + règles dynamiques (paramètres globaux,
+            // historique CDD, période d'essai) dans le moteur backend unique.
             CarriereTransitionValidator.validerTransition(
                     sourceCodeContrat,
                     req.getCodeTypeEvenement(),
                     codeTypeContrat,
                     codeTypeIntervenant,
-                    req.getDureeEssaiMois()
-            );
-
-            // ── Règles Spécifiques : EMBAUCHE_APRES_STAGE ────────────────────────
-            if ("EMBAUCHE_APRES_STAGE".equals(req.getCodeTypeEvenement())) {
-                if ("STAGE".equals(codeTypeContrat)) {
-                    throw new IllegalArgumentException(
-                            "L'embauche après stage doit aboutir à un contrat de travail (CDD ou CDI), et non à un nouveau contrat de stage.");
-                }
-                if (!"PERMANENT".equals(codeTypeIntervenant)) {
-                    throw new IllegalArgumentException(
-                            "Le type d'intervenant pour une embauche post-stage doit être Salarié Permanent.");
-                }
-            }
-
-            // ── Règles Spécifiques : TRANSFORMATION_CDI ──────────────────────────
-            if ("TRANSFORMATION_CDI".equals(req.getCodeTypeEvenement())) {
-                if (!"CDI".equals(codeTypeContrat)) {
-                    throw new IllegalArgumentException(
-                            "L'événement 'Passage CDD vers CDI' requiert obligatoirement un contrat cible de type CDI.");
-                }
-                if (!"PERMANENT".equals(codeTypeIntervenant)) {
-                    throw new IllegalArgumentException(
-                            "Le type d'intervenant pour un CDI doit être Salarié Permanent.");
-                }
-            }
-
-            // ── Règles Spécifiques : RENOUVELLEMENT_CDD ──────────────────────────
-            if ("RENOUVELLEMENT_CDD".equals(req.getCodeTypeEvenement())) {
-                if (!"CDD".equals(codeTypeContrat)) {
-                    throw new IllegalArgumentException("Le renouvellement de CDD requiert un contrat de type CDD.");
-                }
-                // Règle 1 : Période d'essai strictement interdite sur renouvellement CDD
-                if (req.getDureeEssaiMois() != null && req.getDureeEssaiMois() > 0) {
-                    throw new IllegalArgumentException(
-                            "Une période d'essai est strictement interdite lors d'un renouvellement de CDD.");
-                }
-
-                // Règle 2 : Nombre maximal de renouvellements (2 maximum)
-                int maxRenouvellements = resolveParametreGlobalInt("NB_MAX_RENOUVELLEMENTS_CDD", 2, c);
-                int nbRenouvellementsExistants = compterRenouvellementsCDDPrecedents(
-                        contratActif != null ? contratActif.getIdContrat() : req.getIdContratSource(), c);
-                if (nbRenouvellementsExistants >= maxRenouvellements) {
-                    throw new IllegalArgumentException(
-                            "Le CDD a déjà atteint le nombre maximal de renouvellements autorisés ("
-                                    + maxRenouvellements + "). Au-delà, le contrat doit être requalifié en CDI.");
-                }
-
-                // Règle 3 : Durée cumulée maximale (24 mois maximum)
-                if (req.getDateDebut() == null || req.getDateFin() == null) {
-                    throw new IllegalArgumentException(
-                            "Les dates de début et de fin sont obligatoires pour le renouvellement du CDD.");
-                }
-                int maxMoisCumule = resolveParametreGlobalInt("DUREE_MAX_CDD_MOIS", 24, c);
-                double dureeCumuleeMois = calculerDureeCumuleeCDDMois(
-                        contratActif != null ? contratActif.getIdContrat() : req.getIdContratSource(),
-                        req.getDateDebut(), req.getDateFin(), c);
-                if (dureeCumuleeMois > maxMoisCumule) {
-                    throw new IllegalArgumentException("La durée totale cumulée des CDD ("
-                            + String.format("%.1f", dureeCumuleeMois) + " mois) dépasse le plafond légal de "
-                            + maxMoisCumule + " mois (2 ans). Le contrat doit être requalifié en CDI.");
-                }
-            }
-
-            // ── Règles Spécifiques : REPRISE_ANCIENNETE ──────────────────────────
-            if ("REPRISE_ANCIENNETE".equals(req.getCodeTypeEvenement())) {
-                if ("STAGE".equals(sourceCodeContrat)) {
-                    throw new IllegalArgumentException(
-                            "La réintégration avec reprise d'ancienneté n'est pas applicable à un stagiaire (veuillez utiliser 'Passage Stage vers CDD/CDI').");
-                }
-                if ("STAGE".equals(codeTypeContrat)) {
-                    throw new IllegalArgumentException(
-                            "Une réintégration avec reprise d'ancienneté doit aboutir à un contrat de travail (CDD ou CDI), et non à un stage.");
-                }
-                if (!"PERMANENT".equals(codeTypeIntervenant)) {
-                    throw new IllegalArgumentException(
-                            "Le type d'intervenant pour une réintégration avec reprise d'ancienneté doit être Salarié Permanent.");
-                }
-            }
+                    req.getDureeEssaiMois(),
+                    contratActif != null ? contratActif.getIdContrat() : req.getIdContratSource(),
+                    dateDebutValidation(req),
+                    dateFinValidation(req),
+                    c);
         } else {
-            // Pour les transitions internes sans nouveau contrat (MUTATION, PROMOTION, REVALORISATION, REORGANISATION),
-            // valider l'éligibilité du contrat source et l'absence de période d'essai illégale.
+            // Transitions internes et événements d'essai : même moteur, avec contexte DB
+            // pour les règles dynamiques.
             CarriereTransitionValidator.validerTransition(
                     sourceCodeContrat,
                     req.getCodeTypeEvenement(),
                     sourceCodeContrat,
                     null,
-                    req.getDureeEssaiMois()
-            );
+                    req.getDureeEssaiMois(),
+                    contratActif != null ? contratActif.getIdContrat() : req.getIdContratSource(),
+                    dateDebutValidation(req),
+                    dateFinValidation(req),
+                    c);
         }
 
         Integer idStatutBrouillon = resolveStatut("BROUILLON", c);
@@ -497,7 +412,9 @@ public class WorkflowRhService {
             case "MUTATION" -> "MUTATION";
             case "REVALORISATION" -> "REVALORISATION";
             case "REORGANISATION" -> "REORGANISATION";
-            case "RENOUVELLEMENT_CDD", "TRANSFORMATION_CDI", "EMBAUCHE_APRES_STAGE", "REPRISE_CONSULTANT", "REPRISE_ANCIENNETE" -> "AVENANT";
+            case "RENOUVELLEMENT_CDD", "TRANSFORMATION_CDI", "EMBAUCHE_APRES_STAGE", "REPRISE_CONSULTANT",
+                    "REPRISE_ANCIENNETE" ->
+                "AVENANT";
             default -> "AUTRE";
         };
         Integer idMotifMouvement = resolveMotifMouvement(codeMotif, c);
@@ -509,91 +426,8 @@ public class WorkflowRhService {
 
         Integer idContratCibleId = contratActif != null ? contratActif.getIdContrat() : req.getIdContratSource();
 
-        // ── Guard métier : CONFIRMATION_ESSAI ──────────────────────────────────
-        // Bloquer si une confirmation a déjà été appliquée (statut ACTIF ou PLANIFIE)
-        // pour ce contrat
-        if ("CONFIRMATION_ESSAI".equals(req.getCodeTypeEvenement()) && idContratCibleId != null) {
-            String sqlCheckConfirm = "SELECT COUNT(*) FROM workflow_rh w " +
-                    "JOIN ref_statut_rh s ON w.id_statut_rh = s.id_statut_rh " +
-                    "JOIN ref_type_evenement_rh ev ON w.id_type_evenement_rh = ev.id_type_evenement_rh " +
-                    "WHERE ev.code = 'CONFIRMATION_ESSAI' " +
-                    "AND s.code IN ('ACTIF','PLANIFIE') " +
-                    "AND (w.id_contrat_cible = ? OR w.id_contrat_source = ?)";
-            try (var psChk = c.prepareStatement(sqlCheckConfirm)) {
-                psChk.setInt(1, idContratCibleId);
-                psChk.setInt(2, idContratCibleId);
-                try (var rsChk = psChk.executeQuery()) {
-                    if (rsChk.next() && rsChk.getInt(1) > 0) {
-                        throw new IllegalStateException(
-                                "La période d'essai de ce contrat a déjà été confirmée (ou une confirmation est déjà planifiée). "
-                                        +
-                                        "Une double confirmation n'est pas autorisée.");
-                    }
-                }
-            }
-            // Vérifier aussi qu'il existe bien une période d'essai EN_COURS pour ce contrat
-            String sqlChkPe = "SELECT COUNT(*) FROM contrat_periode_essai WHERE id_contrat = ? AND statut = 'EN_COURS'";
-            try (var psPe = c.prepareStatement(sqlChkPe)) {
-                psPe.setInt(1, idContratCibleId);
-                try (var rsPe = psPe.executeQuery()) {
-                    if (rsPe.next() && rsPe.getInt(1) == 0) {
-                        throw new IllegalStateException(
-                                "Aucune période d'essai EN_COURS trouvée pour ce contrat. " +
-                                        "Impossible de confirmer une période déjà terminée ou inexistante.");
-                    }
-                }
-            }
-        }
-
-        // ── Guard métier : RENOUVELLEMENT_ESSAI ───────────────────────────────
-        // Bloquer si le nombre de périodes existantes >= MAX_RENOUVELLEMENTS_ESSAI
-        if ("RENOUVELLEMENT_ESSAI".equals(req.getCodeTypeEvenement()) && idContratCibleId != null) {
-            int maxRenouvellements = resolveParametreGlobalInt("MAX_RENOUVELLEMENTS_ESSAI", 1, c);
-            // Compter les périodes de renouvellement déjà créées (numéro_periode > 1)
-            String sqlCountRenew = "SELECT COUNT(*) FROM contrat_periode_essai WHERE id_contrat = ? AND numero_periode > 1";
-            try (var psCount = c.prepareStatement(sqlCountRenew)) {
-                psCount.setInt(1, idContratCibleId);
-                try (var rsCount = psCount.executeQuery()) {
-                    if (rsCount.next() && rsCount.getInt(1) >= maxRenouvellements) {
-                        throw new IllegalArgumentException(
-                                "Le nombre maximal de renouvellements de la période d'essai (" + maxRenouvellements
-                                        + ") a déjà été atteint. " +
-                                        "Pour modifier cette limite, ajustez le paramètre MAX_RENOUVELLEMENTS_ESSAI.");
-                    }
-                }
-            }
-            // Vérifier qu'il existe bien une période EN_COURS à renouveler
-            String sqlChkPe = "SELECT COUNT(*) FROM contrat_periode_essai WHERE id_contrat = ? AND statut = 'EN_COURS'";
-            try (var psPe = c.prepareStatement(sqlChkPe)) {
-                psPe.setInt(1, idContratCibleId);
-                try (var rsPe = psPe.executeQuery()) {
-                    if (rsPe.next() && rsPe.getInt(1) == 0) {
-                        throw new IllegalStateException(
-                                "Aucune période d'essai EN_COURS trouvée pour ce contrat. " +
-                                        "Impossible de renouveler une période déjà terminée, confirmée ou inexistante.");
-                    }
-                }
-            }
-            // Vérifier qu'aucune confirmation n'est déjà planifiée/active
-            String sqlCheckConfirm = "SELECT COUNT(*) FROM workflow_rh w " +
-                    "JOIN ref_statut_rh s ON w.id_statut_rh = s.id_statut_rh " +
-                    "JOIN ref_type_evenement_rh ev ON w.id_type_evenement_rh = ev.id_type_evenement_rh " +
-                    "WHERE ev.code = 'CONFIRMATION_ESSAI' " +
-                    "AND s.code IN ('ACTIF','PLANIFIE') " +
-                    "AND (w.id_contrat_cible = ? OR w.id_contrat_source = ?)";
-            try (var psChk = c.prepareStatement(sqlCheckConfirm)) {
-                psChk.setInt(1, idContratCibleId);
-                psChk.setInt(2, idContratCibleId);
-                try (var rsChk = psChk.executeQuery()) {
-                    if (rsChk.next() && rsChk.getInt(1) > 0) {
-                        throw new IllegalStateException(
-                                "Une confirmation de la période d'essai est déjà planifiée ou appliquée pour ce contrat. "
-                                        +
-                                        "Impossible de renouveler.");
-                    }
-                }
-            }
-        }
+        // Les contrôles dynamiques CONFIRMATION_ESSAI / RENOUVELLEMENT_ESSAI
+        // sont désormais effectués par CarriereTransitionRuleEngine.
 
         if (!estEvenementEssai && !estEvenementRupture && req.getIdTypeContrat() != null && (exigeNouveauContrat
                 || contratActif == null || !req.getIdTypeContrat().equals(contratActif.getIdTypeContrat()))) {
@@ -684,6 +518,7 @@ public class WorkflowRhService {
         workflow.setDateDemande(new Date(System.currentTimeMillis()));
         workflow.setDateEffet(req.getDateEffet());
         workflow.setMotif(req.getMotif());
+        workflow.setCommentaire(req.getCommentaire());
         workflow.setIdDemandeur(currentUserId);
         workflow.save(c);
 
@@ -717,6 +552,38 @@ public class WorkflowRhService {
     }
 
     /**
+     * Les décisions d'essai sont des actes ponctuels sur le contrat existant :
+     * elles ne passent pas par une étape BROUILLON. L'autorisation de validation
+     * est contrôlée par le endpoint appelant.
+     */
+    public WorkflowRhCPL confirmerEssaiDirectement(Integer idEmploye, TransitionCarriereRequest req,
+            Integer currentUserId, Connection c) throws Exception {
+        String evenement = req.getCodeTypeEvenement() == null ? "" : req.getCodeTypeEvenement().trim().toUpperCase();
+        if (!List.of("CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI").contains(evenement)) {
+            throw new IllegalArgumentException("Cette action directe est réservée à la confirmation ou au renouvellement d'essai.");
+        }
+        Date aujourdHui = new Date(System.currentTimeMillis());
+        if (req.getDateEffet() == null || req.getDateEffet().after(aujourdHui)) {
+            throw new IllegalArgumentException("Une décision d'essai directe doit prendre effet aujourd'hui ou dans le passé.");
+        }
+        ContratTravail contratActif = ContratTravail.rechercherActifParEmploye(idEmploye, c);
+        if (contratActif == null || req.getIdContratSource() == null
+                || !req.getIdContratSource().equals(contratActif.getIdContrat())) {
+            throw new IllegalArgumentException(
+                    "La décision d'essai doit concerner le contrat ACTIF de l'employé ; un autre contrat ne peut pas être sélectionné.");
+        }
+
+        WorkflowRhCPL brouillon = creerBrouillonTransition(idEmploye, req, currentUserId, c);
+        WorkflowRh workflow = new WorkflowRh().rechercherParId(brouillon.getIdWorkflow(), c);
+        appliquerWorkflowEvenement(workflow, c, req.getDateFinEssai());
+        workflow.valider(currentUserId, null, null, c);
+        historiserAutresWorkflows(workflow.getIdEmploye(), workflow.getIdWorkflow(), c);
+        AuditLog.audit(c, "CONFIRMATION_DIRECTE_ESSAI", "workflow_rh",
+                String.valueOf(workflow.getIdWorkflow()), null, workflow);
+        return WorkflowRhCPL.rechercherParId(workflow.getIdWorkflow(), c);
+    }
+
+    /**
      * Modification d'un brouillon de workflow.
      */
     public WorkflowRhCPL modifierBrouillonWorkflow(Integer idWorkflow, TransitionCarriereRequest req, Connection c)
@@ -743,10 +610,12 @@ public class WorkflowRhService {
         // Validation d'intégrité de la transition lors de la modification du brouillon
         String evtCode = req.getCodeTypeEvenement();
         if (evtCode == null && workflow.getIdTypeEvenementRh() != null) {
-            try (var psEvt = c.prepareStatement("SELECT code FROM ref_type_evenement_rh WHERE id_type_evenement_rh = ?")) {
+            try (var psEvt = c
+                    .prepareStatement("SELECT code FROM ref_type_evenement_rh WHERE id_type_evenement_rh = ?")) {
                 psEvt.setInt(1, workflow.getIdTypeEvenementRh());
                 try (var rsEvt = psEvt.executeQuery()) {
-                    if (rsEvt.next()) evtCode = rsEvt.getString("code");
+                    if (rsEvt.next())
+                        evtCode = rsEvt.getString("code");
                 }
             }
         }
@@ -755,11 +624,12 @@ public class WorkflowRhService {
         if (workflow.getIdContratSource() != null) {
             try (var psSrc = c.prepareStatement(
                     "SELECT rtc.code FROM contrat_travail ct " +
-                    "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
-                    "WHERE ct.id_contrat = ?")) {
+                            "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
+                            "WHERE ct.id_contrat = ?")) {
                 psSrc.setInt(1, workflow.getIdContratSource());
                 try (var rsSrc = psSrc.executeQuery()) {
-                    if (rsSrc.next()) sourceCodeContrat = rsSrc.getString("code");
+                    if (rsSrc.next())
+                        sourceCodeContrat = rsSrc.getString("code");
                 }
             }
         }
@@ -770,17 +640,19 @@ public class WorkflowRhService {
             try (var psTC = c.prepareStatement("SELECT code FROM ref_type_contrat WHERE id_type_contrat = ?")) {
                 psTC.setInt(1, reqTypeId);
                 try (var rsTC = psTC.executeQuery()) {
-                    if (rsTC.next()) targetCodeContrat = rsTC.getString("code");
+                    if (rsTC.next())
+                        targetCodeContrat = rsTC.getString("code");
                 }
             }
         } else if (workflow.getIdContratCible() != null) {
             try (var psTC = c.prepareStatement(
                     "SELECT rtc.code FROM contrat_travail ct " +
-                    "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
-                    "WHERE ct.id_contrat = ?")) {
+                            "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
+                            "WHERE ct.id_contrat = ?")) {
                 psTC.setInt(1, workflow.getIdContratCible());
                 try (var rsTC = psTC.executeQuery()) {
-                    if (rsTC.next()) targetCodeContrat = rsTC.getString("code");
+                    if (rsTC.next())
+                        targetCodeContrat = rsTC.getString("code");
                 }
             }
         }
@@ -791,17 +663,19 @@ public class WorkflowRhService {
             try (var psTI = c.prepareStatement("SELECT code FROM ref_type_intervenant WHERE id_type_intervenant = ?")) {
                 psTI.setInt(1, targetIntervenantId);
                 try (var rsTI = psTI.executeQuery()) {
-                    if (rsTI.next()) targetCodeIntervenant = rsTI.getString("code");
+                    if (rsTI.next())
+                        targetCodeIntervenant = rsTI.getString("code");
                 }
             }
         } else if (workflow.getIdContratCible() != null) {
             try (var psTI = c.prepareStatement(
                     "SELECT rti.code FROM contrat_travail ct " +
-                    "JOIN ref_type_intervenant rti ON ct.id_type_intervenant = rti.id_type_intervenant " +
-                    "WHERE ct.id_contrat = ?")) {
+                            "JOIN ref_type_intervenant rti ON ct.id_type_intervenant = rti.id_type_intervenant " +
+                            "WHERE ct.id_contrat = ?")) {
                 psTI.setInt(1, workflow.getIdContratCible());
                 try (var rsTI = psTI.executeQuery()) {
-                    if (rsTI.next()) targetCodeIntervenant = rsTI.getString("code");
+                    if (rsTI.next())
+                        targetCodeIntervenant = rsTI.getString("code");
                 }
             }
         }
@@ -809,13 +683,19 @@ public class WorkflowRhService {
         Integer essaiMois = req.getDureeEssaiMois();
 
         if (evtCode != null) {
+            Integer idContratReference = workflow.getIdContratSource() != null
+                    ? workflow.getIdContratSource()
+                    : workflow.getIdContratCible();
             CarriereTransitionValidator.validerTransition(
                     sourceCodeContrat,
                     evtCode,
                     targetCodeContrat,
                     targetCodeIntervenant,
-                    essaiMois
-            );
+                    essaiMois,
+                    idContratReference,
+                    dateDebutValidation(req),
+                    dateFinValidation(req),
+                    c);
         }
 
         if (workflow.getIdAffectationCible() != null && req.getIdSite() != null) {
@@ -893,6 +773,8 @@ public class WorkflowRhService {
             workflow.setDateEffet(dateEffetToSet);
         if (req.getMotif() != null)
             workflow.setMotif(req.getMotif());
+        if (req.getCommentaire() != null)
+            workflow.setCommentaire(req.getCommentaire());
         workflow.update(c);
 
         AuditLog.audit(c, "MODIFICATION_BROUILLON_WORKFLOW", "workflow_rh",
@@ -906,6 +788,10 @@ public class WorkflowRhService {
      * (confirmation/renouvellement d'essai, rupture ou transition).
      */
     private static void appliquerWorkflowEvenement(WorkflowRh workflow, Connection c) throws Exception {
+        appliquerWorkflowEvenement(workflow, c, null);
+    }
+
+    private static void appliquerWorkflowEvenement(WorkflowRh workflow, Connection c, Date dateFinEssaiCible) throws Exception {
         String typeEvenementCode = resolveCodeTypeEvenement(workflow.getIdTypeEvenementRh(), c);
         Integer idCt = workflow.getIdContratCible() != null ? workflow.getIdContratCible()
                 : workflow.getIdContratSource();
@@ -950,9 +836,9 @@ public class WorkflowRhService {
             ContratTravail ct = new ContratTravail().rechercherParId(idCt, c);
             if (ct != null) {
                 Date dateFinPrev = ct.getDateFinEssai() != null ? ct.getDateFinEssai() : ct.getDateDebut();
-                Date nouvelleFin = workflow.getDateEffet();
+                Date nouvelleFin = dateFinEssaiCible;
                 if (nouvelleFin == null || !nouvelleFin.after(dateFinPrev)) {
-                    nouvelleFin = Date.valueOf(dateFinPrev.toLocalDate().plusMonths(1));
+                    throw new IllegalStateException("La nouvelle date de fin d'essai doit être fournie et postérieure à la fin actuelle.");
                 }
                 // Vérifier que la période suivante n'existe pas déjà (idempotence)
                 boolean nextPeriodExists = false;
@@ -1046,7 +932,8 @@ public class WorkflowRhService {
                 : null;
         workflow.valider(currentUserId, null, null, c);
 
-        // Historiser tout ancien workflow actif pour cet employé (uniquement si l'événement a pris effet immédiatement)
+        // Historiser tout ancien workflow actif pour cet employé (uniquement si
+        // l'événement a pris effet immédiatement)
         historiserAutresWorkflows(workflow.getIdEmploye(), workflow.getIdWorkflow(), c);
 
         if (commentaire != null && !commentaire.isBlank()) {
@@ -1323,7 +1210,8 @@ public class WorkflowRhService {
             }
         }
 
-        // Réactiver automatiquement l'employé s'il était inactif (ex: Reprise Consultant, Réintégration, etc.)
+        // Réactiver automatiquement l'employé s'il était inactif (ex: Reprise
+        // Consultant, Réintégration, etc.)
         try (PreparedStatement psEmp = c.prepareStatement(
                 "UPDATE employe SET est_actif = TRUE, date_desactivation = NULL, motif_desactivation = NULL, updated_at = CURRENT_TIMESTAMP WHERE id_employe = ?")) {
             psEmp.setInt(1, workflow.getIdEmploye());
@@ -1445,17 +1333,21 @@ public class WorkflowRhService {
                 }
             }
 
-            // 4. Rattrapage / Consolidation globale : pour tout employé ayant plusieurs workflows ACTIF, historiser les anciens
+            // 4. Rattrapage / Consolidation globale : pour tout employé ayant plusieurs
+            // workflows ACTIF, historiser les anciens
             try (PreparedStatement psConsolider = c.prepareStatement(
                     "UPDATE workflow_rh w " +
-                    "SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP " +
-                    "WHERE id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') " +
-                    "  AND EXISTS ( " +
-                    "      SELECT 1 FROM workflow_rh w2 " +
-                    "      WHERE w2.id_employe = w.id_employe " +
-                    "        AND w2.id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') " +
-                    "        AND (w2.date_effet > w.date_effet OR (w2.date_effet = w.date_effet AND w2.id_workflow > w.id_workflow)) " +
-                    "  )")) {
+                            "SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP "
+                            +
+                            "WHERE id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') " +
+                            "  AND EXISTS ( " +
+                            "      SELECT 1 FROM workflow_rh w2 " +
+                            "      WHERE w2.id_employe = w.id_employe " +
+                            "        AND w2.id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') "
+                            +
+                            "        AND (w2.date_effet > w.date_effet OR (w2.date_effet = w.date_effet AND w2.id_workflow > w.id_workflow)) "
+                            +
+                            "  )")) {
                 psConsolider.executeUpdate();
             }
         } catch (Exception e) {
@@ -1467,119 +1359,6 @@ public class WorkflowRhService {
      * Compte le nombre de renouvellements CDD précédents en remontant la chaîne des
      * contrats.
      */
-    private static int compterRenouvellementsCDDPrecedents(Integer idContrat, Connection c) {
-        if (idContrat == null)
-            return 0;
-        int count = 0;
-        Integer currentId = idContrat;
-        try {
-            while (currentId != null) {
-                String sql = "SELECT ct.id_contrat_precedent, tc.code " +
-                        "FROM contrat_travail ct " +
-                        "JOIN ref_type_contrat tc ON ct.id_type_contrat = tc.id_type_contrat " +
-                        "WHERE ct.id_contrat = ?";
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setInt(1, currentId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) {
-                            String typeCode = rs.getString("code");
-                            Integer precedentId = rs.getObject("id_contrat_precedent") != null
-                                    ? rs.getInt("id_contrat_precedent")
-                                    : null;
-                            if ("CDD".equals(typeCode) && precedentId != null) {
-                                count++;
-                                currentId = precedentId;
-                            } else {
-                                break;
-                            }
-                        } else {
-                            break;
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Erreur compterRenouvellementsCDDPrecedents : " + e.getMessage());
-        }
-        return count;
-    }
-
-    /**
-     * Calcule la durée totale cumulée en mois de toute la lignée CDD (contrats
-     * passés + nouveau renouvellement).
-     */
-    private static double calculerDureeCumuleeCDDMois(Integer idContratActif, Date nouvelleDateDebut,
-            Date nouvelleDateFin, Connection c) {
-        double totalJours = 0.0;
-        if (nouvelleDateDebut != null && nouvelleDateFin != null) {
-            long joursNouveau = java.time.temporal.ChronoUnit.DAYS.between(
-                    nouvelleDateDebut.toLocalDate(),
-                    nouvelleDateFin.toLocalDate().plusDays(1));
-            totalJours += Math.max(0, joursNouveau);
-        }
-
-        Integer currentId = idContratActif;
-        try {
-            while (currentId != null) {
-                String sql = "SELECT ct.date_debut, ct.date_fin, ct.id_contrat_precedent, tc.code " +
-                        "FROM contrat_travail ct " +
-                        "JOIN ref_type_contrat tc ON ct.id_type_contrat = tc.id_type_contrat " +
-                        "WHERE ct.id_contrat = ?";
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    ps.setInt(1, currentId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) {
-                            String typeCode = rs.getString("code");
-                            Date debut = rs.getDate("date_debut");
-                            Date fin = rs.getDate("date_fin");
-                            Integer precedentId = rs.getObject("id_contrat_precedent") != null
-                                    ? rs.getInt("id_contrat_precedent")
-                                    : null;
-
-                            if ("CDD".equals(typeCode) && debut != null && fin != null) {
-                                long jours = java.time.temporal.ChronoUnit.DAYS.between(
-                                        debut.toLocalDate(),
-                                        fin.toLocalDate().plusDays(1));
-                                totalJours += Math.max(0, jours);
-                            }
-                            currentId = precedentId;
-                        } else {
-                            break;
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Erreur calculerDureeCumuleeCDDMois : " + e.getMessage());
-        }
-
-        // 1 mois moyen = 30.4375 jours (365.25 / 12)
-        return totalJours / 30.4375;
-    }
-
-    // ─── Resolveurs & Helpers Privés ─────────────────────────────────────────────
-
-    /**
-     * Lit un paramètre entier depuis parametre_global (retourne defaultValue si
-     * absent).
-     */
-    private static int resolveParametreGlobalInt(String code, int defaultValue, Connection c) throws Exception {
-        try (var ps = c.prepareStatement(
-                "SELECT valeur FROM parametre_global WHERE code_parametre = ? AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) ORDER BY date_debut DESC LIMIT 1")) {
-            ps.setString(1, code);
-            try (var rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    try {
-                        return Integer.parseInt(rs.getString(1).trim());
-                    } catch (NumberFormatException ignored) {
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return defaultValue;
-    }
-
     /**
      * Résout l'id_statut_rh depuis ref_statut_rh par son code.
      * Remplace les anciens
@@ -1732,6 +1511,16 @@ public class WorkflowRhService {
         }
     }
 
+    private static Date dateFinValidation(TransitionCarriereRequest req) {
+        return "RENOUVELLEMENT_ESSAI".equals(req.getCodeTypeEvenement())
+                ? req.getDateFinEssai() : req.getDateFin();
+    }
+
+    private static Date dateDebutValidation(TransitionCarriereRequest req) {
+        return "RENOUVELLEMENT_ESSAI".equals(req.getCodeTypeEvenement())
+                ? req.getDateEffet() : req.getDateDebut();
+    }
+
     /**
      * Adapte la signature de creerNotificationRh vers NotificationRhService.
      * Conservé pour compatibilité interne durant migration.
@@ -1760,9 +1549,11 @@ public class WorkflowRhService {
         }
     }
 
-    private static void historiserAutresWorkflows(int idEmploye, int idWorkflowActuel, Connection c) throws SQLException {
-        String sql = "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), " +
-                     "updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')";
+    private static void historiserAutresWorkflows(int idEmploye, int idWorkflowActuel, Connection c)
+            throws SQLException {
+        String sql = "UPDATE workflow_rh SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), "
+                +
+                "updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_workflow <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             ps.setInt(2, idWorkflowActuel);

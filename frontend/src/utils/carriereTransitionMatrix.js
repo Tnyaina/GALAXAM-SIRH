@@ -28,6 +28,8 @@ export const TRANSITION_RULES_BY_SOURCE = {
             'PROMOTION',
             'REVALORISATION',
             'REORGANISATION',
+            'CONFIRMATION_ESSAI',
+            'RENOUVELLEMENT_ESSAI',
         ],
         disabledReasons: {
             EMBAUCHE_APRES_STAGE: 'Le collaborateur est déjà sous contrat de travail (CDD).',
@@ -42,6 +44,8 @@ export const TRANSITION_RULES_BY_SOURCE = {
             'REVALORISATION',
             'REORGANISATION',
             'REPRISE_CONSULTANT',
+            'CONFIRMATION_ESSAI',
+            'RENOUVELLEMENT_ESSAI',
         ],
         disabledReasons: {
             TRANSFORMATION_CDI: 'Le collaborateur est déjà sous contrat à durée indéterminée (CDI).',
