@@ -1590,7 +1590,6 @@ public class PointageSaisieService {
                 }
 
                 // Synchronisation systématique dans la table dynamique pointage_indemnite_jour
-                Integer idIndRepas = idIndemniteByCode.get("REPAS");
                 if (idIndRepas != null) {
                     boolean repasAccorde = !estNonTravaille && dto.isIndemniteRepasRecue();
                     psDyn.setInt(1, idPtg);
@@ -1602,8 +1601,6 @@ public class PointageSaisieService {
                     psDyn.executeUpdate();
                 }
 
-                Integer idIndDep = idIndemniteByCode.get("DEPLACEMENT");
-                if (idIndDep == null) idIndDep = idIndemniteByCode.get("TRANSPORT");
                 if (idIndDep != null) {
                     boolean depAccorde = !estNonTravaille && depRecue;
                     double qteDep = depAccorde ? ((depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0)) : 0.0;
