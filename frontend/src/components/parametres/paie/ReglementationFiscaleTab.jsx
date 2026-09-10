@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
     Scale, TrendingUp, CheckCircle2, Clock, Edit2, Eye, X,
     Banknote, Percent, Timer, Palmtree, Info, FileText, AlertTriangle,
-    Sparkles, Trash2
+    Sparkles, Trash2, Plus
 } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
@@ -76,6 +76,15 @@ function KpiField({ label, value, sub }) {
 }
 
 // ---- Valeurs de pré-remplissage (guide de saisie pour un premier exercice vide) ----
+const DEFAULT_TRANCHES_IRSA = [
+    { numeroTranche: 1, trancheMin: 0, trancheMax: 350000, taux: 0 },
+    { numeroTranche: 2, trancheMin: 350001, trancheMax: 400000, taux: 5 },
+    { numeroTranche: 3, trancheMin: 400001, trancheMax: 500000, taux: 10 },
+    { numeroTranche: 4, trancheMin: 500001, trancheMax: 600000, taux: 15 },
+    { numeroTranche: 5, trancheMin: 600001, trancheMax: 4000000, taux: 20 },
+    { numeroTranche: 6, trancheMin: 4000001, trancheMax: '', taux: 25 },
+];
+
 const EMPTY_FORM = {
     codeVersion: '', libelle: '', dateDebut: '', dateFin: '',
     smeNational: '262680', smeAgricole: '266500', plafondCotisationNbSme: '8',
@@ -83,7 +92,142 @@ const EMPTY_FORM = {
     arrondiBaseIrsa: 'CENTAINE_INF',
     dureeHebdoLegale: '40', diviseurMensuelHeures: '173.3333', seuilHsTranche1: '8', plafondHsHebdo: '20',
     acquisitionCongeMensuelJours: '2.5', diviseurValorisationCongeJours: '30',
+    tranchesIrsa: DEFAULT_TRANCHES_IRSA,
 };
+
+function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
+    const handleAdd = () => {
+        const last = tranches[tranches.length - 1];
+        if (last && (last.trancheMax === '' || last.trancheMax === null || last.trancheMax === undefined)) {
+            alert("Veuillez d'abord définir un montant maximum pour la dernière tranche avant d'en ajouter une nouvelle.");
+            return;
+        }
+        const nextNum = tranches.length + 1;
+        const nextMin = last ? (parseFloat(last.trancheMax) || 0) + 1 : 0;
+        onChange([
+            ...tranches,
+            { numeroTranche: nextNum, trancheMin: nextMin, trancheMax: '', taux: 0 }
+        ]);
+    };
+
+    const handleRemove = (idx) => {
+        if (tranches.length <= 1) return;
+        const next = tranches.filter((_, i) => i !== idx).map((t, i) => ({ ...t, numeroTranche: i + 1 }));
+        onChange(next);
+    };
+
+    const handleFieldChange = (idx, field, val) => {
+        const next = [...tranches];
+        next[idx] = { ...next[idx], [field]: val };
+        onChange(next);
+    };
+
+    return (
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3 col-span-1 md:col-span-2">
+            <div className="flex items-center justify-between">
+                <SectionTitle 
+                    icon={Percent} 
+                    label="6. Barème Progressif IRSA (Tranches d'imposition)" 
+                    color="var(--color-warning-600)" 
+                    badge="Code Général des Impôts (CGI)"
+                />
+                {!isReadOnly && (
+                    <Button type="button" variant="secondary" size="sm" onClick={handleAdd} iconLeft={<Plus size={13} />}>
+                        Ajouter une tranche
+                    </Button>
+                )}
+            </div>
+
+            <div className="border border-[var(--color-border-subtle)] overflow-x-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                        <tr className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] uppercase tracking-wider font-semibold">
+                            <th className="p-2.5 w-24">Tranche</th>
+                            <th className="p-2.5 text-right">Seuil Min (Ar)</th>
+                            <th className="p-2.5 text-right">Seuil Max (Ar)</th>
+                            <th className="p-2.5 text-right w-28">Taux IRSA</th>
+                            {!isReadOnly && <th className="p-2.5 w-16 text-center">Action</th>}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                        {tranches.map((t, idx) => {
+                            const isLast = idx === tranches.length - 1;
+                            if (isReadOnly) {
+                                return (
+                                    <tr key={t.numeroTranche || idx} className="hover:bg-[var(--color-bg-subtle)]/30">
+                                        <td className="p-2.5 font-bold text-[var(--color-brand-500)]">Tranche {t.numeroTranche}</td>
+                                        <td className="p-2.5 text-right font-mono font-semibold">{fmtAr(t.trancheMin)}</td>
+                                        <td className="p-2.5 text-right font-mono font-semibold">{t.trancheMax ? fmtAr(t.trancheMax) : 'Sans plafond (∞)'}</td>
+                                        <td className="p-2.5 text-right font-bold text-[var(--color-danger-500)]">{t.taux}%</td>
+                                    </tr>
+                                );
+                            }
+                            return (
+                                <tr key={idx} className="hover:bg-[var(--color-bg-subtle)]/30">
+                                    <td className="p-2.5 font-bold text-[var(--color-brand-500)]">Tranche {t.numeroTranche}</td>
+                                    <td className="p-2.5">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            required
+                                            value={t.trancheMin}
+                                            disabled={idx === 0}
+                                            onChange={e => handleFieldChange(idx, 'trancheMin', e.target.value)}
+                                            className="w-full text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2 py-1 text-right font-mono focus:outline-none focus:border-[var(--color-brand-500)] disabled:opacity-60"
+                                        />
+                                    </td>
+                                    <td className="p-2.5">
+                                        <input
+                                            type="number"
+                                            min={parseFloat(t.trancheMin) + 1 || 0}
+                                            step="1"
+                                            placeholder={isLast ? "Sans plafond (∞)" : "Requis"}
+                                            value={t.trancheMax}
+                                            onChange={e => handleFieldChange(idx, 'trancheMax', e.target.value)}
+                                            className="w-full text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2 py-1 text-right font-mono focus:outline-none focus:border-[var(--color-brand-500)]"
+                                        />
+                                    </td>
+                                    <td className="p-2.5">
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.01"
+                                                required
+                                                value={t.taux}
+                                                onChange={e => handleFieldChange(idx, 'taux', e.target.value)}
+                                                className="w-full text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] pl-2 pr-5 py-1 text-right font-mono font-bold text-[var(--color-danger-500)] focus:outline-none focus:border-[var(--color-brand-500)]"
+                                            />
+                                            <span className="absolute right-1.5 top-1 text-[11px] text-[var(--color-fg-muted)] pointer-events-none">%</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-2.5 text-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemove(idx)}
+                                            disabled={tranches.length <= 1}
+                                            className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                                            title="Supprimer cette tranche"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+            {!isReadOnly && (
+                <p className="text-[11px] text-[var(--color-fg-muted)]">
+                    La première tranche (T1) commence obligatoirement à 0 Ar. La dernière tranche peut être laissée sans plafond (∞).
+                </p>
+            )}
+        </div>
+    );
+}
 
 // ---- Modale de saisie ----
 function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, formData, setFormData, activeConfig }) {
@@ -327,9 +471,9 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                         </div>
 
                         <div className="p-3 bg-[var(--color-warning-500)]/8 border border-[var(--color-warning-500)]/25 text-xs text-[var(--color-fg-muted)] space-y-1">
-                            <span className="font-semibold text-[var(--color-fg)]">Note sur les tranches d'impôt :</span>
+                            <span className="font-semibold text-[var(--color-fg)]">Grille des tranches IRSA :</span>
                             <p className="text-[11px]">
-                                Les tranches progressives (de 0% à 25%) et leurs seuils sont paramétrables dans le sous-onglet <strong>Barèmes IRSA</strong>.
+                                Les tranches d'imposition progressives sont configurables dans la section 6 ci-dessous pour cet exercice fiscal.
                             </p>
                         </div>
                     </div>
@@ -423,10 +567,32 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                         </p>
                     </div>
 
+                    {/* SECTION 6 : Barème Progressif IRSA (Pleine largeur) */}
+                    <TranchesIrsaFormSection 
+                        tranches={formData.tranchesIrsa || []} 
+                        onChange={v => upd('tranchesIrsa', v)} 
+                        isReadOnly={isReadOnly} 
+                    />
+
                 </div>
             </form>
         </Modal>
     );
+}
+
+function getTranchesForConfig(config, baremesList) {
+    if (!config || !baremesList) return [];
+    if (config.idConfigLegale) {
+        const byId = baremesList.filter(t => t.idConfigLegale === config.idConfigLegale);
+        if (byId.length > 0) return byId.sort((a, b) => (a.numeroTranche || 0) - (b.numeroTranche || 0));
+    }
+    const cDebut = fmtDateInput(config.dateDebut);
+    const cFin = fmtDateInput(config.dateFin) || '';
+    return baremesList.filter(t => {
+        const tDebut = fmtDateInput(t.dateDebut);
+        const tFin = fmtDateInput(t.dateFin) || '';
+        return tDebut === cDebut && tFin === cFin;
+    }).sort((a, b) => (a.numeroTranche || 0) - (b.numeroTranche || 0));
 }
 
 // ==============================
@@ -434,6 +600,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
 // ==============================
 export default function ReglementationFiscaleTab() {
     const [configs, setConfigs] = useState([]);
+    const [baremesIrsa, setBaremesIrsa] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [modalError, setModalError] = useState(null);
@@ -453,8 +620,12 @@ export default function ReglementationFiscaleTab() {
         setLoading(true);
         setError(null);
         try {
-            const data = await paieConfigService.getAllConfigsLegales();
-            setConfigs(data || []);
+            const [dataConfigs, dataIrsa] = await Promise.all([
+                paieConfigService.getAllConfigsLegales(),
+                paieConfigService.getBaremesIrsa()
+            ]);
+            setConfigs(dataConfigs || []);
+            setBaremesIrsa(dataIrsa || []);
         } catch {
             setError("Impossible de charger les exercices fiscaux.");
         } finally {
@@ -465,11 +636,12 @@ export default function ReglementationFiscaleTab() {
     useEffect(() => { load(); }, []);
 
     const activeConfig = configs.find(c => getStatut(c) === 'EN_VIGUEUR');
+    const activeTranches = getTranchesForConfig(activeConfig, baremesIrsa);
     const displayedConfigs = showArchived ? configs : configs.filter(c => getStatut(c) !== 'ARCHIVE');
 
     // ---- Ouverture "Initialiser" : aucun exercice actif ----
     const handleOpenInit = () => {
-        setFormData({ ...EMPTY_FORM, dateDebut: todayStr });
+        setFormData({ ...EMPTY_FORM, dateDebut: todayStr, tranchesIrsa: DEFAULT_TRANCHES_IRSA });
         setModalMode('init');
         setEditingId(null);
         setModalError(null);
@@ -479,6 +651,16 @@ export default function ReglementationFiscaleTab() {
     // ---- Ouverture "Nouvelle Loi de Finances" : clôture actif + crée le suivant ----
     const handleOpenRevaloriser = () => {
         if (!activeConfig) return;
+        const currentTranches = getTranchesForConfig(activeConfig, baremesIrsa);
+        const clonedTranches = currentTranches.length > 0
+            ? currentTranches.map(t => ({
+                numeroTranche: t.numeroTranche,
+                trancheMin: t.trancheMin,
+                trancheMax: t.trancheMax ?? '',
+                taux: t.taux
+            }))
+            : DEFAULT_TRANCHES_IRSA;
+
         const f = {
             codeVersion: '', libelle: '',
             dateDebut: '', dateFin: '',
@@ -495,6 +677,7 @@ export default function ReglementationFiscaleTab() {
             plafondHsHebdo:           String(activeConfig.plafondHsHebdo ?? '20'),
             acquisitionCongeMensuelJours:   String(activeConfig.acquisitionCongeMensuelJours ?? '2.5'),
             diviseurValorisationCongeJours: String(activeConfig.diviseurValorisationCongeJours ?? '30'),
+            tranchesIrsa:             clonedTranches,
         };
         setFormData(f);
         setModalMode('revaloriser');
@@ -505,6 +688,7 @@ export default function ReglementationFiscaleTab() {
 
     // ---- Ouverture "Détails" : lecture seule pour un exercice archivé ----
     const handleOpenView = (config) => {
+        const tranches = getTranchesForConfig(config, baremesIrsa);
         setFormData({
             codeVersion:              config.codeVersion ?? '',
             libelle:                  config.libelle ?? '',
@@ -523,6 +707,12 @@ export default function ReglementationFiscaleTab() {
             plafondHsHebdo:           String(config.plafondHsHebdo ?? '20'),
             acquisitionCongeMensuelJours:   String(config.acquisitionCongeMensuelJours ?? '2.5'),
             diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? '30'),
+            tranchesIrsa:             tranches.map(t => ({
+                numeroTranche: t.numeroTranche,
+                trancheMin: t.trancheMin,
+                trancheMax: t.trancheMax ?? '',
+                taux: t.taux
+            })),
         });
         setModalMode('view');
         setEditingId(null);
@@ -548,6 +738,7 @@ export default function ReglementationFiscaleTab() {
 
     // ---- Ouverture "Corriger" : correction immédiate d'un exercice existant ----
     const handleOpenEdit = (config) => {
+        const tranches = getTranchesForConfig(config, baremesIrsa);
         setFormData({
             codeVersion:              config.codeVersion ?? '',
             libelle:                  config.libelle ?? '',
@@ -566,6 +757,12 @@ export default function ReglementationFiscaleTab() {
             plafondHsHebdo:           String(config.plafondHsHebdo ?? '20'),
             acquisitionCongeMensuelJours:   String(config.acquisitionCongeMensuelJours ?? '2.5'),
             diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? '30'),
+            tranchesIrsa:             tranches.length > 0 ? tranches.map(t => ({
+                numeroTranche: t.numeroTranche,
+                trancheMin: t.trancheMin,
+                trancheMax: t.trancheMax ?? '',
+                taux: t.taux
+            })) : DEFAULT_TRANCHES_IRSA,
         });
         setModalMode('edit');
         setEditingId(config.idConfigLegale);
@@ -578,6 +775,12 @@ export default function ReglementationFiscaleTab() {
         libelle:                      formData.libelle,
         dateDebut:                    formData.dateDebut || null,
         dateFin:                      formData.dateFin || null,
+        tranchesIrsa:                 (formData.tranchesIrsa || []).map(t => ({
+            numeroTranche: t.numeroTranche,
+            trancheMin: parseFloat(t.trancheMin) || 0,
+            trancheMax: t.trancheMax !== '' && t.trancheMax !== null && t.trancheMax !== undefined ? parseFloat(t.trancheMax) : null,
+            taux: parseFloat(t.taux) || 0
+        })),
         smeNational:                  parseSafe(formData.smeNational),
         smeAgricole:                  parseSafe(formData.smeAgricole),
         plafondCotisationNbSme:       parseSafe(formData.plafondCotisationNbSme, 8),
@@ -696,12 +899,41 @@ export default function ReglementationFiscaleTab() {
                         </div>
 
                         <div>
-                            <SectionTitle icon={Percent} label="Règles Fiscales IRSA" color="var(--color-warning-600)" />
+                            <SectionTitle icon={Percent} label="Règles Fiscales IRSA" color="var(--color-warning-600)" badge="Code Général des Impôts" />
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 <KpiField label="Seuil d'exonération" value={fmtAr(activeConfig.seuilExonerationIrsa)} sub="Base imposable en dessous → IRSA = 0" />
                                 <KpiField label="Minimum de Perception" value={fmtAr(activeConfig.minimumPerceptionIrsa)} sub="Plancher légal si IRSA calculé insuffisant" />
                                 <KpiField label="Déduction / Personne à Charge" value={fmtAr(activeConfig.deductionChargeFamille)} sub="Conjoint, enfants légitimes à charge" />
                             </div>
+
+                            {/* Grille des tranches progressives de l'exercice actif */}
+                            {activeTranches.length > 0 && (
+                                <div className="mt-3 border border-[var(--color-border-subtle)] overflow-hidden">
+                                    <div className="px-3 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
+                                        Barème Progressif IRSA en vigueur ({activeTranches.length} tranches)
+                                    </div>
+                                    <table className="w-full text-xs text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-[var(--color-surface)] border-b border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] uppercase tracking-wider font-semibold">
+                                                <th className="p-2 w-28">Tranche</th>
+                                                <th className="p-2 text-right">Seuil Minimum (Ar)</th>
+                                                <th className="p-2 text-right">Seuil Maximum (Ar)</th>
+                                                <th className="p-2 text-right w-24">Taux IRSA</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                                            {activeTranches.map(t => (
+                                                <tr key={t.idTranche} className="hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
+                                                    <td className="p-2 font-bold text-[var(--color-brand-500)]">Tranche {t.numeroTranche}</td>
+                                                    <td className="p-2 text-right font-mono font-semibold">{fmtAr(t.trancheMin)}</td>
+                                                    <td className="p-2 text-right font-mono font-semibold">{t.trancheMax ? fmtAr(t.trancheMax) : 'Sans plafond (∞)'}</td>
+                                                    <td className="p-2 text-right font-bold text-[var(--color-danger-500)]">{t.taux}%</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
 
                         <div>

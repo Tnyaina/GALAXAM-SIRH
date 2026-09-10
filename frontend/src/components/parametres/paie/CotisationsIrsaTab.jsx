@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ShieldCheck, Percent, MapPin, Eye } from 'lucide-react';
+import { ShieldCheck, MapPin, Eye } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
 import { fmtDateInput } from '@/utils/paieUtils';
@@ -14,9 +14,6 @@ import CotisationsList from './cotisations/CotisationsList';
 import CotisationFormModal from './cotisations/CotisationFormModal';
 import SiteCotisationsList from './cotisations/SiteCotisationsList';
 import SiteCotisationFormModal from './cotisations/SiteCotisationFormModal';
-import BaremeIrsaList from './irsa/BaremeIrsaList';
-import IrsaTrancheModal from './irsa/IrsaTrancheModal';
-import IrsaRevalorisationModal from './irsa/IrsaRevalorisationModal';
 
 export default function CotisationsIrsaTab() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -36,7 +33,6 @@ export default function CotisationsIrsaTab() {
     const [cotisations, setCotisations] = useState([]);
     const [siteCotisations, setSiteCotisations] = useState([]);
     const [sites, setSites] = useState([]);
-    const [tranchesIrsa, setTranchesIrsa] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -69,33 +65,18 @@ export default function CotisationsIrsaTab() {
         idSite: '', idTypeCotisation: ''
     });
 
-    // Modale IRSA
-    const [showIrsaModal, setShowIrsaModal] = useState(false);
-    const [editingIrsa, setEditingIrsa] = useState(null);
-    const [irsaFormData, setIrsaFormData] = useState({
-        numeroTranche: 1, trancheMin: 0, trancheMax: '', taux: 0, dateDebut: todayStr, dateFin: ''
-    });
-    // Modale Revalorisation IRSA (Loi de Finances)
-    const [showIrsaRevaloModal, setShowIrsaRevaloModal] = useState(false);
-    const [revaloActionError, setRevaloActionError] = useState(null);
-
-    // Filtre période IRSA
-    const [filtreIrsaPeriode, setFiltreIrsaPeriode] = useState('all'); // 'all' | '<dateDebut>|<dateFin>'
-
     const loadData = async () => {
         setLoading(true);
         setError(null);
         try {
-            const [cotData, siteCotData, sitesData, irsaData] = await Promise.all([
+            const [cotData, siteCotData, sitesData] = await Promise.all([
                 paieConfigService.getCotisations(),
                 paieConfigService.getSiteCotisations(),
-                organisationService.getSites(),
-                paieConfigService.getBaremesIrsa()
+                organisationService.getSites()
             ]);
             setCotisations(cotData);
             setSiteCotisations(siteCotData);
             setSites(sitesData);
-            setTranchesIrsa(irsaData);
         } catch (err) {
             setError("Erreur lors du chargement des données. Veuillez réessayer.");
             console.error(err);
@@ -111,7 +92,7 @@ export default function CotisationsIrsaTab() {
     // Handlers Cotisation
     const handleOpenCreateCotisation = () => {
         setEditingCotisation(null);
-        setCotisationFormData({ code: '', libelle: '', tauxSalarial: 0, tauxPatronal: 0, dateDebut: todayStr, dateFin: '' });
+        setCotisationFormData({ code: '', libelle: '', tauxSalarial: 0, tauxPatronal: 0, portee: 'SITE', dateDebut: todayStr, dateFin: '' });
         setActionError(null);
         setShowCotisationModal(true);
     };
@@ -139,10 +120,10 @@ export default function CotisationsIrsaTab() {
         try {
             if (editingCotisation) {
                 await paieConfigService.updateCotisation(editingCotisation.idTypeCotisation, cotisationFormData);
-                toast({ title: 'Succès', message: `Cotisation "${cotisationFormData.libelle}" modifiée.`, type: 'success' });
+                toast({ title: 'Succès', message: `Cotisation "${cotisationFormData.code}" modifiée.`, type: 'success' });
             } else {
                 await paieConfigService.createCotisation(cotisationFormData);
-                toast({ title: 'Succès', message: `Cotisation "${cotisationFormData.libelle}" créée.`, type: 'success' });
+                toast({ title: 'Succès', message: `Cotisation "${cotisationFormData.code}" créée.`, type: 'success' });
             }
             setShowCotisationModal(false);
             loadData();
@@ -164,42 +145,34 @@ export default function CotisationsIrsaTab() {
         e.preventDefault();
         if (submitting) return;
         setActionError(null);
-        if (!siteCotisationFormData.idSite || !siteCotisationFormData.idTypeCotisation) {
-            setActionError("Veuillez sélectionner un site et une cotisation.");
-            return;
-        }
-        const payload = {
-            idSite: parseInt(siteCotisationFormData.idSite),
-            idTypeCotisation: parseInt(siteCotisationFormData.idTypeCotisation)
-        };
         setSubmitting(true);
         try {
-            await paieConfigService.createSiteCotisation(payload);
-            toast({ title: 'Succès', message: "Cotisation associée au site.", type: 'success' });
+            await paieConfigService.createSiteCotisation({
+                idSite: parseInt(siteCotisationFormData.idSite, 10),
+                idTypeCotisation: parseInt(siteCotisationFormData.idTypeCotisation, 10)
+            });
+            toast({ title: 'Succès', message: 'Cotisation rattachée au site.', type: 'success' });
             setShowSiteCotisationModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur d'affectation.");
+            setActionError(err.response?.data || "Erreur de rattachement.");
         } finally {
             setSubmitting(false);
         }
     };
 
     const requestToggleSiteCotisationStatus = (item) => {
-        const isDeactivating = item.estActif;
+        const actionText = item.estActif ? 'Désactiver' : 'Activer';
         setConfirmState({
             isOpen: true,
-            title: isDeactivating ? `Désactiver l'association de cotisation ?` : `Réactiver l'association ?`,
-            message: isDeactivating
-                ? `La cotisation "${item.cotisationLibelle}" ne sera plus prélevée pour les salariés rattachés au site "${item.siteLibelle}".`
-                : `La cotisation redeviendra active pour ce site.`,
-            confirmLabel: isDeactivating ? "Désactiver" : "Réactiver",
-            variant: isDeactivating ? "danger" : "primary",
-            loading: false,
+            title: `${actionText} l'association`,
+            message: `Êtes-vous sûr de vouloir ${actionText.toLowerCase()} la cotisation "${item.cotisationLibelle}" pour le site "${item.siteLibelle}" ?`,
+            confirmLabel: actionText,
+            variant: item.estActif ? 'danger' : 'primary',
             onConfirm: async () => {
                 setConfirmState(prev => ({ ...prev, loading: true }));
                 try {
-                    if (isDeactivating) {
+                    if (item.estActif) {
                         await paieConfigService.deactivateSiteCotisation(item.idSiteCotisation);
                         toast({ title: 'Succès', message: `Association "${item.siteLibelle} - ${item.cotisationLibelle}" désactivée.`, type: 'success' });
                     } else {
@@ -223,98 +196,6 @@ export default function CotisationsIrsaTab() {
         });
     };
 
-    // Handlers IRSA
-    const handleOpenCreateIrsa = () => {
-        setEditingIrsa(null);
-        const sorted = [...tranchesIrsa].sort((a, b) => (a.numeroTranche || 0) - (b.numeroTranche || 0));
-        const lastTranche = sorted.length > 0 ? sorted[sorted.length - 1] : null;
-        const nextNum = lastTranche ? (lastTranche.numeroTranche || 0) + 1 : 1;
-        const nextMin = lastTranche && lastTranche.trancheMax !== null && lastTranche.trancheMax !== undefined && lastTranche.trancheMax !== ''
-            ? parseFloat(lastTranche.trancheMax) + 1
-            : 0;
-
-        setIrsaFormData({
-            numeroTranche: nextNum,
-            trancheMin: nextMin,
-            trancheMax: '',
-            taux: 0,
-            dateDebut: todayStr,
-            dateFin: ''
-        });
-        setActionError(null);
-        setShowIrsaModal(true);
-    };
-
-    const handleOpenEditIrsa = (t) => {
-        setEditingIrsa(t);
-        setIrsaFormData({
-            numeroTranche: t.numeroTranche,
-            trancheMin: t.trancheMin,
-            trancheMax: t.trancheMax ?? '',
-            taux: t.taux,
-            dateDebut: fmtDateInput(t.dateDebut) || todayStr,
-            dateFin: fmtDateInput(t.dateFin) || ''
-        });
-        setActionError(null);
-        setShowIrsaModal(true);
-    };
-
-    const handleSaveIrsa = async (e) => {
-        e.preventDefault();
-        if (submitting) return;
-        setActionError(null);
-        const payload = {
-            ...irsaFormData,
-            trancheMax: irsaFormData.trancheMax !== '' ? parseFloat(irsaFormData.trancheMax) : null
-        };
-        setSubmitting(true);
-        try {
-            if (editingIrsa) {
-                await paieConfigService.updateBaremeIrsa(editingIrsa.idTranche, payload);
-                toast({ title: 'Succès', message: `Tranche IRSA #${irsaFormData.numeroTranche} modifiée.`, type: 'success' });
-            } else {
-                await paieConfigService.createBaremeIrsa(payload);
-                toast({ title: 'Succès', message: `Tranche IRSA #${irsaFormData.numeroTranche} créée.`, type: 'success' });
-            }
-            setShowIrsaModal(false);
-            loadData();
-        } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    const handleOpenRevaloriserIrsa = () => {
-        setRevaloActionError(null);
-        setShowIrsaRevaloModal(true);
-    };
-
-    const handleSaveRevalorisationIrsa = async (payload) => {
-        setSubmitting(true);
-        setRevaloActionError(null);
-        try {
-            await paieConfigService.revaloriserBaremeIrsa(payload);
-            toast({
-                title: 'Succès',
-                message: `Nouvelle grille IRSA programmée avec succès à partir du ${payload.nouvelleDateDebut}.`,
-                type: 'success'
-            });
-            setShowIrsaRevaloModal(false);
-            loadData();
-        } catch (err) {
-            setRevaloActionError(err.response?.data || "Erreur lors de la revalorisation du barème IRSA.");
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    // Filtrage IRSA par période
-    const irsaGroupes = [...new Set(tranchesIrsa.map(t => `${t.dateDebut || ''}|${t.dateFin || ''}`))];
-    const tranchesFiltered = filtreIrsaPeriode === 'all'
-        ? tranchesIrsa
-        : tranchesIrsa.filter(t => `${t.dateDebut || ''}|${t.dateFin || ''}` === filtreIrsaPeriode);
-
     const filteredSiteCotisations = showInactive
         ? siteCotisations
         : siteCotisations.filter(sc => sc.estActif !== false);
@@ -335,11 +216,10 @@ export default function CotisationsIrsaTab() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-3 shadow-sm">
                 <Tabs
                     tabs={[
-                        { id: 'cotisations', label: 'Cotisations Sociales & Santé', icon: <ShieldCheck size={16} />, count: cotisations.length },
-                        { id: 'site_cotisations', label: 'Cotisations par Site', icon: <MapPin size={16} />, count: filteredSiteCotisations.length },
-                        { id: 'irsa', label: 'Barème IRSA (Progressif)', icon: <Percent size={16} />, count: tranchesIrsa.length }
+                        { id: 'cotisations', label: 'Cotisations Sociales Référentielles', icon: <ShieldCheck size={16} />, count: cotisations.length },
+                        { id: 'site_cotisations', label: 'Rattachement par Site', icon: <MapPin size={16} />, count: filteredSiteCotisations.length },
                     ]}
-                    activeTab={subSection}
+                    activeTab={subSection === 'irsa' ? 'cotisations' : subSection}
                     onChange={setSubSection}
                     variant="pills"
                 />
@@ -356,27 +236,9 @@ export default function CotisationsIrsaTab() {
                         <span>Afficher désactivés</span>
                     </label>
                 )}
-
-                {subSection === 'irsa' && irsaGroupes.length > 1 && (
-                    <select
-                        value={filtreIrsaPeriode}
-                        onChange={e => setFiltreIrsaPeriode(e.target.value)}
-                        className="text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2 py-1 focus:outline-none focus:border-[var(--color-brand-500)]"
-                    >
-                        <option value="all">Toutes les périodes ({tranchesIrsa.length})</option>
-                        {irsaGroupes.map(key => {
-                            const [debut, fin] = key.split('|');
-                            const label = `${debut ? new Date(debut).toLocaleDateString('fr-FR') : '?'} → ${fin ? new Date(fin).toLocaleDateString('fr-FR') : 'En vigueur'}`;
-                            const count = tranchesIrsa.filter(t => `${t.dateDebut || ''}|${t.dateFin || ''}` === key).length;
-                            return (
-                                <option key={key} value={key}>{label} ({count})</option>
-                            );
-                        })}
-                    </select>
-                )}
             </div>
 
-            {subSection === 'cotisations' && (
+            {(subSection === 'cotisations' || subSection === 'irsa') && (
                 <CotisationsList
                     cotisations={cotisations}
                     onOpenCreate={handleOpenCreateCotisation}
@@ -389,15 +251,6 @@ export default function CotisationsIrsaTab() {
                     siteCotisations={filteredSiteCotisations}
                     onOpenCreate={handleOpenCreateSiteCotisation}
                     onToggleStatus={requestToggleSiteCotisationStatus}
-                />
-            )}
-
-            {subSection === 'irsa' && (
-                <BaremeIrsaList
-                    tranchesIrsa={tranchesFiltered}
-                    onOpenCreate={handleOpenCreateIrsa}
-                    onOpenEdit={handleOpenEditIrsa}
-                    onOpenRevaloriser={handleOpenRevaloriserIrsa}
                 />
             )}
 
@@ -421,34 +274,6 @@ export default function CotisationsIrsaTab() {
                 sites={sites}
                 cotisations={cotisations}
                 actionError={actionError}
-                submitting={submitting}
-            />
-
-            <IrsaTrancheModal
-                isOpen={showIrsaModal}
-                onClose={() => setShowIrsaModal(false)}
-                onSubmit={handleSaveIrsa}
-                editingIrsa={editingIrsa}
-                formData={irsaFormData}
-                setFormData={setIrsaFormData}
-                existingTranches={tranchesIrsa}
-                actionError={actionError}
-                submitting={submitting}
-            />
-
-            <IrsaRevalorisationModal
-                isOpen={showIrsaRevaloModal}
-                onClose={() => setShowIrsaRevaloModal(false)}
-                onSubmit={handleSaveRevalorisationIrsa}
-                currentTranches={tranchesIrsa.filter(t => {
-                    const today = new Date(); today.setHours(0, 0, 0, 0);
-                    const debut = t.dateDebut ? new Date(t.dateDebut) : null;
-                    if (debut) debut.setHours(0, 0, 0, 0);
-                    const fin = t.dateFin ? new Date(t.dateFin) : null;
-                    if (fin) fin.setHours(23, 59, 59, 999);
-                    return debut && debut <= today && (!fin || fin >= today);
-                })}
-                actionError={revaloActionError}
                 submitting={submitting}
             />
 

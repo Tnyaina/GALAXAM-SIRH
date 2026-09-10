@@ -3,12 +3,15 @@ package mg.galaxam.sirh.api.dto.paieconfig;
 import java.math.BigDecimal;
 import java.sql.Date;
 
+import java.util.List;
+
 /**
  * DTO pour créer ou revaloriser un exercice fiscal (paie_config_legale).
  *
- * Deux opérations possibles via le contrôleur :
- *  - POST /paie/config-legale         → Créer un nouvel exercice (création initiale)
- *  - POST /paie/config-legale/revaloriser → Clôture l'exercice actif + crée le suivant à la date d'effet
+ * Opérations possibles via le contrôleur :
+ *  - POST /paie/config-legale         → Créer un nouvel exercice (création initiale) avec tranches IRSA
+ *  - POST /paie/config-legale/revaloriser → Clôture l'exercice actif + crée le suivant à la date d'effet avec nouvelles tranches
+ *  - PUT /paie/config-legale/{id}     → Correction de l'exercice et de ses tranches associées
  */
 public class PaieConfigLegaleRequest {
 
@@ -16,6 +19,9 @@ public class PaieConfigLegaleRequest {
     private String libelle;
     private Date dateDebut;
     private Date dateFin;
+
+    // Tranches IRSA associées
+    private List<IrsaRequest> tranchesIrsa;
 
     // Salaire Minimum et Plafonds Sociaux
     private BigDecimal smeNational;
@@ -47,6 +53,8 @@ public class PaieConfigLegaleRequest {
     public void setDateDebut(Date v) { this.dateDebut = v; }
     public Date getDateFin() { return dateFin; }
     public void setDateFin(Date v) { this.dateFin = v; }
+    public List<IrsaRequest> getTranchesIrsa() { return tranchesIrsa; }
+    public void setTranchesIrsa(List<IrsaRequest> tranchesIrsa) { this.tranchesIrsa = tranchesIrsa; }
     public BigDecimal getSmeNational() { return smeNational; }
     public void setSmeNational(BigDecimal v) { this.smeNational = v; }
     public BigDecimal getSmeAgricole() { return smeAgricole; }

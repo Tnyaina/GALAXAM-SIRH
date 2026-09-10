@@ -53,8 +53,8 @@ export default function ParametresModulesPanel() {
 
     // Définition des sous-onglets pour la Paie
     const paieTabs = [
-        { id: 'reglementation_fiscale', label: 'Exercice Fiscal & Réglementation', icon: <Scale size={16} /> },
-        { id: 'cotisations_irsa', label: 'Barèmes IRSA & Cotisations', icon: <ShieldCheck size={16} /> },
+        { id: 'reglementation_fiscale', label: 'Loi de Finances & Fiscalité IRSA', icon: <Scale size={16} /> },
+        { id: 'cotisations_irsa', label: 'Cotisations Sociales & Sites', icon: <ShieldCheck size={16} /> },
         { id: 'majorations', label: 'Majorations HS / Nuit / Férié', icon: <Clock size={16} /> },
         { id: 'indemnites_sites', label: 'Indemnités (Sites)', icon: <Gift size={16} /> },
         { id: 'calendrier', label: 'Calendrier & Fériés', icon: <Calendar size={16} /> },

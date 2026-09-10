@@ -229,7 +229,7 @@ CREATE INDEX idx_config_legale_actif ON paie_config_legale(date_debut, date_fin)
 -- Filiales
 INSERT INTO ref_filiale (id_filiale, code_filiale, raison_sociale, nif, stat, seuil_effectif_alerte) VALUES
 (1, 'GLX', 'Galaxam Logistics', '3000019434', '9876543210', 19),
-(2, 'VA', 'Vina sy Asa SARL', '3000019434', '0123456789', 0);
+(2, 'VA', 'Vina sy Asa ', '3000019434', '0123456789', 0);
 SELECT setval('ref_filiale_id_filiale_seq', (SELECT GREATEST(MAX(id_filiale), 2) FROM ref_filiale));
 
 -- Banques

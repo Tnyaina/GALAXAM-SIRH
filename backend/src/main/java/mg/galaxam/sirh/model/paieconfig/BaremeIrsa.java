@@ -12,6 +12,7 @@ import java.util.List;
 public class BaremeIrsa extends ClassMere {
 
     private Integer idTranche;
+    private Integer idConfigLegale;
     private Integer numeroTranche;
     private BigDecimal trancheMin;
     private BigDecimal trancheMax;
@@ -156,15 +157,17 @@ public class BaremeIrsa extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         validerContinuite(c);
-        String sql = "INSERT INTO bareme_irsa (numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin) " +
-                     "VALUES (?, ?, ?, ?, ?, ?) RETURNING id_tranche";
+        String sql = "INSERT INTO bareme_irsa (id_config_legale, numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id_tranche";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, numeroTranche);
-            ps.setBigDecimal(2, trancheMin);
-            ps.setBigDecimal(3, trancheMax);
-            ps.setBigDecimal(4, taux);
-            ps.setDate(5, dateDebut);
-            ps.setDate(6, dateFin);
+            if (idConfigLegale != null) ps.setInt(1, idConfigLegale);
+            else ps.setNull(1, java.sql.Types.INTEGER);
+            ps.setInt(2, numeroTranche);
+            ps.setBigDecimal(3, trancheMin);
+            ps.setBigDecimal(4, trancheMax);
+            ps.setBigDecimal(5, taux);
+            ps.setDate(6, dateDebut);
+            ps.setDate(7, dateFin);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -178,16 +181,18 @@ public class BaremeIrsa extends ClassMere {
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
         validerContinuite(c);
-        String sql = "UPDATE bareme_irsa SET numero_tranche = ?, tranche_min = ?, tranche_max = ?, taux = ?, " +
+        String sql = "UPDATE bareme_irsa SET id_config_legale = ?, numero_tranche = ?, tranche_min = ?, tranche_max = ?, taux = ?, " +
                      "date_debut = ?, date_fin = ? WHERE id_tranche = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, numeroTranche);
-            ps.setBigDecimal(2, trancheMin);
-            ps.setBigDecimal(3, trancheMax);
-            ps.setBigDecimal(4, taux);
-            ps.setDate(5, dateDebut);
-            ps.setDate(6, dateFin);
-            ps.setInt(7, idTranche);
+            if (idConfigLegale != null) ps.setInt(1, idConfigLegale);
+            else ps.setNull(1, java.sql.Types.INTEGER);
+            ps.setInt(2, numeroTranche);
+            ps.setBigDecimal(3, trancheMin);
+            ps.setBigDecimal(4, trancheMax);
+            ps.setBigDecimal(5, taux);
+            ps.setDate(6, dateDebut);
+            ps.setDate(7, dateFin);
+            ps.setInt(8, idTranche);
             ps.executeUpdate();
         }
         return this;
@@ -209,13 +214,15 @@ public class BaremeIrsa extends ClassMere {
     }
 
     public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT id_tranche, numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin FROM bareme_irsa WHERE id_tranche = ?";
+        String sql = "SELECT id_tranche, id_config_legale, numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin FROM bareme_irsa WHERE id_tranche = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     BaremeIrsa item = new BaremeIrsa();
                     item.idTranche = rs.getInt("id_tranche");
+                    int cfg = rs.getInt("id_config_legale");
+                    item.idConfigLegale = rs.wasNull() ? null : cfg;
                     item.numeroTranche = rs.getInt("numero_tranche");
                     item.trancheMin = rs.getBigDecimal("tranche_min");
                     item.trancheMax = rs.getBigDecimal("tranche_max");
@@ -230,13 +237,15 @@ public class BaremeIrsa extends ClassMere {
     }
 
     public static List<BaremeIrsa> listAll(Connection c) throws Exception {
-        String sql = "SELECT id_tranche, numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin FROM bareme_irsa ORDER BY numero_tranche";
+        String sql = "SELECT id_tranche, id_config_legale, numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin FROM bareme_irsa ORDER BY date_debut DESC, numero_tranche ASC";
         List<BaremeIrsa> list = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 BaremeIrsa item = new BaremeIrsa();
                 item.idTranche = rs.getInt("id_tranche");
+                int cfg = rs.getInt("id_config_legale");
+                item.idConfigLegale = rs.wasNull() ? null : cfg;
                 item.numeroTranche = rs.getInt("numero_tranche");
                 item.trancheMin = rs.getBigDecimal("tranche_min");
                 item.trancheMax = rs.getBigDecimal("tranche_max");
@@ -249,9 +258,34 @@ public class BaremeIrsa extends ClassMere {
         return list;
     }
 
+    public static List<BaremeIrsa> listByConfigLegale(int idConfigLegale, Connection c) throws Exception {
+        String sql = "SELECT id_tranche, id_config_legale, numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin FROM bareme_irsa WHERE id_config_legale = ? ORDER BY numero_tranche ASC";
+        List<BaremeIrsa> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idConfigLegale);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    BaremeIrsa item = new BaremeIrsa();
+                    item.idTranche = rs.getInt("id_tranche");
+                    item.idConfigLegale = idConfigLegale;
+                    item.numeroTranche = rs.getInt("numero_tranche");
+                    item.trancheMin = rs.getBigDecimal("tranche_min");
+                    item.trancheMax = rs.getBigDecimal("tranche_max");
+                    item.taux = rs.getBigDecimal("taux");
+                    item.dateDebut = rs.getDate("date_debut");
+                    item.dateFin = rs.getDate("date_fin");
+                    list.add(item);
+                }
+            }
+        }
+        return list;
+    }
+
     // Getters / Setters
     public Integer getIdTranche() { return idTranche; }
     public void setIdTranche(Integer idTranche) { this.idTranche = idTranche; }
+    public Integer getIdConfigLegale() { return idConfigLegale; }
+    public void setIdConfigLegale(Integer idConfigLegale) { this.idConfigLegale = idConfigLegale; }
     public Integer getNumeroTranche() { return numeroTranche; }
     public void setNumeroTranche(Integer numeroTranche) { this.numeroTranche = numeroTranche; }
     public BigDecimal getTrancheMin() { return trancheMin; }

@@ -174,7 +174,7 @@ CREATE INDEX idx_site_indemnite_actif ON site_indemnite_config(id_site, id_indem
 -- 1. Filiales
 INSERT INTO ref_filiale (code_filiale, raison_sociale, nif, stat, seuil_effectif_alerte) VALUES
 ('GLX', 'Galaxam Logistics', '3000019434', '9876543210', 19),
-('VA', 'Vina sy Asa SARL', '3000019434', '0123456789', 0);
+('VA', 'Vina sy Asa ', '3000019434', '0123456789', 0);
 
 -- 2. Départements
 INSERT INTO ref_departement (code_departement, libelle) VALUES

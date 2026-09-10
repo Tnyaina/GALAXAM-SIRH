@@ -62,7 +62,7 @@ INSERT INTO employe (
 ('334', 'RANDRIAMANJAKA', 'Joseph', 'M', '1984-12-01', 'Antananarivo', 'Malgache', 'TEMP_334', '2003-03-24', 'Antananarivo', 'Lot II Y 14 Bis Ampasampito, Antananarivo', '0349880894', NULL, TRUE),
 
 -- =====================================================================
--- 3. VINA SY ASA SARL (VA)
+-- 3. VINA SY ASA  (VA)
 -- =====================================================================
 ('292', 'ROBINSON', 'Ranto Lalaina', 'M', '1990-11-20', 'Antananarivo', 'Malgache', '101221056094', '2009-08-01', 'Antananarivo', 'Lot II Y 14 Bis Ampasampito, Antananarivo', '0327092823', '75041010032D', TRUE),
 ('295', 'RANDRIANANTENAINA', 'Tsilavohery Tiana Nirina', 'M', '1987-03-24', 'Antananarivo', 'Malgache', '117011036317', '2006-06-15', 'Antananarivo', 'Lot IV G 12 Itaosy, Antananarivo', '0385966453', NULL, TRUE),

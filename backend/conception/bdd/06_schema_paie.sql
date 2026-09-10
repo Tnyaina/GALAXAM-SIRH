@@ -40,7 +40,8 @@ CREATE TABLE ref_type_cotisation (
     ordre INT DEFAULT 1,
     est_actif BOOLEAN DEFAULT TRUE,
     date_debut DATE NOT NULL DEFAULT '2026-01-01',
-    date_fin DATE
+    date_fin DATE,
+    portee VARCHAR(20) DEFAULT 'SITE' CHECK (portee IN ('SITE', 'ENTREPRISE'))
 );
 
 CREATE INDEX idx_type_cotisation_config ON ref_type_cotisation(id_config_legale);

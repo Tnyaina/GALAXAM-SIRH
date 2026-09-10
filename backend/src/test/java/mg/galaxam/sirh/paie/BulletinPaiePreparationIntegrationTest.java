@@ -165,7 +165,7 @@ public class BulletinPaiePreparationIntegrationTest {
         System.out.println("==================================================================");
         System.out.println("📄 BULLETIN DE PAIE — AOÛT 2026 (NOUVEL EMBAUCHÉ AU 17 AOÛT)");
         System.out.println("Matricule        : EMP-2026-0089 (RAKOTONDRASOA Faly Christian)");
-        System.out.println("Filiale          : Vina sy Asa SARL (VA) - Site TNR");
+        System.out.println("Filiale          : Vina sy Asa  (VA) - Site TNR");
         System.out.println("Salaire Mensuel  : 1 050 000.00 Ar (Plein temps)");
         System.out.println("Jours Travaillés : 11 / 21 jours ouvrés");
         System.out.println("👉 BASE PRORATISÉE: " + salaireProratise + " Ar");

@@ -3,10 +3,14 @@ package mg.galaxam.sirh.api.controller.paieconfig;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
+import java.sql.PreparedStatement;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.api.dto.paieconfig.IrsaRequest;
 import mg.galaxam.sirh.api.dto.paieconfig.PaieConfigLegaleRequest;
+import mg.galaxam.sirh.model.paieconfig.BaremeIrsa;
 import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,6 +84,21 @@ public class PaieConfigLegaleController {
             try {
                 PaieConfigLegale config = mapFromRequest(request);
                 config.save(c);
+
+                if (request.getTranchesIrsa() != null && !request.getTranchesIrsa().isEmpty()) {
+                    for (IrsaRequest irsaReq : request.getTranchesIrsa()) {
+                        BaremeIrsa b = new BaremeIrsa();
+                        b.setIdConfigLegale(config.getIdConfigLegale());
+                        b.setNumeroTranche(irsaReq.getNumeroTranche());
+                        b.setTrancheMin(irsaReq.getTrancheMin());
+                        b.setTrancheMax(irsaReq.getTrancheMax());
+                        b.setTaux(irsaReq.getTaux());
+                        b.setDateDebut(config.getDateDebut());
+                        b.setDateFin(config.getDateFin());
+                        b.save(c);
+                    }
+                }
+
                 AuditLog.audit(c, "CREATION", "paie_config_legale",
                         String.valueOf(config.getIdConfigLegale()), null, config);
                 c.commit();
@@ -96,6 +115,7 @@ public class PaieConfigLegaleController {
 
     /**
      * Revalorisation : clôt l'exercice actif + crée le suivant à la date d'effet.
+     * Revalorise également le barème IRSA de façon atomique.
      */
     @PostMapping("/revaloriser")
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
@@ -108,6 +128,21 @@ public class PaieConfigLegaleController {
             try {
                 PaieConfigLegale nouvConfig = mapFromRequest(request);
                 PaieConfigLegale result = PaieConfigLegale.revaloriser(c, request.getDateDebut(), nouvConfig);
+
+                if (request.getTranchesIrsa() != null && !request.getTranchesIrsa().isEmpty()) {
+                    List<BaremeIrsa> nouvellesTranches = new ArrayList<>();
+                    for (IrsaRequest irsaReq : request.getTranchesIrsa()) {
+                        BaremeIrsa b = new BaremeIrsa();
+                        b.setIdConfigLegale(result.getIdConfigLegale());
+                        b.setNumeroTranche(irsaReq.getNumeroTranche());
+                        b.setTrancheMin(irsaReq.getTrancheMin());
+                        b.setTrancheMax(irsaReq.getTrancheMax());
+                        b.setTaux(irsaReq.getTaux());
+                        nouvellesTranches.add(b);
+                    }
+                    BaremeIrsa.revaloriser(c, request.getDateDebut(), nouvellesTranches);
+                }
+
                 AuditLog.audit(c, "REVALORISATION", "paie_config_legale",
                         String.valueOf(result.getIdConfigLegale()), null, result);
                 c.commit();
@@ -138,6 +173,30 @@ public class PaieConfigLegaleController {
                     updated.setCodeVersion(existing.getCodeVersion());
                 }
                 updated.update(c);
+
+                if (request.getTranchesIrsa() != null && !request.getTranchesIrsa().isEmpty()) {
+                    // Nettoyer les tranches existantes pour cet exercice
+                    String delSql = "DELETE FROM bareme_irsa WHERE id_config_legale = ? OR (date_debut = ? AND (date_fin = ? OR (date_fin IS NULL AND ? IS NULL)))";
+                    try (PreparedStatement ps = c.prepareStatement(delSql)) {
+                        ps.setInt(1, id);
+                        ps.setDate(2, updated.getDateDebut());
+                        ps.setDate(3, updated.getDateFin());
+                        ps.setDate(4, updated.getDateFin());
+                        ps.executeUpdate();
+                    }
+                    for (IrsaRequest irsaReq : request.getTranchesIrsa()) {
+                        BaremeIrsa b = new BaremeIrsa();
+                        b.setIdConfigLegale(id);
+                        b.setNumeroTranche(irsaReq.getNumeroTranche());
+                        b.setTrancheMin(irsaReq.getTrancheMin());
+                        b.setTrancheMax(irsaReq.getTrancheMax());
+                        b.setTaux(irsaReq.getTaux());
+                        b.setDateDebut(updated.getDateDebut());
+                        b.setDateFin(updated.getDateFin());
+                        b.save(c);
+                    }
+                }
+
                 AuditLog.audit(c, "CORRECTION", "paie_config_legale", String.valueOf(id), existing, updated);
                 c.commit();
                 PaieConfigLegale reloaded = PaieConfigLegale.findById(id, c);

@@ -56,7 +56,7 @@ export default function FilialeFormModal({
                                 required
                                 value={formData.raisonSociale}
                                 onChange={(e) => setFormData({ ...formData, raisonSociale: e.target.value })}
-                                placeholder="Ex: Galaxam Logistics SARL"
+                                placeholder="Ex: Galaxam Logistics "
                             />
                         </div>
                     </div>

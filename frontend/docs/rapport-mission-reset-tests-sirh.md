@@ -12,7 +12,7 @@ L'objectif de cette mission était de réaliser une validation fonctionnelle et 
 
 ### Directives Utilisateur Appliquées à la Lettre :
 1. **Données structurelles réelles conservées sans ajout artificiel** :
-   - Filiales réelles : `GLX` (Galaxam Logistics) et `VA` (Vina sy Asa SARL).
+   - Filiales réelles : `GLX` (Galaxam Logistics) et `VA` (Vina sy Asa ).
    - Sites réels : `TNR` (Siège Antananarivo) et `TMM` (Port de Toamasina / Tamatave).
    - Départements (`LOG`, `LMD`), Services (`ADM`, `OPE`) et référentiels officiels de `26-08-05-sp0-ref.sql`.
 2. **Dataset de 5 Salariés sur 20 ans d'histoire RH (2006 à 2026)** :
@@ -97,7 +97,7 @@ Résultat : **`BUILD SUCCESS`** en 6.89 secondes
 * **Bulletin de Paie** : Salaire brut augmenté des majorations légales pour un total brut de `1 064 550.18 Ar`.
 
 ### Profil 5 : Nouvel Embauché avec Prorata — RAKOTONDRASOA Faly Christian (`EMP-2026-0089`)
-* **Historique RH** : Embauché le 17 Août 2026 chez Vina sy Asa SARL (`VA`) au Siège TNR, CDI en période d'essai (3 mois jusqu'au 16/11/2026, `1 050 000.00 Ar` mensuel plein).
+* **Historique RH** : Embauché le 17 Août 2026 chez Vina sy Asa  (`VA`) au Siège TNR, CDI en période d'essai (3 mois jusqu'au 16/11/2026, `1 050 000.00 Ar` mensuel plein).
 * **Pointage Août 2026** : 11 jours ouvrés travaillés sur les 21 jours ouvrés du mois.
 * **Bulletin de Paie** :
   - **Proratisation temporis exacte** : 1 050 000 Ar x (11 / 21) = **`550 000.00 Ar`**.

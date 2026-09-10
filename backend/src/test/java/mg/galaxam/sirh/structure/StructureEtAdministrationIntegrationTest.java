@@ -66,7 +66,7 @@ public class StructureEtAdministrationIntegrationTest {
 
                 assertTrue(rs.next(), "La filiale VA doit exister");
                 assertEquals("VA", rs.getString("code_filiale"));
-                assertEquals("Vina sy Asa SARL", rs.getString("raison_sociale"));
+                assertEquals("Vina sy Asa ", rs.getString("raison_sociale"));
 
                 assertFalse(rs.next(), "Aucune filiale artificielle ne doit exister");
             }

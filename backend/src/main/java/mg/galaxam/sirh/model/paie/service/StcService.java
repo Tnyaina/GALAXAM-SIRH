@@ -408,7 +408,8 @@ public class StcService {
         res.setNetImposable(netImposable);
 
         // Calcul IRSA selon barème progressif dynamique unifié (via CalculateurPaieEngine)
-        List<CalculateurPaieEngine.TrancheIrsa> tranches = chargerTranchesIrsa(configLegale, c);
+        LocalDate dateRefIrsa = req.getDateDepart() != null ? req.getDateDepart().toLocalDate() : LocalDate.now();
+        List<CalculateurPaieEngine.TrancheIrsa> tranches = chargerTranchesIrsa(configLegale, dateRefIrsa, c);
         int nbEnfants = prep.getNbEnfantsACharge();
         BigDecimal deducParEnfant = (configLegale != null && configLegale.getDeductionChargeFamille() != null)
                 ? configLegale.getDeductionChargeFamille() : CalculateurPaieEngine.DEDUCTION_PAR_ENFANT;
@@ -692,7 +693,13 @@ public class StcService {
         return PaieStc.lister(c);
     }
 
-    private List<CalculateurPaieEngine.TrancheIrsa> chargerTranchesIrsa(PaieConfigLegale configLegale, Connection c) throws Exception {
+    /**
+     * Charge les tranches IRSA liées à la configLegale fournie.
+     * Si configLegale est null, la date de référence est utilisée pour chercher
+     * la LF active à cette date (et non CURRENT_DATE), garantissant la cohérence
+     * lors des recalculs historiques (STC rétroactifs).
+     */
+    private List<CalculateurPaieEngine.TrancheIrsa> chargerTranchesIrsa(PaieConfigLegale configLegale, LocalDate dateRef, Connection c) throws Exception {
         List<CalculateurPaieEngine.TrancheIrsa> list = new ArrayList<>();
         String sql;
         if (configLegale != null && configLegale.getIdConfigLegale() != null) {
@@ -700,15 +707,21 @@ public class StcService {
                     "WHERE id_config_legale = ? " +
                     "ORDER BY numero_tranche ASC";
         } else {
+            // Fallback : cherche la LF active à la dateRef (et non CURRENT_DATE)
+            // pour préserver la cohérence lors des recalculs rétroactifs.
             sql = "SELECT tranche_min, tranche_max, taux FROM bareme_irsa " +
                     "WHERE id_config_legale = (SELECT id_config_legale FROM paie_config_legale " +
-                    "WHERE date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) " +
+                    "WHERE date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) " +
                     "ORDER BY date_debut DESC LIMIT 1) " +
                     "ORDER BY numero_tranche ASC";
         }
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             if (configLegale != null && configLegale.getIdConfigLegale() != null) {
                 ps.setInt(1, configLegale.getIdConfigLegale());
+            } else {
+                java.sql.Date sqlDate = java.sql.Date.valueOf(dateRef != null ? dateRef : LocalDate.now());
+                ps.setDate(1, sqlDate);
+                ps.setDate(2, sqlDate);
             }
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -721,13 +734,17 @@ public class StcService {
             }
         }
         if (list.isEmpty()) {
-            throw new IllegalStateException("Aucune tranche IRSA active trouvée en base pour la configuration légale active.");
+            throw new IllegalStateException("Aucune tranche IRSA active trouvée en base pour la configuration légale active à la date " + dateRef);
         }
         return list;
     }
 
+    private List<CalculateurPaieEngine.TrancheIrsa> chargerTranchesIrsa(PaieConfigLegale configLegale, Connection c) throws Exception {
+        return chargerTranchesIrsa(configLegale, LocalDate.now(), c);
+    }
+
     private List<CalculateurPaieEngine.TrancheIrsa> chargerTranchesIrsa(Connection c) throws Exception {
-        return chargerTranchesIrsa(null, c);
+        return chargerTranchesIrsa(null, LocalDate.now(), c);
     }
 
     private PaieConfigLegale chargerConfigLegale(Date dateDepart, Connection c) {

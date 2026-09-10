@@ -1,4 +1,4 @@
-import { Plus, Power, Check, MapPin, Info } from 'lucide-react';
+import { Plus, Power, Check, MapPin } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';

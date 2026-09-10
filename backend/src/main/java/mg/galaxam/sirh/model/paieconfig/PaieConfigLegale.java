@@ -166,6 +166,12 @@ public class PaieConfigLegale extends ClassMere {
             ps.setDate(2, java.sql.Date.valueOf(cible.getDateDebut().toLocalDate().minusDays(1)));
             ps.executeUpdate();
         }
+        // Réouvrir également les tranches IRSA clôturées à la même veille
+        String reopenIrsaSql = "UPDATE bareme_irsa SET date_fin = NULL WHERE date_fin = ?";
+        try (PreparedStatement ps = c.prepareStatement(reopenIrsaSql)) {
+            ps.setDate(1, java.sql.Date.valueOf(cible.getDateDebut().toLocalDate().minusDays(1)));
+            ps.executeUpdate();
+        }
         // Supprimer l'exercice programmé (et ses tables filles en CASCADE)
         String deleteSql = "DELETE FROM paie_config_legale WHERE id_config_legale = ?";
         try (PreparedStatement ps = c.prepareStatement(deleteSql)) {
