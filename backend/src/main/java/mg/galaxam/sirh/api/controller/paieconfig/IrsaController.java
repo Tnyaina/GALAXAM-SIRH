@@ -1,9 +1,11 @@
 package mg.galaxam.sirh.api.controller.paieconfig;
 
 import java.sql.Connection;
+import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.api.dto.paieconfig.IrsaRequest;
+import mg.galaxam.sirh.api.dto.paieconfig.IrsaRevalorisationRequest;
 import mg.galaxam.sirh.model.paieconfig.BaremeIrsa;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,6 +70,52 @@ public class IrsaController {
 
                 c.commit();
                 return ResponseEntity.status(HttpStatus.CREATED).body(b);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    /**
+     * Revalorisation du barème IRSA :
+     * - Ferme toutes les tranches EN VIGUEUR (date_fin = nouvelleDateDebut - 1 jour)
+     * - Crée les nouvelles tranches avec la nouvelleDateDebut
+     * Tout dans une seule transaction.
+     */
+    @PostMapping("/revaloriser")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> revaloriserBareme(@RequestBody IrsaRevalorisationRequest request) {
+        if (request.getNouvelleDateDebut() == null) {
+            return ResponseEntity.badRequest().body("La date d'application est obligatoire.");
+        }
+        if (request.getTranches() == null || request.getTranches().isEmpty()) {
+            return ResponseEntity.badRequest().body("Le nouveau barème doit contenir au moins une tranche.");
+        }
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                List<BaremeIrsa> nouvellesTranches = new ArrayList<>();
+                for (IrsaRequest req : request.getTranches()) {
+                    BaremeIrsa b = new BaremeIrsa();
+                    b.setNumeroTranche(req.getNumeroTranche());
+                    b.setTrancheMin(req.getTrancheMin());
+                    b.setTrancheMax(req.getTrancheMax());
+                    b.setTaux(req.getTaux());
+                    nouvellesTranches.add(b);
+                }
+
+                BaremeIrsa.revaloriser(c, request.getNouvelleDateDebut(), nouvellesTranches);
+
+                AuditLog.audit(c, "REVALORISATION", "bareme_irsa", "BATCH",
+                        null, "Revalorisation de " + nouvellesTranches.size() + " tranches à partir du " + request.getNouvelleDateDebut());
+
+                c.commit();
+                List<BaremeIrsa> updated = BaremeIrsa.listAll(c);
+                return ResponseEntity.ok(updated);
             } catch (Exception ex) {
                 c.rollback();
                 return ResponseEntity.badRequest().body(ex.getMessage());

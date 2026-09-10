@@ -18,6 +18,8 @@ public class RefTypeCotisation extends ClassMere {
     private BigDecimal tauxPatronal;
     private Date dateDebut;
     private Date dateFin;
+    /** 'ENTREPRISE' (FMFP, ISI) ou 'SITE' (CNAPS, OSTIE, OMSI) */
+    private String portee;
 
     public RefTypeCotisation() {
         this.setNomTable("REF_TYPE_COTISATION");
@@ -57,8 +59,8 @@ public class RefTypeCotisation extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         valider();
-        String sql = "INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, date_debut, date_fin) " +
-                     "VALUES (?, ?, ?, ?, ?, ?) RETURNING id_type_cotisation";
+        String sql = "INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id_type_cotisation";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -66,6 +68,7 @@ public class RefTypeCotisation extends ClassMere {
             ps.setBigDecimal(4, tauxPatronal);
             ps.setDate(5, dateDebut);
             ps.setDate(6, dateFin);
+            ps.setString(7, portee != null ? portee : "SITE");
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -80,7 +83,7 @@ public class RefTypeCotisation extends ClassMere {
     protected ClassMere modifier(Connection c) throws Exception {
         valider();
         String sql = "UPDATE ref_type_cotisation SET code = ?, libelle = ?, taux_salarial = ?, taux_patronal = ?, " +
-                     "date_debut = ?, date_fin = ? WHERE id_type_cotisation = ?";
+                     "date_debut = ?, date_fin = ?, portee = ? WHERE id_type_cotisation = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -88,7 +91,8 @@ public class RefTypeCotisation extends ClassMere {
             ps.setBigDecimal(4, tauxPatronal);
             ps.setDate(5, dateDebut);
             ps.setDate(6, dateFin);
-            ps.setInt(7, idTypeCotisation);
+            ps.setString(7, portee != null ? portee : "SITE");
+            ps.setInt(8, idTypeCotisation);
             ps.executeUpdate();
         }
         return this;
@@ -131,7 +135,7 @@ public class RefTypeCotisation extends ClassMere {
     }
 
     public static List<RefTypeCotisation> listAll(Connection c) throws Exception {
-        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin FROM ref_type_cotisation ORDER BY code";
+        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee FROM ref_type_cotisation ORDER BY code";
         List<RefTypeCotisation> list = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -144,6 +148,7 @@ public class RefTypeCotisation extends ClassMere {
                 item.tauxPatronal = rs.getBigDecimal("taux_patronal");
                 item.dateDebut = rs.getDate("date_debut");
                 item.dateFin = rs.getDate("date_fin");
+                item.portee = rs.getString("portee");
                 list.add(item);
             }
         }
@@ -165,4 +170,6 @@ public class RefTypeCotisation extends ClassMere {
     public void setDateDebut(Date dateDebut) { this.dateDebut = dateDebut; }
     public Date getDateFin() { return dateFin; }
     public void setDateFin(Date dateFin) { this.dateFin = dateFin; }
+    public String getPortee() { return portee; }
+    public void setPortee(String portee) { this.portee = portee; }
 }

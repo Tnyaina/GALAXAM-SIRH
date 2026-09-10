@@ -95,6 +95,10 @@ const paieConfigService = {
         const response = await apiClient.put(`/referentiel/bareme-irsa/${id}`, data);
         return response.data;
     },
+    revaloriserBaremeIrsa: async (data) => {
+        const response = await apiClient.post('/referentiel/bareme-irsa/revaloriser', data);
+        return response.data;
+    },
 
     // ----------------------------------------------------
     // TAUX DE MAJORATION (HEURES SUPP & NUIT)

@@ -16,6 +16,7 @@ import SiteCotisationsList from './cotisations/SiteCotisationsList';
 import SiteCotisationFormModal from './cotisations/SiteCotisationFormModal';
 import BaremeIrsaList from './irsa/BaremeIrsaList';
 import IrsaTrancheModal from './irsa/IrsaTrancheModal';
+import IrsaRevalorisationModal from './irsa/IrsaRevalorisationModal';
 
 export default function CotisationsIrsaTab() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -59,7 +60,7 @@ export default function CotisationsIrsaTab() {
     const [showCotisationModal, setShowCotisationModal] = useState(false);
     const [editingCotisation, setEditingCotisation] = useState(null);
     const [cotisationFormData, setCotisationFormData] = useState({
-        code: '', libelle: '', tauxSalarial: 0, tauxPatronal: 0, dateDebut: todayStr, dateFin: ''
+        code: '', libelle: '', tauxSalarial: 0, tauxPatronal: 0, portee: 'SITE', dateDebut: todayStr, dateFin: ''
     });
 
     // Modale Site Cotisation
@@ -74,6 +75,12 @@ export default function CotisationsIrsaTab() {
     const [irsaFormData, setIrsaFormData] = useState({
         numeroTranche: 1, trancheMin: 0, trancheMax: '', taux: 0, dateDebut: todayStr, dateFin: ''
     });
+    // Modale Revalorisation IRSA (Loi de Finances)
+    const [showIrsaRevaloModal, setShowIrsaRevaloModal] = useState(false);
+    const [revaloActionError, setRevaloActionError] = useState(null);
+
+    // Filtre période IRSA
+    const [filtreIrsaPeriode, setFiltreIrsaPeriode] = useState('all'); // 'all' | '<dateDebut>|<dateFin>'
 
     const loadData = async () => {
         setLoading(true);
@@ -116,6 +123,7 @@ export default function CotisationsIrsaTab() {
             libelle: c.libelle,
             tauxSalarial: c.tauxSalarial,
             tauxPatronal: c.tauxPatronal,
+            portee: c.portee || 'SITE',
             dateDebut: fmtDateInput(c.dateDebut) || todayStr,
             dateFin: fmtDateInput(c.dateFin) || ''
         });
@@ -277,6 +285,36 @@ export default function CotisationsIrsaTab() {
         }
     };
 
+    const handleOpenRevaloriserIrsa = () => {
+        setRevaloActionError(null);
+        setShowIrsaRevaloModal(true);
+    };
+
+    const handleSaveRevalorisationIrsa = async (payload) => {
+        setSubmitting(true);
+        setRevaloActionError(null);
+        try {
+            await paieConfigService.revaloriserBaremeIrsa(payload);
+            toast({
+                title: 'Succès',
+                message: `Nouvelle grille IRSA programmée avec succès à partir du ${payload.nouvelleDateDebut}.`,
+                type: 'success'
+            });
+            setShowIrsaRevaloModal(false);
+            loadData();
+        } catch (err) {
+            setRevaloActionError(err.response?.data || "Erreur lors de la revalorisation du barème IRSA.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Filtrage IRSA par période
+    const irsaGroupes = [...new Set(tranchesIrsa.map(t => `${t.dateDebut || ''}|${t.dateFin || ''}`))];
+    const tranchesFiltered = filtreIrsaPeriode === 'all'
+        ? tranchesIrsa
+        : tranchesIrsa.filter(t => `${t.dateDebut || ''}|${t.dateFin || ''}` === filtreIrsaPeriode);
+
     const filteredSiteCotisations = showInactive
         ? siteCotisations
         : siteCotisations.filter(sc => sc.estActif !== false);
@@ -318,6 +356,24 @@ export default function CotisationsIrsaTab() {
                         <span>Afficher désactivés</span>
                     </label>
                 )}
+
+                {subSection === 'irsa' && irsaGroupes.length > 1 && (
+                    <select
+                        value={filtreIrsaPeriode}
+                        onChange={e => setFiltreIrsaPeriode(e.target.value)}
+                        className="text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2 py-1 focus:outline-none focus:border-[var(--color-brand-500)]"
+                    >
+                        <option value="all">Toutes les périodes ({tranchesIrsa.length})</option>
+                        {irsaGroupes.map(key => {
+                            const [debut, fin] = key.split('|');
+                            const label = `${debut ? new Date(debut).toLocaleDateString('fr-FR') : '?'} → ${fin ? new Date(fin).toLocaleDateString('fr-FR') : 'En vigueur'}`;
+                            const count = tranchesIrsa.filter(t => `${t.dateDebut || ''}|${t.dateFin || ''}` === key).length;
+                            return (
+                                <option key={key} value={key}>{label} ({count})</option>
+                            );
+                        })}
+                    </select>
+                )}
             </div>
 
             {subSection === 'cotisations' && (
@@ -338,9 +394,10 @@ export default function CotisationsIrsaTab() {
 
             {subSection === 'irsa' && (
                 <BaremeIrsaList
-                    tranchesIrsa={tranchesIrsa}
+                    tranchesIrsa={tranchesFiltered}
                     onOpenCreate={handleOpenCreateIrsa}
                     onOpenEdit={handleOpenEditIrsa}
+                    onOpenRevaloriser={handleOpenRevaloriserIrsa}
                 />
             )}
 
@@ -376,6 +433,22 @@ export default function CotisationsIrsaTab() {
                 setFormData={setIrsaFormData}
                 existingTranches={tranchesIrsa}
                 actionError={actionError}
+                submitting={submitting}
+            />
+
+            <IrsaRevalorisationModal
+                isOpen={showIrsaRevaloModal}
+                onClose={() => setShowIrsaRevaloModal(false)}
+                onSubmit={handleSaveRevalorisationIrsa}
+                currentTranches={tranchesIrsa.filter(t => {
+                    const today = new Date(); today.setHours(0, 0, 0, 0);
+                    const debut = t.dateDebut ? new Date(t.dateDebut) : null;
+                    if (debut) debut.setHours(0, 0, 0, 0);
+                    const fin = t.dateFin ? new Date(t.dateFin) : null;
+                    if (fin) fin.setHours(23, 59, 59, 999);
+                    return debut && debut <= today && (!fin || fin >= today);
+                })}
+                actionError={revaloActionError}
                 submitting={submitting}
             />
 

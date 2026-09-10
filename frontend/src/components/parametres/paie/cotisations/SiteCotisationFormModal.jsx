@@ -61,11 +61,13 @@ export default function SiteCotisationFormModal({
                     onChange={(e) => setFormData({ ...formData, idTypeCotisation: e.target.value })}
                 >
                     <option value="">-- Sélectionner une cotisation --</option>
-                    {cotisations.map((c) => (
-                        <option key={c.idTypeCotisation} value={c.idTypeCotisation}>
-                            {c.code} - {c.libelle} (Salarial: {c.tauxSalarial}%, Patronal: {c.tauxPatronal}%)
-                        </option>
-                    ))}
+                    {cotisations
+                        .filter(c => !c.portee || c.portee === 'SITE')
+                        .map((c) => (
+                            <option key={c.idTypeCotisation} value={c.idTypeCotisation}>
+                                {c.code} - {c.libelle} (Salarial: {c.tauxSalarial}%, Patronal: {c.tauxPatronal}%)
+                            </option>
+                        ))}
                 </Select>
             </form>
         </Modal>

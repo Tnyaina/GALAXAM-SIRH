@@ -54,6 +54,10 @@ public class BaremeIrsa extends ClassMere {
         }
     }
 
+    /**
+     * Vérifie la continuité du barème POUR LA MÊMME PÉRIODE seulement.
+     * Deux tranches de périodes différentes (ex : LF_2024 et LF_2026) ne se chevauchent pas.
+     */
     public void validerContinuite(Connection c) throws Exception {
         valider();
         if (c == null) return;
@@ -62,6 +66,17 @@ public class BaremeIrsa extends ClassMere {
             if (this.idTranche != null && this.idTranche.equals(other.getIdTranche())) {
                 continue; // Skip self when modifying
             }
+
+            // ------ NOUVEAU : ne comparer qu'avec les tranches de la même période ------
+            boolean samePeriod = java.util.Objects.equals(
+                this.dateDebut != null ? this.dateDebut.toString() : null,
+                other.getDateDebut() != null ? other.getDateDebut().toString() : null
+            ) && java.util.Objects.equals(
+                this.dateFin != null ? this.dateFin.toString() : null,
+                other.getDateFin() != null ? other.getDateFin().toString() : null
+            );
+            if (!samePeriod) continue;
+            // -----------------------------------------------------------------------
 
             // Check duplicate numeroTranche
             if (this.numeroTranche.equals(other.getNumeroTranche())) {
@@ -78,22 +93,13 @@ public class BaremeIrsa extends ClassMere {
             if (maxA == null && maxB == null) {
                 overlaps = true; // Deux tranches ouvertes vers l'infini
             } else if (maxA == null) {
-                // A va vers l'infini -> chevauchement si minA <= maxB
-                if (minA.compareTo(maxB) <= 0) {
-                    overlaps = true;
-                }
+                if (minA.compareTo(maxB) <= 0) overlaps = true;
             } else if (maxB == null) {
-                // B va vers l'infini -> chevauchement si minB <= maxA
-                if (minB.compareTo(maxA) <= 0) {
-                    overlaps = true;
-                }
+                if (minB.compareTo(maxA) <= 0) overlaps = true;
             } else {
-                // Intervalles bornés : chevauchement si max(minA, minB) <= min(maxA, maxB)
                 BigDecimal startMax = minA.max(minB);
                 BigDecimal endMin = maxA.min(maxB);
-                if (startMax.compareTo(endMin) <= 0) {
-                    overlaps = true;
-                }
+                if (startMax.compareTo(endMin) <= 0) overlaps = true;
             }
 
             if (overlaps) {
@@ -102,6 +108,48 @@ public class BaremeIrsa extends ClassMere {
                         "] chevauche la tranche existante #" + other.getNumeroTranche() + " [" +
                         minB.toPlainString() + " Ar - " + (maxB != null ? maxB.toPlainString() + " Ar" : "Illimité") + "].");
             }
+        }
+    }
+
+    /**
+     * Revalorisation du barème IRSA :
+     * 1. Ferme les tranches de la période en vigueur (date_fin = nouvelleDateDebut - 1 jour)
+     * 2. Crée les nouvelles tranches avec la nouvelleDateDebut et sans date de fin.
+     * Tout dans la même transaction fournie en paramètre.
+     */
+    public static void revaloriser(
+            Connection c,
+            Date nouvelleDateDebut,
+            List<BaremeIrsa> nouvellesTranches) throws Exception {
+
+        if (nouvelleDateDebut == null) {
+            throw new IllegalArgumentException("La date d'application est obligatoire.");
+        }
+        if (nouvellesTranches == null || nouvellesTranches.isEmpty()) {
+            throw new IllegalArgumentException("Le nouveau barème doit contenir au moins une tranche.");
+        }
+
+        Date today = new Date(System.currentTimeMillis());
+        if (!nouvelleDateDebut.after(today)) {
+            throw new IllegalArgumentException("La date d'application doit être postérieure à aujourd'hui.");
+        }
+
+        // --- 1. Identifier les tranches EN VIGUEUR (date_fin IS NULL ou date_fin >= today) ---
+        String sqlActives = "UPDATE bareme_irsa SET date_fin = ? WHERE (date_fin IS NULL OR date_fin >= ?) AND date_debut <= ?";
+        java.sql.Date veille = new java.sql.Date(nouvelleDateDebut.getTime() - 86_400_000L);
+        try (PreparedStatement ps = c.prepareStatement(sqlActives)) {
+            ps.setDate(1, veille);
+            ps.setDate(2, today);
+            ps.setDate(3, today);
+            ps.executeUpdate();
+        }
+
+        // --- 2. Créer les nouvelles tranches ---
+        for (BaremeIrsa t : nouvellesTranches) {
+            t.setDateDebut(nouvelleDateDebut);
+            t.setDateFin(null); // En vigueur indéfiniment
+            t.setIdTranche(null); // Forcer INSERT
+            t.save(c); // validerContinuite interne
         }
     }
 

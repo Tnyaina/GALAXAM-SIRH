@@ -26,18 +26,6 @@ export default function SiteCotisationsList({
                 </Button>
             </div>
 
-            {/* Bandeau FMFP */}
-            <div className="mx-4 bg-[var(--color-brand-500)]/6 border border-[var(--color-brand-500)]/20 p-3 flex items-start gap-3">
-                <Info size={15} className="text-[var(--color-brand-500)] shrink-0 mt-0.5" />
-                <div className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
-                    <span className="font-bold text-[var(--color-fg)]">FMFP — Fonds de Maîtrise des Formations Professionnelles :</span>{' '}
-                    Cette cotisation patronale (0,5 % de la masse salariale brute) est calculée et prélevée
-                    au niveau <strong>entreprise entière</strong>, sans distinction de site.
-                    Elle est gérée dans l'onglet <strong>Cotisations Sociales &amp; Santé</strong> et s'applique
-                    automatiquement à tous les bulletins — aucune affectation par site n'est requise.
-                </div>
-            </div>
-
 
             {siteCotisations.length === 0 ? (
                 <div className="p-8">

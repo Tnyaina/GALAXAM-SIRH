@@ -492,12 +492,12 @@ LIMIT 1;
 -- =====================================================================
 
 -- Cotisations Sociales Référentielles
-INSERT INTO ref_type_cotisation (id_type_cotisation, id_config_legale, code, libelle, taux_salarial, taux_patronal, plafonne, ordre, est_actif, date_debut) VALUES
-(1, 2, 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, TRUE, 1, TRUE, '2024-01-01'),
-(2, 2, 'OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, TRUE, 1, TRUE, '2024-01-01'),
-(3, 2, 'OMSI',  'Organisation Médicale Inter-entreprises', 1.50, 5.50, TRUE, 1, TRUE, '2024-01-01'),
-(4, 2, 'ISI',   'Impôt Synthétique Intermédiaire', 0.00, 5.00, TRUE, 1, TRUE, '2024-01-01'),
-(5, 2, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 5, TRUE, '2024-01-01');
+INSERT INTO ref_type_cotisation (id_type_cotisation, id_config_legale, code, libelle, taux_salarial, taux_patronal, plafonne, ordre, est_actif, date_debut, portee) VALUES
+(1, 2, 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, TRUE, 1, TRUE, '2024-01-01', 'SITE'),
+(2, 2, 'OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, TRUE, 1, TRUE, '2024-01-01', 'SITE'),
+(3, 2, 'OMSI',  'Organisation Médicale Inter-entreprises', 1.50, 5.50, TRUE, 1, TRUE, '2024-01-01', 'SITE'),
+(4, 2, 'ISI',   'Impôt Synthétique Intermédiaire', 0.00, 5.00, TRUE, 1, TRUE, '2024-01-01', 'ENTREPRISE'),
+(5, 2, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 5, TRUE, '2024-01-01', 'ENTREPRISE');
 SELECT setval('ref_type_cotisation_id_type_cotisation_seq', (SELECT GREATEST(MAX(id_type_cotisation), 5) FROM ref_type_cotisation));
 
 -- Cotisations par Site (TNR: CNAPS+OSTIE, TMM: CNAPS+OMSI)

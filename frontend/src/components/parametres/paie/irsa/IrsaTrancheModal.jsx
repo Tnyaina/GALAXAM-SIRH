@@ -23,8 +23,14 @@ export default function IrsaTrancheModal({
     const maxVal = formData.trancheMax !== '' && formData.trancheMax !== null && formData.trancheMax !== undefined ? parseFloat(formData.trancheMax) : null;
     const numTranche = parseInt(formData.numeroTranche, 10);
 
-    // Overlap and continuity detection in real time against existing tranches
-    const otherTranches = existingTranches.filter(t => !editingIrsa || t.idTranche !== editingIrsa.idTranche);
+    // Overlap and continuity detection in real time against existing tranches of the same period
+    const otherTranches = existingTranches.filter(t => {
+        if (editingIrsa && t.idTranche === editingIrsa.idTranche) return false;
+        if (editingIrsa) {
+            return (t.dateDebut || '') === (editingIrsa.dateDebut || '') && (t.dateFin || '') === (editingIrsa.dateFin || '');
+        }
+        return (t.dateDebut || '') === (formData.dateDebut || '') && (t.dateFin || '') === (formData.dateFin || '');
+    });
     
     // Duplicate number check
     const isNumDuplicate = otherTranches.some(t => parseInt(t.numeroTranche, 10) === numTranche);
@@ -109,7 +115,7 @@ export default function IrsaTrancheModal({
             onClose={onClose}
             title={editingIrsa ? `Modifier la Tranche IRSA #${formData.numeroTranche}` : "Nouvelle Tranche IRSA"}
             icon={<Percent size={18} />}
-            size="md"
+            size="lg"
             footer={
                 <>
                     <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>

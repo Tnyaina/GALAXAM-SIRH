@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Building2, MapPin } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
-import Input from '@/components/ui/forms/Input';
+import Input, { Select } from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
 import Alert from '@/components/ui/feedback/Alert';
 import { fmtDateInput } from '@/utils/paieUtils';
@@ -29,12 +29,10 @@ export default function CotisationFormModal({
             setLocalError("Le taux salarial doit être compris entre 0% et 100%.");
             return;
         }
-
         if (isNaN(patronal) || patronal < 0 || patronal > 100) {
             setLocalError("Le taux patronal doit être compris entre 0% et 100%.");
             return;
         }
-
         if (formData.dateFin && formData.dateDebut && formData.dateFin < formData.dateDebut) {
             setLocalError("La date de fin ne peut pas être antérieure à la date de début.");
             return;
@@ -43,13 +41,15 @@ export default function CotisationFormModal({
         onSubmit(e);
     };
 
+    const portee = formData.portee || 'SITE';
+
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
             title={editingCotisation ? "Modifier la Cotisation Sociale" : "Nouvelle Cotisation Sociale"}
             icon={<ShieldCheck size={18} />}
-            size="md"
+            size="lg"
             footer={
                 <>
                     <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>
@@ -66,14 +66,53 @@ export default function CotisationFormModal({
                     <Alert type="error" message={localError || actionError} />
                 )}
 
-                <Input
-                    label="Code Cotisation"
-                    required
-                    disabled={!!editingCotisation}
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                    placeholder="Ex: CNAPS, OSTIE, FUNERAIRE"
-                />
+                <div className="grid grid-cols-2 gap-4">
+                    <Input
+                        label="Code Cotisation"
+                        required
+                        disabled={!!editingCotisation}
+                        value={formData.code}
+                        onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                        placeholder="Ex: CNAPS, OSTIE, FUNERAIRE"
+                    />
+                    {/* Périmètre */}
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)] mb-1">
+                            Périmètre d'application <span className="text-[var(--color-danger-500)]">*</span>
+                        </label>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, portee: 'SITE' })}
+                                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border text-xs font-semibold transition-all ${
+                                    portee === 'SITE'
+                                        ? 'bg-[var(--color-success-500)]/10 border-[var(--color-success-500)]/40 text-[var(--color-success-600)]'
+                                        : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
+                                }`}
+                            >
+                                <MapPin size={13} />
+                                Par site
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, portee: 'ENTREPRISE' })}
+                                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border text-xs font-semibold transition-all ${
+                                    portee === 'ENTREPRISE'
+                                        ? 'bg-[var(--color-brand-500)]/10 border-[var(--color-brand-500)]/40 text-[var(--color-brand-600)]'
+                                        : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
+                                }`}
+                            >
+                                <Building2 size={13} />
+                                Entreprise entière
+                            </button>
+                        </div>
+                        <p className="text-[11px] text-[var(--color-fg-muted)] mt-1">
+                            {portee === 'ENTREPRISE'
+                                ? 'Appliquée à tous les salariés sans affectation par site (ex : FMFP, ISI).'
+                                : 'Nécessite une association dans l\'onglet « Cotisations par Site » (ex : CNaPS, OSTIE).'}
+                        </p>
+                    </div>
+                </div>
 
                 <Input
                     label="Libellé Complet"
