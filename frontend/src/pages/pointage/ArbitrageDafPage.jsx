@@ -363,7 +363,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 }}
                                 options={periodes.map(p => ({
                                     value: String(p.idPeriodePaie || p.id),
-                                    label: `${p.libelle || p.code} (${p.statutLibelle || p.statutCode || ''})`
+                                    label: p.libelle || p.code
                                 }))}
                                 placeholder="Sélectionner une période..."
                                 className="text-xs h-[32px] font-semibold"
@@ -411,11 +411,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             <span className="hidden md:inline">Actualiser les calculs</span>
                             <span className="md:hidden">Actualiser</span>
                         </Button>
-                        {currentPeriodeObj && (
-                            <Badge variant={isCloturee ? 'success' : isValidee ? 'primary' : isAValider ? 'warning' : 'info'} size="sm" className="font-bold uppercase tracking-wider">
-                                {currentPeriodeObj.statutLibelle || currentPeriodeObj.statutCode}
-                            </Badge>
-                        )}
                         {isAValider && (
                             <>
                                 <Button type="button" variant="danger" size="sm" onClick={() => setShowRejetModal(true)}

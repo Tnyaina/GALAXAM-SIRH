@@ -137,21 +137,23 @@ export default function GestionPointagesPage() {
             : anomaliesCount > 0 ? 'pending'
             : 'pending';
 
+        // Pour la DAF / Admin : arbitrage accessible pour supervision ou arbitrage direct
+        // Pour les agents : verrouillé tant que non transmis
         const dafStatus = isDaf
-            ? (activeStep === 'arbitrage' ? 'active' : (isTransmis || isValidee || isCloturee) ? 'pending' : 'locked')
+            ? (activeStep === 'arbitrage' ? 'active' : (isTransmis || isValidee || isCloturee) ? 'pending' : 'pending')
             : 'daf-only';
 
         const allSteps = [
             {
                 id: 'saisie',
                 label: 'Saisie',
-                sublabel: isTransmis || isValidee || isCloturee ? null : null,
+                sublabel: null,
                 status: saisieStatus
             },
             {
                 id: 'suivi',
                 label: 'Suivi & Anomalies',
-                sublabel: anomaliesCount > 0 && !isTransmis ? `${anomaliesCount} anom.` : isTransmis ? 'Transmis' : null,
+                sublabel: anomaliesCount > 0 ? `${anomaliesCount} anom.` : null,
                 status: suiviStatus
             },
             {
@@ -159,8 +161,8 @@ export default function GestionPointagesPage() {
                 label: 'Arbitrage DAF',
                 status: dafStatus,
                 lockReason: isDaf
-                    ? (isEnCours ? 'En attente de transmission par l\'agent' : null)
-                    : 'Etape reservee a la DAF'
+                    ? null
+                    : 'Étape réservée à la DAF / Direction'
             }
         ];
 
@@ -168,7 +170,7 @@ export default function GestionPointagesPage() {
     }, [activeStep, isDaf, anomaliesCount, isEnCours, isTransmis, isValidee, isCloturee]);
 
     return (
-        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans pb-8">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO
                 title="Pointage & Presences | GALAXAM SIRH"
                 description="Cockpit lineaire de gestion des pointages : saisie quotidienne, suivi et anomalies, arbitrage DAF."

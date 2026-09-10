@@ -285,13 +285,17 @@ public class PointageAnomalieService {
                                 dto.setSeverite("MOYENNE");
                                 dto.setBloquantTransmission(false);
                                 countMoyennes++;
+                            } else if (!hasMotif) {
+                                dto.setDescriptionAnomalie("Absence non justifiée (non régularisée sur jour ouvré).");
+                                dto.setSeverite("CRITIQUE");
+                                dto.setBloquantTransmission(true);
+                                countCritiques++;
+                                countBloquantes++;
                             } else {
-                                dto.setDescriptionAnomalie("Absence non justifiée sur un jour ouvré.");
+                                dto.setDescriptionAnomalie("Absence non justifiée avec proposition : " + dto.getMotifAjustement());
                                 dto.setSeverite("HAUTE");
-                                // Bloque la transmission tant qu'aucun arbitrage/motif n'est formalisé
-                                dto.setBloquantTransmission(!hasMotif);
+                                dto.setBloquantTransmission(false);
                                 countHautes++;
-                                if (!hasMotif) countBloquantes++;
                             }
                             dto.setStatutAnomalie(hasMotif ? "done" : "todo");
                             countAbsences++;
@@ -347,9 +351,10 @@ public class PointageAnomalieService {
 
             // Calcul des données globales de pointage pour la période
             int totalJoursSaisis = 0;
+            int totalJoursDistinctsSaisis = 0;
             double totalHeuresCumulees = 0.0;
             double totalIndemnites = 0.0;
-            String sqlTot = "SELECT COUNT(*) AS nb_j, COALESCE(SUM(total_heures), 0) AS tot_h, COALESCE(SUM(montant_total_indemnites), 0) AS tot_ind " +
+            String sqlTot = "SELECT COUNT(DISTINCT date_pointage) AS nb_distinct_dates, COUNT(*) AS nb_j, COALESCE(SUM(total_heures), 0) AS tot_h, COALESCE(SUM(montant_total_indemnites), 0) AS tot_ind " +
                             "FROM pointage_jour WHERE id_periode_paie = ? " +
                             (idSite != null && idSite > 0 ? "AND id_site = ? " : "");
             try (PreparedStatement psTot = c.prepareStatement(sqlTot)) {
@@ -357,6 +362,7 @@ public class PointageAnomalieService {
                 if (idSite != null && idSite > 0) psTot.setInt(2, idSite);
                 try (ResultSet rsTot = psTot.executeQuery()) {
                     if (rsTot.next()) {
+                        totalJoursDistinctsSaisis = rsTot.getInt("nb_distinct_dates");
                         totalJoursSaisis = rsTot.getInt("nb_j");
                         totalHeuresCumulees = Math.round(rsTot.getDouble("tot_h") * 10.0) / 10.0;
                         totalIndemnites = Math.round(rsTot.getDouble("tot_ind"));
@@ -366,7 +372,7 @@ public class PointageAnomalieService {
 
             // Jours ouvrables théoriques dans la période
             int joursOuvrablesPeriode = calendrierOuvrableEngine.compterJoursOuvrables(periodeDebut, periodeFin, idSite, c);
-            int totalJoursTheoriques = totalEmployes * Math.max(1, joursOuvrablesPeriode);
+            int totalJoursTheoriques = Math.max(1, joursOuvrablesPeriode);
 
             // Construction de la progression hebdomadaire (S1 à S5)
             List<Map<String, Object>> semainesList = new ArrayList<>();
@@ -390,9 +396,10 @@ public class PointageAnomalieService {
                     datesLabel = wDeb.format(dtfDay) + " " + wDeb.format(dtfMonth) + " — " + wFin.format(dtfDay) + " " + wFin.format(dtfMonth);
                 }
 
+                int joursDistinctsSem = 0;
                 int joursSaisisSem = 0;
                 double heuresSem = 0.0;
-                String sqlW = "SELECT COUNT(*) AS nb_saisis, COALESCE(SUM(total_heures), 0) AS total_h " +
+                String sqlW = "SELECT COUNT(DISTINCT date_pointage) AS nb_distinct_dates, COUNT(*) AS nb_saisis, COALESCE(SUM(total_heures), 0) AS total_h " +
                               "FROM pointage_jour WHERE date_pointage BETWEEN ? AND ? " +
                               (effectivePeriodeId != null ? "AND id_periode_paie = ? " : "") +
                               (idSite != null && idSite > 0 ? "AND id_site = ? " : "");
@@ -404,6 +411,7 @@ public class PointageAnomalieService {
                     if (idSite != null && idSite > 0) psW.setInt(pIdx++, idSite);
                     try (ResultSet rsW = psW.executeQuery()) {
                         if (rsW.next()) {
+                            joursDistinctsSem = rsW.getInt("nb_distinct_dates");
                             joursSaisisSem = rsW.getInt("nb_saisis");
                             heuresSem = Math.round(rsW.getDouble("total_h") * 10.0) / 10.0;
                         }
@@ -415,8 +423,8 @@ public class PointageAnomalieService {
                         .count();
 
                 int joursOuvresSem = calendrierOuvrableEngine.compterJoursOuvrables(wDeb, wFin, idSite, c);
-                int theoriqueSem = Math.max(1, totalEmployes * joursOuvresSem);
-                int progressPercent = Math.min(100, (int) Math.round(((double) joursSaisisSem / theoriqueSem) * 100.0));
+                int theoriqueSem = Math.max(1, joursOuvresSem);
+                int progressPercent = Math.min(100, (int) Math.round(((double) joursDistinctsSem / theoriqueSem) * 100.0));
 
                 boolean isCurrent = !today.isBefore(wDeb) && !today.isAfter(wFin);
                 boolean isCloturee = today.isAfter(wFin) && nbAnomaliesSemaine == 0;
@@ -427,8 +435,10 @@ public class PointageAnomalieService {
                 wMap.put("dates", datesLabel);
                 wMap.put("dateDebut", wDeb.toString());
                 wMap.put("dateFin", wFin.toString());
-                wMap.put("joursSaisis", joursSaisisSem);
+                wMap.put("joursSaisis", joursDistinctsSem);
                 wMap.put("joursTheoriques", theoriqueSem);
+                wMap.put("joursHommeSaisis", joursSaisisSem);
+                wMap.put("joursHommeTheoriques", Math.max(1, totalEmployes * joursOuvresSem));
                 wMap.put("progressPercent", progressPercent);
                 wMap.put("heuresCumulees", heuresSem);
                 wMap.put("nbAnomalies", nbAnomaliesSemaine);
@@ -454,8 +464,10 @@ public class PointageAnomalieService {
 
             Map<String, Object> kpis = new HashMap<>();
             kpis.put("collaborateursSuivis", totalEmployes);
-            kpis.put("joursSaisis", totalJoursSaisis);
+            kpis.put("joursSaisis", totalJoursDistinctsSaisis);
             kpis.put("joursTheoriques", totalJoursTheoriques);
+            kpis.put("joursHommeSaisis", totalJoursSaisis);
+            kpis.put("joursHommeTheoriques", totalEmployes * totalJoursTheoriques);
             kpis.put("heuresCumulees", totalHeuresCumulees);
             kpis.put("anomaliesActives", anomalies.stream().filter(a -> "todo".equals(a.getStatutAnomalie())).count());
             kpis.put("anomaliesCritiques", countCritiques);

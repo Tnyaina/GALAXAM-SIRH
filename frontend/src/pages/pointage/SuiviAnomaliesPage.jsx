@@ -16,7 +16,11 @@ import {
     Banknote,
     Lock,
     Eye,
-    XCircle
+    XCircle,
+    ArrowRight,
+    ShieldCheck,
+    ChevronDown,
+    ChevronUp
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Select from '@/components/ui/forms/Select';
@@ -42,6 +46,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     const toastContext = useToast();
     const toast = toastContext?.toast || toastContext;
     const canWrite = hasPermission('POINTAGE_WRITE');
+    const isDaf = hasPermission('POINTAGE_VALIDATE');
 
     // Sélecteurs de contexte (Période & Site)
     const [periodes, setPeriodes] = useState([]);
@@ -54,6 +59,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     const [filterType, setFilterType] = useState('ALL');
     const [filterSeverite, setFilterSeverite] = useState('ALL');
     const [filterSemaine, setFilterSemaine] = useState('ALL'); // 'ALL', 'S1', 'S2', ...
+    const [isSemainesCollapsed, setIsSemainesCollapsed] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(8);
 
@@ -161,6 +167,28 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     const nbSemainesRestantes = useMemo(() => {
         return (semaines || []).filter(s => s.statutSemaine !== 'CLOTUREE' && (s.progressPercent || 0) < 100).length;
     }, [semaines]);
+
+    // Vérification de la date de fin de période
+    const todayStr = useMemo(() => new Date().toISOString().substring(0, 10), []);
+    const dateFinPeriode = currentPeriodeObj?.dateFin;
+    const isPeriodeEnded = useMemo(() => {
+        if (!dateFinPeriode) return true;
+        return todayStr >= dateFinPeriode;
+    }, [todayStr, dateFinPeriode]);
+
+    // Prérequis globaux pour transmission DAF (pour un agent de site)
+    const hasIncompleteWeeks = nbSemainesRestantes > 0;
+    const canTransmitDaf = isEnCours && nbBloquantes === 0 && !hasIncompleteWeeks && isPeriodeEnded && canWrite;
+
+    // Raison du blocage de transmission pour le tooltip ou le message d'aide
+    const transmissionBlockReason = useMemo(() => {
+        if (isLocked) return 'Cette période est déjà transmise ou validée.';
+        if (!canWrite) return 'Vos permissions ne vous permettent pas de transmettre la période.';
+        if (nbBloquantes > 0) return `Il reste ${nbBloquantes} anomalie(s) bloquante(s) non régularisée(s).`;
+        if (hasIncompleteWeeks) return `Toutes les semaines doivent être saisies (${nbSemainesRestantes} semaine(s) incomplète(s)).`;
+        if (!isPeriodeEnded) return `La période ne peut être transmise avant sa date de fin (${dateFinPeriode || 'en cours'}).`;
+        return null;
+    }, [isLocked, canWrite, nbBloquantes, hasIncompleteWeeks, isPeriodeEnded, nbSemainesRestantes, dateFinPeriode]);
 
     // Filtrage dynamique des anomalies
     const filteredAnomalies = useMemo(() => {
@@ -270,14 +298,14 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     };
 
     return (
-        <div className="space-y-4 pb-32 font-sans animate-in fade-in duration-300">
+        <div className="space-y-4 font-sans animate-in fade-in duration-300">
             <SEO
                 title="Suivi &amp; Anomalies — Pointage | GALAXAM SIRH"
                 description="Suivi de la progression hebdomadaire, détection proactive et régularisation d'anomalies de pointage."
             />
 
-            {/* ---------- HEADER CONTEXTE & ACTIONS (COHÉRENCE DAF) ---------- */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 shadow-xs">
+            {/* ---------- HEADER CONTEXTE & ACTIONS (STICKY TOP) ---------- */}
+            <div className="sticky top-0 z-20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 shadow-sm">
                 <div className="flex items-center gap-3 flex-wrap">
                     {/* Période */}
                     <div className="flex items-center gap-1.5 min-w-[220px]">
@@ -324,7 +352,14 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                             }}
                             options={[
                                 { value: '0', label: 'Tous les sites (Global)' },
-                                ...sites.map(s => ({ value: String(s.idSite || s.id), label: `${s.code} — ${s.libelle || s.nom}` }))
+                                ...sites.map(s => {
+                                    const code = s.codeSite || s.code;
+                                    const name = s.libelle || s.nom || '';
+                                    return {
+                                        value: String(s.idSite || s.id),
+                                        label: code ? `${code} — ${name}` : name
+                                    };
+                                })
                             ]}
                             className="text-xs h-[32px]"
                         />
@@ -374,29 +409,47 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 ))}
             </div>
 
-            {/* ---------- VUE HEBDOMADAIRE (S1 - S5) INTERACTIVE ---------- */}
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-hidden">
-                <div className="p-3 border-b border-[var(--color-border-subtle)] flex items-center justify-between flex-wrap gap-2">
-                    <div>
-                        <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
-                            <Layers size={14} className="text-[var(--color-brand-500)]" />
-                            Progression hebdomadaire (S1 — S5)
-                        </h2>
-                        <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                            Avancement réel de la saisie. Cliquez sur une semaine pour filtrer le tableau des anomalies.
-                        </p>
+            {/* ---------- VUE HEBDOMADAIRE (S1 - S5) PLIABLE ---------- */}
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-hidden transition-all">
+                <div 
+                    onClick={() => setIsSemainesCollapsed(prev => !prev)}
+                    className="p-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between flex-wrap gap-2 cursor-pointer select-none hover:bg-[var(--color-surface-hover)] transition-colors"
+                >
+                    <div className="flex items-center gap-2">
+                        <Layers size={14} className="text-[var(--color-brand-500)]" />
+                        <div>
+                            <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                                Progression hebdomadaire (S1 — S5)
+                            </span>
+                            <span className="text-[11px] text-[var(--color-fg-muted)] ml-2.5 hidden sm:inline">
+                                {isSemainesCollapsed 
+                                    ? `— Cliquez pour afficher le détail (${semaines.length - nbSemainesRestantes}/${semaines.length} semaine(s) saisie(s))` 
+                                    : '— Avancement réel de la saisie par semaine'}
+                            </span>
+                        </div>
                     </div>
-                    {filterSemaine !== 'ALL' && (
-                        <Button
-                            variant="ghost"
-                            size="xs"
-                            onClick={() => setFilterSemaine('ALL')}
-                            className="text-xs text-[var(--color-brand-500)]"
+                    <div className="flex items-center gap-2">
+                        {filterSemaine !== 'ALL' && (
+                            <Button
+                                variant="ghost"
+                                size="xs"
+                                onClick={(e) => { e.stopPropagation(); setFilterSemaine('ALL'); }}
+                                className="text-xs text-[var(--color-brand-500)] font-bold"
+                            >
+                                Annuler filtre ({filterSemaine})
+                            </Button>
+                        )}
+                        <button
+                            type="button"
+                            className="flex items-center gap-1 text-xs font-semibold text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] px-2 py-1 bg-[var(--color-surface)] border border-[var(--color-border-subtle)]"
                         >
-                            Afficher toutes les semaines (Annuler le filtre {filterSemaine})
-                        </Button>
-                    )}
+                            <span>{isSemainesCollapsed ? 'Déplier' : 'Plier'}</span>
+                            {isSemainesCollapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+                        </button>
+                    </div>
                 </div>
+
+                {!isSemainesCollapsed && (
 
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-[var(--color-border-subtle)]">
                     {semaines && semaines.length > 0 ? (
@@ -479,6 +532,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         </div>
                     )}
                 </div>
+                )}
             </div>
 
             {/* ---------- SECTION ANOMALIES DE POINTAGE ---------- */}
@@ -716,51 +770,86 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 />
             </div>
 
-            {/* ---------- BARRE DE TRANSMISSION FIXÉE EN BAS (STICKY) ---------- */}
-            <div className="sticky bottom-0 z-20 bg-[var(--color-surface)] text-[var(--color-fg)] shadow-2xl border border-[var(--color-border-subtle)] border-t-2 border-t-[var(--color-brand-500)] p-3.5">
+            {/* ---------- BARRE D'ACTION FIXÉE AU BAS DU CONTENU (COLLÉE AU-DESSUS DU FOOTER AVEC LE GAP PAGE) ---------- */}
+            <div className="sticky bottom-0 z-20 bg-[var(--color-surface)] text-[var(--color-fg)] shadow-xl border border-[var(--color-border-subtle)] border-t-2 border-t-[var(--color-brand-500)] p-3 sm:px-4">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-5 flex-wrap">
-                        {/* Statut des points bloquants */}
+                        {/* Statut des points bloquants ou prérequis */}
                         {nbBloquantes > 0 ? (
                             <div className="flex items-center gap-2 text-xs font-semibold text-rose-600 dark:text-rose-400">
                                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
-                                <span>{nbBloquantes} point(s) bloquant(s) avant transmission (pointages incomplets ou absences non justifiées)</span>
+                                <span>{nbBloquantes} anomalie(s) bloquante(s) non régularisée(s) (pointages incomplets ou absences sans motif)</span>
+                            </div>
+                        ) : hasIncompleteWeeks ? (
+                            <div className="flex items-center gap-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                                <AlertTriangle size={15} className="text-amber-500" />
+                                <span>Saisie en cours : {nbSemainesRestantes} semaine(s) incomplète(s) avant clôture de période</span>
+                            </div>
+                        ) : !isPeriodeEnded ? (
+                            <div className="flex items-center gap-2 text-xs font-semibold text-sky-600 dark:text-sky-400">
+                                <Clock size={15} className="text-sky-500" />
+                                <span>Période en cours (date de fin : {dateFinPeriode || 'à venir'}) — Aucune anomalie bloquante</span>
                             </div>
                         ) : (
                             <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                                 <CheckCircle2 size={15} className="text-emerald-500" />
-                                <span>Toutes les anomalies bloquantes sont régularisées — Période prête pour transmission DAF</span>
+                                <span>Période échue et conforme — Prête pour arbitrage et validation DAF</span>
                             </div>
                         )}
 
-                        {/* Semaines restantes */}
+                        {/* Semaines saisies */}
                         <div className="text-xs text-[var(--color-fg-muted)] flex items-center gap-2 border-l border-[var(--color-border-subtle)] pl-4">
-                            <span>Progression de saisie :</span>
+                            <span>Progression :</span>
                             <span className="font-mono font-bold text-[var(--color-fg)]">
                                 {semaines.length - nbSemainesRestantes} / {semaines.length} semaine(s)
                             </span>
                         </div>
                     </div>
 
-                    {/* Bouton de transmission DAF */}
-                    <div className="flex items-center gap-3">
-                        <Button
-                            variant="primary"
-                            size="md"
-                            onClick={() => setShowTransmissionConfirm(true)}
-                            disabled={nbBloquantes > 0 || isLocked || !canWrite || transmitting}
-                            loading={transmitting}
-                            icon={<Send size={14} />}
-                            title={
-                                nbBloquantes > 0
-                                    ? `Résolvez les ${nbBloquantes} anomalie(s) bloquante(s) pour débloquer la transmission.`
-                                    : isLocked
-                                    ? 'Cette période est déjà transmise ou validée.'
-                                    : 'Transmettre officiellement la synthèse à la DAF.'
-                            }
-                        >
-                            Transmettre à la DAF
-                        </Button>
+                    {/* Actions selon le Persona connecté */}
+                    <div className="flex items-center gap-2.5">
+                        {isDaf ? (
+                            // PERSONA DAF / ADMIN : Navigation directe vers l'Arbitrage
+                            <div className="flex items-center gap-2">
+                                {isEnCours && canTransmitDaf && (
+                                    <Button
+                                        variant="outline"
+                                        size="md"
+                                        onClick={() => setShowTransmissionConfirm(true)}
+                                        disabled={transmitting}
+                                        loading={transmitting}
+                                        icon={<Send size={14} />}
+                                        title="Transmettre officiellement la période à la DAF"
+                                    >
+                                        Transmettre (Agent)
+                                    </Button>
+                                )}
+                                <Button
+                                    variant="primary"
+                                    size="md"
+                                    onClick={() => onTabChange ? onTabChange('arbitrage') : null}
+                                    icon={<ShieldCheck size={15} />}
+                                    className="font-bold text-xs"
+                                    title="Accéder directement à l'étape 3 : Arbitrage & Validation DAF"
+                                >
+                                    <span>Accéder à l'Arbitrage DAF</span>
+                                    <ArrowRight size={14} className="ml-1" />
+                                </Button>
+                            </div>
+                        ) : (
+                            // PERSONA AGENT DE SITE : Transmission formelle à la DAF
+                            <Button
+                                variant="primary"
+                                size="md"
+                                onClick={() => setShowTransmissionConfirm(true)}
+                                disabled={!canTransmitDaf || transmitting}
+                                loading={transmitting}
+                                icon={<Send size={14} />}
+                                title={transmissionBlockReason || 'Transmettre officiellement la synthèse à la DAF.'}
+                            >
+                                Transmettre à la DAF
+                            </Button>
+                        )}
                     </div>
                 </div>
             </div>
