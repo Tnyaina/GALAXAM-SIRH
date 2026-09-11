@@ -42,24 +42,53 @@ public class CongeCalculateurEngine {
     }
 
     /**
-     * Calcule l'acquisition mensuelle de congés (base pleine forfaitaire).
+     * Calcule l'acquisition mensuelle de congés avec taux paramétrable.
      */
-    public BigDecimal calculerAcquisitionMensuelle(int moisTravailles) {
+    public BigDecimal calculerAcquisitionMensuelle(int moisTravailles, BigDecimal tauxMensuel) {
         if (moisTravailles <= 0) return BigDecimal.ZERO;
-        return TAUX_ACQUISITION_MENSUEL.multiply(BigDecimal.valueOf(moisTravailles));
+        BigDecimal taux = tauxMensuel != null ? tauxMensuel : TAUX_ACQUISITION_MENSUEL;
+        return taux.multiply(BigDecimal.valueOf(moisTravailles));
     }
 
     /**
-     * Calcule l'acquisition mensuelle de congés proratisée aux jours d'activité effective (base 30 jours).
-     * Modèle OHATRA KAJY DROITS CONGES : nbre droit = 2.5 * formule / 30.0
+     * Calcule l'acquisition mensuelle de congés (base pleine forfaitaire légale 2.5j).
      */
-    public BigDecimal calculerAcquisitionMensuelleProratisee(BigDecimal joursTravaillesTrentieme) {
+    public BigDecimal calculerAcquisitionMensuelle(int moisTravailles) {
+        return calculerAcquisitionMensuelle(moisTravailles, TAUX_ACQUISITION_MENSUEL);
+    }
+
+    /**
+     * Calcule l'acquisition mensuelle de congés proratisée aux jours d'activité effective avec taux et diviseur configurables.
+     */
+    public BigDecimal calculerAcquisitionMensuelleProratisee(BigDecimal joursTravaillesTrentieme, BigDecimal tauxMensuel, BigDecimal diviseur) {
         if (joursTravaillesTrentieme == null || joursTravaillesTrentieme.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
-        BigDecimal ratio = joursTravaillesTrentieme.divide(new BigDecimal("30.0"), 6, java.math.RoundingMode.HALF_UP)
+        BigDecimal div = (diviseur != null && diviseur.compareTo(BigDecimal.ZERO) > 0) ? diviseur : new BigDecimal("30.0");
+        BigDecimal taux = tauxMensuel != null ? tauxMensuel : TAUX_ACQUISITION_MENSUEL;
+        BigDecimal ratio = joursTravaillesTrentieme.divide(div, 6, java.math.RoundingMode.HALF_UP)
                 .min(BigDecimal.ONE);
-        return TAUX_ACQUISITION_MENSUEL.multiply(ratio).setScale(4, java.math.RoundingMode.HALF_UP);
+        return taux.multiply(ratio).setScale(4, java.math.RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Calcule l'acquisition mensuelle de congés proratisée aux jours d'activité effective (base 30 jours, taux 2.5j).
+     * Modèle OHATRA KAJY DROITS CONGES : nbre droit = 2.5 * formule / 30.0
+     */
+    public BigDecimal calculerAcquisitionMensuelleProratisee(BigDecimal joursTravaillesTrentieme) {
+        return calculerAcquisitionMensuelleProratisee(joursTravaillesTrentieme, TAUX_ACQUISITION_MENSUEL, new BigDecimal("30.0"));
+    }
+
+    /**
+     * Calcule la valorisation mensuelle du droit acquis (R*S/diviseur).
+     */
+    public BigDecimal calculerValorisationDroitMensuel(BigDecimal baseTotale, BigDecimal joursDroit, int diviseurValorisation) {
+        if (baseTotale == null || joursDroit == null || baseTotale.compareTo(BigDecimal.ZERO) <= 0 || joursDroit.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO.setScale(2, java.math.RoundingMode.HALF_UP);
+        }
+        int div = diviseurValorisation > 0 ? diviseurValorisation : 30;
+        return baseTotale.multiply(joursDroit)
+                .divide(BigDecimal.valueOf(div), 2, java.math.RoundingMode.HALF_UP);
     }
 
     /**
@@ -68,11 +97,7 @@ public class CongeCalculateurEngine {
      * où base_totale = NET_BASE + HS
      */
     public BigDecimal calculerValorisationDroitMensuel(BigDecimal baseTotale, BigDecimal joursDroit) {
-        if (baseTotale == null || joursDroit == null || baseTotale.compareTo(BigDecimal.ZERO) <= 0 || joursDroit.compareTo(BigDecimal.ZERO) <= 0) {
-            return BigDecimal.ZERO.setScale(2, java.math.RoundingMode.HALF_UP);
-        }
-        return baseTotale.multiply(joursDroit)
-                .divide(new BigDecimal("30.0"), 2, java.math.RoundingMode.HALF_UP);
+        return calculerValorisationDroitMensuel(baseTotale, joursDroit, 30);
     }
 
     /**
@@ -87,11 +112,18 @@ public class CongeCalculateurEngine {
     }
 
     /**
+     * Calcule la bonification d'ancienneté avec seuil, palier et jours par palier dynamiques.
+     */
+    public int calculerBonificationAnciennete(int anneesAnciennete, int seuilMin, int palierAnnees, int joursParPalier) {
+        if (palierAnnees <= 0 || joursParPalier <= 0 || anneesAnciennete < seuilMin) return 0;
+        return (anneesAnciennete / palierAnnees) * joursParPalier;
+    }
+
+    /**
      * Calcule la bonification d'ancienneté (+1j par tranche de 5 ans révolus).
      */
     public int calculerBonificationAnciennete(int anneesAnciennete) {
-        if (anneesAnciennete < 5) return 0;
-        return anneesAnciennete / 5;
+        return calculerBonificationAnciennete(anneesAnciennete, 5, 5, 1);
     }
 
     /**

@@ -8,8 +8,11 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine;
+import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
+import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,10 +51,12 @@ public class AcquisitionCongeScheduler {
     public static class MouvementInfo {
         String typeMouvement;
         LocalDate dateMouvement;
+        double nbJours;
 
-        public MouvementInfo(String typeMouvement, LocalDate dateMouvement) {
+        public MouvementInfo(String typeMouvement, LocalDate dateMouvement, double nbJours) {
             this.typeMouvement = typeMouvement;
             this.dateMouvement = dateMouvement;
+            this.nbJours = nbJours;
         }
     }
 
@@ -65,7 +70,26 @@ public class AcquisitionCongeScheduler {
                 LocalDate today = LocalDate.now();
                 boolean isDernierJourMois = today.plusDays(1).getMonth() != today.getMonth();
 
-                // 1. Extraction brute des contrats actifs
+                // 1. Chargement de la configuration légale active (taux d'acquisition mensuel)
+                PaieConfigLegale configLegale = null;
+                try {
+                    configLegale = PaieConfigLegale.findActiveAt(c, today);
+                } catch (Exception e) {
+                    log.warn("[AcquisitionCongeScheduler] Impossible de charger PaieConfigLegale : {}", e.getMessage());
+                }
+
+                double tauxAcquisitionMensuel = (configLegale != null && configLegale.getAcquisitionCongeMensuelJours() != null)
+                        ? configLegale.getAcquisitionCongeMensuelJours().doubleValue()
+                        : CongeCalculateurEngine.TAUX_ACQUISITION_MENSUEL.doubleValue();
+
+                // 2. Chargement des paramètres d'organisation interne (plafond de cumul et bonification)
+                Map<String, String> params = ParametreGlobal.loadActiveMap(c);
+                double plafondCumulSolde = ParametreGlobal.getDouble(params, "PLAFOND_CUMUL_SOLDE_CONGE_JOURS", 90.0);
+                int seuilAnciennete = ParametreGlobal.getInt(params, "SEUIL_ANCIENNETE_BONIFICATION_ANS", 5);
+                int palierAnciennete = ParametreGlobal.getInt(params, "PALIER_ANNEES_BONIFICATION", 5);
+                int joursParPalier = ParametreGlobal.getInt(params, "JOURS_BONIFICATION_PAR_PALIER", 1);
+
+                // 3. Extraction brute des contrats actifs
                 String sqlContrats = "SELECT ct.id_employe, ct.id_contrat, ct.date_debut " +
                                      "FROM contrat_travail ct " +
                                      "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
@@ -86,7 +110,7 @@ public class AcquisitionCongeScheduler {
                     }
                 }
 
-                String sqlMouvements = "SELECT type_mouvement, date_mouvement FROM mouvement_solde_conge WHERE id_employe = ?";
+                String sqlMouvements = "SELECT type_mouvement, date_mouvement, nb_jours FROM mouvement_solde_conge WHERE id_employe = ?";
                 String insertMouvement = "INSERT INTO mouvement_solde_conge " +
                                          "(id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
                                          "VALUES (?, ?, ?, CURRENT_DATE, ?)";
@@ -95,7 +119,7 @@ public class AcquisitionCongeScheduler {
                      PreparedStatement psIn = c.prepareStatement(insertMouvement)) {
 
                     for (ContratActifInfo ct : contrats) {
-                        // 2. Éligibilité temporelle calculée en mémoire Java
+                        // Éligibilité temporelle calculée en mémoire Java
                         boolean eligible1Mois = !ct.dateDebut.isAfter(today.minusMonths(1));
                         boolean jourAtteint = today.getDayOfMonth() >= ct.dateDebut.getDayOfMonth() ||
                                              (isDernierJourMois && ct.dateDebut.getDayOfMonth() > today.getDayOfMonth());
@@ -104,14 +128,18 @@ public class AcquisitionCongeScheduler {
                             continue;
                         }
 
-                        // 3. Récupération des mouvements existants
+                        // Récupération des mouvements existants
                         psMvt.setInt(1, ct.idEmploye);
                         List<MouvementInfo> mvts = new ArrayList<>();
                         try (ResultSet rsMvt = psMvt.executeQuery()) {
                             while (rsMvt.next()) {
                                 Date dMvt = rsMvt.getDate("date_mouvement");
                                 if (dMvt != null) {
-                                    mvts.add(new MouvementInfo(rsMvt.getString("type_mouvement"), dMvt.toLocalDate()));
+                                    mvts.add(new MouvementInfo(
+                                        rsMvt.getString("type_mouvement"),
+                                        dMvt.toLocalDate(),
+                                        rsMvt.getDouble("nb_jours")
+                                    ));
                                 }
                             }
                         }
@@ -122,20 +150,38 @@ public class AcquisitionCongeScheduler {
                             m.dateMouvement.getMonth() == today.getMonth()
                         );
 
-                        // 4. Crédit de l'acquisition mensuelle standard (2.5 jours)
-                        if (!dejaAcquisCeMois) {
-                            psIn.setInt(1, ct.idEmploye);
-                            psIn.setString(2, "ACQUISITION");
-                            psIn.setDouble(3, CongeCalculateurEngine.TAUX_ACQUISITION_MENSUEL.doubleValue());
-                            psIn.setString(4, "Acquisition mensuelle légale (2.5j)");
-                            psIn.executeUpdate();
+                        double soldeActuel = mvts.stream().mapToDouble(m -> m.nbJours).sum();
 
-                            log.info("[AcquisitionCongeScheduler] +2.5j acquis pour employé ID {}", ct.idEmploye);
+                        // 4. Crédit de l'acquisition mensuelle légale (avec respect du plafond de cumul)
+                        if (!dejaAcquisCeMois) {
+                            double nbJoursACrediter = tauxAcquisitionMensuel;
+                            if (soldeActuel >= plafondCumulSolde) {
+                                nbJoursACrediter = 0.0;
+                                log.info("[AcquisitionCongeScheduler] Employé ID {} a atteint le plafond de cumul ({}j, solde actuel: {}j). Aucune acquisition créditée.",
+                                        ct.idEmploye, plafondCumulSolde, soldeActuel);
+                            } else if (soldeActuel + nbJoursACrediter > plafondCumulSolde) {
+                                nbJoursACrediter = Math.round((plafondCumulSolde - soldeActuel) * 100.0) / 100.0;
+                                log.info("[AcquisitionCongeScheduler] Employé ID {} plafonné : crédit partiel de {}j au lieu de {}j (plafond: {}j, solde: {}j).",
+                                        ct.idEmploye, nbJoursACrediter, tauxAcquisitionMensuel, plafondCumulSolde, soldeActuel);
+                            }
+
+                            if (nbJoursACrediter > 0) {
+                                psIn.setInt(1, ct.idEmploye);
+                                psIn.setString(2, "ACQUISITION");
+                                psIn.setDouble(3, nbJoursACrediter);
+                                String comm = "Acquisition mensuelle légale (" + nbJoursACrediter + "j)"
+                                        + (nbJoursACrediter < tauxAcquisitionMensuel ? " [Plafonné à " + plafondCumulSolde + "j]" : "");
+                                psIn.setString(4, comm);
+                                psIn.executeUpdate();
+                                soldeActuel += nbJoursACrediter;
+
+                                log.info("[AcquisitionCongeScheduler] +{}j acquis pour employé ID {}", nbJoursACrediter, ct.idEmploye);
+                            }
                         }
 
-                        // 5. Calcul de bonification d'ancienneté (+1j par 5 ans) si anniversaire d'embauche échu dans l'année
+                        // 5. Calcul de bonification d'ancienneté paramétrable si anniversaire d'embauche échu dans l'année
                         int ancienneteAns = Period.between(ct.dateDebut, today).getYears();
-                        int joursBonus = congeCalculateurEngine.calculerBonificationAnciennete(ancienneteAns);
+                        int joursBonus = congeCalculateurEngine.calculerBonificationAnciennete(ancienneteAns, seuilAnciennete, palierAnciennete, joursParPalier);
                         boolean anniversaireEchuOuActuel = today.getMonthValue() >= ct.dateDebut.getMonthValue();
 
                         if (joursBonus > 0 && anniversaireEchuOuActuel) {
@@ -145,13 +191,27 @@ public class AcquisitionCongeScheduler {
                             );
 
                             if (!dejaBonifieCetteAnnee) {
-                                psIn.setInt(1, ct.idEmploye);
-                                psIn.setString(2, "BONIFICATION");
-                                psIn.setDouble(3, (double) joursBonus);
-                                psIn.setString(4, "Bonification d'ancienneté (" + ancienneteAns + " ans d'ancienneté : +" + joursBonus + "j)");
-                                psIn.executeUpdate();
+                                double bonusACrediter = joursBonus;
+                                if (soldeActuel >= plafondCumulSolde) {
+                                    bonusACrediter = 0.0;
+                                    log.info("[AcquisitionCongeScheduler] Employé ID {} a atteint le plafond ({}j). Bonification d'ancienneté non créditée.",
+                                            ct.idEmploye, plafondCumulSolde);
+                                } else if (soldeActuel + bonusACrediter > plafondCumulSolde) {
+                                    bonusACrediter = Math.round((plafondCumulSolde - soldeActuel) * 100.0) / 100.0;
+                                }
 
-                                log.info("[AcquisitionCongeScheduler] +{}j de bonification d'ancienneté pour employé ID {}", joursBonus, ct.idEmploye);
+                                if (bonusACrediter > 0) {
+                                    psIn.setInt(1, ct.idEmploye);
+                                    psIn.setString(2, "BONIFICATION");
+                                    psIn.setDouble(3, bonusACrediter);
+                                    String comm = "Bonification d'ancienneté (" + ancienneteAns + " ans : +" + bonusACrediter + "j)"
+                                            + (bonusACrediter < joursBonus ? " [Plafonné à " + plafondCumulSolde + "j]" : "");
+                                    psIn.setString(4, comm);
+                                    psIn.executeUpdate();
+                                    soldeActuel += bonusACrediter;
+
+                                    log.info("[AcquisitionCongeScheduler] +{}j de bonification d'ancienneté pour employé ID {}", bonusACrediter, ct.idEmploye);
+                                }
                             }
                         }
                     }

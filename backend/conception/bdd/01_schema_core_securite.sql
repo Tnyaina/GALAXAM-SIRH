@@ -225,10 +225,8 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (2, 'POINTAGE_JOURNALIER'),
 (2, 'POINTAGE_SUIVI');
 
--- Paramètres Globaux Légaux et Opérationnels (Exhaustivité des 30 paramètres issus des 24 archives)
+-- Paramètres Globaux Opérationnels RH (Les constantes légales sont portées exclusivement par paie_config_legale)
 INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, description, date_debut, date_fin) VALUES
-(1, 'PLAFOND_HEURES_SUPP_SEMAINE', 'RH_GENERAL', '20', 'Plafond légal HS/semaine (Code du Travail Art. 83)', '2026-01-01', NULL),
-(2, 'SEUIL_HS_TRANCHE_1', 'RH_GENERAL', '8', 'Les X premières heures supplementaires de la semaine sont payees avec une majoration de +30%', '2026-01-01', NULL),
 (3, 'SEUIL_NUIT_DEBUT', 'POINTAGE', '22:00', 'Début du travail de nuit (Art. 83 Code Travail Malgache)', '2026-01-01', NULL),
 (4, 'SEUIL_NUIT_FIN', 'POINTAGE', '05:00', 'Fin du travail de nuit', '2026-01-01', NULL),
 (5, 'MONTANT_REPAS_MIDI', 'POINTAGE', '2000', 'Indemnité repas midi de référence en Ariary', '2026-01-01', NULL),
@@ -239,11 +237,9 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (10, 'SEUIL_PAUSE_MIDI_MIN', 'POINTAGE', '60', 'Pause midi minimale en minutes (détection « ne rentre pas midi » TMM)', '2026-01-01', NULL),
 (11, 'REDUCTION_DEPLACT_REPAS_MIDI', 'POINTAGE', '1000', 'Déduction indemnité déplacement (en Ar) si repas midi reçu sur site TMM', '2026-01-01', NULL),
 (12, 'SEUIL_HEURES_JOUR', 'RH_GENERAL', '8', 'Durée normale d une journée de travail (utilisée par Pointage)', '2026-01-01', NULL),
-(13, 'SEUIL_HEURES_SEMAINE', 'RH_GENERAL', '40', 'Durée légale hebdomadaire normale (40h, Code du Travail Art. 83)', '2026-01-01', NULL),
 (14, 'DUREE_MAX_CDD_MOIS', 'CONTRAT', '72', 'Durée maximale cumulée d un CDD et de ses deux renouvellements (72 mois / 6 ans). Chaque CDD ne peut excéder 24 mois.', '2026-01-01', NULL),
 (15, 'NB_MAX_RENOUVELLEMENTS_CDD', 'CONTRAT', '2', 'Nombre maximal de renouvellements d un CDD par avenant (2 fois max). Au 3ème renouvellement, requalification en CDI.', '2026-01-01', NULL),
 (16, 'MAX_RENOUVELLEMENTS_ESSAI', 'RH_GENERAL', '1', 'Nombre maximal de renouvellements autorisés pour une période d essai (droit malgache : 1 seul renouvellement)', '2026-01-01', NULL),
-(17, 'DIVISEUR_JOURS_CALENDAIRE_CONGE', 'CONGE', '30', 'Diviseur en jours calendaires/mois pour valoriser un jour de congé payé : (Salaire de base + HS) ÷ 30. Cohérent avec le décompte calendaire (sam/dim/fériés comptés).', '2026-01-01', NULL),
 (18, 'PLAFOND_CUMUL_SOLDE_CONGE_JOURS', 'CONGE', '90', 'Plafond légal du solde cumulé de congés payés (30j acquis/an x 3 ans de prescription, Art. 85)', '2026-01-01', NULL),
 (19, 'DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS', 'CONGE', '36', 'Durée au-delà de laquelle un jour de congé acquis et non pris expire (prescription triennale) — alimente le job batch générant les mouvements EXPIRATION', '2026-01-01', NULL),
 (20, 'PLAFOND_SOLDE_CONGE_NEGATIF', 'CONGE', '-10', 'Solde négatif maximum autorisable par dérogation RH lors d une prise de congé par anticipation (2 à 4 mois d acquisition future)', '2026-01-01', NULL),
@@ -251,7 +247,6 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (22, 'DELAI_PREAVIS_COURT_JOURS', 'CONGE', '2', 'Préavis minimum (en jours avant date_debut) pour une demande courte durée (Art. 85)', '2026-01-01', NULL),
 (23, 'DELAI_PREAVIS_LONG_JOURS', 'CONGE', '15', 'Préavis minimum pour une demande longue durée (seuil défini par SEUIL_JOURS_PREAVIS_LONG)', '2026-01-01', NULL),
 (24, 'SEUIL_JOURS_PREAVIS_LONG', 'CONGE', '3', 'Nombre de jours posés à partir duquel le préavis long (DELAI_PREAVIS_LONG_JOURS) s applique au lieu du préavis court', '2026-01-01', NULL),
-(25, 'FRACTIONNEMENT_TRANCHE_MIN_JOURS', 'CONGE', '12', 'Nombre de jours consécutifs minimum devant être posés en une seule tranche au moins une fois par exercice pour le congé annuel (Art. 85)', '2026-01-01', NULL),
 (26, 'DUREE_MAX_MATERNITE_STANDARD_JOURS', 'CONGE', '98', 'Durée légale standard du congé maternité (14 semaines calendaires, Art. 85)', '2026-01-01', NULL),
 (27, 'DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS', 'CONGE', '119', 'Durée maximale du congé maternité en cas d extension pour état pathologique (98 + 21j)', '2026-01-01', NULL),
 (28, 'SEUIL_ANCIENNETE_BONIFICATION_ANS', 'CONGE', '3', 'Ancienneté minimale (en années) à partir de laquelle la bonification de congé s applique (Art. 86/87)', '2026-01-01', NULL),

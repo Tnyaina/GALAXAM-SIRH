@@ -38,17 +38,19 @@ public class AdminAccountSeeder implements CommandLineRunner {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                // 1. Vérifier si la table utilisateur contient déjà au moins un compte avec ROLE_ADMIN actif
+                // 1. Vérifier si le compte administrateur racine (defaultAdminUsername) existe et est actif
                 String checkAdminSql =
                     "SELECT COUNT(u.id_utilisateur) FROM utilisateur u " +
                     "JOIN ref_role r ON u.id_role = r.id_role " +
-                    "WHERE r.code_role = 'ROLE_ADMIN' AND u.est_actif = true";
+                    "WHERE u.identifiant = ? AND r.code_role = 'ROLE_ADMIN' AND u.est_actif = true";
 
                 boolean adminExists = false;
-                try (PreparedStatement ps = c.prepareStatement(checkAdminSql);
-                     ResultSet rs = ps.executeQuery()) {
-                    if (rs.next() && rs.getInt(1) > 0) {
-                        adminExists = true;
+                try (PreparedStatement ps = c.prepareStatement(checkAdminSql)) {
+                    ps.setString(1, defaultAdminUsername);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next() && rs.getInt(1) > 0) {
+                            adminExists = true;
+                        }
                     }
                 } catch (Exception ex) {
                     logger.warn("[AdminAccountSeeder] Table utilisateur non accessible ou non initialisée : {}", ex.getMessage());

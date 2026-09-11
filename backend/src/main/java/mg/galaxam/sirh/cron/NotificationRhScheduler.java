@@ -65,7 +65,6 @@ public class NotificationRhScheduler {
                 // 4. Alertes Congés
                 genererAlerteSoldeFaible(c);
                 genererAlerteRetourCongeJour(c);
-                genererAlerteFractionnement(c);
                 genererAlerteMaladieProlongee(c);
                 genererAlerteExpirationProche(c);
 
@@ -343,40 +342,6 @@ public class NotificationRhScheduler {
                     "Dernier jour de congé aujourd'hui - " + nomPrenom,
                     nomPrenom + " termine ses congés aujourd'hui et reprendra le travail dès demain.",
                     "/employes/" + idEmploye + "?tab=conges", idEmploye);
-            }
-        }
-    }
-
-    private void genererAlerteFractionnement(Connection c) throws Exception {
-        LocalDate startOfYear = LocalDate.now().withDayOfYear(1);
-        LocalDate endOfYear = LocalDate.now().withMonth(12).withDayOfMonth(31);
-
-        String sql = "SELECT e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
-                     "COUNT(dc.id_demande_conge) AS nb_prises, " +
-                     "COALESCE(MAX(dc.nb_jours_decomptes), 0) AS plus_longue_prise " +
-                     "FROM demande_conge dc " +
-                     "JOIN employe e ON dc.id_employe = e.id_employe " +
-                     "JOIN ref_statut_demande_conge rsd ON dc.id_statut_demande_conge = rsd.id_statut_demande_conge " +
-                     "JOIN ref_type_conge rtc ON dc.id_type_conge = rtc.id_type_conge " +
-                     "WHERE rsd.code = 'VALIDE' AND rtc.code = 'ANNUEL' " +
-                     "AND dc.date_debut >= ? AND dc.date_debut <= ? " +
-                     "GROUP BY e.id_employe, e.nom, e.prenom " +
-                     "HAVING COUNT(dc.id_demande_conge) >= 4 AND MAX(dc.nb_jours_decomptes) < 14";
-
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(startOfYear));
-            ps.setDate(2, Date.valueOf(endOfYear));
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    int idEmploye = rs.getInt("id_employe");
-                    String nomPrenom = rs.getString("nom_prenom");
-                    int nbPrises = rs.getInt("nb_prises");
-
-                    insererNotification(c, null, "FRACTIONNEMENT_NON_RESPECTE", "NORMALE",
-                        "Fractionnement excessif de congés - " + nomPrenom,
-                        nomPrenom + " a effectué " + nbPrises + " prises de congés cette année sans avoir pris le congé principal obligatoire continu de 14 jours (Art. 85).",
-                        "/employes/" + idEmploye + "?tab=conges", idEmploye);
-                }
             }
         }
     }

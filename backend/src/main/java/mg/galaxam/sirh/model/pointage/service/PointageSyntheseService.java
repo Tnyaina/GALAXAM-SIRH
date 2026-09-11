@@ -235,7 +235,15 @@ public class PointageSyntheseService {
             Connection c
     ) throws SQLException {
         double seuilHeuresJour = ParametreGlobal.getDouble(params, "SEUIL_HEURES_JOUR", 8.0);
-        double seuilHsTranche1 = ParametreGlobal.getDouble(params, "SEUIL_HS_TRANCHE_1", 8.0);
+        double seuilHsTranche1 = 8.0;
+        try {
+            mg.galaxam.sirh.model.paieconfig.PaieConfigLegale leg = mg.galaxam.sirh.model.paieconfig.PaieConfigLegale.findActiveAt(c, dateDebut != null ? dateDebut : LocalDate.now());
+            if (leg != null && leg.getSeuilHsTranche1() != null) {
+                seuilHsTranche1 = leg.getSeuilHsTranche1().doubleValue();
+            }
+        } catch (Exception e) {
+            log.warn("Impossible de charger PaieConfigLegale pour seuilHsTranche1, repli sur 8.0 : {}", e.getMessage());
+        }
         double reductionDeplactRepasConfig = ParametreGlobal.getDouble(params, "REDUCTION_DEPLACT_REPAS_MIDI", 1000.0);
         double montantRepasMidiDefaut = ParametreGlobal.getDouble(params, "MONTANT_REPAS_MIDI", 2000.0);
         String seuil2eRepas1Str = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_1", "19:30");
@@ -1344,7 +1352,15 @@ public class PointageSyntheseService {
 
         Map<String, String> params = ParametreGlobal.loadActiveMap(c);
         double seuilHeuresJour = ParametreGlobal.getDouble(params, "SEUIL_HEURES_JOUR", 8.0);
-        double seuilHsTranche1 = ParametreGlobal.getDouble(params, "SEUIL_HS_TRANCHE_1", 8.0);
+        double seuilHsTranche1 = 8.0;
+        try {
+            mg.galaxam.sirh.model.paieconfig.PaieConfigLegale leg = mg.galaxam.sirh.model.paieconfig.PaieConfigLegale.findActiveAt(c, dateDebutTroncon != null ? dateDebutTroncon : LocalDate.now());
+            if (leg != null && leg.getSeuilHsTranche1() != null) {
+                seuilHsTranche1 = leg.getSeuilHsTranche1().doubleValue();
+            }
+        } catch (Exception e) {
+            log.warn("Impossible de charger PaieConfigLegale pour seuilHsTranche1, repli sur 8.0 : {}", e.getMessage());
+        }
         double montantRepasMidiDefaut = ParametreGlobal.getDouble(params, "MONTANT_REPAS_MIDI", 2000.0);
         String seuil2eRepas1Str = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_1", "19:30");
         LocalTime seuil2eRepas1 = LocalTime.parse(seuil2eRepas1Str.length() == 5 ? seuil2eRepas1Str : seuil2eRepas1Str.substring(0, 5));

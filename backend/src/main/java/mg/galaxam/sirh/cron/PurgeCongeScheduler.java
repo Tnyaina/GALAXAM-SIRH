@@ -51,8 +51,11 @@ public class PurgeCongeScheduler {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                // 1. Calcul de la date seuil des 36 mois en Java pur
-                LocalDate seuilPrescription = LocalDate.now().minusMonths(36);
+                // 1. Calcul de la date seuil de prescription (dynamisée depuis parametre_global, défaut 36 mois)
+                mg.galaxam.sirh.model.paieconfig.ParametreGlobal pgDummy = null;
+                java.util.Map<String, String> params = mg.galaxam.sirh.model.paieconfig.ParametreGlobal.loadActiveMap(c);
+                int moisPrescription = mg.galaxam.sirh.model.paieconfig.ParametreGlobal.getInt(params, "DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS", 36);
+                LocalDate seuilPrescription = LocalDate.now().minusMonths(moisPrescription);
 
                 // 2. Extraction brute des mouvements sans logique complexe en SQL
                 String sql = "SELECT id_employe, type_mouvement, nb_jours, date_mouvement FROM mouvement_solde_conge";
@@ -82,7 +85,7 @@ public class PurgeCongeScheduler {
                 // 3. Application du Domain Engine FIFO et persistance des expirations
                 String insertMouvement = "INSERT INTO mouvement_solde_conge " +
                                          "(id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
-                                         "VALUES (?, 'EXPIRATION', ?, CURRENT_DATE, 'Purge légale triennale FIFO (droits de +36 mois prescrits)')";
+                                         "VALUES (?, 'EXPIRATION', ?, CURRENT_DATE, ?)";
 
                 try (PreparedStatement psIn = c.prepareStatement(insertMouvement)) {
 
@@ -95,12 +98,13 @@ public class PurgeCongeScheduler {
                         if (joursAExpirer > 0.001) {
                             psIn.setInt(1, idEmploye);
                             psIn.setDouble(2, -joursAExpirer);
+                            psIn.setString(3, "Purge légale FIFO (droits de +" + moisPrescription + " mois prescrits)");
                             psIn.executeUpdate();
 
                             notificationService.creer(c, "ALERTE_ECHEANCE", "HAUTE",
                                 "Congés expirés purgés (FIFO)",
                                 "Attention, " + String.format("%.2f", joursAExpirer)
-                                    + " jours de congés acquis il y a plus de 3 ans ont atteint leur limite d'utilisation et ont été expirés.",
+                                    + " jours de congés acquis il y a plus de " + moisPrescription + " mois ont atteint leur limite d'utilisation et ont été expirés.",
                                 "/employes/" + idEmploye + "?tab=conges",
                                 idEmploye);
 
