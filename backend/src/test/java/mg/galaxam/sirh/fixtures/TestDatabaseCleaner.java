@@ -16,6 +16,13 @@ public class TestDatabaseCleaner {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try (Statement s = c.createStatement()) {
+                s.execute("TRUNCATE TABLE bulletin_paie_ligne CASCADE;");
+                s.execute("TRUNCATE TABLE bulletin_paie CASCADE;");
+                s.execute("TRUNCATE TABLE paie_stc CASCADE;");
+                s.execute("TRUNCATE TABLE paie_pret_echeance CASCADE;");
+                s.execute("TRUNCATE TABLE paie_pret CASCADE;");
+                s.execute("TRUNCATE TABLE paie_avance_acompte CASCADE;");
+                s.execute("TRUNCATE TABLE paie_honoraire_prestation CASCADE;");
                 s.execute("TRUNCATE TABLE pointage_indemnite_jour CASCADE;");
                 s.execute("TRUNCATE TABLE pointage_jour CASCADE;");
                 s.execute("TRUNCATE TABLE pointage_semaine_calcule CASCADE;");

@@ -1,26 +1,24 @@
 package mg.galaxam.sirh.adversarial;
 
-import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.api.dto.contrat.EmbaucheInitialeRequest;
-import mg.galaxam.sirh.api.dto.contrat.TransitionCarriereRequest;
-import mg.galaxam.sirh.model.contrat.WorkflowRhService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.time.LocalDate;
-
-import static org.junit.jupiter.api.Assertions.*;
+import mg.galaxam.sirh.BaseIntegrationTest;
+import mg.galaxam.sirh.api.dto.contrat.EmbaucheInitialeRequest;
+import mg.galaxam.sirh.api.dto.contrat.TransitionCarriereRequest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 
 public class ContratAdversarialTest extends BaseIntegrationTest {
-
-    @Autowired
-    private WorkflowRhService workflowRhService;
 
     private int idEmploye;
     private int idContratActif;
@@ -34,8 +32,8 @@ public class ContratAdversarialTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Adversarial Contrat : Rejet d'une 2nde embauche initiale pour un employé ayant déjà un contrat ACTIF")
-    public void testRejetDoubleContratActif() {
+    @DisplayName("Adversarial API Contrat : Rejet d'une 2nde embauche initiale pour un employé ayant déjà un contrat ACTIF")
+    public void testRejetDoubleContratActif() throws Exception {
         EmbaucheInitialeRequest req = new EmbaucheInitialeRequest();
         req.setIdFiliale(1);
         req.setIdTypeContrat(1); // CDI
@@ -51,18 +49,16 @@ public class ContratAdversarialTest extends BaseIntegrationTest {
         req.setIdModeCalculPaie(1);
         req.setSalaireBase(BigDecimal.valueOf(800000.00));
 
-        try (Connection c = dataSource.getConnection()) {
-            Exception ex = assertThrows(IllegalArgumentException.class, () ->
-                    workflowRhService.creerBrouillonEmbauche(idEmploye, req, 1, c));
-            assertTrue(ex.getMessage().contains("possède déjà un contrat ACTIF"),
-                    "Le message d'erreur doit signaler la présence d'un contrat actif");
-        } catch (Exception e) {
-            fail("Erreur inattendue : " + e.getMessage());
-        }
+        mockMvc.perform(post("/employes/" + idEmploye + "/workflows/embauche-initiale")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("possède déjà un contrat ACTIF")));
     }
 
     @Test
-    @DisplayName("Adversarial Contrat : Rejet d'un renouvellement CDD excédant le plafond légal de 24 mois")
+    @DisplayName("Adversarial API Contrat : Rejet d'un renouvellement CDD excédant le plafond légal de 24 mois")
     public void testRejetCddSuperieurA24Mois() throws Exception {
         // Convertir le contrat actif en CDD
         try (Connection c = dataSource.getConnection();
@@ -94,16 +90,16 @@ public class ContratAdversarialTest extends BaseIntegrationTest {
         req.setIdModeCalculPaie(1);
         req.setSalaireBase(BigDecimal.valueOf(800000.00));
 
-        try (Connection c = dataSource.getConnection()) {
-            Exception ex = assertThrows(IllegalArgumentException.class, () ->
-                    workflowRhService.creerBrouillonTransition(idEmploye, req, 1, c));
-            assertTrue(ex.getMessage().contains("24 mois"),
-                    "L'exception doit expliciter le plafond de 24 mois du Code du travail malgache");
-        }
+        mockMvc.perform(post("/employes/" + idEmploye + "/workflows/transition")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("24 mois")));
     }
 
     @Test
-    @DisplayName("Adversarial Contrat : Rejet d'un renouvellement CDD d'une durée inférieure au minimum légal de 1 mois")
+    @DisplayName("Adversarial API Contrat : Rejet d'un renouvellement CDD d'une durée inférieure au minimum légal de 1 mois")
     public void testRejetCddInferieurA1Mois() throws Exception {
         // Convertir le contrat actif en CDD
         try (Connection c = dataSource.getConnection();
@@ -135,17 +131,17 @@ public class ContratAdversarialTest extends BaseIntegrationTest {
         req.setIdModeCalculPaie(1);
         req.setSalaireBase(BigDecimal.valueOf(800000.00));
 
-        try (Connection c = dataSource.getConnection()) {
-            Exception ex = assertThrows(IllegalArgumentException.class, () ->
-                    workflowRhService.creerBrouillonTransition(idEmploye, req, 1, c));
-            assertTrue(ex.getMessage().contains("durée minimale d'un mois"),
-                    "L'exception doit mentionner la durée minimale de 1 mois");
-        }
+        mockMvc.perform(post("/employes/" + idEmploye + "/workflows/transition")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("durée minimale d'un mois")));
     }
 
     @Test
-    @DisplayName("Adversarial Contrat : Rejet d'une transition sans contrat source spécifié")
-    public void testRejetTransitionSansContratSource() {
+    @DisplayName("Adversarial API Contrat : Rejet d'une transition sans contrat source spécifié")
+    public void testRejetTransitionSansContratSource() throws Exception {
         TransitionCarriereRequest req = new TransitionCarriereRequest();
         req.setCodeTypeEvenement("RENOUVELLEMENT_CDD");
         req.setIdContratSource(null); // Contrat source manquant
@@ -155,11 +151,10 @@ public class ContratAdversarialTest extends BaseIntegrationTest {
         req.setDateDebut(Date.valueOf(LocalDate.now()));
         req.setDateFin(Date.valueOf(LocalDate.now().plusMonths(6)));
 
-        try (Connection c = dataSource.getConnection()) {
-            assertThrows(IllegalArgumentException.class, () ->
-                    workflowRhService.creerBrouillonTransition(idEmploye, req, 1, c));
-        } catch (Exception e) {
-            fail("Erreur inattendue : " + e.getMessage());
-        }
+        mockMvc.perform(post("/employes/" + idEmploye + "/workflows/transition")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(req)))
+                .andExpect(status().isBadRequest());
     }
 }

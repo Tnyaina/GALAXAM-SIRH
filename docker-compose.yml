@@ -11,6 +11,8 @@ services:
       - "5432:5432"
     volumes:
       - galaxam_pg_data:/var/lib/postgresql/data
+      - ./docker/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+      - ./backend/conception/bdd:/bdd-schemas:ro
     networks:
       - galaxam_network
 volumes:

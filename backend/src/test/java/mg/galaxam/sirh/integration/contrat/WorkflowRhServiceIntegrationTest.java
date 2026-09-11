@@ -1,7 +1,13 @@
 package mg.galaxam.sirh.integration.contrat;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
@@ -12,25 +18,18 @@ import mg.galaxam.sirh.BaseIntegrationTest;
 import mg.galaxam.sirh.api.dto.contrat.EmbaucheInitialeRequest;
 import mg.galaxam.sirh.api.dto.contrat.ValiderWorkflowRequest;
 import mg.galaxam.sirh.fixtures.TestEmployeFixtures;
-import mg.galaxam.sirh.model.contrat.WorkflowRhCPL;
-import mg.galaxam.sirh.model.contrat.WorkflowRhService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 
 public class WorkflowRhServiceIntegrationTest extends BaseIntegrationTest {
 
-    @Autowired
-    private WorkflowRhService workflowRhService;
-
     private int idEmployeNu;
-    private int idAdminUser;
 
     @BeforeEach
     public void setUp() throws Exception {
         databaseCleaner.cleanTransactionalData();
-        idAdminUser = userFixtures.getAdminUserId();
 
         // Créer un employé sans contrat (employé nu)
         try (Connection c = dataSource.getConnection()) {
@@ -88,21 +87,23 @@ public class WorkflowRhServiceIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Brouillon d'embauche : Création du contrat BROUILLON, affectation PLANIFIE et workflow BROUILLON")
+    @DisplayName("API Workflow RH : Création d'un brouillon d'embauche initiale (HTTP 201)")
     public void testCreerBrouillonEmbauche_Nominal() throws Exception {
         LocalDate dateDebut = LocalDate.now().plusDays(5);
         EmbaucheInitialeRequest req = buildEmbaucheRequest("CDI", dateDebut, null);
 
-        WorkflowRhCPL wf;
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            wf = workflowRhService.creerBrouillonEmbauche(idEmployeNu, req, idAdminUser, c);
-            c.commit();
-        }
+        String resStr = mockMvc.perform(post("/employes/" + idEmployeNu + "/workflows/embauche-initiale")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(req)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
 
-        assertNotNull(wf);
-        assertNotNull(wf.getIdWorkflow());
-        assertEquals("BROUILLON", wf.getCodeStatutWorkflow());
+        JsonNode json = objectMapper.readTree(resStr);
+        int idWf = json.get("idWorkflow").asInt();
+        int idContrat = json.get("idContratCible").asInt();
+        int idAff = json.get("idAffectationCible").asInt();
+        assertEquals("BROUILLON", json.get("codeStatutWorkflow").asText());
 
         // Vérification en base
         try (Connection c = dataSource.getConnection()) {
@@ -110,7 +111,7 @@ public class WorkflowRhServiceIntegrationTest extends BaseIntegrationTest {
             String sqlCt = "SELECT s.code FROM contrat_travail ct " +
                     "JOIN ref_statut_rh s ON ct.id_statut_rh = s.id_statut_rh WHERE ct.id_contrat = ?";
             try (PreparedStatement ps = c.prepareStatement(sqlCt)) {
-                ps.setInt(1, wf.getIdContratCible());
+                ps.setInt(1, idContrat);
                 try (ResultSet rs = ps.executeQuery()) {
                     assertTrue(rs.next());
                     assertEquals("BROUILLON", rs.getString("code"), "Le contrat créé doit être en statut BROUILLON");
@@ -121,7 +122,7 @@ public class WorkflowRhServiceIntegrationTest extends BaseIntegrationTest {
             String sqlAff = "SELECT s.code FROM employe_affectation_carriere a " +
                     "JOIN ref_statut_rh s ON a.id_statut_rh = s.id_statut_rh WHERE a.id_affectation = ?";
             try (PreparedStatement ps = c.prepareStatement(sqlAff)) {
-                ps.setInt(1, wf.getIdAffectationCible());
+                ps.setInt(1, idAff);
                 try (ResultSet rs = ps.executeQuery()) {
                     assertTrue(rs.next());
                     assertEquals("PLANIFIE", rs.getString("code"), "L'affectation créée doit être en statut PLANIFIE");
@@ -131,30 +132,31 @@ public class WorkflowRhServiceIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Validation Embauche : Le contrat devient ACTIF, l'affectation devient ACTIF, le workflow est validé")
+    @DisplayName("API Workflow RH : Validation DAF d'un workflow d'embauche (HTTP 200)")
     public void testValiderWorkflow_EmbaucheInitiale() throws Exception {
         LocalDate dateDebut = LocalDate.now().minusDays(1);
         EmbaucheInitialeRequest req = buildEmbaucheRequest("CDI", dateDebut, null);
 
-        WorkflowRhCPL wf;
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            wf = workflowRhService.creerBrouillonEmbauche(idEmployeNu, req, idAdminUser, c);
-            c.commit();
-        }
+        String embRes = mockMvc.perform(post("/employes/" + idEmployeNu + "/workflows/embauche-initiale")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(req)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
 
-        // Validation du workflow
+        int idWf = objectMapper.readTree(embRes).get("idWorkflow").asInt();
+        int idContrat = objectMapper.readTree(embRes).get("idContratCible").asInt();
+        int idAff = objectMapper.readTree(embRes).get("idAffectationCible").asInt();
+
+        // Validation du workflow via l'API PUT
         ValiderWorkflowRequest valReq = new ValiderWorkflowRequest();
         valReq.setCommentaireValidation("Validation DAF conforme");
 
-        WorkflowRhCPL wfValide;
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            wfValide = workflowRhService.validerWorkflow(wf.getIdWorkflow(), valReq, idAdminUser, c);
-            c.commit();
-        }
-
-        assertNotNull(wfValide);
+        mockMvc.perform(put("/workflows/" + idWf + "/valider")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(valReq)))
+                .andExpect(status().isOk());
 
         // Vérification directe en base
         try (Connection c = dataSource.getConnection()) {
@@ -162,7 +164,7 @@ public class WorkflowRhServiceIntegrationTest extends BaseIntegrationTest {
             String sqlCt = "SELECT s.code FROM contrat_travail ct " +
                     "JOIN ref_statut_rh s ON ct.id_statut_rh = s.id_statut_rh WHERE ct.id_contrat = ?";
             try (PreparedStatement ps = c.prepareStatement(sqlCt)) {
-                ps.setInt(1, wf.getIdContratCible());
+                ps.setInt(1, idContrat);
                 try (ResultSet rs = ps.executeQuery()) {
                     assertTrue(rs.next());
                     assertEquals("ACTIF", rs.getString("code"), "Le contrat validé doit être ACTIF");
@@ -173,7 +175,7 @@ public class WorkflowRhServiceIntegrationTest extends BaseIntegrationTest {
             String sqlAff = "SELECT s.code FROM employe_affectation_carriere a " +
                     "JOIN ref_statut_rh s ON a.id_statut_rh = s.id_statut_rh WHERE a.id_affectation = ?";
             try (PreparedStatement ps = c.prepareStatement(sqlAff)) {
-                ps.setInt(1, wf.getIdAffectationCible());
+                ps.setInt(1, idAff);
                 try (ResultSet rs = ps.executeQuery()) {
                     assertTrue(rs.next());
                     assertEquals("ACTIF", rs.getString("code"), "L'affectation validée doit être ACTIF");
@@ -183,7 +185,7 @@ public class WorkflowRhServiceIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Sécurité Métier : Interdiction de créer une embauche initiale si un contrat ACTIF existe déjà")
+    @DisplayName("API Workflow RH : Rejet HTTP 400 si l'employé possède déjà un contrat ACTIF")
     public void testRejetEmbaucheSiContratActifExistant() throws Exception {
         // Créer un employé déjà actif avec contrat
         TestEmployeFixtures.CreatedEmploye empActif = employeFixtures.createActiveEmploye(
@@ -191,38 +193,45 @@ public class WorkflowRhServiceIntegrationTest extends BaseIntegrationTest {
 
         EmbaucheInitialeRequest req = buildEmbaucheRequest("CDI", LocalDate.now(), null);
 
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
-                workflowRhService.creerBrouillonEmbauche(empActif.idEmploye, req, idAdminUser, c);
-            });
-            assertTrue(ex.getMessage().contains("possède déjà un contrat ACTIF"),
-                    "L'embauche initiale doit être bloquée si un contrat actif existe déjà");
-        }
+        mockMvc.perform(post("/employes/" + empActif.idEmploye + "/workflows/embauche-initiale")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("possède déjà un contrat ACTIF")));
     }
 
     @Test
-    @DisplayName("Verrouillage transactionnel : Interdiction de valider un workflow déjà validé")
+    @DisplayName("API Workflow RH : Rejet HTTP 400 lors de la tentative de double validation d'un workflow")
     public void testInterdictionDoubleValidation() throws Exception {
         LocalDate dateDebut = LocalDate.now().minusDays(1);
         EmbaucheInitialeRequest req = buildEmbaucheRequest("CDI", dateDebut, null);
 
-        WorkflowRhCPL wf;
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            wf = workflowRhService.creerBrouillonEmbauche(idEmployeNu, req, idAdminUser, c);
-            c.commit();
+        String embRes = mockMvc.perform(post("/employes/" + idEmployeNu + "/workflows/embauche-initiale")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(req)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
 
-            ValiderWorkflowRequest valReq = new ValiderWorkflowRequest();
-            workflowRhService.validerWorkflow(wf.getIdWorkflow(), valReq, idAdminUser, c);
-            c.commit();
+        int idWf = objectMapper.readTree(embRes).get("idWorkflow").asInt();
 
-            // Deuxième tentative de validation sur le même workflow
-            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
-                workflowRhService.validerWorkflow(wf.getIdWorkflow(), valReq, idAdminUser, c);
-            });
-            assertTrue(ex.getMessage().contains("Seul un workflow BROUILLON peut être validé"),
-                    "La tentative de re-validation doit être rejetée par le contrôle FOR UPDATE de statut");
-        }
+        ValiderWorkflowRequest valReq = new ValiderWorkflowRequest();
+        valReq.setCommentaireValidation("Première validation");
+
+        // 1ère validation -> 200 OK
+        mockMvc.perform(put("/workflows/" + idWf + "/valider")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(valReq)))
+                .andExpect(status().isOk());
+
+        // 2ème validation -> 400 Bad Request
+        mockMvc.perform(put("/workflows/" + idWf + "/valider")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(valReq)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("Seul un workflow BROUILLON peut être validé")));
     }
 }

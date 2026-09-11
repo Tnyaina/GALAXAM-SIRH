@@ -130,7 +130,8 @@ public class PointageSyntheseController {
             java.time.LocalDate dDebut = java.time.LocalDate.parse(dateDebutStr);
             java.time.LocalDate dFin = java.time.LocalDate.parse(dateFinStr);
 
-            pointageSyntheseService.validerSemaine(idPeriode, dDebut, dFin, idSite, null);
+            Integer currentUserId = resolveCurrentUserId();
+            pointageSyntheseService.validerSemaine(idPeriode, dDebut, dFin, idSite, currentUserId);
             resp.put("success", true);
             resp.put("message", "Semaine validée et verrouillée avec succès.");
             return ResponseEntity.ok(resp);

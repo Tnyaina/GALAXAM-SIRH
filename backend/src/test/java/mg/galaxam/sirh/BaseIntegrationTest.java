@@ -38,4 +38,20 @@ public abstract class BaseIntegrationTest {
     public void setupBase() {
         userFixtures.initTestUsers();
     }
+
+    protected String getAdminToken() {
+        return userFixtures.getAdminToken();
+    }
+
+    protected String getPointageToken() {
+        return userFixtures.getPointageToken();
+    }
+
+    protected String toJson(Object obj) {
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

@@ -1,24 +1,22 @@
 package mg.galaxam.sirh.adversarial;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.model.conge.DemandeConge;
-import mg.galaxam.sirh.model.conge.service.CongeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.time.LocalDate;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.springframework.http.MediaType;
 
 public class CongeAdversarialTest extends BaseIntegrationTest {
-
-    @Autowired
-    private CongeService congeService;
 
     private int idEmploye;
     private int idTypeCongeAnnuel;
@@ -39,51 +37,49 @@ public class CongeAdversarialTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Adversarial Congé : Rejet d'une demande avec date de fin antérieure à la date de début")
-    public void testRejetDateFinAnterieureDateDebut() {
+    @DisplayName("Adversarial API Congé : Rejet d'une demande avec date de fin antérieure à la date de début")
+    public void testRejetDateFinAnterieureDateDebut() throws Exception {
         LocalDate debut = LocalDate.now().plusWeeks(3);
         LocalDate finAnterieure = debut.minusDays(2); // Inversion illégale
 
-        DemandeConge d = new DemandeConge();
-        d.setIdEmploye(idEmploye);
-        d.setIdTypeConge(idTypeCongeAnnuel);
-        d.setDateDebut(Date.valueOf(debut));
-        d.setDateFin(Date.valueOf(finAnterieure));
+        Map<String, Object> body = new HashMap<>();
+        body.put("idEmploye", idEmploye);
+        body.put("idTypeConge", idTypeCongeAnnuel);
+        body.put("dateDebut", debut.toString());
+        body.put("dateFin", finAnterieure.toString());
 
-        try (Connection c = dataSource.getConnection()) {
-            Exception ex = assertThrows(IllegalArgumentException.class, () ->
-                    congeService.creerDemande(d, 1, c));
-            assertTrue(ex.getMessage().contains("antérieure à la date de début"));
-        } catch (Exception e) {
-            fail("Erreur inattendue : " + e.getMessage());
-        }
+        mockMvc.perform(post("/conges/demandes")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("antérieure à la date de début")));
     }
 
     @Test
-    @DisplayName("Adversarial Congé : Rejet pour solde insuffisant sans dérogation solde négatif")
-    public void testRejetSoldeInsuffisantSansDerogation() {
+    @DisplayName("Adversarial API Congé : Rejet pour solde insuffisant sans dérogation solde négatif")
+    public void testRejetSoldeInsuffisantSansDerogation() throws Exception {
         // Solde initial = 0
         LocalDate debut = LocalDate.now().plusWeeks(4);
         LocalDate fin = debut.plusDays(4); // 5 jours
 
-        DemandeConge d = new DemandeConge();
-        d.setIdEmploye(idEmploye);
-        d.setIdTypeConge(idTypeCongeAnnuel);
-        d.setDateDebut(Date.valueOf(debut));
-        d.setDateFin(Date.valueOf(fin));
-        d.setDerogationSoldeNegatif(false);
+        Map<String, Object> body = new HashMap<>();
+        body.put("idEmploye", idEmploye);
+        body.put("idTypeConge", idTypeCongeAnnuel);
+        body.put("dateDebut", debut.toString());
+        body.put("dateFin", fin.toString());
+        body.put("derogationSoldeNegatif", false);
 
-        try (Connection c = dataSource.getConnection()) {
-            Exception ex = assertThrows(IllegalArgumentException.class, () ->
-                    congeService.creerDemande(d, 1, c));
-            assertTrue(ex.getMessage().contains("Solde de congé insuffisant"));
-        } catch (Exception e) {
-            fail("Erreur inattendue : " + e.getMessage());
-        }
+        mockMvc.perform(post("/conges/demandes")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("Solde de congé insuffisant")));
     }
 
     @Test
-    @DisplayName("Adversarial Congé : Rejet pour non-respect du délai de préavis sans dérogation préavis")
+    @DisplayName("Adversarial API Congé : Rejet pour non-respect du délai de préavis sans dérogation préavis")
     public void testRejetPreavisInsuffisantSansDerogation() throws Exception {
         // Créditer le solde de congé pour éliminer l'erreur de solde
         try (Connection c = dataSource.getConnection();
@@ -98,24 +94,24 @@ public class CongeAdversarialTest extends BaseIntegrationTest {
         LocalDate debutDans3Jours = LocalDate.now().plusDays(3);
         LocalDate fin = debutDans3Jours.plusDays(4);
 
-        DemandeConge d = new DemandeConge();
-        d.setIdEmploye(idEmploye);
-        d.setIdTypeConge(idTypeCongeAnnuel);
-        d.setDateDebut(Date.valueOf(debutDans3Jours));
-        d.setDateFin(Date.valueOf(fin));
-        d.setDerogationSoldeNegatif(false);
-        d.setDerogationDelaiPreavis(false);
+        Map<String, Object> body = new HashMap<>();
+        body.put("idEmploye", idEmploye);
+        body.put("idTypeConge", idTypeCongeAnnuel);
+        body.put("dateDebut", debutDans3Jours.toString());
+        body.put("dateFin", fin.toString());
+        body.put("derogationSoldeNegatif", false);
+        body.put("derogationDelaiPreavis", false);
 
-        try (Connection c = dataSource.getConnection()) {
-            Exception ex = assertThrows(IllegalArgumentException.class, () ->
-                    congeService.creerDemande(d, 1, c));
-            assertTrue(ex.getMessage().contains("préavis minimum requis"),
-                    "L'exception doit expliciter le manquement au préavis légal");
-        }
+        mockMvc.perform(post("/conges/demandes")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("préavis minimum requis")));
     }
 
     @Test
-    @DisplayName("Adversarial Congé : Rejet lors d'un chevauchement avec une demande existante")
+    @DisplayName("Adversarial API Congé : Rejet lors d'un chevauchement avec une demande existante")
     public void testRejetChevauchementDemandes() throws Exception {
         // 1. Créditer le solde de 20 jours
         try (Connection c = dataSource.getConnection();
@@ -126,42 +122,42 @@ public class CongeAdversarialTest extends BaseIntegrationTest {
             ps.executeUpdate();
         }
 
-        // 2. Créer une première demande valide du 20 au 25 du mois prochain
+        // 2. Créer une première demande valide du 20 au 25 du mois prochain via API
         LocalDate debut1 = LocalDate.now().plusWeeks(3);
         LocalDate fin1 = debut1.plusDays(5);
 
-        DemandeConge d1 = new DemandeConge();
-        d1.setIdEmploye(idEmploye);
-        d1.setIdTypeConge(idTypeCongeAnnuel);
-        d1.setDateDebut(Date.valueOf(debut1));
-        d1.setDateFin(Date.valueOf(fin1));
+        Map<String, Object> body1 = new HashMap<>();
+        body1.put("idEmploye", idEmploye);
+        body1.put("idTypeConge", idTypeCongeAnnuel);
+        body1.put("dateDebut", debut1.toString());
+        body1.put("dateFin", fin1.toString());
 
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            congeService.creerDemande(d1, 1, c);
-            c.commit();
-        }
+        mockMvc.perform(post("/conges/demandes")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(body1)))
+                .andExpect(status().isCreated());
 
-        // 3. Tenter une 2nde demande chevauchant la première (ex: commence 2 jours avant la fin de d1)
+        // 3. Tenter une 2nde demande chevauchant la première via API
         LocalDate debut2 = fin1.minusDays(2);
         LocalDate fin2 = debut2.plusDays(4);
 
-        DemandeConge d2 = new DemandeConge();
-        d2.setIdEmploye(idEmploye);
-        d2.setIdTypeConge(idTypeCongeAnnuel);
-        d2.setDateDebut(Date.valueOf(debut2));
-        d2.setDateFin(Date.valueOf(fin2));
+        Map<String, Object> body2 = new HashMap<>();
+        body2.put("idEmploye", idEmploye);
+        body2.put("idTypeConge", idTypeCongeAnnuel);
+        body2.put("dateDebut", debut2.toString());
+        body2.put("dateFin", fin2.toString());
 
-        try (Connection c = dataSource.getConnection()) {
-            Exception ex = assertThrows(IllegalArgumentException.class, () ->
-                    congeService.creerDemande(d2, 1, c));
-            assertTrue(ex.getMessage().contains("Chevauchement détecté"),
-                    "Le moteur de congé doit interdire les périodes qui se chevauchent pour le même employé");
-        }
+        mockMvc.perform(post("/conges/demandes")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(body2)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("Chevauchement détecté")));
     }
 
     @Test
-    @DisplayName("Adversarial Congé : Rejet pour ancienneté insuffisante (< 12 mois de service pour congé annuel)")
+    @DisplayName("Adversarial API Congé : Rejet pour ancienneté insuffisante (< 12 mois de service pour congé annuel)")
     public void testRejetAncienneteInsuffisantePourCongeAnnuel() throws Exception {
         // Recréer un employé ayant seulement 3 mois d'ancienneté
         databaseCleaner.cleanTransactionalData();
@@ -179,18 +175,18 @@ public class CongeAdversarialTest extends BaseIntegrationTest {
         LocalDate debut = LocalDate.now().plusWeeks(3);
         LocalDate fin = debut.plusDays(4);
 
-        DemandeConge d = new DemandeConge();
-        d.setIdEmploye(empRecent.idEmploye);
-        d.setIdTypeConge(idTypeCongeAnnuel);
-        d.setDateDebut(Date.valueOf(debut));
-        d.setDateFin(Date.valueOf(fin));
-        d.setDerogationSoldeNegatif(false);
+        Map<String, Object> body = new HashMap<>();
+        body.put("idEmploye", empRecent.idEmploye);
+        body.put("idTypeConge", idTypeCongeAnnuel);
+        body.put("dateDebut", debut.toString());
+        body.put("dateFin", fin.toString());
+        body.put("derogationSoldeNegatif", false);
 
-        try (Connection c = dataSource.getConnection()) {
-            Exception ex = assertThrows(IllegalArgumentException.class, () ->
-                    congeService.creerDemande(d, 1, c));
-            assertTrue(ex.getMessage().contains("ancienneté") || ex.getMessage().contains("service effectif"),
-                    "L'exception doit expliciter l'obligation des 12 mois de service de l'Art. 85 du Code du Travail");
-        }
+        mockMvc.perform(post("/conges/demandes")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("ancienneté")));
     }
 }

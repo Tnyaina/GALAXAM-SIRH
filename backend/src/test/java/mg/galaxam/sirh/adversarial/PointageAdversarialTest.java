@@ -1,25 +1,24 @@
 package mg.galaxam.sirh.adversarial;
 
-import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.api.dto.pointage.SaisiePointageJourDTO;
-import mg.galaxam.sirh.model.pointage.service.PointageSaisieService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.time.LocalDate;
 import java.util.Collections;
-
-import static org.junit.jupiter.api.Assertions.*;
+import java.util.List;
+import mg.galaxam.sirh.BaseIntegrationTest;
+import mg.galaxam.sirh.api.dto.pointage.SaisiePointageJourDTO;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 
 public class PointageAdversarialTest extends BaseIntegrationTest {
-
-    @Autowired
-    private PointageSaisieService pointageSaisieService;
 
     private int idEmploye;
     private int idPeriodeOuverte;
@@ -45,8 +44,8 @@ public class PointageAdversarialTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Adversarial Pointage : Rejet absolu de la saisie d'un pointage sur une date future")
-    public void testRejetPointageDateFuture() {
+    @DisplayName("Adversarial API Pointage : Rejet absolu de la saisie d'un pointage sur une date future (HTTP 409 Conflict)")
+    public void testRejetPointageDateFuture() throws Exception {
         LocalDate dateFuture = LocalDate.now().plusDays(2);
         SaisiePointageJourDTO dto = new SaisiePointageJourDTO();
         dto.setIdEmploye(idEmploye);
@@ -57,17 +56,16 @@ public class PointageAdversarialTest extends BaseIntegrationTest {
         dto.setHeureEntreeAm("13:00");
         dto.setHeureSortieAm("17:00");
 
-        try (Connection c = dataSource.getConnection()) {
-            Exception ex = assertThrows(IllegalStateException.class, () ->
-                    pointageSaisieService.enregistrerPointagesBatch(Collections.singletonList(dto), c));
-            assertTrue(ex.getMessage().contains("future"), "Le message doit mentionner l'interdiction des dates futures");
-        } catch (Exception e) {
-            fail("Erreur inattendue : " + e.getMessage());
-        }
+        mockMvc.perform(post("/pointages/saisie/batch")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(List.of(dto))))
+                .andExpect(status().isConflict())
+                .andExpect(content().string(containsString("future")));
     }
 
     @Test
-    @DisplayName("Adversarial Pointage : Rejet de la saisie sur une période verrouillée/validée par le DAF")
+    @DisplayName("Adversarial API Pointage : Rejet de la saisie sur une période verrouillée/validée par le DAF (HTTP 409 Conflict)")
     public void testRejetPointageSurPeriodeValidee() throws Exception {
         LocalDate hier = LocalDate.now().minusDays(1);
 
@@ -98,19 +96,19 @@ public class PointageAdversarialTest extends BaseIntegrationTest {
         dto.setHeureEntreeAm("13:00");
         dto.setHeureSortieAm("17:00");
 
-        try (Connection c = dataSource.getConnection()) {
-            Exception ex = assertThrows(IllegalStateException.class, () ->
-                    pointageSaisieService.enregistrerPointagesBatch(Collections.singletonList(dto), c));
-            assertTrue(ex.getMessage().contains("période de paie est fermée") || ex.getMessage().contains("validation DAF"));
-        }
+        mockMvc.perform(post("/pointages/saisie/batch")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(List.of(dto))))
+                .andExpect(status().isConflict());
     }
 
     @Test
-    @DisplayName("Adversarial Pointage : Rejet lors d'un conflit de concurrence optimiste (OCC stale version)")
+    @DisplayName("Adversarial API Pointage : Rejet lors d'un conflit de concurrence optimiste (OCC stale version, HTTP 409 Conflict)")
     public void testRejetConflitOptimisticLocking() throws Exception {
         LocalDate hier = LocalDate.now().minusDays(1);
 
-        // 1. Premier enregistrement (version initiale = 1)
+        // 1. Premier enregistrement via API (version initiale = 1)
         SaisiePointageJourDTO dto1 = new SaisiePointageJourDTO();
         dto1.setIdEmploye(idEmploye);
         dto1.setIdSite(1);
@@ -121,30 +119,30 @@ public class PointageAdversarialTest extends BaseIntegrationTest {
         dto1.setHeureEntreeAm("13:00");
         dto1.setHeureSortieAm("17:00");
 
-        int idPointage;
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            pointageSaisieService.enregistrerPointagesBatch(Collections.singletonList(dto1), c);
-            c.commit();
+        mockMvc.perform(post("/pointages/saisie/batch")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(List.of(dto1))))
+                .andExpect(status().isOk());
 
-            try (PreparedStatement ps = c.prepareStatement("SELECT id_pointage FROM pointage_jour WHERE id_employe = ? AND date_pointage = ?")) {
-                ps.setInt(1, idEmploye);
-                ps.setDate(2, Date.valueOf(hier));
-                var rs = ps.executeQuery();
-                rs.next();
-                idPointage = rs.getInt(1);
-            }
+        int idPointage;
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement("SELECT id_pointage FROM pointage_jour WHERE id_employe = ? AND date_pointage = ?")) {
+            ps.setInt(1, idEmploye);
+            ps.setDate(2, Date.valueOf(hier));
+            var rs = ps.executeQuery();
+            rs.next();
+            idPointage = rs.getInt(1);
         }
 
         // 2. Simuler une mise à jour concurrente incrémentant la version en base (version passe à 2)
-        try (Connection c = dataSource.getConnection()) {
-            try (PreparedStatement ps = c.prepareStatement("UPDATE pointage_jour SET version = 2 WHERE id_pointage = ?")) {
-                ps.setInt(1, idPointage);
-                ps.executeUpdate();
-            }
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement("UPDATE pointage_jour SET version = 2 WHERE id_pointage = ?")) {
+            ps.setInt(1, idPointage);
+            ps.executeUpdate();
         }
 
-        // 3. L'utilisateur tente d'enregistrer avec l'ancienne version périmée (version = 1)
+        // 3. L'utilisateur tente d'enregistrer avec l'ancienne version périmée (version = 1) via API
         SaisiePointageJourDTO dtoStale = new SaisiePointageJourDTO();
         dtoStale.setIdPointage(idPointage);
         dtoStale.setVersion(1); // Ancienne version
@@ -152,39 +150,38 @@ public class PointageAdversarialTest extends BaseIntegrationTest {
         dtoStale.setIdSite(1);
         dtoStale.setIdPeriodePaie(idPeriodeOuverte);
         dtoStale.setDatePointage(hier.toString());
-        dtoStale.setHeureEntreeMatin("08:15"); // En retard
+        dtoStale.setHeureEntreeMatin("08:15");
         dtoStale.setHeureSortieMatin("12:00");
         dtoStale.setHeureEntreeAm("13:00");
         dtoStale.setHeureSortieAm("17:00");
 
-        try (Connection c = dataSource.getConnection()) {
-            Exception ex = assertThrows(IllegalStateException.class, () ->
-                    pointageSaisieService.enregistrerPointagesBatch(Collections.singletonList(dtoStale), c));
-            assertTrue(ex.getMessage().contains("Conflit d'accès concurrent") || ex.getMessage().contains("recharger"),
-                    "L'échec OCC doit indiquer un conflit de version concurrente");
-        }
+        mockMvc.perform(post("/pointages/saisie/batch")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(List.of(dtoStale))))
+                .andExpect(status().isConflict())
+                .andExpect(content().string(containsString("recharger")));
     }
 
     @Test
-    @DisplayName("Adversarial Pointage : Rejet de pointage pour employé non affecté sur le site")
-    public void testRejetPointageEmployeNonAffecteSurSite() {
+    @DisplayName("Adversarial API Pointage : Rejet de pointage pour employé non affecté sur le site (HTTP 409 Conflict)")
+    public void testRejetPointageEmployeNonAffecteSurSite() throws Exception {
         LocalDate hier = LocalDate.now().minusDays(1);
 
-        // L'employé est affecté au site 1. On tente un pointage sur le site 2 (Toamasina)
+        // L'employé est affecté au site 1. On tente un pointage sur le site 2 (Toamasina) via API
         SaisiePointageJourDTO dto = new SaisiePointageJourDTO();
         dto.setIdEmploye(idEmploye);
-        dto.setIdSite(2); // Site différent
+        dto.setIdSite(2); // Site non concordant
         dto.setDatePointage(hier.toString());
         dto.setHeureEntreeMatin("08:00");
         dto.setHeureSortieMatin("12:00");
         dto.setHeureEntreeAm("13:00");
         dto.setHeureSortieAm("17:00");
 
-        try (Connection c = dataSource.getConnection()) {
-            assertThrows(IllegalStateException.class, () ->
-                    pointageSaisieService.enregistrerPointagesBatch(Collections.singletonList(dto), c));
-        } catch (Exception e) {
-            fail("Erreur inattendue : " + e.getMessage());
-        }
+        mockMvc.perform(post("/pointages/saisie/batch")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(List.of(dto))))
+                .andExpect(status().isConflict());
     }
 }

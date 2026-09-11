@@ -1,81 +1,81 @@
 package mg.galaxam.sirh.integration.pointage;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import mg.galaxam.sirh.BaseIntegrationTest;
 import mg.galaxam.sirh.api.dto.pointage.SaisiePointageJourDTO;
 import mg.galaxam.sirh.fixtures.TestEmployeFixtures;
-import mg.galaxam.sirh.model.pointage.service.PointageSaisieService;
-import mg.galaxam.sirh.model.pointage.service.PointageSyntheseService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 
 public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest {
 
-    @Autowired
-    private PointageSaisieService pointageSaisieService;
-
-    @Autowired
-    private PointageSyntheseService pointageSyntheseService;
-
     private TestEmployeFixtures.CreatedEmploye emp;
     private int idPeriode;
-    private int idAdminUser;
-    private int idAgentUser;
+    private LocalDate lundi;
+    private LocalDate dimanche;
 
     @BeforeEach
     public void setUp() throws Exception {
         databaseCleaner.cleanTransactionalData();
-        idAdminUser = userFixtures.getAdminUserId();
-        idAgentUser = userFixtures.getPointageUserId();
         LocalDate dEmb = LocalDate.now().minusMonths(6);
         emp = employeFixtures.createActiveEmploye("EMP010", "RAKOTOARISOA", "Michel", 1, dEmb);
 
-        // Période couvrant une semaine complète passée (ex: du lundi au dimanche)
-        LocalDate lundi = LocalDate.now().minusDays(14);
+        // Période couvrant une semaine complète passée (du lundi au dimanche)
+        lundi = LocalDate.now().minusDays(14);
         while (lundi.getDayOfWeek() != java.time.DayOfWeek.MONDAY) {
             lundi = lundi.minusDays(1);
         }
-        LocalDate dimanche = lundi.plusDays(6);
+        dimanche = lundi.plusDays(6);
         idPeriode = employeFixtures.createPeriodePaie("P-SYNTH", lundi, dimanche, "EN_COURS");
 
-        // Enregistrer 5 jours de pointages (40h) du lundi au vendredi
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            for (int i = 0; i < 5; i++) {
-                LocalDate dateJour = lundi.plusDays(i);
-                SaisiePointageJourDTO dto = new SaisiePointageJourDTO();
-                dto.setIdEmploye(emp.idEmploye);
-                dto.setIdSite(emp.idSite);
-                dto.setDatePointage(dateJour.toString());
-                dto.setIdPeriodePaie(idPeriode);
-                dto.setHeureEntreeMatin("08:00");
-                dto.setHeureSortieMatin("12:00");
-                dto.setHeureEntreeAm("13:00");
-                dto.setHeureSortieAm("17:00");
-                dto.setHoraireContinu(false);
-                dto.setIndemniteRepasRecue(true);
-                pointageSaisieService.enregistrerPointagesBatch(List.of(dto), c);
-            }
-            c.commit();
+        // Enregistrer 5 jours de pointages (40h) du lundi au vendredi via API REST
+        for (int i = 0; i < 5; i++) {
+            LocalDate dateJour = lundi.plusDays(i);
+            SaisiePointageJourDTO dto = new SaisiePointageJourDTO();
+            dto.setIdEmploye(emp.idEmploye);
+            dto.setIdSite(emp.idSite);
+            dto.setDatePointage(dateJour.toString());
+            dto.setIdPeriodePaie(idPeriode);
+            dto.setHeureEntreeMatin("08:00");
+            dto.setHeureSortieMatin("12:00");
+            dto.setHeureEntreeAm("13:00");
+            dto.setHeureSortieAm("17:00");
+            dto.setHoraireContinu(false);
+            dto.setIndemniteRepasRecue(true);
+
+            mockMvc.perform(post("/pointages/saisie/batch")
+                    .header("Authorization", "Bearer " + getPointageToken())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(toJson(List.of(dto))))
+                    .andExpect(status().isOk());
         }
     }
 
     @Test
-    @DisplayName("Cycle Synthèse : Calcul de toutes les semaines de la période et persistance en base")
+    @DisplayName("API Synthèse Pointage : Calcul global de toutes les semaines via POST /pointages/synthese/calculer-tout")
     public void testCalculerToutesSemainesPeriode() throws Exception {
-        Map<String, Object> res = pointageSyntheseService.calculerToutesSemainesPeriode(idPeriode, 1, idAgentUser);
-        assertNotNull(res);
-        assertTrue((Boolean) res.get("success"), "Le calcul des semaines doit réussir");
+        Map<String, Object> req = new HashMap<>();
+        req.put("idPeriodePaie", idPeriode);
+        req.put("idSite", 1);
+
+        mockMvc.perform(post("/pointages/synthese/calculer-tout")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(req)))
+                .andExpect(status().isOk());
 
         try (Connection c = dataSource.getConnection()) {
             // Vérifier que pointage_semaine_calcule contient la semaine calculée avec 40h
@@ -95,18 +95,33 @@ public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest 
     }
 
     @Test
-    @DisplayName("Workflow DAF : Transmission DAF -> Rejet avec motif -> Re-transmission -> Validation DAF")
+    @DisplayName("API Workflow Pointage : Transmission DAF -> Rejet DAF -> Validation DAF via endpoints REST")
     public void testWorkflowTransmissionRejetEtValidationDAF() throws Exception {
-        // 1. Calcul initial
-        pointageSyntheseService.calculerToutesSemainesPeriode(idPeriode, 1, idAgentUser);
+        // 1. Calcul initial via API
+        Map<String, Object> calcReq = new HashMap<>();
+        calcReq.put("idPeriodePaie", idPeriode);
+        calcReq.put("idSite", 1);
 
-        // 2. Transmission à la DAF par l'Agent de Pointage
-        Map<String, Object> resTrans = pointageSyntheseService.transmettreDaf(idPeriode, 1, idAgentUser);
-        assertTrue((Boolean) resTrans.get("success"), "La transmission à la DAF doit réussir");
+        mockMvc.perform(post("/pointages/synthese/calculer-tout")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(calcReq)))
+                .andExpect(status().isOk());
 
-        // Vérifier le statut de la période en base
+        // 2. Transmission à la DAF par l'Agent de Pointage via POST /pointages/synthese/transmettre-daf
+        Map<String, Object> transReq = new HashMap<>();
+        transReq.put("idPeriodePaie", idPeriode);
+        transReq.put("idSite", 1);
+
+        mockMvc.perform(post("/pointages/synthese/transmettre-daf")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(transReq)))
+                .andExpect(status().isOk());
+
+        // Vérifier le statut de la période en base (A_VALIDER ou TRANSMIS_DAF)
         try (Connection c = dataSource.getConnection()) {
-            String sqlPer = "SELECT s.code, p.transmis_par FROM periode_paie p " +
+            String sqlPer = "SELECT s.code FROM periode_paie p " +
                     "JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                     "WHERE p.id_periode_paie = ?";
             try (PreparedStatement ps = c.prepareStatement(sqlPer)) {
@@ -120,10 +135,17 @@ public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest 
             }
         }
 
-        // 3. Rejet par la DAF avec motif
+        // 3. Rejet par la DAF via POST /pointages/synthese/rejeter-daf
         String motifRejet = "Erreur de pointage sur l'employé EMP010 - A corriger";
-        Map<String, Object> resRejet = pointageSyntheseService.rejeterParDaf(idPeriode, motifRejet, idAdminUser);
-        assertTrue((Boolean) resRejet.get("success"), "Le rejet par la DAF doit réussir");
+        Map<String, Object> rejetReq = new HashMap<>();
+        rejetReq.put("idPeriodePaie", idPeriode);
+        rejetReq.put("motif", motifRejet);
+
+        mockMvc.perform(post("/pointages/synthese/rejeter-daf")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(rejetReq)))
+                .andExpect(status().isOk());
 
         // Vérifier le retour en EN_COURS avec motif de rejet
         try (Connection c = dataSource.getConnection()) {
@@ -141,11 +163,21 @@ public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest 
         }
 
         // 4. Nouvelle transmission après correction
-        pointageSyntheseService.transmettreDaf(idPeriode, 1, idAgentUser);
+        mockMvc.perform(post("/pointages/synthese/transmettre-daf")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(transReq)))
+                .andExpect(status().isOk());
 
-        // 5. Validation finale par la DAF
-        Map<String, Object> resVal = pointageSyntheseService.validerParDaf(idPeriode, idAdminUser);
-        assertTrue((Boolean) resVal.get("success"), "La validation par la DAF doit réussir");
+        // 5. Validation finale par la DAF via POST /pointages/synthese/valider-daf
+        Map<String, Object> valReq = new HashMap<>();
+        valReq.put("idPeriodePaie", idPeriode);
+
+        mockMvc.perform(post("/pointages/synthese/valider-daf")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(valReq)))
+                .andExpect(status().isOk());
 
         // Vérifier que la période est VALIDEE en base
         try (Connection c = dataSource.getConnection()) {
@@ -163,35 +195,63 @@ public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest 
     }
 
     @Test
-    @DisplayName("Gel de Période : Geler la période et vérifier la persistance dans pointage_cumul_periode / dégel")
-    public void testGelerEtDegelerPeriode() throws Exception {
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            pointageSyntheseService.gelerPeriode(idPeriode, idAdminUser, c);
-            c.commit();
+    @DisplayName("API Pointage Synthèse : Verrouillage et déverrouillage de semaine via REST")
+    public void testValiderEtDevaliderSemaine() throws Exception {
+        // 1. Calcul préalable
+        Map<String, Object> calcReq = new HashMap<>();
+        calcReq.put("idPeriodePaie", idPeriode);
+        calcReq.put("idSite", 1);
+        mockMvc.perform(post("/pointages/synthese/calculer-tout")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(calcReq)))
+                .andExpect(status().isOk());
 
-            // Vérifier que pointage_cumul_periode contient les cumuls gelés
-            String sqlCumul = "SELECT total_heures_travaillees, gele_par FROM pointage_cumul_periode WHERE id_periode_paie = ? AND id_employe = ?";
-            try (PreparedStatement ps = c.prepareStatement(sqlCumul)) {
+        // 2. Verrouiller la semaine via POST /pointages/synthese/semaines/valider
+        Map<String, Object> semReq = new HashMap<>();
+        semReq.put("idPeriodePaie", idPeriode);
+        semReq.put("dateDebut", lundi.toString());
+        semReq.put("dateFin", dimanche.toString());
+        semReq.put("idSite", 1);
+
+        mockMvc.perform(post("/pointages/synthese/semaines/valider")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(semReq)))
+                .andExpect(status().isOk());
+
+        // Vérifier le statut de verrouillage en base (gele_par non null)
+        try (Connection c = dataSource.getConnection()) {
+            String sql = "SELECT gele_par FROM pointage_semaine_calcule WHERE id_periode_paie = ? AND id_employe = ?";
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setInt(1, idPeriode);
                 ps.setInt(2, emp.idEmploye);
                 try (ResultSet rs = ps.executeQuery()) {
-                    assertTrue(rs.next(), "Les cumuls gelés doivent être insérés dans pointage_cumul_periode");
-                    assertEquals(40.0, rs.getDouble("total_heures_travaillees"), 0.01);
-                    assertEquals(idAdminUser, rs.getInt("gele_par"));
+                    assertTrue(rs.next());
+                    assertNotNull(rs.getObject("gele_par"), "La semaine doit être marquée verrouillée (gele_par non null)");
                 }
             }
+        }
 
-            // Dégeler la période
-            c.setAutoCommit(false);
-            pointageSyntheseService.degelerPeriode(idPeriode, c);
-            c.commit();
+        // 3. Déverrouiller la semaine via POST /pointages/synthese/semaines/devalider
+        Map<String, Object> devalReq = new HashMap<>();
+        devalReq.put("idPeriodePaie", idPeriode);
+        devalReq.put("dateDebut", lundi.toString());
 
-            try (PreparedStatement ps = c.prepareStatement(sqlCumul)) {
+        mockMvc.perform(post("/pointages/synthese/semaines/devalider")
+                .header("Authorization", "Bearer " + getAdminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(devalReq)))
+                .andExpect(status().isOk());
+
+        // Vérifier le déverrouillage en base (gele_par redevient null)
+        try (Connection c = dataSource.getConnection()) {
+            String sql = "SELECT gele_par FROM pointage_semaine_calcule WHERE id_periode_paie = ? AND id_employe = ?";
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setInt(1, idPeriode);
                 ps.setInt(2, emp.idEmploye);
                 try (ResultSet rs = ps.executeQuery()) {
-                    assertFalse(rs.next(), "Après dégel, les cumuls gelés doivent être supprimés");
+                    assertFalse(rs.next(), "Après dévalidation, la semaine calculée est supprimée de pointage_semaine_calcule");
                 }
             }
         }

@@ -348,7 +348,7 @@ public class PayrollService {
         }
 
         String sql = "UPDATE periode_paie SET " +
-                "id_statut_periode = COALESCE((SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'OUVERTE'), id_statut_periode), " +
+                "id_statut_periode = COALESCE((SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'EN_COURS'), (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'OUVERTE'), id_statut_periode), " +
                 "updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_periode_paie = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
