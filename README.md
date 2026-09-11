@@ -31,7 +31,7 @@ Le projet est structuré en **Monorepo** et applique les principes du **Domain-D
     *   `CarriereTransitionValidator` : Contrôle des transitions d'affectation, de salaires et de postes.
     *   `CongeCalculateurEngine` : Décompte en jours calendaires, acquisition mensuelle (2.5j), bonifications d'ancienneté (+1j par 5 ans), fractionnement et scission maladie > 30 jours.
     *   `PurgeFifoEngine` : Algorithme FIFO exact d'expiration des congés acquis il y a plus de 36 mois (Art. 85).
-    *   `PointageCalculateurEngine` : Règle de 0 tolérance aux retards, heures de nuit (>22h), déductions repas Tamatave (-1 000 Ar/j) et péréquation hebdomadaire 40h (compensation 1:1).
+    *   `PointageCalculateurEngine` : Règle de 0 tolérance aux retards, heures de nuit (>22h), déductions repas Tamatave (-1 000 Ar/j) et péréquation hebdomadaire 40h (compensation ).
     *   `CalendrierOuvrableEngine` : Calcul des jours ouvrables, chômés et fériés légaux par site (injecté dans Pointage et Congés).
     *   `CalculateurPaieEngine` : Cotisations CNaPS (1%/13% plafonné à 8x SMIG), OSTIE (1%/5%), barème progressif canonique IRSA (CGI Art. 01.03.18, 5 tranches, déduction enfants, min. perception 3 000 Ar) avec parité exacte entre Paie Mensuelle et STC.
     *   `PayrollExecutionEngine` : Moteur complet d'orchestration paie, calcul du brut, décompte d'absence horaire réel, workflow de régularisation congés DAF (`REGULARISATION_CONGE`), quotité cessible (Art. 72 - tiers légal max), avances spéciales (Art. 68 - dixième max), quittance STC et équilibre bancaire strict à la dizaine d'Ariary.

@@ -60,7 +60,7 @@ public class PointageSyntheseService {
     }
 
     /**
-     * Résultat de calcul d'un tronçon hebdomadaire avec proratisation et compensation 1:1
+     * Résultat de calcul d'un tronçon hebdomadaire avec proratisation et compensation 
      */
     public static class TronconCalculResult {
         public LocalDate debutSemaine;
@@ -342,7 +342,10 @@ public class PointageSyntheseService {
         double montantRepasTotal = 0.0;
         double totalTrajets = 0.0;
         double totalMntDeplacement = 0.0;
-        double cumulHeuresTravaillees = 0.0;
+        // CORRECTION : accumuler en minutes entières (long) pour éviter les erreurs
+        // d'arrondi flottant cumulées (ex : 139h56 vs 139h57).
+        // La conversion en décimales ne se fait qu'UNE SEULE FOIS à la fin.
+        long cumulMinutesTravaillees = 0;
         double cumulHeuresNuit = 0.0;
         double cumulHeuresDimanche = 0.0;
         double cumulHeuresFerie = 0.0;
@@ -399,7 +402,7 @@ public class PointageSyntheseService {
                         nbAnomalies++;
                     }
 
-                    cumulHeuresTravaillees += th;
+                    cumulMinutesTravaillees += Math.round(th * 60.0);
                     cumulHeuresNuit += hn;
                     totalMinsRetard += (estAutonome ? 0 : ret);
 
@@ -464,7 +467,7 @@ public class PointageSyntheseService {
         // Si salarié autonome et aucune ligne de pointage enregistrée : base normale automatique
         if (estAutonome && presents == 0 && conges == 0 && absences == 0) {
             presents = nbJoursOuvrablesPeriode;
-            cumulHeuresTravaillees = nbJoursOuvrablesPeriode * seuilHeuresJour;
+            cumulMinutesTravaillees = Math.round(nbJoursOuvrablesPeriode * seuilHeuresJour * 60.0);
             repasCount = presents;
             montantRepasTotal = repasCount * montantRepasMidiDefaut;
             totalTrajets = presents;
@@ -506,12 +509,15 @@ public class PointageSyntheseService {
             }
             if (joursOuvresTroncon == 0) joursOuvresTroncon = 1;
 
-            double hTotSemaine = 0.0;
+            // Accumulation hebdomadaire en minutes entières pour éviter
+            // les dérives d'arrondi dans le calcul de compensation
+            long minsSemaine = 0;
             double retMinsSemaine = 0.0;
             for (Map<String, Object> j : jours) {
-                hTotSemaine += (double) j.get("totalHeures");
+                minsSemaine += Math.round((double) j.get("totalHeures") * 60.0);
                 retMinsSemaine += ((Number) j.get("retardMins")).doubleValue();
             }
+            double hTotSemaine = minsSemaine / 60.0;
 
             TronconCalculResult res = calculerTroncon(lundi, joursOuvresTroncon, hTotSemaine, retMinsSemaine, isCadre, seuilHeuresJour, seuilHsTranche1);
             totalHs30 += res.heuresHs30;
@@ -555,7 +561,8 @@ public class PointageSyntheseService {
         dto.setNbJoursFerieChome(feriesChomes);
         dto.setNbJoursFerieTravaille(feriesTravailles);
         dto.setNbJoursDimancheTravaille(dimanchesTravailles);
-        dto.setTotalHeuresTravaillees(Math.round(cumulHeuresTravaillees * 100.0) / 100.0);
+        // Conversion finale unique : minutes → décimales (arrondi au centième)
+        dto.setTotalHeuresTravaillees(Math.round(cumulMinutesTravaillees / 60.0 * 100.0) / 100.0);
         dto.setSurplusBrut(Math.round(totalHsBrutes * 100.0) / 100.0);
         dto.setHeuresHs30(Math.round(totalHs30 * 100.0) / 100.0);
         dto.setHeuresHs50(Math.round(totalHs50 * 100.0) / 100.0);

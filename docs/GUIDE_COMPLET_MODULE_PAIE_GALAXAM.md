@@ -485,7 +485,7 @@ Les contrôleurs Spring Boot du module Paie supportent nativement le préfixe co
 ## 7. Certification & Tests de Non-Régression Automatisés
 
 Le module Paie et l'ensemble du SIRH GALAXAM font l'objet d'un audit contradictoire automatisé avec **324 tests JUnit 5 réussis à 100%** (0 échec, 0 erreur) :
-- **Audit Deep Inspection (`AuditDeepInspectionExhaustifTest.java`)** : 8 tests vérifiant les cas limites juridiques (Art. 72 tiers cessible, Art. 68 dixième avances, compensation 1:1, prescription triennale Art. 85, IRSA haut revenu 15M Ar, minimum de perception 3 000 Ar, arrondi officiel à la dizaine d'Ariary, workflow DAF absence horaire & régularisation congés).
+- **Audit Deep Inspection (`AuditDeepInspectionExhaustifTest.java`)** : 8 tests vérifiant les cas limites juridiques (Art. 72 tiers cessible, Art. 68 dixième avances, compensation , prescription triennale Art. 85, IRSA haut revenu 15M Ar, minimum de perception 3 000 Ar, arrondi officiel à la dizaine d'Ariary, workflow DAF absence horaire & régularisation congés).
 - **Moteur Paie Duale (`PayrollExecutionEngineTest.java`)** : 21 tests de calculs bruts, nets, cotisations CNaPS/Santé, tranches IRSA, et retenues ISI 5%.
 - **STC & Quittance (`StcIntegrationTest.java`)** : Tests d'apurement automatique des dettes, ICCP, préavis, et balance décimale réconciliée.
 - **Exports Fiscaux & Sociaux (`PaieExportServiceIntegrationTest.java`)** : Vérification des 25 colonnes SAFI État 301, du format TradXML EDI ISI, de la DNTS CNaPS trimestrielle et des bordereaux de santé.

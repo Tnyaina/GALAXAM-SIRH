@@ -8,7 +8,7 @@ import TimeInput from '@/components/ui/forms/TimeInput';
 import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
 import Pagination from '@/components/ui/navigation/Pagination';
-import { formatHeuresMinutes, formatMonnaie } from '@/utils/pointageUtils';
+import { formatHeuresMinutes, formatHeuresDecimal, formatMonnaie } from '@/utils/pointageUtils';
 import StatusPickerPopover from '@/components/pointage/StatusPickerPopover';
 
 export default function PointageGridTable({
@@ -364,7 +364,10 @@ export default function PointageGridTable({
                                     <Td className="px-3 py-1.5 text-center font-mono font-semibold border-l border-[var(--color-border-subtle)]">
                                         <div className="flex flex-col items-center justify-center">
                                             <span>
-                                                {formatHeuresMinutes(row.totalHeures, true)}
+                                                {formatHeuresDecimal(row.totalHeures)}
+                                            </span>
+                                            <span className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">
+                                                ({formatHeuresMinutes(row.totalHeures, true)})
                                             </span>
                                             {row.heuresNuit > 0 && (
                                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-1 mt-0.5">

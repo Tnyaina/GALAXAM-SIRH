@@ -158,7 +158,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
     const currentPeriodeObj = useMemo(() =>
         periodes.find(p => p.idPeriodePaie === Number(selectedPeriode)) || null,
-    [periodes, selectedPeriode]);
+        [periodes, selectedPeriode]);
 
     const stCode = currentPeriodeObj?.statutCode;
     const isAValider = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
@@ -227,7 +227,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             console.error('Erreur chargement Gantt DAF:', err);
             setGanttData({});
         } finally {
-            setLoadingGantt(false); }
+            setLoadingGantt(false);
+        }
     }, [selectedSite]);
 
     const handleSetViewMode = useCallback((mode) => {
@@ -395,7 +396,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             />
                         </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 shrink-0 ml-auto">
                         <Button
                             type="button"
@@ -472,11 +473,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                             key={opt.v}
                                             type="button"
                                             onClick={() => { setAlertFilter(opt.v); setCurrentPage(1); }}
-                                            className={`flex items-center gap-1 px-2.5 py-1 text-[10.5px] font-bold border transition-all cursor-pointer ${
-                                                alertFilter === opt.v
+                                            className={`flex items-center gap-1 px-2.5 py-1 text-[10.5px] font-bold border transition-all cursor-pointer ${alertFilter === opt.v
                                                     ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)] shadow-xs'
                                                     : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:border-[var(--color-border)] hover:text-[var(--color-fg)]'
-                                            }`}
+                                                }`}
                                         >
                                             {opt.icon && <opt.icon size={11} />}
                                             {opt.label}
@@ -513,9 +513,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 <button
                                     type="button"
                                     onClick={() => handleSetViewMode('synthese')}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold transition-all cursor-pointer ${
-                                        viewMode === 'synthese' ? 'bg-[var(--color-brand-500)] text-white font-bold' : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
-                                    }`}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold transition-all cursor-pointer ${viewMode === 'synthese' ? 'bg-[var(--color-brand-500)] text-white font-bold' : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
+                                        }`}
                                     title="Vue synthèse mensuelle"
                                 >
                                     <LayoutGrid size={13} />
@@ -524,9 +523,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 <button
                                     type="button"
                                     onClick={() => handleSetViewMode('gantt')}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold transition-all cursor-pointer ${
-                                        viewMode === 'gantt' ? 'bg-[var(--color-brand-500)] text-white font-bold' : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
-                                    }`}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold transition-all cursor-pointer ${viewMode === 'gantt' ? 'bg-[var(--color-brand-500)] text-white font-bold' : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
+                                        }`}
                                     title="Vue détaillée par semaine"
                                 >
                                     <GanttChartSquare size={13} />
@@ -724,10 +722,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                         {(row.totalMinutesRetard || 0) > 0 ? (
                                                             <span
                                                                 className="inline-block font-mono text-xs text-orange-700 dark:text-orange-300 font-bold bg-orange-500/10 px-1.5 py-0.5 border border-orange-500/20"
-                                                                title={`${row.totalMinutesRetard} min de retard brut (${formatHeuresDecimal(row.totalMinutesRetard / 60)})`}
+                                                                title={`${formatHeuresDecimal(row.totalMinutesRetard / 60)} de retard brut (${formatHeuresMinutes(row.totalMinutesRetard / 60)})`}
                                                             >
-                                                                {formatHeuresMinutes(row.totalMinutesRetard / 60)}
-                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">({formatHeuresDecimal(row.totalMinutesRetard / 60)})</span>
+                                                                {formatHeuresDecimal(row.totalMinutesRetard / 60)}
+                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">({formatHeuresMinutes(row.totalMinutesRetard / 60)})</span>
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
@@ -738,24 +736,24 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                         {(row.surplusBrut || 0) > 0 ? (
                                                             <span
                                                                 className="inline-block font-mono text-xs text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-500/10 px-1.5 py-0.5 border border-indigo-500/20"
-                                                                title={`Surplus brut total : ${formatHeuresMinutes(row.surplusBrut)} (${formatHeuresDecimal(row.surplusBrut)})`}
+                                                                title={`Surplus brut total : ${formatHeuresDecimal(row.surplusBrut)} (${formatHeuresMinutes(row.surplusBrut)})`}
                                                             >
-                                                                +{formatHeuresMinutes(row.surplusBrut)}
-                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">(+{formatHeuresDecimal(row.surplusBrut)})</span>
+                                                                +{formatHeuresDecimal(row.surplusBrut)}
+                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">(+{formatHeuresMinutes(row.surplusBrut)})</span>
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
                                                         )}
                                                     </Td>
-                                                    {/* Compensé (1:1) */}
+                                                    {/* Compensé  */}
                                                     <Td className="text-center">
                                                         {(row.retardCompense || 0) > 0 ? (
                                                             <span
                                                                 className="inline-block font-mono text-xs text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-500/10 px-1.5 py-0.5 border border-emerald-500/20"
-                                                                title={`Retards absorbés par le surplus : ${formatHeuresMinutes(row.retardCompense)} (${formatHeuresDecimal(row.retardCompense)})`}
+                                                                title={`Retards absorbés par le surplus : ${formatHeuresDecimal(row.retardCompense)} (${formatHeuresMinutes(row.retardCompense)})`}
                                                             >
-                                                                -{formatHeuresMinutes(row.retardCompense)}
-                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">(-{formatHeuresDecimal(row.retardCompense)})</span>
+                                                                -{formatHeuresDecimal(row.retardCompense)}
+                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">(-{formatHeuresMinutes(row.retardCompense)})</span>
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
@@ -766,10 +764,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                         {(row.heuresAbsenceRetenues || 0) > 0 ? (
                                                             <span
                                                                 className="inline-block font-mono text-xs text-rose-700 dark:text-rose-300 font-bold bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20 cursor-help"
-                                                                title={`Retards nets non compensés à retenir en paie : ${formatHeuresMinutes(row.heuresAbsenceRetenues)} (${formatHeuresDecimal(row.heuresAbsenceRetenues)})`}
+                                                                title={`Retards nets non compensés à retenir en paie : ${formatHeuresDecimal(row.heuresAbsenceRetenues)} (${formatHeuresMinutes(row.heuresAbsenceRetenues)})`}
                                                             >
-                                                                -{formatHeuresMinutes(row.heuresAbsenceRetenues)}
-                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">(-{formatHeuresDecimal(row.heuresAbsenceRetenues)})</span>
+                                                                -{formatHeuresDecimal(row.heuresAbsenceRetenues)}
+                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">(-{formatHeuresMinutes(row.heuresAbsenceRetenues)})</span>
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>

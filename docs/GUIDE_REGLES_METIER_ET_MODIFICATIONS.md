@@ -104,7 +104,7 @@ Dans GALAXAM-SIRH, une **séparation absolue des responsabilités** régit le co
 | **RG-PTG-02** | Détection et calcul du travail de nuit (22h-05h) | `PointageCalculateurEngine.calculerHeuresNuit` |
 | **RG-PTG-03** | Indemnité repas de midi et sorties tardives | `PointageCalculateurEngine.calculerTotalRepasJour` |
 | **RG-PTG-04** | Indemnité transport/déplacement et déduction repas | `PointageCalculateurEngine.calculerDeplacementJour` |
-| **RG-PTG-05** | Seuil hebdomadaire 40h et compensation 1:1 retard/HS | `PointageCalculateurEngine.calculerTroncon` |
+| **RG-PTG-05** | Seuil hebdomadaire 40h et compensation  retard/HS | `PointageCalculateurEngine.calculerTroncon` |
 | **RG-PTG-06** | Ventilation des tranches HS (+30% / +50%) | `PointageCalculateurEngine.calculerTroncon` |
 | **RG-PTG-07** | Forfait Cadres : non-paiement des HS, compensation | `PointageCalculateurEngine.calculerTroncon` |
 | **RG-PTG-08** | Détection des jours fériés et chômés par site | `CalendrierOuvrableEngine.getDatesFeriesEtChomees` |
@@ -239,7 +239,7 @@ Dans GALAXAM-SIRH, une **séparation absolue des responsabilités** régit le co
 ### RG-PTG-05, 06, 07 : Seuil 40h hebdomadaire, ventilation HS et compensation Cadres
 - **Énoncé Métier :** 
   - La base légale est de **40 heures par semaine ouvrée** (8h/jour × nombre de jours ouvrables).
-  - **Compensation 1:1 :** les retards de la semaine sont compensés en priorité par les heures travaillées au-delà du seuil.
+  - **Compensation  :** les retards de la semaine sont compensés en priorité par les heures travaillées au-delà du seuil.
   - **Ventilation HS :** Les 8 premières heures sup nettes sont majorées à **130%**, les heures au-delà à **150%**.
   - **Cadres :** Aucun paiement d'heures supplémentaires (forfait conventionnel), mais la compensation des retards reste active.
 - **Classe & Méthode :** `PointageCalculateurEngine.calculerTroncon(LocalDate debutSemaine, int nbJoursOuvres, double totalHeures, double minutesRetard, boolean isCadre, double seuilHeuresJour, double seuilHsTranche1)`

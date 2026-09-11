@@ -442,7 +442,7 @@ Les éléments suivants relevés dans les audits précédents sont des **fausses
 │ Statut: ACTIF    │◄──Garde───┤ Statut: VALIDE   │          │ Statut:PRESENT│
 │ [date_deb, fin]  │   Couvert  │ Ledger: PRISE    │          │ [heures, ind] │
 └───────┬──────────┘            └────────┬─────────┘          └───────┬───────┘
-        │ 1:1                            │                            │
+        │                             │                            │
         ▼                                │                            │
 ┌──────────────────┐                     │                            │
 │   AFFECTATION    │                     │                            │

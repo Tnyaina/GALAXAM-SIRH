@@ -44,7 +44,7 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
     private double heuresNuitTotal;
     private double heuresAbsenceRetenues; // Retards nets non compensés
     private int totalMinutesRetard;
-    private double retardCompense; // Retard compensé 1:1 en heures
+    private double retardCompense; // Retard compensé  en heures
     private double surplusBrut; // Total travaillé - Heures normales
 
     public double getSurplusBrut() { return surplusBrut; }
@@ -64,7 +64,7 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
     // Contrôle & intégrité
     private int nbAnomaliesNonResolues;
 
-    // Décomposition par semaine (tronçons 40h ISO et compensation 1:1)
+    // Décomposition par semaine (tronçons 40h ISO et compensation )
     private java.util.List<PointageTronconSemaineDTO> tronconsSemaine = new java.util.ArrayList<>();
 
     public java.util.List<PointageTronconSemaineDTO> getTronconsSemaine() {

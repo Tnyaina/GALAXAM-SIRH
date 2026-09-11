@@ -47,7 +47,7 @@ flowchart TD
 ### RG-PTG-02 : Tolérance & Calcul des Retards
 - **Règle de base** : 0 minute de tolérance (tout retard dès la 1ère minute est comptabilisé).
 - **Retard cumulé** = `Retard Entrée Matin + Retard Retour Pause`.
-- Les retards constatés sont compensés à hauteur de 1:1 par les excédents d'heures réalisés dans la même semaine civile avant d'appliquer une retenue.
+- Les retards constatés sont compensés à hauteur de  par les excédents d'heures réalisés dans la même semaine civile avant d'appliquer une retenue.
 
 ### RG-PTG-03 : Heures de Nuit
 - Toute heure travaillée entre **22h00 et 05h00** donne droit à une majoration légale de **+30%**.

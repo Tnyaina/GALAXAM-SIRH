@@ -479,10 +479,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             <div className="mt-2">
                                 <div className="flex items-baseline gap-2">
                                     <span className="text-2xl font-bold font-mono text-[var(--color-fg)]">
-                                        {kpis.heuresRealisees || '00h00'}
+                                        {formatDecimalHours(parseHhMmToDecimal(kpis.heuresRealisees))}
                                     </span>
                                     <span className="text-xs font-mono text-[var(--color-fg-muted)] font-semibold">
-                                        ({formatDecimalHours(parseHhMmToDecimal(kpis.heuresRealisees))})
+                                        ({kpis.heuresRealisees || '00h00'})
                                     </span>
                                 </div>
                                 <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
@@ -502,10 +502,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             <div className="mt-2">
                                 <div className="flex items-baseline gap-2">
                                     <span className={`text-2xl font-bold font-mono ${kpis.retardCumule && kpis.retardCumule !== '00h00' && kpis.retardCumule !== '0h' ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' : 'text-[var(--color-fg)]'}`}>
-                                        {kpis.retardCumule || '00h00'}
+                                        {formatDecimalHours(parseHhMmToDecimal(kpis.retardCumule))}
                                     </span>
                                     <span className="text-xs font-mono text-[var(--color-fg-muted)] font-semibold">
-                                        ({formatDecimalHours(parseHhMmToDecimal(kpis.retardCumule))})
+                                        ({kpis.retardCumule || '00h00'})
                                     </span>
                                 </div>
                                 <div className="text-xs text-[var(--color-fg-muted)] mt-0.5 truncate" title={recap.retardCompense && recap.retardCompense !== '00h00' ? `${recap.retardCompense} compensé · ${recap.retardNet || recap.heuresDeficit} déduit en paie` : undefined}>
@@ -531,10 +531,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             <div className="mt-2">
                                 <div className="flex items-baseline gap-2">
                                     <span className={`text-2xl font-bold font-mono ${kpis.heuresSupp && kpis.heuresSupp !== '00h00' && kpis.heuresSupp !== '0h' ? 'text-[var(--color-success-500)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
-                                        {kpis.heuresSupp || '00h00'}
+                                        {formatDecimalHours(parseHhMmToDecimal(kpis.heuresSupp))}
                                     </span>
                                     <span className="text-xs font-mono text-[var(--color-fg-muted)] font-semibold">
-                                        ({formatDecimalHours(parseHhMmToDecimal(kpis.heuresSupp))})
+                                        ({kpis.heuresSupp || '00h00'})
                                     </span>
                                 </div>
                                 <div className="text-xs text-[var(--color-fg-muted)] mt-0.5 truncate">
@@ -751,7 +751,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Réalisé</Th>
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Retards</Th>
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Surplus Brut</Th>
-                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase text-emerald-600">Compensé (1:1)</Th>
+                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase text-emerald-600">Compensé </Th>
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Solde Net</Th>
                                     </Thead>
                                     <Tbody>
@@ -765,43 +765,43 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                     </Td>
                                                     <Td className="text-xs text-center py-2 px-3">{b.nbJoursTroncon} j</Td>
                                                     <Td className="font-mono text-xs text-center py-2 px-3">
-                                                        <div>{formatHeuresMinutes(b.seuilHeuresTroncon)}</div>
-                                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatDecimalHours(b.seuilHeuresTroncon)})</div>
+                                                        <div>{formatDecimalHours(b.seuilHeuresTroncon)}</div>
+                                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatHeuresMinutes(b.seuilHeuresTroncon)})</div>
                                                     </Td>
                                                     <Td className="font-mono text-xs text-center font-bold py-2 px-3">
-                                                        <div>{formatHeuresMinutes(b.totalHeuresTravaillees)}</div>
-                                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatDecimalHours(b.totalHeuresTravaillees)})</div>
+                                                        <div>{formatDecimalHours(b.totalHeuresTravaillees)}</div>
+                                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatHeuresMinutes(b.totalHeuresTravaillees)})</div>
                                                     </Td>
                                                     <Td className={`font-mono text-xs text-center py-2 px-3 ${b.heuresRetard > 0 ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-bold' : 'text-[var(--color-fg-muted)]'}`}>
-                                                        <div>{b.heuresRetard > 0 ? formatHeuresMinutes(b.heuresRetard) : '00h00'}</div>
+                                                        <div>{b.heuresRetard > 0 ? formatDecimalHours(b.heuresRetard) : '0.00h'}</div>
                                                         {b.heuresRetard > 0 && (
-                                                            <div className="text-[10px] opacity-75 font-normal font-mono">({formatDecimalHours(b.heuresRetard)})</div>
+                                                            <div className="text-[10px] opacity-75 font-normal font-mono">({formatHeuresMinutes(b.heuresRetard)})</div>
                                                         )}
                                                     </Td>
                                                     <Td className={`font-mono text-xs text-center py-2 px-3 ${b.heuresHsBrutes > 0 ? 'text-[var(--color-info-600)] dark:text-[var(--color-info-300)] font-bold' : 'text-[var(--color-fg-muted)]'}`}>
-                                                        <div>{b.heuresHsBrutes > 0 ? formatHeuresMinutes(b.heuresHsBrutes, true) : '00h00'}</div>
+                                                        <div>{b.heuresHsBrutes > 0 ? `+${formatDecimalHours(b.heuresHsBrutes, false)}` : '0.00h'}</div>
                                                         {b.heuresHsBrutes > 0 && (
-                                                            <div className="text-[10px] opacity-75 font-normal font-mono">({formatDecimalHours(b.heuresHsBrutes, true)})</div>
+                                                            <div className="text-[10px] opacity-75 font-normal font-mono">(+{formatHeuresMinutes(b.heuresHsBrutes, false)})</div>
                                                         )}
                                                     </Td>
                                                     <Td className="font-mono text-xs text-center py-2 px-3 font-bold text-emerald-600 dark:text-emerald-400">
-                                                        <div>{b.heuresCompensees > 0 ? `-${formatHeuresMinutes(b.heuresCompensees)}` : '—'}</div>
+                                                        <div>{b.heuresCompensees > 0 ? `-${formatDecimalHours(b.heuresCompensees)}` : '—'}</div>
                                                         {b.heuresCompensees > 0 && (
-                                                            <div className="text-[10px] opacity-75 font-normal font-mono">(-{formatDecimalHours(b.heuresCompensees)})</div>
+                                                            <div className="text-[10px] opacity-75 font-normal font-mono">(-{formatHeuresMinutes(b.heuresCompensees)})</div>
                                                         )}
                                                     </Td>
                                                     <Td className="text-center py-2 px-3">
                                                         {hasDeficit ? (
                                                             <Badge variant="danger" size="sm" className="font-mono font-bold">
-                                                                -{formatHeuresMinutes(b.heuresDeficit)} (-{formatDecimalHours(b.heuresDeficit)})
+                                                                -{formatDecimalHours(b.heuresDeficit)} (-{formatHeuresMinutes(b.heuresDeficit)})
                                                             </Badge>
                                                         ) : hasHs ? (
                                                             <Badge variant="success" size="sm" className="font-mono font-bold">
-                                                                +{formatHeuresMinutes(b.heuresHsNettes)} (+{formatDecimalHours(b.heuresHsNettes)})
+                                                                +{formatDecimalHours(b.heuresHsNettes)} (+{formatHeuresMinutes(b.heuresHsNettes)})
                                                             </Badge>
                                                         ) : (
                                                             <Badge variant="neutral" size="sm" className="font-mono text-[10px]">
-                                                                ÉQUILIBRÉ (00h00)
+                                                                ÉQUILIBRÉ (0.00h)
                                                             </Badge>
                                                         )}
                                                     </Td>

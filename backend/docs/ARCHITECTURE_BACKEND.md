@@ -85,7 +85,7 @@ Toutes les logiques procédurales SQL ont été déplacées vers Java :
 ## 4. Tests Automatisés & Couverture Complète (328 Tests)
 
 Le projet compte **328 tests automatisés réussis à 100%** (unitaires purs et intégration transactionnelle) :
-- `AuditDeepInspectionExhaustifTest` (8 tests approfondis : plafonnements Art. 72 & 68, compensation 1:1, régularisation congés DAF, etc.)
+- `AuditDeepInspectionExhaustifTest` (8 tests approfondis : plafonnements Art. 72 & 68, compensation , régularisation congés DAF, etc.)
 - `AuditAdversarialRemediationTest` (13 tests contradictoires et cas limites)
 - `AuditPhase5Et6VerificationTest` & `Phase1Et2AuditVerificationTest` (12 tests de conformité par phases)
 - `PayrollExecutionEngineTest` (21 tests de calculs de paie duale, cotisations et déductions)

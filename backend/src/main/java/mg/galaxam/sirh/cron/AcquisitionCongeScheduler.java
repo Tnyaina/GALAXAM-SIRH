@@ -16,8 +16,6 @@ import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -60,7 +58,6 @@ public class AcquisitionCongeScheduler {
         }
     }
 
-    @EventListener(ApplicationReadyEvent.class)
     @Scheduled(cron = "0 0 1 * * ?")
     public void acquerirCongesMensuels() {
         log.info("[AcquisitionCongeScheduler] Vérification de l'acquisition mensuelle des congés (Moteur Java)...");

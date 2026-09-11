@@ -3,7 +3,7 @@ import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import { formatHeuresMinutes, formatMonnaie } from '@/utils/pointageUtils';
+import { formatHeuresMinutes, formatHeuresDecimal, formatMonnaie } from '@/utils/pointageUtils';
 
 export default function PointageRecapModal({
     isOpen = false,
@@ -181,7 +181,8 @@ export default function PointageRecapModal({
                                         <Td className="py-2.5 px-3 text-center font-mono text-[12px]">{matinStr}</Td>
                                         <Td className="py-2.5 px-3 text-center font-mono text-[12px]">{amStr}</Td>
                                         <Td className="py-2.5 px-3 text-center font-mono font-bold text-[12.5px]">
-                                            {formatHeuresMinutes(row.totalHeures, true)}
+                                            <div>{formatHeuresDecimal(row.totalHeures)}</div>
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatHeuresMinutes(row.totalHeures, true)})</div>
                                         </Td>
                                         <Td className="py-2.5 px-3 text-center font-mono">
                                             {row.minutesRetard > 0 ? (

@@ -146,7 +146,7 @@ public class PointageCalculateurEngine {
         double heuresRetard = Math.round((minutesRetard / 60.0) * 100.0) / 100.0;
         double hsBrutes = Math.max(0.0, Math.round((totalHeures - seuilTroncon) * 100.0) / 100.0);
 
-        // Compensation 1:1 des retards par le surplus d'heures de la semaine
+        // Compensation  des retards par le surplus d'heures de la semaine
         double retardCompense = Math.min(heuresRetard, hsBrutes);
         double deficitNet = Math.round((heuresRetard - retardCompense) * 100.0) / 100.0;
 

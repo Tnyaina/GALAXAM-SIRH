@@ -128,7 +128,7 @@ class PointageCalculateurEngineTest {
     }
 
     @Test
-    @DisplayName("calculerTroncon : Compensation hebdomadaire stricte 1:1 (HS compense le retard)")
+    @DisplayName("calculerTroncon : Compensation hebdomadaire stricte  (HS compense le retard)")
     void testCalculerTronconCompensation() {
         LocalDate debut = LocalDate.of(2026, 9, 1);
         int nbJours = 5; // Seuil = 5 * 8h = 40h

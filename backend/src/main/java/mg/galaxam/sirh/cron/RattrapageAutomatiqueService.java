@@ -54,6 +54,10 @@ public class RattrapageAutomatiqueService {
     @Lazy
     private SessionSecurityScheduler sessionSecurityScheduler;
 
+    @Autowired
+    @Lazy
+    private AuditLogPurgeScheduler auditLogPurgeScheduler;
+
     /**
      * Exécution automatique au démarrage du serveur.
      */
@@ -64,10 +68,10 @@ public class RattrapageAutomatiqueService {
     }
 
     /**
-     * Battement de cœur régulier (toutes les 15 minutes).
-     * Si la machine s'est mise en veille pendant la nuit et se réveille le matin,
-     * cette tâche se réveille instantanément et déclenche le rattrapage du jour
-     * sans nécessiter d'interaction utilisateur ni de redémarrage serveur.
+     * Battement de cœur régulier (toutes les 15 minutes), côté SERVEUR uniquement.
+     * Indépendant de React/SPA : aucune requête HTTP client n'est nécessaire pour déclencher le rattrapage.
+     * Si le serveur ne redémarre pas mais que minuit est passé (ex: serveur en veille, weekend sans trafic),
+     * cette tâche détecte automatiquement le changement de date et lance le cycle de rattrapage du jour.
      */
     @Scheduled(fixedDelay = 900000, initialDelay = 30000)
     public void battementCoeurPeriodique() {
@@ -136,11 +140,18 @@ public class RattrapageAutomatiqueService {
                 log.error("[RATTRAPAGE] Erreur purge congés expirés : {}", e.getMessage());
             }
 
-            // 5. Nettoyage de sécurité
+            // 5. Nettoyage de sécurité (sessions + tokens expirés)
             try {
                 sessionSecurityScheduler.nettoyerSecurite();
             } catch (Exception e) {
                 log.error("[RATTRAPAGE] Erreur nettoyage sécurité : {}", e.getMessage());
+            }
+
+            // 6. Purge des logs d'audit (mensuelle, sans risque de doublon : idempotente par seuil date)
+            try {
+                auditLogPurgeScheduler.purgerAnciensLogsAudit();
+            } catch (Exception e) {
+                log.error("[RATTRAPAGE] Erreur purge logs audit : {}", e.getMessage());
             }
 
             dernierRattrapageJournalier.set(aujourdhui);

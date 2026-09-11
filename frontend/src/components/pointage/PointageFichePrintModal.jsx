@@ -145,7 +145,7 @@ export default function PointageFichePrintModal({
 
             {/* Conteneur modale */}
             <div className="relative bg-white text-slate-900 w-full max-w-4xl shadow-2xl rounded-none border border-slate-300 print:border-none print:shadow-none print:max-w-none print:w-full print:overflow-visible overflow-hidden my-auto">
-                
+
                 {/* Barre d'action supérieure (masquée à l'impression) */}
                 <div className="bg-slate-100 border-b border-slate-300 px-4 py-2.5 flex items-center justify-between gap-3 print:hidden">
                     <div className="flex items-center gap-2">
@@ -235,13 +235,13 @@ export default function PointageFichePrintModal({
                             <thead>
                                 <tr className="bg-slate-100 font-bold text-slate-800 border-b border-slate-300">
                                     <th className="py-1 px-1 border-r border-slate-300 text-left">Jours Présents</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Réalisé (hh:mm)</th>
                                     <th className="py-1 px-1 border-r border-slate-300">Réalisé (déc.)</th>
+                                    <th className="py-1 px-1 border-r border-slate-300">Réalisé (hh:mm)</th>
                                     <th className="py-1 px-1 border-r border-slate-300">HS 30%</th>
                                     <th className="py-1 px-1 border-r border-slate-300">HS 50%</th>
                                     <th className="py-1 px-1 border-r border-slate-300">Nuit</th>
                                     <th className="py-1 px-1 border-r border-slate-300">Retard Brut</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Compensé 1:1</th>
+                                    <th className="py-1 px-1 border-r border-slate-300">Compensé </th>
                                     <th className="py-1 px-1 border-r border-slate-300">Retenue Nette</th>
                                     <th className="py-1 px-1 border-r border-slate-300">Repas</th>
                                     <th className="py-1 px-1">Déplacement</th>
@@ -250,19 +250,21 @@ export default function PointageFichePrintModal({
                             <tbody>
                                 <tr className="font-mono font-medium">
                                     <td className="py-1 px-1 border-r border-slate-300 text-left font-sans">{kpis.joursTravailles || '—'}</td>
-                                    <td className="py-1 px-1 border-r border-slate-300 font-bold">{kpis.heuresRealisees || '00h00'}</td>
                                     <td className="py-1 px-1 border-r border-slate-300 font-bold text-slate-700">
                                         {kpis.heuresRealisees ? `${parseHhMmToDecimal(kpis.heuresRealisees).toFixed(2)}h` : '0.00h'}
                                     </td>
+                                    <td className="py-1 px-1 border-r border-slate-300 font-bold">{kpis.heuresRealisees || '00h00'}</td>
                                     <td className="py-1 px-1 border-r border-slate-300">{kpis.heuresHs30 || '0.0h'}</td>
                                     <td className="py-1 px-1 border-r border-slate-300">{kpis.heuresHs50 || '0.0h'}</td>
                                     <td className="py-1 px-1 border-r border-slate-300">{kpis.heuresNuit || '0.0h'}</td>
-                                    <td className="py-1 px-1 border-r border-slate-300">{kpis.retardCumule || '00h00'}</td>
+                                    <td className="py-1 px-1 border-r border-slate-300">
+                                        {kpis.retardCumule ? `${parseHhMmToDecimal(kpis.retardCumule).toFixed(2)}h (${kpis.retardCumule})` : '0.00h (00h00)'}
+                                    </td>
                                     <td className="py-1 px-1 border-r border-slate-300 font-bold text-slate-800">
-                                        {recap.retardCompense && recap.retardCompense !== '00h00' ? `-${recap.retardCompense}` : '—'}
+                                        {recap.retardCompense && recap.retardCompense !== '00h00' ? `-${parseHhMmToDecimal(recap.retardCompense).toFixed(2)}h (-${recap.retardCompense})` : '—'}
                                     </td>
                                     <td className="py-1 px-1 border-r border-slate-300 font-bold text-slate-900">
-                                        {recap.retardNet && recap.retardNet !== '00h00' ? `-${recap.retardNet}` : '00h00'}
+                                        {recap.retardNet && recap.retardNet !== '00h00' ? `-${parseHhMmToDecimal(recap.retardNet).toFixed(2)}h (-${recap.retardNet})` : '0.00h (00h00)'}
                                     </td>
                                     <td className="py-1 px-1 border-r border-slate-300">{kpis.montantRepasTotal || '0 Ar'}</td>
                                     <td className="py-1 px-1">{kpis.montantDeplacementTotal || '0 Ar'}</td>
@@ -283,12 +285,12 @@ export default function PointageFichePrintModal({
                                     <th className="py-1 px-1.5 border-r border-slate-300 text-left">Semaine</th>
                                     <th className="py-1 px-1 border-r border-slate-300">Jours</th>
                                     <th className="py-1 px-1 border-r border-slate-300">Seuil</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Réalisé (hh:mm)</th>
                                     <th className="py-1 px-1 border-r border-slate-300">Réalisé (déc.)</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Retards (hh:mm)</th>
+                                    <th className="py-1 px-1 border-r border-slate-300">Réalisé (hh:mm)</th>
                                     <th className="py-1 px-1 border-r border-slate-300">Retards (déc.)</th>
+                                    <th className="py-1 px-1 border-r border-slate-300">Retards (hh:mm)</th>
                                     <th className="py-1 px-1 border-r border-slate-300">Surplus Brut</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Compensé (1:1)</th>
+                                    <th className="py-1 px-1 border-r border-slate-300">Compensé </th>
                                     <th className="py-1 px-1">Solde Net</th>
                                 </tr>
                             </thead>
@@ -304,15 +306,15 @@ export default function PointageFichePrintModal({
                                                 Semaine {b.numeroSemaine || idx + 1} ({b.debutSemaine} au {b.finSemaine})
                                             </td>
                                             <td className="py-0.5 px-1 border-r border-slate-300">{b.nbJoursTroncon} j</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300">{b.seuilHeuresTroncon ? `${Math.round(b.seuilHeuresTroncon)}h00` : '—'}</td>
+                                            <td className="py-0.5 px-1 border-r border-slate-300">{b.seuilHeuresTroncon ? `${Number(b.seuilHeuresTroncon).toFixed(2)}h (${Math.round(b.seuilHeuresTroncon)}h00)` : '—'}</td>
+                                            <td className="py-0.5 px-1 border-r border-slate-300 font-bold text-slate-700">{hRealDec > 0 ? `${hRealDec.toFixed(2)}h` : '0.00h'}</td>
                                             <td className="py-0.5 px-1 border-r border-slate-300 font-bold">{formatDecimalToHhMm(hRealDec)}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300 font-bold text-slate-700">{hRealDec > 0 ? `${hRealDec.toFixed(2)}h` : '0h'}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300">{hRetDec > 0 ? formatDecimalToHhMm(hRetDec) : '—'}</td>
                                             <td className="py-0.5 px-1 border-r border-slate-300 text-slate-600">{hRetDec > 0 ? `${hRetDec.toFixed(2)}h` : '—'}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300">{b.heuresHsBrutes > 0 ? `+${formatDecimalToHhMm(b.heuresHsBrutes)} (${b.heuresHsBrutes.toFixed(2)}h)` : '—'}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300">{b.heuresCompensees > 0 ? `-${formatDecimalToHhMm(b.heuresCompensees)} (${b.heuresCompensees.toFixed(2)}h)` : '—'}</td>
+                                            <td className="py-0.5 px-1 border-r border-slate-300">{hRetDec > 0 ? formatDecimalToHhMm(hRetDec) : '—'}</td>
+                                            <td className="py-0.5 px-1 border-r border-slate-300">{b.heuresHsBrutes > 0 ? `+${b.heuresHsBrutes.toFixed(2)}h (+${formatDecimalToHhMm(b.heuresHsBrutes)})` : '—'}</td>
+                                            <td className="py-0.5 px-1 border-r border-slate-300">{b.heuresCompensees > 0 ? `-${b.heuresCompensees.toFixed(2)}h (-${formatDecimalToHhMm(b.heuresCompensees)})` : '—'}</td>
                                             <td className="py-0.5 px-1 font-bold font-sans">
-                                                {hasDeficit ? `-${formatDecimalToHhMm(b.heuresDeficit)} (Retenue)` : hasHs ? `+${formatDecimalToHhMm(b.heuresHsNettes)} (HS Nettes)` : 'Équilibré'}
+                                                {hasDeficit ? `-${b.heuresDeficit.toFixed(2)}h (-${formatDecimalToHhMm(b.heuresDeficit)})` : hasHs ? `+${b.heuresHsNettes.toFixed(2)}h (+${formatDecimalToHhMm(b.heuresHsNettes)})` : 'Équilibré'}
                                             </td>
                                         </tr>
                                     );

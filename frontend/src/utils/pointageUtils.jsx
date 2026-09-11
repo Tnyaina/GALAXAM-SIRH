@@ -165,9 +165,9 @@ export const formatHeuresDecimal = (val, suffix = 'h') => {
  * Exemple: 8.5 -> "08h30 (8.50h)"
  */
 export const formatDualHours = (val, options = {}) => {
-    const { primary = 'horaire', padZero = true } = options;
+    const { primary = 'decimal', padZero = true } = options;
     if (val === null || val === undefined || val === '' || isNaN(val)) {
-        return '00h00 (0.00h)';
+        return primary === 'decimal' ? '0.00h (00h00)' : '00h00 (0.00h)';
     }
     const hhmm = formatHeuresMinutes(val, padZero);
     const dec = formatHeuresDecimal(val);

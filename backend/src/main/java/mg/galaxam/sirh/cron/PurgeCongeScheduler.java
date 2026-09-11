@@ -15,8 +15,7 @@ import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
+
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -45,7 +44,6 @@ public class PurgeCongeScheduler {
     }
 
     @Scheduled(cron = "0 0 2 * * ?")
-    @EventListener(ApplicationReadyEvent.class)
     public void purgerCongesExpires() {
         log.info("[PurgeCongeScheduler] Lancement de la purge triennale FIFO (Moteur Java)...");
         try (Connection c = dataSource.getConnection()) {

@@ -20,8 +20,7 @@ import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
+
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -43,7 +42,6 @@ public class NotificationRhScheduler {
     @Autowired
     private NotificationRhService notificationService;
 
-    @EventListener(ApplicationReadyEvent.class)
     @Scheduled(cron = "0 30 2 * * ?")
     public void genererNotificationsRh() {
         log.info("[NotificationRhScheduler] Lancement du cycle de génération des notifications RH (Moteur Java)...");

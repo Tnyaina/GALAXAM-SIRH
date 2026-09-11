@@ -66,7 +66,7 @@ Le système couvre le cycle de vie complet du collaborateur :
 1. **Recrutement & Dossier Collaborateur** : Génération séquentielle de matricule `EMP%04d`, gestion complète de l'état civil, CIN/Passeport/Permis, données familiales (conjoint, enfants pour déduction IRSA), comptes bancaires RIB, GED des pièces justificatives avec conformité obligatoire.
 2. **Gestion Contractuelle & Carrière** : Workflow d'embauche, gestion des périodes d'essai (confirmation/renouvellement), avenants CDD avec garde-fous légaux stricts (2 renouvellements / 24 mois max), promotions, mutations multi-filiales/sites, ruptures conventionnelles/licenciements avec clôture automatique.
 3. **Gestion des Congés & Absences** : Moteur de Ledger FIFO par pools d'acquisition annuelle de 2.5 jours/mois, calcul précis des jours ouvrables/fériés, bascule automatique Art. 13 des arrêts maladie longue durée > 30 jours, purges et acquisitions automatisées par cron.
-4. **Gestion des Pointages & Présences** : Saisie quotidienne de badgeage avec détection de retard, ventilation hebdomadaire au seuil des 40h/semaine avec compensation 1:1 retard/HS, calcul des HS 130%/150%, heures de nuit, dimanches, fériés, primes de repas et indemnités kilométriques avec dérogations par site, détection et régularisation des anomalies, gel/dégel et transmission DAF des périodes de paie.
+4. **Gestion des Pointages & Présences** : Saisie quotidienne de badgeage avec détection de retard, ventilation hebdomadaire au seuil des 40h/semaine avec compensation  retard/HS, calcul des HS 130%/150%, heures de nuit, dimanches, fériés, primes de repas et indemnités kilométriques avec dérogations par site, détection et régularisation des anomalies, gel/dégel et transmission DAF des périodes de paie.
 5. **Configuration Paie & Préparation Bulletins** : Paramétrage des cotisations sociales avec plafonnement à 8×SMIG, barème progressif par tranches IRSA avec minimum de perception et déductions enfants à charge, calendriers fériés locaux, et moteur de calcul préparatoire du net.
 6. **Sécurité, IAM & Administration** : Authentification JWT sans état avec Refresh Token HTTP-only, contrôle d'accès RBAC granulaire par rôles, permissions et menus dynamiques, traçabilité intégrale via `audit_log` et `journal_connexion`.
 
@@ -290,7 +290,7 @@ classDiagram
 | | `calculerHeuresNuit(...)` | `PointageSaisieService.calcHeuresNuit` | **RG-PTG-02** (Plage 22h-05h +30%) | `PointageCalculateurEngineTest` |
 | | `calculerTotalRepasJour(...)` | `PointageSaisieService.calculerIndemnites` | **RG-PTG-03** (Midi & sorties tardives) | `PointageCalculateurEngineTest` |
 | | `calculerDeplacementJour(...)` | `PointageSaisieService.calculerIndemnites` | **RG-PTG-04** (Transport & déduction) | `PointageCalculateurEngineTest` |
-| | `calculerTroncon(...)` | `PointageSyntheseService.calculerSynthese` | **RG-PTG-05 / 06 / 07** (40h, comp. 1:1, HS) | `PointageCalculateurEngineTest` |
+| | `calculerTroncon(...)` | `PointageSyntheseService.calculerSynthese` | **RG-PTG-05 / 06 / 07** (40h, comp. , HS) | `PointageCalculateurEngineTest` |
 | **`CalendrierOuvrableEngine`** | `getDatesFeriesEtChomees(...)`| `PointageSaisieService.chargerGrilleHebdo` | **RG-PTG-08 / 09** (Jours ouvrés réels) | `CalendrierOuvrableEngineTest` |
 | | `getJourChomeInfo(...)` | `CongeService`, `PointageSaisieService` | **RG-CNG-03 / RG-PTG-08** (Calendrier d'entreprise unifié) | `CalendrierOuvrableEngineTest` |
 | **`CongeCalculateurEngine`** | `calculerNombreJours(...)` | `CongeService.creerDemande` | **RG-CNG-02** (Décompte calendaire) | `CongeCalculateurEngineTest` |
@@ -807,7 +807,7 @@ Modéliser le parcours professionnel et contractuel des collaborateurs via un mo
 
 ### 1. Objectif
 
-Assurer le suivi rigoureux des temps de présence, badgeages matin/après-midi, détection et calcul précis des retards, ventilation hebdomadaire au seuil légal de 40 heures/semaine avec compensation 1:1 retard/HS, majorations pour heures supplémentaires (130%, 150%), heures de nuit, dimanches et jours fériés, modèle relationnel normalisé des indemnités repas et transport (`pointage_indemnite_jour`), régularisation des anomalies avec synchronisation bidirectionnelle et clôture/gel des périodes de paie pour transmission à la DAF. Le module intègre la détection proactive des demandes de congés ou permissions en attente de validation RH lors de l'analyse des anomalies, et applique la stricte distinction d'impact salarial lors des régularisations : maintien de salaire (`CONGE` ou permission rémunérée) vs décompte du salaire au temps de travail effectif (`ABSENCE_JUSTIFIEE` et `ABSENCE_NON_JUSTIFIEE`).
+Assurer le suivi rigoureux des temps de présence, badgeages matin/après-midi, détection et calcul précis des retards, ventilation hebdomadaire au seuil légal de 40 heures/semaine avec compensation  retard/HS, majorations pour heures supplémentaires (130%, 150%), heures de nuit, dimanches et jours fériés, modèle relationnel normalisé des indemnités repas et transport (`pointage_indemnite_jour`), régularisation des anomalies avec synchronisation bidirectionnelle et clôture/gel des périodes de paie pour transmission à la DAF. Le module intègre la détection proactive des demandes de congés ou permissions en attente de validation RH lors de l'analyse des anomalies, et applique la stricte distinction d'impact salarial lors des régularisations : maintien de salaire (`CONGE` ou permission rémunérée) vs décompte du salaire au temps de travail effectif (`ABSENCE_JUSTIFIEE` et `ABSENCE_NON_JUSTIFIEE`).
 
 ### 2. Acteurs
 
@@ -1125,7 +1125,7 @@ Scission Automatique Art. 13 :                 Demande standard :
          ▼                                             ▼
   Régularisation RH par PointageAnomalieService   PointageSyntheseService
   • syncIndemniteJour() met à jour la table        • Consolidation des 40h/semaine
-    relationnelle pointage_indemnite_jour          • Compensation 1:1 retard / surplus
+    relationnelle pointage_indemnite_jour          • Compensation  retard / surplus
   • Recalcul immédiat du statut                    • Ventilation HS 130% et HS 150%
                                                         │
                                                         ▼
