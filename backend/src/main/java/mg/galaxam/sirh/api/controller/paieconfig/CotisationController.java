@@ -125,8 +125,33 @@ public class CotisationController {
                 if (existing == null) {
                     return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Type de cotisation non trouvé.");
                 }
-                existing.update(c);
+                existing.desactiver(c);
                 AuditLog.audit(c, "DESACTIVATION", "ref_type_cotisation", String.valueOf(id), null, existing);
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    @PutMapping("/{id}/activer")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> activateCotisation(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefTypeCotisation cot = new RefTypeCotisation();
+                RefTypeCotisation existing = (RefTypeCotisation) cot.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Type de cotisation non trouvé.");
+                }
+                existing.activer(c);
+                AuditLog.audit(c, "ACTIVATION", "ref_type_cotisation", String.valueOf(id), null, existing);
                 c.commit();
                 return ResponseEntity.ok(existing);
             } catch (Exception ex) {

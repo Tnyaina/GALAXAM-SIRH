@@ -23,6 +23,9 @@ public class PaieConfigLegaleRequest {
     // Tranches IRSA associées
     private List<IrsaRequest> tranchesIrsa;
 
+    // Taux de Majoration associés
+    private List<TauxMajorationRequest> majorations;
+
     // Salaire Minimum et Plafonds Sociaux
     private BigDecimal smeNational;
     private BigDecimal smeAgricole;
@@ -55,6 +58,8 @@ public class PaieConfigLegaleRequest {
     public void setDateFin(Date v) { this.dateFin = v; }
     public List<IrsaRequest> getTranchesIrsa() { return tranchesIrsa; }
     public void setTranchesIrsa(List<IrsaRequest> tranchesIrsa) { this.tranchesIrsa = tranchesIrsa; }
+    public List<TauxMajorationRequest> getMajorations() { return majorations; }
+    public void setMajorations(List<TauxMajorationRequest> majorations) { this.majorations = majorations; }
     public BigDecimal getSmeNational() { return smeNational; }
     public void setSmeNational(BigDecimal v) { this.smeNational = v; }
     public BigDecimal getSmeAgricole() { return smeAgricole; }

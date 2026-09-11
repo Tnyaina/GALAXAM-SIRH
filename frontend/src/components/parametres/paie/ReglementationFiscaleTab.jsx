@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
     Scale, TrendingUp, CheckCircle2, Clock, Edit2, Eye, X,
     Banknote, Percent, Timer, Palmtree, Info, FileText, AlertTriangle,
-    Sparkles, Trash2, Plus
+    Sparkles, Trash2, Plus, Zap, Moon, Sun, Calendar
 } from 'lucide-react';
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
@@ -85,6 +85,24 @@ const DEFAULT_TRANCHES_IRSA = [
     { numeroTranche: 6, trancheMin: 4000001, trancheMax: '', taux: 25 },
 ];
 
+const DEFAULT_MAJORATIONS = [
+    { typeMajoration: 'HS_30', taux: 0.30, description: '41ᵉ à 48ᵉ heure de la semaine' },
+    { typeMajoration: 'HS_50', taux: 0.50, description: 'Au-delà de la 48ᵉ heure' },
+    { typeMajoration: 'NUIT', taux: 0.30, description: 'Heures de nuit (22h - 05h)' },
+    { typeMajoration: 'DIMANCHE', taux: 0.40, description: 'Travail le dimanche' },
+    { typeMajoration: 'FERIE', taux: 1.00, description: 'Travail jour férié' }
+];
+
+const MAJORATION_META = {
+    HS_30:    { label: 'HS Tranche 1 (premières 8h)', defaultPct: 30 },
+    HS_50:    { label: 'HS Tranche 2 (au-delà du seuil)', defaultPct: 50 },
+    NUIT:     { label: 'Heures de Nuit (22h - 05h)',      defaultPct: 30 },
+    DIMANCHE: { label: 'Travail le Dimanche',             defaultPct: 40 },
+    FERIE:    { label: 'Travail Jour Férié',              defaultPct: 100 },
+};
+
+const MAJORATION_ORDER = { 'HS_30': 1, 'HS_50': 2, 'NUIT': 3, 'DIMANCHE': 4, 'FERIE': 5 };
+
 const EMPTY_FORM = {
     codeVersion: '', libelle: '', dateDebut: '', dateFin: '',
     smeNational: '262680', smeAgricole: '266500', plafondCotisationNbSme: '8',
@@ -93,7 +111,83 @@ const EMPTY_FORM = {
     dureeHebdoLegale: '40', diviseurMensuelHeures: '173.33', seuilHsTranche1: '8', plafondHsHebdo: '20',
     acquisitionCongeMensuelJours: '2.5', diviseurValorisationCongeJours: '30',
     tranchesIrsa: DEFAULT_TRANCHES_IRSA,
+    majorations: DEFAULT_MAJORATIONS,
 };
+
+const MAJORATION_CONFIG = [
+    { type: 'HS_30',    title: 'HS Tranche 1', subtitle: '41ᵉ à 48ᵉ h (premières 8h)', icon: Clock,    defaultPct: 30, color: 'text-amber-500',  badgeBg: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
+    { type: 'HS_50',    title: 'HS Tranche 2', subtitle: 'Au-delà de la 48ᵉ heure',    icon: Zap,      defaultPct: 50, color: 'text-orange-500', badgeBg: 'bg-orange-500/10 text-orange-700 dark:text-orange-300' },
+    { type: 'NUIT',     title: 'Heures de Nuit', subtitle: '22h00 – 05h00 du matin',    icon: Moon,     defaultPct: 30, color: 'text-indigo-500', badgeBg: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300' },
+    { type: 'DIMANCHE', title: 'Dimanche',     subtitle: 'Repos hebdomadaire légal',   icon: Sun,      defaultPct: 40, color: 'text-purple-500', badgeBg: 'bg-purple-500/10 text-purple-700 dark:text-purple-300' },
+    { type: 'FERIE',    title: 'Jour Férié',   subtitle: 'Férié chômé et payé',        icon: Calendar, defaultPct: 100, color: 'text-rose-500',   badgeBg: 'bg-rose-500/10 text-rose-700 dark:text-rose-300' },
+];
+
+function MajorationsFormSection({ majorations = [], onChange, isReadOnly }) {
+    const handleTauxChange = (type, val) => {
+        const pct = parseFloat(val) || 0;
+        const next = majorations.map(m => m.typeMajoration === type ? { ...m, taux: pct / 100 } : m);
+        onChange(next);
+    };
+
+    return (
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3 col-span-1 md:col-span-2">
+            <SectionTitle 
+                icon={Clock} 
+                label="6. Taux de Majoration des Heures Spéciales" 
+                color="var(--color-warning-600)" 
+                badge="Code du Travail Art. 83-84"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {MAJORATION_CONFIG.map(item => {
+                    const found = majorations.find(m => m.typeMajoration === item.type);
+                    const rawTaux = found ? parseFloat(found.taux) : (item.defaultPct / 100);
+                    const pct = Math.round(rawTaux * 100);
+                    const mult = (1 + rawTaux).toFixed(2);
+                    const Icon = item.icon;
+
+                    return (
+                        <div 
+                            key={item.type} 
+                            className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3 flex flex-col justify-between hover:border-[var(--color-brand-500)]/40 transition-colors"
+                        >
+                            <div>
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <Icon size={14} className={item.color} />
+                                    <span className="text-xs font-bold text-[var(--color-fg)]">
+                                        {item.title}
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-[var(--color-fg-muted)] leading-tight mb-3">
+                                    {item.subtitle}
+                                </p>
+                            </div>
+
+                            <div className="pt-2 border-t border-[var(--color-border-subtle)] flex items-center justify-between gap-1.5">
+                                <div className="flex items-center gap-1">
+                                    <span className="text-xs font-bold text-[var(--color-brand-500)]">+</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="500"
+                                        step="1"
+                                        disabled={isReadOnly}
+                                        value={pct}
+                                        onChange={(e) => handleTauxChange(item.type, e.target.value)}
+                                        className="w-14 h-7 text-xs font-bold px-1.5 py-0.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] text-right focus:outline-none focus:border-[var(--color-brand-500)] disabled:opacity-60"
+                                    />
+                                    <span className="text-xs font-semibold text-[var(--color-fg-muted)]">%</span>
+                                </div>
+                                <span className={`text-[10px] font-mono px-1.5 py-0.5 font-bold border border-[var(--color-border-subtle)] shrink-0 ${item.badgeBg}`}>
+                                    x{mult}
+                                </span>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
 
 function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
     const handleAdd = () => {
@@ -127,8 +221,8 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
             <div className="flex items-center justify-between">
                 <SectionTitle 
                     icon={Percent} 
-                    label="6. Barème Progressif IRSA (Tranches d'imposition)" 
-                    color="var(--color-warning-600)" 
+                    label="7. Barème Progressif IRSA (Tranches d'imposition)" 
+                    color="var(--color-brand-500)" 
                     badge="Code Général des Impôts (CGI)"
                 />
                 {!isReadOnly && (
@@ -511,14 +605,14 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 hint={`Calcul automatique : (${formData.dureeHebdoLegale || '40'}h × 52 sem.) / 12 mois = ${formData.diviseurMensuelHeures || '173.33'}h`}
                             />
                             <Input
-                                label="Seuil HS Tranche 1 (+30%)"
+                                label="Seuil HS Tranche 1 (h)"
                                 type="number"
                                 step="0.5"
                                 required={!isReadOnly}
                                 disabled={isReadOnly}
                                 value={formData.seuilHsTranche1}
                                 onChange={e => upd('seuilHsTranche1', e.target.value)}
-                                hint="Ex : 8 = 8 premières heures maj. à 30%"
+                                hint="Premières heures supp. avant bascule Tranche 2"
                             />
                             <Input
                                 label="Plafond HS / Semaine (h)"
@@ -567,7 +661,14 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                         </p>
                     </div>
 
-                    {/* SECTION 6 : Barème Progressif IRSA (Pleine largeur) */}
+                    {/* SECTION 6 : Taux de Majoration des Heures Spéciales (Pleine largeur) */}
+                    <MajorationsFormSection
+                        majorations={formData.majorations}
+                        onChange={m => setFormData(prev => ({ ...prev, majorations: m }))}
+                        isReadOnly={isReadOnly}
+                    />
+
+                    {/* SECTION 7 : Barème Progressif IRSA (Pleine largeur) */}
                     <TranchesIrsaFormSection 
                         tranches={formData.tranchesIrsa || []} 
                         onChange={v => upd('tranchesIrsa', v)} 
@@ -595,12 +696,32 @@ function getTranchesForConfig(config, baremesList) {
     }).sort((a, b) => (a.numeroTranche || 0) - (b.numeroTranche || 0));
 }
 
+function getMajorationsForConfig(config, majorationsList) {
+    if (!config || !majorationsList) return [];
+    let list = [];
+    if (config.idConfigLegale) {
+        const byId = majorationsList.filter(m => m.idConfigLegale === config.idConfigLegale);
+        if (byId.length > 0) list = byId;
+    }
+    if (list.length === 0) {
+        const cDebut = fmtDateInput(config.dateDebut);
+        const cFin = fmtDateInput(config.dateFin) || '';
+        list = majorationsList.filter(m => {
+            const mDebut = fmtDateInput(m.dateDebut);
+            const mFin = fmtDateInput(m.dateFin) || '';
+            return mDebut === cDebut && mFin === cFin;
+        });
+    }
+    return [...list].sort((a, b) => (MAJORATION_ORDER[a.typeMajoration] || 99) - (MAJORATION_ORDER[b.typeMajoration] || 99));
+}
+
 // ==============================
 // COMPOSANT PRINCIPAL
 // ==============================
 export default function ReglementationFiscaleTab() {
     const [configs, setConfigs] = useState([]);
     const [baremesIrsa, setBaremesIrsa] = useState([]);
+    const [majorations, setMajorations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [modalError, setModalError] = useState(null);
@@ -620,12 +741,14 @@ export default function ReglementationFiscaleTab() {
         setLoading(true);
         setError(null);
         try {
-            const [dataConfigs, dataIrsa] = await Promise.all([
+            const [dataConfigs, dataIrsa, dataMajs] = await Promise.all([
                 paieConfigService.getAllConfigsLegales(),
-                paieConfigService.getBaremesIrsa()
+                paieConfigService.getBaremesIrsa(),
+                paieConfigService.getTauxMajoration()
             ]);
             setConfigs(dataConfigs || []);
             setBaremesIrsa(dataIrsa || []);
+            setMajorations(dataMajs || []);
         } catch {
             setError("Impossible de charger les exercices fiscaux.");
         } finally {
@@ -637,11 +760,12 @@ export default function ReglementationFiscaleTab() {
 
     const activeConfig = configs.find(c => getStatut(c) === 'EN_VIGUEUR');
     const activeTranches = getTranchesForConfig(activeConfig, baremesIrsa);
+    const activeMajorations = getMajorationsForConfig(activeConfig, majorations);
     const displayedConfigs = showArchived ? configs : configs.filter(c => getStatut(c) !== 'ARCHIVE');
 
     // ---- Ouverture "Initialiser" : aucun exercice actif ----
     const handleOpenInit = () => {
-        setFormData({ ...EMPTY_FORM, dateDebut: todayStr, tranchesIrsa: DEFAULT_TRANCHES_IRSA });
+        setFormData({ ...EMPTY_FORM, dateDebut: todayStr, tranchesIrsa: DEFAULT_TRANCHES_IRSA, majorations: DEFAULT_MAJORATIONS });
         setModalMode('init');
         setEditingId(null);
         setModalError(null);
@@ -661,6 +785,15 @@ export default function ReglementationFiscaleTab() {
             }))
             : DEFAULT_TRANCHES_IRSA;
 
+        const currentMajs = getMajorationsForConfig(activeConfig, majorations);
+        const clonedMajs = currentMajs.length > 0
+            ? currentMajs.map(m => ({
+                typeMajoration: m.typeMajoration,
+                taux: m.taux,
+                description: m.description || ''
+            }))
+            : DEFAULT_MAJORATIONS;
+
         const f = {
             codeVersion: '', libelle: '',
             dateDebut: '', dateFin: '',
@@ -678,6 +811,7 @@ export default function ReglementationFiscaleTab() {
             acquisitionCongeMensuelJours:   String(activeConfig.acquisitionCongeMensuelJours ?? '2.5'),
             diviseurValorisationCongeJours: String(activeConfig.diviseurValorisationCongeJours ?? '30'),
             tranchesIrsa:             clonedTranches,
+            majorations:              clonedMajs,
         };
         setFormData(f);
         setModalMode('revaloriser');
@@ -689,6 +823,7 @@ export default function ReglementationFiscaleTab() {
     // ---- Ouverture "Détails" : lecture seule pour un exercice archivé ----
     const handleOpenView = (config) => {
         const tranches = getTranchesForConfig(config, baremesIrsa);
+        const majs = getMajorationsForConfig(config, majorations);
         setFormData({
             codeVersion:              config.codeVersion ?? '',
             libelle:                  config.libelle ?? '',
@@ -713,6 +848,11 @@ export default function ReglementationFiscaleTab() {
                 trancheMax: t.trancheMax ?? '',
                 taux: t.taux
             })),
+            majorations:              majs.length > 0 ? majs.map(m => ({
+                typeMajoration: m.typeMajoration,
+                taux: m.taux,
+                description: m.description || ''
+            })) : DEFAULT_MAJORATIONS,
         });
         setModalMode('view');
         setEditingId(null);
@@ -739,6 +879,7 @@ export default function ReglementationFiscaleTab() {
     // ---- Ouverture "Corriger" : correction immédiate d'un exercice existant ----
     const handleOpenEdit = (config) => {
         const tranches = getTranchesForConfig(config, baremesIrsa);
+        const majs = getMajorationsForConfig(config, majorations);
         setFormData({
             codeVersion:              config.codeVersion ?? '',
             libelle:                  config.libelle ?? '',
@@ -763,6 +904,11 @@ export default function ReglementationFiscaleTab() {
                 trancheMax: t.trancheMax ?? '',
                 taux: t.taux
             })) : DEFAULT_TRANCHES_IRSA,
+            majorations:              majs.length > 0 ? majs.map(m => ({
+                typeMajoration: m.typeMajoration,
+                taux: m.taux,
+                description: m.description || ''
+            })) : DEFAULT_MAJORATIONS,
         });
         setModalMode('edit');
         setEditingId(config.idConfigLegale);
@@ -780,6 +926,11 @@ export default function ReglementationFiscaleTab() {
             trancheMin: parseFloat(t.trancheMin) || 0,
             trancheMax: t.trancheMax !== '' && t.trancheMax !== null && t.trancheMax !== undefined ? parseFloat(t.trancheMax) : null,
             taux: parseFloat(t.taux) || 0
+        })),
+        majorations:                  (formData.majorations || []).map(m => ({
+            typeMajoration: m.typeMajoration,
+            taux: parseSafe(m.taux, 0),
+            description: m.description || ''
         })),
         smeNational:                  parseSafe(formData.smeNational),
         smeAgricole:                  parseSafe(formData.smeAgricole),
@@ -937,13 +1088,47 @@ export default function ReglementationFiscaleTab() {
                         </div>
 
                         <div>
-                            <SectionTitle icon={Timer} label="Temps de Travail" color="var(--color-fg-muted)" />
+                            <SectionTitle icon={Timer} label="Temps de Travail & Majorations Spéciales" color="var(--color-fg-muted)" />
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 <KpiField label="Durée Légale Hebdo" value={`${fmtNb(activeConfig.dureeHebdoLegale, 0)}h`} sub="Code du Travail Art. 83" />
-                                <KpiField label="Diviseur Mensuel" value={`${fmtNb(activeConfig.diviseurMensuelHeures, 4)}h`} sub="Taux horaire de référence" />
-                                <KpiField label="HS Tranche 1 (+30%)" value={`${fmtNb(activeConfig.seuilHsTranche1, 0)} premières HS`} sub="Au-delà de ce seuil → +50%" />
+                                <KpiField label="Diviseur Mensuel" value={`${fmtNb(activeConfig.diviseurMensuelHeures, 2)}h`} sub="Taux horaire de référence" />
+                                <KpiField label="HS Tranche 1" value={`${fmtNb(activeConfig.seuilHsTranche1, 0)} premières HS`} sub="Seuil bascule Tranche 2" />
                                 <KpiField label="Plafond HS / Semaine" value={`${fmtNb(activeConfig.plafondHsHebdo, 0)}h max`} sub="Limite légale absolue" />
                             </div>
+
+                            {/* Grille des majorations en vigueur pour cet exercice */}
+                            {activeMajorations.length > 0 && (
+                                <div className="mt-3 border border-[var(--color-border-subtle)] overflow-hidden">
+                                    <div className="px-3 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider flex items-center justify-between">
+                                        <span>Taux de Majoration des Heures Spéciales en vigueur</span>
+                                        <span className="text-[10px] font-normal lowercase text-[var(--color-fg-muted)]">Code du Travail Malgache (Art. 83-84)</span>
+                                    </div>
+                                    <table className="w-full text-xs text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-[var(--color-surface)] border-b border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] uppercase tracking-wider font-semibold">
+                                                <th className="p-2 w-32">Type</th>
+                                                <th className="p-2">Description / Motif Légal</th>
+                                                <th className="p-2 text-right w-28">Majoration (%)</th>
+                                                <th className="p-2 text-right w-28">Multiplicateur</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                                            {activeMajorations.map(m => {
+                                                const pct = Math.round((parseFloat(m.taux) || 0) * 100);
+                                                const mult = (1 + (parseFloat(m.taux) || 0)).toFixed(2);
+                                                return (
+                                                    <tr key={m.idTauxMajoration || m.typeMajoration} className="hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
+                                                        <td className="p-2 font-bold text-[var(--color-brand-500)]">{m.typeMajoration}</td>
+                                                        <td className="p-2 text-[var(--color-fg)]">{m.description || '—'}</td>
+                                                        <td className="p-2 text-right font-bold text-[var(--color-warning-600)]">+{pct}%</td>
+                                                        <td className="p-2 text-right text-[var(--color-fg-muted)] font-mono">x{mult}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
 
                         <div>

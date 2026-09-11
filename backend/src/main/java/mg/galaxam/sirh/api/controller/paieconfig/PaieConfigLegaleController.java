@@ -4,14 +4,17 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.api.dto.paieconfig.IrsaRequest;
 import mg.galaxam.sirh.api.dto.paieconfig.PaieConfigLegaleRequest;
+import mg.galaxam.sirh.api.dto.paieconfig.TauxMajorationRequest;
 import mg.galaxam.sirh.model.paieconfig.BaremeIrsa;
 import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
+import mg.galaxam.sirh.model.paieconfig.RefTauxMajoration;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -99,6 +102,8 @@ public class PaieConfigLegaleController {
                     }
                 }
 
+                enregistrerMajorations(config.getIdConfigLegale(), config.getDateDebut(), config.getDateFin(), request.getMajorations(), c);
+
                 AuditLog.audit(c, "CREATION", "paie_config_legale",
                         String.valueOf(config.getIdConfigLegale()), null, config);
                 c.commit();
@@ -141,6 +146,12 @@ public class PaieConfigLegaleController {
                         nouvellesTranches.add(b);
                     }
                     BaremeIrsa.revaloriser(c, request.getDateDebut(), nouvellesTranches);
+                }
+
+                if (request.getMajorations() != null && !request.getMajorations().isEmpty()) {
+                    enregistrerMajorations(result.getIdConfigLegale(), result.getDateDebut(), result.getDateFin(), request.getMajorations(), c);
+                } else {
+                    dupliquerMajorations(result.getIdConfigLegale(), result.getDateDebut(), result.getDateFin(), c);
                 }
 
                 AuditLog.audit(c, "REVALORISATION", "paie_config_legale",
@@ -197,6 +208,10 @@ public class PaieConfigLegaleController {
                     }
                 }
 
+                if (request.getMajorations() != null && !request.getMajorations().isEmpty()) {
+                    enregistrerMajorations(id, updated.getDateDebut(), updated.getDateFin(), request.getMajorations(), c);
+                }
+
                 AuditLog.audit(c, "CORRECTION", "paie_config_legale", String.valueOf(id), existing, updated);
                 c.commit();
                 PaieConfigLegale reloaded = PaieConfigLegale.findById(id, c);
@@ -241,6 +256,71 @@ public class PaieConfigLegaleController {
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    private void enregistrerMajorations(int idConfigLegale, Date dateDebut, Date dateFin, List<TauxMajorationRequest> majorations, Connection c) throws Exception {
+        String delSql = "DELETE FROM ref_taux_majoration WHERE id_config_legale = ?";
+        try (PreparedStatement ps = c.prepareStatement(delSql)) {
+            ps.setInt(1, idConfigLegale);
+            ps.executeUpdate();
+        }
+        if (majorations != null && !majorations.isEmpty()) {
+            for (TauxMajorationRequest maj : majorations) {
+                RefTauxMajoration m = new RefTauxMajoration();
+                m.setIdConfigLegale(idConfigLegale);
+                m.setTypeMajoration(maj.getTypeMajoration());
+                m.setTaux(maj.getTaux());
+                m.setDescription(maj.getDescription());
+                m.setDateDebut(dateDebut);
+                m.setDateFin(dateFin);
+                m.save(c);
+            }
+        } else {
+            creerMajorationsParDefaut(idConfigLegale, dateDebut, dateFin, c);
+        }
+    }
+
+    private void dupliquerMajorations(int nouveauIdConfig, Date dateDebut, Date dateFin, Connection c) throws Exception {
+        String sql = "SELECT type_majoration, taux, description FROM ref_taux_majoration " +
+                     "WHERE id_config_legale = (SELECT id_config_legale FROM paie_config_legale WHERE id_config_legale != ? ORDER BY date_debut DESC LIMIT 1)";
+        List<TauxMajorationRequest> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, nouveauIdConfig);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    TauxMajorationRequest req = new TauxMajorationRequest();
+                    req.setTypeMajoration(rs.getString("type_majoration"));
+                    req.setTaux(rs.getBigDecimal("taux"));
+                    req.setDescription(rs.getString("description"));
+                    list.add(req);
+                }
+            }
+        }
+        if (!list.isEmpty()) {
+            enregistrerMajorations(nouveauIdConfig, dateDebut, dateFin, list, c);
+        } else {
+            creerMajorationsParDefaut(nouveauIdConfig, dateDebut, dateFin, c);
+        }
+    }
+
+    private void creerMajorationsParDefaut(int idConfigLegale, Date dateDebut, Date dateFin, Connection c) throws Exception {
+        String[][] defs = {
+            {"HS_30", "0.30", "41ᵉ à 48ᵉ heure de la semaine"},
+            {"HS_50", "0.50", "Au-delà de la 48ᵉ heure"},
+            {"NUIT", "0.30", "Heures de nuit (22h - 05h)"},
+            {"DIMANCHE", "0.40", "Travail le dimanche"},
+            {"FERIE", "1.00", "Travail jour férié"}
+        };
+        for (String[] def : defs) {
+            RefTauxMajoration m = new RefTauxMajoration();
+            m.setIdConfigLegale(idConfigLegale);
+            m.setTypeMajoration(def[0]);
+            m.setTaux(new BigDecimal(def[1]));
+            m.setDescription(def[2]);
+            m.setDateDebut(dateDebut);
+            m.setDateFin(dateFin);
+            m.save(c);
         }
     }
 

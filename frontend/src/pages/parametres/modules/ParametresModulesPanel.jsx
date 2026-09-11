@@ -53,9 +53,8 @@ export default function ParametresModulesPanel() {
 
     // Définition des sous-onglets pour la Paie
     const paieTabs = [
-        { id: 'reglementation_fiscale', label: 'Loi de Finances & Fiscalité IRSA', icon: <Scale size={16} /> },
+        { id: 'reglementation_fiscale', label: 'Cadre Réglementaire & IRSA', icon: <Scale size={16} /> },
         { id: 'cotisations_irsa', label: 'Cotisations Sociales & Sites', icon: <ShieldCheck size={16} /> },
-        { id: 'majorations', label: 'Majorations HS / Nuit / Férié', icon: <Clock size={16} /> },
         { id: 'indemnites_sites', label: 'Indemnités (Sites)', icon: <Gift size={16} /> },
         { id: 'calendrier', label: 'Calendrier & Fériés', icon: <Calendar size={16} /> },
     ];
@@ -147,9 +146,8 @@ export default function ParametresModulesPanel() {
                                 {activeTab === 'calendrier' && <CalendrierFerieTab />}
                                 {activeTab === 'cotisations_irsa' && <CotisationsIrsaTab />}
                                 {activeTab === 'indemnites_sites' && <IndemnitesSitesTab />}
-                                {(activeTab === 'majorations' || activeTab === 'majorations_params') && <MajorationsParametresTab />}
-                                {/* Compatibilité ascendante : l'ancien onglet 'parametres_globaux' redirige vers reglementation */}
-                                {activeTab === 'parametres_globaux' && <ReglementationFiscaleTab />}
+                                {/* Compatibilité ascendante : les anciens onglets 'majorations' et 'parametres_globaux' redirigent vers reglementation */}
+                                {(activeTab === 'majorations' || activeTab === 'majorations_params' || activeTab === 'parametres_globaux') && <ReglementationFiscaleTab />}
                             </>
                         )}
 

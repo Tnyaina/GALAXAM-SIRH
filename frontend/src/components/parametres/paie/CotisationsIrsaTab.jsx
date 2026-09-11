@@ -161,6 +161,48 @@ export default function CotisationsIrsaTab() {
         }
     };
 
+    const requestToggleCotisationStatus = (item) => {
+        const isActif = item.estActif !== false;
+        const actionText = isActif ? 'Désactiver' : 'Activer';
+        const message = isActif
+            ? `Êtes-vous sûr de vouloir désactiver la cotisation "${item.libelle}" (${item.code}) ?\n\nATTENTION : Cela désactivera automatiquement toutes ses instances rattachées aux sites d'exploitation.`
+            : `Êtes-vous sûr de vouloir réactiver la cotisation "${item.libelle}" (${item.code}) ?`;
+
+        setConfirmState({
+            isOpen: true,
+            title: `${actionText} la cotisation`,
+            message,
+            confirmLabel: actionText,
+            variant: isActif ? 'danger' : 'primary',
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    if (isActif) {
+                        await paieConfigService.deactivateCotisation(item.idTypeCotisation);
+                        toast({
+                            title: 'Cotisation désactivée',
+                            message: `La cotisation "${item.code}" et ses rattachements par site ont été désactivés.`,
+                            type: 'success'
+                        });
+                    } else {
+                        await paieConfigService.activateCotisation(item.idTypeCotisation);
+                        toast({
+                            title: 'Cotisation réactivée',
+                            message: `La cotisation "${item.code}" a été réactivée avec succès.`,
+                            type: 'success'
+                        });
+                    }
+                    await loadData();
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                } catch (err) {
+                    setError("Erreur lors de la modification du statut de la cotisation.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    console.error(err);
+                }
+            }
+        });
+    };
+
     const requestToggleSiteCotisationStatus = (item) => {
         const actionText = item.estActif ? 'Désactiver' : 'Activer';
         setConfirmState({
@@ -243,6 +285,7 @@ export default function CotisationsIrsaTab() {
                     cotisations={cotisations}
                     onOpenCreate={handleOpenCreateCotisation}
                     onOpenEdit={handleOpenEditCotisation}
+                    onToggleStatus={requestToggleCotisationStatus}
                 />
             )}
 

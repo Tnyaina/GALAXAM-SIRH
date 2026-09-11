@@ -129,6 +129,22 @@ public class SiteCotisation extends ClassMere {
         return list;
     }
 
+    /**
+     * Désactive en masse toutes les instances de site_cotisation rattachées à un type de cotisation donné.
+     *
+     * @param idTypeCotisation identifiant du type de cotisation
+     * @param c connexion JDBC active et transactionnelle
+     * @return le nombre de lignes mises à jour
+     * @throws Exception en cas d'erreur SQL
+     */
+    public static int desactiverParTypeCotisation(int idTypeCotisation, Connection c) throws Exception {
+        String sql = "UPDATE site_cotisation SET est_actif = false WHERE id_type_cotisation = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idTypeCotisation);
+            return ps.executeUpdate();
+        }
+    }
+
     // Getters / Setters
     public Integer getIdSiteCotisation() { return idSiteCotisation; }
     public void setIdSiteCotisation(Integer idSiteCotisation) { this.idSiteCotisation = idSiteCotisation; }

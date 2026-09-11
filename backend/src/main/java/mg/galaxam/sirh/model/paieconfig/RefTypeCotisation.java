@@ -20,9 +20,11 @@ public class RefTypeCotisation extends ClassMere {
     private Date dateFin;
     /** 'ENTREPRISE' (FMFP, ISI) ou 'SITE' (CNAPS, OSTIE, OMSI) */
     private String portee;
+    private boolean estActif = true;
 
     public RefTypeCotisation() {
         this.setNomTable("REF_TYPE_COTISATION");
+        this.estActif = true;
     }
 
     @Override
@@ -59,8 +61,8 @@ public class RefTypeCotisation extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         valider();
-        String sql = "INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id_type_cotisation";
+        String sql = "INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, est_actif) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_type_cotisation";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -69,6 +71,7 @@ public class RefTypeCotisation extends ClassMere {
             ps.setDate(5, dateDebut);
             ps.setDate(6, dateFin);
             ps.setString(7, portee != null ? portee : "SITE");
+            ps.setBoolean(8, estActif);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -83,7 +86,7 @@ public class RefTypeCotisation extends ClassMere {
     protected ClassMere modifier(Connection c) throws Exception {
         valider();
         String sql = "UPDATE ref_type_cotisation SET code = ?, libelle = ?, taux_salarial = ?, taux_patronal = ?, " +
-                     "date_debut = ?, date_fin = ?, portee = ? WHERE id_type_cotisation = ?";
+                     "date_debut = ?, date_fin = ?, portee = ?, est_actif = ? WHERE id_type_cotisation = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -92,7 +95,8 @@ public class RefTypeCotisation extends ClassMere {
             ps.setDate(5, dateDebut);
             ps.setDate(6, dateFin);
             ps.setString(7, portee != null ? portee : "SITE");
-            ps.setInt(8, idTypeCotisation);
+            ps.setBoolean(8, estActif);
+            ps.setInt(9, idTypeCotisation);
             ps.executeUpdate();
         }
         return this;
@@ -114,7 +118,7 @@ public class RefTypeCotisation extends ClassMere {
     }
 
     public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin FROM ref_type_cotisation WHERE id_type_cotisation = ?";
+        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, est_actif FROM ref_type_cotisation WHERE id_type_cotisation = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -127,6 +131,8 @@ public class RefTypeCotisation extends ClassMere {
                     item.tauxPatronal = rs.getBigDecimal("taux_patronal");
                     item.dateDebut = rs.getDate("date_debut");
                     item.dateFin = rs.getDate("date_fin");
+                    item.portee = rs.getString("portee");
+                    item.estActif = rs.getBoolean("est_actif");
                     return item;
                 }
             }
@@ -135,7 +141,7 @@ public class RefTypeCotisation extends ClassMere {
     }
 
     public static List<RefTypeCotisation> listAll(Connection c) throws Exception {
-        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee FROM ref_type_cotisation ORDER BY code";
+        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, est_actif FROM ref_type_cotisation ORDER BY code";
         List<RefTypeCotisation> list = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -149,10 +155,96 @@ public class RefTypeCotisation extends ClassMere {
                 item.dateDebut = rs.getDate("date_debut");
                 item.dateFin = rs.getDate("date_fin");
                 item.portee = rs.getString("portee");
+                item.estActif = rs.getBoolean("est_actif");
                 list.add(item);
             }
         }
         return list;
+    }
+
+    /**
+     * Désactive le type de cotisation et cascade la désactivation à toutes ses instances
+     * associées dans site_cotisation au sein de la transaction portée par la connexion c.
+     *
+     * @param c Connexion JDBC avec transaction active
+     * @return nombre d'instances de site_cotisation désactivées
+     * @throws Exception en cas d'erreur de requête
+     */
+    public int desactiver(Connection c) throws Exception {
+        if (this.idTypeCotisation == null) {
+            throw new IllegalArgumentException("L'identifiant du type de cotisation est obligatoire pour la désactivation.");
+        }
+
+        this.estActif = false;
+
+        // 1. Désactiver la cotisation elle-même
+        String sqlCotisation = "UPDATE ref_type_cotisation SET est_actif = false WHERE id_type_cotisation = ?";
+        try (PreparedStatement ps = c.prepareStatement(sqlCotisation)) {
+            ps.setInt(1, this.idTypeCotisation);
+            ps.executeUpdate();
+        }
+
+        // 2. Désactiver en cascade toutes ses instances dans site_cotisation
+        return SiteCotisation.desactiverParTypeCotisation(this.idTypeCotisation, c);
+    }
+
+    /**
+     * Réactive le type de cotisation dans ref_type_cotisation.
+     *
+     * @param c Connexion JDBC avec transaction active
+     * @throws Exception en cas d'erreur de requête
+     */
+    public void activer(Connection c) throws Exception {
+        if (this.idTypeCotisation == null) {
+            throw new IllegalArgumentException("L'identifiant du type de cotisation est obligatoire pour l'activation.");
+        }
+
+        this.estActif = true;
+
+        String sqlCotisation = "UPDATE ref_type_cotisation SET est_actif = true WHERE id_type_cotisation = ?";
+        try (PreparedStatement ps = c.prepareStatement(sqlCotisation)) {
+            ps.setInt(1, this.idTypeCotisation);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Fonction transactionnelle autonome pour désactiver une cotisation et toutes ses instances rattachées.
+     * Gère explicitement l'ouverture de connexion, le début de transaction, le commit et le rollback.
+     *
+     * @param idTypeCotisation ID de la cotisation
+     * @param c Connexion JDBC
+     * @return l'entité RefTypeCotisation mise à jour
+     * @throws Exception en cas d'erreur
+     */
+    public static RefTypeCotisation desactiverTransactionnel(int idTypeCotisation, Connection c) throws Exception {
+        boolean originalAutoCommit = c.getAutoCommit();
+        if (originalAutoCommit) {
+            c.setAutoCommit(false);
+        }
+        try {
+            RefTypeCotisation cot = new RefTypeCotisation();
+            RefTypeCotisation existing = (RefTypeCotisation) cot.rechercherParId(idTypeCotisation, c);
+            if (existing == null) {
+                throw new IllegalArgumentException("Type de cotisation non trouvé avec l'identifiant : " + idTypeCotisation);
+            }
+
+            existing.desactiver(c);
+
+            if (originalAutoCommit) {
+                c.commit();
+            }
+            return existing;
+        } catch (Exception ex) {
+            if (originalAutoCommit) {
+                c.rollback();
+            }
+            throw ex;
+        } finally {
+            if (originalAutoCommit) {
+                c.setAutoCommit(true);
+            }
+        }
     }
 
     // Getters / Setters
@@ -172,4 +264,7 @@ public class RefTypeCotisation extends ClassMere {
     public void setDateFin(Date dateFin) { this.dateFin = dateFin; }
     public String getPortee() { return portee; }
     public void setPortee(String portee) { this.portee = portee; }
+    public boolean isEstActif() { return estActif; }
+    public void setEstActif(boolean estActif) { this.estActif = estActif; }
 }
+

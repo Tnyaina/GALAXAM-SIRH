@@ -59,6 +59,14 @@ const paieConfigService = {
         const response = await apiClient.put(`/referentiel/cotisations/${id}`, data);
         return response.data;
     },
+    deactivateCotisation: async (id) => {
+        const response = await apiClient.put(`/referentiel/cotisations/${id}/desactiver`);
+        return response.data;
+    },
+    activateCotisation: async (id) => {
+        const response = await apiClient.put(`/referentiel/cotisations/${id}/activer`);
+        return response.data;
+    },
     getSiteCotisations: async () => {
         const response = await apiClient.get('/referentiel/cotisations/site-config');
         return response.data;
@@ -103,8 +111,8 @@ const paieConfigService = {
     // ----------------------------------------------------
     // TAUX DE MAJORATION (HEURES SUPP & NUIT)
     // ----------------------------------------------------
-    getTauxMajoration: async () => {
-        const response = await apiClient.get('/referentiel/taux-majoration');
+    getTauxMajoration: async (params = {}) => {
+        const response = await apiClient.get('/referentiel/taux-majoration', { params });
         return response.data;
     },
     createTauxMajoration: async (data) => {

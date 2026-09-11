@@ -4,12 +4,15 @@ import java.math.BigDecimal;
 import java.sql.Date;
 
 public class TauxMajorationRequest {
+    private Integer idConfigLegale;
     private String typeMajoration;
     private BigDecimal taux;
     private String description;
     private Date dateDebut;
     private Date dateFin;
 
+    public Integer getIdConfigLegale() { return idConfigLegale; }
+    public void setIdConfigLegale(Integer idConfigLegale) { this.idConfigLegale = idConfigLegale; }
     public String getTypeMajoration() { return typeMajoration; }
     public void setTypeMajoration(String typeMajoration) { this.typeMajoration = typeMajoration; }
     public BigDecimal getTaux() { return taux; }

@@ -1,4 +1,4 @@
-import { Plus, Edit2, ShieldCheck, Building2, MapPin, Info } from 'lucide-react';
+import { Plus, Edit2, ShieldCheck, Building2, MapPin, Info, Power, Check } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -22,6 +22,7 @@ export default function CotisationsList({
     cotisations = [],
     onOpenCreate,
     onOpenEdit,
+    onToggleStatus,
 }) {
     return (
         <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden space-y-4">
@@ -72,6 +73,7 @@ export default function CotisationsList({
                         <Th className="text-right">Taux Patronal</Th>
                         <Th className="text-right">Taux Total</Th>
                         <Th>Période d'Application</Th>
+                        <Th>Statut</Th>
                         <Th className="text-right">Actions</Th>
                     </Thead>
                     <Tbody>
@@ -79,6 +81,7 @@ export default function CotisationsList({
                             const portee = c.portee || 'SITE';
                             const pm = PORTEE_BADGE[portee] || PORTEE_BADGE.SITE;
                             const Icon = pm.icon;
+                            const isActif = c.estActif !== false;
                             return (
                                 <Tr key={c.idTypeCotisation}>
                                     <Td isData className="font-bold text-[var(--color-brand-500)]">
@@ -105,14 +108,44 @@ export default function CotisationsList({
                                     <Td isData muted className="text-xs">
                                         Du {fmtDate(c.dateDebut)} {c.dateFin ? `au ${fmtDate(c.dateFin)}` : '(Toujours actif)'}
                                     </Td>
-                                    <Td className="text-right">
-                                        <button
-                                            onClick={() => onOpenEdit(c)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer"
-                                            title="Modifier"
+                                    <Td>
+                                        <Badge
+                                            variant={isActif ? 'success' : 'default'}
+                                            size="sm"
+                                            dot
                                         >
-                                            <Edit2 size={16} />
-                                        </button>
+                                            {isActif ? 'Actif' : 'Désactivé'}
+                                        </Badge>
+                                    </Td>
+                                    <Td className="text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <button
+                                                onClick={() => onOpenEdit(c)}
+                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer"
+                                                title="Modifier"
+                                            >
+                                                <Edit2 size={16} />
+                                            </button>
+                                            {onToggleStatus && (
+                                                isActif ? (
+                                                    <button
+                                                        onClick={() => onToggleStatus(c)}
+                                                        className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer"
+                                                        title="Désactiver la cotisation et ses rattachements par site"
+                                                    >
+                                                        <Power size={16} />
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => onToggleStatus(c)}
+                                                        className="p-1.5 text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10 rounded-none cursor-pointer"
+                                                        title="Réactiver la cotisation"
+                                                    >
+                                                        <Check size={16} />
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
                                     </Td>
                                 </Tr>
                             );

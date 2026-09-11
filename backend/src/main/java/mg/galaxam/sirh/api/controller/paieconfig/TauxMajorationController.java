@@ -21,9 +21,14 @@ public class TauxMajorationController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> getAllTauxMajoration() {
+    public ResponseEntity<?> getAllTauxMajoration(@RequestParam(value = "idConfigLegale", required = false) Integer idConfigLegale) {
         try (Connection c = dataSource.getConnection()) {
-            List<RefTauxMajoration> list = RefTauxMajoration.listAll(c);
+            List<RefTauxMajoration> list;
+            if (idConfigLegale != null) {
+                list = RefTauxMajoration.listByConfig(idConfigLegale, c);
+            } else {
+                list = RefTauxMajoration.listAll(c);
+            }
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
@@ -56,6 +61,7 @@ public class TauxMajorationController {
             c.setAutoCommit(false);
             try {
                 RefTauxMajoration tm = new RefTauxMajoration();
+                tm.setIdConfigLegale(request.getIdConfigLegale());
                 tm.setTypeMajoration(request.getTypeMajoration());
                 tm.setTaux(request.getTaux());
                 tm.setDescription(request.getDescription());
@@ -89,11 +95,14 @@ public class TauxMajorationController {
                     return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Taux de majoration non trouvé.");
                 }
 
+                if (request.getIdConfigLegale() != null) {
+                    existing.setIdConfigLegale(request.getIdConfigLegale());
+                }
                 existing.setTypeMajoration(request.getTypeMajoration());
                 existing.setTaux(request.getTaux());
                 existing.setDescription(request.getDescription());
-                existing.setDateDebut(request.getDateDebut());
-                existing.setDateFin(request.getDateFin());
+                if (request.getDateDebut() != null) existing.setDateDebut(request.getDateDebut());
+                if (request.getDateFin() != null) existing.setDateFin(request.getDateFin());
 
                 existing.update(c);
                 AuditLog.audit(c, "MODIFICATION", "ref_taux_majoration", String.valueOf(id), null, existing);
