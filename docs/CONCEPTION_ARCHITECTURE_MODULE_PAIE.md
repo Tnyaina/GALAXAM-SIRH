@@ -695,7 +695,7 @@ Le bulletin individuel officiel GALAXAM comprend 9 zones distinctes :
 ## 16. DÉTECTION ET ÉLIMINATION DES DUPLICATIONS
 
 1. **Suppression des colonnes miroirs d'indemnités dans `pointage_jour`** : Seules les tables relationnelles dédiées `pointage_indemnite_jour` et `pointage_cumul_indemnite` font foi.
-2. **Centralisation des constantes légales dans `paie_config_legale`** : Élimination des doublons de SME et seuils fiscaux qui figuraient dans `parametre_global`.
+2. **Centralisation des constantes légales dans `paie_config_legale`** : Élimination des doublons de SME, seuils fiscaux et seuils légaux d'heures supplémentaires (`SEUIL_HEURES_SEMAINE`, `SEUIL_HS_TRANCHE_1`, `PLAFOND_HEURES_SUPP_SEMAINE`) qui figuraient auparavant dans `parametre_global`. La table `parametre_global` est désormais strictement réservée aux règles opérationnelles d'entreprise (horaires de nuit, indemnités repas/déplacement, congés) dotées d'un mécanisme d'activation sélective (`est_actif`, `est_desactivable`).
 3. **Zéro logique de calcul dans le Frontend** : React n'effectue aucun calcul financier ; il affiche exclusivement les valeurs calculées et retournées par l'API backend Java.
 
 ---

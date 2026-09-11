@@ -32,7 +32,7 @@
 - **Pas d'import automatique** de l'extrait clocker. L'agent de pointage (ou le DAF) **saisit** manuellement, par employé et par jour, dans une interface dédiée. On élimine ainsi le fichier Excel dispersé, source d'erreurs.
 - **Saisie non bloquante** : un oubli de pointage n'empêche pas le fonctionnement du système. Une notification de rappel est générée, et une correction reste possible (par l'agent de pointage tant que la période n'est pas validée, ou par le DAF/Admin à tout moment avant clôture).
 - **Un jour = 4 pointages maximum** : Entrée Matin, Sortie Matin, Entrée Après-midi, Sortie Après-midi.
-- **Compensation hebdomadaire** : la base légale est 40h/semaine (`SEUIL_HEURES_SEMAINE`). Un retard ou une sortie anticipée un jour donné peut être compensé par une heure supplémentaire faite un autre jour **de la même semaine**. Ce n'est qu'au-delà des 40h hebdomadaires que le surplus devient HS payée.
+- **Compensation hebdomadaire** : la base légale est 40h/semaine (`paie_config_legale.duree_hebdomadaire_legale_heures`). Un retard ou une sortie anticipée un jour donné peut être compensé par une heure supplémentaire faite un autre jour **de la même semaine**. Ce n'est qu'au-delà des 40h hebdomadaires que le surplus devient HS payée.
 - **Cadres (catégorie `C`)** : jamais de HS payée (forcé à 0 dans la synthèse), mais le surplus d'heures reste utilisé en interne pour compenser d'éventuels retards de la semaine.
 - **Postes autonomes** (`ref_fonction.dispense_pointage = TRUE`) : forfait de 8h/jour sans obligation de pointer. Le DAF/Admin peut saisir une présence a posteriori (avec rappel de notification). Ces employés **peuvent quand même pointer** pour bénéficier d'une indemnité (ex : 2ᵉ repas), sans que ce soit obligatoire.
 - **Toutes les données de calcul sont historisées et paramétrables** (grilles d'arrondi, montants d'indemnités, seuils horaires) — jamais codées en dur, pour rester cohérent avec `parametre_global` et le principe d'historisation déjà en place dans Structure/Congés.
@@ -683,38 +683,41 @@ dispense_pointage BOOLEAN NOT NULL DEFAULT FALSE
 -- TRUE = poste autonome → présomption de présence 8h/j, pas d'alerte manquant
 ```
 
-#### `parametre_global` — 13 Paramètres Dynamiques (RH_GENERAL & POINTAGE)
+#### `parametre_global` & `paie_config_legale` — Pilotage Dynamique des Règles de Pointage
 
-Tous les calculs métier (durée légale, plafonds, tranches HS, heures de nuit, déjeuners, extras de soirée, déduction transport TMM) sont **100% dynamiques** et chargés en mémoire via `ParametreGlobal.loadActiveMap(Connection c)` (aucune valeur en dur dans le code Java ou React).
+Tous les calculs métier (durée légale, seuils journaliers, heures de nuit, déjeuners, extras de soirée, déduction transport TMM) sont **100% dynamiques et historisés**.
 
-**Catégorie `RH_GENERAL` (4 paramètres)** :
+##### 1. Constantes Légales Hebdomadaires (`paie_config_legale`)
+Les seuils légaux nationaux sont rattachés au millésime fiscal actif (`LF_2026`, etc.) :
+* `duree_hebdomadaire_legale_heures` (`40h`) : Seuil pivot hebdomadaire de déclenchement des heures supplémentaires.
+* `seuil_hs_tranche1_heures` (`8h`) : Seuil maximal de la tranche 1 d'HS majorée à **+30%** (au-delà, passage à +50%).
+* `plafond_hs_hebdo_heures` (`20h`) : Plafond légal d'heures supplémentaires autorisées par semaine (Décret 2007-563).
 
-| Code | Valeur BDD | Rôle & Utilisation Métier |
-| :--- | :---: | :--- |
-| `SEUIL_HEURES_JOUR` | `8` | Base normale quotidienne par jour ouvré ($N \times 8\text{h}$ par tronçon). |
-| `SEUIL_HEURES_SEMAINE` | `40` | Seuil pivot hebdomadaire de déclenchement des heures supplémentaires. |
-| `SEUIL_HS_TRANCHE_1` | `8` | Seuil maximal de la tranche 1 d'HS majorée à **+30%** (au-delà, passage à +50%). |
-| `PLAFOND_HEURES_SUPP_SEMAINE` | `20` | Plafond légal maximal d'heures supplémentaires autorisées par semaine (Décret 2007-563). |
+##### 2. Paramètres Opérationnels Débrayables (`parametre_global`)
+Chargés temporellement via `ParametreGlobal.loadEtatMapAtDate(dateDebutPeriode, c)` :
 
-**Catégorie `POINTAGE` (9 paramètres)** :
+| Code | Valeur BDD | Débrayable ? | Rôle & Comportement si Inactif |
+| :--- | :---: | :---: | :--- |
+| `SEUIL_HEURES_JOUR` | `8` | 🔒 Protégé | Base normale quotidienne par jour ouvré ($N \times 8\text{h}$). |
+| `SEUIL_NUIT_DEBUT` | `22:00` | 🔒 Protégé | Début du travail de nuit (Art. 83 Code Travail Malgache). |
+| `SEUIL_NUIT_FIN` | `05:00` | 🔒 Protégé | Fin de la tranche nocturne matinale. |
+| `MONTANT_REPAS_MIDI` | `2000` (Ar) | 🔒 Protégé | Montant standard déjeuner (si non surchargé par site). |
+| `SEUIL_PAUSE_MIDI_MIN` | `60` (min) | 🔒 Protégé | Pause midi minimale en minutes (détection présence midi). |
+| `SEUIL_2ND_REPAS_1` | `19:30` | ⚙ Débrayable | Heure mini 1er extra. Si inactif : extra désactivé. |
+| `MONTANT_2ND_REPAS_1` | `2000` (Ar) | ⚙ Débrayable | Montant 1er extra soir. Si inactif : valorisé à `0.0 Ar`. |
+| `SEUIL_2ND_REPAS_2` | `21:00` | ⚙ Débrayable | Heure mini 2e extra majoré. Si inactif : extra désactivé. |
+| `MONTANT_2ND_REPAS_2` | `4000` (Ar) | ⚙ Débrayable | Montant 2e extra soir. Si inactif : valorisé à `0.0 Ar`. |
+| `REDUCTION_DEPLACT_REPAS_MIDI` | `1000` (Ar) | ⚙ Débrayable | Déduction déplacement TMM si midi sur site. Si inactif : **`0.0 Ar`** (aucune déduction effectuée). |
 
-| Code | Valeur BDD | Rôle & Utilisation Métier |
-| :--- | :---: | :--- |
-| `SEUIL_NUIT_DEBUT` | `22:00` | Début du travail de nuit (Art. 83 Code Travail Malgache) $\rightarrow$ calcul automatique dans `PointageSaisieService`. |
-| `SEUIL_NUIT_FIN` | `05:00` | Fin de la tranche nocturne matinale. |
-| `MONTANT_REPAS_MIDI` | `2000` (Ar) | Montant standard du déjeuner journalier si non surchargé par site (`site_indemnite_config`). |
-| `SEUIL_2ND_REPAS_1` | `19:30` | Heure minimale de sortie soirée pour déclencher le 1er extra repas soir. |
-| `MONTANT_2ND_REPAS_1` | `2000` (Ar) | Montant alloué pour sortie entre `19h30` et `21h00`. |
-| `SEUIL_2ND_REPAS_2` | `21:00` | Heure minimale de sortie soirée pour déclencher le 2e extra repas majoré. |
-| `MONTANT_2ND_REPAS_2` | `4000` (Ar) | Montant alloué pour sortie au-delà de `21h00`. |
-| `SEUIL_PAUSE_MIDI_MIN` | `60` (min) | Seuil de détection de pause midi continue (salarié restant déjeuner sur site). |
-| `REDUCTION_DEPLACT_REPAS_MIDI` | `1000` (Ar) | Déduction quotidienne sur l'indemnité déplacement à Tamatave (TMM) quand le repas est pris sur site (2 trajets au lieu de 4). |
+> **Règle d'or de résolution** :
+> - **Paramètre inactif (`est_actif = false`)** : Résulte d'une décision opérationnelle de l'entreprise. L'indemnité ou la déduction est ramenée à `0.0 Ar`.
+> - **Paramètre introuvable (clé absente)** : Erreur de configuration. Le système utilise une valeur de fallback par défaut.
 
 #### Architecture des Services Dédiés :
-- `mg.galaxam.sirh.model.paieconfig.ParametreGlobal` : Modèle central et chargeur universel `loadActiveMap(c)` avec accesseurs typés.
-- `mg.galaxam.sirh.model.pointage.service.PointageSaisieService` : Saisie quotidienne, heures de nuit, 0 tolérance aux retards, reconstitution des pauses.
+- `mg.galaxam.sirh.model.paieconfig.ParametreGlobal` : Modèle central et chargeur temporel `loadEtatMapAtDate(dateRef, c)` avec accesseurs typés gérant `estActif`.
+- `mg.galaxam.sirh.model.pointage.service.PointageSaisieService` : Saisie quotidienne, calcul des heures de nuit, détection des pauses et allocation du 2nd repas selon l'activation des seuils.
 - `mg.galaxam.sirh.model.pointage.service.PointageAnomalieService` : Détection, classification et régularisation des anomalies.
-- `mg.galaxam.sirh.model.pointage.service.PointageSyntheseService` : Compensation hebdomadaire par tronçon, application de la déduction TMM et synthèse paie consolidée.
+- `mg.galaxam.sirh.model.pointage.service.PointageSyntheseService` : Compensation hebdomadaire par tronçon, application temporelle de la déduction transport TMM (respect de `est_actif`) et synthèse consolidée.
 - `mg.galaxam.sirh.model.dashboard.service.DashboardService` : Agrégation des KPIs et alertes RH.
 
 ---
@@ -757,8 +760,8 @@ taux_hs_50_applique    DECIMAL(5,2) NOT NULL DEFAULT 0,
 taux_nuit_applique     DECIMAL(5,2) NOT NULL DEFAULT 0,
 taux_dimanche_applique DECIMAL(5,2) NOT NULL DEFAULT 0,
 taux_ferie_applique    DECIMAL(5,2) NOT NULL DEFAULT 0,
-heures_hs_30           DECIMAL(5,2) NOT NULL DEFAULT 0,   -- MIN(hs_nettes, SEUIL_HS_TRANCHE_1)
-heures_hs_50           DECIMAL(5,2) NOT NULL DEFAULT 0,   -- MAX(hs_nettes - SEUIL_HS_TRANCHE_1, 0)
+heures_hs_30           DECIMAL(5,2) NOT NULL DEFAULT 0,   -- MIN(hs_nettes, seuil_hs_tranche1_heures de paie_config_legale)
+heures_hs_50           DECIMAL(5,2) NOT NULL DEFAULT 0,   -- MAX(hs_nettes - seuil_hs_tranche1_heures, 0)
 ```
 
 **`pointage_cumul_periode`** — Colonne à ajouter :
@@ -832,8 +835,8 @@ ref_fonction.dispense_pointage = TRUE :
 
 ```
 Par tronçon, après calcul heures_hs_nettes :
-  hs_30 = MIN(heures_hs_nettes, SEUIL_HS_TRANCHE_1)   -- parametre_global
-  hs_50 = MAX(heures_hs_nettes - SEUIL_HS_TRANCHE_1, 0)
+  hs_30 = MIN(heures_hs_nettes, seuil_hs_tranche1_heures)   -- paie_config_legale
+  hs_50 = MAX(heures_hs_nettes - seuil_hs_tranche1_heures, 0)
 Gelés dans pointage_semaine_calcule à la validation.
 Sommés dans pointage_cumul_periode pour la Paie.
 ```

@@ -238,19 +238,30 @@ if (moisAnciennete < typeConge.getExigeAncienneteMinMois()) {
 
 ### RG-CON-03 : Bonification d'Ancienneté
 
-Au-delà de 3 ans d'ancienneté, un **bonus annuel** de jours de congés est accordé lors du mois anniversaire d'embauche :
+Au-delà de 3 ans d'ancienneté, un **bonus annuel** de jours de congés est accordé lors du mois anniversaire d'embauche.  
+Ce calcul est 100% piloté dynamiquement par la table `parametre_global` :
+* `SEUIL_ANCIENNETE_BONIFICATION_ANS` (valeur par défaut : `3` ans, débrayable)
+* `PALIER_ANNEES_BONIFICATION` (valeur par défaut : `5` ans, débrayable)
+* `JOURS_BONIFICATION_PAR_PALIER` (valeur par défaut : `1` jour, débrayable)
 
 ```
-Règle : bonus = floor(années_ancienneté / 5)
+Règle : 
+Si ancienneté >= SEUIL_ANCIENNETE_BONIFICATION_ANS :
+    bonus = floor(années_ancienneté / PALIER_ANNEES_BONIFICATION) * JOURS_BONIFICATION_PAR_PALIER
+Sinon :
+    bonus = 0
 
-Exemples :
-  3 ans  → bonus = 0  (3/5 = 0)
+Exemples standards (seuil 3 ans, palier 5 ans, 1j par palier) :
+  3 ans  → bonus = 0  (floor(3/5) = 0)
   5 ans  → bonus = 1 jour
   10 ans → bonus = 2 jours
   15 ans → bonus = 3 jours
 ```
 
-Ce bonus est généré par le `AcquisitionCongeScheduler` et inséré comme mouvement de type `BONIFICATION`.
+> **Désactivation sélective (`est_actif = false`)** :  
+> Si le paramètre `SEUIL_ANCIENNETE_BONIFICATION_ANS` est désactivé via l'interface `/admin/parametres`, le système neutralise délibérément toute bonification d'ancienneté (bonus forcé à `0 jour`). Aucun mouvement `BONIFICATION` ni notification n'est généré par le scheduler.
+
+Ce bonus est évalué et généré automatiquement par le `AcquisitionCongeScheduler` (exécuté le 1er du mois à 01h00) et inséré comme mouvement de solde de type `BONIFICATION`.
 
 ### RG-CON-04 : Prescription Triennale & Algorithme FIFO
 
@@ -280,10 +291,24 @@ Si `total_acquis_anciens - total_consomme > 0`, un mouvement `EXPIRATION` est in
 ### RG-CON-05 : Solde Négatif & Anticipation
 
 - Un congé peut être accordé **en anticipation** (avant que les jours soient acquis) sous réserve d'une **dérogation RH explicite** (`derogation_solde_negatif = TRUE`).
-- **Plafond d'anticipation** : `-10 jours` maximum (paramètre `PLAFOND_SOLDE_CONGE_NEGATIF`).
+- **Plafond d'anticipation** : `-10 jours` maximum par défaut (paramètre débrayable `PLAFOND_SOLDE_CONGE_NEGATIF` dans `parametre_global`).
 - Si l'employé quitte l'entreprise avec un solde négatif, la valeur financière des jours pris en trop est **déduite du Solde de Tout Compte** (STC).
 
+> **Comportement si désactivé (`est_actif = false`)** :  
+> Si `PLAFOND_SOLDE_CONGE_NEGATIF` est désactivé par la direction RH dans `/admin/parametres`, le plafond d'anticipation est immédiatement ramené à **`0 jour`**.  
+> Conséquence directe : **l'anticipation de congé devient strictement impossible**, même si un utilisateur RH coche la case de dérogation. Toute tentative générera une exception bloquante.
+
 ```java
+// Évaluation dans DemandeConge.java avec distinction Inactif (0j) vs Introuvable (-10j)
+int plafondNegatif = 0;
+if (params.containsKey("PLAFOND_SOLDE_CONGE_NEGATIF")) {
+    plafondNegatif = params.isActif("PLAFOND_SOLDE_CONGE_NEGATIF")
+            ? params.getInt("PLAFOND_SOLDE_CONGE_NEGATIF", -10)
+            : 0; // Inactif = anticipation totalement désactivée
+} else {
+    plafondNegatif = -10; // Fallback introuvable
+}
+
 BigDecimal nouveauSolde = soldeDisponible.subtract(nbJoursDecomptes);
 if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0 && !derogationSoldeNegatif) {
     throw new IllegalArgumentException("Solde insuffisant. Dérogation RH requise.");

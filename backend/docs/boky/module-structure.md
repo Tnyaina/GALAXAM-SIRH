@@ -226,22 +226,55 @@ Les jours fériés sont utilisés par :
 
 ### 4.4 Paramètres Globaux (`parametre_global`) & Exercices Fiscaux (`paie_config_legale`)
 
-Afin de garantir une stricte séparation entre les **paramètres opérationnels RH/Pointage** et les **constantes légales/fiscales évolutives**, le système s'appuie sur deux mécanismes distincts :
+Afin de garantir une stricte séparation des responsabilités entre les **paramètres opérationnels d'entreprise/RH** et les **constantes légales/fiscales issues des Lois de Finances**, le système s'appuie sur deux mécanismes complémentaires :
 
-#### 1. Paramètres Opérationnels (`parametre_global`)
-Centralise les paramètres de calcul opérationnels non soumis à la Loi de Finances annuelle :
-* **`RH_GENERAL`** : Durée normale quotidienne (`SEUIL_HEURES_JOUR` = 8h), durée hebdomadaire normale (`SEUIL_HEURES_SEMAINE` = 40h), seuil HS tranche 1 (`SEUIL_HS_TRANCHE_1` = 8h), plafond HS hebdo (`PLAFOND_HEURES_SUPP_SEMAINE` = 20h).
-* **`POINTAGE`** : Début nuit (`SEUIL_NUIT_DEBUT` = 22:00), fin nuit (`SEUIL_NUIT_FIN` = 05:00), indemnité repas (`MONTANT_REPAS_MIDI` = 2 000 Ar), tranches 2nd repas (19:30 à 2 000 Ar, 21:00 à 4 000 Ar), détection pause minimale (60 min).
-* **`CONGE`** : Durées légales maternité (98j / 119j), plafonds solde négatif (-10j), préavis de dépôt (2j / 15j) et seuils d'alertes.
+#### 1. Paramètres Opérationnels Débrayables (`parametre_global`)
+Centralise les règles internes d'entreprise, les seuils de pointage et les plafonds de gestion RH.  
+Chaque paramètre dispose de deux drapeaux d'intégrité :
+* **`est_actif` (BOOLEAN DEFAULT TRUE)** : Indique si la règle ou le calcul associé est actuellement appliqué.
+* **`est_desactivable` (BOOLEAN DEFAULT FALSE)** : Verrouille les constantes fondamentales indispensables au système afin d'empêcher toute désactivation accidentelle (13 paramètres protégés système vs 10 paramètres débrayables opérationnels).
 
-#### 2. Millésimes Fiscaux & Sociaux (`paie_config_legale`)
-Gère l'historique immuable de la législation malgache par version (ex: `LF_2024`, `LF_2026`) :
+##### Distinction sémantique clé : "Inactif" ≠ "Introuvable"
+Le moteur Java (`ParametreGlobal.loadEtatMapAtDate`) applique une séparation stricte :
+1. **Paramètre Inactif (`est_actif = false`)** : Résulte d'une décision délibérée du gestionnaire RH/DAF de désactiver la règle. La valeur appliquée devient **neutre ou nulle** (ex. : indemnité repas à `0.0 Ar`, déduction transport à `0.0 Ar`, bonification d'ancienneté à `0 jour`, plafond solde négatif à `0 jour`).
+2. **Paramètre Introuvable (clé absente de la BDD)** : Anomalie de configuration ou environnement non initialisé. Le moteur applique un **fallback de sécurité par défaut** pour éviter tout crash applicatif.
+
+##### Évaluation Temporelle & Immutabilité (`loadEtatMapAtDate`)
+Pour éviter qu'une désactivation effectuée en cours de mois n'altère rétroactivement les calculs des périodes de paie antérieures, les services de calcul (ex: `PointageSyntheseService`) évaluent les paramètres à la date de début de la période concernée (`loadEtatMapAtDate(dateDebutPeriode, c)`).
+
+##### Répertoire des 23 Paramètres Globaux :
+* **`POINTAGE` (9 paramètres)** :
+  * `SEUIL_NUIT_DEBUT` (22:00, protégé) & `SEUIL_NUIT_FIN` (05:00, protégé) : Heures pivot du travail nocturne (Art. 83 CTM).
+  * `MONTANT_REPAS_MIDI` (2 000 Ar, protégé) : Déjeuner de référence standard.
+  * `SEUIL_2ND_REPAS_1` (19:30, débrayable) & `MONTANT_2ND_REPAS_1` (2 000 Ar, débrayable) : 1er extra de soirée.
+  * `SEUIL_2ND_REPAS_2` (21:00, débrayable) & `MONTANT_2ND_REPAS_2` (4 000 Ar, débrayable) : 2nd extra de soirée.
+  * `SEUIL_PAUSE_MIDI_MIN` (60 min, protégé) : Détection de la pause continue sur site.
+  * `REDUCTION_DEPLACT_REPAS_MIDI` (1 000 Ar, débrayable) : Déduction déplacement Tamatave si déjeuner pris sur place.
+* **`RH_GENERAL` & `CONTRAT` (3 paramètres)** :
+  * `SEUIL_HEURES_JOUR` (8h, protégé) : Durée normale quotidienne de travail.
+  * `MAX_RENOUVELLEMENTS_ESSAI` (1, protégé) : Renouvellement max période d'essai (droit malgache).
+  * `DUREE_MAX_CDD_MOIS` (72 mois, protégé) & `NB_MAX_RENOUVELLEMENTS_CDD` (2, protégé) : Plafonds légaux des contrats à durée déterminée.
+* **`CONGE` (11 paramètres)** :
+  * `PLAFOND_CUMUL_SOLDE_CONGE_JOURS` (90j, protégé) : Plafond cumul triennal ($30\text{j} \times 3\text{ ans}$).
+  * `DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS` (36 mois, protégé) : Délai de prescription triennale FIFO (Art. 85).
+  * `PLAFOND_SOLDE_CONGE_NEGATIF` (-10j, débrayable) : Limite d'anticipation sur dérogation RH.
+  * `SEUIL_ALERTE_SOLDE_CONGE_FAIBLE` (3j, débrayable) : Seuil de notification proactive.
+  * `DELAI_PREAVIS_COURT_JOURS` (2j, protégé), `DELAI_PREAVIS_LONG_JOURS` (15j, protégé), `SEUIL_JOURS_PREAVIS_LONG` (3j, protégé).
+  * `DUREE_MAX_MATERNITE_STANDARD_JOURS` (98j, protégé) & `DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS` (119j, protégé).
+  * `SEUIL_ANCIENNETE_BONIFICATION_ANS` (3 ans, débrayable), `PALIER_ANNEES_BONIFICATION` (5 ans, débrayable), `JOURS_BONIFICATION_PAR_PALIER` (1j, débrayable).
+
+#### 2. Millésimes Fiscaux & Sociaux Légaux (`paie_config_legale`)
+Gère l'historique immuable de la législation malgache par version (ex: `LF_2024`, `LF_2026`).  
+> ⚠️ **Précision importante** : Les seuils légaux de durée hebdomadaire (`SEUIL_HEURES_SEMAINE` = 40h), de la première tranche d'heures supplémentaires (`SEUIL_HS_TRANCHE_1` = 8h à +30%) et du plafond légal d'HS (`PLAFOND_HEURES_SUPP_SEMAINE` = 20h) ont été **migrés de `parametre_global` vers `paie_config_legale`** afin d'être rattachés à la législation fiscale en vigueur.
+
+Constantes régies par `paie_config_legale` :
+* **Durée légale du travail & Heures Supp.** : `duree_hebdomadaire_legale_heures` (40h), `seuil_hs_tranche1_heures` (8h), `plafond_hs_hebdo_heures` (20h), `diviseur_mensuel_heures` (173.3333h).
 * **SME National & Agricole** (262 680 Ar / 266 500 Ar en 2026).
 * **Plafond Social CNaPS/Santé** : $8 \times \text{SME} = 2\,101\,440\text{ Ar}$.
 * **Règles IRSA** : Seuil d'exonération (350 000 Ar), minimum de perception (3 000 Ar), déduction par charge de famille (2 000 Ar/personne).
-* **Temps de travail & Congés** : Diviseur moyen mensuel ($173.3333\text{ h}$), acquisition mensuelle ($2.5\text{ j}$), diviseur de valorisation des congés ($\div 30$).
+* **Congés** : Acquisition mensuelle ($2.5\text{ j}$), diviseur de valorisation des congés ($\div 30$).
 
-> 📖 Pour la spécification complète de ce système, consulter : [`module-paie-reglementation-fiscale.md`](./module-paie-reglementation-fiscale.md).
+> 📖 Pour la spécification complète du moteur fiscal, consulter : [`module-paie-reglementation-fiscale.md`](./module-paie-reglementation-fiscale.md).
 
 ## 5. Référentiels Fiscaux & Sociaux
 

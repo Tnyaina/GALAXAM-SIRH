@@ -25,9 +25,10 @@
   - [Scénario 3 : Modifier le plafond de durée des CDD ou des périodes d'essai](#scénario-3--modifier-le-plafond-de-durée-des-cdd-ou-des-périodes-dessai)
   - [Scénario 4 : Modifier la formule de calcul de l'ancienneté](#scénario-4--modifier-la-formule-de-calcul-de-lancienneté)
   - [Scénario 5 : Modifier la tolérance de retard au pointage](#scénario-5--modifier-la-tolérance-de-retard-au-pointage)
-  - [Scénario 6 : Modifier le seuil de déclenchement des Heures Supplémentaires (Base 40h)](#scénario-6--modifier-le-seuil-de-déclenchement-des-heures-supplémentaires-base-40h)
+  - [Scénario 6 : Modifier le seuil de déclenchement des Heures Supplémentaires (Base 40h) ou la durée journalière](#scénario-6--modifier-le-seuil-de-déclenchement-des-heures-supplémentaires-base-40h-ou-la-durée-journalière)
   - [Scénario 7 : Modifier la plage horaire du travail de nuit](#scénario-7--modifier-la-plage-horaire-du-travail-de-nuit)
   - [Scénario 8 : Modifier les montants et seuils d'indemnité repas et déplacement](#scénario-8--modifier-les-montants-et-seuils-dindemnité-repas-et-déplacement)
+  - [Scénario 8 bis : Activer ou désactiver une règle opérationnelle débrayable (Repas, Transport, Congés)](#scénario-8-bis--activer-ou-désactiver-une-règle-opérationnelle-débrayable-repas-transport-congés)
   - [Scénario 9 : Modifier le pré-remplissage et l'éligibilité de la grille de pointage](#scénario-9--modifier-le-pré-remplissage-et-léligibilité-de-la-grille-de-pointage)
   - [Scénario 10 : Modifier le taux d'acquisition mensuel des congés payés (2,5 j/mois)](#scénario-10--modifier-le-taux-dacquisition-mensuel-des-congés-payés-25-jmois)
   - [Scénario 11 : Modifier la règle de scission arrêt maladie > 30 jours (Article 13)](#scénario-11--modifier-la-règle-de-scission-arrêt-maladie--30-jours-article-13)
@@ -425,11 +426,19 @@ Cette section est le **manuel de maintenance pratique**. Lorsqu'une règle d'ent
 
 ---
 
-### Scénario 6 : Modifier le seuil de déclenchement des Heures Supplémentaires (Base 40h)
-*Exemple : Passage d'un régime 40h à 44h ou abaissement à 35h.*
-1. **Base de Données :** Mettre à jour `SEUIL_HEURES_SEMAINE` et `SEUIL_HEURES_JOUR` dans la table `parametre_global` (`UPDATE parametre_global SET valeur = '35' WHERE code_parametre = 'SEUIL_HEURES_SEMAINE';`).
-2. **Backend Moteur :** Vérifier que [`PointageCalculateurEngine.calculerTroncon`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/pointage/engine/PointageCalculateurEngine.java) reçoit bien la nouvelle valeur passée par `PointageSyntheseService`.
-3. **Tests d'Intégration :** Réexécuter la synthèse complète dans `PointageSyntheseWorkflowIntegrationTest.java`.
+### Scénario 6 : Modifier le seuil de déclenchement des Heures Supplémentaires (Base 40h) ou la durée journalière
+*Exemple : Passage d'un régime hebdomadaire 40h à 44h ou abaissement à 35h, ou passage d'une journée de 8h à 7h.*
+1. **Base de Données & Configuration Légale :**
+   - La durée hebdomadaire légale et les seuils HS sont gérés dans **`paie_config_legale`** :
+     `UPDATE paie_config_legale SET duree_hebdomadaire_legale_heures = 35 WHERE version_loi = 'LF_2026';`
+   - La durée normale quotidienne de base reste dans **`parametre_global`** (`SEUIL_HEURES_JOUR`) :
+     `UPDATE parametre_global SET valeur = '7' WHERE code_parametre = 'SEUIL_HEURES_JOUR';`
+2. **IHM Administrateur :**
+   - Rendez-vous sur `/admin/parametres` :
+     - **Onglet Configuration Légale** : pour modifier la durée hebdomadaire légale (40h) et les seuils de tranches HS.
+     - **Onglet Paramètres Généraux** : pour modifier la durée normale quotidienne (`SEUIL_HEURES_JOUR`).
+3. **Backend Moteur :** Vérifier que [`PointageCalculateurEngine.calculerTroncon`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/model/pointage/engine/PointageCalculateurEngine.java) reçoit bien la nouvelle valeur passée par `PointageSyntheseService`.
+4. **Tests d'Intégration :** Réexécuter la synthèse complète dans `PointageSyntheseWorkflowIntegrationTest.java` et `StructureEtAdministrationIntegrationTest.java`.
 
 ---
 
@@ -446,9 +455,28 @@ Cette section est le **manuel de maintenance pratique**. Lorsqu'une règle d'ent
 *Exemple : L'indemnité repas de midi passe de 2 000 Ar à 3 000 Ar.*
 1. **Base de Données :** Modifier directement dans `parametre_global` :
    - `MONTANT_REPAS_MIDI` = 3000
-   - `MONTANT_2E_REPAS_1` = 3500
-   - `MONTANT_2E_REPAS_2` = 5000
-2. **IHM Administrateur :** Il n'est pas nécessaire de toucher au code Java ! Rendez-vous sur la page web `/admin/parametres` (Onglet Paramètres Généraux) et enregistrez la nouvelle valeur. Le moteur Java prendra en compte le changement immédiatement lors de la prochaine sauvegarde de pointage.
+   - `MONTANT_2ND_REPAS_1` = 3500
+   - `MONTANT_2ND_REPAS_2` = 5000
+   - `REDUCTION_DEPLACT_REPAS_MIDI` = 1500
+2. **IHM Administrateur :** Rendez-vous sur `/admin/parametres` (Onglet Paramètres Généraux). Les modifications sont prises en compte immédiatement pour toute nouvelle synthèse ou saisie.
+3. **Temporalité des Calculs :** `PointageSyntheseService` charge les paramètres avec `loadEtatMapAtDate(dateDebutPeriode, connection)`, garantissant que recalculer un mois passé n'appliquera pas les nouveaux montants de manière anachronique.
+
+---
+
+### Scénario 8 bis : Activer ou désactiver une règle opérationnelle débrayable (Repas, Transport, Congés)
+*Exemple : L'entreprise décide de suspendre temporairement la déduction déplacement sur site (`REDUCTION_DEPLACT_REPAS_MIDI`) ou de supprimer le second repas du soir.*
+1. **IHM Administrateur :**
+   - Aller sur `/admin/parametres` (Onglet Paramètres Généraux).
+   - Localiser le paramètre souhaité (ex: `REDUCTION_DEPLACT_REPAS_MIDI` ou `SEUIL_2ND_REPAS_1`).
+   - Cliquer sur le commutateur rectiligne Galaxam (`Actif` / `Inactif`).
+   - L'appel API `PUT /api/parametres-globaux/{id}/toggle-actif?estActif=false` journalise l'action dans `audit_log` (`DESACTIVATION`).
+2. **Garde-fous Système (`est_desactivable = FALSE`) :**
+   - Si un utilisateur tente de désactiver une constante indispensable (ex. `SEUIL_HEURES_JOUR`, `MONTANT_REPAS_MIDI`, `SEUIL_NUIT_DEBUT`), le backend rejette la requête avec un code HTTP 400 : *"Ce paramètre système est indispensable et ne peut pas être désactivé."*
+3. **Distinction sémantique dans le code Java :**
+   - **`Inactif` (`est_actif = false`)** : Décision explicite. Le calcul applique `0.0 Ar` (ou `0 jour`), sans déclencher de fallback.
+   - **`Introuvable` (Clé supprimée)** : Erreur de configuration. Le calcul utilise la valeur de repli par défaut (ex. 1 000 Ar pour la déduction transport).
+4. **Base de Données (Script d'urgence) :**
+   `UPDATE parametre_global SET est_actif = FALSE WHERE code_parametre = 'REDUCTION_DEPLACT_REPAS_MIDI';`
 
 ---
 
