@@ -101,7 +101,7 @@ export default function DafAjustementPointageModal({
             deplacementMatin: ptg.deplacementMatin !== false,
             deplacementAm: ptg.deplacementAm !== false,
             indemniteRepasRecue: (ptg.indemniteRepas ?? ptg.indemniteRepasRecue) !== false,
-            motifAjustement: ptg.motifAjustement || 'Rectification directe DAF'
+            motifAjustement: ptg.motifAjustement || 'Rectification administrative'
         });
     }, []);
 
@@ -128,7 +128,7 @@ export default function DafAjustementPointageModal({
                 }
             }
         } catch (err) {
-            console.error('Erreur chargement fiche pointage DAF:', err);
+            console.error('Erreur chargement fiche pointage:', err);
             setError("Impossible de charger les pointages de la période pour ce salarié.");
         } finally {
             setLoading(false);
@@ -147,7 +147,7 @@ export default function DafAjustementPointageModal({
         if (!formData.motifAjustement.trim()) {
             toast({
                 title: 'Motif obligatoire',
-                message: 'Veuillez renseigner un motif pour la traçabilité de l’ajustement DAF.',
+                message: 'Veuillez renseigner un motif pour la traçabilité de l’ajustement.',
                 type: 'warning'
             });
             return;
@@ -170,7 +170,7 @@ export default function DafAjustementPointageModal({
             if (ok) {
                 toast({
                     title: 'Pointage rectifié',
-                    message: `Le pointage du ${fmtDate(dateStr) || dateStr} a été rectifié par la DAF.`,
+                    message: `Le pointage du ${fmtDate(dateStr) || dateStr} a été rectifié avec succès.`,
                     type: 'success'
                 });
                 setSelectedJour(null);
@@ -193,7 +193,7 @@ export default function DafAjustementPointageModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={`Ajustement DAF — ${employeNomEffective} (${matriculeEffective})`}
+            title={`Ajustement du pointage — ${employeNomEffective} (${matriculeEffective})`}
             icon={<UserCheck className="w-5 h-5 text-brand-500" />}
             size="4xl"
             className="max-w-6xl w-full"

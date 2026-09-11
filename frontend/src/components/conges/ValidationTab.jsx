@@ -102,7 +102,7 @@ export default function ValidationTab({ demandesAValider = [], onReload }) {
          <div className="h-px bg-[var(--color-border-subtle)] flex-1 mx-2" />
          <div className="flex items-center gap-2 text-[var(--color-brand-500)]">
            <div className="w-8 h-8 rounded-none bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/20 flex items-center justify-center font-data text-xs font-bold">2</div>
-           <span className="text-sm font-semibold uppercase tracking-wide">Validation RH/DAF</span>
+           <span className="text-sm font-semibold uppercase tracking-wide">Validation</span>
          </div>
          <div className="h-px bg-[var(--color-border-subtle)] flex-1 mx-2" />
          <div className="flex items-center gap-2 text-[var(--color-fg-subtle)]">

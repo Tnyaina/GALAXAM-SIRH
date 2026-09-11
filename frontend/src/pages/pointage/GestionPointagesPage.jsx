@@ -158,11 +158,11 @@ export default function GestionPointagesPage() {
             },
             {
                 id: 'arbitrage',
-                label: 'Arbitrage DAF',
+                label: 'Contrôle & Validation',
                 status: dafStatus,
                 lockReason: isDaf
                     ? null
-                    : 'Étape réservée à la DAF / Direction'
+                    : 'Étape réservée aux validateurs habilités'
             }
         ];
 
@@ -172,8 +172,8 @@ export default function GestionPointagesPage() {
     return (
         <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO
-                title="Pointage & Presences | GALAXAM SIRH"
-                description="Cockpit lineaire de gestion des pointages : saisie quotidienne, suivi et anomalies, arbitrage DAF."
+                title="Pointage & Présences | GALAXAM SIRH"
+                description="Cockpit linéaire de gestion des pointages : saisie quotidienne, suivi des anomalies, contrôle et validation des heures."
             />
 
             {/* WorkflowStepper — navigation lineaire */}

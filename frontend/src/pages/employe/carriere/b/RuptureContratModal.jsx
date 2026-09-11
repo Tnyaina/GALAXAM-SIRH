@@ -391,7 +391,7 @@ export default function RuptureContratModal({
                 {/* Footer Actions (fixe) */}
                 <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex-shrink-0 flex items-center justify-between gap-3">
                     <p className="text-[11px] text-ink-400">
-                        Cette rupture sera enregistrée en <span className="font-bold text-danger-600">BROUILLON</span> pour validation DAF / Direction.
+                        Cette rupture sera enregistrée en <span className="font-bold text-danger-600">BROUILLON</span> pour validation par la direction.
                     </p>
                     <div className="flex justify-end gap-3">
                         <Button type="button" onClick={onClose} variant="outline" size="md">

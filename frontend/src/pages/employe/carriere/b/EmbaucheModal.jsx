@@ -394,7 +394,7 @@ export default function EmbaucheModal({
                                 {/* Section 3 : Remarques */}
                                 <div className="space-y-3 pt-2">
                                     <Textarea
-                                        label="Commentaires DAF / RH"
+                                        label="Commentaires administratifs"
                                         rows={2}
                                         value={formData.commentaire}
                                         onChange={(e) => setField('commentaire', e.target.value)}

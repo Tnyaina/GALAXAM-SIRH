@@ -266,7 +266,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 idSite: siteParam
             });
             if (res && res.success) {
-                toast.success('Période transmise à la DAF avec succès.');
+                toast.success('Période transmise pour validation avec succès.');
                 setShowTransmissionConfirm(false);
                 const updatedList = await periodePaieService.getAllPeriodes();
                 if (updatedList) setPeriodes(updatedList);
@@ -275,8 +275,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 toast.error(res?.message || 'Erreur lors de la transmission.');
             }
         } catch (err) {
-            console.error('Erreur transmission DAF:', err);
-            toast.error(err?.response?.data?.error || 'Impossible de transmettre la période à la DAF.');
+            console.error('Erreur transmission validation:', err);
+            toast.error(err?.response?.data?.error || 'Impossible de transmettre la période pour validation.');
         } finally {
             setTransmitting(false);
         }
@@ -517,7 +517,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         </h2>
                         <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
                             {filteredAnomalies.length} anomalie{filteredAnomalies.length > 1 ? 's' : ''} détectée{filteredAnomalies.length > 1 ? 's' : ''}
-                            {nbBloquantes > 0 && ` — dont ${nbBloquantes} bloquante(s) avant transmission DAF`}
+                            {nbBloquantes > 0 && ` — dont ${nbBloquantes} bloquante(s) avant transmission`}
                         </p>
                     </div>
 
@@ -562,7 +562,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                             className="text-xs py-1 px-2.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] outline-none focus:border-[var(--color-brand-500)] cursor-pointer h-[28px]"
                         >
                             <option value="ALL">Toutes sévérités</option>
-                            <option value="CRITIQUE">Critique (Bloquant DAF)</option>
+                            <option value="CRITIQUE">Critique (Bloquant la validation)</option>
                             <option value="HAUTE">Élevée</option>
                             <option value="MOYENNE">Moyenne</option>
                             <option value="FAIBLE">Faible</option>
@@ -651,7 +651,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 <div className="px-3 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex items-center gap-5 text-[11px] text-[var(--color-fg-muted)] flex-wrap">
                     <span className="flex items-center gap-1.5">
                         <span className="w-2 h-2 bg-[#B23B34]" />
-                        <strong className="text-[var(--color-fg)]">Critique :</strong> Bloque la transmission DAF (oubli d'horaire ou absence sans statut)
+                        <strong className="text-[var(--color-fg)]">Critique :</strong> Bloque la transmission pour validation (oubli d'horaire ou absence sans statut)
                     </span>
                     <span className="flex items-center gap-1.5">
                         <span className="w-2 h-2 bg-[#B5720A]" />
@@ -837,7 +837,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         ) : (
                             <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                                 <CheckCircle2 size={15} className="text-emerald-500" />
-                                <span>Période échue et conforme — Prête pour arbitrage et validation DAF</span>
+                                <span>Période échue et conforme — Prête pour contrôle et validation</span>
                             </div>
                         )}
 
@@ -850,10 +850,10 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         </div>
                     </div>
 
-                    {/* Actions selon le Persona connecté */}
+                    {/* Actions selon le profil connecté */}
                     <div className="flex items-center gap-2.5">
                         {isDaf ? (
-                            // PERSONA DAF / ADMIN : Navigation directe vers l'Arbitrage
+                            // Rôle Validateur / Administrateur : Navigation directe vers Contrôle & Validation
                             <div className="flex items-center gap-2">
                                 {isEnCours && canTransmitDaf && (
                                     <Button
@@ -863,9 +863,9 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                         disabled={transmitting}
                                         loading={transmitting}
                                         icon={<Send size={14} />}
-                                        title="Transmettre officiellement la période à la DAF"
+                                        title="Transmettre officiellement la période pour validation"
                                     >
-                                        Transmettre (Agent)
+                                        Transmettre
                                     </Button>
                                 )}
                                 <Button
@@ -874,14 +874,14 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                     onClick={() => onTabChange ? onTabChange('arbitrage') : null}
                                     icon={<ShieldCheck size={15} />}
                                     className="font-bold text-xs"
-                                    title="Accéder directement à l'étape 3 : Arbitrage & Validation DAF"
+                                    title="Accéder directement à l'étape 3 : Contrôle & Validation"
                                 >
-                                    <span>Accéder à l'Arbitrage DAF</span>
+                                    <span>Accéder au Contrôle &amp; Validation</span>
                                     <ArrowRight size={14} className="ml-1" />
                                 </Button>
                             </div>
                         ) : (
-                            // PERSONA AGENT DE SITE : Transmission formelle à la DAF
+                            // Profil Agent de site : Transmission formelle
                             <Button
                                 variant="primary"
                                 size="md"
@@ -889,9 +889,9 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 disabled={!canTransmitDaf || transmitting}
                                 loading={transmitting}
                                 icon={<Send size={14} />}
-                                title={transmissionBlockReason || 'Transmettre officiellement la synthèse à la DAF.'}
+                                title={transmissionBlockReason || 'Transmettre la synthèse pour validation finale.'}
                             >
-                                Transmettre à la DAF
+                                Transmettre pour validation
                             </Button>
                         )}
                     </div>
@@ -909,13 +909,13 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 onSuccess={handleSaveRegularisation}
             />
 
-            {/* Dialogue de confirmation de transmission DAF */}
+            {/* Dialogue de confirmation de transmission pour validation */}
             <ConfirmDialog
                 isOpen={showTransmissionConfirm}
                 onClose={() => setShowTransmissionConfirm(false)}
                 onConfirm={handleTransmettreDaf}
-                title="Confirmer la transmission à la DAF"
-                message="Êtes-vous sûr de vouloir transmettre la période de pointage à la DAF ? Cette action fige la saisie pour les agents de site et déclenche la notification officielle auprès de la DAF."
+                title="Confirmer la transmission pour validation"
+                message="Êtes-vous sûr de vouloir transmettre la période de pointage pour validation ? Cette action fige la saisie pour les agents de site et transmet le dossier pour validation finale."
                 confirmText="Confirmer et transmettre"
                 cancelText="Annuler"
                 variant="primary"

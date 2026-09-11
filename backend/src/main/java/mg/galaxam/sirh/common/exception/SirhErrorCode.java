@@ -16,7 +16,7 @@ public enum SirhErrorCode {
 
     POINTAGE_PERIODE_VERROUILLEE(
             HttpStatus.CONFLICT,
-            "Impossible de modifier les pointages : la période de paie est fermée, validée ou en attente de validation par la DAF."),
+            "Impossible de modifier les pointages : la période de paie est fermée, validée ou en attente de validation."),
 
     POINTAGE_CONFLIT_OCC(
             HttpStatus.CONFLICT,

@@ -13,7 +13,7 @@ export default function BrouillonsEnAttenteWidget({ loading, brouillons = [], cl
                 <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
                         <FileText size={16} className="text-warning-500 shrink-0" />
-                        <CardTitle>Brouillons en attente de validation DAF</CardTitle>
+                        <CardTitle>Brouillons en attente de validation</CardTitle>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                         <Badge variant={brouillons.length > 0 ? 'warning' : 'default'} size="sm">

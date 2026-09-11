@@ -177,7 +177,7 @@ export default function CarriereModalsManager({
                     <div className="flex flex-col items-center gap-4 p-6 bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-800 rounded-none shadow-2xl max-w-sm w-full text-center">
                         <Loading size="md" label="Enregistrement en cours..." />
                         <p className="text-[11px] text-ink-400 -mt-2">
-                            Préparation du récapitulatif DAF...
+                            Préparation du récapitulatif de validation...
                         </p>
                     </div>
                 </div>

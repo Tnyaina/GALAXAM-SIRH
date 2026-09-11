@@ -1520,7 +1520,7 @@ public class PointageSyntheseService {
                         throw new IllegalStateException("Action impossible : La période de paie est en statut '" + st + "'. Vous ne pouvez pas modifier ou valider les semaines d'une période clôturée ou validée.");
                     }
                     if (("A_VALIDER".equalsIgnoreCase(st) || "TRANSMIS_DAF".equalsIgnoreCase(st)) && !isAdminOrDaf) {
-                        throw new IllegalStateException("Action impossible : La période de paie est transmise à la DAF. Seul un administrateur ou la DAF peut recalculer les semaines.");
+                        throw new IllegalStateException("Action impossible : La période de paie est transmise pour validation. Seuls les administrateurs autorisés peuvent recalculer les semaines.");
                     }
                 }
             }
@@ -1727,10 +1727,10 @@ public class PointageSyntheseService {
                                 throw new IllegalStateException("Transmission impossible : La période de paie est clôturée définitivement.");
                             }
                             if ("VALIDEE".equalsIgnoreCase(st)) {
-                                throw new IllegalStateException("Transmission impossible : La période de paie est déjà validée par la DAF.");
+                                throw new IllegalStateException("Transmission impossible : La période de paie est déjà validée.");
                             }
                             if ("A_VALIDER".equalsIgnoreCase(st)) {
-                                throw new IllegalStateException("Transmission impossible : La période de paie est déjà transmise et en attente d'arbitrage DAF.");
+                                throw new IllegalStateException("Transmission impossible : La période de paie est déjà transmise et en attente de validation.");
                             }
                         }
                     }
@@ -1795,7 +1795,7 @@ public class PointageSyntheseService {
                 c.commit();
                 Map<String, Object> resp = new HashMap<>();
                 resp.put("success", true);
-                resp.put("message", "La periode a ete transmise a la DAF avec succes.");
+                resp.put("message", "La période a été transmise pour validation avec succès.");
                 return resp;
             } catch (Exception e) {
                 c.rollback();
@@ -1851,8 +1851,8 @@ public class PointageSyntheseService {
                     "ROLE_AGENT_POINTAGE",
                     "PERIODE_POINTAGE_REJETEE",
                     "HAUTE",
-                    "Periode renvoyee par la DAF - " + libellePeriode,
-                    "La DAF demande des corrections sur " + libellePeriode + ". Motif : " + motif.trim(),
+                    "Période renvoyée pour correction - " + libellePeriode,
+                    "Des corrections sont demandées sur " + libellePeriode + ". Motif : " + motif.trim(),
                     "/pointages/anomalies",
                     null
                 );
@@ -1860,7 +1860,7 @@ public class PointageSyntheseService {
                 c.commit();
                 Map<String, Object> resp = new HashMap<>();
                 resp.put("success", true);
-                resp.put("message", "La periode a ete renvoyee a l'agent avec succes pour correction.");
+                resp.put("message", "La période a été renvoyée avec succès pour correction.");
                 return resp;
             } catch (Exception e) {
                 c.rollback();
@@ -1918,8 +1918,8 @@ public class PointageSyntheseService {
                     "ROLE_AGENT_POINTAGE",
                     "PERIODE_POINTAGE_VALIDEE",
                     "INFO",
-                    "Periode validee par la DAF - " + libellePeriode,
-                    "La synthese de pointage pour " + libellePeriode + " a ete validee avec succes par la DAF et transmise a la paie.",
+                    "Période validée - " + libellePeriode,
+                    "La synthèse de pointage pour " + libellePeriode + " a été validée avec succès et transmise à la paie.",
                     "/pointages/synthese?subTab=mensuel",
                     null
                 );
@@ -1927,7 +1927,7 @@ public class PointageSyntheseService {
                 c.commit();
                 Map<String, Object> resp = new HashMap<>();
                 resp.put("success", true);
-                resp.put("message", "La periode a ete validee avec succes.");
+                resp.put("message", "La période a été validée avec succès.");
                 return resp;
             } catch (Exception e) {
                 c.rollback();

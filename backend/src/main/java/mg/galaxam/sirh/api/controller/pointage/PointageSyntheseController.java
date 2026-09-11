@@ -246,7 +246,7 @@ public class PointageSyntheseController {
         } catch (Exception e) {
             e.printStackTrace();
             resp.put("success", false);
-            resp.put("error", "Erreur lors de la validation DAF : " + e.getMessage());
+            resp.put("error", "Erreur lors de la validation : " + e.getMessage());
             return ResponseEntity.badRequest().body(resp);
         }
     }

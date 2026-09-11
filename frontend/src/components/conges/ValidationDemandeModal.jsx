@@ -68,7 +68,7 @@ export default function ValidationDemandeModal({ demandesAValider, onActionCompl
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2">
             <CheckSquare className="w-4 h-4 text-success-500" />
-            <CardTitle>Circuit de Validation des Demandes de Congé (DAF / RH)</CardTitle>
+            <CardTitle>Circuit de Validation des Demandes de Congé</CardTitle>
           </div>
           <Badge variant={(demandesAValider || []).length > 0 ? 'warning' : 'default'} size="sm">
             {(demandesAValider || []).length} en attente

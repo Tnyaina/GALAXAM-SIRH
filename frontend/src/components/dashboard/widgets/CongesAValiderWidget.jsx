@@ -13,7 +13,7 @@ export default function CongesAValiderWidget({ loading, demandesCongeAValider = 
                 <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
                         <Calendar size={16} className="text-warning-500 shrink-0" />
-                        <CardTitle>Demandes de Congé à Valider (DAF / RH)</CardTitle>
+                        <CardTitle>Demandes de Congé à Valider</CardTitle>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                         <Badge variant={demandesCongeAValider.length > 0 ? 'warning' : 'default'} size="sm">

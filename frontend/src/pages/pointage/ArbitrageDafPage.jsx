@@ -250,7 +250,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         try {
             const res = await pointageSyntheseService.validerDaf({ idPeriodePaie: selectedPeriode });
             if (res?.success) {
-                toast({ title: 'Periode validee par la DAF', message: 'Les donnees sont gelees.', type: 'success' });
+                toast({ title: 'Période validée avec succès', message: 'Les données de pointage sont validées et figées.', type: 'success' });
                 window.dispatchEvent(new Event('refresh-notifications'));
                 setShowValiderModal(false);
                 const list = await periodePaieService.getAllPeriodes();
@@ -258,7 +258,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 await loadData();
             }
         } catch (err) {
-            toast({ title: 'Erreur', message: err?.response?.data?.error || 'Impossible de valider.', type: 'error' });
+            toast({ title: 'Erreur', message: err?.response?.data?.error || 'Impossible de valider la période.', type: 'error' });
         } finally { setProcessing(false); }
     };
 
@@ -268,7 +268,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         try {
             const res = await pointageSyntheseService.rejeterDaf({ idPeriodePaie: selectedPeriode, motif: motifRejet.trim() });
             if (res?.success) {
-                toast({ title: 'Periode renvoyee', message: 'Les agents ont ete notifies.', type: 'warning' });
+                toast({ title: 'Période renvoyée', message: 'La période a été renvoyée pour correction.', type: 'warning' });
                 window.dispatchEvent(new Event('refresh-notifications'));
                 setShowRejetModal(false);
                 setMotifRejet('');
@@ -277,7 +277,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 await loadData();
             }
         } catch (err) {
-            toast({ title: 'Erreur', message: err?.response?.data?.error || 'Impossible de renvoyer.', type: 'error' });
+            toast({ title: 'Erreur', message: err?.response?.data?.error || 'Impossible de renvoyer la période.', type: 'error' });
         } finally { setProcessing(false); }
     };
 
@@ -318,14 +318,14 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         setProcessing(true);
         try {
             await periodePaieService.updateStatut(selectedPeriode, 'CLOTUREE');
-            toast({ title: 'Periode cloturee', message: 'Les bulletins peuvent etre generes.', type: 'success' });
+            toast({ title: 'Période clôturée', message: 'La période est clôturée. Les bulletins de paie peuvent être générés.', type: 'success' });
             window.dispatchEvent(new Event('refresh-notifications'));
             setShowCloturerModal(false);
             const list = await periodePaieService.getAllPeriodes();
             if (list) setPeriodes(list);
             await loadData();
         } catch (err) {
-            toast({ title: 'Erreur', message: err?.response?.data?.error || 'Impossible de cloturer.', type: 'error' });
+            toast({ title: 'Erreur', message: err?.response?.data?.error || 'Impossible de clôturer la période.', type: 'error' });
         } finally { setProcessing(false); }
     };
 
@@ -333,18 +333,18 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         return (
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-12 text-center">
                 <Lock size={32} className="mx-auto mb-3 text-[var(--color-fg-subtle)] opacity-40" />
-                <p className="text-sm font-semibold text-[var(--color-fg)]">Acces restreint</p>
-                <p className="text-xs text-[var(--color-fg-muted)] mt-1">Cette etape est reservee a la Direction Administrative et Financiere (DAF).</p>
+                <p className="text-sm font-semibold text-[var(--color-fg)]">Accès restreint</p>
+                <p className="text-xs text-[var(--color-fg-muted)] mt-1">Cette étape est réservée aux personnes habilitées à la validation finale.</p>
             </div>
         );
     }
 
     return (
         <>
-            <SEO title="Arbitrage DAF — Synthese & Validation Mensuelle" description="Arbitrage DAF, controle des heures sup, indemnites et validation du pointage mensuel" />
+            <SEO title="Contrôle & Validation — Synthèse Mensuelle" description="Contrôle et validation des heures supplémentaires, indemnités et synthèse de pointage" />
 
             <div className="space-y-4">
-                {/* Header DAF avec sélecteurs de périmètre */}
+                {/* Header avec sélecteurs de périmètre */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 shadow-xs">
                     <div className="flex items-center gap-3 flex-wrap">
                         {/* Période */}
@@ -415,7 +415,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             <>
                                 <Button type="button" variant="danger" size="sm" onClick={() => setShowRejetModal(true)}
                                     icon={<XCircle size={14} />} className="text-xs h-[32px] font-bold">
-                                    Renvoyer
+                                    Renvoyer pour correction
                                 </Button>
                                 <Button type="button" variant="primary" size="sm" onClick={() => setShowValiderModal(true)}
                                     icon={<CheckCircle size={14} />} className="text-xs h-[32px] font-bold">
@@ -457,7 +457,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         <div className="flex items-center gap-3 flex-wrap">
                             <h3 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2 shrink-0">
                                 <ShieldCheck size={16} className="text-[var(--color-brand-500)]" />
-                                Arbitrage DAF — {currentPeriodeObj?.libelle || 'Période active'}
+                                Contrôle & Validation — {currentPeriodeObj?.libelle || 'Période active'}
                             </h3>
                             {/* Filtres alerte (synthèse seulement) */}
                             {viewMode === 'synthese' && (
@@ -843,14 +843,14 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 </div>
             </div>
 
-            {/* Modales d'actions DAF */}
+            {/* Modales d'actions de validation */}
             <ConfirmDialog
                 isOpen={showValiderModal}
                 onClose={() => setShowValiderModal(false)}
                 onConfirm={handleValiderPeriode}
                 title={`Valider ${currentPeriodeObj?.libelle || ''} ?`}
-                message="Les pointages seront geles. Les agents ne pourront plus modifier leurs saisies. Cette action est irreversible."
-                confirmLabel="Valider la periode"
+                message="Les pointages seront validés et figés. Les saisies et modifications directes seront désactivées pour cette période. Cette action est irréversible."
+                confirmLabel="Valider la période"
                 variant="primary"
                 loading={processing}
             />
@@ -858,7 +858,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             <Modal isOpen={showRejetModal} onClose={() => setShowRejetModal(false)} title="Renvoyer pour correction" size="md">
                 <div className="space-y-3 text-xs">
                     <p className="text-[var(--color-fg-muted)]">
-                        Indiquez aux agents le motif du renvoi. Ils pourront corriger et re-transmettre apres regularisation.
+                        Indiquez le motif du renvoi pour correction. Les agents de site pourront rectifier les données puis re-transmettre la période.
                     </p>
                     <div>
                         <label className="block text-[10.5px] font-semibold text-[var(--color-fg-muted)] mb-1">Motif (obligatoire)</label>
@@ -866,7 +866,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             value={motifRejet}
                             onChange={e => setMotifRejet(e.target.value)}
                             rows={3}
-                            placeholder="Ex: Incoherences sur les heures supplementaires ou justificatifs d'absence..."
+                            placeholder="Ex: Incohérences sur les heures supplémentaires ou justificatifs d'absence..."
                             className="w-full px-2 py-1.5 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:outline-none focus:border-[var(--color-brand-500)] resize-none"
                         />
                     </div>
@@ -884,9 +884,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 isOpen={showCloturerModal}
                 onClose={() => setShowCloturerModal(false)}
                 onConfirm={handleCloturerPeriode}
-                title={`Cloture definitive ${currentPeriodeObj?.libelle || ''} ?`}
-                message="La periode sera archivee. Les bulletins de paie pourront etre generes. Cette action est irreversible."
-                confirmLabel="Cloture definitif"
+                title={`Clôture définitive ${currentPeriodeObj?.libelle || ''} ?`}
+                message="La période sera définitivement clôturée et archivée. Les bulletins de paie pourront être générés. Cette action est irréversible."
+                confirmLabel="Clôturer définitivement"
                 variant="danger"
                 loading={processing}
             />

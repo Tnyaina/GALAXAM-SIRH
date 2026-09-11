@@ -45,7 +45,7 @@ export default function KpiGrid({
                         color={kpis?.contratsExpirant30j > 0 ? 'warning' : 'brand'}
                     />
                     <StatCard
-                        title="Brouillons DAF"
+                        title="Brouillons à valider"
                         value={kpis?.brouillonsEnAttente ?? '—'}
                         icon={<FileText size={18} />}
                         color={kpis?.brouillonsEnAttente > 0 ? 'warning' : 'brand'}

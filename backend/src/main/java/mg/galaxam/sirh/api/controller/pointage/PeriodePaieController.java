@@ -224,7 +224,7 @@ public class PeriodePaieController {
         // Un agent de pointage ne peut que transmettre la période pour validation (A_VALIDER)
         if (!isAdmin && !"A_VALIDER".equals(newStatutCode)) {
             resp.put("success", false);
-            resp.put("message", "Action non autorisée : seule la DAF / Administrateur peut changer ce statut.");
+            resp.put("message", "Action non autorisée : seuls les administrateurs habilités peuvent changer ce statut.");
             return ResponseEntity.status(403).body(resp);
         }
 

@@ -99,7 +99,7 @@ export default function DashboardHeader({
                     ) : (
                         <p className="text-[var(--color-brand-100)] text-xs">
                             {demandesCongeAValiderCount > 0
-                                ? ` ${demandesCongeAValiderCount} demande(s) de congé en attente de validation DAF/RH.`
+                                ? ` ${demandesCongeAValiderCount} demande(s) de congé en attente de validation.`
                                 : totalAlertesContrats > 0
                                     ? ` ${totalAlertesContrats} alerte(s) de contrat nécessitent votre attention.`
                                     : 'Tout est à jour dans l\'application SIRH.'}

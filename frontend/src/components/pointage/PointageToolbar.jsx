@@ -78,21 +78,21 @@ export default function PointageToolbar({
                         type="button"
                         disabled={isReadOnly}
                         onClick={onAutoFillStandard}
-                        title="Remplir 08h–17h pour les non saisis"
+                        title="Appliquer l'horaire standard (08h-17h) aux lignes non saisies"
                         className="flex items-center gap-1.5 px-3 h-[32px] text-xs font-semibold border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                     >
                         <ClockCheck size={13} className="text-emerald-600 shrink-0" />
-                        <span>08h–17h</span>
+                        <span>Horaire standard</span>
                     </button>
                     <button
                         type="button"
                         disabled={isReadOnly}
                         onClick={onAutoDeducePauses}
-                        title="Déduire les pauses déjeuner"
+                        title="Déduire automatiquement la pause déjeuner pour les pointages continus"
                         className="flex items-center gap-1.5 px-3 h-[32px] text-xs font-semibold border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                     >
                         <Coffee size={13} className="text-amber-600 shrink-0" />
-                        <span>Pauses</span>
+                        <span>Déduire pauses</span>
                     </button>
                     {onAddConge && (
                         <button
@@ -102,7 +102,7 @@ export default function PointageToolbar({
                             className="flex items-center gap-1.5 px-3 h-[32px] text-xs font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap"
                         >
                             <CalendarOff size={13} className="shrink-0" />
-                            <span>Absence / Congé</span>
+                            <span>Congé / Absence</span>
                         </button>
                     )}
 

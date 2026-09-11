@@ -398,7 +398,7 @@ export default function PointageFichePrintModal({
                         </div>
                         <div className="border border-slate-300 p-2 min-h-[85px] flex flex-col justify-between">
                             <span className="text-[9px] font-bold uppercase text-slate-700">
-                                La Direction (DAF / RH)
+                                La Direction
                             </span>
                             <span className="text-[8px] text-slate-400 italic">
                                 Visa Paie &amp; Conformité

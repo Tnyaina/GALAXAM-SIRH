@@ -187,9 +187,9 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 
 -- Pointage (Consolidé Sprint 10 & 11 : Cockpit Unifié 3 étapes)
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-('POINTAGE_JOURNALIER',  'Saisie Quotidienne',  'ClockCheck',    '/pointages?tab=saisie',     1, 2, 'POINTAGE'),
-('POINTAGE_SUIVI',       'Suivi & Anomalies',   'CalendarCheck', '/pointages?tab=suivi',      2, 2, 'POINTAGE'),
-('POINTAGE_VALIDATION',  'Arbitrage DAF',       'ShieldCheck',   '/pointages?tab=validation', 3, 2, 'POINTAGE');
+('POINTAGE_JOURNALIER',  'Saisie Quotidienne',    'ClockCheck',    '/pointages?tab=saisie',     1, 2, 'POINTAGE'),
+('POINTAGE_SUIVI',       'Suivi & Anomalies',     'CalendarCheck', '/pointages?tab=suivi',      2, 2, 'POINTAGE'),
+('POINTAGE_VALIDATION',  'Contrôle & Validation', 'ShieldCheck',   '/pointages?tab=validation', 3, 2, 'POINTAGE');
 
 -- Paie
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES

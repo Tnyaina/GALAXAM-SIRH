@@ -91,7 +91,7 @@ export function getWorkflowLibellesUI(workflowCpl) {
     let badgeVariant = 'primary';
 
     if (isEmbauche) {
-        title = 'Pre-Validation DAF — Nouvel Contrat d\'Embauche';
+        title = 'Validation Finale — Nouveau Contrat d\'Embauche';
         description = 'Veuillez relire l\'ensemble des conditions contractuelles et financières ci-dessous. En cliquant sur "Valider", le contrat passera au statut ACTIF.';
         actionBtnLabel = 'Valider Définitivement (Activer)';
         badgeEssai = 'PÉRIODE D\'ESSAI INITIALE';

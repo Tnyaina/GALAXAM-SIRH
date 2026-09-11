@@ -417,8 +417,8 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 >
                                     <FileText size={15} className="text-rose-600 dark:text-rose-400 shrink-0" />
                                     <div>
-                                        <div className="font-semibold">Fiche PDF Officielle</div>
-                                        <div className="text-[10px] text-[var(--color-fg-muted)]">A4 corporate prête à émarger</div>
+                                        <div className="font-semibold">Fiche individuelle PDF</div>
+                                        <div className="text-[10px] text-[var(--color-fg-muted)]">Format A4 prêt à imprimer et émarger</div>
                                     </div>
                                 </button>
                             </div>

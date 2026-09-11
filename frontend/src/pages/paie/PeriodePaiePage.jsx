@@ -44,7 +44,7 @@ const STATUT_CONFIG = {
     'A_VALIDER': {
         variant: 'warning',
         label: 'À valider (Fin de mois)',
-        desc: 'Saisie terminée, attente validation DAF'
+        desc: 'Saisie terminée, en attente de validation'
     },
     'VALIDEE': {
         variant: 'success',
@@ -404,7 +404,7 @@ export default function PeriodePaiePage() {
                 periode,
                 targetStatut: nextStatutCode,
                 title: 'Transmettre la période pour validation',
-                message: `Confirmez-vous la fin de saisie pour la période "${periode.libelle}" ? Le statut passera à "À valider" pour vérification par la DAF.`,
+                message: `Confirmez-vous la fin de saisie pour la période "${periode.libelle}" ? Le statut passera à "À valider" pour vérification finale.`,
                 variant: 'warning',
                 confirmLabel: 'Transmettre pour validation'
             });
@@ -630,7 +630,7 @@ export default function PeriodePaiePage() {
                                                         icon={<ArrowRight size={13} />}
                                                         onClick={() => triggerStatutChange(p, 'A_VALIDER')}
                                                     >
-                                                        Marquer fin de saisie
+                                                        Transmettre pour validation
                                                     </Button>
                                                 )}
                                                 {p.statutCode === 'A_VALIDER' && (
@@ -640,7 +640,7 @@ export default function PeriodePaiePage() {
                                                         icon={<CheckCircle size={13} />}
                                                         onClick={() => triggerStatutChange(p, 'VALIDEE')}
                                                     >
-                                                        Valider (DAF)
+                                                        Valider
                                                     </Button>
                                                 )}
                                                 {p.statutCode === 'VALIDEE' && (
@@ -662,7 +662,7 @@ export default function PeriodePaiePage() {
                                                             icon={<RotateCcw size={13} />}
                                                             onClick={() => triggerStatutChange(p, 'EN_COURS')}
                                                         >
-                                                            Rouvrir
+                                                            Rouvrir la période
                                                         </Button>
                                                     </HasPermission>
                                                 )}

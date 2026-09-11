@@ -397,8 +397,7 @@ function GanttTooltip({ tooltip, tooltipRef }) {
             </div>
 
             <div className="mt-2 pt-1 border-t border-[var(--color-border-subtle)] text-[9px] text-[var(--color-fg-muted)] flex items-center justify-between">
-                <span>Cliquer sur la cellule pour rectifier</span>
-                <span className="font-mono font-bold">DAF</span>
+                <span>Cliquer sur la cellule pour modifier</span>
             </div>
         </div>
     );

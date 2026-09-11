@@ -209,7 +209,7 @@ export default function AnomalieRegularisationModal({
                 <div className="flex items-center justify-between w-full">
                     <div className="text-xs text-[var(--color-fg-muted)] flex items-center gap-1.5">
                         <Shield className="w-4 h-4 text-[var(--color-fg-muted)]" />
-                        <span>Traçabilité SIRH &amp; transmission DAF</span>
+                        <span>Traçabilité SIRH &amp; conformité</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <Button 
@@ -656,7 +656,7 @@ export default function AnomalieRegularisationModal({
                 {/* Motif / Commentaire obligatoire */}
                 <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-[var(--color-fg)] flex items-center justify-between">
-                        <span>Motif / Explication pour l&apos;arbitrage DAF <span className="text-[var(--color-error)]">*</span></span>
+                        <span>Motif / Note explicative de régularisation <span className="text-[var(--color-error)]">*</span></span>
                         <span className="text-[10px] text-[var(--color-fg-muted)]">Minimum 3 caractères</span>
                     </label>
                     <textarea
