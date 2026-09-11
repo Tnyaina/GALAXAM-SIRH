@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import {
     Clock,
     AlertTriangle,
@@ -271,9 +271,6 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 const updatedList = await periodePaieService.getAllPeriodes();
                 if (updatedList) setPeriodes(updatedList);
                 await loadAnomalies();
-                if (onTabChange) {
-                    onTabChange('arbitrage');
-                }
             } else {
                 toast.error(res?.message || 'Erreur lors de la transmission.');
             }
@@ -705,7 +702,13 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                                     />
                                                     <div>
                                                         <div className="font-bold text-[12px] text-[var(--color-fg)]">
-                                                            {ano.nom} {ano.prenom}
+                                                            <Link
+                                                                to={`/employes/${ano.idEmploye}?tab=pointage`}
+                                                                className="hover:text-brand-600 hover:underline transition-colors"
+                                                                title={`Consulter le détail pointage de ${ano.nom} ${ano.prenom}`}
+                                                            >
+                                                                {ano.nom} {ano.prenom}
+                                                            </Link>
                                                         </div>
                                                         <div className="text-[10px] font-mono text-[var(--color-fg-muted)]">
                                                             {ano.matricule}

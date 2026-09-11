@@ -16,7 +16,6 @@ import {
     RotateCcw,
     ExternalLink,
     Scale,
-    CheckCircle2,
     ChevronDown,
     ChevronUp,
     FastForward
@@ -264,7 +263,6 @@ export default function PointageTab({ idEmploye }) {
                             { key: 'periode', label: 'Période de Paie' },
                             { key: 'mois', label: 'Mois Civil' },
                             { key: 'semaine', label: 'Semaine' },
-                            { key: 'jour', label: 'Jour' }
                         ].map(({ key, label }) => (
                             <button
                                 key={key}

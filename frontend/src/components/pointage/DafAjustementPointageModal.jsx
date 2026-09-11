@@ -508,7 +508,7 @@ export default function DafAjustementPointageModal({
                                                                 isDimancheTrav ? 'purple' :
                                                                 isSamediTrav ? 'brand' :
                                                                 isPlanifie ? 'neutral' :
-                                                                isConge ? 'warning' :
+                                                                isConge ? 'sky' :
                                                                 isAbsent ? 'danger' :
                                                                 isRetard ? 'warning' :
                                                                 isAutonome ? 'brand' :
@@ -521,7 +521,8 @@ export default function DafAjustementPointageModal({
                                                              isSamediTrav ? 'Samedi' :
                                                              isRepos ? 'Repos' :
                                                              isPlanifie ? 'Planifié' :
-                                                             (ptg.statut || (isPresent ? 'Présent' : isConge ? 'Congé' : 'Absent'))}
+                                                             isConge ? (ptg.typeConge ? `Congé (${ptg.typeConge})` : 'Congé') :
+                                                             (ptg.statut || (isPresent ? 'Présent' : 'Absent'))}
                                                         </Badge>
                                                     </Td>
                                                     <Td className="py-2 px-2 text-center font-mono text-[11px]">

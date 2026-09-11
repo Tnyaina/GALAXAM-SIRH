@@ -1,13 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import {
     CheckCircle, XCircle, Lock, AlertTriangle, CheckCircle2, Clock,
     Users, TrendingUp, Moon, Sun, Award, Search, ClipboardCheck,
     Edit3, Calendar, Building2, X, GanttChartSquare,
-    LayoutGrid, ShieldCheck, Car, Banknote, RefreshCw
+    LayoutGrid, ShieldCheck, Car, Banknote, RefreshCw, Scale
 } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import Select from '@/components/ui/forms/Select';
 import Pagination from '@/components/ui/navigation/Pagination';
@@ -20,7 +19,7 @@ import organisationService from '@/api/admin/organisationService';
 import periodePaieService from '@/services/periodePaieService';
 import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 import pointageSaisieService from '@/api/pointage/pointageSaisieService';
-import { formatMonnaie } from '@/utils/pointageUtils';
+import { formatMonnaie, formatHeuresMinutes } from '@/utils/pointageUtils';
 import DafAjustementPointageModal from '@/components/pointage/DafAjustementPointageModal';
 import PointageGanttView from '@/components/pointage/PointageGanttView';
 import { isDateInFuture } from '@/utils/dateUtils';
@@ -164,7 +163,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const stCode = currentPeriodeObj?.statutCode;
     const isAValider = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
     const isValidee = stCode === 'VALIDEE';
-    const isCloturee = stCode === 'CLOTUREE';
+    const _isCloturee = stCode === 'CLOTUREE';
 
     const kpis = useMemo(() => {
         const totalInd = Math.round(syntheseData.reduce((a, r) => a + ((r.montantRepas || 0) + (r.montantDeplacement || 0)), 0));
@@ -467,7 +466,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                         { v: 'HS', label: `HS (${alertCounts.hs})`, icon: TrendingUp },
                                         { v: 'NUIT', label: `Nuit (${alertCounts.nuit})`, icon: Moon },
                                         { v: 'RETARD', label: `Retards (${alertCounts.retard})`, icon: Clock },
-                                        { v: 'ABSENCE', label: `Déficit / Abs. (${alertCounts.absence})`, icon: AlertTriangle },
+                                        { v: 'ABSENCE', label: `Retenues / Abs. (${alertCounts.absence})`, icon: AlertTriangle },
                                     ].map(opt => (
                                         <button
                                             key={opt.v}
@@ -549,54 +548,67 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 <span>Aucun employe ne correspond aux criteres selectionnes.</span>
                             </div>
                         ) : (
-                            <div className="space-y-0">
+                            <div className="space-y-0 overflow-x-auto">
                                 <Table size="sm" divided>
                                     <Thead>
                                         <Tr>
-                                            <Th className="min-w-[190px]">Collaborateur</Th>
-                                            <Th className="text-center w-16">Jours</Th>
-                                            <Th className="text-center w-18">Heures</Th>
-                                            <Th className="text-center w-20">
+                                            <Th className="w-[180px] max-w-[200px]">Collaborateur</Th>
+                                            <Th className="text-center w-14">Jours</Th>
+                                            <Th className="text-center w-16">Heures</Th>
+                                            <Th className="text-center w-16">
                                                 <span className="inline-flex items-center gap-1 text-violet-700 dark:text-violet-300">
                                                     <TrendingUp size={11} /> HS 30%
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-20">
+                                            <Th className="text-center w-16">
                                                 <span className="inline-flex items-center gap-1 text-violet-700 dark:text-violet-300">
                                                     <Award size={11} /> HS 50%
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-18">
+                                            <Th className="text-center w-14">
                                                 <span className="inline-flex items-center gap-1 text-sky-700 dark:text-sky-300">
                                                     <Moon size={11} /> Nuit
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-24">
+                                            <Th className="text-center w-20">
                                                 <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300">
                                                     <Sun size={11} /> Repas
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-24">
+                                            <Th className="text-center w-20">
                                                 <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
                                                     <Car size={11} /> Déplac.
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-28">
+                                            <Th className="text-center w-24">
                                                 <span className="inline-flex items-center gap-1 text-teal-700 dark:text-teal-300">
                                                     <Banknote size={11} /> Indemnités
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-20">
+                                            <Th className="text-center w-20" title="Total des retards bruts">
                                                 <span className="inline-flex items-center gap-1 text-orange-700 dark:text-orange-300">
                                                     <Clock size={11} /> Retards
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-24" title="Déficit d'heures nettes (retards non compensés à décompter en paie) ou jours d'absence">
-                                                <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-300">
-                                                    <AlertTriangle size={11} /> Déficit/Abs
+                                            <Th className="text-center w-20" title="Heures supplémentaires brutes avant compensation">
+                                                <span className="inline-flex items-center gap-1 text-indigo-700 dark:text-indigo-300">
+                                                    <TrendingUp size={11} /> Surplus
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-14">Action</Th>
+                                            <Th className="text-center w-22" title="Retards absorbés par le surplus (Règle RG-PTG-05)">
+                                                <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                                                    <Scale size={11} /> Compensé
+                                                </span>
+                                            </Th>
+                                            <Th className="text-center w-24" title="Retenue nette paie : retards résiduels non compensés">
+                                                <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-300">
+                                                    <AlertTriangle size={11} /> Retenue Paie
+                                                </span>
+                                            </Th>
+                                            <Th className="text-center w-16" title="Nombre de jours d'absence injustifiée">
+                                                Absences
+                                            </Th>
+                                            <Th className="text-center w-12">Action</Th>
                                         </Tr>
                                     </Thead>
                                     <Tbody>
@@ -608,9 +620,15 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
                                             return (
                                                 <Tr key={row.idEmploye || row.matricule}>
-                                                    <Td>
-                                                        <div className="font-semibold text-xs text-[var(--color-fg)]">
-                                                            {row.nom} {row.prenom}
+                                                    <Td className="w-[180px] max-w-[200px]">
+                                                        <div className="font-semibold text-xs text-[var(--color-fg)] truncate" title={`${row.nom} ${row.prenom}`}>
+                                                            <Link
+                                                                to={`/employes/${row.idEmploye}?tab=pointage`}
+                                                                className="hover:text-brand-600 hover:underline transition-colors"
+                                                                title={`Consulter le détail pointage de ${row.nom} ${row.prenom}`}
+                                                            >
+                                                                {row.nom} {row.prenom}
+                                                            </Link>
                                                         </div>
                                                         <div className="text-[10px] font-mono text-[var(--color-fg-muted)] flex items-center gap-1.5 mt-0.5">
                                                             <span>{row.matricule}</span>
@@ -693,29 +711,66 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
                                                         )}
                                                     </Td>
+                                                    {/* Retards bruts */}
                                                     <Td className="text-center">
                                                         {(row.totalMinutesRetard || 0) > 0 ? (
-                                                            <span className="inline-block font-mono text-xs text-orange-700 dark:text-orange-300 font-bold bg-orange-500/10 px-1.5 py-0.5 border border-orange-500/20">
-                                                                {Math.round(row.totalMinutesRetard)}min
+                                                            <span
+                                                                className="inline-block font-mono text-xs text-orange-700 dark:text-orange-300 font-bold bg-orange-500/10 px-1.5 py-0.5 border border-orange-500/20"
+                                                                title={`${row.totalMinutesRetard} min de retard brut`}
+                                                            >
+                                                                {formatHeuresMinutes(row.totalMinutesRetard / 60)}
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
                                                         )}
                                                     </Td>
+                                                    {/* Surplus brut */}
+                                                    <Td className="text-center">
+                                                        {(row.surplusBrut || 0) > 0 ? (
+                                                            <span
+                                                                className="inline-block font-mono text-xs text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-500/10 px-1.5 py-0.5 border border-indigo-500/20"
+                                                                title={`Surplus brut total : ${formatHeuresMinutes(row.surplusBrut)}`}
+                                                            >
+                                                                +{formatHeuresMinutes(row.surplusBrut)}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
+                                                        )}
+                                                    </Td>
+                                                    {/* Compensé (1:1) */}
+                                                    <Td className="text-center">
+                                                        {(row.retardCompense || 0) > 0 ? (
+                                                            <span
+                                                                className="inline-block font-mono text-xs text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-500/10 px-1.5 py-0.5 border border-emerald-500/20"
+                                                                title={`Retards absorbés par le surplus : ${formatHeuresMinutes(row.retardCompense)}`}
+                                                            >
+                                                                -{formatHeuresMinutes(row.retardCompense)}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
+                                                        )}
+                                                    </Td>
+                                                    {/* Retenue Paie (Net) */}
                                                     <Td className="text-center">
                                                         {(row.heuresAbsenceRetenues || 0) > 0 ? (
                                                             <span
-                                                                className="inline-block font-mono text-[11px] text-rose-700 dark:text-rose-300 font-bold bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20 cursor-help"
-                                                                title={`Déficit d'heures net à retenir en paie : ${row.heuresAbsenceRetenues}h (retards non compensés par les heures sup)`}
+                                                                className="inline-block font-mono text-xs text-rose-700 dark:text-rose-300 font-bold bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20 cursor-help"
+                                                                title={`Retards nets non compensés à retenir en paie : ${formatHeuresMinutes(row.heuresAbsenceRetenues)}`}
                                                             >
-                                                                {Math.round(row.heuresAbsenceRetenues * 10) / 10}h déf.
+                                                                -{formatHeuresMinutes(row.heuresAbsenceRetenues)}
                                                             </span>
-                                                        ) : (row.nbJoursAbsence || 0) > 0 ? (
+                                                        ) : (
+                                                            <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
+                                                        )}
+                                                    </Td>
+                                                    {/* Absences (Jours) */}
+                                                    <Td className="text-center">
+                                                        {(row.nbJoursAbsence || 0) > 0 ? (
                                                             <span
-                                                                className="inline-block font-mono text-[11px] text-rose-700 dark:text-rose-300 font-bold bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20 cursor-help"
+                                                                className="inline-block font-mono text-xs text-rose-700 dark:text-rose-300 font-bold bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20 cursor-help"
                                                                 title={`Absence non justifiée : ${row.nbJoursAbsence} jour(s)`}
                                                             >
-                                                                {row.nbJoursAbsence}j abs.
+                                                                {row.nbJoursAbsence}j
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
