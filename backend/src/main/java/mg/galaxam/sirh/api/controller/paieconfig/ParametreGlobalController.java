@@ -66,6 +66,8 @@ public class ParametreGlobalController {
                 pg.setCategorie(request.getCategorie());
                 pg.setDateDebut(request.getDateDebut());
                 pg.setDateFin(request.getDateFin());
+                pg.setEstActif(request.getEstActif() != null ? request.getEstActif() : true);
+                pg.setEstDesactivable(request.getEstDesactivable() != null ? request.getEstDesactivable() : false);
 
                 pg.save(c);
                 AuditLog.audit(c, "CREATION", "parametre_global", String.valueOf(pg.getIdParametre()), null, pg);
@@ -94,15 +96,64 @@ public class ParametreGlobalController {
                     return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Paramètre global non trouvé.");
                 }
 
+                if (request.getEstActif() != null && !request.getEstActif() && !Boolean.TRUE.equals(existing.getEstDesactivable())) {
+                    return ResponseEntity.badRequest().body("Ce paramètre est une constante système indispensable et ne peut pas être désactivé.");
+                }
+
                 existing.setCodeParametre(request.getCodeParametre());
                 existing.setValeur(request.getValeur());
                 existing.setDescription(request.getDescription());
                 existing.setCategorie(request.getCategorie());
                 existing.setDateDebut(request.getDateDebut());
                 existing.setDateFin(request.getDateFin());
+                if (request.getEstActif() != null) {
+                    existing.setEstActif(request.getEstActif());
+                }
+                if (request.getEstDesactivable() != null) {
+                    existing.setEstDesactivable(request.getEstDesactivable());
+                }
 
                 existing.update(c);
                 AuditLog.audit(c, "MODIFICATION", "parametre_global", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    @RequestMapping(value = "/{id}/toggle-actif", method = {RequestMethod.PATCH, RequestMethod.PUT})
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN') or hasAuthority('ORGANISATION_WRITE') or hasAuthority('POINTAGE_WRITE')")
+    public ResponseEntity<?> toggleActif(@PathVariable int id, @RequestBody(required = false) java.util.Map<String, Boolean> body) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                ParametreGlobal pg = new ParametreGlobal();
+                ParametreGlobal existing = (ParametreGlobal) pg.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Paramètre global non trouvé.");
+                }
+
+                if (!Boolean.TRUE.equals(existing.getEstDesactivable())) {
+                    return ResponseEntity.badRequest().body("Ce paramètre est une constante système indispensable et ne peut pas être désactivé.");
+                }
+
+                boolean nouveauStatut;
+                if (body != null && body.containsKey("estActif")) {
+                    nouveauStatut = Boolean.TRUE.equals(body.get("estActif"));
+                } else {
+                    nouveauStatut = !Boolean.TRUE.equals(existing.getEstActif());
+                }
+
+                existing.setEstActif(nouveauStatut);
+                existing.update(c);
+                AuditLog.audit(c, nouveauStatut ? "ACTIVATION" : "DESACTIVATION", "parametre_global", String.valueOf(id), null, existing);
 
                 c.commit();
                 return ResponseEntity.ok(existing);

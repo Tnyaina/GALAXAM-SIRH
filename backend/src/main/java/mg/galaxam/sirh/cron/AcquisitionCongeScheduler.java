@@ -83,11 +83,12 @@ public class AcquisitionCongeScheduler {
                         : CongeCalculateurEngine.TAUX_ACQUISITION_MENSUEL.doubleValue();
 
                 // 2. Chargement des paramètres d'organisation interne (plafond de cumul et bonification)
-                Map<String, String> params = ParametreGlobal.loadActiveMap(c);
-                double plafondCumulSolde = ParametreGlobal.getDouble(params, "PLAFOND_CUMUL_SOLDE_CONGE_JOURS", 90.0);
-                int seuilAnciennete = ParametreGlobal.getInt(params, "SEUIL_ANCIENNETE_BONIFICATION_ANS", 5);
-                int palierAnciennete = ParametreGlobal.getInt(params, "PALIER_ANNEES_BONIFICATION", 5);
-                int joursParPalier = ParametreGlobal.getInt(params, "JOURS_BONIFICATION_PAR_PALIER", 1);
+                Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMap(c);
+                double plafondCumulSolde = ParametreGlobal.getDouble(etatMap, "PLAFOND_CUMUL_SOLDE_CONGE_JOURS", 90.0, 90.0);
+                boolean bonificationActive = ParametreGlobal.isActif(etatMap, "SEUIL_ANCIENNETE_BONIFICATION_ANS", true);
+                int seuilAnciennete = bonificationActive ? ParametreGlobal.getInt(etatMap, "SEUIL_ANCIENNETE_BONIFICATION_ANS", 5, 999) : 999;
+                int palierAnciennete = ParametreGlobal.getInt(etatMap, "PALIER_ANNEES_BONIFICATION", 5, 5);
+                int joursParPalier = bonificationActive ? ParametreGlobal.getInt(etatMap, "JOURS_BONIFICATION_PAR_PALIER", 1, 0) : 0;
 
                 // 3. Extraction brute des contrats actifs
                 String sqlContrats = "SELECT ct.id_employe, ct.id_contrat, ct.date_debut " +

@@ -190,6 +190,8 @@ Table parametre_global {
   description text
   date_debut date [not null, note: 'Historisation dans le temps']
   date_fin date [note: 'NULL = valeur actuellement en vigueur']
+  est_actif boolean [not null, default: true, note: 'Actif ou désactivé (inactif != introuvable)']
+  est_desactivable boolean [not null, default: false, note: 'False pour les constantes système protégées (8h, nuit, prescription)']
 
   Note: 'Paramètres opérationnels RH & Pointage uniquement. Les constantes légales et fiscales (SME, plafonds, IRSA, diviseurs) sont dans paie_config_legale.'
 }

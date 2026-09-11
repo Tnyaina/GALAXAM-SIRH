@@ -244,14 +244,19 @@ public class PointageSyntheseService {
         } catch (Exception e) {
             log.warn("Impossible de charger PaieConfigLegale pour seuilHsTranche1, repli sur 8.0 : {}", e.getMessage());
         }
-        double reductionDeplactRepasConfig = ParametreGlobal.getDouble(params, "REDUCTION_DEPLACT_REPAS_MIDI", 1000.0);
-        double montantRepasMidiDefaut = ParametreGlobal.getDouble(params, "MONTANT_REPAS_MIDI", 2000.0);
-        String seuil2eRepas1Str = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_1", "19:30");
+        Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMapAtDate(dateDebut != null ? Date.valueOf(dateDebut) : null, c);
+        double reductionDeplactRepasConfig = ParametreGlobal.getDouble(etatMap, "REDUCTION_DEPLACT_REPAS_MIDI", 1000.0, 0.0);
+        double montantRepasMidiDefaut = ParametreGlobal.getDouble(etatMap, "MONTANT_REPAS_MIDI", 2000.0, 2000.0);
+
+        boolean actif2eRepas1 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_1", true);
+        double montant2eRepas1 = actif2eRepas1 ? ParametreGlobal.getDouble(etatMap, "MONTANT_2ND_REPAS_1", 2000.0, 0.0) : 0.0;
+        String seuil2eRepas1Str = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_1", "19:30", "23:59");
         LocalTime seuil2eRepas1 = LocalTime.parse(seuil2eRepas1Str.length() == 5 ? seuil2eRepas1Str : seuil2eRepas1Str.substring(0, 5));
-        double montant2eRepas1 = ParametreGlobal.getDouble(params, "MONTANT_2ND_REPAS_1", 2000.0);
-        String seuil2eRepas2Str = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_2", "21:00");
+
+        boolean actif2eRepas2 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_2", true);
+        double montant2eRepas2 = actif2eRepas2 ? ParametreGlobal.getDouble(etatMap, "MONTANT_2ND_REPAS_2", 4000.0, 0.0) : 0.0;
+        String seuil2eRepas2Str = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_2", "21:00", "23:59");
         LocalTime seuil2eRepas2 = LocalTime.parse(seuil2eRepas2Str.length() == 5 ? seuil2eRepas2Str : seuil2eRepas2Str.substring(0, 5));
-        double montant2eRepas2 = ParametreGlobal.getDouble(params, "MONTANT_2ND_REPAS_2", 4000.0);
 
         // Résolution de l'horaire continu du site (TRUE = TNR / continu, FALSE = TMM / discontinu)
         boolean siteHoraireContinu;
@@ -1361,13 +1366,18 @@ public class PointageSyntheseService {
         } catch (Exception e) {
             log.warn("Impossible de charger PaieConfigLegale pour seuilHsTranche1, repli sur 8.0 : {}", e.getMessage());
         }
-        double montantRepasMidiDefaut = ParametreGlobal.getDouble(params, "MONTANT_REPAS_MIDI", 2000.0);
-        String seuil2eRepas1Str = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_1", "19:30");
+        Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMapAtDate(dateDebutTroncon != null ? Date.valueOf(dateDebutTroncon) : null, c);
+        double montantRepasMidiDefaut = ParametreGlobal.getDouble(etatMap, "MONTANT_REPAS_MIDI", 2000.0, 2000.0);
+
+        boolean actif2eRepas1 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_1", true);
+        double montant2eRepas1 = actif2eRepas1 ? ParametreGlobal.getDouble(etatMap, "MONTANT_2ND_REPAS_1", 2000.0, 0.0) : 0.0;
+        String seuil2eRepas1Str = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_1", "19:30", "23:59");
         LocalTime seuil2eRepas1 = LocalTime.parse(seuil2eRepas1Str.length() == 5 ? seuil2eRepas1Str : seuil2eRepas1Str.substring(0, 5));
-        double montant2eRepas1 = ParametreGlobal.getDouble(params, "MONTANT_2ND_REPAS_1", 2000.0);
-        String seuil2eRepas2Str = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_2", "21:00");
+
+        boolean actif2eRepas2 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_2", true);
+        double montant2eRepas2 = actif2eRepas2 ? ParametreGlobal.getDouble(etatMap, "MONTANT_2ND_REPAS_2", 4000.0, 0.0) : 0.0;
+        String seuil2eRepas2Str = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_2", "21:00", "23:59");
         LocalTime seuil2eRepas2 = LocalTime.parse(seuil2eRepas2Str.length() == 5 ? seuil2eRepas2Str : seuil2eRepas2Str.substring(0, 5));
-        double montant2eRepas2 = ParametreGlobal.getDouble(params, "MONTANT_2ND_REPAS_2", 4000.0);
 
         // Compter les jours ouvrés du tronçon
         int nbOuvrables = 0;

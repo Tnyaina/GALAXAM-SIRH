@@ -450,13 +450,18 @@ public class DemandeConge extends ClassMere {
                     : BigDecimal.ZERO;
             BigDecimal nouveauSolde = soldeDisponible.subtract(nbJoursDecomptes);
 
+            Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMap(c);
             if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0) {
                 if (!derogationSoldeNegatif) {
                     throw new IllegalArgumentException(
                             "Solde de congé insuffisant (" + soldeDisponible + "j disponibles pour " + nbJoursDecomptes
                                     + "j demandés). Dérogation RH de solde négatif requise.");
                 }
-                int plafondNegatif = getParamGlobalInt("PLAFOND_SOLDE_CONGE_NEGATIF", -10, c);
+                boolean anticipationActive = ParametreGlobal.isActif(etatMap, "PLAFOND_SOLDE_CONGE_NEGATIF", true);
+                if (!anticipationActive) {
+                    throw new IllegalArgumentException("L'anticipation de congé (solde négatif) est actuellement désactivée par la direction RH.");
+                }
+                int plafondNegatif = ParametreGlobal.getInt(etatMap, "PLAFOND_SOLDE_CONGE_NEGATIF", -10, 0);
                 if (nouveauSolde.compareTo(BigDecimal.valueOf(plafondNegatif)) < 0) {
                     throw new IllegalArgumentException("Le solde négatif maximal d'anticipation autorisé est de "
                             + plafondNegatif + " jours (" + nouveauSolde + "j calculés).");
@@ -481,13 +486,14 @@ public class DemandeConge extends ClassMere {
             }
 
             // Trigger alerte SOLDE_CONGE_NEGATIF ou SOLDE_CONGE_FAIBLE
-            int seuilFaible = getParamGlobalInt("SEUIL_ALERTE_SOLDE_CONGE_FAIBLE", 3, c);
+            boolean alerteFaibleActive = ParametreGlobal.isActif(etatMap, "SEUIL_ALERTE_SOLDE_CONGE_FAIBLE", true);
+            int seuilFaible = ParametreGlobal.getInt(etatMap, "SEUIL_ALERTE_SOLDE_CONGE_FAIBLE", 3, 0);
             if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0) {
                 creerNotificationRh("SOLDE_CONGE_NEGATIF", "HAUTE", "Solde Négatif sous Dérogation",
                         "Le solde de congé de l'employé est passé en négatif (" + nouveauSolde
                                 + "j) suite à une dérogation RH.",
                         "/conges/soldes", idEmploye, c);
-            } else if (nouveauSolde.compareTo(BigDecimal.valueOf(seuilFaible)) <= 0) {
+            } else if (alerteFaibleActive && nouveauSolde.compareTo(BigDecimal.valueOf(seuilFaible)) <= 0) {
                 creerNotificationRh("SOLDE_CONGE_FAIBLE", "NORMALE", "Solde de Congé Faible",
                         "Le solde de congé disponible est faible (" + nouveauSolde + "j restants).",
                         "/conges/soldes", idEmploye, c);

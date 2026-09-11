@@ -1192,14 +1192,18 @@ public class PointageSaisieService {
             return result;
         }
 
-        Map<String, String> params = ParametreGlobal.loadActiveMap(c);
-        String seuilRepas1 = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_1", "19:30");
-        double mntRepas1 = ParametreGlobal.getDouble(params, "MONTANT_2ND_REPAS_1", 2000.0);
-        String seuilRepas2 = ParametreGlobal.getString(params, "SEUIL_2ND_REPAS_2", "21:00");
-        double mntRepas2 = ParametreGlobal.getDouble(params, "MONTANT_2ND_REPAS_2", 4000.0);
-        double mntRepasMidi = ParametreGlobal.getDouble(params, "MONTANT_REPAS_MIDI", 2000.0);
-        String debutNuitStr = ParametreGlobal.getString(params, "SEUIL_NUIT_DEBUT", "22:00");
-        String finNuitStr = ParametreGlobal.getString(params, "SEUIL_NUIT_FIN", "05:00");
+        Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMap(c);
+        boolean actif2eRepas1 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_1", true);
+        double mntRepas1 = actif2eRepas1 ? ParametreGlobal.getDouble(etatMap, "MONTANT_2ND_REPAS_1", 2000.0, 0.0) : 0.0;
+        String seuilRepas1 = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_1", "19:30", "23:59");
+
+        boolean actif2eRepas2 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_2", true);
+        double mntRepas2 = actif2eRepas2 ? ParametreGlobal.getDouble(etatMap, "MONTANT_2ND_REPAS_2", 4000.0, 0.0) : 0.0;
+        String seuilRepas2 = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_2", "21:00", "23:59");
+
+        double mntRepasMidi = ParametreGlobal.getDouble(etatMap, "MONTANT_REPAS_MIDI", 2000.0, 2000.0);
+        String debutNuitStr = ParametreGlobal.getString(etatMap, "SEUIL_NUIT_DEBUT", "22:00", "22:00");
+        String finNuitStr = ParametreGlobal.getString(etatMap, "SEUIL_NUIT_FIN", "05:00", "05:00");
         LocalTime debutNuit = LocalTime.parse(debutNuitStr.length() == 5 ? debutNuitStr : debutNuitStr.substring(0, 5));
         LocalTime finNuit = LocalTime.parse(finNuitStr.length() == 5 ? finNuitStr : finNuitStr.substring(0, 5));
 

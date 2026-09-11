@@ -183,6 +183,10 @@ const paieConfigService = {
         const response = await apiClient.put(`/referentiel/parametres-globaux/${id}`, data);
         return response.data;
     },
+    toggleParametreGlobalActif: async (id, estActif) => {
+        const response = await apiClient.put(`/referentiel/parametres-globaux/${id}/toggle-actif`, { estActif });
+        return response.data;
+    },
 
     // ----------------------------------------------------
     // CALENDRIER DES JOURS FERIES & CHOMES

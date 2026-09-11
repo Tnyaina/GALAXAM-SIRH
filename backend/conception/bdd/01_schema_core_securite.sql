@@ -111,6 +111,8 @@ CREATE TABLE parametre_global (
     description TEXT,
     date_debut DATE NOT NULL,
     date_fin DATE,
+    est_actif BOOLEAN NOT NULL DEFAULT TRUE,
+    est_desactivable BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT uq_parametre_global_code_date UNIQUE (code_parametre, date_debut)
 );
 
@@ -226,31 +228,31 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (2, 'POINTAGE_SUIVI');
 
 -- Paramètres Globaux Opérationnels RH (Les constantes légales sont portées exclusivement par paie_config_legale)
-INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, description, date_debut, date_fin) VALUES
-(3, 'SEUIL_NUIT_DEBUT', 'POINTAGE', '22:00', 'Début du travail de nuit (Art. 83 Code Travail Malgache)', '2026-01-01', NULL),
-(4, 'SEUIL_NUIT_FIN', 'POINTAGE', '05:00', 'Fin du travail de nuit', '2026-01-01', NULL),
-(5, 'MONTANT_REPAS_MIDI', 'POINTAGE', '2000', 'Indemnité repas midi de référence en Ariary', '2026-01-01', NULL),
-(6, 'SEUIL_2ND_REPAS_1', 'POINTAGE', '19:30', 'Heure sortie mini pour 2ᵉ repas tranche 1', '2026-01-01', NULL),
-(7, 'MONTANT_2ND_REPAS_1', 'POINTAGE', '2000', '2ᵉ repas tranche 1 en Ariary (19h30-21h00)', '2026-01-01', NULL),
-(8, 'SEUIL_2ND_REPAS_2', 'POINTAGE', '21:00', 'Heure sortie mini pour 2ᵉ repas tranche 2', '2026-01-01', NULL),
-(9, 'MONTANT_2ND_REPAS_2', 'POINTAGE', '4000', '2ᵉ repas tranche 2 en Ariary (> 21h00)', '2026-01-01', NULL),
-(10, 'SEUIL_PAUSE_MIDI_MIN', 'POINTAGE', '60', 'Pause midi minimale en minutes (détection « ne rentre pas midi » TMM)', '2026-01-01', NULL),
-(11, 'REDUCTION_DEPLACT_REPAS_MIDI', 'POINTAGE', '1000', 'Déduction indemnité déplacement (en Ar) si repas midi reçu sur site TMM', '2026-01-01', NULL),
-(12, 'SEUIL_HEURES_JOUR', 'RH_GENERAL', '8', 'Durée normale d une journée de travail (utilisée par Pointage)', '2026-01-01', NULL),
-(14, 'DUREE_MAX_CDD_MOIS', 'CONTRAT', '72', 'Durée maximale cumulée d un CDD et de ses deux renouvellements (72 mois / 6 ans). Chaque CDD ne peut excéder 24 mois.', '2026-01-01', NULL),
-(15, 'NB_MAX_RENOUVELLEMENTS_CDD', 'CONTRAT', '2', 'Nombre maximal de renouvellements d un CDD par avenant (2 fois max). Au 3ème renouvellement, requalification en CDI.', '2026-01-01', NULL),
-(16, 'MAX_RENOUVELLEMENTS_ESSAI', 'RH_GENERAL', '1', 'Nombre maximal de renouvellements autorisés pour une période d essai (droit malgache : 1 seul renouvellement)', '2026-01-01', NULL),
-(18, 'PLAFOND_CUMUL_SOLDE_CONGE_JOURS', 'CONGE', '90', 'Plafond légal du solde cumulé de congés payés (30j acquis/an x 3 ans de prescription, Art. 85)', '2026-01-01', NULL),
-(19, 'DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS', 'CONGE', '36', 'Durée au-delà de laquelle un jour de congé acquis et non pris expire (prescription triennale) — alimente le job batch générant les mouvements EXPIRATION', '2026-01-01', NULL),
-(20, 'PLAFOND_SOLDE_CONGE_NEGATIF', 'CONGE', '-10', 'Solde négatif maximum autorisable par dérogation RH lors d une prise de congé par anticipation (2 à 4 mois d acquisition future)', '2026-01-01', NULL),
-(21, 'SEUIL_ALERTE_SOLDE_CONGE_FAIBLE', 'CONGE', '3', 'Nombre de jours de solde en-dessous duquel l alerte SOLDE_CONGE_FAIBLE se déclenche', '2026-01-01', NULL),
-(22, 'DELAI_PREAVIS_COURT_JOURS', 'CONGE', '2', 'Préavis minimum (en jours avant date_debut) pour une demande courte durée (Art. 85)', '2026-01-01', NULL),
-(23, 'DELAI_PREAVIS_LONG_JOURS', 'CONGE', '15', 'Préavis minimum pour une demande longue durée (seuil défini par SEUIL_JOURS_PREAVIS_LONG)', '2026-01-01', NULL),
-(24, 'SEUIL_JOURS_PREAVIS_LONG', 'CONGE', '3', 'Nombre de jours posés à partir duquel le préavis long (DELAI_PREAVIS_LONG_JOURS) s applique au lieu du préavis court', '2026-01-01', NULL),
-(26, 'DUREE_MAX_MATERNITE_STANDARD_JOURS', 'CONGE', '98', 'Durée légale standard du congé maternité (14 semaines calendaires, Art. 85)', '2026-01-01', NULL),
-(27, 'DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS', 'CONGE', '119', 'Durée maximale du congé maternité en cas d extension pour état pathologique (98 + 21j)', '2026-01-01', NULL),
-(28, 'SEUIL_ANCIENNETE_BONIFICATION_ANS', 'CONGE', '3', 'Ancienneté minimale (en années) à partir de laquelle la bonification de congé s applique (Art. 86/87)', '2026-01-01', NULL),
-(29, 'PALIER_ANNEES_BONIFICATION', 'CONGE', '5', 'Nombre d années par tranche donnant droit à un jour de bonification supplémentaire (Art. 86/87)', '2026-01-01', NULL),
-(30, 'JOURS_BONIFICATION_PAR_PALIER', 'CONGE', '1', 'Nombre de jours de congé supplémentaires accordés par tranche d ancienneté atteinte (Art. 86/87)', '2026-01-01', NULL)
-ON CONFLICT (code_parametre, date_debut) DO UPDATE SET valeur = EXCLUDED.valeur, description = EXCLUDED.description;
+INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, description, date_debut, date_fin, est_actif, est_desactivable) VALUES
+(3, 'SEUIL_NUIT_DEBUT', 'POINTAGE', '22:00', 'Début du travail de nuit (Art. 83 Code Travail Malgache)', '2026-01-01', NULL, TRUE, FALSE),
+(4, 'SEUIL_NUIT_FIN', 'POINTAGE', '05:00', 'Fin du travail de nuit', '2026-01-01', NULL, TRUE, FALSE),
+(5, 'MONTANT_REPAS_MIDI', 'POINTAGE', '2000', 'Indemnité repas midi de référence en Ariary', '2026-01-01', NULL, TRUE, FALSE),
+(6, 'SEUIL_2ND_REPAS_1', 'POINTAGE', '19:30', 'Heure sortie mini pour 2ᵉ repas tranche 1', '2026-01-01', NULL, TRUE, TRUE),
+(7, 'MONTANT_2ND_REPAS_1', 'POINTAGE', '2000', '2ᵉ repas tranche 1 en Ariary (19h30-21h00)', '2026-01-01', NULL, TRUE, TRUE),
+(8, 'SEUIL_2ND_REPAS_2', 'POINTAGE', '21:00', 'Heure sortie mini pour 2ᵉ repas tranche 2', '2026-01-01', NULL, TRUE, TRUE),
+(9, 'MONTANT_2ND_REPAS_2', 'POINTAGE', '4000', '2ᵉ repas tranche 2 en Ariary (> 21h00)', '2026-01-01', NULL, TRUE, TRUE),
+(10, 'SEUIL_PAUSE_MIDI_MIN', 'POINTAGE', '60', 'Pause midi minimale en minutes (détection « ne rentre pas midi » TMM)', '2026-01-01', NULL, TRUE, FALSE),
+(11, 'REDUCTION_DEPLACT_REPAS_MIDI', 'POINTAGE', '1000', 'Déduction indemnité déplacement (en Ar) si repas midi reçu sur site TMM', '2026-01-01', NULL, TRUE, TRUE),
+(12, 'SEUIL_HEURES_JOUR', 'RH_GENERAL', '8', 'Durée normale d une journée de travail (utilisée par Pointage)', '2026-01-01', NULL, TRUE, FALSE),
+(14, 'DUREE_MAX_CDD_MOIS', 'CONTRAT', '72', 'Durée maximale cumulée d un CDD et de ses deux renouvellements (72 mois / 6 ans). Chaque CDD ne peut excéder 24 mois.', '2026-01-01', NULL, TRUE, FALSE),
+(15, 'NB_MAX_RENOUVELLEMENTS_CDD', 'CONTRAT', '2', 'Nombre maximal de renouvellements d un CDD par avenant (2 fois max). Au 3ème renouvellement, requalification en CDI.', '2026-01-01', NULL, TRUE, FALSE),
+(16, 'MAX_RENOUVELLEMENTS_ESSAI', 'RH_GENERAL', '1', 'Nombre maximal de renouvellements autorisés pour une période d essai (droit malgache : 1 seul renouvellement)', '2026-01-01', NULL, TRUE, FALSE),
+(18, 'PLAFOND_CUMUL_SOLDE_CONGE_JOURS', 'CONGE', '90', 'Plafond légal du solde cumulé de congés payés (30j acquis/an x 3 ans de prescription, Art. 85)', '2026-01-01', NULL, TRUE, FALSE),
+(19, 'DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS', 'CONGE', '36', 'Durée au-delà de laquelle un jour de congé acquis et non pris expire (prescription triennale) — alimente le job batch générant les mouvements EXPIRATION', '2026-01-01', NULL, TRUE, FALSE),
+(20, 'PLAFOND_SOLDE_CONGE_NEGATIF', 'CONGE', '-10', 'Solde négatif maximum autorisable par dérogation RH lors d une prise de congé par anticipation (2 à 4 mois d acquisition future)', '2026-01-01', NULL, TRUE, TRUE),
+(21, 'SEUIL_ALERTE_SOLDE_CONGE_FAIBLE', 'CONGE', '3', 'Nombre de jours de solde en-dessous duquel l alerte SOLDE_CONGE_FAIBLE se déclenche', '2026-01-01', NULL, TRUE, TRUE),
+(22, 'DELAI_PREAVIS_COURT_JOURS', 'CONGE', '2', 'Préavis minimum (en jours avant date_debut) pour une demande courte durée (Art. 85)', '2026-01-01', NULL, TRUE, FALSE),
+(23, 'DELAI_PREAVIS_LONG_JOURS', 'CONGE', '15', 'Préavis minimum pour une demande longue durée (seuil défini par SEUIL_JOURS_PREAVIS_LONG)', '2026-01-01', NULL, TRUE, FALSE),
+(24, 'SEUIL_JOURS_PREAVIS_LONG', 'CONGE', '3', 'Nombre de jours posés à partir duquel le préavis long (DELAI_PREAVIS_LONG_JOURS) s applique au lieu du préavis court', '2026-01-01', NULL, TRUE, FALSE),
+(26, 'DUREE_MAX_MATERNITE_STANDARD_JOURS', 'CONGE', '98', 'Durée légale standard du congé maternité (14 semaines calendaires, Art. 85)', '2026-01-01', NULL, TRUE, FALSE),
+(27, 'DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS', 'CONGE', '119', 'Durée maximale du congé maternité en cas d extension pour état pathologique (98 + 21j)', '2026-01-01', NULL, TRUE, FALSE),
+(28, 'SEUIL_ANCIENNETE_BONIFICATION_ANS', 'CONGE', '3', 'Ancienneté minimale (en années) à partir de laquelle la bonification de congé s applique (Art. 86/87)', '2026-01-01', NULL, TRUE, TRUE),
+(29, 'PALIER_ANNEES_BONIFICATION', 'CONGE', '5', 'Nombre d années par tranche donnant droit à un jour de bonification supplémentaire (Art. 86/87)', '2026-01-01', NULL, TRUE, TRUE),
+(30, 'JOURS_BONIFICATION_PAR_PALIER', 'CONGE', '1', 'Nombre de jours de congé supplémentaires accordés par tranche d ancienneté atteinte (Art. 86/87)', '2026-01-01', NULL, TRUE, TRUE)
+ON CONFLICT (code_parametre, date_debut) DO UPDATE SET valeur = EXCLUDED.valeur, description = EXCLUDED.description, est_actif = EXCLUDED.est_actif, est_desactivable = EXCLUDED.est_desactivable;
 SELECT setval('parametre_global_id_parametre_seq', (SELECT GREATEST(MAX(id_parametre), 30) FROM parametre_global));

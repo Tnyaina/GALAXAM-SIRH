@@ -168,4 +168,96 @@ public class StructureEtAdministrationIntegrationTest {
             assertTrue(token.startsWith("eyJ"), "Le token JWT doit être valide et commencer par eyJ");
         }
     }
+
+    @Test
+    @Order(6)
+    @DisplayName("STRUC-06 : Gestion active/inactive des règles et distinction clé inactive vs clé introuvable")
+    void testParametresGlobauxActivationEtDistinctionInactifIntrouvable() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMap(c);
+
+            // 1. Constante système protégée : SEUIL_HEURES_JOUR (non désactivable)
+            ParametreGlobal.ParametreEtat pSeuilH = etatMap.get("SEUIL_HEURES_JOUR");
+            assertNotNull(pSeuilH, "SEUIL_HEURES_JOUR doit exister");
+            assertTrue(pSeuilH.isEstActif(), "SEUIL_HEURES_JOUR doit être actif");
+            assertFalse(pSeuilH.isEstDesactivable(), "SEUIL_HEURES_JOUR ne doit pas être désactivable");
+
+            // 2. Règle débrayable : REDUCTION_DEPLACT_REPAS_MIDI
+            ParametreGlobal.ParametreEtat pReduct = etatMap.get("REDUCTION_DEPLACT_REPAS_MIDI");
+            assertNotNull(pReduct, "REDUCTION_DEPLACT_REPAS_MIDI doit exister");
+            assertTrue(pReduct.isEstDesactivable(), "REDUCTION_DEPLACT_REPAS_MIDI doit être débrayable");
+
+            // 3. Test de distinction sémantique :
+            // A) Clé INTROUVABLE : doit utiliser la valeur par défaut / repli technique (ex: 999.0)
+            double valIntrouvable = ParametreGlobal.getDouble(etatMap, "CLE_INEXISTANTE_XYZ", 999.0, 0.0);
+            assertEquals(999.0, valIntrouvable, "Une clé absente doit renvoyer le fallback technique par défaut");
+
+            // B) Simulation clé INACTIVE (coupure volontaire par RH)
+            c.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE parametre_global SET est_actif = FALSE WHERE code_parametre = 'REDUCTION_DEPLACT_REPAS_MIDI'")) {
+                    ps.executeUpdate();
+                }
+
+                Map<String, ParametreGlobal.ParametreEtat> mapModifiee = ParametreGlobal.loadEtatMap(c);
+                assertFalse(ParametreGlobal.isActif(mapModifiee, "REDUCTION_DEPLACT_REPAS_MIDI", true));
+
+                // Si inactive, la valeur métier doit être coupée (0.0), et NON le fallback de 1000.0 !
+                double valInactive = ParametreGlobal.getDouble(mapModifiee, "REDUCTION_DEPLACT_REPAS_MIDI", 1000.0, 0.0);
+                assertEquals(0.0, valInactive, "Une règle désactivée doit appliquer la coupure (0.0) et non le repli fallback (1000.0)");
+
+            } finally {
+                c.rollback();
+                c.setAutoCommit(true);
+            }
+        }
+    }
+
+    @Autowired
+    private mg.galaxam.sirh.api.controller.paieconfig.ParametreGlobalController parametreGlobalController;
+
+    @Test
+    @Order(7)
+    @DisplayName("STRUC-07 : Contrôleur toggle-actif (rejet constante système 400 et succès règle débrayable 200)")
+    void testParametreGlobalControllerToggleActifEndpoint() throws Exception {
+        org.springframework.security.core.context.SecurityContext origContext = org.springframework.security.core.context.SecurityContextHolder.getContext();
+        try {
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    "admin", "N/A", java.util.List.of(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"),
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("PAIE_WRITE")
+                    )
+                )
+            );
+
+            try (Connection c = dataSource.getConnection()) {
+                // 1. Constante système SEUIL_HEURES_JOUR -> doit renvoyer 400 Bad Request
+                int idSeuilH = 12;
+                try (PreparedStatement ps = c.prepareStatement("SELECT id_parametre FROM parametre_global WHERE code_parametre = 'SEUIL_HEURES_JOUR'")) {
+                    ResultSet rs = ps.executeQuery();
+                    if (rs.next()) idSeuilH = rs.getInt(1);
+                }
+                org.springframework.http.ResponseEntity<?> respRejet = parametreGlobalController.toggleActif(idSeuilH, Map.of("estActif", false));
+                assertEquals(400, respRejet.getStatusCode().value(), "Désactiver une constante système doit être rejeté en 400");
+
+                // 2. Règle débrayable REDUCTION_DEPLACT_REPAS_MIDI -> doit renvoyer 200 OK
+                int idReduct = 11;
+                try (PreparedStatement ps = c.prepareStatement("SELECT id_parametre FROM parametre_global WHERE code_parametre = 'REDUCTION_DEPLACT_REPAS_MIDI'")) {
+                    ResultSet rs = ps.executeQuery();
+                    if (rs.next()) idReduct = rs.getInt(1);
+                }
+                org.springframework.http.ResponseEntity<?> respToggle = parametreGlobalController.toggleActif(idReduct, Map.of("estActif", false));
+                assertEquals(200, respToggle.getStatusCode().value(), "Désactiver une règle débrayable doit renvoyer 200");
+
+                // Rétablir à true
+                org.springframework.http.ResponseEntity<?> respRestore = parametreGlobalController.toggleActif(idReduct, Map.of("estActif", true));
+                assertEquals(200, respRestore.getStatusCode().value());
+            }
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.setContext(origContext);
+        }
+    }
 }
+
