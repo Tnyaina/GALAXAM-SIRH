@@ -23,6 +23,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     const [sites, setSites] = useState([]);
     const canWrite = hasPermission('POINTAGE_WRITE');
     const canValidate = hasPermission('POINTAGE_VALIDATE');
+    const canReadConge = hasPermission('CONGE_READ');
 
     const todayStr = getTodayDateString();
     const paramDate = searchParams.get('date');
@@ -381,7 +382,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                     statusCounts={statusCounts}
                     onAutoFillStandard={handleAutoFill}
                     onAutoDeducePauses={handleAutoPauses}
-                    onAddConge={() => navigate('/conges?tab=demandes')}
+                    onAddConge={canReadConge ? () => navigate('/conges?tab=demandes') : null}
                     isReadOnly={isReadOnly}
                     onSave={handleRequestSave}
                     saving={saving}

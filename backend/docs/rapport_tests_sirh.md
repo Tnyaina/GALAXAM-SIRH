@@ -3,8 +3,8 @@
 **Projet** : GALAXAM-SIRH (Système d'Information des Ressources Humaines)  
 **Stack technique** : Spring Boot 4.1.0 / Java 17 / PostgreSQL 15 (Active Record via JDBC) / React 19  
 **Date du rapport** : 11 Septembre 2026  
-**Statut global de la suite de tests** : **100% PASSÉ (116 tests exécutés, 0 échec, 0 erreur, 0 ignoré)**  
-**Temps total d'exécution** : **1 minute 10 secondes** (sur base de données réelle PostgreSQL dédiée)
+**Statut global de la suite de tests** : **100% PASSÉ (117 tests exécutés, 0 échec, 0 erreur, 0 ignoré)**  
+**Temps total d'exécution** : **1 minute 14 secondes** (sur base de données réelle PostgreSQL dédiée)
 
 ---
 
@@ -42,7 +42,7 @@ Pour éviter tout impact sur les données opérationnelles et garantir une repro
 
 ---
 
-## 3. Inventaire Exhaustif des 116 Tests Réalisés
+## 3. Inventaire Exhaustif des 117 Tests Réalisés
 
 ### Palier 1 : Moteurs de Domaine & Calculs Purs (53 Tests Unitaires)
 
@@ -58,12 +58,6 @@ Pour éviter tout impact sur les données opérationnelles et garantir une repro
 | **`CongeCalculateurEngineTest`** | 6 | - Décompte des jours ouvrables de congé (lundi-vendredi)<br>- Demi-journées (0.5j)<br>- Règle Article 13 : scission automatique pour arrêts maladie continus > 30 jours. |
 | **`PurgeFifoEngineTest`** | 1 | - Purge triennale FIFO des droits de congés échus. |
 | **`EmployeValidationEngineTest`** | 5 | - Format CIN malgache (12 chiffres stricts)<br>- Cohérence date de délivrance vs majorité (>= 18 ans)<br>- Téléphone malgache valide (034, 032, 033, 038)<br>- Format email et validation du sexe. |
-| **`MatriculeGeneratorEngineTest`** | 4 | - Format séquentiel à 4 chiffres (`0001`, `0002`) sans collision. |
-
----
-
-### Palier 2 : Intégration REST API & Persistance Réelle (26 Tests MockMvc)
-
 | Classe de Test | Nb Tests | Scénarios Validés via Appels API Directs |
 | :--- | :---: | :--- |
 | **`PaieControllerIntegrationTest`** | 5 | - `POST /paie/calculer-employe` (simulation: true) : vérification de la non-imputation des avances<br>- `POST /paie/calculer-employe` (simulation: false) : calcul réel, persistance du bulletin, ventilation des lignes et imputation définitive de l'acompte (`IMPUTE_PAIE`)<br>- `GET /paie/bulletin/{id}` : consultation du bulletin détaillé<br>- `POST /paie/calculer-periode` & Cycle de Vie : validation collective, clôture (verrouillage `CLOTUREE`), et réouverture exceptionnelle motivée (`EN_COURS`)<br>- `GET /paie/periode/{id}/export/*` : exports réglementaires (SAFI 25 colonnes JSON et CSV, EDI ISI XML, DNTS CNaPS, Ordre de virement bancaire). |
@@ -90,6 +84,7 @@ Pour éviter tout impact sur les données opérationnelles et garantir une repro
 
 | Classe de Test | Nb Tests | Déroulement du Workflow Réel |
 | :--- | :---: | :--- |
+| **`GrandWorkflowOhatraE2ETest`** | 1 | **GRAND MASTER E2E (Modèle Réel Ohatra - 100% API REST)** :<br>1. Recrutement via `POST /employes` (RAKETAKA TNR & RAKOTO TMM)<br>2. Workflows d'embauche initiale `POST /employes/{id}/workflows/embauche-initiale` + validation DAF `PUT /workflows/{id}/valider`<br>3. Demande et validation DAF de congés `POST /conges/demandes` + `POST /conges/demandes/{id}/valider`<br>4. Saisie pointage lot `POST /pointages/saisie/batch` sur **les 21 jours ouvrés réels (26/12 au 25/01, 25 déc férié)** : TNR avec repas midi (2 000 Ar/j), TMM **sans repas midi** (0 Ar)<br>5. Synthèse pointage `POST /pointages/synthese/calculer-tout`, transmission DAF `POST /pointages/synthese/transmettre-daf` et validation DAF `POST /pointages/synthese/valider-daf`<br>6. Variables de paie DAF `POST /paie/ajustements` (CALL PERSO 21 470 Ar, Primes AUTIMP 25 257.14 Ar et 56 182.14 Ar)<br>7. Calcul paie `POST /paie/calculer-periode`, validation `POST /paie/valider-periode`<br>8. Rapprochement avec le modèle Ohatra : RAKETAKA TNR (CNaPS 1%, OSTIE 1%, IRSA 31 500 Ar, Net arrondi 567 080 Ar) et RAKOTO TMM (CNaPS 1%, OMSI 1.5%, 0 repas, Transport 53 200 Ar, Net arrondi 479 960 Ar). |
 | **`PointageE2EWorkflowTest`** | 1 | Saisie hebdomadaire par l'Agent -> Calcul autoritaire serveur -> Transmission DAF -> Rejet motivé DAF -> Correction OCC -> Re-transmission -> Validation finale DAF et scellement dans `pointage_cumul_periode`. |
 | **`CarriereE2EWorkflowTest`** | 1 | Embauche CDD (5 mois) -> Validation DAF -> Renouvellement CDD (+5 mois) -> Validation DAF -> Transformation finale en CDI -> Validation DAF et vérification de la chaîne contractuelle en base. |
 | **`CongeE2EWorkflowTest`** | 1 | Demande de congé annuel avec préavis légal -> Validation DAF -> Débit solde FIFO (-5j) -> Reconnaissance automatique dans la grille de pointage en statut `CONGE` (0h). |

@@ -94,15 +94,17 @@ export default function PointageToolbar({
                         <Coffee size={13} className="text-amber-600 shrink-0" />
                         <span>Pauses</span>
                     </button>
-                    <button
-                        type="button"
-                        onClick={onAddConge}
-                        title="Déclarer un congé ou une absence pour un collaborateur"
-                        className="flex items-center gap-1.5 px-3 h-[32px] text-xs font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                        <CalendarOff size={13} className="shrink-0" />
-                        <span>Absence / Congé</span>
-                    </button>
+                    {onAddConge && (
+                        <button
+                            type="button"
+                            onClick={onAddConge}
+                            title="Déclarer un congé ou une absence pour un collaborateur"
+                            className="flex items-center gap-1.5 px-3 h-[32px] text-xs font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap"
+                        >
+                            <CalendarOff size={13} className="shrink-0" />
+                            <span>Absence / Congé</span>
+                        </button>
+                    )}
 
                     <div className="h-5 w-px bg-[var(--color-border-subtle)] shrink-0" />
 
