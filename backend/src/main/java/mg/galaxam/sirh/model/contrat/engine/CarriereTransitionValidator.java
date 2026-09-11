@@ -27,29 +27,39 @@ public final class CarriereTransitionValidator {
             boolean autorisePeriodeEssai) {}
 
     private static final Map<String, Set<String>> EVENEMENTS_AUTORISES_PAR_SOURCE = Map.of(
-            "STAGE", Set.of("EMBAUCHE_APRES_STAGE"),
+            "STAGE", Set.of(
+                    "EMBAUCHE_APRES_STAGE",
+                    "FIN_CONTRAT", "RUPTURE_ESSAI", "DEMISSION"),
             "CDD", Set.of(
                     "TRANSFORMATION_CDI", "RENOUVELLEMENT_CDD", "REPRISE_ANCIENNETE",
                     "MUTATION", "PROMOTION", "REVALORISATION", "REORGANISATION",
-                    "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI"),
+                    "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI", "RUPTURE_ESSAI",
+                    "FIN_CONTRAT", "DEMISSION", "LICENCIEMENT", "RUPTURE_CONVENTIONNELLE", "DEPART_RETRAITE"),
             "CDI", Set.of(
                     "REPRISE_ANCIENNETE", "MUTATION", "PROMOTION", "REVALORISATION",
                     "REORGANISATION", "REPRISE_CONSULTANT",
-                    "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI"),
+                    "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI", "RUPTURE_ESSAI",
+                    "DEMISSION", "LICENCIEMENT", "RUPTURE_CONVENTIONNELLE", "DEPART_RETRAITE", "FIN_CONTRAT"),
             "PRESTATION", Set.of(
-                    "TRANSFORMATION_CDI", "REPRISE_ANCIENNETE", "MUTATION", "PROMOTION",
-                    "REVALORISATION", "REORGANISATION"),
+                    "TRANSFORMATION_CDI",
+                    "FIN_CONTRAT", "RUPTURE_CONVENTIONNELLE"),
             "TEMPORAIRE", Set.of(
-                    "TRANSFORMATION_CDI", "REPRISE_ANCIENNETE", "MUTATION", "PROMOTION",
-                    "REVALORISATION", "REORGANISATION"));
+                    "TRANSFORMATION_CDI",
+                    "FIN_CONTRAT", "RUPTURE_CONVENTIONNELLE"));
 
-    private static final Map<String, ContraintesEvenement> CONTRAINTES_PAR_EVENEMENT = Map.of(
-            "EMBAUCHE_APRES_STAGE", new ContraintesEvenement(List.of("CDI", "CDD"), List.of("PERMANENT"), true),
-            "TRANSFORMATION_CDI", new ContraintesEvenement(List.of("CDI"), List.of("PERMANENT"), false),
-            "RENOUVELLEMENT_CDD", new ContraintesEvenement(List.of("CDD"), List.of("PERMANENT"), false),
-            "REPRISE_CONSULTANT", new ContraintesEvenement(List.of("PRESTATION"), List.of("CONSULTANT"), false),
-            "CONFIRMATION_ESSAI", new ContraintesEvenement(List.of("CDD", "CDI"), List.of(), false),
-            "RENOUVELLEMENT_ESSAI", new ContraintesEvenement(List.of("CDD", "CDI"), List.of(), false));
+    private static final Map<String, ContraintesEvenement> CONTRAINTES_PAR_EVENEMENT = Map.ofEntries(
+            Map.entry("EMBAUCHE_APRES_STAGE", new ContraintesEvenement(List.of("CDI", "CDD"), List.of("PERMANENT"), true)),
+            Map.entry("TRANSFORMATION_CDI", new ContraintesEvenement(List.of("CDI"), List.of("PERMANENT"), false)),
+            Map.entry("RENOUVELLEMENT_CDD", new ContraintesEvenement(List.of("CDD"), List.of("PERMANENT"), false)),
+            Map.entry("REPRISE_CONSULTANT", new ContraintesEvenement(List.of("PRESTATION"), List.of("CONSULTANT"), false)),
+            Map.entry("CONFIRMATION_ESSAI", new ContraintesEvenement(List.of("CDD", "CDI"), List.of(), false)),
+            Map.entry("RENOUVELLEMENT_ESSAI", new ContraintesEvenement(List.of("CDD", "CDI"), List.of(), false)),
+            Map.entry("RUPTURE_ESSAI", new ContraintesEvenement(List.of(), List.of(), false)),
+            Map.entry("DEMISSION", new ContraintesEvenement(List.of(), List.of(), false)),
+            Map.entry("LICENCIEMENT", new ContraintesEvenement(List.of(), List.of(), false)),
+            Map.entry("RUPTURE_CONVENTIONNELLE", new ContraintesEvenement(List.of(), List.of(), false)),
+            Map.entry("DEPART_RETRAITE", new ContraintesEvenement(List.of(), List.of(), false)),
+            Map.entry("FIN_CONTRAT", new ContraintesEvenement(List.of(), List.of(), false)));
 
     /**
      * Compatibilité avec les appels existants qui ne disposent pas de connexion.
@@ -90,6 +100,8 @@ public final class CarriereTransitionValidator {
             validerConfirmationEssai(idContratReference, c);
         } else if ("RENOUVELLEMENT_ESSAI".equals(event)) {
             validerRenouvellementEssai(idContratReference, dateDebutCible, dateFinCible, c);
+        } else if ("RUPTURE_ESSAI".equals(event)) {
+            validerRuptureEssai(idContratReference, c);
         }
     }
 
@@ -112,10 +124,10 @@ public final class CarriereTransitionValidator {
             throw new IllegalArgumentException(genererMessageIneligibilite(source, event));
         }
 
-        if ("STAGE".equals(source) && !"EMBAUCHE_APRES_STAGE".equals(event)) {
+        if ("STAGE".equals(source) && Set.of("MUTATION", "PROMOTION", "REVALORISATION", "REORGANISATION", "TRANSFORMATION_CDI", "RENOUVELLEMENT_CDD").contains(event)) {
             throw new IllegalArgumentException(
                     "Un collaborateur sous convention de Stage ne peut pas faire l'objet d'un avenant interne. " +
-                    "Veuillez procéder à un 'Passage Stage vers CDD/CDI'.");
+                    "Veuillez procéder à un 'Passage Stage vers CDD/CDI' ou enregistrer une fin de stage.");
         }
 
         ContraintesEvenement regle = CONTRAINTES_PAR_EVENEMENT.get(event);
@@ -158,6 +170,14 @@ public final class CarriereTransitionValidator {
         if (workflowExiste(idContrat, "CONFIRMATION_ESSAI", c)) {
             throw new IllegalStateException(
                     "La période d'essai de ce contrat a déjà été confirmée ou une confirmation est déjà planifiée.");
+        }
+    }
+
+    private static void validerRuptureEssai(Integer idContrat, Connection c) throws Exception {
+        exigerContrat(idContrat, "La rupture de la période d'essai nécessite un contrat de référence.");
+        if (!periodeEssaiEnCours(idContrat, c)) {
+            throw new IllegalStateException(
+                    "Aucune période d'essai EN_COURS trouvée pour ce contrat. Impossible de rompre une période déjà terminée ou inexistante.");
         }
     }
 
@@ -376,10 +396,16 @@ public final class CarriereTransitionValidator {
                     "La transformation en CDI requiert un contrat source compatible avec cette transition (contrat actuel: " + source + ").";
             case "RENOUVELLEMENT_CDD" ->
                     "Le renouvellement de CDD requiert un contrat source de type CDD (contrat actuel: " + source + ").";
-            case "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI" ->
-                    "L'événement '" + evenement + "' nécessite un contrat de type CDD ou CDI (contrat actuel: " + source + ").";
+            case "CONFIRMATION_ESSAI", "RENOUVELLEMENT_ESSAI", "RUPTURE_ESSAI" ->
+                    "L'événement '" + evenement + "' nécessite un contrat avec période d'essai de type CDD ou CDI (contrat actuel: " + source + ").";
             case "REPRISE_CONSULTANT" ->
                     "Le passage en consultant indépendant requiert un contrat source compatible avec cette transition (contrat actuel: " + source + ").";
+            case "MUTATION", "PROMOTION", "REVALORISATION", "REORGANISATION" -> {
+                if ("PRESTATION".equals(source) || "TEMPORAIRE".equals(source)) {
+                    yield "Les intervenants sous contrat '" + source + "' ne peuvent pas faire l'objet d'avenants de carrière interne de salarié (risque de requalification légale). Veuillez procéder à une embauche en CDI.";
+                }
+                yield "L'événement '" + evenement + "' n'est pas autorisé pour un contrat source de type '" + source + "'.";
+            }
             default ->
                     "L'événement '" + evenement + "' n'est pas autorisé pour un contrat source de type '" + source + "'.";
         };

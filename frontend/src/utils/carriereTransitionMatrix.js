@@ -56,13 +56,13 @@ export const TRANSITION_RULES_BY_SOURCE = {
     PRESTATION: {
         allowedEvents: [
             'TRANSFORMATION_CDI',
-            'REPRISE_ANCIENNETE',
-            'MUTATION',
-            'PROMOTION',
-            'REVALORISATION',
-            'REORGANISATION',
         ],
         disabledReasons: {
+            MUTATION: 'Les prestataires externes ne peuvent pas faire l\'objet de mutations internes de salariés.',
+            PROMOTION: 'Les prestataires externes ne peuvent pas faire l\'objet de promotions internes de salariés.',
+            REVALORISATION: 'Les honoraires de prestation sont régis par négociation commerciale.',
+            REORGANISATION: 'Non applicable à un contrat de prestation.',
+            REPRISE_ANCIENNETE: 'Un prestataire externe ne cumule pas d\'ancienneté de salarié.',
             EMBAUCHE_APRES_STAGE: 'Réservé aux stagiaires conventionnés.',
             RENOUVELLEMENT_CDD: 'Nécessite un contrat CDD actif.',
         },
@@ -70,13 +70,13 @@ export const TRANSITION_RULES_BY_SOURCE = {
     TEMPORAIRE: {
         allowedEvents: [
             'TRANSFORMATION_CDI',
-            'REPRISE_ANCIENNETE',
-            'MUTATION',
-            'PROMOTION',
-            'REVALORISATION',
-            'REORGANISATION',
         ],
         disabledReasons: {
+            MUTATION: 'Non applicable à un travailleur temporaire.',
+            PROMOTION: 'Non applicable à un travailleur temporaire.',
+            REVALORISATION: 'Non applicable à un travailleur temporaire.',
+            REORGANISATION: 'Non applicable à un travailleur temporaire.',
+            REPRISE_ANCIENNETE: 'Non applicable à un travailleur temporaire.',
             EMBAUCHE_APRES_STAGE: 'Réservé aux stagiaires conventionnés.',
             RENOUVELLEMENT_CDD: 'Nécessite un contrat CDD actif.',
         },
@@ -153,7 +153,8 @@ export const EXCLUDED_EVENT_CODES = [
     'EMBAUCHE_INITIALE', 'RUPTURE_CONTRAT', 'DEMISSION', 'LICENCIEMENT',
     'RETRAITE', 'FIN_CONTRAT', 'CONFIRMATION_ESSAI', 'RENOUVELLEMENT_ESSAI',
     'DECES', 'ABANDON_POSTE', 'RUPTURE_NEGOCIEE', 'LICENCIEMENT_FAUTE',
-    'LICENCIEMENT_ECONOMIQUE', 'FIN_PERIODE_ESSAI', 'DEPART_RETRAITE'
+    'LICENCIEMENT_ECONOMIQUE', 'FIN_PERIODE_ESSAI', 'DEPART_RETRAITE',
+    'RUPTURE_CONVENTIONNELLE', 'RUPTURE_ESSAI'
 ];
 
 export const DEFAULT_RELEVANT_EVENTS = [
