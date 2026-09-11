@@ -139,6 +139,14 @@ const paieConfigService = {
         const response = await apiClient.put(`/referentiel/indemnites/${id}`, data);
         return response.data;
     },
+    deactivateIndemnite: async (id) => {
+        const response = await apiClient.put(`/referentiel/indemnites/${id}/desactiver`);
+        return response.data;
+    },
+    activateIndemnite: async (id) => {
+        const response = await apiClient.put(`/referentiel/indemnites/${id}/activer`);
+        return response.data;
+    },
     getSiteIndemnites: async () => {
         const response = await apiClient.get('/referentiel/indemnites/site-config');
         return response.data;
@@ -149,6 +157,14 @@ const paieConfigService = {
     },
     updateSiteIndemnite: async (id, data) => {
         const response = await apiClient.put(`/referentiel/indemnites/site-config/${id}`, data);
+        return response.data;
+    },
+    deactivateSiteIndemnite: async (id) => {
+        const response = await apiClient.put(`/referentiel/indemnites/site-config/${id}/desactiver`);
+        return response.data;
+    },
+    activateSiteIndemnite: async (id) => {
+        const response = await apiClient.put(`/referentiel/indemnites/site-config/${id}/activer`);
         return response.data;
     },
 

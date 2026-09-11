@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Edit2, Gift, MapPin, ShieldAlert } from 'lucide-react';
+import { Plus, Edit2, Gift, MapPin, ShieldAlert, Power, Check } from 'lucide-react';
 import DerogationIndemnitesTab from '@/components/parametres/pointage/DerogationIndemnitesTab';
 import paieConfigService from '@/api/admin/paieConfigService';
 import organisationService from '@/api/admin/organisationService';
@@ -12,8 +12,9 @@ import { fmtDateInput, fmtMoney, PERIODICITES_INDEMNITE } from '@/utils/paieUtil
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
-import Modal from '@/components/ui/overlays/Modal';
+import FormModal from '@/components/ui/overlays/FormModal';
 import Tabs from '@/components/ui/navigation/Tabs';
+import useConfirm from '@/hooks/useConfirm';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function IndemnitesSitesTab() {
@@ -40,6 +41,7 @@ export default function IndemnitesSitesTab() {
     const [actionError, setActionError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const toast = useToast();
+    const { confirm, ConfirmModal } = useConfirm();
 
     // Modale Indemnité
     const [showIndemniteModal, setShowIndemniteModal] = useState(false);
@@ -102,6 +104,45 @@ export default function IndemnitesSitesTab() {
         }
     };
 
+    const requestToggleIndemniteStatus = (item) => {
+        const isActif = item.estActif !== false;
+        const actionText = isActif ? 'Désactiver' : 'Activer';
+        confirm({
+            title: `${actionText} l'indemnité`,
+            message: isActif
+                ? `Êtes-vous sûr de vouloir désactiver l'indemnité "${item.libelle}" (${item.code}) ?\n\nATTENTION : Cela désactivera automatiquement tous ses tarifs par site d'exploitation et clôturera les dérogations individuelles associées.`
+                : `Êtes-vous sûr de vouloir réactiver l'indemnité "${item.libelle}" (${item.code}) ?`,
+            confirmLabel: actionText,
+            variant: isActif ? 'danger' : 'primary',
+            onConfirm: async () => {
+                try {
+                    if (isActif) {
+                        await paieConfigService.deactivateIndemnite(item.idIndemnite);
+                        toast({
+                            title: 'Indemnité désactivée',
+                            message: `L'indemnité "${item.code}" et ses configurations associées ont été désactivées.`,
+                            type: 'success'
+                        });
+                    } else {
+                        await paieConfigService.activateIndemnite(item.idIndemnite);
+                        toast({
+                            title: 'Indemnité réactivée',
+                            message: `L'indemnité "${item.code}" a été réactivée avec succès.`,
+                            type: 'success'
+                        });
+                    }
+                    loadData();
+                } catch (err) {
+                    toast({
+                        title: 'Erreur',
+                        message: err.response?.data?.message || err.response?.data || "Erreur lors du changement de statut.",
+                        type: 'error'
+                    });
+                }
+            }
+        });
+    };
+
     // Handlers Site Indemnité
     const handleSaveSiteIndemnite = async (e) => {
         e.preventDefault();
@@ -133,6 +174,45 @@ export default function IndemnitesSitesTab() {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const requestToggleSiteIndemniteStatus = (item) => {
+        const isActif = item.estActif !== false;
+        const actionText = isActif ? 'Désactiver' : 'Activer';
+        confirm({
+            title: `${actionText} le tarif par site`,
+            message: isActif
+                ? `Êtes-vous sûr de vouloir désactiver le tarif de "${item.indemniteLibelle}" pour le site "${item.siteLibelle}" ?\n\nCela clôturera également la date de validité à aujourd'hui.`
+                : `Êtes-vous sûr de vouloir réactiver ce tarif pour le site "${item.siteLibelle}" ?`,
+            confirmLabel: actionText,
+            variant: isActif ? 'danger' : 'primary',
+            onConfirm: async () => {
+                try {
+                    if (isActif) {
+                        await paieConfigService.deactivateSiteIndemnite(item.idSiteIndemnite);
+                        toast({
+                            title: 'Tarif désactivé',
+                            message: `Le tarif d'indemnité a été désactivé.`,
+                            type: 'success'
+                        });
+                    } else {
+                        await paieConfigService.activateSiteIndemnite(item.idSiteIndemnite);
+                        toast({
+                            title: 'Tarif réactivé',
+                            message: `Le tarif d'indemnité a été réactivé.`,
+                            type: 'success'
+                        });
+                    }
+                    loadData();
+                } catch (err) {
+                    toast({
+                        title: 'Erreur',
+                        message: err.response?.data?.message || err.response?.data || "Erreur lors du changement de statut.",
+                        type: 'error'
+                    });
+                }
+            }
+        });
     };
 
     // Liste des options de mode de calcul d'indemnité explicites
@@ -194,12 +274,13 @@ export default function IndemnitesSitesTab() {
                             <Th>Libellé</Th>
                             <Th>Mode Pointage</Th>
                             <Th>Régime Fiscal IRSA</Th>
+                            <Th>Statut</Th>
                             <Th className="text-right">Actions</Th>
                         </Thead>
                         <Tbody>
                             {indemnites.length === 0 ? (
                                 <Tr>
-                                    <Td colSpan={5} className="p-0">
+                                    <Td colSpan={6} className="p-0">
                                         <EmptyState
                                             icon={Gift}
                                             title="Aucune indemnité configurée"
@@ -215,42 +296,75 @@ export default function IndemnitesSitesTab() {
                                     </Td>
                                 </Tr>
                             ) : (
-                                indemnites.map((ind) => (
-                                    <Tr key={ind.idIndemnite}>
-                                        <Td isData className="font-bold text-[var(--color-brand-500)]">{ind.code}</Td>
-                                        <Td className="font-bold text-[var(--color-fg)]">{ind.libelle}</Td>
-                                        <Td>
-                                            <Badge variant={ind.fractionnable ? 'brand' : 'default'} size="sm">
-                                                {ind.fractionnable ? "Demi-journée (M / S)" : "Journée entière"}
-                                            </Badge>
-                                        </Td>
-                                        <Td>
-                                            <Badge variant={ind.imposableIrsa ? 'warning' : 'success'} size="sm">
-                                                {ind.imposableIrsa ? "Imposable (IRSA)" : "Exonéré"}
-                                            </Badge>
-                                        </Td>
-                                        <Td className="text-right">
-                                            <button
-                                                onClick={() => {
-                                                    setEditingIndemnite(ind);
-                                                    setIndemniteFormData({
-                                                        code: ind.code,
-                                                        libelle: ind.libelle,
-                                                        imposableIrsa: ind.imposableIrsa,
-                                                        fractionnable: !!ind.fractionnable
-                                                    });
-                                                    setActionError(null);
-                                                    setShowIndemniteModal(true);
-                                                }}
-                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
-                                                title="Modifier l'indemnité"
-                                                aria-label={`Modifier ${ind.libelle}`}
-                                            >
-                                                <Edit2 size={15} />
-                                            </button>
-                                        </Td>
-                                    </Tr>
-                                ))
+                                indemnites.map((ind) => {
+                                    const isActif = ind.estActif !== false;
+                                    return (
+                                        <Tr key={ind.idIndemnite}>
+                                            <Td isData className="font-bold text-[var(--color-brand-500)]">{ind.code}</Td>
+                                            <Td className="font-bold text-[var(--color-fg)]">{ind.libelle}</Td>
+                                            <Td>
+                                                <Badge variant={ind.fractionnable ? 'brand' : 'default'} size="sm">
+                                                    {ind.fractionnable ? "Demi-journée (M / S)" : "Journée entière"}
+                                                </Badge>
+                                            </Td>
+                                            <Td>
+                                                <Badge variant={ind.imposableIrsa ? 'warning' : 'success'} size="sm">
+                                                    {ind.imposableIrsa ? "Imposable (IRSA)" : "Exonéré"}
+                                                </Badge>
+                                            </Td>
+                                            <Td>
+                                                <Badge
+                                                    variant={isActif ? 'success' : 'default'}
+                                                    size="sm"
+                                                    dot
+                                                >
+                                                    {isActif ? 'Actif' : 'Désactivé'}
+                                                </Badge>
+                                            </Td>
+                                            <Td className="text-right">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingIndemnite(ind);
+                                                            setIndemniteFormData({
+                                                                code: ind.code,
+                                                                libelle: ind.libelle,
+                                                                imposableIrsa: ind.imposableIrsa,
+                                                                fractionnable: !!ind.fractionnable
+                                                            });
+                                                            setActionError(null);
+                                                            setShowIndemniteModal(true);
+                                                        }}
+                                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                                        title="Modifier l'indemnité"
+                                                        aria-label={`Modifier ${ind.libelle}`}
+                                                    >
+                                                        <Edit2 size={15} />
+                                                    </button>
+                                                    {isActif ? (
+                                                        <button
+                                                            onClick={() => requestToggleIndemniteStatus(ind)}
+                                                            className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
+                                                            title="Désactiver l'indemnité (cascade sur sites et dérogations)"
+                                                            aria-label={`Désactiver ${ind.libelle}`}
+                                                        >
+                                                            <Power size={15} />
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => requestToggleIndemniteStatus(ind)}
+                                                            className="p-1.5 text-[var(--color-success-600)] hover:bg-[var(--color-success-600)]/10 rounded-none cursor-pointer transition-colors"
+                                                            title="Réactiver l'indemnité"
+                                                            aria-label={`Réactiver ${ind.libelle}`}
+                                                        >
+                                                            <Check size={15} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </Td>
+                                        </Tr>
+                                    );
+                                })
                             )}
                         </Tbody>
                     </Table>
@@ -293,12 +407,13 @@ export default function IndemnitesSitesTab() {
                             <Th>Indemnité</Th>
                             <Th>Périodicité</Th>
                             <Th className="text-right">Montant Référence</Th>
+                            <Th>Statut</Th>
                             <Th className="text-right">Actions</Th>
                         </Thead>
                         <Tbody>
                             {siteIndemnites.length === 0 ? (
                                 <Tr>
-                                    <Td colSpan={5} className="p-0">
+                                    <Td colSpan={6} className="p-0">
                                         <EmptyState
                                             icon={MapPin}
                                             title="Aucun tarif par site configuré"
@@ -321,49 +436,82 @@ export default function IndemnitesSitesTab() {
                                     </Td>
                                 </Tr>
                             ) : (
-                                siteIndemnites.map((si) => (
-                                    <Tr key={si.idSiteIndemnite}>
-                                        <Td className="font-bold text-[var(--color-fg)]">
-                                            <div className="flex items-center gap-2">
-                                                <MapPin size={15} className="text-[var(--color-brand-500)] shrink-0" />
-                                                <span>{si.siteLibelle}</span>
-                                            </div>
-                                        </Td>
-                                        <Td className="font-medium text-[var(--color-fg)]">
-                                            {si.indemniteLibelle} <span className="font-mono text-xs text-[var(--color-fg-muted)]">({si.indemniteCode})</span>
-                                        </Td>
-                                        <Td>
-                                            <Badge variant="default" size="sm">
-                                                {PERIODICITES_INDEMNITE.find(p => p.value === si.periodicite)?.label?.split(' ')[0] || si.periodicite}
-                                            </Badge>
-                                        </Td>
-                                        <Td isData className="text-right font-bold text-[var(--color-brand-500)]">
-                                            {fmtMoney(si.montantReference)}
-                                        </Td>
-                                        <Td className="text-right">
-                                            <button
-                                                onClick={() => {
-                                                    setEditingSiteIndemnite(si);
-                                                    setSiteIndemniteFormData({
-                                                        idSite: si.idSite,
-                                                        idIndemnite: si.idIndemnite,
-                                                        periodicite: si.periodicite,
-                                                        montantReference: si.montantReference,
-                                                        dateDebut: fmtDateInput(si.dateDebut) || todayStr,
-                                                        dateFin: fmtDateInput(si.dateFin) || ''
-                                                    });
-                                                    setActionError(null);
-                                                    setShowSiteIndemniteModal(true);
-                                                }}
-                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
-                                                title="Modifier le tarif"
-                                                aria-label={`Modifier le tarif pour ${si.siteLibelle}`}
-                                            >
-                                                <Edit2 size={15} />
-                                            </button>
-                                        </Td>
-                                    </Tr>
-                                ))
+                                siteIndemnites.map((si) => {
+                                    const isActif = si.estActif !== false;
+                                    return (
+                                        <Tr key={si.idSiteIndemnite}>
+                                            <Td className="font-bold text-[var(--color-fg)]">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin size={15} className="text-[var(--color-brand-500)] shrink-0" />
+                                                    <span>{si.siteLibelle}</span>
+                                                </div>
+                                            </Td>
+                                            <Td className="font-medium text-[var(--color-fg)]">
+                                                {si.indemniteLibelle} <span className="font-mono text-xs text-[var(--color-fg-muted)]">({si.indemniteCode})</span>
+                                            </Td>
+                                            <Td>
+                                                <Badge variant="default" size="sm">
+                                                    {PERIODICITES_INDEMNITE.find(p => p.value === si.periodicite)?.label?.split(' ')[0] || si.periodicite}
+                                                </Badge>
+                                            </Td>
+                                            <Td isData className="text-right font-bold text-[var(--color-brand-500)]">
+                                                {fmtMoney(si.montantReference)}
+                                            </Td>
+                                            <Td>
+                                                <Badge
+                                                    variant={isActif ? 'success' : 'default'}
+                                                    size="sm"
+                                                    dot
+                                                >
+                                                    {isActif ? 'Actif' : 'Désactivé'}
+                                                </Badge>
+                                            </Td>
+                                            <Td className="text-right">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingSiteIndemnite(si);
+                                                            setSiteIndemniteFormData({
+                                                                idSite: si.idSite,
+                                                                idIndemnite: si.idIndemnite,
+                                                                periodicite: si.periodicite,
+                                                                montantReference: si.montantReference,
+                                                                dateDebut: fmtDateInput(si.dateDebut) || todayStr,
+                                                                dateFin: fmtDateInput(si.dateFin) || ''
+                                                            });
+                                                            setActionError(null);
+                                                            setShowSiteIndemniteModal(true);
+                                                        }}
+                                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                                        title="Modifier le tarif"
+                                                        aria-label={`Modifier le tarif pour ${si.siteLibelle}`}
+                                                    >
+                                                        <Edit2 size={15} />
+                                                    </button>
+                                                    {isActif ? (
+                                                        <button
+                                                            onClick={() => requestToggleSiteIndemniteStatus(si)}
+                                                            className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
+                                                            title="Désactiver le tarif site"
+                                                            aria-label={`Désactiver le tarif pour ${si.siteLibelle}`}
+                                                        >
+                                                            <Power size={15} />
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => requestToggleSiteIndemniteStatus(si)}
+                                                            className="p-1.5 text-[var(--color-success-600)] hover:bg-[var(--color-success-600)]/10 rounded-none cursor-pointer transition-colors"
+                                                            title="Réactiver le tarif site"
+                                                            aria-label={`Réactiver le tarif pour ${si.siteLibelle}`}
+                                                        >
+                                                            <Check size={15} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </Td>
+                                        </Tr>
+                                    );
+                                })
                             )}
                         </Tbody>
                     </Table>
@@ -375,26 +523,19 @@ export default function IndemnitesSitesTab() {
                 <DerogationIndemnitesTab />
             )}
 
-            {/* Modale Indemnité */}
-            <Modal
+            {/* Modale Formulaire Indemnité */}
+            <FormModal
                 isOpen={showIndemniteModal}
                 onClose={() => setShowIndemniteModal(false)}
+                onSubmit={handleSaveIndemnite}
                 title={editingIndemnite ? "Modifier l'Indemnité" : "Nouvelle Indemnité"}
                 icon={<Gift size={18} />}
                 size="md"
-                footer={
-                    <>
-                        <Button type="button" onClick={() => setShowIndemniteModal(false)} variant="ghost" size="sm" disabled={submitting}>
-                            Annuler
-                        </Button>
-                        <Button type="submit" form="indemnite-form" variant="primary" size="sm" loading={submitting}>
-                            {editingIndemnite ? "Enregistrer" : "Créer l'indemnité"}
-                        </Button>
-                    </>
-                }
+                isEdit={!!editingIndemnite}
+                loading={submitting}
+                error={actionError}
             >
-                <form id="indemnite-form" onSubmit={handleSaveIndemnite} className="space-y-4">
-                    {actionError && <Alert type="error" message={actionError} />}
+                <div className="space-y-4">
                     <Input
                         label="Code de l'Indemnité"
                         required
@@ -422,29 +563,22 @@ export default function IndemnitesSitesTab() {
                             onChange={(e) => setIndemniteFormData({ ...indemniteFormData, fractionnable: e.target.checked })}
                         />
                     </div>
-                </form>
-            </Modal>
+                </div>
+            </FormModal>
 
-            {/* Modale Site Indemnité */}
-            <Modal
+            {/* Modale Formulaire Site Indemnité */}
+            <FormModal
                 isOpen={showSiteIndemniteModal}
                 onClose={() => setShowSiteIndemniteModal(false)}
+                onSubmit={handleSaveSiteIndemnite}
                 title={editingSiteIndemnite ? "Modifier le Tarif par Site" : "Nouveau Tarif par Site"}
                 icon={<MapPin size={18} />}
                 size="md"
-                footer={
-                    <>
-                        <Button type="button" onClick={() => setShowSiteIndemniteModal(false)} variant="ghost" size="sm" disabled={submitting}>
-                            Annuler
-                        </Button>
-                        <Button type="submit" form="site-indemnite-form" variant="primary" size="sm" loading={submitting}>
-                            {editingSiteIndemnite ? "Enregistrer" : "Créer le tarif"}
-                        </Button>
-                    </>
-                }
+                isEdit={!!editingSiteIndemnite}
+                loading={submitting}
+                error={actionError}
             >
-                <form id="site-indemnite-form" onSubmit={handleSaveSiteIndemnite} className="space-y-4">
-                    {actionError && <Alert type="error" message={actionError} />}
+                <div className="space-y-4">
                     <Select
                         label="Site d'Exploitation"
                         required
@@ -453,7 +587,7 @@ export default function IndemnitesSitesTab() {
                     >
                         <option value="">-- Choisir un site --</option>
                         {sites
-                            .filter(s => s.estActif !== false && s.actif !== false || String(s.idSite) === String(siteIndemniteFormData.idSite))
+                            .filter(s => (s.estActif !== false && s.actif !== false) || String(s.idSite) === String(siteIndemniteFormData.idSite))
                             .map((s) => (
                                 <option key={s.idSite} value={s.idSite}>{s.libelle} ({s.codeSite})</option>
                             ))}
@@ -465,9 +599,11 @@ export default function IndemnitesSitesTab() {
                         onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, idIndemnite: e.target.value })}
                     >
                         <option value="">-- Choisir une indemnité --</option>
-                        {indemnites.map((i) => (
-                            <option key={i.idIndemnite} value={i.idIndemnite}>{i.libelle} ({i.code})</option>
-                        ))}
+                        {indemnites
+                            .filter(i => (i.estActif !== false) || String(i.idIndemnite) === String(siteIndemniteFormData.idIndemnite))
+                            .map((i) => (
+                                <option key={i.idIndemnite} value={i.idIndemnite}>{i.libelle} ({i.code})</option>
+                            ))}
                     </Select>
                     <div className="grid grid-cols-2 gap-3">
                         <Select
@@ -509,8 +645,11 @@ export default function IndemnitesSitesTab() {
                             onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, dateFin: e.target.value })}
                         />
                     </div>
-                </form>
-            </Modal>
+                </div>
+            </FormModal>
+
+            {/* Modale de confirmation globale */}
+            <ConfirmModal />
         </div>
     );
 }

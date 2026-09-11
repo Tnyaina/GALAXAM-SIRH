@@ -110,6 +110,60 @@ public class IndemniteController {
         }
     }
 
+    @PutMapping("/{id}/desactiver")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deactivateIndemnite(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefIndemnite ind = new RefIndemnite();
+                RefIndemnite existing = (RefIndemnite) ind.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Indemnité non trouvée.");
+                }
+
+                existing.desactiver(c);
+                AuditLog.audit(c, "DESACTIVATION", "ref_indemnite", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    @PutMapping("/{id}/activer")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> activateIndemnite(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefIndemnite ind = new RefIndemnite();
+                RefIndemnite existing = (RefIndemnite) ind.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Indemnité non trouvée.");
+                }
+
+                existing.activer(c);
+                AuditLog.audit(c, "ACTIVATION", "ref_indemnite", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
     // Config Indemnités par Site
     @GetMapping("/site-config")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
@@ -186,4 +240,61 @@ public class IndemniteController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
         }
     }
+
+    @PutMapping("/site-config/{id}/desactiver")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deactivateSiteIndemnite(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                SiteIndemniteConfig sic = new SiteIndemniteConfig();
+                SiteIndemniteConfig existing = (SiteIndemniteConfig) sic.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Configuration d'indemnité site non trouvée.");
+                }
+
+                existing.setEstActif(false);
+                existing.update(c);
+                AuditLog.audit(c, "DESACTIVATION", "site_indemnite_config", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    @PutMapping("/site-config/{id}/activer")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> activateSiteIndemnite(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                SiteIndemniteConfig sic = new SiteIndemniteConfig();
+                SiteIndemniteConfig existing = (SiteIndemniteConfig) sic.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Configuration d'indemnité site non trouvée.");
+                }
+
+                existing.setEstActif(true);
+                existing.update(c);
+                AuditLog.audit(c, "ACTIVATION", "site_indemnite_config", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
 }
+

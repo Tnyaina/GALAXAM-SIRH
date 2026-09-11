@@ -1,8 +1,6 @@
 import { MapPin } from 'lucide-react';
-import Button from '@/components/ui/forms/Button';
 import { Select } from '@/components/ui/forms/Input';
-import Modal from '@/components/ui/overlays/Modal';
-import Alert from '@/components/ui/feedback/Alert';
+import FormModal from '@/components/ui/overlays/FormModal';
 
 export default function SiteCotisationFormModal({
     isOpen,
@@ -16,60 +14,48 @@ export default function SiteCotisationFormModal({
     submitting = false,
 }) {
     return (
-        <Modal
+        <FormModal
             isOpen={isOpen}
             onClose={onClose}
+            onSubmit={onSubmit}
             title="Associer une Cotisation à un Site"
             icon={<MapPin size={18} />}
             size="md"
-            footer={
-                <>
-                    <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>
-                        Annuler
-                    </Button>
-                    <Button type="submit" form="site-cotisation-form" variant="primary" size="sm" loading={submitting}>
-                        Associer
-                    </Button>
-                </>
-            }
+            submitLabel="Associer"
+            loading={submitting}
+            error={actionError}
         >
-            <form id="site-cotisation-form" onSubmit={onSubmit} className="space-y-4">
-                {actionError && (
-                    <Alert type="error" message={actionError} />
-                )}
+            <Select
+                label="Site d'Exploitation"
+                required
+                value={formData.idSite}
+                onChange={(e) => setFormData({ ...formData, idSite: e.target.value })}
+            >
+                <option value="">-- Sélectionner un site --</option>
+                {sites
+                    .filter(s => s.estActif !== false && s.actif !== false || String(s.idSite) === String(formData.idSite))
+                    .map((s) => (
+                        <option key={s.idSite} value={s.idSite}>
+                            {s.libelle} ({s.codeSite})
+                        </option>
+                    ))}
+            </Select>
 
-                <Select
-                    label="Site d'Exploitation"
-                    required
-                    value={formData.idSite}
-                    onChange={(e) => setFormData({ ...formData, idSite: e.target.value })}
-                >
-                    <option value="">-- Sélectionner un site --</option>
-                    {sites
-                        .filter(s => s.estActif !== false && s.actif !== false || String(s.idSite) === String(formData.idSite))
-                        .map((s) => (
-                            <option key={s.idSite} value={s.idSite}>
-                                {s.libelle} ({s.codeSite})
-                            </option>
-                        ))}
-                </Select>
-
-                <Select
-                    label="Type de Cotisation"
-                    required
-                    value={formData.idTypeCotisation}
-                    onChange={(e) => setFormData({ ...formData, idTypeCotisation: e.target.value })}
-                >
-                    <option value="">-- Sélectionner une cotisation --</option>
-                    {cotisations
-                        .filter(c => !c.portee || c.portee === 'SITE')
-                        .map((c) => (
-                            <option key={c.idTypeCotisation} value={c.idTypeCotisation}>
-                                {c.code} - {c.libelle} (Salarial: {c.tauxSalarial}%, Patronal: {c.tauxPatronal}%)
-                            </option>
-                        ))}
-                </Select>
-            </form>
-        </Modal>
+            <Select
+                label="Type de Cotisation"
+                required
+                value={formData.idTypeCotisation}
+                onChange={(e) => setFormData({ ...formData, idTypeCotisation: e.target.value })}
+            >
+                <option value="">-- Sélectionner une cotisation --</option>
+                {cotisations
+                    .filter(c => !c.portee || c.portee === 'SITE')
+                    .map((c) => (
+                        <option key={c.idTypeCotisation} value={c.idTypeCotisation}>
+                            {c.code} - {c.libelle} (Salarial: {c.tauxSalarial}%, Patronal: {c.tauxPatronal}%)
+                        </option>
+                    ))}
+            </Select>
+        </FormModal>
     );
 }

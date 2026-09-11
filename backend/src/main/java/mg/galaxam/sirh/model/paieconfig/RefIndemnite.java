@@ -7,6 +7,8 @@ import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 
+import mg.galaxam.sirh.model.pointage.EmployeIndemniteDerogation;
+
 public class RefIndemnite extends ClassMere {
 
     private Integer idIndemnite;
@@ -118,6 +120,98 @@ public class RefIndemnite extends ClassMere {
             }
         }
         return list;
+    }
+
+    /**
+     * Désactive transactionnellement l'indemnité et cascade la désactivation :
+     * 1. Désactivation de l'indemnité de référence (est_actif = false)
+     * 2. Désactivation des grilles tarifaires par site (site_indemnite_config)
+     * 3. Clôture des dérogations individuelles d'employés actives (employe_indemnite_derogation)
+     *
+     * @param c Connexion JDBC avec transaction active
+     * @return tableau de 2 entiers [nbSitesDesactives, nbDerogationsCloturees]
+     * @throws Exception en cas d'erreur SQL
+     */
+    public int[] desactiver(Connection c) throws Exception {
+        if (this.idIndemnite == null) {
+            throw new IllegalArgumentException("L'identifiant de l'indemnité est obligatoire pour la désactivation.");
+        }
+
+        this.estActif = false;
+
+        // 1. Désactiver l'indemnité dans ref_indemnite
+        String sql = "UPDATE ref_indemnite SET est_actif = false WHERE id_indemnite = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, this.idIndemnite);
+            ps.executeUpdate();
+        }
+
+        // 2. Cascade sur site_indemnite_config
+        int nbSites = SiteIndemniteConfig.desactiverParIndemnite(this.idIndemnite, c);
+
+        // 3. Cascade sur employe_indemnite_derogation
+        int nbDerogations = EmployeIndemniteDerogation.cloturerParIndemnite(this.idIndemnite, c);
+
+        return new int[]{nbSites, nbDerogations};
+    }
+
+    /**
+     * Réactive l'indemnité dans ref_indemnite.
+     *
+     * @param c Connexion JDBC active
+     * @throws Exception en cas d'erreur SQL
+     */
+    public void activer(Connection c) throws Exception {
+        if (this.idIndemnite == null) {
+            throw new IllegalArgumentException("L'identifiant de l'indemnité est obligatoire pour l'activation.");
+        }
+
+        this.estActif = true;
+
+        String sql = "UPDATE ref_indemnite SET est_actif = true WHERE id_indemnite = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, this.idIndemnite);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Fonction transactionnelle autonome pour désactiver une indemnité avec cascade globale.
+     * Gère explicitement le commit / rollback.
+     *
+     * @param idIndemnite ID de l'indemnité
+     * @param c Connexion JDBC
+     * @return l'entité RefIndemnite mise à jour
+     * @throws Exception en cas d'erreur
+     */
+    public static RefIndemnite desactiverTransactionnel(int idIndemnite, Connection c) throws Exception {
+        boolean originalAutoCommit = c.getAutoCommit();
+        if (originalAutoCommit) {
+            c.setAutoCommit(false);
+        }
+        try {
+            RefIndemnite ind = new RefIndemnite();
+            RefIndemnite existing = (RefIndemnite) ind.rechercherParId(idIndemnite, c);
+            if (existing == null) {
+                throw new IllegalArgumentException("Indemnité introuvable avec l'ID : " + idIndemnite);
+            }
+
+            existing.desactiver(c);
+
+            if (originalAutoCommit) {
+                c.commit();
+            }
+            return existing;
+        } catch (Exception ex) {
+            if (originalAutoCommit) {
+                c.rollback();
+            }
+            throw ex;
+        } finally {
+            if (originalAutoCommit) {
+                c.setAutoCommit(true);
+            }
+        }
     }
 
     // Getters / Setters

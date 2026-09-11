@@ -153,6 +153,25 @@ public class SiteIndemniteConfig extends ClassMere {
         return list;
     }
 
+    /**
+     * Désactive en masse toutes les configurations d'indemnités par site rattachées à une indemnité donnée.
+     * Met est_actif à false et clôture la date_fin si elle était indéterminée ou future.
+     *
+     * @param idIndemnite identifiant de l'indemnité
+     * @param c connexion JDBC transactionnelle
+     * @return nombre de lignes affectées
+     * @throws Exception en cas d'erreur SQL
+     */
+    public static int desactiverParIndemnite(int idIndemnite, Connection c) throws Exception {
+        String sql = "UPDATE site_indemnite_config SET est_actif = false, " +
+                     "date_fin = LEAST(COALESCE(date_fin, CURRENT_DATE), CURRENT_DATE) " +
+                     "WHERE id_indemnite = ? AND (est_actif = true OR date_fin IS NULL OR date_fin > CURRENT_DATE)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idIndemnite);
+            return ps.executeUpdate();
+        }
+    }
+
     // Getters / Setters
     public Integer getIdSiteIndemnite() { return idSiteIndemnite; }
     public void setIdSiteIndemnite(Integer idSiteIndemnite) { this.idSiteIndemnite = idSiteIndemnite; }

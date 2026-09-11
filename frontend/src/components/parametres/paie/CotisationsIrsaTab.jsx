@@ -7,7 +7,7 @@ import { fmtDateInput } from '@/utils/paieUtils';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
-import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import useConfirm from '@/hooks/useConfirm';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 import CotisationsList from './cotisations/CotisationsList';
@@ -41,16 +41,7 @@ export default function CotisationsIrsaTab() {
     const toast = useToast();
     const [showInactive, setShowInactive] = useState(false);
 
-    // Confirmation Dialog state
-    const [confirmState, setConfirmState] = useState({
-        isOpen: false,
-        title: '',
-        message: '',
-        confirmLabel: '',
-        variant: 'danger',
-        onConfirm: null,
-        loading: false
-    });
+    const { confirm, ConfirmModal } = useConfirm();
 
     // Modale Cotisation
     const [showCotisationModal, setShowCotisationModal] = useState(false);
@@ -164,18 +155,14 @@ export default function CotisationsIrsaTab() {
     const requestToggleCotisationStatus = (item) => {
         const isActif = item.estActif !== false;
         const actionText = isActif ? 'Désactiver' : 'Activer';
-        const message = isActif
-            ? `Êtes-vous sûr de vouloir désactiver la cotisation "${item.libelle}" (${item.code}) ?\n\nATTENTION : Cela désactivera automatiquement toutes ses instances rattachées aux sites d'exploitation.`
-            : `Êtes-vous sûr de vouloir réactiver la cotisation "${item.libelle}" (${item.code}) ?`;
-
-        setConfirmState({
-            isOpen: true,
+        confirm({
             title: `${actionText} la cotisation`,
-            message,
+            message: isActif
+                ? `Êtes-vous sûr de vouloir désactiver la cotisation "${item.libelle}" (${item.code}) ?\n\nATTENTION : Cela désactivera automatiquement toutes ses instances rattachées aux sites d'exploitation.`
+                : `Êtes-vous sûr de vouloir réactiver la cotisation "${item.libelle}" (${item.code}) ?`,
             confirmLabel: actionText,
             variant: isActif ? 'danger' : 'primary',
             onConfirm: async () => {
-                setConfirmState(prev => ({ ...prev, loading: true }));
                 try {
                     if (isActif) {
                         await paieConfigService.deactivateCotisation(item.idTypeCotisation);
@@ -193,10 +180,8 @@ export default function CotisationsIrsaTab() {
                         });
                     }
                     await loadData();
-                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                 } catch (err) {
                     setError("Erreur lors de la modification du statut de la cotisation.");
-                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                     console.error(err);
                 }
             }
@@ -205,14 +190,12 @@ export default function CotisationsIrsaTab() {
 
     const requestToggleSiteCotisationStatus = (item) => {
         const actionText = item.estActif ? 'Désactiver' : 'Activer';
-        setConfirmState({
-            isOpen: true,
+        confirm({
             title: `${actionText} l'association`,
             message: `Êtes-vous sûr de vouloir ${actionText.toLowerCase()} la cotisation "${item.cotisationLibelle}" pour le site "${item.siteLibelle}" ?`,
             confirmLabel: actionText,
             variant: item.estActif ? 'danger' : 'primary',
             onConfirm: async () => {
-                setConfirmState(prev => ({ ...prev, loading: true }));
                 try {
                     if (item.estActif) {
                         await paieConfigService.deactivateSiteCotisation(item.idSiteCotisation);
@@ -228,10 +211,8 @@ export default function CotisationsIrsaTab() {
                                 : sc
                         )
                     );
-                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                 } catch (err) {
                     setError("Erreur lors de la modification du statut.");
-                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                     console.error(err);
                 }
             }
@@ -321,16 +302,7 @@ export default function CotisationsIrsaTab() {
             />
 
             {/* Boîte de confirmation */}
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
-                onConfirm={confirmState.onConfirm}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmLabel={confirmState.confirmLabel}
-                variant={confirmState.variant}
-                loading={confirmState.loading}
-            />
+            <ConfirmModal />
         </div>
     );
 }

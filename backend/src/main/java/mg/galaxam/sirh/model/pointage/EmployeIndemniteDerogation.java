@@ -169,6 +169,24 @@ public class EmployeIndemniteDerogation extends ClassMere {
         return list;
     }
 
+    /**
+     * Clôture toutes les dérogations actives associées à une indemnité donnée.
+     * Met fin à leur validité en fixant date_fin = CURRENT_DATE (si indéterminée ou future).
+     *
+     * @param idIndemnite identifiant de l'indemnité
+     * @param c connexion JDBC transactionnelle
+     * @return nombre de dérogations clôturées
+     * @throws Exception en cas d'erreur SQL
+     */
+    public static int cloturerParIndemnite(int idIndemnite, Connection c) throws Exception {
+        String sql = "UPDATE employe_indemnite_derogation SET date_fin = CURRENT_DATE " +
+                     "WHERE id_indemnite = ? AND (date_fin IS NULL OR date_fin > CURRENT_DATE)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idIndemnite);
+            return ps.executeUpdate();
+        }
+    }
+
     // Getters and Setters
     public Integer getIdDerogation() { return idDerogation; }
     public void setIdDerogation(Integer idDerogation) { this.idDerogation = idDerogation; }
