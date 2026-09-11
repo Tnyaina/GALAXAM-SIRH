@@ -191,9 +191,6 @@ export default function PointageFichePrintModal({
                             </p>
                         </div>
                         <div className="text-right">
-                            <span className="inline-block px-2 py-0.5 border border-slate-800 text-[10px] font-bold uppercase tracking-wider bg-slate-50">
-                                Fiche Individuelle de Pointage
-                            </span>
                             <p className="text-[9px] text-slate-700 mt-0.5 font-mono font-bold">
                                 {docRefName}
                             </p>
