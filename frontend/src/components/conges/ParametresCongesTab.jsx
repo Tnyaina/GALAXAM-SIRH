@@ -1,21 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Settings, ShieldAlert, FileText, Eye, Clock, RotateCcw, AlertTriangle, CheckCircle, Play } from 'lucide-react';
+import { Settings, ShieldAlert, FileText, Eye, Clock, RotateCcw, AlertTriangle, CheckCircle, Play, Power, Check, Edit2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { useToast } from '@/components/ui/feedback/Toast';
 import congeService from '@/api/congeService';
+import useConfirm from '@/hooks/useConfirm';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import TypeCongeModal from './TypeCongeModal';
 import MotifFamilialModal from './MotifFamilialModal';
-import { Edit2, Trash2 } from 'lucide-react';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 export default function ParametresCongesTab() {
   const [activeSubTab, setActiveSubTab] = useState('types');
   const toast = useToast();
+  const { confirm, ConfirmModal } = useConfirm();
 
   const [types, setTypes] = useState([]);
   const [motifs, setMotifs] = useState([]);
@@ -28,13 +29,6 @@ export default function ParametresCongesTab() {
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [purging, setPurging] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-
-  // ConfirmDialog state
-  const [confirmState, setConfirmState] = useState({
-    isOpen: false,
-    id: null,
-    type: null // 'TYPE_CONGE' ou 'MOTIF'
-  });
 
   const fetchParametres = async () => {
     setLoading(true);
@@ -66,31 +60,58 @@ export default function ParametresCongesTab() {
     setShowMotifModal(true);
   };
 
-  const handleDeleteType = (id) => {
-    setConfirmState({ isOpen: true, id, type: 'TYPE_CONGE' });
-  };
-
-  const handleDeleteMotif = (id) => {
-    setConfirmState({ isOpen: true, id, type: 'MOTIF' });
-  };
-
-  const executeDelete = async () => {
-    if (!confirmState.id) return;
-    try {
-      if (confirmState.type === 'TYPE_CONGE') {
-        await congeService.supprimerTypeConge(confirmState.id);
-        toast({ title: 'Succès', message: 'Type de congé désactivé.', type: 'success' });
-      } else if (confirmState.type === 'MOTIF') {
-        await congeService.supprimerMotifFamilial(confirmState.id);
-        toast({ title: 'Succès', message: 'Événement désactivé.', type: 'success' });
+  const handleToggleTypeStatus = (type) => {
+    const isActif = type.estActif !== false;
+    const actionText = isActif ? 'Désactiver' : 'Activer';
+    confirm({
+      title: `${actionText} le type de congé`,
+      message: isActif
+        ? `Êtes-vous sûr de vouloir désactiver le type de congé "${type.libelle}" (${type.code}) ?\n\nIl ne sera plus disponible pour les nouvelles demandes de congés.`
+        : `Êtes-vous sûr de vouloir réactiver le type de congé "${type.libelle}" (${type.code}) ?`,
+      confirmLabel: actionText,
+      variant: isActif ? 'danger' : 'primary',
+      onConfirm: async () => {
+        try {
+          if (isActif) {
+            await congeService.desactiverTypeConge(type.idTypeConge);
+            toast({ title: 'Succès', message: `Type de congé "${type.libelle}" désactivé.`, type: 'success' });
+          } else {
+            await congeService.activerTypeConge(type.idTypeConge);
+            toast({ title: 'Succès', message: `Type de congé "${type.libelle}" réactivé.`, type: 'success' });
+          }
+          fetchParametres();
+        } catch (err) {
+          toast({ title: 'Erreur', message: 'Erreur lors du changement de statut.', type: 'error' });
+        }
       }
-      fetchParametres();
-    } catch (err) {
-      console.error(err);
-      toast({ title: 'Erreur', message: 'Erreur lors de la désactivation.', type: 'error' });
-    } finally {
-      setConfirmState({ isOpen: false, id: null, type: null });
-    }
+    });
+  };
+
+  const handleToggleMotifStatus = (motif) => {
+    const isActif = motif.estActif !== false;
+    const actionText = isActif ? 'Désactiver' : 'Activer';
+    confirm({
+      title: `${actionText} le motif familial`,
+      message: isActif
+        ? `Êtes-vous sûr de vouloir désactiver le motif "${motif.libelle}" ?\n\nIl ne sera plus sélectionnable dans les événements familiaux.`
+        : `Êtes-vous sûr de vouloir réactiver le motif "${motif.libelle}" ?`,
+      confirmLabel: actionText,
+      variant: isActif ? 'danger' : 'primary',
+      onConfirm: async () => {
+        try {
+          if (isActif) {
+            await congeService.desactiverMotifFamilial(motif.idMotif);
+            toast({ title: 'Succès', message: `Motif "${motif.libelle}" désactivé.`, type: 'success' });
+          } else {
+            await congeService.activerMotifFamilial(motif.idMotif);
+            toast({ title: 'Succès', message: `Motif "${motif.libelle}" réactivé.`, type: 'success' });
+          }
+          fetchParametres();
+        } catch (err) {
+          toast({ title: 'Erreur', message: 'Erreur lors du changement de statut.', type: 'error' });
+        }
+      }
+    });
   };
 
   const handleExecuterPurge = async () => {
@@ -251,10 +272,26 @@ export default function ParametresCongesTab() {
                             </Badge>
                           </Td>
                           <Td className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="xs" onClick={() => handleEditType(type)} iconLeft={<Edit2 size={14} />} />
-                              {type.estActif && (
-                                <Button variant="ghost" size="xs" onClick={() => handleDeleteType(type.idTypeConge)} className="text-danger-500 hover:text-danger-600" iconLeft={<Trash2 size={14} />} />
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="xs" onClick={() => handleEditType(type)} iconLeft={<Edit2 size={14} />} title="Modifier" />
+                              {type.estActif !== false ? (
+                                <Button
+                                  variant="ghost"
+                                  size="xs"
+                                  onClick={() => handleToggleTypeStatus(type)}
+                                  className="text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10"
+                                  iconLeft={<Power size={14} />}
+                                  title="Désactiver ce type de congé"
+                                />
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="xs"
+                                  onClick={() => handleToggleTypeStatus(type)}
+                                  className="text-[var(--color-success-600)] hover:text-[var(--color-success-700)] hover:bg-[var(--color-success-600)]/10"
+                                  iconLeft={<Check size={14} />}
+                                  title="Réactiver ce type de congé"
+                                />
                               )}
                             </div>
                           </Td>
@@ -326,10 +363,26 @@ export default function ParametresCongesTab() {
                             </Badge>
                           </Td>
                           <Td className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="xs" onClick={() => handleEditMotif(motif)} iconLeft={<Edit2 size={14} />} />
-                              {motif.estActif && (
-                                <Button variant="ghost" size="xs" onClick={() => handleDeleteMotif(motif.idMotif)} className="text-danger-500 hover:text-danger-600" iconLeft={<Trash2 size={14} />} />
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="xs" onClick={() => handleEditMotif(motif)} iconLeft={<Edit2 size={14} />} title="Modifier" />
+                              {motif.estActif !== false ? (
+                                <Button
+                                  variant="ghost"
+                                  size="xs"
+                                  onClick={() => handleToggleMotifStatus(motif)}
+                                  className="text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10"
+                                  iconLeft={<Power size={14} />}
+                                  title="Désactiver ce motif"
+                                />
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="xs"
+                                  onClick={() => handleToggleMotifStatus(motif)}
+                                  className="text-[var(--color-success-600)] hover:text-[var(--color-success-700)] hover:bg-[var(--color-success-600)]/10"
+                                  iconLeft={<Check size={14} />}
+                                  title="Réactiver ce motif"
+                                />
                               )}
                             </div>
                           </Td>
@@ -433,20 +486,7 @@ export default function ParametresCongesTab() {
         onSuccess={fetchParametres} 
       />
 
-      <ConfirmDialog
-        isOpen={confirmState.isOpen}
-        title="Confirmer la désactivation"
-        message={
-          confirmState.type === 'TYPE_CONGE'
-            ? "Voulez-vous vraiment désactiver ce type de congé ?"
-            : "Voulez-vous vraiment désactiver cet événement familial ?"
-        }
-        confirmLabel="Désactiver"
-        cancelLabel="Annuler"
-        variant="danger"
-        onConfirm={executeDelete}
-        onClose={() => setConfirmState({ isOpen: false, id: null, type: null })}
-      />
+      <ConfirmModal />
 
       <ConfirmDialog
         isOpen={showPurgeConfirm}

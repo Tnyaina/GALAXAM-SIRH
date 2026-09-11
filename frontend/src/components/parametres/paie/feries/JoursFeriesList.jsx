@@ -1,4 +1,4 @@
-import { Plus, Edit2, Trash2, Calendar } from 'lucide-react';
+import { Plus, Edit2, Power, Check, Calendar } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -11,6 +11,7 @@ export default function JoursFeriesList({
     search,
     onOpenCreate,
     onOpenEdit,
+    onToggleStatus,
     onDelete,
 }) {
     return (
@@ -47,47 +48,68 @@ export default function JoursFeriesList({
                         <Th>Libellé de la Fête / Commémoration</Th>
                         <Th className="text-center">Chômé & Payé</Th>
                         <Th className="text-center">Portée</Th>
+                        <Th className="text-center">Statut</Th>
                         <Th className="text-right">Actions</Th>
                     </Thead>
                     <Tbody>
-                        {feries.map((f) => (
-                            <Tr key={f.idFerie}>
-                                <Td isData className="font-bold text-[var(--color-brand-500)]">
-                                    {fmtDate(f.dateFerie)}
-                                </Td>
-                                <Td className="font-semibold text-[var(--color-fg)]">
-                                    {f.libelle}
-                                </Td>
-                                <Td className="text-center">
-                                    <Badge variant={f.estChome ? 'success' : 'default'} size="sm">
-                                        {f.estChome ? "Oui (Chômé)" : "Non (Travaillé)"}
-                                    </Badge>
-                                </Td>
-                                <Td className="text-center">
-                                    <Badge variant={f.estNational !== false ? 'primary' : 'warning'} size="sm">
-                                        {f.estNational !== false ? "National (Tous sites)" : "Local / Régional"}
-                                    </Badge>
-                                </Td>
-                                <Td className="text-right">
-                                    <div className="flex items-center justify-end gap-1">
-                                        <button
-                                            onClick={() => onOpenEdit(f)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer"
-                                            title="Modifier"
-                                        >
-                                            <Edit2 size={15} />
-                                        </button>
-                                        <button
-                                            onClick={() => onDelete && onDelete(f)}
-                                            className="p-1.5 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer"
-                                            title="Supprimer ce jour férié"
-                                        >
-                                            <Trash2 size={15} />
-                                        </button>
-                                    </div>
-                                </Td>
-                            </Tr>
-                        ))}
+                        {feries.map((f) => {
+                            const isActif = f.estActif !== false;
+                            return (
+                                <Tr key={f.idFerie}>
+                                    <Td isData className="font-bold text-[var(--color-brand-500)]">
+                                        {fmtDate(f.dateFerie)}
+                                    </Td>
+                                    <Td className="font-semibold text-[var(--color-fg)]">
+                                        {f.libelle}
+                                    </Td>
+                                    <Td className="text-center">
+                                        <Badge variant={f.estChome ? 'success' : 'default'} size="sm">
+                                            {f.estChome ? "Oui (Chômé)" : "Non (Travaillé)"}
+                                        </Badge>
+                                    </Td>
+                                    <Td className="text-center">
+                                        <Badge variant={f.estNational !== false ? 'primary' : 'warning'} size="sm">
+                                            {f.estNational !== false ? "National (Tous sites)" : "Local / Régional"}
+                                        </Badge>
+                                    </Td>
+                                    <Td className="text-center">
+                                        <Badge variant={isActif ? 'success' : 'default'} size="sm" dot>
+                                            {isActif ? "Actif" : "Désactivé"}
+                                        </Badge>
+                                    </Td>
+                                    <Td className="text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <button
+                                                onClick={() => onOpenEdit(f)}
+                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer"
+                                                title="Modifier"
+                                            >
+                                                <Edit2 size={15} />
+                                            </button>
+                                            {onToggleStatus && (
+                                                isActif ? (
+                                                    <button
+                                                        onClick={() => onToggleStatus(f)}
+                                                        className="p-1.5 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer"
+                                                        title="Désactiver ce jour férié"
+                                                    >
+                                                        <Power size={15} />
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => onToggleStatus(f)}
+                                                        className="p-1.5 text-[var(--color-success-600)] hover:text-[var(--color-success-700)] hover:bg-[var(--color-success-600)]/10 rounded-none cursor-pointer"
+                                                        title="Réactiver ce jour férié"
+                                                    >
+                                                        <Check size={15} />
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+                                    </Td>
+                                </Tr>
+                            );
+                        })}
                     </Tbody>
                 </Table>
             )}

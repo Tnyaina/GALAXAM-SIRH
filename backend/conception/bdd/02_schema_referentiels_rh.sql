@@ -171,7 +171,8 @@ CREATE TABLE ref_calendrier_ferie (
     date_ferie DATE NOT NULL,
     libelle VARCHAR(100) NOT NULL,
     est_chome BOOLEAN DEFAULT TRUE,
-    est_national BOOLEAN DEFAULT TRUE
+    est_national BOOLEAN DEFAULT TRUE,
+    est_actif BOOLEAN DEFAULT TRUE
 );
 
 CREATE TABLE site_calendrier_ferie (

@@ -145,6 +145,60 @@ public class CalendrierFerieController {
         }
     }
 
+    @PutMapping("/{id}/desactiver")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deactivateCalendrierFerie(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefCalendrierFerie cf = new RefCalendrierFerie();
+                RefCalendrierFerie existing = (RefCalendrierFerie) cf.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Jour férié non trouvé.");
+                }
+
+                existing.desactiver(c);
+                AuditLog.audit(c, "DESACTIVATION", "ref_calendrier_ferie", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
+    @PutMapping("/{id}/activer")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> activateCalendrierFerie(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefCalendrierFerie cf = new RefCalendrierFerie();
+                RefCalendrierFerie existing = (RefCalendrierFerie) cf.rechercherParId(id, c);
+                if (existing == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Jour férié non trouvé.");
+                }
+
+                existing.activer(c);
+                AuditLog.audit(c, "ACTIVATION", "ref_calendrier_ferie", String.valueOf(id), null, existing);
+
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                return ResponseEntity.badRequest().body(ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+        }
+    }
+
     // Config Fériés par Site
     @GetMapping("/site-config")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")

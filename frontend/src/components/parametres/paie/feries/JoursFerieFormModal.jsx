@@ -1,8 +1,6 @@
 import { Calendar } from 'lucide-react';
-import Button from '@/components/ui/forms/Button';
 import Input, { Checkbox } from '@/components/ui/forms/Input';
-import Modal from '@/components/ui/overlays/Modal';
-import Alert from '@/components/ui/feedback/Alert';
+import FormModal from '@/components/ui/overlays/FormModal';
 import { fmtDateInput } from '@/utils/paieUtils';
 
 export default function JoursFerieFormModal({
@@ -16,26 +14,18 @@ export default function JoursFerieFormModal({
     submitting = false,
 }) {
     return (
-        <Modal
+        <FormModal
             isOpen={isOpen}
             onClose={onClose}
+            onSubmit={onSubmit}
             title={editingFerie ? "Modifier le Jour Férié" : "Nouveau Jour Férié"}
             icon={<Calendar size={18} />}
             size="md"
-            footer={
-                <>
-                    <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>
-                        Annuler
-                    </Button>
-                    <Button type="submit" form="ferie-form" variant="primary" size="sm" loading={submitting}>
-                        {editingFerie ? "Enregistrer" : "Créer le jour férié"}
-                    </Button>
-                </>
-            }
+            isEdit={!!editingFerie}
+            loading={submitting}
+            error={actionError}
         >
-            <form id="ferie-form" onSubmit={onSubmit} className="space-y-4">
-                {actionError && <Alert type="error" message={actionError} />}
-
+            <div className="space-y-4">
                 <Input
                     label="Date exacte du jour férié"
                     type="date"
@@ -64,7 +54,7 @@ export default function JoursFerieFormModal({
                         onChange={(e) => setFormData({ ...formData, estNational: e.target.checked })}
                     />
                 </div>
-            </form>
-        </Modal>
+            </div>
+        </FormModal>
     );
 }

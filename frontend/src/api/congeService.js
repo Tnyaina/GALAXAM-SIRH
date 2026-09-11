@@ -57,6 +57,16 @@ const congeService = {
     return response.data;
   },
 
+  desactiverTypeConge: async (id) => {
+    const response = await apiClient.put(`/conges/referentiels/types/${id}/desactiver`);
+    return response.data;
+  },
+
+  activerTypeConge: async (id) => {
+    const response = await apiClient.put(`/conges/referentiels/types/${id}/activer`);
+    return response.data;
+  },
+
   creerMotifFamilial: async (data) => {
     const response = await apiClient.post('/conges/referentiels/motifs', data);
     return response.data;
@@ -69,6 +79,16 @@ const congeService = {
 
   supprimerMotifFamilial: async (id) => {
     const response = await apiClient.delete(`/conges/referentiels/motifs/${id}`);
+    return response.data;
+  },
+
+  desactiverMotifFamilial: async (id) => {
+    const response = await apiClient.put(`/conges/referentiels/motifs/${id}/desactiver`);
+    return response.data;
+  },
+
+  activerMotifFamilial: async (id) => {
+    const response = await apiClient.put(`/conges/referentiels/motifs/${id}/activer`);
     return response.data;
   },
 

@@ -8,7 +8,7 @@ import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
-import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import useConfirm from '@/hooks/useConfirm';
 
 import JoursFeriesList from './feries/JoursFeriesList';
 import JoursFerieFormModal from './feries/JoursFerieFormModal';
@@ -41,6 +41,7 @@ export default function CalendrierFerieTab() {
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
     const toast = useToast();
+    const { confirm, ConfirmModal } = useConfirm();
 
     // Filtres
     const [search, setSearch] = useState('');
@@ -79,9 +80,6 @@ export default function CalendrierFerieTab() {
     const [ferieFormData, setFerieFormData] = useState({
         dateFerie: todayStr, libelle: '', estChome: true, estNational: true
     });
-    const [deletingFerie, setDeletingFerie] = useState(null);
-    const [showConfirmDeleteFerie, setShowConfirmDeleteFerie] = useState(false);
-    const [deleting, setDeleting] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     // Modale Période
@@ -143,26 +141,35 @@ export default function CalendrierFerieTab() {
         setShowFerieModal(true);
     };
 
-    const handleDeleteFerie = (f) => {
-        setDeletingFerie(f);
-        setShowConfirmDeleteFerie(true);
-    };
-
-    const handleConfirmDeleteFerie = async () => {
-        if (!deletingFerie) return;
-        setDeleting(true);
-        setActionError(null);
-        try {
-            await paieConfigService.deleteCalendrierFerie(deletingFerie.idFerie);
-            toast({ title: 'Succès', message: `Jour férié "${deletingFerie.libelle}" supprimé.`, type: 'success' });
-            setShowConfirmDeleteFerie(false);
-            setDeletingFerie(null);
-            setFeries(prev => prev.filter(item => item.idFerie !== deletingFerie.idFerie));
-        } catch (err) {
-            setActionError(err.response?.data || "Erreur lors de la suppression du jour férié.");
-        } finally {
-            setDeleting(false);
-        }
+    const handleToggleFerieStatus = (f) => {
+        const isActif = f.estActif !== false;
+        const actionText = isActif ? 'Désactiver' : 'Activer';
+        confirm({
+            title: `${actionText} le jour férié`,
+            message: isActif
+                ? `Êtes-vous sûr de vouloir désactiver le jour férié "${f.libelle}" (${f.dateFerie}) ?\n\nIl ne sera plus comptabilisé comme jour chômé dans les décomptes légaux de congés et de pointage.`
+                : `Êtes-vous sûr de vouloir réactiver le jour férié "${f.libelle}" (${f.dateFerie}) ?`,
+            confirmLabel: actionText,
+            variant: isActif ? 'danger' : 'primary',
+            onConfirm: async () => {
+                try {
+                    if (isActif) {
+                        await paieConfigService.deactivateCalendrierFerie(f.idFerie);
+                        toast({ title: 'Succès', message: `Jour férié "${f.libelle}" désactivé.`, type: 'success' });
+                    } else {
+                        await paieConfigService.activateCalendrierFerie(f.idFerie);
+                        toast({ title: 'Succès', message: `Jour férié "${f.libelle}" réactivé.`, type: 'success' });
+                    }
+                    loadData();
+                } catch (err) {
+                    toast({
+                        title: 'Erreur',
+                        message: err.response?.data?.message || err.response?.data || "Erreur lors du changement de statut.",
+                        type: 'error'
+                    });
+                }
+            }
+        });
     };
 
     const handleSaveFerie = async (e) => {
@@ -394,7 +401,7 @@ export default function CalendrierFerieTab() {
                     search={search}
                     onOpenCreate={handleOpenCreateFerie}
                     onOpenEdit={handleOpenEditFerie}
-                    onDelete={handleDeleteFerie}
+                    onToggleStatus={handleToggleFerieStatus}
                 />
             )}
 
@@ -453,18 +460,8 @@ export default function CalendrierFerieTab() {
                 submitting={submitting}
             />
 
-            {/* Modale de Confirmation de Suppression de Jour Férié */}
-            <ConfirmDialog
-                isOpen={showConfirmDeleteFerie}
-                onClose={() => { setShowConfirmDeleteFerie(false); setDeletingFerie(null); }}
-                onConfirm={handleConfirmDeleteFerie}
-                title="Supprimer le jour férié"
-                message={`Êtes-vous sûr de vouloir supprimer définitivement le jour férié "${deletingFerie?.libelle}" (${deletingFerie?.dateFerie}) ?`}
-                confirmLabel="Supprimer définitivement"
-                cancelLabel="Annuler"
-                variant="danger"
-                loading={deleting}
-            />
+            {/* Modale de confirmation globale */}
+            <ConfirmModal />
         </div>
     );
 }

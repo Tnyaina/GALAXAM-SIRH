@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -142,7 +143,7 @@ public class CongeRefController {
         }
     }
 
-    @DeleteMapping("/types/{id}")
+    @RequestMapping(value = {"/types/{id}", "/types/{id}/desactiver"}, method = {RequestMethod.DELETE, RequestMethod.PUT})
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deactivateTypeConge(@PathVariable Integer id) {
         try (Connection c = dataSource.getConnection()) {
@@ -157,6 +158,24 @@ public class CongeRefController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Erreur lors de la désactivation du type de congé : " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/types/{id}/activer")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> activateTypeConge(@PathVariable Integer id) {
+        try (Connection c = dataSource.getConnection()) {
+            RefTypeConge existant = RefTypeConge.rechercherParId(id, c);
+            if (existant == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Type de congé introuvable.");
+            }
+            existant.setEstActif(true);
+            existant.update(c);
+            return ResponseEntity.ok(existant);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de l'activation du type de congé : " + e.getMessage());
         }
     }
 
@@ -201,7 +220,7 @@ public class CongeRefController {
         }
     }
 
-    @DeleteMapping("/motifs/{id}")
+    @RequestMapping(value = {"/motifs/{id}", "/motifs/{id}/desactiver"}, method = {RequestMethod.DELETE, RequestMethod.PUT})
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deactivateMotifFamilial(@PathVariable Integer id) {
         try (Connection c = dataSource.getConnection()) {
@@ -216,6 +235,24 @@ public class CongeRefController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Erreur lors de la désactivation du motif familial : " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/motifs/{id}/activer")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> activateMotifFamilial(@PathVariable Integer id) {
+        try (Connection c = dataSource.getConnection()) {
+            RefMotifEvenementFamilial existant = RefMotifEvenementFamilial.rechercherParId(id, c);
+            if (existant == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Motif familial introuvable.");
+            }
+            existant.setEstActif(true);
+            existant.update(c);
+            return ResponseEntity.ok(existant);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors de l'activation du motif familial : " + e.getMessage());
         }
     }
 }

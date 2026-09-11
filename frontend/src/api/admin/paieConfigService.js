@@ -203,6 +203,14 @@ const paieConfigService = {
         const response = await apiClient.delete(`/referentiel/calendrier-ferie/${id}`);
         return response.data;
     },
+    deactivateCalendrierFerie: async (id) => {
+        const response = await apiClient.put(`/referentiel/calendrier-ferie/${id}/desactiver`);
+        return response.data;
+    },
+    activateCalendrierFerie: async (id) => {
+        const response = await apiClient.put(`/referentiel/calendrier-ferie/${id}/activer`);
+        return response.data;
+    },
     getSiteFeries: async () => {
         const response = await apiClient.get('/referentiel/calendrier-ferie/site-config');
         return response.data;

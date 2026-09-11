@@ -38,7 +38,7 @@ public class CalendrierOuvrableEngine {
             sqlFeries.append("AND scf.id_site = ? ");
         }
         sqlFeries.append(
-            "WHERE f.date_ferie BETWEEN ? AND ? AND f.est_chome = TRUE " +
+            "WHERE f.date_ferie BETWEEN ? AND ? AND f.est_chome = TRUE AND f.est_actif IS NOT FALSE " +
             "  AND (f.est_national = TRUE "
         );
         if (idSite != null && idSite > 0) {
@@ -122,7 +122,7 @@ public class CalendrierOuvrableEngine {
             sqlFerie.append("AND scf.id_site = ? ");
         }
         sqlFerie.append(
-            "WHERE f.date_ferie = ? AND f.est_chome = TRUE " +
+            "WHERE f.date_ferie = ? AND f.est_chome = TRUE AND f.est_actif IS NOT FALSE " +
             "  AND (f.est_national = TRUE "
         );
         if (idSite != null && idSite > 0) {

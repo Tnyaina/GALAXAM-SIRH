@@ -15,6 +15,7 @@ public class RefCalendrierFerie extends ClassMere {
     private String libelle;
     private boolean estChome = true;
     private boolean estNational = true;
+    private boolean estActif = true;
 
     public RefCalendrierFerie() {
         this.setNomTable("REF_CALENDRIER_FERIE");
@@ -32,13 +33,14 @@ public class RefCalendrierFerie extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        String sql = "INSERT INTO ref_calendrier_ferie (date_ferie, libelle, est_chome, est_national) " +
-                     "VALUES (?, ?, ?, ?) RETURNING id_ferie";
+        String sql = "INSERT INTO ref_calendrier_ferie (date_ferie, libelle, est_chome, est_national, est_actif) " +
+                     "VALUES (?, ?, ?, ?, ?) RETURNING id_ferie";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setDate(1, dateFerie);
             ps.setString(2, libelle);
             ps.setBoolean(3, estChome);
             ps.setBoolean(4, estNational);
+            ps.setBoolean(5, estActif);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -51,14 +53,15 @@ public class RefCalendrierFerie extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        String sql = "UPDATE ref_calendrier_ferie SET date_ferie = ?, libelle = ?, est_chome = ?, est_national = ? " +
+        String sql = "UPDATE ref_calendrier_ferie SET date_ferie = ?, libelle = ?, est_chome = ?, est_national = ?, est_actif = ? " +
                      "WHERE id_ferie = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setDate(1, dateFerie);
             ps.setString(2, libelle);
             ps.setBoolean(3, estChome);
             ps.setBoolean(4, estNational);
-            ps.setInt(5, idFerie);
+            ps.setBoolean(5, estActif);
+            ps.setInt(6, idFerie);
             ps.executeUpdate();
         }
         return this;
@@ -73,6 +76,24 @@ public class RefCalendrierFerie extends ClassMere {
         }
     }
 
+    public void desactiver(Connection c) throws Exception {
+        this.estActif = false;
+        String sql = "UPDATE ref_calendrier_ferie SET est_actif = FALSE WHERE id_ferie = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idFerie);
+            ps.executeUpdate();
+        }
+    }
+
+    public void activer(Connection c) throws Exception {
+        this.estActif = true;
+        String sql = "UPDATE ref_calendrier_ferie SET est_actif = TRUE WHERE id_ferie = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idFerie);
+            ps.executeUpdate();
+        }
+    }
+
     @Override
     public ClassMere rechercherParId(String id, Connection c) throws Exception {
         if (id == null || id.isBlank()) return null;
@@ -80,7 +101,7 @@ public class RefCalendrierFerie extends ClassMere {
     }
 
     public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT id_ferie, date_ferie, libelle, est_chome, est_national FROM ref_calendrier_ferie WHERE id_ferie = ?";
+        String sql = "SELECT id_ferie, date_ferie, libelle, est_chome, est_national, est_actif FROM ref_calendrier_ferie WHERE id_ferie = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -91,6 +112,7 @@ public class RefCalendrierFerie extends ClassMere {
                     item.libelle = rs.getString("libelle");
                     item.estChome = rs.getBoolean("est_chome");
                     item.estNational = rs.getBoolean("est_national");
+                    item.estActif = rs.getBoolean("est_actif");
                     return item;
                 }
             }
@@ -99,7 +121,7 @@ public class RefCalendrierFerie extends ClassMere {
     }
 
     public static List<RefCalendrierFerie> listAll(Connection c) throws Exception {
-        String sql = "SELECT id_ferie, date_ferie, libelle, est_chome, est_national FROM ref_calendrier_ferie ORDER BY date_ferie DESC";
+        String sql = "SELECT id_ferie, date_ferie, libelle, est_chome, est_national, est_actif FROM ref_calendrier_ferie ORDER BY date_ferie DESC";
         List<RefCalendrierFerie> list = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -110,6 +132,7 @@ public class RefCalendrierFerie extends ClassMere {
                 item.libelle = rs.getString("libelle");
                 item.estChome = rs.getBoolean("est_chome");
                 item.estNational = rs.getBoolean("est_national");
+                item.estActif = rs.getBoolean("est_actif");
                 list.add(item);
             }
         }
@@ -127,4 +150,6 @@ public class RefCalendrierFerie extends ClassMere {
     public void setEstChome(boolean estChome) { this.estChome = estChome; }
     public boolean isEstNational() { return estNational; }
     public void setEstNational(boolean estNational) { this.estNational = estNational; }
+    public boolean isEstActif() { return estActif; }
+    public void setEstActif(boolean estActif) { this.estActif = estActif; }
 }

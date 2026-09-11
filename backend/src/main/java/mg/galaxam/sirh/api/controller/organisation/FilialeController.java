@@ -1,6 +1,8 @@
 package mg.galaxam.sirh.api.controller.organisation;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.List;
 import javax.sql.DataSource;
@@ -130,6 +132,43 @@ public class FilialeController {
                 RefFiliale existing = (RefFiliale) f.rechercherParId(id, c);
                 if (existing == null) {
                     return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Filiale non trouvée.");
+                }
+
+                // Garde-fou d'intégrité : vérifier la présence de sites actifs et de contrats en cours
+                int nbSitesActifs = 0;
+                String sqlCheckSites = "SELECT COUNT(*) FROM ref_site WHERE id_filiale_rattachement = ? AND est_actif = true";
+                try (PreparedStatement ps = c.prepareStatement(sqlCheckSites)) {
+                    ps.setInt(1, id);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) nbSitesActifs = rs.getInt(1);
+                    }
+                }
+
+                int nbContratsEnCours = 0;
+                String sqlCheckContrats = "SELECT COUNT(*) FROM contrat_travail WHERE id_filiale = ? AND (date_fin IS NULL OR date_fin >= CURRENT_DATE)";
+                try (PreparedStatement ps = c.prepareStatement(sqlCheckContrats)) {
+                    ps.setInt(1, id);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) nbContratsEnCours = rs.getInt(1);
+                    }
+                }
+
+                if (nbSitesActifs > 0 || nbContratsEnCours > 0) {
+                    StringBuilder errMsg = new StringBuilder("Impossible de désactiver la filiale « ")
+                            .append(existing.getRaisonSociale())
+                            .append(" » : elle comporte encore ");
+                    if (nbSitesActifs > 0) {
+                        errMsg.append(nbSitesActifs).append(" site(s) actif(s)");
+                    }
+                    if (nbSitesActifs > 0 && nbContratsEnCours > 0) {
+                        errMsg.append(" et ");
+                    }
+                    if (nbContratsEnCours > 0) {
+                        errMsg.append(nbContratsEnCours).append(" contrat(s) de travail en cours");
+                    }
+                    errMsg.append(". Veuillez réaffecter ou clôturer ces éléments avant de pouvoir désactiver la filiale.");
+                    c.rollback();
+                    return ResponseEntity.badRequest().body(errMsg.toString());
                 }
 
                 existing.setEstActif(false);
