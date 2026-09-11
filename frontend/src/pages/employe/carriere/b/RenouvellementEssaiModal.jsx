@@ -80,7 +80,7 @@ export default function RenouvellementEssaiModal({
     onSuccess,
 }) {
     const isEditMode = !!initialData;
-    const wfId = initialData?.idWorkflow || initialData?.workflow?.idWorkflow;
+    const _wfId = initialData?.idWorkflow || initialData?.workflow?.idWorkflow;
     const isActionAllowed = isEditMode || etatEssai?.canRenew !== false;
 
     const [dureeProlongationMois, setDureeProlongationMois] = useState('2');

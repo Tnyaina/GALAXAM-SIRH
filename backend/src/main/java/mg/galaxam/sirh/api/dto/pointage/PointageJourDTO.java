@@ -23,8 +23,12 @@ public class PointageJourDTO {
     private boolean indemniteDeplacement;
     private Double montantDeplacement;  // Montant proratisé journalier (si applicable)
     private boolean horaireContinuJour; // Indique si la journée a été réalisée en continu (sans pause méridienne)
+    private Double totalHeuresDecimal;  // Heures en centésimal (décimal) ex: 8.85
 
     // Getters et Setters
+    public Double getTotalHeuresDecimal() { return totalHeuresDecimal; }
+    public void setTotalHeuresDecimal(Double totalHeuresDecimal) { this.totalHeuresDecimal = totalHeuresDecimal; }
+
     public boolean isHoraireContinuJour() { return horaireContinuJour; }
     public void setHoraireContinuJour(boolean horaireContinuJour) { this.horaireContinuJour = horaireContinuJour; }
     public boolean isDeplacementMatin() { return deplacementMatin; }

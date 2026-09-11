@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Sliders, Search, LayoutGrid, List,
     Edit2, Plus, Calendar, ShieldCheck,
@@ -288,7 +288,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         estDesactivable: false
     });
 
-    const loadParametres = async () => {
+    const loadParametres = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
@@ -300,11 +300,11 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [fixedCategory]);
 
     useEffect(() => {
         loadParametres();
-    }, [fixedCategory]);
+    }, [loadParametres]);
 
     // Calcul des statistiques globales
     const metrics = useMemo(() => {

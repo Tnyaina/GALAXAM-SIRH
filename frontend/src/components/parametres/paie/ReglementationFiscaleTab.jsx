@@ -93,7 +93,7 @@ const DEFAULT_MAJORATIONS = [
     { typeMajoration: 'FERIE', taux: 1.00, description: 'Travail jour férié' }
 ];
 
-const MAJORATION_META = {
+const _MAJORATION_META = {
     HS_30:    { label: 'HS Tranche 1 (premières 8h)', defaultPct: 30 },
     HS_50:    { label: 'HS Tranche 2 (au-delà du seuil)', defaultPct: 50 },
     NUIT:     { label: 'Heures de Nuit (22h - 05h)',      defaultPct: 30 },

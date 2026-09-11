@@ -480,11 +480,15 @@ public class PointageSyntheseService {
         List<PointageTronconSemaineDTO> tronconsList = new ArrayList<>();
         int semIndex = 1;
 
+        Set<LocalDate> feriesChomesTroncon = (calendrierEngine != null) 
+                ? calendrierEngine.getDatesFeriesEtChomees(dateDebut, dateFin, idSite, c)
+                : Collections.emptySet();
+
         for (Map.Entry<LocalDate, List<Map<String, Object>>> entry : parSemaine.entrySet()) {
             LocalDate lundi = entry.getKey();
             List<Map<String, Object>> jours = entry.getValue();
 
-            // Compter les jours ouvrés du tronçon dans la période
+            // Compter les jours ouvrés du tronçon dans la période (en excluant les jours fériés chômés)
             int joursOuvresTroncon = 0;
             LocalDate finTroncon = lundi.plusDays(6);
             if (finTroncon.isAfter(dateFin)) {
@@ -495,7 +499,7 @@ public class PointageSyntheseService {
             for (int i = 0; i < 7; i++) {
                 LocalDate cur = lundi.plusDays(i);
                 if (!cur.isBefore(dateDebut) && !cur.isAfter(dateFin)) {
-                    if (!CalendrierOuvrableEngine.isWeekend(cur)) {
+                    if (!CalendrierOuvrableEngine.isWeekend(cur) && !feriesChomesTroncon.contains(cur)) {
                         joursOuvresTroncon++;
                     }
                 }

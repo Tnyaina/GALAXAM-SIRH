@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Edit2, Percent, CheckCircle2, Clock, Archive, ChevronDown, ChevronRight, TrendingUp } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -39,7 +39,7 @@ function groupByExercice(tranches) {
 }
 
 export default function BaremeIrsaList({ tranchesIrsa = [], onOpenCreate, onOpenEdit, onOpenRevaloriser }) {
-    const groups = groupByExercice(tranchesIrsa);
+    const groups = useMemo(() => groupByExercice(tranchesIrsa), [tranchesIrsa]);
 
     // Initialisation de l'accordéon :
     // Les groupes EN_VIGUEUR et PROGRAMME sont ouverts par défaut, les ARCHIVÉS sont repliés
@@ -57,7 +57,7 @@ export default function BaremeIrsaList({ tranchesIrsa = [], onOpenCreate, onOpen
             initial.add(`${groups[0].dateDebut || ''}|${groups[0].dateFin || ''}`);
         }
         setOpenGroups(initial);
-    }, [tranchesIrsa]);
+    }, [groups]);
 
     const toggleGroup = (key) => {
         setOpenGroups(prev => {

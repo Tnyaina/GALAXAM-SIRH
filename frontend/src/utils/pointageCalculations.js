@@ -85,9 +85,9 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
   let smEffectif = sm;
   let eaEffectif = ea;
 
-  let totalMins = 0;
-  let hMatin = 0;
-  let hAm = 0;
+  let totalMins;
+  let hMatin;
+  let hAm;
 
   if (isJourneeContinue && em !== null && sa !== null) {
     totalMins = (sa >= em) ? (sa - em) : 0;

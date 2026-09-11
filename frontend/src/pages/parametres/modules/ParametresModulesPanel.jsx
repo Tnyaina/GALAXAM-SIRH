@@ -11,7 +11,6 @@ const ParametresCongesTab = lazy(() => import('@/components/conges/ParametresCon
 const CalendrierFerieTab = lazy(() => import('@/components/parametres/paie/CalendrierFerieTab'));
 const CotisationsIrsaTab = lazy(() => import('@/components/parametres/paie/CotisationsIrsaTab'));
 const IndemnitesSitesTab = lazy(() => import('@/components/parametres/paie/IndemnitesSitesTab'));
-const MajorationsParametresTab = lazy(() => import('@/components/parametres/paie/MajorationsParametresTab'));
 const ReglementationFiscaleTab = lazy(() => import('@/components/parametres/paie/ReglementationFiscaleTab'));
 
 // Composants de paramétrage Pointage

@@ -12,7 +12,7 @@ export default function JoursFeriesList({
     onOpenCreate,
     onOpenEdit,
     onToggleStatus,
-    onDelete,
+    _onDelete,
 }) {
     return (
         <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">

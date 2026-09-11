@@ -431,7 +431,7 @@ export default function EmployeFicheDetailPage() {
                         {/* Onglet 6: Pointages & Présence */}
                         {activeTab === 'pointage' && (
                             <Suspense fallback={<TabLoader label="Chargement des pointages de l'employé..." />}>
-                                <PointageTab idEmploye={id} />
+                                <PointageTab idEmploye={id} employe={emp} />
                             </Suspense>
                         )}
 

@@ -122,7 +122,7 @@ export default function GestionPointagesPage() {
 
     // Calcul du statut de la periode active
     const stCode = activePeriode?.statutCode;
-    const isEnCours = stCode === 'EN_COURS' || !stCode;
+    const _isEnCours = stCode === 'EN_COURS' || !stCode;
     const isTransmis = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
     const isValidee = stCode === 'VALIDEE';
     const isCloturee = stCode === 'CLOTUREE';
@@ -167,7 +167,7 @@ export default function GestionPointagesPage() {
         ];
 
         return allSteps;
-    }, [activeStep, isDaf, anomaliesCount, isEnCours, isTransmis, isValidee, isCloturee]);
+    }, [activeStep, isDaf, anomaliesCount, isTransmis, isValidee, isCloturee]);
 
     return (
         <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">

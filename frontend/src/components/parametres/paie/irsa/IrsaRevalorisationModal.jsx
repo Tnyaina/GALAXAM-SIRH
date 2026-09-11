@@ -4,7 +4,7 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
 import Alert from '@/components/ui/feedback/Alert';
-import { fmtDate, fmtMoney } from '@/utils/paieUtils';
+import { fmtDate } from '@/utils/paieUtils';
 
 export default function IrsaRevalorisationModal({
     isOpen,
@@ -58,7 +58,7 @@ export default function IrsaRevalorisationModal({
                 ]);
             }
         }
-    }, [isOpen, currentTranches]);
+    }, [isOpen, currentTranches, defaultDate]);
 
     // Handle change of a field in a tranche
     const handleTrancheChange = (index, field, value) => {

@@ -80,7 +80,7 @@ export default function ParametresCongesTab() {
             toast({ title: 'Succès', message: `Type de congé "${type.libelle}" réactivé.`, type: 'success' });
           }
           fetchParametres();
-        } catch (err) {
+        } catch {
           toast({ title: 'Erreur', message: 'Erreur lors du changement de statut.', type: 'error' });
         }
       }
@@ -107,7 +107,7 @@ export default function ParametresCongesTab() {
             toast({ title: 'Succès', message: `Motif "${motif.libelle}" réactivé.`, type: 'success' });
           }
           fetchParametres();
-        } catch (err) {
+        } catch {
           toast({ title: 'Erreur', message: 'Erreur lors du changement de statut.', type: 'error' });
         }
       }

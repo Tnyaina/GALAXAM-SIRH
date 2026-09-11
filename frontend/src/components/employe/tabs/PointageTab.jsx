@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Clock,
     Printer,
     FileDown,
+    FileSpreadsheet,
+    FileText,
     TrendingUp,
     Info,
     ChevronLeft,
@@ -22,6 +24,8 @@ import {
 } from 'lucide-react';
 import pointageEmployeService from '@/api/pointage/pointageEmployeService';
 import periodePaieService from '@/services/periodePaieService';
+import { useToast } from '@/components/ui/feedback/Toast';
+import PointageFichePrintModal from '@/components/pointage/PointageFichePrintModal';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -29,8 +33,10 @@ import PeriodNavigator from '@/components/ui/navigation/PeriodNavigator';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import { getTodayDateString } from '@/utils/dateUtils';
+import { getPeriodeLabelForFilename } from '@/utils/pointageUtils';
 
-export default function PointageTab({ idEmploye }) {
+export default function PointageTab({ idEmploye, employe = null }) {
+    const { toast } = useToast();
     const [periodView, setPeriodView] = useState('periode');
     const [selectedDate, setSelectedDate] = useState(() => getTodayDateString());
     const [selectedPeriodeId, setSelectedPeriodeId] = useState(null);
@@ -39,6 +45,22 @@ export default function PointageTab({ idEmploye }) {
     const [error, setError] = useState(null);
     const [ficheData, setFicheData] = useState(null);
     const [showHebdoDetail, setShowHebdoDetail] = useState(true);
+
+    // États du dropdown d'export et de la modale PDF
+    const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+    const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+    const [exportingExcel, setExportingExcel] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setExportDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const formatHeuresMinutes = (val, withSign = false) => {
         if (val === null || val === undefined || isNaN(val)) return '00h00';
@@ -53,6 +75,22 @@ export default function PointageTab({ idEmploye }) {
         if (num < 0) return `-${formatted}`;
         if (withSign && num > 0) return `+${formatted}`;
         return formatted;
+    };
+
+    const formatDecimalHours = (val, withSign = false) => {
+        if (val === null || val === undefined || isNaN(val)) return '0.00h';
+        const num = Number(val);
+        const rounded = Math.round(num * 100) / 100;
+        const sign = rounded > 0 && withSign ? '+' : '';
+        return `${sign}${rounded.toFixed(2)}h`;
+    };
+
+    const parseHhMmToDecimal = (str) => {
+        if (!str || typeof str !== 'string' || !str.includes('h')) return 0.0;
+        const parts = str.split('h');
+        const h = parseFloat(parts[0]) || 0;
+        const m = parseFloat(parts[1]) || 0;
+        return Math.round((h + m / 60.0) * 100.0) / 100.0;
     };
 
     // 1. Charger la liste des périodes de paie officielles
@@ -118,12 +156,56 @@ export default function PointageTab({ idEmploye }) {
         }
     };
 
-    const handlePrint = () => {
-        window.print();
+    const handleOpenPdfModal = () => {
+        setExportDropdownOpen(false);
+        setIsPrintModalOpen(true);
     };
 
-    const handleExportPdf = () => {
-        window.print();
+    const handleExportExcel = async () => {
+        setExportDropdownOpen(false);
+        setExportingExcel(true);
+        try {
+            const params = {
+                date: selectedDate,
+                period: periodView
+            };
+            if (periodView === 'periode' && selectedPeriodeId) {
+                params.idPeriode = selectedPeriodeId;
+            }
+            const blobData = await pointageEmployeService.exportExcel(idEmploye, params);
+            const blob = new Blob([blobData], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const nom = employe?.nom || (ficheData?.nom ? ficheData.nom : (ficheData?.nomComplet ? ficheData.nomComplet.split(' ')[0] : 'Employe'));
+            const prenom = employe?.prenom || (ficheData?.prenom ? ficheData.prenom : (ficheData?.nomComplet ? ficheData.nomComplet.split(' ').slice(1).join(' ') : ''));
+            const pInitial = prenom ? prenom.trim().charAt(0).toUpperCase() : 'P';
+            const matStr = ficheData?.matricule || employe?.matricule || idEmploye;
+            const currentPeriode = periodesList.find(p => p.idPeriode === selectedPeriodeId);
+            const perLibelle = getPeriodeLabelForFilename(ficheData?.libellePeriode || currentPeriode?.libelle, ficheData?.codePeriode || currentPeriode?.code);
+            const cleanNom = nom.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+            link.download = `Pointage_${cleanNom}_${pInitial}_${matStr}_${perLibelle}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            toast({
+                title: 'Export Excel réussi',
+                message: 'Le fichier Excel (.xlsx) avec formules dynamiques a été téléchargé.',
+                type: 'success'
+            });
+        } catch (err) {
+            console.error('Erreur export Excel:', err);
+            toast({
+                title: 'Erreur d’exportation',
+                message: 'Impossible de générer le fichier Excel de pointage.',
+                type: 'error'
+            });
+        } finally {
+            setExportingExcel(false);
+        }
     };
 
     const getStatutBadge = (statut) => {
@@ -292,22 +374,56 @@ export default function PointageTab({ idEmploye }) {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={handlePrint}
-                        className="text-xs font-bold flex items-center gap-1.5"
+                        onClick={handleOpenPdfModal}
+                        className="text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                     >
                         <Printer size={14} />
                         Imprimer
                     </Button>
-                    <Button
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        onClick={handleExportPdf}
-                        className="text-xs font-bold flex items-center gap-1.5 shadow-xs"
-                    >
-                        <FileDown size={14} />
-                        Exporter PDF
-                    </Button>
+
+                    {/* Menu Déroulant Exporter (Excel / PDF) */}
+                    <div className="relative inline-block" ref={dropdownRef}>
+                        <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            loading={exportingExcel}
+                            onClick={() => setExportDropdownOpen(prev => !prev)}
+                            className="text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        >
+                            <FileDown size={14} />
+                            <span>Exporter</span>
+                            <ChevronDown size={13} className={`transition-transform duration-200 ${exportDropdownOpen ? 'rotate-180' : ''}`} />
+                        </Button>
+
+                        {exportDropdownOpen && (
+                            <div className="absolute right-0 mt-1 w-56 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-lg z-30 py-1 rounded-none text-left animate-in fade-in zoom-in-95 duration-150">
+                                <button
+                                    type="button"
+                                    onClick={handleExportExcel}
+                                    className="w-full px-3 py-2 text-xs font-medium flex items-center gap-2.5 text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer text-left"
+                                >
+                                    <FileSpreadsheet size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                    <div>
+                                        <div className="font-semibold">Format Excel (.xlsx)</div>
+                                        <div className="text-[10px] text-[var(--color-fg-muted)]">Classeur avec formules actives</div>
+                                    </div>
+                                </button>
+                                <div className="my-1 border-t border-[var(--color-border-subtle)]" />
+                                <button
+                                    type="button"
+                                    onClick={handleOpenPdfModal}
+                                    className="w-full px-3 py-2 text-xs font-medium flex items-center gap-2.5 text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer text-left"
+                                >
+                                    <FileText size={15} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                                    <div>
+                                        <div className="font-semibold">Fiche PDF Officielle</div>
+                                        <div className="text-[10px] text-[var(--color-fg-muted)]">A4 corporate prête à émarger</div>
+                                    </div>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -361,9 +477,14 @@ export default function PointageTab({ idEmploye }) {
                                 <Clock size={18} className="text-[var(--color-brand-500)]" />
                             </div>
                             <div className="mt-2">
-                                <span className="text-2xl font-bold font-mono text-[var(--color-fg)]">
-                                    {kpis.heuresRealisees || '00h00'}
-                                </span>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-bold font-mono text-[var(--color-fg)]">
+                                        {kpis.heuresRealisees || '00h00'}
+                                    </span>
+                                    <span className="text-xs font-mono text-[var(--color-fg-muted)] font-semibold">
+                                        ({formatDecimalHours(parseHhMmToDecimal(kpis.heuresRealisees))})
+                                    </span>
+                                </div>
                                 <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
                                     {kpis.heuresObjectif || 'objectif 168h00'}
                                 </p>
@@ -379,9 +500,14 @@ export default function PointageTab({ idEmploye }) {
                                 <div className={`w-2.5 h-2.5 rounded-full ${kpis.retardCumule && kpis.retardCumule !== '00h00' && kpis.retardCumule !== '0h' ? 'bg-[var(--color-warning-500)]' : 'bg-[var(--color-border)]'}`} />
                             </div>
                             <div className="mt-2">
-                                <span className={`text-2xl font-bold font-mono ${kpis.retardCumule && kpis.retardCumule !== '00h00' && kpis.retardCumule !== '0h' ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' : 'text-[var(--color-fg)]'}`}>
-                                    {kpis.retardCumule || '00h00'}
-                                </span>
+                                <div className="flex items-baseline gap-2">
+                                    <span className={`text-2xl font-bold font-mono ${kpis.retardCumule && kpis.retardCumule !== '00h00' && kpis.retardCumule !== '0h' ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' : 'text-[var(--color-fg)]'}`}>
+                                        {kpis.retardCumule || '00h00'}
+                                    </span>
+                                    <span className="text-xs font-mono text-[var(--color-fg-muted)] font-semibold">
+                                        ({formatDecimalHours(parseHhMmToDecimal(kpis.retardCumule))})
+                                    </span>
+                                </div>
                                 <div className="text-xs text-[var(--color-fg-muted)] mt-0.5 truncate" title={recap.retardCompense && recap.retardCompense !== '00h00' ? `${recap.retardCompense} compensé · ${recap.retardNet || recap.heuresDeficit} déduit en paie` : undefined}>
                                     {recap.retardCompense && recap.retardCompense !== '00h00' ? (
                                         <span className="text-emerald-600 dark:text-emerald-400 font-medium">
@@ -403,9 +529,14 @@ export default function PointageTab({ idEmploye }) {
                                 <div className={`w-2.5 h-2.5 rounded-full ${kpis.heuresSupp && kpis.heuresSupp !== '00h00' && kpis.heuresSupp !== '0h' ? 'bg-[var(--color-success-500)]' : 'bg-[var(--color-border)]'}`} />
                             </div>
                             <div className="mt-2">
-                                <span className={`text-2xl font-bold font-mono ${kpis.heuresSupp && kpis.heuresSupp !== '00h00' && kpis.heuresSupp !== '0h' ? 'text-[var(--color-success-500)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
-                                    {kpis.heuresSupp || '00h00'}
-                                </span>
+                                <div className="flex items-baseline gap-2">
+                                    <span className={`text-2xl font-bold font-mono ${kpis.heuresSupp && kpis.heuresSupp !== '00h00' && kpis.heuresSupp !== '0h' ? 'text-[var(--color-success-500)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
+                                        {kpis.heuresSupp || '00h00'}
+                                    </span>
+                                    <span className="text-xs font-mono text-[var(--color-fg-muted)] font-semibold">
+                                        ({formatDecimalHours(parseHhMmToDecimal(kpis.heuresSupp))})
+                                    </span>
+                                </div>
                                 <div className="text-xs text-[var(--color-fg-muted)] mt-0.5 truncate">
                                     {recap.heuresSuppBrutes && recap.heuresSuppBrutes !== '00h00' && recap.heuresSuppBrutes !== kpis.heuresSupp ? (
                                         <span className="text-[var(--color-info-600)] dark:text-[var(--color-info-300)]" title={`Surplus brut : ${recap.heuresSuppBrutes}, absorbé à hauteur de ${recap.retardCompense} par les retards`}>
@@ -474,8 +605,8 @@ export default function PointageTab({ idEmploye }) {
                                             const valDplt = (ptg.deplacementMatin ? 0.5 : 0) + (ptg.deplacementAm ? 0.5 : 0);
                                             const valRepas = ptg.nbRepas || (ptg.indemniteRepas ? 1 : 0);
                                             const isContinu = Boolean(
-                                                ptg.horaireContinuJour || 
-                                                ptg.horaireContinu || 
+                                                ptg.horaireContinuJour ||
+                                                ptg.horaireContinu ||
                                                 (ptg.sortiePause === '12:00' && ptg.retourPause === '12:00')
                                             );
 
@@ -513,7 +644,12 @@ export default function PointageTab({ idEmploye }) {
                                                         {ptg.sortie}
                                                     </Td>
                                                     <Td className="font-mono text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
-                                                        {ptg.heures}
+                                                        <div>{ptg.heures}</div>
+                                                        {ptg.heures && ptg.heures !== '—' && ptg.heures !== '00h00' && (
+                                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">
+                                                                ({ptg.totalHeuresDecimal != null ? ptg.totalHeuresDecimal.toFixed(2) : parseHhMmToDecimal(ptg.heures).toFixed(2)}h)
+                                                            </div>
+                                                        )}
                                                     </Td>
                                                     <Td className="font-mono text-xs text-center py-2.5 px-3">
                                                         {ptg.ecart && ptg.ecart.startsWith('-') ? (
@@ -599,7 +735,7 @@ export default function PointageTab({ idEmploye }) {
                                 <div className="flex items-center gap-2">
                                     <Scale size={16} className="text-[var(--color-brand-500)] shrink-0" />
                                     <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
-                                        Décomposition Hebdomadaire &amp; Compensation 1:1 (Règle RG-PTG-05)
+                                        Décomposition Hebdomadaire &amp; Compensation
                                     </h4>
                                 </div>
                                 <span className="text-[11px] text-[var(--color-fg-muted)] font-mono">
@@ -628,25 +764,40 @@ export default function PointageTab({ idEmploye }) {
                                                         Semaine {b.numeroSemaine || idx + 1} ({b.debutSemaine} au {b.finSemaine})
                                                     </Td>
                                                     <Td className="text-xs text-center py-2 px-3">{b.nbJoursTroncon} j</Td>
-                                                    <Td className="font-mono text-xs text-center py-2 px-3">{formatHeuresMinutes(b.seuilHeuresTroncon)}</Td>
-                                                    <Td className="font-mono text-xs text-center font-bold py-2 px-3">{formatHeuresMinutes(b.totalHeuresTravaillees)}</Td>
+                                                    <Td className="font-mono text-xs text-center py-2 px-3">
+                                                        <div>{formatHeuresMinutes(b.seuilHeuresTroncon)}</div>
+                                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatDecimalHours(b.seuilHeuresTroncon)})</div>
+                                                    </Td>
+                                                    <Td className="font-mono text-xs text-center font-bold py-2 px-3">
+                                                        <div>{formatHeuresMinutes(b.totalHeuresTravaillees)}</div>
+                                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatDecimalHours(b.totalHeuresTravaillees)})</div>
+                                                    </Td>
                                                     <Td className={`font-mono text-xs text-center py-2 px-3 ${b.heuresRetard > 0 ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-bold' : 'text-[var(--color-fg-muted)]'}`}>
-                                                        {b.heuresRetard > 0 ? formatHeuresMinutes(b.heuresRetard) : '00h00'}
+                                                        <div>{b.heuresRetard > 0 ? formatHeuresMinutes(b.heuresRetard) : '00h00'}</div>
+                                                        {b.heuresRetard > 0 && (
+                                                            <div className="text-[10px] opacity-75 font-normal font-mono">({formatDecimalHours(b.heuresRetard)})</div>
+                                                        )}
                                                     </Td>
                                                     <Td className={`font-mono text-xs text-center py-2 px-3 ${b.heuresHsBrutes > 0 ? 'text-[var(--color-info-600)] dark:text-[var(--color-info-300)] font-bold' : 'text-[var(--color-fg-muted)]'}`}>
-                                                        {b.heuresHsBrutes > 0 ? formatHeuresMinutes(b.heuresHsBrutes, true) : '00h00'}
+                                                        <div>{b.heuresHsBrutes > 0 ? formatHeuresMinutes(b.heuresHsBrutes, true) : '00h00'}</div>
+                                                        {b.heuresHsBrutes > 0 && (
+                                                            <div className="text-[10px] opacity-75 font-normal font-mono">({formatDecimalHours(b.heuresHsBrutes, true)})</div>
+                                                        )}
                                                     </Td>
                                                     <Td className="font-mono text-xs text-center py-2 px-3 font-bold text-emerald-600 dark:text-emerald-400">
-                                                        {b.heuresCompensees > 0 ? `-${formatHeuresMinutes(b.heuresCompensees)}` : '—'}
+                                                        <div>{b.heuresCompensees > 0 ? `-${formatHeuresMinutes(b.heuresCompensees)}` : '—'}</div>
+                                                        {b.heuresCompensees > 0 && (
+                                                            <div className="text-[10px] opacity-75 font-normal font-mono">(-{formatDecimalHours(b.heuresCompensees)})</div>
+                                                        )}
                                                     </Td>
                                                     <Td className="text-center py-2 px-3">
                                                         {hasDeficit ? (
                                                             <Badge variant="danger" size="sm" className="font-mono font-bold">
-                                                                -{formatHeuresMinutes(b.heuresDeficit)} RETENUE
+                                                                -{formatHeuresMinutes(b.heuresDeficit)} (-{formatDecimalHours(b.heuresDeficit)})
                                                             </Badge>
                                                         ) : hasHs ? (
                                                             <Badge variant="success" size="sm" className="font-mono font-bold">
-                                                                +{formatHeuresMinutes(b.heuresHsNettes)} NETTES
+                                                                +{formatHeuresMinutes(b.heuresHsNettes)} (+{formatDecimalHours(b.heuresHsNettes)})
                                                             </Badge>
                                                         ) : (
                                                             <Badge variant="neutral" size="sm" className="font-mono text-[10px]">
@@ -896,6 +1047,14 @@ export default function PointageTab({ idEmploye }) {
                     </div>
                 </>
             )}
+
+            {/* Modale d'aperçu officiel et d'impression PDF format A4 */}
+            <PointageFichePrintModal
+                isOpen={isPrintModalOpen}
+                onClose={() => setIsPrintModalOpen(false)}
+                employe={employe}
+                ficheData={ficheData}
+            />
         </div>
     );
 }

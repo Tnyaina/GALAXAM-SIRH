@@ -148,3 +148,54 @@ export const filtrerAnomaliesParType = (anomalies = [], typeFilter = 'ALL') => {
     });
 };
 
+/**
+ * Formate un nombre d'heures décimales au plus proche avec 2 décimales (ex: 8.5 -> "8,50h" ou "8.50h").
+ */
+export const formatHeuresDecimal = (val, suffix = 'h') => {
+    if (val === null || val === undefined || val === '' || isNaN(val)) {
+        return `0.00${suffix}`;
+    }
+    const num = Number(val);
+    const rounded = Math.round(num * 100) / 100;
+    return `${rounded.toFixed(2)}${suffix}`;
+};
+
+/**
+ * Formate un nombre d'heures décimales en double affichage : Horaire + Décimal
+ * Exemple: 8.5 -> "08h30 (8.50h)"
+ */
+export const formatDualHours = (val, options = {}) => {
+    const { primary = 'horaire', padZero = true } = options;
+    if (val === null || val === undefined || val === '' || isNaN(val)) {
+        return '00h00 (0.00h)';
+    }
+    const hhmm = formatHeuresMinutes(val, padZero);
+    const dec = formatHeuresDecimal(val);
+    if (primary === 'decimal') {
+        return `${dec} (${hhmm})`;
+    }
+    return `${hhmm} (${dec})`;
+};
+
+/**
+ * Résout le libellé human-friendly d'une période pour le nommage des exports (ex: Decembre_2025).
+ */
+export const getPeriodeLabelForFilename = (libelle, code) => {
+    if (libelle && typeof libelle === 'string' && libelle.trim().length > 0 && libelle.toLowerCase() !== 'periode') {
+        const clean = libelle.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_');
+        if (clean.length > 0) return clean;
+    }
+    if (code && typeof code === 'string' && /^\d{4}[-_]\d{2}$/.test(code.trim())) {
+        const [year, monthStr] = code.trim().split(/[-_]/);
+        const month = parseInt(monthStr, 10);
+        const mois = ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'];
+        if (month >= 1 && month <= 12) {
+            return `${mois[month - 1]}_${year}`;
+        }
+    }
+    if (code && typeof code === 'string') {
+        return code.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+    }
+    return 'Periode';
+};

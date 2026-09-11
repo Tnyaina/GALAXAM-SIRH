@@ -61,7 +61,7 @@ export default function ConfirmationEssaiModal({
     onSuccess,
 }) {
     const isEditMode = !!initialData;
-    const wfId = initialData?.idWorkflow || initialData?.workflow?.idWorkflow;
+    const _wfId = initialData?.idWorkflow || initialData?.workflow?.idWorkflow;
     const isActionAllowed = isEditMode || etatEssai?.canConfirm !== false;
 
     const [dateEffet, setDateEffet] = useState('');

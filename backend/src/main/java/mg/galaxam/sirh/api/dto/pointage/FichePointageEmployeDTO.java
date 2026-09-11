@@ -5,6 +5,8 @@ import java.util.Map;
 
 public class FichePointageEmployeDTO {
     private Integer idPeriode;
+    private Integer idEmploye;
+    private String codePeriode;
     private String libellePeriode;
     private String dateDebut;
     private String dateFin;
@@ -12,8 +14,42 @@ public class FichePointageEmployeDTO {
     private Map<String, String> kpis;
     private Map<String, String> recap;
     private Map<String, String> reglesAppliquees;
+    private String matricule;
+    private String nom;
+    private String prenom;
+    private String nomComplet;
+    private String siteNom;
+    private String fonction;
+    private String categorie;
     private List<PointageJourDTO> pointagesData;
     private List<PointageTronconSemaineDTO> bilansHebdo;
+
+    public Integer getIdEmploye() { return idEmploye; }
+    public void setIdEmploye(Integer idEmploye) { this.idEmploye = idEmploye; }
+
+    public String getCodePeriode() { return codePeriode; }
+    public void setCodePeriode(String codePeriode) { this.codePeriode = codePeriode; }
+
+    public String getNom() { return nom; }
+    public void setNom(String nom) { this.nom = nom; }
+
+    public String getPrenom() { return prenom; }
+    public void setPrenom(String prenom) { this.prenom = prenom; }
+
+    public String getMatricule() { return matricule; }
+    public void setMatricule(String matricule) { this.matricule = matricule; }
+
+    public String getNomComplet() { return nomComplet; }
+    public void setNomComplet(String nomComplet) { this.nomComplet = nomComplet; }
+
+    public String getSiteNom() { return siteNom; }
+    public void setSiteNom(String siteNom) { this.siteNom = siteNom; }
+
+    public String getFonction() { return fonction; }
+    public void setFonction(String fonction) { this.fonction = fonction; }
+
+    public String getCategorie() { return categorie; }
+    public void setCategorie(String categorie) { this.categorie = categorie; }
 
     public List<PointageTronconSemaineDTO> getBilansHebdo() { return bilansHebdo; }
     public void setBilansHebdo(List<PointageTronconSemaineDTO> bilansHebdo) { this.bilansHebdo = bilansHebdo; }
