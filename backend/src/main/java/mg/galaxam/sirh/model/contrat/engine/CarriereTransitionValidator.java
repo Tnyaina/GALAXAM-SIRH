@@ -119,15 +119,15 @@ public final class CarriereTransitionValidator {
         String source = normalize(sourceCode);
         String event = normalize(eventCode);
 
-        Set<String> autorises = EVENEMENTS_AUTORISES_PAR_SOURCE.get(source);
-        if (autorises != null && !autorises.contains(event)) {
-            throw new IllegalArgumentException(genererMessageIneligibilite(source, event));
-        }
-
         if ("STAGE".equals(source) && Set.of("MUTATION", "PROMOTION", "REVALORISATION", "REORGANISATION", "TRANSFORMATION_CDI", "RENOUVELLEMENT_CDD").contains(event)) {
             throw new IllegalArgumentException(
                     "Un collaborateur sous convention de Stage ne peut pas faire l'objet d'un avenant interne. " +
                     "Veuillez procéder à un 'Passage Stage vers CDD/CDI' ou enregistrer une fin de stage.");
+        }
+
+        Set<String> autorises = EVENEMENTS_AUTORISES_PAR_SOURCE.get(source);
+        if (autorises != null && !autorises.contains(event)) {
+            throw new IllegalArgumentException(genererMessageIneligibilite(source, event));
         }
 
         ContraintesEvenement regle = CONTRAINTES_PAR_EVENEMENT.get(event);

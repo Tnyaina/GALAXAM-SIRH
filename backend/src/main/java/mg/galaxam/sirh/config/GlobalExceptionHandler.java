@@ -3,6 +3,9 @@ package mg.galaxam.sirh.config;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.stream.Collectors;
 import mg.galaxam.sirh.api.dto.common.ApiErrorResponse;
+import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.common.exception.SirhConflictException;
+import mg.galaxam.sirh.common.exception.SirhNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -23,6 +26,45 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(SirhBusinessException.class)
+    public ResponseEntity<ApiErrorResponse> handleSirhBusiness(SirhBusinessException ex, HttpServletRequest request) {
+        log.warn("Règle métier non satisfaite [{}] sur [{}] : {}", ex.getErrorCode(), request.getRequestURI(), ex.getMessage());
+        ApiErrorResponse error = new ApiErrorResponse(
+                ex.getHttpStatus().value(),
+                ex.getHttpStatus().getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                ex.getErrorCode().name()
+        );
+        return ResponseEntity.status(ex.getHttpStatus()).body(error);
+    }
+
+    @ExceptionHandler(SirhConflictException.class)
+    public ResponseEntity<ApiErrorResponse> handleSirhConflict(SirhConflictException ex, HttpServletRequest request) {
+        log.warn("Conflit métier [{}] sur [{}] : {}", ex.getErrorCode(), request.getRequestURI(), ex.getMessage());
+        ApiErrorResponse error = new ApiErrorResponse(
+                ex.getHttpStatus().value(),
+                ex.getHttpStatus().getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                ex.getErrorCode().name()
+        );
+        return ResponseEntity.status(ex.getHttpStatus()).body(error);
+    }
+
+    @ExceptionHandler(SirhNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleSirhNotFound(SirhNotFoundException ex, HttpServletRequest request) {
+        log.warn("Ressource introuvable [{}] sur [{}] : {}", ex.getErrorCode(), request.getRequestURI(), ex.getMessage());
+        ApiErrorResponse error = new ApiErrorResponse(
+                ex.getHttpStatus().value(),
+                ex.getHttpStatus().getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                ex.getErrorCode().name()
+        );
+        return ResponseEntity.status(ex.getHttpStatus()).body(error);
+    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiErrorResponse> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {

@@ -236,6 +236,7 @@ public class CalendrierOuvrableEngine {
      */
     public int compterJoursCalendaires(LocalDate debut, LocalDate fin) {
         if (debut == null || fin == null) return 0;
+        if (fin.isBefore(debut)) return 0;
         return (int) ChronoUnit.DAYS.between(debut, fin) + 1;
     }
 
