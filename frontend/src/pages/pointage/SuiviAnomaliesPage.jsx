@@ -250,7 +250,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             return true;
         } else {
             toast.error(res?.error || res?.message || 'Erreur lors de la régularisation.');
-            return false;
+            return res || false;
         }
     };
 

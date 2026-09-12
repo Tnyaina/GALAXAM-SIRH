@@ -2,6 +2,7 @@ package mg.galaxam.sirh.integration.pointage;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -251,5 +252,136 @@ public class PointageSaisieServiceIntegrationTest extends BaseIntegrationTest {
                 .content(toJson(List.of(dto))))
                 .andExpect(status().isConflict())
                 .andExpect(content().string(containsString("est inactif")));
+    }
+
+    @Test
+    @DisplayName("API Pointage Saisie : Transition changement de site TNR -> TMM sans doublon inter-sites")
+    public void testSaisieQuotidienne_TransitionChangementSite_PasDeDoublon() throws Exception {
+        // Date de mutation : il y a 5 jours
+        LocalDate dateMutation = LocalDate.now().minusDays(5);
+        LocalDate dateAvantMutation = LocalDate.now().minusDays(10);
+        LocalDate dateApresMutation = LocalDate.now().minusDays(2);
+
+        // Transition de empTnr (initialement sur Site 1 TNR) vers Site 2 TMM
+        // Note: On laisse date_fin = NULL sur l'ancienne affectation pour tester la résilience
+        // même si l'ancienne ligne n'avait pas été clôturée explicitement
+        try (Connection c = dataSource.getConnection()) {
+            // 1. Historiser l'affectation initiale TNR (sans renseigner date_fin pour tester le cas limite)
+            try (PreparedStatement psOld = c.prepareStatement(
+                    "UPDATE employe_affectation_carriere SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), date_fin = NULL " +
+                    "WHERE id_employe = ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
+                psOld.setInt(1, empTnr.idEmploye);
+                psOld.executeUpdate();
+            }
+
+            // 2. Créer la nouvelle affectation active TMM (Site 2)
+            String sqlNew = "INSERT INTO employe_affectation_carriere (" +
+                    "id_employe, id_contrat, id_statut_rh, id_motif_mouvement, id_site, id_departement, id_service, id_fonction, " +
+                    "id_categorie_professionnelle, id_mode_calcul_paie, salaire_base, date_debut, date_fin" +
+                    ") VALUES (?, (SELECT id_contrat FROM contrat_travail WHERE id_employe = ? LIMIT 1), " +
+                    "(SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF'), " +
+                    "(SELECT id_motif_mouvement FROM ref_motif_mouvement WHERE code = 'MUTATION'), " +
+                    "2, 1, 1, 1, 2, 1, 500000.00, ?, NULL)";
+            try (PreparedStatement psNew = c.prepareStatement(sqlNew)) {
+                psNew.setInt(1, empTnr.idEmploye);
+                psNew.setInt(2, empTnr.idEmploye);
+                psNew.setDate(3, Date.valueOf(dateMutation));
+                psNew.executeUpdate();
+            }
+        }
+
+        // A. Vérification pour la date APRÈS mutation :
+        // 1. Sur le site TNR (Site 1) : l'employé NE DOIT PAS être présent
+        String resTnrApres = mockMvc.perform(get("/pointages/saisie")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .param("idSite", "1")
+                .param("date", dateApresMutation.toString()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        com.fasterxml.jackson.databind.JsonNode rootTnr = objectMapper.readTree(resTnrApres);
+        com.fasterxml.jackson.databind.JsonNode grilleTnr = rootTnr.get("grilleData");
+        boolean presentTnrApres = false;
+        for (com.fasterxml.jackson.databind.JsonNode row : grilleTnr) {
+            if (row.get("idEmploye").asInt() == empTnr.idEmploye) {
+                presentTnrApres = true;
+                break;
+            }
+        }
+        assertFalse(presentTnrApres, "L'employé muté à TMM ne doit plus apparaître sur TNR après sa date de mutation");
+
+        // 2. Sur le site TMM (Site 2) : l'employé DOIT être présent
+        String resTmmApres = mockMvc.perform(get("/pointages/saisie")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .param("idSite", "2")
+                .param("date", dateApresMutation.toString()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        com.fasterxml.jackson.databind.JsonNode rootTmm = objectMapper.readTree(resTmmApres);
+        com.fasterxml.jackson.databind.JsonNode grilleTmm = rootTmm.get("grilleData");
+        boolean presentTmmApres = false;
+        for (com.fasterxml.jackson.databind.JsonNode row : grilleTmm) {
+            if (row.get("idEmploye").asInt() == empTnr.idEmploye) {
+                presentTmmApres = true;
+                break;
+            }
+        }
+        assertTrue(presentTmmApres, "L'employé muté à TMM doit apparaître sur TMM après sa date de mutation");
+
+        // B. Vérification pour la date AVANT mutation :
+        // 1. Sur le site TNR (Site 1) : l'employé DOIT être présent (antériorité historique)
+        String resTnrAvant = mockMvc.perform(get("/pointages/saisie")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .param("idSite", "1")
+                .param("date", dateAvantMutation.toString()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        com.fasterxml.jackson.databind.JsonNode grilleTnrAvant = objectMapper.readTree(resTnrAvant).get("grilleData");
+        boolean presentTnrAvant = false;
+        for (com.fasterxml.jackson.databind.JsonNode row : grilleTnrAvant) {
+            if (row.get("idEmploye").asInt() == empTnr.idEmploye) {
+                presentTnrAvant = true;
+                break;
+            }
+        }
+        assertTrue(presentTnrAvant, "L'employé doit toujours apparaître sur TNR pour les dates antérieures à sa mutation");
+
+        // 2. Sur le site TMM (Site 2) : l'employé NE DOIT PAS être présent avant mutation
+        String resTmmAvant = mockMvc.perform(get("/pointages/saisie")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .param("idSite", "2")
+                .param("date", dateAvantMutation.toString()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        com.fasterxml.jackson.databind.JsonNode grilleTmmAvant = objectMapper.readTree(resTmmAvant).get("grilleData");
+        boolean presentTmmAvant = false;
+        for (com.fasterxml.jackson.databind.JsonNode row : grilleTmmAvant) {
+            if (row.get("idEmploye").asInt() == empTnr.idEmploye) {
+                presentTmmAvant = true;
+                break;
+            }
+        }
+        assertFalse(presentTmmAvant, "L'employé ne doit pas apparaître sur TMM pour les dates antérieures à sa mutation");
+
+        // C. Vérification de rejet lors de la soumission d'un pointage sur TNR après mutation
+        SaisiePointageJourDTO ptgTnrInvalide = new SaisiePointageJourDTO();
+        ptgTnrInvalide.setIdEmploye(empTnr.idEmploye);
+        ptgTnrInvalide.setIdSite(1); // Mauvais site (TNR) après mutation
+        ptgTnrInvalide.setDatePointage(dateApresMutation.toString());
+        ptgTnrInvalide.setIdPeriodePaie(idPeriode);
+        ptgTnrInvalide.setHeureEntreeMatin("08:00");
+        ptgTnrInvalide.setHeureSortieMatin("12:00");
+        ptgTnrInvalide.setHeureEntreeAm("13:00");
+        ptgTnrInvalide.setHeureSortieAm("17:00");
+
+        mockMvc.perform(post("/pointages/saisie/batch")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(List.of(ptgTnrInvalide))))
+                .andExpect(status().isConflict())
+                .andExpect(content().string(containsString("n'est pas rattaché au site ID 1")));
     }
 }

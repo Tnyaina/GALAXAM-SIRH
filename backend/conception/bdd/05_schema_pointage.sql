@@ -302,8 +302,9 @@ INSERT INTO ref_statut_pointage_jour (id_statut_jour, code, libelle, decompte_ab
 (7, 'FERIE_CHOME', 'Jour férié chômé', FALSE, FALSE),
 (8, 'SAMEDI_TRAVAILLE', 'Samedi travaillé', FALSE, TRUE),
 (9, 'DIMANCHE_TRAVAILLE', 'Dimanche travaillé', FALSE, TRUE),
-(10, 'DISPENSE_POINTAGE', 'Poste autonome — dispense de pointage', FALSE, FALSE);
-SELECT setval('ref_statut_pointage_jour_id_statut_jour_seq', (SELECT GREATEST(MAX(id_statut_jour), 10) FROM ref_statut_pointage_jour));
+(10, 'DISPENSE_POINTAGE', 'Poste autonome — dispense de pointage', FALSE, FALSE),
+(11, 'DEMI_JOURNEE', 'Demi-journée travaillée', FALSE, TRUE);
+SELECT setval('ref_statut_pointage_jour_id_statut_jour_seq', (SELECT GREATEST(MAX(id_statut_jour), 11) FROM ref_statut_pointage_jour));
 
 -- Tolérances d'Arrivée
 INSERT INTO ref_tolerance_arrivee_pointage (id_site, heure_plafond) VALUES

@@ -63,6 +63,8 @@ export const getStatutPointageBadge = (codeStatut, minutesRetard = 0) => {
     switch (upper) {
         case 'PRESENT':
             return <Badge variant="success">Présent</Badge>;
+        case 'DEMI_JOURNEE':
+            return <Badge variant="sky">Demi-journée</Badge>;
         case 'ANOMALIE_SAISIE':
             return <Badge variant="warning">Incomplet</Badge>;
         case 'ABSENCE_NON_JUSTIFIEE':

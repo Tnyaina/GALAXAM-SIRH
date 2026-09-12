@@ -382,7 +382,7 @@ public class PointageSyntheseService {
                     Time saTime = rsPtg.getTime("heure_sortie_am");
                     LocalTime sa = saTime != null ? saTime.toLocalTime() : null;
 
-                    if ("PRESENT".equals(stCode) || "DISPENSE_POINTAGE".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode)) {
+                    if ("PRESENT".equals(stCode) || "DISPENSE_POINTAGE".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode) || "DEMI_JOURNEE".equals(stCode)) {
                         presents++;
                     } else if ("DIMANCHE_TRAVAILLE".equals(stCode) || (isSunday && th > 0)) {
                         presents++;
@@ -413,6 +413,7 @@ public class PointageSyntheseService {
                     boolean estPresentAutonome = estAutonome && !isWeekend && !isAbsenceOuConge && !"REPOS".equals(stCode);
                     boolean estTravailleOuPresent = ("PRESENT".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode) 
                             || "DIMANCHE_TRAVAILLE".equals(stCode) || "FERIE_TRAVAILLE".equals(stCode)
+                            || "DEMI_JOURNEE".equals(stCode)
                             || estPresentAutonome || th > 0.0);
 
                     boolean aPrisRepasCeJour = estTravailleOuPresent && (repasEffectif || estPresentAutonome);
@@ -1245,6 +1246,7 @@ public class PointageSyntheseService {
             String sqlNbEmp = "SELECT COUNT(DISTINCT e.id_employe) FROM employe e " +
                               "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
                               "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
+                              "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
                               "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
                               "WHERE COALESCE(f.dispense_pointage, FALSE) = FALSE " +
                               (idSite != null && idSite > 0 ? "AND (a.id_site = ? OR EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND pj.id_site = ?)) " : "");

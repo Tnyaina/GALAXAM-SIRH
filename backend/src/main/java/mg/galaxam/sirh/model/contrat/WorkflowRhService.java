@@ -241,12 +241,18 @@ public class WorkflowRhService {
             }
             validerExigenceDateFin(contrat.getIdTypeContrat(), contrat.getDateFin(), c);
 
-            // Clôturer tout ancien contrat actif restant pour cet employé pour éviter les
-            // doublons
+            // Clôturer tout ancien contrat actif restant pour cet employé pour éviter les doublons
+            Date dateFermetureCt = null;
+            if (contrat.getDateDebut() != null) {
+                dateFermetureCt = Date.valueOf(contrat.getDateDebut().toLocalDate().minusDays(1));
+            } else if (workflow.getDateEffet() != null) {
+                dateFermetureCt = Date.valueOf(workflow.getDateEffet().toLocalDate().minusDays(1));
+            }
             try (PreparedStatement psCloseOld = c.prepareStatement(
-                    "UPDATE contrat_travail SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'CLOTURE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_contrat <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
-                psCloseOld.setInt(1, workflow.getIdEmploye());
-                psCloseOld.setInt(2, workflow.getIdContratCible());
+                    "UPDATE contrat_travail SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'CLOTURE'), date_fin = COALESCE(date_fin, ?), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_contrat <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
+                psCloseOld.setDate(1, dateFermetureCt);
+                psCloseOld.setInt(2, workflow.getIdEmploye());
+                psCloseOld.setInt(3, workflow.getIdContratCible());
                 psCloseOld.executeUpdate();
             }
 
@@ -261,11 +267,18 @@ public class WorkflowRhService {
                         "L'affectation cible (id=" + workflow.getIdAffectationCible() + ") est introuvable.");
             }
 
-            // Clôturer toute ancienne affectation active
+            // Clôturer toute ancienne affectation active avec date de fin = J-1 de la nouvelle affectation
+            Date dateFermetureAff = null;
+            if (affectation.getDateDebut() != null) {
+                dateFermetureAff = Date.valueOf(affectation.getDateDebut().toLocalDate().minusDays(1));
+            } else if (workflow.getDateEffet() != null) {
+                dateFermetureAff = Date.valueOf(workflow.getDateEffet().toLocalDate().minusDays(1));
+            }
             try (PreparedStatement psCloseOldAff = c.prepareStatement(
-                    "UPDATE employe_affectation_carriere SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_affectation <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
-                psCloseOldAff.setInt(1, workflow.getIdEmploye());
-                psCloseOldAff.setInt(2, workflow.getIdAffectationCible());
+                    "UPDATE employe_affectation_carriere SET id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE'), date_fin = COALESCE(date_fin, ?), updated_at = CURRENT_TIMESTAMP WHERE id_employe = ? AND id_affectation <> ? AND id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')")) {
+                psCloseOldAff.setDate(1, dateFermetureAff);
+                psCloseOldAff.setInt(2, workflow.getIdEmploye());
+                psCloseOldAff.setInt(3, workflow.getIdAffectationCible());
                 psCloseOldAff.executeUpdate();
             }
 

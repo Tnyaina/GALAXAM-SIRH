@@ -360,14 +360,14 @@ export default function PointageGridTable({
                                         />
                                     </Td>
 
-                                    {/* 6. Total Heures */}
+                                    {/* 6. Total Heures (Mise en avant horaire HHhMM plutôt que décimal) */}
                                     <Td className="px-3 py-1.5 text-center font-mono font-semibold border-l border-[var(--color-border-subtle)]">
                                         <div className="flex flex-col items-center justify-center">
-                                            <span>
-                                                {formatHeuresDecimal(row.totalHeures)}
+                                            <span className="text-[13px] font-bold text-[var(--color-fg)]">
+                                                {formatHeuresMinutes(row.totalHeures, true)}
                                             </span>
                                             <span className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">
-                                                ({formatHeuresMinutes(row.totalHeures, true)})
+                                                ({formatHeuresDecimal(row.totalHeures)})
                                             </span>
                                             {row.heuresNuit > 0 && (
                                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-1 mt-0.5">

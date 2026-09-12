@@ -181,8 +181,8 @@ export default function PointageRecapModal({
                                         <Td className="py-2.5 px-3 text-center font-mono text-[12px]">{matinStr}</Td>
                                         <Td className="py-2.5 px-3 text-center font-mono text-[12px]">{amStr}</Td>
                                         <Td className="py-2.5 px-3 text-center font-mono font-bold text-[12.5px]">
-                                            <div>{formatHeuresDecimal(row.totalHeures)}</div>
-                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatHeuresMinutes(row.totalHeures, true)})</div>
+                                            <div>{formatHeuresMinutes(row.totalHeures, true)}</div>
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatHeuresDecimal(row.totalHeures)})</div>
                                         </Td>
                                         <Td className="py-2.5 px-3 text-center font-mono">
                                             {row.minutesRetard > 0 ? (

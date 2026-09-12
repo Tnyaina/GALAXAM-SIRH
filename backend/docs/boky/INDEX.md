@@ -14,10 +14,11 @@
 |---|---|---|---|
 | 📋 **Module Employé** | Employé | Dossier individuel, identité civile, documents RH | [`module-employe.md`](./module-employe.md) |
 | 🏢 **Module Structure** | Organisation | Filiales, Sites, Référentiels, Fiscalité | [`module-structure.md`](./module-structure.md) |
+| 💰 **Module Paie & Rémunération** | Paie | **Document Maître Mémoire** : Cadre légal Malagasy, IRSA 6 tranches, CNaPS 8×SME, STC, BDD, API, Bilan des réalisations | [`module-paie.md`](./module-paie.md) |
 | 📜 **Réglementation Fiscale** | Paie & Fiscalité | Millésimes Loi de Finances, SME, Plafonds $8 \times \text{SME}$, IRSA | [`module-paie-reglementation-fiscale.md`](./module-paie-reglementation-fiscale.md) |
 | 📝 **Module Contrat** | Contrat & Carrière | Contrats, Workflow RH, Notifications, Certificats | [`Contrats-RG.md`](./Contrats-RG.md) |
 | 🏖️ **Module Congés** | Congés & Absences | Acquisition, Décompte, Purge FIFO, Alertes | [`module-conges-absences.md`](./module-conges-absences.md) |
-| 💳 **Module Paie & Variables** | Paie | Avances, acomptes, notes de frais, prêts | [`module-paie-avances-frais.md`](./module-paie-avances-frais.md) |
+| 💳 **Module Paie & Variables** | Paie (Annexe) | Spécification technique des avances, acomptes, notes de frais, prêts | [`module-paie-avances-frais.md`](./module-paie-avances-frais.md) |
 | 🔐 **Sécurité & RBAC** | Transversal | Authentification JWT, RBAC dynamique | [`securite.md`](./securite.md) |
 | 🔧 **Initialisation** | Infrastructure | Setup, déploiement, base de données | [`init.md`](./init.md) |
 | ⚡ **Optimisation** | Transversal | Performances, indexation, requêtes | [`optimisation.md`](./optimisation.md) |
@@ -34,8 +35,9 @@
 │   FRONTEND (React.js / Vite)                                        │
 │   ├── /employes      → Module Employé                               │
 │   ├── /conges        → Module Congés & Absences                     │
-│   ├── /pointages     → Module Pointage (en cours)                   │
-│   ├── /parametres    → Module Structure (référentiels)              │
+│   ├── /pointages     → Module Pointage                              │
+│   ├── /paie          → Module Paie & Rémunération                   │
+│   ├── /parametres    → Module Structure & Réglementation Fiscale    │
 │   └── /systeme       → Module Admin (RBAC, utilisateurs)            │
 │                                                                     │
 │   BACKEND (Spring Boot / Java)                                      │
@@ -43,6 +45,7 @@
 │   ├── api/controller/contrat    → Workflow RH & contrats            │
 │   ├── api/controller/conge      → Demandes & soldes de congé        │
 │   ├── api/controller/pointage   → Pointage, périodes, synthèses     │
+│   ├── api/controller/paie       → Moteur de paie, STC & exports     │
 │   ├── api/controller/organisation → Référentiels structure          │
 │   ├── api/controller/securite   → Auth JWT + RBAC                   │
 │   └── cron/                     → 7 schedulers nocturnes             │
@@ -113,8 +116,8 @@
 
 | Module | État | Description |
 |---|---|---|
-| **Pointage** | 🗒️ Conception finalisée | Documents v1.1.0 validés, prêt pour implémentation |
-| **Paie** | 📅 Planifié | Calcul IRSA, CNAPS/OSTIE, bulletins de paie |
+| **Pointage** | ✅ Implémenté & Validé | Saisie décalée (26 au 25), calculs d'heures, régularisations, exports Excel, UI complète |
+| **Paie** | ⚡ Moteur & BDD 100% Opérationnels | Calcul IRSA 6 tranches, CNaPS 8×SME, Santé, STC, déclarations SAFI DGI (Workflow & UI en cours) |
 | **Dashboard analytique** | 📅 Planifié | KPIs RH, tableaux de bord dirigeants |
 
 ---

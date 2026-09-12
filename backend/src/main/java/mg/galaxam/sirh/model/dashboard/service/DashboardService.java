@@ -88,8 +88,11 @@ public class DashboardService {
                 "JOIN employe e ON d.id_employe = e.id_employe " +
                 "JOIN ref_type_conge tc ON d.id_type_conge = tc.id_type_conge " +
                 "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
-                "LEFT JOIN employe_affectation_carriere aff ON e.id_employe = aff.id_employe AND aff.date_fin IS NULL "
-                +
+                "LEFT JOIN LATERAL (" +
+                "  SELECT aff_sub.id_site FROM employe_affectation_carriere aff_sub " +
+                "  WHERE aff_sub.id_employe = e.id_employe AND aff_sub.id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') " +
+                "  ORDER BY aff_sub.date_debut DESC, aff_sub.id_affectation DESC LIMIT 1" +
+                ") aff ON TRUE " +
                 "LEFT JOIN ref_site s ON aff.id_site = s.id_site " +
                 "WHERE rsd.code = 'VALIDE' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin " +
                 "ORDER BY d.date_fin ASC";
@@ -122,8 +125,11 @@ public class DashboardService {
                 "JOIN employe e ON d.id_employe = e.id_employe " +
                 "JOIN ref_type_conge tc ON d.id_type_conge = tc.id_type_conge " +
                 "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
-                "LEFT JOIN employe_affectation_carriere aff ON e.id_employe = aff.id_employe AND aff.date_fin IS NULL "
-                +
+                "LEFT JOIN LATERAL (" +
+                "  SELECT aff_sub.id_site FROM employe_affectation_carriere aff_sub " +
+                "  WHERE aff_sub.id_employe = e.id_employe AND aff_sub.id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') " +
+                "  ORDER BY aff_sub.date_debut DESC, aff_sub.id_affectation DESC LIMIT 1" +
+                ") aff ON TRUE " +
                 "LEFT JOIN ref_site s ON aff.id_site = s.id_site " +
                 "WHERE rsd.code = 'VALIDE' " +
                 "AND d.date_fin >= ? AND d.date_debut <= ? " +

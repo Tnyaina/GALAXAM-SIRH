@@ -155,6 +155,21 @@ public class PointageSaisieService {
             int retardMinutes,
             boolean hasValidationErr
     ) {
+        return determinerStatutJour(date, isFerie, typeConge, isCongePaye, isCongeDecompteSolde, isAutonome, em, sm, ea, sa, retardMinutes, hasValidationErr, null);
+    }
+
+    public static String determinerStatutJour(
+            LocalDate date,
+            boolean isFerie,
+            String typeConge,
+            boolean isCongePaye,
+            boolean isCongeDecompteSolde,
+            boolean isAutonome,
+            Time em, Time sm, Time ea, Time sa,
+            int retardMinutes,
+            boolean hasValidationErr,
+            String motifAjustement
+    ) {
         boolean isFullConge = "FULL_DAY".equalsIgnoreCase(typeConge);
         boolean isCongeMatin = "MATIN".equalsIgnoreCase(typeConge);
         boolean isCongeAm = "APRES_MIDI".equalsIgnoreCase(typeConge);
@@ -203,17 +218,22 @@ public class PointageSaisieService {
             return "PRESENT";
         }
 
-        // 6. Incohérence de badgeage partiel
+        // 6. Incohérence de badgeage partiel (orphelin)
         if ((em != null && sm == null) || (ea != null && sa == null) || (em == null && sm != null) || (ea == null && sa != null)) {
             return "ANOMALIE_SAISIE";
         }
 
-        // 7. Demi-journées de congé
+        // 7. Demi-journées de présence
+        boolean hasMotif = (motifAjustement != null && !motifAjustement.trim().isEmpty());
         if (em != null && sm != null && ea == null && sa == null) {
-            return isCongeAm ? "PRESENT" : "ANOMALIE_SAISIE";
+            if (isCongeAm) return "PRESENT";
+            if (hasMotif) return "DEMI_JOURNEE";
+            return "DEMI_JOURNEE";
         }
         if (em == null && sm == null && ea != null && sa != null) {
-            return isCongeMatin ? "PRESENT" : "ANOMALIE_SAISIE";
+            if (isCongeMatin) return "PRESENT";
+            if (hasMotif) return "DEMI_JOURNEE";
+            return "DEMI_JOURNEE";
         }
 
         // 8. Jour normal complet ou Week-end travaillé
@@ -467,12 +487,21 @@ public class PointageSaisieService {
                 }
             }
 
+            // Chargement de la liste des noms de site pour affichage direct
+            Map<Integer, String> allSiteNoms = new HashMap<>();
+            try (PreparedStatement psSites = c.prepareStatement("SELECT id_site, libelle FROM ref_site");
+                 ResultSet rsSites = psSites.executeQuery()) {
+                while (rsSites.next()) {
+                    allSiteNoms.put(rsSites.getInt("id_site"), rsSites.getString("libelle"));
+                }
+            }
+
             // C. Salariés actifs et leurs affectations de carrière
             Map<Integer, EmployeCandidatSite> empInfoMap = new LinkedHashMap<>();
             Map<Integer, List<AffCandidat>> affMap = new HashMap<>();
 
             String sqlEmpAff = "SELECT e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
-                               "a.id_site, a.date_debut AS aff_debut, a.date_fin AS aff_fin, " +
+                               "a.id_affectation, a.id_site, a.date_debut AS aff_debut, a.date_fin AS aff_fin, " +
                                "rsa.code AS code_statut_aff, " +
                                "COALESCE(cp.code, '') AS code_categorie, " +
                                "COALESCE(f.dispense_pointage, FALSE) AS dispense_pointage " +
@@ -482,7 +511,7 @@ public class PointageSaisieService {
                                "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
                                "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
                                "WHERE e.est_actif = TRUE " +
-                               "ORDER BY e.nom, e.prenom, (a.date_fin IS NULL) DESC, a.date_debut DESC";
+                               "ORDER BY e.nom, e.prenom, a.date_debut ASC, a.id_affectation ASC";
 
             try (PreparedStatement psEA = c.prepareStatement(sqlEmpAff);
                  ResultSet rsEA = psEA.executeQuery()) {
@@ -504,6 +533,7 @@ public class PointageSaisieService {
                     int affSite = rsEA.getInt("id_site");
                     if (affSite > 0) {
                         AffCandidat aff = new AffCandidat();
+                        aff.idAffectation = rsEA.getInt("id_affectation");
                         aff.idSite = affSite;
                         Date ad = rsEA.getDate("aff_debut");
                         Date af = rsEA.getDate("aff_fin");
@@ -545,61 +575,35 @@ public class PointageSaisieService {
                     }
                 }
 
-                // 2. Vérification du rattachement au site en Java
+                // 2. Détermination canonique de l'affectation active du moment par rapport à la date cible
+                AffCandidat affApplicable = trouverAffectationApplicable(affs, targetDate);
+                if (affApplicable == null && !hasPtg) {
+                    continue; // Aucune affectation valide pour ce salarié
+                }
+
+                int empSiteId = affApplicable != null ? affApplicable.idSite : 0;
+                boolean isAutonome = affApplicable != null && affApplicable.dispensePointage;
+
+                // 3. Vérification du rattachement au site demandé
                 boolean rattachAuSite = false;
-                boolean isAutonome = false;
-
                 if (idSite <= 0) {
+                    // Vue tous les sites : le salarié est rattaché à son site effectif du jour
                     rattachAuSite = true;
-                    for (AffCandidat a : affs) {
-                        boolean covers = (a.dateDebut == null || !targetDate.isBefore(a.dateDebut)) &&
-                                         (a.dateFin == null || !targetDate.isAfter(a.dateFin));
-                        if (covers) {
-                            isAutonome = a.dispensePointage;
-                            break;
-                        }
-                    }
-                    if (!isAutonome && !affs.isEmpty()) {
-                        isAutonome = affs.get(0).dispensePointage;
-                    }
-                } else {
-                    // Chercher d'abord si une affectation sur ce site couvre précisément la date
-                    for (AffCandidat a : affs) {
-                        if (a.idSite == idSite) {
-                            boolean covers = (a.dateDebut == null || !targetDate.isBefore(a.dateDebut)) &&
-                                             (a.dateFin == null || !targetDate.isAfter(a.dateFin));
-                            if (covers) {
-                                rattachAuSite = true;
-                                isAutonome = a.dispensePointage;
-                                break;
-                            }
-                        }
-                    }
-
-                    // Si pas de couverture stricte, vérifier si l'affectation active est sur ce site
-                    if (!rattachAuSite) {
-                        for (AffCandidat a : affs) {
-                            if (a.idSite == idSite && (a.dateFin == null || "ACTIF".equalsIgnoreCase(a.codeStatut))) {
-                                rattachAuSite = true;
-                                isAutonome = a.dispensePointage;
-                                break;
-                            }
-                        }
-                    }
-
-                    // Ou si un pointage existe déjà pour ce salarié sur ce site
-                    if (hasPtg) {
-                        rattachAuSite = true;
-                        if (!affs.isEmpty()) {
-                            isAutonome = affs.get(0).dispensePointage;
-                        }
-                    }
+                } else if (hasPtg) {
+                    // Un pointage est déjà enregistré pour ce salarié sur ce site précis
+                    rattachAuSite = true;
+                } else if (empSiteId == idSite) {
+                    // L'affectation active à cette date correspond au site demandé
+                    rattachAuSite = true;
                 }
 
                 if (!rattachAuSite) {
                     continue; // Non éligible sur ce site pour ce jour
                 }
 
+                int finalSiteId = (idSite > 0) ? idSite : empSiteId;
+                emp.idSite = finalSiteId;
+                emp.nomSite = allSiteNoms.getOrDefault(finalSiteId, "Site #" + finalSiteId);
                 emp.isAutonome = isAutonome;
                 eligibleEmployees.add(emp);
             }
@@ -616,7 +620,8 @@ public class PointageSaisieService {
                 dto.setPrenom(empCand.prenom);
                 dto.setPhotoUrl(empCand.photoUrl);
                 dto.setDatePointage(dateStr);
-                dto.setIdSite(idSite);
+                dto.setIdSite(empCand.idSite);
+                dto.setSiteNom(empCand.nomSite);
                 dto.setIdPeriodePaie(idPeriode);
                 dto.setEstAutonome(isAutonome);
                 dto.setEstCadre(empCand.isCadre);
@@ -1015,11 +1020,11 @@ public class PointageSaisieService {
                                 double mntJour = (double) sInd.get("montantJour");
                                 double mntGlobal = sInd.get("montantGlobal") != null ? (double) sInd.get("montantGlobal") : mntJour;
                                 boolean useGlobal = Boolean.TRUE.equals(sInd.get("useGlobalIfZero"));
-                                boolean cochePaDefaut = !Boolean.FALSE.equals(sInd.get("cochePaDefaut"));
+                                boolean cocheParDefaut = !Boolean.FALSE.equals(sInd.get("cocheParDefaut"));
                                 boolean estExclu = exclusionsIndemnites.contains(idInd);
                                 // Si le site a un tarif = 0 (useGlobal), la case n'est pas cochée par défaut
                                 // même si l'employé n'est pas en congé/férié.
-                                boolean acc = !estExclu && !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour) && cochePaDefaut;
+                                boolean acc = !estExclu && !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour) && cocheParDefaut;
 
                                 Map<String, Object> item = new HashMap<>();
                                 item.put("accordee", acc);
@@ -1130,37 +1135,39 @@ public class PointageSaisieService {
             }
         }
 
-        // 3. Vérifier affectation au site en Java
-        String sqlAff = "SELECT a.date_debut, a.date_fin, a.id_site, rsa.code AS statut_code " +
+        // 3. Vérifier affectation au site en Java par rapport à la date du pointage
+        String sqlAff = "SELECT a.id_affectation, a.date_debut, a.date_fin, a.id_site, rsa.code AS statut_code, " +
+                        "COALESCE(f.dispense_pointage, FALSE) AS dispense_pointage " +
                         "FROM employe_affectation_carriere a " +
                         "LEFT JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh " +
+                        "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
                         "WHERE a.id_employe = ?";
-        boolean rattacheAuSite = false;
+        List<AffCandidat> affsEmp = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sqlAff)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     int sId = rs.getInt("id_site");
-                    if (sId != idSite) continue;
-
-                    Date dDeb = rs.getDate("date_debut");
-                    Date dFin = rs.getDate("date_fin");
-                    LocalDate ldDeb = dDeb != null ? dDeb.toLocalDate() : null;
-                    LocalDate ldFin = dFin != null ? dFin.toLocalDate() : null;
-                    String st = rs.getString("statut_code");
-
-                    // Affectation couvrant la date
-                    if ((ldDeb == null || !dtPtg.isBefore(ldDeb)) && (ldFin == null || !dtPtg.isAfter(ldFin))) {
-                        rattacheAuSite = true;
-                        break;
-                    }
-                    // Ou affectation active sur ce site
-                    if (ldFin == null || "ACTIF".equalsIgnoreCase(st)) {
-                        rattacheAuSite = true;
-                        break;
+                    if (sId > 0) {
+                        AffCandidat aff = new AffCandidat();
+                        aff.idAffectation = rs.getInt("id_affectation");
+                        aff.idSite = sId;
+                        Date dDeb = rs.getDate("date_debut");
+                        Date dFin = rs.getDate("date_fin");
+                        aff.dateDebut = dDeb != null ? dDeb.toLocalDate() : null;
+                        aff.dateFin = dFin != null ? dFin.toLocalDate() : null;
+                        aff.codeStatut = rs.getString("statut_code");
+                        aff.dispensePointage = rs.getBoolean("dispense_pointage");
+                        affsEmp.add(aff);
                     }
                 }
             }
+        }
+
+        boolean rattacheAuSite = false;
+        AffCandidat affApplicable = trouverAffectationApplicable(affsEmp, dtPtg);
+        if (affApplicable != null && affApplicable.idSite == idSite) {
+            rattacheAuSite = true;
         }
 
         if (!rattacheAuSite) {
@@ -1464,7 +1471,8 @@ public class PointageSaisieService {
                             dto.isFerieJour(), dto.getTypeCongeJour(),
                             dto.isCongePaye(), dto.isCongeDecompteSolde(),
                             dto.isEstAutonome(),
-                            em, sm, ea, sa, retMins, false
+                            em, sm, ea, sa, retMins, false,
+                            dto.getMotifAjustement()
                     );
                 } else if (dto.getTypeCongeJour() != null && "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) {
                     // Sécurisation stricte côté serveur : si congé non payé, forcer ABSENCE_JUSTIFIEE
@@ -1657,22 +1665,108 @@ public class PointageSaisieService {
         return result;
     }
 
-    private static class EmployeCandidatSite {
-        int idEmploye;
-        String matricule;
-        String nom;
-        String prenom;
-        String photoUrl;
-        boolean isAutonome;
-        boolean isCadre;
-        String codeCategorie;
+    public static class EmployeCandidatSite {
+        public int idEmploye;
+        public String matricule;
+        public String nom;
+        public String prenom;
+        public String photoUrl;
+        public int idSite;
+        public String nomSite;
+        public boolean isAutonome;
+        public boolean isCadre;
+        public String codeCategorie;
     }
 
-    private static class AffCandidat {
-        int idSite;
-        LocalDate dateDebut;
-        LocalDate dateFin;
-        String codeStatut;
-        boolean dispensePointage;
+    public static class AffCandidat {
+        public int idAffectation;
+        public int idSite;
+        public LocalDate dateDebut;
+        public LocalDate dateFin;
+        public String codeStatut;
+        public boolean dispensePointage;
+    }
+
+    /**
+     * Détermine de manière canonique l'affectation active d'un collaborateur à une date donnée.
+     * Gère les transitions successives : si une ancienne affectation a une date_fin NULL,
+     * sa date de fin effective est automatiquement déduite comme étant la veille de l'affectation suivante.
+     */
+    public static AffCandidat trouverAffectationApplicable(List<AffCandidat> affs, LocalDate targetDate) {
+        if (affs == null || affs.isEmpty()) return null;
+
+        // 1. Filtrer les statuts non effectifs (annulés, brouillons, rejetés)
+        List<AffCandidat> valides = new ArrayList<>();
+        for (AffCandidat a : affs) {
+            if (a.codeStatut != null && ("ANNULE".equalsIgnoreCase(a.codeStatut)
+                    || "BROUILLON".equalsIgnoreCase(a.codeStatut)
+                    || "REJETE".equalsIgnoreCase(a.codeStatut))) {
+                continue;
+            }
+            valides.add(a);
+        }
+        if (valides.isEmpty()) return null;
+
+        // 2. Trier par dateDebut ASC, en plaçant ACTIF en dernier en cas d'égalité, puis par idAffectation ASC
+        valides.sort((a, b) -> {
+            LocalDate d1 = a.dateDebut != null ? a.dateDebut : LocalDate.MIN;
+            LocalDate d2 = b.dateDebut != null ? b.dateDebut : LocalDate.MIN;
+            int c = d1.compareTo(d2);
+            if (c != 0) return c;
+            boolean aActif = "ACTIF".equalsIgnoreCase(a.codeStatut);
+            boolean bActif = "ACTIF".equalsIgnoreCase(b.codeStatut);
+            if (aActif != bActif) return aActif ? 1 : -1;
+            return Integer.compare(a.idAffectation, b.idAffectation);
+        });
+
+        // 3. Évaluer les intervalles [dateDebut, dateFinEffective]
+        AffCandidat retenue = null;
+        for (int i = 0; i < valides.size(); i++) {
+            AffCandidat cur = valides.get(i);
+            LocalDate start = cur.dateDebut != null ? cur.dateDebut : LocalDate.MIN;
+            LocalDate end = cur.dateFin;
+
+            if (end == null && i + 1 < valides.size()) {
+                AffCandidat next = valides.get(i + 1);
+                if (next.dateDebut != null && !next.dateDebut.isBefore(start)) {
+                    end = next.dateDebut.minusDays(1);
+                }
+            }
+
+            boolean apresDebut = (targetDate == null) || !targetDate.isBefore(start);
+            boolean avantFin = (targetDate == null) || (end == null || !targetDate.isAfter(end));
+
+            if (apresDebut && avantFin) {
+                retenue = cur;
+            }
+        }
+
+        // 4. Si aucune affectation ne couvre précisément (ex : targetDate dans le futur par rapport à une affectation clôturée),
+        // retenir la plus récente commencée avant targetDate
+        if (retenue == null && targetDate != null) {
+            for (int i = valides.size() - 1; i >= 0; i--) {
+                AffCandidat a = valides.get(i);
+                LocalDate start = a.dateDebut != null ? a.dateDebut : LocalDate.MIN;
+                if (!targetDate.isBefore(start)) {
+                    retenue = a;
+                    break;
+                }
+            }
+        }
+
+        // 5. Repli de secours : l'affectation active (ACTIF), sinon la dernière de la liste
+        if (retenue == null) {
+            for (AffCandidat a : valides) {
+                if ("ACTIF".equalsIgnoreCase(a.codeStatut)) {
+                    retenue = a;
+                    break;
+                }
+            }
+            if (retenue == null && !valides.isEmpty()) {
+                retenue = valides.get(valides.size() - 1);
+            }
+        }
+
+        return retenue;
     }
 }

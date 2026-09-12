@@ -22,6 +22,7 @@ import { formatHeuresMinutes } from '@/utils/pointageUtils';
 
 const STATUT_OPTIONS = [
     { value: 'PRESENT', label: 'Présent (Journée normale)' },
+    { value: 'DEMI_JOURNEE', label: 'Demi-journée travaillée' },
     { value: 'DIMANCHE_TRAVAILLE', label: 'Dimanche travaillé (Majoré)' },
     { value: 'SAMEDI_TRAVAILLE', label: 'Samedi travaillé' },
     { value: 'AUTONOME', label: 'Autonome (Cadre / Forfait)' },
@@ -65,7 +66,7 @@ export default function DafAjustementPointageModal({
         statutCode: 'PRESENT',
         deplacementMatin: true,
         deplacementAm: true,
-        indemniteRepasRecue: true,
+        indemniteRepasRecue: false,
         motifAjustement: ''
     });
 
@@ -100,7 +101,7 @@ export default function DafAjustementPointageModal({
             statutCode: st,
             deplacementMatin: ptg.deplacementMatin !== false,
             deplacementAm: ptg.deplacementAm !== false,
-            indemniteRepasRecue: (ptg.indemniteRepas ?? ptg.indemniteRepasRecue) !== false,
+            indemniteRepasRecue: Boolean(ptg.indemniteRepasRecue ?? ptg.indemniteRepas ?? false),
             motifAjustement: ptg.motifAjustement || 'Rectification administrative'
         });
     }, []);

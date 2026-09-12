@@ -212,6 +212,8 @@ export default function PointageTab({ idEmploye, employe = null }) {
         switch (statut?.toUpperCase()) {
             case 'PRESENT':
                 return <Badge variant="success" size="sm" className="font-bold">PRÉSENT</Badge>;
+            case 'DEMI_JOURNEE':
+                return <Badge variant="brand" size="sm" className="font-bold">DEMI-JOURNÉE</Badge>;
             case 'DISPENSE_POINTAGE':
                 return <Badge variant="brand" size="sm" className="font-bold">AUTONOME</Badge>;
             case 'RETARD':

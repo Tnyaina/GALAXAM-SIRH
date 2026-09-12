@@ -23,9 +23,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class PointageAnomalieService {
+
+    private static final Logger log = LoggerFactory.getLogger(PointageAnomalieService.class);
 
     @Autowired
     private DataSource dataSource;
@@ -166,6 +170,7 @@ public class PointageAnomalieService {
                 "LEFT JOIN v_solde_conge_employe vsc ON p.id_employe = vsc.id_employe " +
                 "WHERE (" +
                 "   st.code = 'ANOMALIE_SAISIE' " +
+                "   OR st.code = 'DEMI_JOURNEE' " +
                 "   OR (st.code = 'ABSENCE_NON_JUSTIFIEE' AND EXTRACT(DOW FROM p.date_pointage) NOT IN (0, 6)) " +
                 "   OR (st.code = 'ABSENCE_JUSTIFIEE' AND EXTRACT(DOW FROM p.date_pointage) NOT IN (0, 6)) " +
                 "   OR (p.minutes_retard > 0) " +
@@ -269,7 +274,20 @@ public class PointageAnomalieService {
                         String stCode = dto.getStatutCode();
                         boolean hasMotif = dto.getMotifAjustement() != null && !dto.getMotifAjustement().trim().isEmpty();
 
-                        if ("ANOMALIE_SAISIE".equals(stCode)) {
+                        boolean hasMatinComplet = (em != null && sm != null && ea == null && sa == null);
+                        boolean hasAmComplet = (em == null && sm == null && ea != null && sa != null);
+                        boolean isDemiJournee = "DEMI_JOURNEE".equals(stCode) || hasMatinComplet || hasAmComplet;
+
+                        if (isDemiJournee) {
+                            dto.setTypeAnomalie("DEMI_JOURNEE");
+                            dto.setDescriptionAnomalie(hasMotif 
+                                    ? ("Demi-journée validée : " + dto.getMotifAjustement()) 
+                                    : "Demi-journée travaillée : motif de régularisation conseillé.");
+                            dto.setSeverite(hasMotif ? "FAIBLE" : "MOYENNE");
+                            dto.setBloquantTransmission(false);
+                            dto.setStatutAnomalie(hasMotif ? "done" : "todo");
+                            if (hasMotif) countFaibles++; else countMoyennes++;
+                        } else if ("ANOMALIE_SAISIE".equals(stCode)) {
                             dto.setTypeAnomalie("INCOMPLET");
                             dto.setDescriptionAnomalie("Pointage incomplet : heure d'entrée ou de sortie manquante.");
                             dto.setSeverite("CRITIQUE");
@@ -514,75 +532,78 @@ public class PointageAnomalieService {
         boolean repas = parseBoolean(payload.get("indemniteRepasRecue"));
 
         try (Connection c = dataSource.getConnection()) {
-            LocalTime siteDebM = LocalTime.of(8, 0);
-            LocalTime siteFinM = LocalTime.of(12, 0);
-            LocalTime siteDebA = LocalTime.of(13, 0);
-            LocalTime siteFinA = LocalTime.of(17, 0);
+            boolean originalAutoCommit = c.getAutoCommit();
+            c.setAutoCommit(false);
+            try {
+                LocalTime siteDebM = LocalTime.of(8, 0);
+                LocalTime siteFinM = LocalTime.of(12, 0);
+                LocalTime siteDebA = LocalTime.of(13, 0);
+                LocalTime siteFinA = LocalTime.of(17, 0);
 
-            Integer idSite = null;
-            if (idPointage > 0) {
-                String sqlSite = "SELECT s.id_site, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
-                                 "COALESCE(s.horaire_continu, TRUE) AS horaire_continu, t.heure_plafond " +
-                                 "FROM pointage_jour p " +
-                                 "JOIN ref_site s ON p.id_site = s.id_site " +
-                                 "LEFT JOIN ref_tolerance_arrivee_pointage t ON s.id_site = t.id_site " +
-                                 "WHERE p.id_pointage = ?";
-                try (PreparedStatement psS = c.prepareStatement(sqlSite)) {
-                    psS.setInt(1, idPointage);
-                    try (ResultSet rsS = psS.executeQuery()) {
-                        if (rsS.next()) {
-                            idSite = rsS.getInt("id_site");
-                            Time hdm = rsS.getTime("heure_debut_matin");
-                            Time hfm = rsS.getTime("heure_fin_matin");
-                            Time hda = rsS.getTime("heure_debut_apres_midi");
-                            Time hfa = rsS.getTime("heure_fin_apres_midi");
-                            boolean cont = rsS.getBoolean("horaire_continu");
+                Integer idSite = null;
+                if (idPointage > 0) {
+                    String sqlSite = "SELECT s.id_site, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
+                                     "COALESCE(s.horaire_continu, TRUE) AS horaire_continu, t.heure_plafond " +
+                                     "FROM pointage_jour p " +
+                                     "JOIN ref_site s ON p.id_site = s.id_site " +
+                                     "LEFT JOIN ref_tolerance_arrivee_pointage t ON s.id_site = t.id_site " +
+                                     "WHERE p.id_pointage = ?";
+                    try (PreparedStatement psS = c.prepareStatement(sqlSite)) {
+                        psS.setInt(1, idPointage);
+                        try (ResultSet rsS = psS.executeQuery()) {
+                            if (rsS.next()) {
+                                idSite = rsS.getInt("id_site");
+                                Time hdm = rsS.getTime("heure_debut_matin");
+                                Time hfm = rsS.getTime("heure_fin_matin");
+                                Time hda = rsS.getTime("heure_debut_apres_midi");
+                                Time hfa = rsS.getTime("heure_fin_apres_midi");
+                                boolean cont = rsS.getBoolean("horaire_continu");
 
-                            if (hdm != null) siteDebM = hdm.toLocalTime();
-                            if (hfm != null) siteFinM = hfm.toLocalTime();
-                            if (hda != null) siteDebA = hda.toLocalTime();
-                            else if (!cont) siteDebA = LocalTime.of(14, 0);
-                            if (hfa != null) siteFinA = hfa.toLocalTime();
-                            else if (!cont) siteFinA = LocalTime.of(18, 0);
-                        }
-                    }
-                }
-            } else if (payload.get("idSite") != null) {
-                idSite = parseInteger(payload.get("idSite"));
-            }
-
-            boolean isJourneeContinue = false;
-            if (payload.get("horaireContinuJour") != null) {
-                isJourneeContinue = parseBoolean(payload.get("horaireContinuJour"));
-            } else if (payload.get("horaireContinu") != null) {
-                isJourneeContinue = parseBoolean(payload.get("horaireContinu"));
-            }
-
-            // 1. Identification du pointage, employé, période, date
-            Integer idEmp = null;
-            Integer idPer = null;
-            Date datePtg = null;
-            Integer currentVersion = null;
-
-            if (idPointage > 0) {
-                String sqlFindPtg = "SELECT id_employe, id_site, id_periode_paie, date_pointage, COALESCE(version, 1) AS version FROM pointage_jour WHERE id_pointage = ?";
-                try (PreparedStatement psF = c.prepareStatement(sqlFindPtg)) {
-                    psF.setInt(1, idPointage);
-                    try (ResultSet rsF = psF.executeQuery()) {
-                        if (rsF.next()) {
-                            idEmp = rsF.getInt("id_employe");
-                            if (idSite == null || idSite <= 0) {
-                                idSite = rsF.getInt("id_site");
+                                if (hdm != null) siteDebM = hdm.toLocalTime();
+                                if (hfm != null) siteFinM = hfm.toLocalTime();
+                                if (hda != null) siteDebA = hda.toLocalTime();
+                                else if (!cont) siteDebA = LocalTime.of(14, 0);
+                                if (hfa != null) siteFinA = hfa.toLocalTime();
+                                else if (!cont) siteFinA = LocalTime.of(18, 0);
                             }
-                            idPer = rsF.getInt("id_periode_paie");
-                            datePtg = rsF.getDate("date_pointage");
-                            currentVersion = rsF.getInt("version");
-                        } else {
-                            throw new IllegalArgumentException("Pointage introuvable (ID: " + idPointage + ").");
                         }
                     }
+                } else if (payload.get("idSite") != null) {
+                    idSite = parseInteger(payload.get("idSite"));
                 }
-            } else {
+
+                boolean isJourneeContinue = false;
+                if (payload.get("horaireContinuJour") != null) {
+                    isJourneeContinue = parseBoolean(payload.get("horaireContinuJour"));
+                } else if (payload.get("horaireContinu") != null) {
+                    isJourneeContinue = parseBoolean(payload.get("horaireContinu"));
+                }
+
+                // 1. Identification du pointage, employé, période, date
+                Integer idEmp = null;
+                Integer idPer = null;
+                Date datePtg = null;
+                Integer currentVersion = null;
+
+                if (idPointage > 0) {
+                    String sqlFindPtg = "SELECT id_employe, id_site, id_periode_paie, date_pointage, COALESCE(version, 1) AS version FROM pointage_jour WHERE id_pointage = ? FOR UPDATE";
+                    try (PreparedStatement psF = c.prepareStatement(sqlFindPtg)) {
+                        psF.setInt(1, idPointage);
+                        try (ResultSet rsF = psF.executeQuery()) {
+                            if (rsF.next()) {
+                                idEmp = rsF.getInt("id_employe");
+                                if (idSite == null || idSite <= 0) {
+                                    idSite = rsF.getInt("id_site");
+                                }
+                                idPer = rsF.getInt("id_periode_paie");
+                                datePtg = rsF.getDate("date_pointage");
+                                currentVersion = rsF.getInt("version");
+                            } else {
+                                throw new IllegalArgumentException("Pointage introuvable (ID: " + idPointage + ").");
+                            }
+                        }
+                    }
+                } else {
                 if (payload.get("idEmploye") != null) idEmp = parseInteger(payload.get("idEmploye"));
                 if (payload.get("idPeriodePaie") != null) idPer = parseInteger(payload.get("idPeriodePaie"));
                 if (payload.get("datePointage") != null) {
@@ -655,72 +676,7 @@ public class PointageAnomalieService {
                     if (nbJours <= 0) nbJours = 1.0;
 
                     // Créer la demande de congé annuel et débiter le solde dans mouvement_solde_conge
-                    Integer idTypeCongeAnnuel = null;
-                    try (PreparedStatement psTc = c.prepareStatement("SELECT id_type_conge FROM ref_type_conge WHERE code = 'ANNUEL' LIMIT 1")) {
-                        try (ResultSet rsTc = psTc.executeQuery()) {
-                            if (rsTc.next()) idTypeCongeAnnuel = rsTc.getInt(1);
-                        }
-                    }
-                    Integer idStatutValide = null;
-                    try (PreparedStatement psStc = c.prepareStatement("SELECT id_statut_demande_conge FROM ref_statut_demande_conge WHERE code = 'VALIDE' LIMIT 1")) {
-                        try (ResultSet rsStc = psStc.executeQuery()) {
-                            if (rsStc.next()) idStatutValide = rsStc.getInt(1);
-                        }
-                    }
-
-                    if (idTypeCongeAnnuel != null && idStatutValide != null) {
-                        Integer idDemande = null;
-                        try (PreparedStatement psCheckDc = c.prepareStatement(
-                                "SELECT id_demande_conge FROM demande_conge WHERE id_employe = ? AND date_debut <= ? AND date_fin >= ? LIMIT 1")) {
-                            psCheckDc.setInt(1, idEmp);
-                            psCheckDc.setDate(2, datePtg);
-                            psCheckDc.setDate(3, datePtg);
-                            try (ResultSet rsDc = psCheckDc.executeQuery()) {
-                                if (rsDc.next()) idDemande = rsDc.getInt(1);
-                            }
-                        }
-
-                        if (idDemande == null) {
-                            String insertDc = "INSERT INTO demande_conge (id_employe, id_type_conge, id_statut_demande_conge, date_debut, date_fin, date_demande, nb_jours_decomptes, est_demi_journee, commentaire, created_at, updated_at) " +
-                                    "VALUES (?, ?, ?, ?, ?, CURRENT_DATE, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id_demande_conge";
-                            try (PreparedStatement psInsDc = c.prepareStatement(insertDc)) {
-                                psInsDc.setInt(1, idEmp);
-                                psInsDc.setInt(2, idTypeCongeAnnuel);
-                                psInsDc.setInt(3, idStatutValide);
-                                psInsDc.setDate(4, datePtg);
-                                psInsDc.setDate(5, datePtg);
-                                psInsDc.setDouble(6, nbJours);
-                                psInsDc.setBoolean(7, nbJours < 1.0);
-                                psInsDc.setString(8, (motif != null && !motif.isBlank()) ? motif : "Régularisation absence sur congé payé annuel");
-                                try (ResultSet rsId = psInsDc.executeQuery()) {
-                                    if (rsId.next()) idDemande = rsId.getInt(1);
-                                }
-                            }
-                        }
-
-                        if (idDemande != null) {
-                            String sqlCheckMvt = "SELECT COUNT(*) FROM mouvement_solde_conge WHERE id_demande_conge = ? AND type_mouvement = 'PRISE'";
-                            boolean mvtExists = false;
-                            try (PreparedStatement psCm = c.prepareStatement(sqlCheckMvt)) {
-                                psCm.setInt(1, idDemande);
-                                try (ResultSet rsCm = psCm.executeQuery()) {
-                                    if (rsCm.next() && rsCm.getInt(1) > 0) mvtExists = true;
-                                }
-                            }
-                            if (!mvtExists) {
-                                String sqlInsMvt = "INSERT INTO mouvement_solde_conge (id_employe, type_mouvement, nb_jours, id_demande_conge, date_mouvement, commentaire) " +
-                                        "VALUES (?, 'PRISE', ?, ?, ?, ?)";
-                                try (PreparedStatement psIm = c.prepareStatement(sqlInsMvt)) {
-                                    psIm.setInt(1, idEmp);
-                                    psIm.setDouble(2, -nbJours);
-                                    psIm.setInt(3, idDemande);
-                                    psIm.setDate(4, datePtg);
-                                    psIm.setString(5, "Décompte régularisation pointage : " + (motif != null ? motif : "Congé payé"));
-                                    psIm.executeUpdate();
-                                }
-                            }
-                        }
-                    }
+                    imputerCongeAnnuel(c, idEmp, datePtg, nbJours, motif);
                 } else if ("PERMISSION_EXCEPTIONNELLE".equalsIgnoreCase(optionAbsence)) {
                     codeStatut = "CONGE";
                     Integer idTypePerm = null;
@@ -788,10 +744,20 @@ public class PointageAnomalieService {
                         retAm = PointageSaisieService.calcMinutesRetard(ea, siteDebA);
                     }
                 }
-                retMins = retMatin + retAm;
-
+                boolean isDemiMatin = (em != null && sm != null && ea == null && sa == null);
+                boolean isDemiAm = (em == null && sm == null && ea != null && sa != null);
                 if (codeStatut == null || codeStatut.trim().isEmpty() || "NON_SAISI".equals(codeStatut) || "ANOMALIE_SAISIE".equals(codeStatut)) {
-                    codeStatut = totalH > 0 ? "PRESENT" : "ABSENCE_NON_JUSTIFIEE";
+                    if (isDemiMatin || isDemiAm) {
+                        codeStatut = "DEMI_JOURNEE";
+                    } else {
+                        codeStatut = totalH > 0 ? "PRESENT" : "ABSENCE_NON_JUSTIFIEE";
+                    }
+                }
+
+                String optionAutreDemiJournee = payload.get("optionAutreDemiJournee") != null ? payload.get("optionAutreDemiJournee").toString() : "";
+                if ((isDemiMatin || isDemiAm || "DEMI_JOURNEE".equalsIgnoreCase(codeStatut))
+                        && ("CONGE_PAYE".equalsIgnoreCase(optionAutreDemiJournee) || "CONGE".equalsIgnoreCase(optionAutreDemiJournee))) {
+                    imputerCongeAnnuel(c, idEmp, datePtg, 0.5, (motif != null && !motif.isBlank()) ? motif : "Demi-journée congé payé (pointage partiel)");
                 }
             }
 
@@ -847,9 +813,11 @@ public class PointageAnomalieService {
                             if (idPer != null && datePtg != null) {
                                 pointageSyntheseService.recalculerSemainePourDate(idPer, datePtg.toLocalDate(), idSite, c);
                             }
+                            c.commit();
                             return true;
                         }
                     }
+                    c.rollback();
                     return false;
                 } catch (SQLException eIns) {
                     if (eIns.getMessage() != null && (eIns.getMessage().toLowerCase().contains("duplicate") || eIns.getMessage().toLowerCase().contains("unique"))) {
@@ -859,11 +827,15 @@ public class PointageAnomalieService {
                 }
             } else {
                 Integer providedVer = parseInteger(payload.get("version"));
+                int targetVer;
                 if (providedVer == null) {
-                    providedVer = currentVersion != null ? currentVersion : 1;
+                    targetVer = currentVersion != null ? currentVersion : 1;
                 } else if (currentVersion != null && !providedVer.equals(currentVersion)) {
-                    throw new IllegalStateException("Conflit de modification concurrente sur le pointage ID " + idPointage
-                            + " (version attendue: " + currentVersion + ", version fournie: " + providedVer + "). Veuillez recharger.");
+                    log.warn("Régularisation pointage ID {} : version fournie ({}) différente de la version attendue ({}). Utilisation de la version en base sous verrou.",
+                            idPointage, providedVer, currentVersion);
+                    targetVer = currentVersion;
+                } else {
+                    targetVer = providedVer;
                 }
 
                 String sql = "UPDATE pointage_jour SET " +
@@ -888,7 +860,7 @@ public class PointageAnomalieService {
                     ps.setDouble(12, mntTotalInd);
                     ps.setBoolean(13, isJourneeContinue);
                     ps.setInt(14, idPointage);
-                    ps.setInt(15, providedVer);
+                    ps.setInt(15, targetVer);
                     int rows = ps.executeUpdate();
                     if (rows == 0) {
                         throw new IllegalStateException("Conflit de modification concurrente sur le pointage ID " + idPointage + ". La ligne a été modifiée par un tiers.");
@@ -897,11 +869,24 @@ public class PointageAnomalieService {
                     if (idPer != null && datePtg != null) {
                         pointageSyntheseService.recalculerSemainePourDate(idPer, datePtg.toLocalDate(), idSite, c);
                     }
+                    c.commit();
                     return rows > 0;
                 }
             }
+        } catch (Exception ex) {
+            try {
+                c.rollback();
+            } catch (SQLException exRollback) {
+                log.warn("Erreur lors du rollback : {}", exRollback.getMessage());
+            }
+            throw ex;
+        } finally {
+            try {
+                c.setAutoCommit(originalAutoCommit);
+            } catch (Exception ignored) {}
         }
     }
+}
 
     private void syncIndemniteJour(Connection c, int idPointage, boolean repas, boolean depM, boolean depA, double mntDepJour, double mntRepasJour) {
         String sqlDyn = "INSERT INTO pointage_indemnite_jour (id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde, updated_at) " +
@@ -935,6 +920,75 @@ public class PointageAnomalieService {
                 psUp.executeUpdate();
             }
         } catch (Exception ignored) {
+        }
+    }
+
+    private void imputerCongeAnnuel(Connection c, int idEmp, Date datePtg, double nbJours, String motif) throws SQLException {
+        Integer idTypeCongeAnnuel = null;
+        try (PreparedStatement psTc = c.prepareStatement("SELECT id_type_conge FROM ref_type_conge WHERE code = 'ANNUEL' LIMIT 1")) {
+            try (ResultSet rsTc = psTc.executeQuery()) {
+                if (rsTc.next()) idTypeCongeAnnuel = rsTc.getInt(1);
+            }
+        }
+        Integer idStatutValide = null;
+        try (PreparedStatement psStc = c.prepareStatement("SELECT id_statut_demande_conge FROM ref_statut_demande_conge WHERE code = 'VALIDE' LIMIT 1")) {
+            try (ResultSet rsStc = psStc.executeQuery()) {
+                if (rsStc.next()) idStatutValide = rsStc.getInt(1);
+            }
+        }
+
+        if (idTypeCongeAnnuel != null && idStatutValide != null) {
+            Integer idDemande = null;
+            try (PreparedStatement psCheckDc = c.prepareStatement(
+                    "SELECT id_demande_conge FROM demande_conge WHERE id_employe = ? AND date_debut <= ? AND date_fin >= ? LIMIT 1")) {
+                psCheckDc.setInt(1, idEmp);
+                psCheckDc.setDate(2, datePtg);
+                psCheckDc.setDate(3, datePtg);
+                try (ResultSet rsDc = psCheckDc.executeQuery()) {
+                    if (rsDc.next()) idDemande = rsDc.getInt(1);
+                }
+            }
+
+            if (idDemande == null) {
+                String insertDc = "INSERT INTO demande_conge (id_employe, id_type_conge, id_statut_demande_conge, date_debut, date_fin, date_demande, nb_jours_decomptes, est_demi_journee, commentaire, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, CURRENT_DATE, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id_demande_conge";
+                try (PreparedStatement psInsDc = c.prepareStatement(insertDc)) {
+                    psInsDc.setInt(1, idEmp);
+                    psInsDc.setInt(2, idTypeCongeAnnuel);
+                    psInsDc.setInt(3, idStatutValide);
+                    psInsDc.setDate(4, datePtg);
+                    psInsDc.setDate(5, datePtg);
+                    psInsDc.setDouble(6, nbJours);
+                    psInsDc.setBoolean(7, nbJours < 1.0);
+                    psInsDc.setString(8, (motif != null && !motif.isBlank()) ? motif : "Régularisation absence sur congé payé annuel");
+                    try (ResultSet rsId = psInsDc.executeQuery()) {
+                        if (rsId.next()) idDemande = rsId.getInt(1);
+                    }
+                }
+            }
+
+            if (idDemande != null) {
+                String sqlCheckMvt = "SELECT COUNT(*) FROM mouvement_solde_conge WHERE id_demande_conge = ? AND type_mouvement = 'PRISE'";
+                boolean mvtExists = false;
+                try (PreparedStatement psCm = c.prepareStatement(sqlCheckMvt)) {
+                    psCm.setInt(1, idDemande);
+                    try (ResultSet rsCm = psCm.executeQuery()) {
+                        if (rsCm.next() && rsCm.getInt(1) > 0) mvtExists = true;
+                    }
+                }
+                if (!mvtExists) {
+                    String sqlInsMvt = "INSERT INTO mouvement_solde_conge (id_employe, type_mouvement, nb_jours, id_demande_conge, date_mouvement, commentaire) " +
+                            "VALUES (?, 'PRISE', ?, ?, ?, ?)";
+                    try (PreparedStatement psIm = c.prepareStatement(sqlInsMvt)) {
+                        psIm.setInt(1, idEmp);
+                        psIm.setDouble(2, -nbJours);
+                        psIm.setInt(3, idDemande);
+                        psIm.setDate(4, datePtg);
+                        psIm.setString(5, "Décompte régularisation pointage : " + (motif != null ? motif : "Congé payé"));
+                        psIm.executeUpdate();
+                    }
+                }
+            }
         }
     }
 

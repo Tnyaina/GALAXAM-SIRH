@@ -19,6 +19,7 @@ const STATUS_MAP = {
 
     // Pointage Jour
     'PRESENT': { variant: 'success', label: 'Présent', dot: true },
+    'DEMI_JOURNEE': { variant: 'info', label: 'Demi-journée', dot: true },
     'CONGE': { variant: 'info', label: 'Congé', dot: true },
     'FERIE': { variant: 'info', label: 'Férié', dot: false },
     'MISSION': { variant: 'info', label: 'Mission', dot: true },

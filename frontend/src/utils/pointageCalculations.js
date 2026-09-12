@@ -193,9 +193,9 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
   } else if ((em !== null && sm === null) || (ea !== null && sa === null) || (em === null && sm !== null) || (ea === null && sa !== null)) {
     codeStatut = 'ANOMALIE_SAISIE';
   } else if (em !== null && sm !== null && ea === null && sa === null) {
-    codeStatut = isCongeAm ? (totalMinutesRetard > 0 ? 'RETARD' : 'PRESENT') : 'ANOMALIE_SAISIE';
+    codeStatut = isCongeAm ? (totalMinutesRetard > 0 ? 'RETARD' : 'PRESENT') : (row.motifAjustement || row.codeStatut === 'DEMI_JOURNEE' ? 'DEMI_JOURNEE' : 'ANOMALIE_SAISIE');
   } else if (em === null && sm === null && ea !== null && sa !== null) {
-    codeStatut = isCongeMatin ? (totalMinutesRetard > 0 ? 'RETARD' : 'PRESENT') : 'ANOMALIE_SAISIE';
+    codeStatut = isCongeMatin ? (totalMinutesRetard > 0 ? 'RETARD' : 'PRESENT') : (row.motifAjustement || row.codeStatut === 'DEMI_JOURNEE' ? 'DEMI_JOURNEE' : 'ANOMALIE_SAISIE');
   } else if (totalH === 0.0) {
     if (row.codeStatut === 'ABSENCE_JUSTIFIEE') {
       codeStatut = 'ABSENCE_JUSTIFIEE';
@@ -213,7 +213,7 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
   } else if (totalMinutesRetard > 0) {
     codeStatut = 'RETARD';
   } else {
-    codeStatut = 'PRESENT';
+    codeStatut = row.codeStatut === 'DEMI_JOURNEE' ? 'DEMI_JOURNEE' : 'PRESENT';
   }
 
   let libelleStatut = row.libelleStatut;
@@ -224,6 +224,7 @@ export const calculerLignePointageTempsReel = (row, sParams, selectedDate) => {
   else if (codeStatut === 'DISPENSE_POINTAGE') libelleStatut = 'Cadre autonome (8h)';
   else if (codeStatut === 'CONGE') libelleStatut = row.libelleConge || 'Congé';
   else if (codeStatut === 'ABSENCE_JUSTIFIEE') libelleStatut = row.motifAjustement ? `Absence justifiée (${row.motifAjustement})` : 'Absence justifiée';
+  else if (codeStatut === 'DEMI_JOURNEE') libelleStatut = row.motifAjustement ? `Demi-journée (${row.motifAjustement})` : 'Demi-journée travaillée';
   else if (codeStatut === 'PRESENT') libelleStatut = 'Présent';
   else if (codeStatut === 'RETARD') libelleStatut = `Retard (${totalMinutesRetard} min)`;
   else if (codeStatut === 'ANOMALIE_SAISIE') libelleStatut = 'Incomplet / Anomalie';
