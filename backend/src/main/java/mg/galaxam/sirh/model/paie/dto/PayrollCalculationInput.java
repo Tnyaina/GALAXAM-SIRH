@@ -25,8 +25,8 @@ public class PayrollCalculationInput {
     private String numeroCnaps;
     private String intitulePoste;
     private String nomDepartement;
-    private String nomSite = "Antananarivo - Siège";
-    private String codeSite = "TNR";
+    private String nomSite;
+    private String codeSite;
     private String nomFiliale = "GALAXAM LOGISTICS";
     private String regimeIntervenant = "PERMANENT"; // PERMANENT, CONSULTANT, TEMPORAIRE, STAGIAIRE
     private String categorieProfessionnelle = "AGENT"; // CADRE, AGENT, NON_CADRE
@@ -72,10 +72,10 @@ public class PayrollCalculationInput {
     private BigDecimal extraDeplacement = BigDecimal.ZERO; // Indemnité extra déplacement (non imposable)
 
     // 5. Indemnités non imposables (Repas, Transport, Déplacement)
-    private BigDecimal indemniteTransport; // Forfait site proratisé (TNR 31 200, TMM 53 200)
-    private BigDecimal forfaitTransportSite = new BigDecimal("31200.00");
-    private BigDecimal indemniteRepas;     // 2 000 Ar par jour présent complet TNR
-    private BigDecimal forfaitRepasSite = new BigDecimal("2000.00");
+    private BigDecimal indemniteTransport; // Forfait site proratisé
+    private BigDecimal forfaitTransportSite = BigDecimal.ZERO;
+    private BigDecimal indemniteRepas;     // Repas par jour présent
+    private BigDecimal forfaitRepasSite = BigDecimal.ZERO;
     private BigDecimal remboursementNotesFrais = BigDecimal.ZERO;
 
     // 6. Fiscalité & Déductions familiales

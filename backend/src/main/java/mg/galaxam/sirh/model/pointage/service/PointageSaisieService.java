@@ -346,8 +346,8 @@ public class PointageSaisieService {
             Map<String, String> globalParams = ParametreGlobal.loadActiveMap(c);
             double mntRepasMidiGlobal = ParametreGlobal.getDouble(globalParams, "MONTANT_REPAS_MIDI", 2000.0);
 
-            double montantDeplacementMois = 31200.0;
-            double montantDeplacementJour = calendrierEngine.calculerProrataJournalier(montantDeplacementMois, nbOuvrablesPeriode);
+            double montantDeplacementMois = 0.0;
+            double montantDeplacementJour = 0.0;
             double montantRepasSite = 0.0;
             boolean siteRepasInclusParDefaut = false;
 
@@ -1253,6 +1253,7 @@ public class PointageSaisieService {
 
         // Chargement des horaires et plafonds configurés par site
         Map<Integer, LocalTime[]> siteHoraires = new HashMap<>();
+        Map<Integer, Boolean> siteHoraireContinuMap = new HashMap<>();
         String sqlSites = "SELECT s.id_site, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
                 "COALESCE(s.horaire_continu, TRUE) AS horaire_continu, t.heure_plafond " +
                 "FROM ref_site s " +
@@ -1267,6 +1268,7 @@ public class PointageSaisieService {
                 Time hfa = rsSites.getTime("heure_fin_apres_midi");
                 Time hp = rsSites.getTime("heure_plafond");
                 boolean cont = rsSites.getBoolean("horaire_continu");
+                siteHoraireContinuMap.put(sId, cont);
 
                 LocalTime ltDebM = hdm != null ? hdm.toLocalTime() : LocalTime.of(8, 0);
                 LocalTime ltFinM = hfm != null ? hfm.toLocalTime() : LocalTime.of(12, 0);
@@ -1278,6 +1280,9 @@ public class PointageSaisieService {
                 siteHoraires.put(sId, new LocalTime[]{ltDebM, ltFinM, ltDebA, ltFinA, ltPlafond});
             }
         } catch (Exception ignored) {}
+
+        Map<String, String> paramsGlobauxBatch = ParametreGlobal.loadActiveMap(c);
+        double reductionDeplactRepasConfig = ParametreGlobal.getDouble(paramsGlobauxBatch, "REDUCTION_DEPLACT_REPAS_MIDI", 1000.0);
 
         Map<Integer, Double> siteDeplacementJourMap = new HashMap<>();
         String sqlSiteDep = "SELECT c.id_site, c.montant_reference FROM site_indemnite_config c " +
@@ -1303,7 +1308,7 @@ public class PointageSaisieService {
                 }
 
                 int idSiteRow = dto.getIdSite() != null ? dto.getIdSite() : 1;
-                double refMoisJour = siteDeplacementJourMap.getOrDefault(idSiteRow, 31200.0 / 22.0);
+                double refMoisJour = siteDeplacementJourMap.getOrDefault(idSiteRow, 0.0);
                 double montantDeplacementJour = Math.round(refMoisJour * 100.0) / 100.0;
                 Date dtPtg = Date.valueOf(dto.getDatePointage());
 
@@ -1519,8 +1524,16 @@ public class PointageSaisieService {
                     mntRepasJour = 0.0;
                 }
 
+                boolean siteEstContinu = siteHoraireContinuMap.getOrDefault(idSiteRow, true);
                 double fractionDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
-                double mntDepJour = Math.round(fractionDep * montantDeplacementJour * 100.0) / 100.0;
+                boolean doitReduireTransport = (!siteEstContinu && (isJourneeContinue || (dto.isIndemniteRepasRecue() && mntRepasJour > 0.0)));
+                double mntDepJour = CALCULATEUR_ENGINE.calculerDeplacementJour(
+                        fractionDep,
+                        montantDeplacementJour,
+                        doitReduireTransport,
+                        reductionDeplactRepasConfig
+                );
+                mntDepJour = Math.round(mntDepJour * 100.0) / 100.0;
 
                 int idPtg;
                 if (existingIdPointage != null) {

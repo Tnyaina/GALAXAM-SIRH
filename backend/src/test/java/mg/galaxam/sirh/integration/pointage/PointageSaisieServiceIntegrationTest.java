@@ -43,6 +43,9 @@ public class PointageSaisieServiceIntegrationTest extends BaseIntegrationTest {
     @DisplayName("API Pointage Saisie : Enregistrement nominal journée standard 8h (TNR) via /pointages/saisie/batch")
     public void testEnregistrerPointage_Nominal() throws Exception {
         LocalDate datePtg = LocalDate.now().minusDays(1);
+        while (datePtg.getDayOfWeek() == java.time.DayOfWeek.SATURDAY || datePtg.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) {
+            datePtg = datePtg.minusDays(1);
+        }
 
         SaisiePointageJourDTO dto = new SaisiePointageJourDTO();
         dto.setIdEmploye(empTnr.idEmploye);

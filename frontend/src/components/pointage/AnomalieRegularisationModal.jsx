@@ -61,6 +61,8 @@ export default function AnomalieRegularisationModal({
     // Motif global obligatoire
     const [motifAjustement, setMotifAjustement] = useState('');
 
+    const siteEstContinu = Boolean(anomalie?.siteHoraireContinu);
+
     const handleModeChange = (mode) => {
         setModePresence(mode);
         if (mode === 'MATIN_SEUL') {
@@ -74,11 +76,13 @@ export default function AnomalieRegularisationModal({
         } else if (mode === 'CONTINU') {
             setDeplacementMatin(true);
             setDeplacementAm(true);
-            setIndemniteRepas(false);
+            // Journée continue : repas pris sur site par défaut (-1000 Ar transport si site discontinu)
+            setIndemniteRepas(true);
         } else {
             setDeplacementMatin(true);
             setDeplacementAm(true);
-            setIndemniteRepas(true);
+            // Journée coupée normale : repas par défaut si site continu (TNR), sinon décoché (TMM)
+            setIndemniteRepas(siteEstContinu);
         }
     };
 
@@ -124,10 +128,14 @@ export default function AnomalieRegularisationModal({
             setDeplacementMatin(false);
             setDeplacementAm(anomalie.deplacementAm ?? true);
             setIndemniteRepas(false);
+        } else if (isContinu) {
+            setDeplacementMatin(anomalie.deplacementMatin ?? true);
+            setDeplacementAm(anomalie.deplacementAm ?? true);
+            setIndemniteRepas(anomalie.indemniteRepasRecue !== undefined && anomalie.indemniteRepasRecue !== null ? Boolean(anomalie.indemniteRepasRecue) : true);
         } else {
             setDeplacementMatin(anomalie.deplacementMatin ?? true);
             setDeplacementAm(anomalie.deplacementAm ?? true);
-            setIndemniteRepas(Boolean(anomalie.indemniteRepasRecue));
+            setIndemniteRepas(anomalie.indemniteRepasRecue !== undefined && anomalie.indemniteRepasRecue !== null ? Boolean(anomalie.indemniteRepasRecue) : siteEstContinu);
         }
 
         setOptionAbsence('CONGE_PAYE');

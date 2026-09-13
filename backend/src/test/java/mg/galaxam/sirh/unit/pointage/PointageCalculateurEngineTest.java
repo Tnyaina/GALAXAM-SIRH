@@ -112,19 +112,73 @@ class PointageCalculateurEngineTest {
 
         // Jour entier sans repas sur site -> Plein tarif TMM
         assertThat(engine.calculerDeplacementJour(1.0, tarifJourTmm, false, reductionRepas))
-                .isEqualTo(2418.18);
+                .isCloseTo(2418.18, org.assertj.core.data.Offset.offset(0.01));
 
         // Jour entier avec repas sur site -> Déduction de 1 000 Ar (ramené à 1 418.18 Ar ~ tarif TNR)
         assertThat(engine.calculerDeplacementJour(1.0, tarifJourTmm, true, reductionRepas))
-                .isEqualTo(1418.18);
+                .isCloseTo(1418.18, org.assertj.core.data.Offset.offset(0.01));
 
         // Demi-journée sans repas
         assertThat(engine.calculerDeplacementJour(0.5, tarifJourTmm, false, reductionRepas))
-                .isEqualTo(1209.09);
+                .isCloseTo(1209.09, org.assertj.core.data.Offset.offset(0.01));
 
         // Absence (fraction = 0)
         assertThat(engine.calculerDeplacementJour(0.0, tarifJourTmm, false, reductionRepas))
                 .isEqualTo(0.0);
+    }
+
+    @Test
+    @DisplayName("Modèle Réel Ohatra - RAKOTO (Site TMM Toamasina) : 20 jours travaillés, dont 7 journées continues avec repas")
+    void testCalculDeplacementEtRepasOhatraRakoto() {
+        int joursOuvrablesMois = 22;
+        double refDeplacementTmm = 53200.0;
+        double tarifJourTmm = refDeplacementTmm / joursOuvrablesMois; // 2418.1818...
+        double reductionDeplactRepas = 1000.0; // REDUCTION_DEPLACT_REPAS_MIDI
+
+        int totalJoursTravailles = 20;
+        int joursContinusAvecRepas = 7;
+        int joursNormauxDiscontinus = totalJoursTravailles - joursContinusAvecRepas; // 13
+
+        double cumulDeplacement = 0.0;
+        double cumulRepas = 0.0;
+
+        // 13 jours normaux coupés (sans repas sur site, pas de réduction de transport)
+        for (int i = 0; i < joursNormauxDiscontinus; i++) {
+            cumulDeplacement += engine.calculerDeplacementJour(1.0, tarifJourTmm, false, reductionDeplactRepas);
+        }
+
+        // 7 jours continus (avec repas sur site 2000 Ar, déduction 1000 Ar sur le transport)
+        for (int i = 0; i < joursContinusAvecRepas; i++) {
+            cumulDeplacement += engine.calculerDeplacementJour(1.0, tarifJourTmm, true, reductionDeplactRepas);
+            cumulRepas += 2000.0;
+        }
+
+        // Vérification formule Excel exacte: (20 * 2418.1818) - (7 * 1000) = 48363.64 - 7000 = 41363.64 Ar
+        assertThat(Math.round(cumulDeplacement * 100.0) / 100.0).isEqualTo(41363.64);
+        assertThat(cumulRepas).isEqualTo(14000.0);
+    }
+
+    @Test
+    @DisplayName("Modèle Réel Ohatra - RAKETAKA (Site TNR Antananarivo) : 19 jours travaillés, jamais de réduction de transport")
+    void testCalculDeplacementEtRepasOhatraRaketaka() {
+        int joursOuvrablesMois = 22;
+        double refDeplacementTnr = 31200.0;
+        double tarifJourTnr = refDeplacementTnr / joursOuvrablesMois; // 1418.1818...
+        double reductionDeplactRepas = 1000.0;
+
+        int totalJoursTravailles = 19;
+        int joursAvecRepas = 18;
+
+        double cumulDeplacement = 0.0;
+        for (int i = 0; i < totalJoursTravailles; i++) {
+            // Sur site continu (TNR), la réduction transport n'est JAMAIS appliquée
+            cumulDeplacement += engine.calculerDeplacementJour(1.0, tarifJourTnr, false, reductionDeplactRepas);
+        }
+        double cumulRepas = joursAvecRepas * 2000.0;
+
+        // Formule Excel exacte: 19 * (31200 / 22) = 26945.45 Ar
+        assertThat(Math.round(cumulDeplacement * 100.0) / 100.0).isEqualTo(26945.45);
+        assertThat(cumulRepas).isEqualTo(36000.0);
     }
 
     @Test

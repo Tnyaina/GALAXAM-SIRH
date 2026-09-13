@@ -9,6 +9,7 @@ public class PointageAnomalieDTO {
     private String photoUrl;
     private Integer idSite;
     private String siteNom;
+    private Boolean siteHoraireContinu = true;
     private String datePointage;
     
     private String heureEntreeMatin;
@@ -161,6 +162,9 @@ public class PointageAnomalieDTO {
 
     public String getDemandeEnAttenteLibelle() { return demandeEnAttenteLibelle; }
     public void setDemandeEnAttenteLibelle(String demandeEnAttenteLibelle) { this.demandeEnAttenteLibelle = demandeEnAttenteLibelle; }
+
+    public Boolean getSiteHoraireContinu() { return siteHoraireContinu; }
+    public void setSiteHoraireContinu(Boolean siteHoraireContinu) { this.siteHoraireContinu = siteHoraireContinu; }
 
     // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
     public boolean isIncomplet()       { return "INCOMPLET".equalsIgnoreCase(typeAnomalie) || "ANOMALIE_SAISIE".equalsIgnoreCase(statutCode); }

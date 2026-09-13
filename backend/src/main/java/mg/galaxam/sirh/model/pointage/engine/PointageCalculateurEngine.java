@@ -101,17 +101,17 @@ public class PointageCalculateurEngine {
     public double calculerDeplacementJour(
             double fractionJour,
             double tarifJourDeplacement,
-            boolean aPrisRepasSurSite,
+            boolean doitAppliquerReduction,
             double reductionSiRepasSurSite
     ) {
         if (fractionJour <= 0.0 || tarifJourDeplacement <= 0.0) {
             return 0.0;
         }
         double brut = fractionJour * tarifJourDeplacement;
-        if (aPrisRepasSurSite && reductionSiRepasSurSite > 0.0 && brut > 0.0) {
-            brut = Math.max(0.0, brut - reductionSiRepasSurSite);
+        if (doitAppliquerReduction && reductionSiRepasSurSite > 0.0 && brut > 0.0) {
+            brut = Math.max(0.0, brut - (fractionJour * reductionSiRepasSurSite));
         }
-        return Math.round(brut * 100.0) / 100.0;
+        return brut;
     }
 
     /**

@@ -290,8 +290,8 @@ public class PointageSyntheseService {
                     }
                 }
             } catch (Exception ignored) {}
-            if (refDeplacementSite <= 0.0) {
-                refDeplacementSite = siteHoraireContinu ? 31200.0 : 53200.0;
+            if (refDeplacementSite < 0.0) {
+                refDeplacementSite = 0.0;
             }
         }
 
@@ -439,17 +439,19 @@ public class PointageSyntheseService {
 
                     // Détermination de la déduction repas :
                     // RÈGLE MÉTIER GALAXAM :
-                    // • Antananarivo (TNR, siteHoraireContinu = TRUE) : forfait transport continu (2 trajets/j) -> JAMAIS de déduction repas (0 Ar).
-                    // • Tamatave (TMM, siteHoraireContinu = FALSE) : forfait transport 4 trajets/j -> déduction de 1 000 Ar SI ET SEULEMENT SI repas reçu sur site ET journée non continue.
+                    // • Sites à horaire continu de base (siteHoraireContinu = true, ex: TNR) : 2 trajets/j -> JAMAIS de déduction transport (0 Ar).
+                    // • Sites à horaire discontinu de base (siteHoraireContinu = false, ex: TMM) : 4 trajets/j.
+                    //   Si l'employé effectue une journée continue OU prend un repas de midi sur site, il n'effectue pas les 2 trajets de midi :
+                    //   déduction automatique de 1 000 Ar (REDUCTION_DEPLACT_REPAS_MIDI).
                     Boolean hcJourObj = (rsPtg.getObject("horaire_continu_jour") != null) ? rsPtg.getBoolean("horaire_continu_jour") : null;
-                    boolean isContinuCeJour = siteHoraireContinu || (hcJourObj != null && hcJourObj);
-                    double reductionCeJour = isContinuCeJour ? 0.0 : reductionDeplactRepasConfig;
+                    boolean estJourneeContinue = (hcJourObj != null) ? hcJourObj : siteHoraireContinu;
+                    boolean doitReduireTransport = (!siteHoraireContinu && (estJourneeContinue || aPrisRepasCeJour));
 
                     double mntDepJour = calculateurEngine.calculerDeplacementJour(
                             fractionJour,
                             tarifJourDeplacement,
-                            aPrisRepasCeJour,
-                            reductionCeJour
+                            doitReduireTransport,
+                            reductionDeplactRepasConfig
                     );
                     totalMntDeplacement += mntDepJour;
 

@@ -419,7 +419,7 @@ public class PayrollExecutionEngine {
         // 4.2 Indemnité de transport / déplacement
         BigDecimal montantTransport = input.getIndemniteTransport();
         if (montantTransport == null) {
-            BigDecimal forfaitSite = input.getForfaitTransportSite() != null ? input.getForfaitTransportSite() : new BigDecimal("31200.00");
+            BigDecimal forfaitSite = input.getForfaitTransportSite() != null ? input.getForfaitTransportSite() : BigDecimal.ZERO;
             BigDecimal nbPresents = zeroIfNull(input.getNbJoursPresents());
             BigDecimal ratio = nbJoursOuvrables.compareTo(BigDecimal.ZERO) > 0
                     ? nbPresents.divide(nbJoursOuvrables, 4, RoundingMode.HALF_UP).min(BigDecimal.ONE)

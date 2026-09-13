@@ -671,38 +671,58 @@ public class PayrollService {
         }
         in.setTranchesIrsa(tranches);
 
-        // Paramètres Santé & Indemnités selon site
-        boolean estToamasina = "TMM".equalsIgnoreCase(in.getCodeSite())
-                || (in.getNomSite() != null && in.getNomSite().toUpperCase().contains("TOAMASINA"));
-        if (estToamasina) {
-            in.setCodeSanteOrgane("OMSI");
-            in.setTauxSanteSalarial(0.015);
-            in.setTauxSantePatronal(0.055);
-            in.setForfaitTransportSite(new BigDecimal("53200.00"));
-            in.setForfaitRepasSite(BigDecimal.ZERO);
-        } else {
-            in.setCodeSanteOrgane("OSTIE");
-            in.setTauxSanteSalarial(0.01);
-            in.setTauxSantePatronal(0.05);
-            in.setForfaitTransportSite(new BigDecimal("31200.00"));
-            in.setForfaitRepasSite(new BigDecimal("2000.00"));
-        }
-
-        // Plafonnement des cotisations santé à 8x SME (Contre-Audit Axe 5)
-        String sqlPlafSante = "SELECT sc.est_plafonne_sante " +
+        // Paramètres Santé & Cotisations selon site (depuis site_cotisation)
+        String sqlCotisSante = "SELECT tc.code, tc.taux_salarial, tc.taux_patronal, sc.est_plafonne_sante " +
                 "FROM site_cotisation sc " +
                 "JOIN ref_site s ON sc.id_site = s.id_site " +
-                "WHERE s.code_site = ? AND sc.est_actif = true LIMIT 1";
-        try (PreparedStatement ps = c.prepareStatement(sqlPlafSante)) {
-            ps.setString(1, in.getCodeSite());
+                "JOIN ref_type_cotisation tc ON sc.id_type_cotisation = tc.id_type_cotisation " +
+                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) AND tc.code != 'CNAPS' AND sc.est_actif = true LIMIT 1";
+        boolean santeFound = false;
+        try (PreparedStatement ps = c.prepareStatement(sqlCotisSante)) {
+            ps.setString(1, in.getCodeSite() != null ? in.getCodeSite() : "");
+            ps.setString(2, "%" + (in.getNomSite() != null ? in.getNomSite().toUpperCase() : "") + "%");
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
+                    in.setCodeSanteOrgane(rs.getString("code"));
+                    in.setTauxSanteSalarial(rs.getDouble("taux_salarial") / 100.0);
+                    in.setTauxSantePatronal(rs.getDouble("taux_patronal") / 100.0);
                     in.setEstPlafonneSante(rs.getBoolean("est_plafonne_sante"));
-                } else {
-                    in.setEstPlafonneSante(true);
+                    santeFound = true;
                 }
             }
         }
+        if (!santeFound) {
+            in.setCodeSanteOrgane("OSTIE");
+            in.setTauxSanteSalarial(0.01);
+            in.setTauxSantePatronal(0.05);
+            in.setEstPlafonneSante(true);
+        }
+
+        // Forfaits Indemnités de référence selon site (depuis site_indemnite_config)
+        BigDecimal forfaitTransport = BigDecimal.ZERO;
+        BigDecimal forfaitRepas = BigDecimal.ZERO;
+        String sqlIndemConfig = "SELECT i.code, sc.montant_reference " +
+                "FROM site_indemnite_config sc " +
+                "JOIN ref_site s ON sc.id_site = s.id_site " +
+                "JOIN ref_indemnite i ON sc.id_indemnite = i.id_indemnite " +
+                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) AND sc.est_actif = true";
+        try (PreparedStatement ps = c.prepareStatement(sqlIndemConfig)) {
+            ps.setString(1, in.getCodeSite() != null ? in.getCodeSite() : "");
+            ps.setString(2, "%" + (in.getNomSite() != null ? in.getNomSite().toUpperCase() : "") + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String codeInd = rs.getString("code");
+                    BigDecimal mnt = rs.getBigDecimal("montant_reference");
+                    if ("DEPLACEMENT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd)) {
+                        forfaitTransport = mnt != null ? mnt : BigDecimal.ZERO;
+                    } else if ("REPAS".equalsIgnoreCase(codeInd)) {
+                        forfaitRepas = mnt != null ? mnt : BigDecimal.ZERO;
+                    }
+                }
+            }
+        }
+        in.setForfaitTransportSite(forfaitTransport);
+        in.setForfaitRepasSite(forfaitRepas);
     }
 
     private void sauvegarderBulletinEtLignes(BulletinPaieComplet complet, Connection c) throws Exception {

@@ -199,7 +199,7 @@ public class PointageEmployeService {
         result.setFonction(empFonction);
         result.setCategorie(empCategorie);
 
-        double refDeplacementSite = siteHoraireContinu ? 31200.0 : 53200.0;
+        double refDeplacementSite = 0.0;
         if (resolvedIdSite != null && resolvedIdSite > 0) {
             String sqlSI = "SELECT c.montant_reference FROM site_indemnite_config c " +
                            "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
@@ -213,6 +213,9 @@ public class PointageEmployeService {
                     }
                 }
             } catch (Exception ignored) {}
+        }
+        if (refDeplacementSite < 0.0) {
+            refDeplacementSite = 0.0;
         }
 
         // Calculs dynamique des règles
@@ -555,13 +558,14 @@ public class PointageEmployeService {
                 double mntDepJour = 0.0;
                 if (depM || depA) {
                     double fractionJour = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
-                    boolean isContinuCeJour = siteHoraireContinu || rec.horaireContinuJour;
-                    double reductionCeJour = isContinuCeJour ? 0.0 : reductionDeplactRepasConfig;
+                    boolean aPrisRepasCeJour = aDroitRepas && (mntRepasJour > 0.0);
+                    boolean estJourneeContinue = rec.horaireContinuJour;
+                    boolean doitReduireTransport = (!siteHoraireContinu && (estJourneeContinue || aPrisRepasCeJour));
                     mntDepJour = calculateurEngine.calculerDeplacementJour(
                             fractionJour,
                             tarifJourDeplacement,
-                            (aDroitRepas && mntRepasJour > 0),
-                            reductionCeJour
+                            doitReduireTransport,
+                            reductionDeplactRepasConfig
                     );
                     mntDepJour = Math.round(mntDepJour * 100.0) / 100.0;
                 }

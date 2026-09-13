@@ -387,16 +387,32 @@ public class StcService {
             res.ajouterLigne("COTISATION_CNAPS_SAL", "Cotisation CNaPS Salariale (1%)", "RETENUE", baseCnaps, new BigDecimal("1.00"), cnapsSal);
         }
 
-        // Santé (OMSI 1.5% si Toamasina/TMM, OSTIE 1% sinon)
-        boolean estToamasina = "TMM".equalsIgnoreCase(prep.getCodeSite()) ||
-                (prep.getSite() != null && prep.getSite().toUpperCase().contains("TOAMASINA"));
-        double tauxSanteSal = estToamasina ? 0.015 : 0.01;
-        double tauxSantePat = estToamasina ? 0.055 : 0.05;
+        // Santé : Organisme et taux récupérés dynamiquement selon le site du collaborateur
+        String codeSante = "OSTIE";
+        double tauxSanteSal = 0.01;
+        double tauxSantePat = 0.05;
+        String sqlCotisSante = "SELECT tc.code, tc.taux_salarial, tc.taux_patronal " +
+                "FROM site_cotisation sc " +
+                "JOIN ref_site s ON sc.id_site = s.id_site " +
+                "JOIN ref_type_cotisation tc ON sc.id_type_cotisation = tc.id_type_cotisation " +
+                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) AND tc.code != 'CNAPS' AND sc.est_actif = true LIMIT 1";
+        try (PreparedStatement psCs = c.prepareStatement(sqlCotisSante)) {
+            psCs.setString(1, prep.getCodeSite() != null ? prep.getCodeSite() : "");
+            psCs.setString(2, "%" + (prep.getSite() != null ? prep.getSite().toUpperCase() : "") + "%");
+            try (ResultSet rsCs = psCs.executeQuery()) {
+                if (rsCs.next()) {
+                    codeSante = rsCs.getString("code");
+                    tauxSanteSal = rsCs.getDouble("taux_salarial") / 100.0;
+                    tauxSantePat = rsCs.getDouble("taux_patronal") / 100.0;
+                }
+            }
+        } catch (Exception ignored) {}
+
         var resSante = this.calculateurPaieEngine.calculerSante(assietteSociale, tauxSanteSal, tauxSantePat);
         BigDecimal santeSal = resSante.partSalariale();
         res.setCotisationSante(santeSal);
         if (santeSal.compareTo(BigDecimal.ZERO) > 0) {
-            String libelleSante = estToamasina ? "Cotisation OMSI Salariale (1.5%)" : "Cotisation OSTIE Salariale (1%)";
+            String libelleSante = "Cotisation " + codeSante + " Salariale (" + (tauxSanteSal * 100) + "%)";
             res.ajouterLigne("COTISATION_SANTE_SAL", libelleSante, "RETENUE", assietteSociale, BigDecimal.valueOf(tauxSanteSal * 100), santeSal);
         }
 

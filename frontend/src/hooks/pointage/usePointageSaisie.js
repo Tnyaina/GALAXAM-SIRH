@@ -107,6 +107,10 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                 if (nextVal) {
                     updated.heureSortieMatin = '';
                     updated.heureEntreeAm = '';
+                    updated.indemniteRepasRecue = true;
+                } else {
+                    const siteEstContinu = Boolean(siteParams?.horaireContinu);
+                    updated.indemniteRepasRecue = siteEstContinu;
                 }
                 return calculateRowValues(updated, siteParams);
             })

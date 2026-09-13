@@ -139,7 +139,7 @@ public class PointageAnomalieService {
 
             StringBuilder sql = new StringBuilder(
                 "SELECT p.id_pointage, p.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
-                "p.id_site, s.libelle AS site_nom, p.date_pointage, " +
+                "p.id_site, s.libelle AS site_nom, s.horaire_continu AS site_horaire_continu, p.date_pointage, " +
                 "p.heure_entree_matin, p.heure_sortie_matin, p.heure_entree_am, p.heure_sortie_am, " +
                 "p.total_heures, p.minutes_retard, st.code AS statut_code, st.libelle AS statut_libelle, " +
                 "p.motif_ajustement, p.montant_total_indemnites, " +
@@ -216,6 +216,7 @@ public class PointageAnomalieService {
                         dto.setPhotoUrl(rs.getString("photo_url"));
                         dto.setIdSite(rs.getInt("id_site"));
                         dto.setSiteNom(rs.getString("site_nom"));
+                        dto.setSiteHoraireContinu(rs.getBoolean("site_horaire_continu"));
                         Date d = rs.getDate("date_pointage");
                         LocalDate ldPointage = (d != null) ? d.toLocalDate() : null;
                         dto.setDatePointage(d != null ? d.toString() : null);
@@ -775,9 +776,68 @@ public class PointageAnomalieService {
             }
 
             double fractionDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
-            double mntDepJour = Math.round(fractionDep * (31200.0 / 22.0) * 100.0) / 100.0;
-            double mntRepasJour = repas ? 2000.0 : 0.0;
-            double mntTotalInd = (repas ? mntRepasJour : 0.0) + ((depM || depA) ? mntDepJour : 0.0);
+            double tarifJourDep = 0.0;
+            double tarifJourRepas = 0.0;
+            boolean siteEstContinu = false;
+            double reductionDeplactRepasConfig = 1000.0;
+
+            if (idSite != null && idSite > 0) {
+                try (PreparedStatement psSt = c.prepareStatement("SELECT horaire_continu FROM ref_site WHERE id_site = ?")) {
+                    psSt.setInt(1, idSite);
+                    try (ResultSet rsSt = psSt.executeQuery()) {
+                        if (rsSt.next()) {
+                            siteEstContinu = rsSt.getBoolean("horaire_continu");
+                        }
+                    }
+                } catch (Exception ignored) {}
+
+                int nbJoursOuvrables = 22;
+                if (datePtg != null) {
+                    LocalDate ld = datePtg.toLocalDate();
+                    nbJoursOuvrables = CalendrierOuvrableEngine.calculerJoursOuvrables(
+                            LocalDate.of(ld.getYear(), ld.getMonth(), 1),
+                            LocalDate.of(ld.getYear(), ld.getMonth(), ld.lengthOfMonth())
+                    );
+                    if (nbJoursOuvrables <= 0) nbJoursOuvrables = 22;
+                }
+
+                String sqlSiteInd = "SELECT i.code, c.montant_reference FROM site_indemnite_config c " +
+                        "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
+                        "WHERE c.id_site = ? AND c.est_actif = TRUE";
+                try (PreparedStatement psSI = c.prepareStatement(sqlSiteInd)) {
+                    psSI.setInt(1, idSite);
+                    try (ResultSet rsSI = psSI.executeQuery()) {
+                        while (rsSI.next()) {
+                            String codeInd = rsSI.getString("code");
+                            double mntRef = rsSI.getDouble("montant_reference");
+                            if ("DEPLACEMENT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd)) {
+                                if (mntRef > 0) tarifJourDep = mntRef / nbJoursOuvrables;
+                            } else if ("REPAS".equalsIgnoreCase(codeInd)) {
+                                if (mntRef > 0) tarifJourRepas = mntRef;
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+
+                try (PreparedStatement psP = c.prepareStatement("SELECT valeur FROM ref_parametre_global WHERE code = 'REDUCTION_DEPLACT_REPAS_MIDI' LIMIT 1")) {
+                    try (ResultSet rsP = psP.executeQuery()) {
+                        if (rsP.next()) {
+                            reductionDeplactRepasConfig = Double.parseDouble(rsP.getString("valeur").trim());
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            double mntDepJour = 0.0;
+            if (fractionDep > 0.0) {
+                double reductionCeJour = (!siteEstContinu && (isJourneeContinue || repas))
+                        ? reductionDeplactRepasConfig
+                        : 0.0;
+                mntDepJour = Math.max(0.0, (fractionDep * tarifJourDep) - (fractionDep * reductionCeJour));
+                mntDepJour = Math.round(mntDepJour * 100.0) / 100.0;
+            }
+            double mntRepasJour = repas ? tarifJourRepas : 0.0;
+            double mntTotalInd = mntRepasJour + mntDepJour;
 
             if (idPointage <= 0) {
                 String sqlInsert = "INSERT INTO pointage_jour (" +
