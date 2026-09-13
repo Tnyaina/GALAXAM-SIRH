@@ -22,6 +22,7 @@ public class StcPreparationDTO {
     private String site;
     private String codeSite;
     private String categorieProfessionnelle;
+    private String regimeFiscal = "IRSA";
     private int nbEnfantsACharge = 0;
     private Date dateEmbauche;
     private Date dateDepart;
@@ -79,6 +80,8 @@ public class StcPreparationDTO {
 
     public String getCategorieProfessionnelle() { return categorieProfessionnelle; }
     public void setCategorieProfessionnelle(String categorieProfessionnelle) { this.categorieProfessionnelle = categorieProfessionnelle; }
+    public String getRegimeFiscal() { return regimeFiscal; }
+    public void setRegimeFiscal(String regimeFiscal) { this.regimeFiscal = regimeFiscal; }
 
     public Date getDateEmbauche() { return dateEmbauche; }
     public void setDateEmbauche(Date dateEmbauche) { this.dateEmbauche = dateEmbauche; }

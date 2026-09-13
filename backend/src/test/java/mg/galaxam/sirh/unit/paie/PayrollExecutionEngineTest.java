@@ -10,8 +10,7 @@ import mg.galaxam.sirh.model.paie.PaiePretEcheance;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
-import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine;
-import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.TrancheIrsa;
+import mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,17 +21,17 @@ import static org.junit.jupiter.api.Assertions.*;
 class PayrollExecutionEngineTest {
 
     private PayrollExecutionEngine engine;
-    private List<TrancheIrsa> tranchesLf2026;
+    private List<Tranche> tranchesLf2026;
 
     @BeforeEach
     void setUp() {
-        engine = new PayrollExecutionEngine(new CalculateurPaieEngine());
+        engine = new PayrollExecutionEngine();
         tranchesLf2026 = List.of(
-                new TrancheIrsa(new BigDecimal("0.00"), new BigDecimal("350000.00"), 0.0),
-                new TrancheIrsa(new BigDecimal("350001.00"), new BigDecimal("400000.00"), 5.0),
-                new TrancheIrsa(new BigDecimal("400001.00"), new BigDecimal("500000.00"), 10.0),
-                new TrancheIrsa(new BigDecimal("500001.00"), new BigDecimal("600000.00"), 15.0),
-                new TrancheIrsa(new BigDecimal("600001.00"), null, 20.0)
+                new Tranche(new BigDecimal("0.00"), new BigDecimal("350000.00"), new BigDecimal("0.0")),
+                new Tranche(new BigDecimal("350001.00"), new BigDecimal("400000.00"), new BigDecimal("5.0")),
+                new Tranche(new BigDecimal("400001.00"), new BigDecimal("500000.00"), new BigDecimal("10.0")),
+                new Tranche(new BigDecimal("500001.00"), new BigDecimal("600000.00"), new BigDecimal("15.0")),
+                new Tranche(new BigDecimal("600001.00"), null, new BigDecimal("20.0"))
         );
     }
 
@@ -60,10 +59,10 @@ class PayrollExecutionEngineTest {
         in.setMinimumPerceptionIrsa(new BigDecimal("3000.00"));
         in.setDeductionParEnfant(new BigDecimal("2000.00"));
         in.setTranchesIrsa(tranchesLf2026);
-        in.setTauxCnapsSalarial(0.01);
-        in.setTauxCnapsPatronal(0.13);
-        in.setTauxSanteSalarial(0.01);
-        in.setTauxSantePatronal(0.05);
+        in.setTauxCnapsSalarial(new BigDecimal("0.01"));
+        in.setTauxCnapsPatronal(new BigDecimal("0.13"));
+        in.setTauxSanteSalarial(new BigDecimal("0.01"));
+        in.setTauxSantePatronal(new BigDecimal("0.05"));
 
         // Désactiver les forfaits de repas et transport par défaut pour tester les salaires purs
         in.setForfaitRepasSite(BigDecimal.ZERO);
@@ -131,6 +130,8 @@ class PayrollExecutionEngineTest {
     @DisplayName("Calcul Régime Prestataire / Consultant - Retenue 5% ISI, aucune cotisation CNaPS/OSTIE")
     void testCalculConsultantIsi5() {
         PayrollCalculationInput in = createStandardInput(new BigDecimal("1500000.00"), "CONSULTANT");
+        // Le taux ISI est une donnée obligatoire du contexte (aucun fallback moteur).
+        in.setTauxIsi(new BigDecimal("5.00"));
 
         BulletinPaieComplet complet = engine.calculer(in);
         BulletinPaie bp = complet.getBulletin();
@@ -173,5 +174,152 @@ class PayrollExecutionEngineTest {
         assertTrue(bp.getTotalRetenuesAcomptePret().compareTo(new BigDecimal("190000.00")) > 0);
         // Le net final reste supérieur aux 2/3 légaux insaisissables
         assertTrue(bp.getNetAPayer().compareTo(new BigDecimal("380000.00")) > 0);
+    }
+
+    @Test
+    @DisplayName("Couche Unitaire 1 - Calcul du Brut avec Heures Sup et Primes")
+    void testCalculerSalaireBrutUnitaire() {
+        PayrollCalculationInput in = createStandardInput(new BigDecimal("400000.00"), "PERMANENT");
+        in.setHeuresHs30(new BigDecimal("10.0")); // 10h à +30%
+        in.setPrimePerformanceBase(new BigDecimal("50000.00"));
+        BulletinPaie bp = engine.initialiserEnTete(in);
+        List<mg.galaxam.sirh.model.paie.BulletinPaieLigne> lignes = new ArrayList<>();
+
+        BigDecimal brut = engine.calculerSalaireBrut(in, bp, lignes);
+
+        // Taux horaire = 400 000 / 173.33 = ~2307.736 Ar. HS30 = 10 * 2307.736 * 1.3 = ~30 000.57 Ar.
+        // Brut = 400 000 + 30 000.57 + 50 000 = ~480 000.57 Ar
+        assertTrue(brut.compareTo(new BigDecimal("479000.00")) > 0);
+        assertEquals(brut, bp.getTotalGainsBruts());
+        assertFalse(lignes.isEmpty());
+    }
+
+    @Test
+    @DisplayName("Couche Unitaire 2 & 3 - Cotisations Sociales Plafonnées à 8x SME et Net Imposable")
+    void testCalculerCotisationsEtNetImposableUnitaire() {
+        PayrollCalculationInput in = createStandardInput(new BigDecimal("3000000.00"), "PERMANENT");
+        // Plafond 8x SME = 8 * 262 680 = 2 101 440 Ar
+        in.setEstPlafonneSante(true);
+        BulletinPaie bp = engine.initialiserEnTete(in);
+        List<mg.galaxam.sirh.model.paie.BulletinPaieLigne> lignes = new ArrayList<>();
+
+        BigDecimal brut = new BigDecimal("3000000.00");
+        var cotis = engine.calculerCotisationsSociales(brut, in, bp, lignes);
+
+        // CNaPS salariale plafonnée à 1% de 2 101 440 = 21 014.40 Ar
+        // Santé salariale plafonnée à 1% de 2 101 440 = 21 014.40 Ar
+        // Total salarial = 42 028.80 Ar
+        BigDecimal plafond = new BigDecimal("2101440.00");
+        BigDecimal attenduSal = plafond.multiply(new BigDecimal("0.02")).setScale(2, java.math.RoundingMode.HALF_UP);
+        assertEquals(attenduSal, cotis.totalCotisationsSalariales());
+
+        BigDecimal netImposable = engine.calculerNetImposable(brut, cotis.totalCotisationsSalariales(), bp);
+        assertEquals(brut.subtract(attenduSal), netImposable);
+        assertEquals(netImposable, bp.getSalaireNetImposable());
+    }
+
+    @Test
+    @DisplayName("Couche Unitaire 4 - Fiscalité IRSA avec Minimum 3 000 Ar et 6 Tranches")
+    void testCalculerFiscaliteIrsaUnitaire() {
+        PayrollCalculationInput in = createStandardInput(new BigDecimal("360000.00"), "PERMANENT");
+        BulletinPaie bp = engine.initialiserEnTete(in);
+        List<mg.galaxam.sirh.model.paie.BulletinPaieLigne> lignes = new ArrayList<>();
+
+        // Net imposable = 360 000 Ar.
+        // Tranche 1 (0 à 350k) = 0 Ar.
+        // Tranche 2 (350k à 360k = 10 000 Ar) * 5% = 500 Ar.
+        // Impôt brut < minimum légal de 3 000 Ar -> Le minimum de perception 3 000 Ar doit s'appliquer !
+        var fisc = engine.calculerFiscalite(new BigDecimal("360000.00"), new BigDecimal("360000.00"), in, bp, lignes);
+
+        assertEquals(new BigDecimal("3000.00"), fisc.irsaNet());
+        assertEquals(new BigDecimal("3000.00"), bp.getIrsaNet());
+        assertEquals(BigDecimal.ZERO.setScale(2), fisc.retenueIsi());
+    }
+
+    @Test
+    @DisplayName("Couche Unitaire 6 & 7 - Retenues Plafonnées et Net à Payer Arrondi à la dizaine d'Ariary")
+    void testCalculerNetAPayerEtArrondiUnitaire() {
+        BulletinPaie bp = new BulletinPaie();
+        List<mg.galaxam.sirh.model.paie.BulletinPaieLigne> lignes = new ArrayList<>();
+
+        BigDecimal brut = new BigDecimal("854234.00");
+        BigDecimal patronal = new BigDecimal("120000.00");
+        BigDecimal indemnites = new BigDecimal("42000.00");
+        BigDecimal netAvantTresorerie = new BigDecimal("785423.45"); // Non arrondi
+        BigDecimal totalRetenues = new BigDecimal("100000.00");
+
+        engine.calculerNetAPayer(brut, patronal, indemnites, netAvantTresorerie, totalRetenues, bp, lignes);
+
+        // Net avant arrondi = 785 423.45 - 100 000 = 685 423.45 Ar
+        assertEquals(new BigDecimal("685423.45"), bp.getNetAvantArrondi());
+
+        // Arrondi bancaire officiel aux 10 Ariary près : 685 420.00 Ar
+        assertEquals(new BigDecimal("685420.00"), bp.getNetAPayer());
+        assertEquals(0, bp.getNetAPayer().remainder(BigDecimal.TEN).compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    @DisplayName("Règles Ohatra - Prime d'Assiduité conditionnée au seuil de retard (< 45 min)")
+    void testPrimeAssiduiteConditionSeuil() {
+        // Cas 1 : Retard = 30 min (< 45 min) -> Prime accordée
+        PayrollCalculationInput in1 = createStandardInput(new BigDecimal("500000.00"), "PERMANENT");
+        in1.setPrimeAssiduiteForfait(new BigDecimal("20000.00"));
+        in1.setMinutesRetard(30);
+        in1.setSeuilRetardAssiduiteMinutes(45);
+
+        BulletinPaieComplet res1 = engine.calculer(in1);
+        assertEquals(new BigDecimal("20000.00"), res1.getMontantLigneSalariale("PRIME_ASSIDUITE"));
+
+        // Cas 2 : Retard = 50 min (>= 45 min) -> Prime refusée (0 Ar)
+        PayrollCalculationInput in2 = createStandardInput(new BigDecimal("500000.00"), "PERMANENT");
+        in2.setPrimeAssiduiteForfait(new BigDecimal("20000.00"));
+        in2.setMinutesRetard(50);
+        in2.setSeuilRetardAssiduiteMinutes(45);
+
+        BulletinPaieComplet res2 = engine.calculer(in2);
+        assertEquals(BigDecimal.ZERO, res2.getMontantLigneSalariale("PRIME_ASSIDUITE"));
+    }
+
+    @Test
+    @DisplayName("Règles Ohatra - Prime de Performance avec Pénalité -1/4 si retard > 70mn ET congés > 1j")
+    void testPrimePerformancePenaliteOhatra() {
+        BigDecimal ppBase = new BigDecimal("40000.00");
+
+        // Cas 1 : Retard = 75 min (>70) ET Congés = 2 jours (>1j) -> Pénalité 25% appliquée
+        // PP proratisée = 40 000 Ar, Malus 25% = 10 000 Ar -> Net PP = 30 000 Ar
+        PayrollCalculationInput in1 = createStandardInput(new BigDecimal("500000.00"), "PERMANENT");
+        in1.setPrimePerformanceBase(ppBase);
+        in1.setMinutesRetard(75);
+        in1.setNbJoursConges(new BigDecimal("2.0"));
+        in1.setSeuilRetardMalusPerformanceMinutes(70);
+        in1.setSeuilCongesMalusPerformanceJours(new BigDecimal("1.0"));
+        in1.setTauxMalusPerformance(new BigDecimal("0.25"));
+
+        BulletinPaieComplet res1 = engine.calculer(in1);
+        assertEquals(new BigDecimal("30000.00"), res1.getMontantLigneSalariale("PRIME_PERFORMANCE"));
+
+        // Cas 2 : Retard = 75 min (>70) mais Congés = 0 jour (<= 1j) -> Pas de pénalité !
+        PayrollCalculationInput in2 = createStandardInput(new BigDecimal("500000.00"), "PERMANENT");
+        in2.setPrimePerformanceBase(ppBase);
+        in2.setMinutesRetard(75);
+        in2.setNbJoursConges(BigDecimal.ZERO);
+        in2.setSeuilRetardMalusPerformanceMinutes(70);
+        in2.setSeuilCongesMalusPerformanceJours(new BigDecimal("1.0"));
+        in2.setTauxMalusPerformance(new BigDecimal("0.25"));
+
+        BulletinPaieComplet res2 = engine.calculer(in2);
+        assertEquals(new BigDecimal("40000.00"), res2.getMontantLigneSalariale("PRIME_PERFORMANCE"));
+
+        // Cas 3 : Congés = 3 jours (>1j) mais Retard = 20 min (<= 70 min) -> Pas de pénalité !
+        PayrollCalculationInput in3 = createStandardInput(new BigDecimal("500000.00"), "PERMANENT");
+        in3.setPrimePerformanceBase(ppBase);
+        in3.setMinutesRetard(20);
+        in3.setNbJoursConges(new BigDecimal("3.0"));
+        in3.setSeuilRetardMalusPerformanceMinutes(70);
+        in3.setSeuilCongesMalusPerformanceJours(new BigDecimal("1.0"));
+        in3.setTauxMalusPerformance(new BigDecimal("0.25"));
+
+        BulletinPaieComplet res3 = engine.calculer(in3);
+        assertEquals(new BigDecimal("40000.00"), res3.getMontantLigneSalariale("PRIME_PERFORMANCE"));
     }
 }

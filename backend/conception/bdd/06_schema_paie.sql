@@ -11,6 +11,8 @@
 -- 1. Nettoyage préalable des vues, triggers, tables et séquences
 DROP VIEW IF EXISTS v_config_legale_active CASCADE;
 
+DROP TABLE IF EXISTS ref_mode_paiement CASCADE;
+DROP TABLE IF EXISTS ref_type_bulletin CASCADE;
 DROP TABLE IF EXISTS conge_journal_droit CASCADE;
 DROP TABLE IF EXISTS paie_stc CASCADE;
 DROP TABLE IF EXISTS paie_honoraire_prestation CASCADE;
@@ -131,11 +133,57 @@ CREATE INDEX idx_ref_type_mvt_code ON ref_type_mouvement_paie(code);
 CREATE INDEX idx_ref_type_mvt_sens ON ref_type_mouvement_paie(sens);
 CREATE INDEX idx_ref_type_mouvement_paie_rubrique ON ref_type_mouvement_paie(id_rubrique);
 
+-- 4b. Référentiels Typologiques de Paie & Règlements
+CREATE TABLE ref_type_bulletin (
+    id_type_bulletin SERIAL PRIMARY KEY,
+    code VARCHAR(30) UNIQUE NOT NULL,
+    libelle VARCHAR(100) NOT NULL,
+    prefixe_reference VARCHAR(10) DEFAULT 'BP',
+    est_reouvrable BOOLEAN DEFAULT TRUE,
+    exige_pointage_scelle BOOLEAN DEFAULT TRUE,
+    est_inclus_dnts BOOLEAN DEFAULT TRUE,
+    est_inclus_safi BOOLEAN DEFAULT TRUE,
+    actif BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO ref_type_bulletin (code, libelle, prefixe_reference, est_reouvrable, exige_pointage_scelle, est_inclus_dnts, est_inclus_safi, actif)
+VALUES
+    ('MENSUEL', 'Bulletin Mensuel Ordinaire', 'BP', TRUE, TRUE, TRUE, TRUE, TRUE),
+    ('STC', 'Solde de Tout Compte Libératoire', 'STC', FALSE, FALSE, TRUE, TRUE, TRUE),
+    ('COMPLEMENTAIRE', 'Bulletin Complémentaire', 'BPC', TRUE, FALSE, TRUE, TRUE, TRUE),
+    ('RAPPEL', 'Rappel de Salaire / Régularisation', 'BPR', TRUE, FALSE, TRUE, TRUE, TRUE),
+    ('GRATIFICATION', 'Gratification / 13ème Mois', 'BPG', FALSE, FALSE, TRUE, TRUE, TRUE)
+ON CONFLICT (code) DO NOTHING;
+
+CREATE TABLE ref_mode_paiement (
+    id_mode_paiement SERIAL PRIMARY KEY,
+    code VARCHAR(30) UNIQUE NOT NULL,
+    libelle VARCHAR(100) NOT NULL,
+    exige_rib BOOLEAN DEFAULT FALSE,
+    inclus_fichier_virement BOOLEAN DEFAULT FALSE,
+    actif BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO ref_mode_paiement (code, libelle, exige_rib, inclus_fichier_virement, actif)
+VALUES
+    ('VIREMENT', 'Virement Bancaire', TRUE, TRUE, TRUE),
+    ('CHEQUE', 'Chèque Bancaire', FALSE, FALSE, TRUE),
+    ('ESPECES', 'Espèces / Caisse', FALSE, FALSE, TRUE),
+    ('MOBILE_MONEY', 'Mobile Money (Mvola/Orange/Airtel)', FALSE, FALSE, TRUE)
+ON CONFLICT (code) DO NOTHING;
+
 -- 5. En-tête des Bulletins de Paie (avec audit de réouverture inline)
 CREATE TABLE bulletin_paie (
     id_bulletin SERIAL PRIMARY KEY,
     id_periode_paie INT NOT NULL REFERENCES periode_paie(id_periode_paie),
     id_employe INT NOT NULL REFERENCES employe(id_employe),
+    id_config_legale INT REFERENCES paie_config_legale(id_config_legale),
+    id_snapshot_pointage INT REFERENCES pointage_cumul_periode(id_cumul),
+    version_snapshot_pointage INT CHECK (version_snapshot_pointage IS NULL OR version_snapshot_pointage > 0),
+    type_bulletin VARCHAR(20) NOT NULL DEFAULT 'MENSUEL',
+    id_type_bulletin INT REFERENCES ref_type_bulletin(id_type_bulletin),
     reference_bulletin VARCHAR(60) NOT NULL UNIQUE,
     matricule VARCHAR(20) NOT NULL,
     nom_prenom VARCHAR(150) NOT NULL,
@@ -153,6 +201,7 @@ CREATE TABLE bulletin_paie (
     anciennete_mois INT DEFAULT 0,
     nb_enfants_charge INT DEFAULT 0,
     mode_paiement VARCHAR(30) DEFAULT 'VIREMENT',
+    id_mode_paiement INT REFERENCES ref_mode_paiement(id_mode_paiement),
     banque_nom VARCHAR(50),
     banque_rib VARCHAR(50),
     heures_normales NUMERIC(6,2) DEFAULT 0,
@@ -194,7 +243,7 @@ CREATE TABLE bulletin_paie (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_bulletin_statut CHECK (statut IN ('CALCULE', 'VALIDE', 'CLOTURE', 'ROUVERT', 'ANNULE')),
-    CONSTRAINT uk_bulletin_employe_periode UNIQUE (id_periode_paie, id_employe)
+    CONSTRAINT uk_bulletin_employe_periode_type UNIQUE (id_periode_paie, id_employe, type_bulletin)
 );
 
 CREATE INDEX idx_bulletin_periode ON bulletin_paie(id_periode_paie);
@@ -381,6 +430,8 @@ CREATE TABLE paie_stc (
     net_a_payer_stc NUMERIC(12,2) NOT NULL DEFAULT 0,
     statut VARCHAR(20) NOT NULL DEFAULT 'SIMULATION',
     mode_reglement VARCHAR(30) DEFAULT 'VIREMENT',
+    id_mode_reglement INT REFERENCES ref_mode_paiement(id_mode_paiement),
+    id_motif_sortie INT REFERENCES ref_motif_sortie(id_motif_sortie),
     commentaire TEXT,
     cree_par INT REFERENCES utilisateur(id_utilisateur),
     valide_par INT REFERENCES utilisateur(id_utilisateur),
@@ -393,6 +444,8 @@ CREATE TABLE paie_stc (
 CREATE INDEX idx_paie_stc_employe ON paie_stc(id_employe);
 CREATE INDEX idx_paie_stc_periode ON paie_stc(id_periode_paie);
 CREATE INDEX idx_paie_stc_statut ON paie_stc(statut);
+CREATE INDEX idx_paie_stc_mode_reglement ON paie_stc(id_mode_reglement);
+CREATE INDEX idx_paie_stc_motif_sortie ON paie_stc(id_motif_sortie);
 CREATE INDEX idx_paie_stc_cree_par ON paie_stc(cree_par);
 CREATE INDEX idx_paie_stc_valide_par ON paie_stc(valide_par);
 CREATE INDEX idx_paie_stc_bulletin ON paie_stc(id_bulletin);

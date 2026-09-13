@@ -43,6 +43,11 @@ public class VirementBancaireExportService {
 
         int ordre = 1;
         for (BulletinPaie bp : bulletins) {
+            // Filtrer strictement les règlements par virement bancaire (exclure espèces, chèques)
+            if (bp.getModePaiement() != null && !"VIREMENT".equalsIgnoreCase(bp.getModePaiement())) {
+                continue;
+            }
+
             BigDecimal net = bp.getNetAPayer() != null ? bp.getNetAPayer() : BigDecimal.ZERO;
             if (net.compareTo(BigDecimal.ZERO) <= 0) {
                 continue; // Pas de virement si net nul ou négatif
@@ -74,7 +79,8 @@ public class VirementBancaireExportService {
             row.setNetAPayer(net.setScale(2, RoundingMode.HALF_UP));
             row.setDevise("MGA");
             row.setReferencePaiement(bp.getReferenceBulletin());
-            row.setMotifVirement("VIRT SALAIRE " + codePeriode + " " + bp.getMatricule());
+            String motifType = "STC".equalsIgnoreCase(bp.getTypeBulletin()) ? "STC" : "SALAIRE";
+            row.setMotifVirement("VIRT " + motifType + " " + codePeriode + " " + bp.getMatricule());
 
             rows.add(row);
         }

@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -139,6 +140,20 @@ public class RefTauxMajoration extends ClassMere {
             }
         }
         return list;
+    }
+
+    /** Résolution stricte d'une majoration datée : absence ou chevauchement bloquent. */
+    public static RefTauxMajoration resolveApplicable(int idConfigLegale, String type, LocalDate date, Connection c) throws Exception {
+        List<RefTauxMajoration> candidates = new ArrayList<>();
+        for (RefTauxMajoration r : listByConfig(idConfigLegale, c)) {
+            if (!type.equals(r.typeMajoration)) continue;
+            LocalDate from = r.dateDebut == null ? LocalDate.MIN : r.dateDebut.toLocalDate();
+            LocalDate to = r.dateFin == null ? LocalDate.MAX : r.dateFin.toLocalDate();
+            if (!date.isBefore(from) && !date.isAfter(to)) candidates.add(r);
+        }
+        if (candidates.size() != 1) throw new IllegalStateException(
+                "MAJORATION_CONFIGURATION_INVALID: " + type + " applicable=" + candidates.size());
+        return candidates.get(0);
     }
 
     private static RefTauxMajoration mapFromResultSet(ResultSet rs) throws Exception {

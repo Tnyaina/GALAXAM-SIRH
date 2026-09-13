@@ -15,8 +15,10 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Service d'exportation de l'État 301 SAFI IRSA (25 colonnes réglementaires DGI Madagascar).
@@ -52,27 +54,51 @@ public class SafiExportService {
             }
         }
 
-        int ordre = 1;
+        // Regroupement par employé pour garantir 1 ligne unique par salarié (Obligation État 301 SAFI DGI)
+        Map<Integer, List<BulletinPaie>> bulletinsParEmploye = new LinkedHashMap<>();
         for (BulletinPaie bp : bulletins) {
-            // Filtrer les prestataires / consultants sous régime ISI (qui vont sur l'EDI ISI)
             if ("CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) 
                     || "TEMPORAIRE".equalsIgnoreCase(bp.getRegimeIntervenant())
                     || "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant())
                     || (bp.getRetenueIsi5() != null && bp.getRetenueIsi5().compareTo(BigDecimal.ZERO) > 0)) {
                 continue;
             }
+            bulletinsParEmploye.computeIfAbsent(bp.getIdEmploye(), k -> new ArrayList<>()).add(bp);
+        }
 
-            List<BulletinPaieLigne> lignes = BulletinPaieLigne.listerParBulletin(bp.getIdBulletin(), c);
+        int ordre = 1;
+        for (Map.Entry<Integer, List<BulletinPaie>> entry : bulletinsParEmploye.entrySet()) {
+            List<BulletinPaie> empBulletins = entry.getValue();
+            BulletinPaie bpPrincipal = empBulletins.stream()
+                    .filter(b -> "STC".equalsIgnoreCase(b.getTypeBulletin()))
+                    .findFirst()
+                    .orElse(empBulletins.get(empBulletins.size() - 1));
+
+            List<BulletinPaieLigne> lignes = new ArrayList<>();
+            BigDecimal totalBrutCumule = BigDecimal.ZERO;
+            BigDecimal totalBaseIrsaCumule = BigDecimal.ZERO;
+            BigDecimal totalIrsaBrutCumule = BigDecimal.ZERO;
+            BigDecimal totalIrsaNetCumule = BigDecimal.ZERO;
+            BigDecimal maxReductionEnfants = BigDecimal.ZERO;
+
+            for (BulletinPaie b : empBulletins) {
+                lignes.addAll(BulletinPaieLigne.listerParBulletin(b.getIdBulletin(), c));
+                if (b.getTotalGainsBruts() != null) totalBrutCumule = totalBrutCumule.add(b.getTotalGainsBruts());
+                if (b.getBaseIrsaArrondie() != null) totalBaseIrsaCumule = totalBaseIrsaCumule.add(b.getBaseIrsaArrondie());
+                if (b.getIrsaBrut() != null) totalIrsaBrutCumule = totalIrsaBrutCumule.add(b.getIrsaBrut());
+                if (b.getIrsaNet() != null) totalIrsaNetCumule = totalIrsaNetCumule.add(b.getIrsaNet());
+                if (b.getReductionEnfants() != null) maxReductionEnfants = maxReductionEnfants.max(b.getReductionEnfants());
+            }
 
             SafiRowDto row = new SafiRowDto();
             row.setNumeroOrdre(ordre++);
-            row.setMatricule(bp.getMatricule());
-            row.setAffiliationCnaps(bp.getNumeroCnaps() != null ? bp.getNumeroCnaps() : "");
-            row.setNomPrenoms(bp.getNomPrenom());
-            row.setCin(bp.getCinNumero() != null ? bp.getCinNumero() : "");
-            row.setDateEmbauche(bp.getDateEmbauche() != null ? DATE_FMT.format(bp.getDateEmbauche().toLocalDate()) : "");
-            row.setDateDebauchage(chercherDateFinContrat(bp.getIdEmploye(), dateDebutPeriode, dateFinPeriode, c));
-            row.setFonction(bp.getIntitulePoste());
+            row.setMatricule(bpPrincipal.getMatricule());
+            row.setAffiliationCnaps(bpPrincipal.getNumeroCnaps() != null ? bpPrincipal.getNumeroCnaps() : "");
+            row.setNomPrenoms(bpPrincipal.getNomPrenom());
+            row.setCin(bpPrincipal.getCinNumero() != null ? bpPrincipal.getCinNumero() : "");
+            row.setDateEmbauche(bpPrincipal.getDateEmbauche() != null ? DATE_FMT.format(bpPrincipal.getDateEmbauche().toLocalDate()) : "");
+            row.setDateDebauchage(chercherDateFinContrat(bpPrincipal.getIdEmploye(), dateDebutPeriode, dateFinPeriode, c));
+            row.setFonction(bpPrincipal.getIntitulePoste());
 
             // Ventilation par rubriques
             BigDecimal base = BigDecimal.ZERO;
@@ -86,55 +112,55 @@ public class SafiExportService {
 
             for (BulletinPaieLigne l : lignes) {
                 String code = l.getCodeRubrique();
+                if (code == null) continue;
+                String cat = l.getCategorie() != null ? l.getCategorie().toUpperCase() : "";
                 BigDecimal mnt = l.getMontantSalarial() != null ? l.getMontantSalarial() : BigDecimal.ZERO;
+                if (mnt.compareTo(BigDecimal.ZERO) == 0) continue;
 
-                switch (code) {
-                    case "SALAIRE_BASE":
-                    case "INDEMNITE_CONGE":
-                    case "INDEMNITE_CONGE_PAYE":
-                    case "INDEMNITE_COMPENSATRICE_CONGE":
-                    case "INDEMNITE_PREAVIS":
-                        base = base.add(mnt);
-                        break;
-                    case "RETENUE_ABSENCE":
-                    case "RETENUE_CONGE":
-                        base = base.subtract(mnt);
-                        break;
-                    case "HEURES_SUP_30":
-                    case "HEURES_SUP_50":
-                    case "HS_130":
-                    case "HS_150":
-                    case "HEURES_NUIT":
-                    case "HEURES_FERIE":
-                    case "HEURES_DIMANCHE":
-                        hs = hs.add(mnt);
-                        break;
-                    case "PRIME_ASSIDUITE":
-                    case "PRIME_PERFORMANCE":
-                    case "PRIME_EXCEPTIONNELLE":
-                    case "PRIME_ANCIENNETE":
-                    case "AUTIMP":
-                        primes = primes.add(mnt);
-                        break;
-                    case "INDEMNITE_TRANSPORT":
-                    case "REMBOURSEMENT_NOTE_FRAIS":
-                    case "INDEMNITE_REPAS":
-                    case "EXTRA_DEPLACEMENT":
-                    case "INDEMNITE_LICENCIEMENT":
-                        indemNonImpos = indemNonImpos.add(mnt);
-                        break;
-                    case "COTISATION_CNAPS":
-                    case "COTISATION_CNAPS_SAL":
+                // 1. Salaire de base et congés (Base - Colonne I)
+                if ("SALAIRE_BASE".equals(cat) || code.startsWith("SALAIRE_BASE") || code.startsWith("SALAIRE_PRORATA")
+                        || "INDEMNITE_CONGE".equals(code) || "INDEMNITE_CONGE_PAYE".equals(code) || "INDEMNITE_COMPENSATRICE_CONGE".equals(code)) {
+                    base = base.add(mnt);
+                } else if (code.startsWith("RETENUE_ABSENCE") || code.startsWith("RETENUE_CONGE")) {
+                    base = base.subtract(mnt);
+                }
+                // 2. Heures supplémentaires et majorations (HS - Colonne L)
+                else if ("HEURES_SUP".equals(cat) || code.startsWith("HEURES_SUP") || code.startsWith("HS_") || code.startsWith("MAJORATION_")) {
+                    hs = hs.add(mnt);
+                }
+                // 3. Indemnité compensatrice de préavis (Indemnités imposables - Colonne J, et non Base)
+                else if ("INDEMNITE_PREAVIS".equals(code)) {
+                    indemImpos = indemImpos.add(mnt);
+                }
+                // 4. Primes et gratifications (Primes - Colonne K)
+                else if ("PRIME".equals(cat) || code.startsWith("PRIME_") || "AUTIMP".equals(code)) {
+                    primes = primes.add(mnt);
+                }
+                // 5. Indemnités imposables diverses (Indemnités imposables - Colonne J)
+                else if ("INDEMNITE_IMPOSABLE".equals(cat)) {
+                    indemImpos = indemImpos.add(mnt);
+                }
+                // 6. Indemnités non imposables / exonérées (Indemnités non imposables - Colonne N)
+                else if ("INDEMNITE_NON_IMPOSABLE".equals(cat) || "INDEMNITE_LICENCIEMENT".equals(code)
+                        || code.startsWith("INDEMNITE_TRANSPORT") || code.startsWith("INDEMNITE_REPAS")
+                        || code.startsWith("EXTRA_DEPLACEMENT") || code.contains("FRAIS")) {
+                    indemNonImpos = indemNonImpos.add(mnt);
+                }
+                // 7. Cotisations sociales salariales (CNaPS et Santé)
+                else if ("COTISATION_SALARIALE".equals(cat) || code.contains("CNAPS") || code.contains("OSTIE") || code.contains("OMSI") || code.contains("SMIE") || code.contains("AMIT")) {
+                    if (code.contains("CNAPS")) {
                         cnaps = cnaps.add(mnt);
-                        break;
-                    case "COTISATION_OSTIE":
-                    case "COTISATION_OSTIE_SAL":
-                    case "COTISATION_OMSI":
-                    case "COTISATION_OMSI_SAL":
+                    } else {
                         sante = sante.add(mnt);
-                        break;
-                    default:
-                        break;
+                    }
+                }
+                // 8. Fallback dynamique pour tout gain non classé
+                else if ("GAIN".equalsIgnoreCase(l.getSens())) {
+                    if (l.isImposable()) {
+                        primes = primes.add(mnt);
+                    } else {
+                        indemNonImpos = indemNonImpos.add(mnt);
+                    }
                 }
             }
 
@@ -153,7 +179,7 @@ public class SafiExportService {
             row.setAutres(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
 
             // Salaire brut (Q = I + J + L + N + O + P)
-            BigDecimal brut = bp.getTotalGainsBruts() != null ? bp.getTotalGainsBruts() : BigDecimal.ZERO;
+            BigDecimal brut = totalBrutCumule;
             // Sécurisation de la cohérence arithmétique e-Hetra DGI
             BigDecimal sommeComposantes = base.add(indemImpos).add(hs).add(primes);
             BigDecimal delta = brut.subtract(sommeComposantes);
@@ -192,19 +218,19 @@ public class SafiExportService {
             row.setAutreDeduction(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
 
             // Montant imposable (V = 100 * floor(T / 100))
-            BigDecimal imposable = bp.getBaseIrsaArrondie() != null ? bp.getBaseIrsaArrondie() : BigDecimal.ZERO;
+            BigDecimal imposable = totalBaseIrsaCumule;
             row.setMontantImposable(imposable.setScale(2, RoundingMode.HALF_UP));
 
             // Impôt correspondant (W = IRSA progressif brut)
-            BigDecimal impCorresp = bp.getIrsaBrut() != null ? bp.getIrsaBrut() : BigDecimal.ZERO;
+            BigDecimal impCorresp = totalIrsaBrutCumule;
             row.setImpotCorrespondant(impCorresp.setScale(2, RoundingMode.HALF_UP));
 
             // Réduction charge de famille (X = 2 000 * enfants)
-            BigDecimal redEnf = bp.getReductionEnfants() != null ? bp.getReductionEnfants() : BigDecimal.ZERO;
+            BigDecimal redEnf = maxReductionEnfants;
             row.setReductionChargeFamille(redEnf.setScale(2, RoundingMode.HALF_UP));
 
             // Impôt dû (Y = IRSA net)
-            BigDecimal impDu = bp.getIrsaNet() != null ? bp.getIrsaNet() : BigDecimal.ZERO;
+            BigDecimal impDu = totalIrsaNetCumule;
             row.setImpotDu(impDu.setScale(2, RoundingMode.HALF_UP));
 
             rows.add(row);
@@ -355,6 +381,25 @@ public class SafiExportService {
     }
 
     private String chercherDateFinContrat(Integer idEmploye, Date dateDebutPeriode, Date dateFinPeriode, Connection c) {
+        // 1. Détection prioritaire via Solde de Tout Compte (indispensable pour les CDI dont ct.date_fin est NULL)
+        String sqlStc = "SELECT date_depart FROM paie_stc WHERE id_employe = ? ORDER BY date_depart DESC LIMIT 1";
+        try (PreparedStatement psStc = c.prepareStatement(sqlStc)) {
+            psStc.setInt(1, idEmploye);
+            try (ResultSet rsStc = psStc.executeQuery()) {
+                if (rsStc.next() && rsStc.getDate("date_depart") != null) {
+                    Date dateDepart = rsStc.getDate("date_depart");
+                    if (dateDebutPeriode != null && dateFinPeriode != null) {
+                        if (!dateDepart.before(dateDebutPeriode) && !dateDepart.after(dateFinPeriode)) {
+                            return DATE_FMT.format(dateDepart.toLocalDate());
+                        }
+                    } else {
+                        return DATE_FMT.format(dateDepart.toLocalDate());
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // 2. Recherche standard sur contrat_travail (échéances CDD)
         String sql = "SELECT ct.date_fin, rsa.code AS statut_rh " +
                      "FROM contrat_travail ct " +
                      "LEFT JOIN employe_affectation_carriere eac ON ct.id_contrat = eac.id_contrat " +
@@ -367,13 +412,10 @@ public class SafiExportService {
                     Date dateFin = rs.getDate("date_fin");
                     String statutRh = rs.getString("statut_rh");
 
-                    // 1. Échéance future : pas encore débauché
+                    // Échéance future : pas encore débauché
                     if (dateFinPeriode != null && dateFin.after(dateFinPeriode)) {
                         return "";
                     }
-                    // 2. Échéance antérieure à la période déclarée :
-                    // Si le salarié est encore ACTIF (ex: renouvellement/continuation), ce n'est pas un débauchage.
-                    // Si le salarié est non-actif, il s'agit d'un Solde de Tout Compte décalé : afficher la date réelle de cessation.
                     if (dateDebutPeriode != null && dateFin.before(dateDebutPeriode)) {
                         if ("ACTIF".equalsIgnoreCase(statutRh)) {
                             return "";

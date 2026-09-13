@@ -57,9 +57,9 @@ public class PaieController {
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> calculerBulletinEmploye(@Valid @RequestBody CalculEmployeRequest req) {
         Integer userId = getCurrentUserId();
-        try (Connection c = dataSource.getConnection()) {
+        try {
             BulletinPaieComplet res = payrollService.calculerBulletinEmploye(
-                    req.getIdEmploye(), req.getIdPeriodePaie(), req.isSimulation(), userId, c);
+                    req.getIdEmploye(), req.getIdPeriodePaie(), req.isSimulation(), userId);
             return ResponseEntity.ok(res);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
@@ -75,9 +75,9 @@ public class PaieController {
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> calculerPaiePeriode(@Valid @RequestBody CalculPeriodeRequest req) {
         Integer userId = getCurrentUserId();
-        try (Connection c = dataSource.getConnection()) {
+        try {
             PayrollBatchResult res = payrollService.calculerPaiePeriode(
-                    req.getIdPeriodePaie(), req.isSimulation(), userId, c);
+                    req.getIdPeriodePaie(), req.isSimulation(), userId);
             return ResponseEntity.ok(res);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
@@ -163,6 +163,20 @@ public class PaieController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(createErrorResponse("Erreur lors de la consultation : " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/periode/{idPeriode}/cockpit")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> obtenirCockpitPeriode(@PathVariable("idPeriode") Integer idPeriode) {
+        try (Connection c = dataSource.getConnection()) {
+            Map<String, Object> cockpit = payrollService.obtenirCockpitPeriode(idPeriode, c);
+            return ResponseEntity.ok(cockpit);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse("Erreur lors de la récupération du cockpit : " + e.getMessage()));
         }
     }
 

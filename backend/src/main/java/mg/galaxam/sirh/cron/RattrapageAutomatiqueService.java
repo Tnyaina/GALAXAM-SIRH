@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.event.EventListener;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +34,9 @@ public class RattrapageAutomatiqueService {
 
     private final AtomicReference<LocalDate> dernierRattrapageJournalier = new AtomicReference<>(null);
     private final AtomicBoolean enCoursExecution = new AtomicBoolean(false);
+
+    @Value("${app.rattrapage.enabled:true}")
+    private boolean enabled;
 
     @Autowired
     @Lazy
@@ -63,6 +67,7 @@ public class RattrapageAutomatiqueService {
      */
     @EventListener(ApplicationReadyEvent.class)
     public void auDemarrage() {
+        if (!enabled) return;
         log.info("[RATTRAPAGE] Exécution du rattrapage initial au démarrage du serveur...");
         verifierEtExecuterRattrapage(false);
     }
@@ -75,6 +80,7 @@ public class RattrapageAutomatiqueService {
      */
     @Scheduled(fixedDelay = 900000, initialDelay = 30000)
     public void battementCoeurPeriodique() {
+        if (!enabled) return;
         LocalDate aujourdhui = LocalDate.now();
         if (!aujourdhui.equals(dernierRattrapageJournalier.get())) {
             log.info("[RATTRAPAGE] Battement de cœur périodique : rattrapage requis pour la date du {}", aujourdhui);
@@ -87,6 +93,7 @@ public class RattrapageAutomatiqueService {
      * N'effectue aucun calcul bloquant si le rattrapage du jour a déjà eu lieu.
      */
     public void verifierEtExecuterRattrapageAsync() {
+        if (!enabled) return;
         LocalDate aujourdhui = LocalDate.now();
         if (!aujourdhui.equals(dernierRattrapageJournalier.get())) {
             CompletableFuture.runAsync(() -> verifierEtExecuterRattrapage(false));
@@ -98,6 +105,7 @@ public class RattrapageAutomatiqueService {
      * @param forcer true pour forcer l'exécution même si elle a déjà eu lieu aujourd'hui.
      */
     public void verifierEtExecuterRattrapage(boolean forcer) {
+        if (!enabled) return;
         LocalDate aujourdhui = LocalDate.now();
 
         if (!forcer && aujourdhui.equals(dernierRattrapageJournalier.get())) {

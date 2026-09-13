@@ -63,6 +63,8 @@ public class PaieStc extends ClassMere {
     // Statut et cycle de vie
     private String statut = "SIMULATION"; // SIMULATION, VALIDE, REGLE, ANNULE
     private String modeReglement = "VIREMENT";
+    private Integer idModeReglement;
+    private Integer idMotifSortie;
     private String commentaire;
 
     private Integer creePar;
@@ -98,8 +100,8 @@ public class PaieStc extends ClassMere {
                 "indemnite_licenciement, autres_indemnites, motif_autres_indemnites, total_brut_stc, " +
                 "total_cotisations_sociales, total_irsa, net_imposable, solde_prets_deduit, solde_avances_deduit, " +
                 "autres_deductions, motif_autres_deductions, net_a_payer_stc, statut, mode_reglement, commentaire, " +
-                "cree_par, valide_par, date_validation) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                "cree_par, valide_par, date_validation, id_mode_reglement, id_motif_sortie) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
                 "RETURNING id_stc";
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -144,6 +146,8 @@ public class PaieStc extends ClassMere {
             if (this.creePar != null) ps.setInt(p++, this.creePar); else ps.setNull(p++, java.sql.Types.INTEGER);
             if (this.validePar != null) ps.setInt(p++, this.validePar); else ps.setNull(p++, java.sql.Types.INTEGER);
             ps.setTimestamp(p++, this.dateValidation);
+            if (this.idModeReglement != null) ps.setInt(p++, this.idModeReglement); else ps.setNull(p++, java.sql.Types.INTEGER);
+            if (this.idMotifSortie != null) ps.setInt(p++, this.idMotifSortie); else ps.setNull(p++, java.sql.Types.INTEGER);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -165,6 +169,7 @@ public class PaieStc extends ClassMere {
                 "total_irsa = ?, net_imposable = ?, solde_prets_deduit = ?, solde_avances_deduit = ?, " +
                 "autres_deductions = ?, motif_autres_deductions = ?, net_a_payer_stc = ?, " +
                 "statut = ?, mode_reglement = ?, commentaire = ?, valide_par = ?, date_validation = ?, " +
+                "id_mode_reglement = ?, id_motif_sortie = ?, " +
                 "updated_at = CURRENT_TIMESTAMP WHERE id_stc = ?";
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -207,6 +212,8 @@ public class PaieStc extends ClassMere {
 
             if (this.validePar != null) ps.setInt(p++, this.validePar); else ps.setNull(p++, java.sql.Types.INTEGER);
             ps.setTimestamp(p++, this.dateValidation);
+            if (this.idModeReglement != null) ps.setInt(p++, this.idModeReglement); else ps.setNull(p++, java.sql.Types.INTEGER);
+            if (this.idMotifSortie != null) ps.setInt(p++, this.idMotifSortie); else ps.setNull(p++, java.sql.Types.INTEGER);
 
             ps.setInt(p++, this.idStc);
             ps.executeUpdate();
@@ -337,6 +344,8 @@ public class PaieStc extends ClassMere {
 
         s.statut = rs.getString("statut");
         s.modeReglement = rs.getString("mode_reglement");
+        s.idModeReglement = (Integer) rs.getObject("id_mode_reglement");
+        s.idMotifSortie = (Integer) rs.getObject("id_motif_sortie");
         s.commentaire = rs.getString("commentaire");
 
         s.creePar = (Integer) rs.getObject("cree_par");
@@ -444,6 +453,12 @@ public class PaieStc extends ClassMere {
 
     public String getCommentaire() { return commentaire; }
     public void setCommentaire(String commentaire) { this.commentaire = commentaire; }
+
+    public Integer getIdModeReglement() { return idModeReglement; }
+    public void setIdModeReglement(Integer idModeReglement) { this.idModeReglement = idModeReglement; }
+
+    public Integer getIdMotifSortie() { return idMotifSortie; }
+    public void setIdMotifSortie(Integer idMotifSortie) { this.idMotifSortie = idMotifSortie; }
 
     public Integer getCreePar() { return creePar; }
     public void setCreePar(Integer creePar) { this.creePar = creePar; }

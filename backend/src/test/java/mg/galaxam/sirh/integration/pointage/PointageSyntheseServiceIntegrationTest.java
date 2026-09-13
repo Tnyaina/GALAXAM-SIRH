@@ -19,8 +19,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Autowired;
+import mg.galaxam.sirh.model.pointage.service.PointageSyntheseService;
 
 public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest {
+
+    @Autowired
+    private PointageSyntheseService pointageSyntheseService;
 
     private TestEmployeFixtures.CreatedEmploye emp;
     private int idPeriode;
@@ -89,6 +94,40 @@ public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest 
                     assertEquals(40.0, rs.getDouble("total_heures_travaillees"), 0.01);
                     assertEquals(0.0, rs.getDouble("heures_retard"), 0.01);
                     assertEquals(0.0, rs.getDouble("heures_hs_brutes"), 0.01);
+                }
+            }
+
+        }
+    }
+
+    @Test
+    @DisplayName("Snapshot Pointage : une réouverture crée v2 sans écraser v1")
+    void snapshotVersionIsAppendOnly() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            pointageSyntheseService.gelerPeriode(idPeriode, null, c);
+            pointageSyntheseService.degelerPeriode(idPeriode, c);
+            pointageSyntheseService.gelerPeriode(idPeriode, null, c);
+            c.commit();
+
+            int v1Id;
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT id_cumul, version_snapshot, statut_snapshot FROM pointage_cumul_periode " +
+                    "WHERE id_periode_paie = ? AND id_employe = ? ORDER BY version_snapshot")) {
+                ps.setInt(1, idPeriode); ps.setInt(2, emp.idEmploye);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    v1Id = rs.getInt("id_cumul");
+                    assertEquals(1, rs.getInt("version_snapshot")); assertEquals("REMPLACE", rs.getString("statut_snapshot"));
+                    assertTrue(rs.next()); assertEquals(2, rs.getInt("version_snapshot")); assertEquals("GELE", rs.getString("statut_snapshot"));
+                    assertFalse(rs.next());
+                }
+            }
+            try (PreparedStatement source = c.prepareStatement(
+                    "SELECT COUNT(*) FROM pointage_snapshot_jour WHERE id_cumul = ?")) {
+                source.setInt(1, v1Id);
+                try (ResultSet rs = source.executeQuery()) {
+                    assertTrue(rs.next()); assertEquals(5, rs.getInt(1));
                 }
             }
         }

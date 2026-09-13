@@ -194,7 +194,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                         curEntry.accordee = boolVal;
                         curEntry.fractionJour = boolVal ? 1.0 : 0.0;
                         const mntRepas = repasInd.useGlobalIfZero && boolVal 
-                            ? (repasInd.montantGlobal || 2000) 
+                            ? (repasInd.montantGlobal ?? 0)
                             : (repasInd.montantJour || repasInd.montantReference || 0);
                         curEntry.montantApplique = boolVal ? mntRepas : 0.0;
                         existingDyn[idKey] = curEntry;
@@ -323,7 +323,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                     if (isRep) {
                         updated.indemniteRepasRecue = boolVal;
                         const mnt = indConfig?.useGlobalIfZero && boolVal 
-                            ? (indConfig?.montantGlobal || 2000) 
+                            ? (indConfig?.montantGlobal ?? 0)
                             : (indConfig?.montantJour || indConfig?.montantReference || 0);
                         current.montantApplique = boolVal ? mnt : 0.0;
                         updated.montantRepas = boolVal ? mnt : 0.0;

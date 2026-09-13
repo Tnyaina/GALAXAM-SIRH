@@ -11,6 +11,7 @@ import java.util.List;
 public class StcCalculResultDTO {
 
     private Integer idStc;
+    private Integer idBulletin;
     private String numeroRecu;
 
     // Identité & Contrat
@@ -51,6 +52,7 @@ public class StcCalculResultDTO {
     private BigDecimal cotisationCnaps = BigDecimal.ZERO;
     private BigDecimal cotisationSante = BigDecimal.ZERO;
     private BigDecimal totalCotisationsSociales = BigDecimal.ZERO;
+    private BigDecimal totalCotisationsPatronales = BigDecimal.ZERO;
     private BigDecimal netImposable = BigDecimal.ZERO;
     private BigDecimal irsaNet = BigDecimal.ZERO;
 
@@ -188,6 +190,9 @@ public class StcCalculResultDTO {
     public BigDecimal getTotalCotisationsSociales() { return totalCotisationsSociales; }
     public void setTotalCotisationsSociales(BigDecimal totalCotisationsSociales) { this.totalCotisationsSociales = totalCotisationsSociales; }
 
+    public BigDecimal getTotalCotisationsPatronales() { return totalCotisationsPatronales; }
+    public void setTotalCotisationsPatronales(BigDecimal totalCotisationsPatronales) { this.totalCotisationsPatronales = totalCotisationsPatronales; }
+
     public BigDecimal getNetImposable() { return netImposable; }
     public void setNetImposable(BigDecimal netImposable) { this.netImposable = netImposable; }
 
@@ -217,6 +222,9 @@ public class StcCalculResultDTO {
 
     public String getCommentaire() { return commentaire; }
     public void setCommentaire(String commentaire) { this.commentaire = commentaire; }
+
+    public Integer getIdBulletin() { return idBulletin; }
+    public void setIdBulletin(Integer idBulletin) { this.idBulletin = idBulletin; }
 
     public List<StcLigneDTO> getLignes() { return lignes; }
     public void setLignes(List<StcLigneDTO> lignes) { this.lignes = lignes; }

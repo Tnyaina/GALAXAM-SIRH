@@ -2,6 +2,10 @@ package mg.galaxam.sirh.model.pointage.service;
 
 import mg.galaxam.sirh.api.dto.pointage.PointageAnomalieDTO;
 import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
+import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceCalculator;
+import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceContext;
+import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceResult;
+import mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +16,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -31,6 +37,14 @@ public class PointageAnomalieService {
 
     private static final Logger log = LoggerFactory.getLogger(PointageAnomalieService.class);
 
+    private static LocalTime local(Time value) {
+        return value == null ? null : value.toLocalTime();
+    }
+
+    private static double hours(long minutes) {
+        return BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP).doubleValue();
+    }
+
     @Autowired
     private DataSource dataSource;
 
@@ -42,6 +56,9 @@ public class PointageAnomalieService {
 
     @Autowired
     private CalendrierOuvrableEngine calendrierOuvrableEngine;
+
+    @Autowired
+    private DailyAttendanceCalculator dailyAttendanceCalculator;
 
     /**
      * Calcule le code de semaine de paie (S1, S2, S3, S4, S5) relatif au début de la période
@@ -251,7 +268,7 @@ public class PointageAnomalieService {
 
                         // Indemnités
                         boolean depAccorde = Boolean.TRUE.equals(rs.getObject("dep_accorde"));
-                        double depQte = rs.getDouble("dep_quantite");
+                        BigDecimal depQte = zeroIfNull(rs.getBigDecimal("dep_quantite"));
                         String depFrac = rs.getString("dep_fraction");
                         if (depAccorde) {
                             if ("MATIN".equalsIgnoreCase(depFrac)) {
@@ -261,8 +278,8 @@ public class PointageAnomalieService {
                                 dto.setDeplacementMatin(false);
                                 dto.setDeplacementAm(true);
                             } else {
-                                dto.setDeplacementMatin(depQte > 0);
-                                dto.setDeplacementAm(depQte >= 1.0);
+                                dto.setDeplacementMatin(depQte.signum() > 0);
+                                dto.setDeplacementAm(depQte.compareTo(BigDecimal.ONE) >= 0);
                             }
                         } else {
                             dto.setDeplacementMatin(false);
@@ -372,7 +389,7 @@ public class PointageAnomalieService {
             int totalJoursSaisis = 0;
             int totalJoursDistinctsSaisis = 0;
             double totalHeuresCumulees = 0.0;
-            double totalIndemnites = 0.0;
+            BigDecimal totalIndemnites = BigDecimal.ZERO;
             String sqlTot = "SELECT COUNT(DISTINCT date_pointage) AS nb_distinct_dates, COUNT(*) AS nb_j, COALESCE(SUM(total_heures), 0) AS tot_h, COALESCE(SUM(montant_total_indemnites), 0) AS tot_ind " +
                             "FROM pointage_jour WHERE id_periode_paie = ? " +
                             (idSite != null && idSite > 0 ? "AND id_site = ? " : "");
@@ -384,7 +401,7 @@ public class PointageAnomalieService {
                         totalJoursDistinctsSaisis = rsTot.getInt("nb_distinct_dates");
                         totalJoursSaisis = rsTot.getInt("nb_j");
                         totalHeuresCumulees = Math.round(rsTot.getDouble("tot_h") * 10.0) / 10.0;
-                        totalIndemnites = Math.round(rsTot.getDouble("tot_ind"));
+                        totalIndemnites = MoneyRoundingPolicy.amount(rsTot.getBigDecimal("tot_ind"));
                     }
                 }
             }
@@ -714,37 +731,16 @@ public class PointageAnomalieService {
                 }
             } else {
                 // Mode 1 : Saisie / Rectification des heures
-                boolean isPauseAuto = (!isJourneeContinue && em != null && sa != null && sm == null && ea == null);
-                if (isJourneeContinue) {
-                    hMatin = PointageSaisieService.calcHours(em, sa);
-                    hAm = 0.0;
-                } else if (isPauseAuto) {
-                    hMatin = PointageSaisieService.calcHours(em, Time.valueOf(siteFinM));
-                    hAm = PointageSaisieService.calcHours(Time.valueOf(siteDebA), sa);
-                } else {
-                    hMatin = PointageSaisieService.calcHours(em, sm);
-                    hAm = PointageSaisieService.calcHours(ea, sa);
-                }
-                totalH = hMatin + hAm;
-                hNuit = PointageSaisieService.calcHeuresNuit(sa);
-
-                int retMatin = PointageSaisieService.calcMinutesRetard(em, siteDebM);
-                int retAm = 0;
-                if (!isJourneeContinue && !isPauseAuto && ea != null) {
-                    if (sm != null && siteDebA.isAfter(siteFinM)) {
-                        long pauseTheorique = java.time.Duration.between(siteFinM, siteDebA).toMinutes();
-                        LocalTime ltSm = sm.toLocalTime();
-                        LocalTime ltEa = ea.toLocalTime();
-                        if (ltSm.isAfter(siteFinM) && ltEa.isAfter(ltSm)) {
-                            long pauseReelle = java.time.Duration.between(ltSm, ltEa).toMinutes();
-                            retAm = (int) Math.max(0, pauseReelle - pauseTheorique);
-                        } else {
-                            retAm = PointageSaisieService.calcMinutesRetard(ea, siteDebA);
-                        }
-                    } else {
-                        retAm = PointageSaisieService.calcMinutesRetard(ea, siteDebA);
-                    }
-                }
+                DailyAttendanceResult dailyResult = dailyAttendanceCalculator.calculateDay(new DailyAttendanceContext(
+                        idEmp, datePtg.toLocalDate(), local(em), local(sm), local(ea), local(sa),
+                        siteDebM, siteFinM, siteDebA, siteFinA, LocalTime.of(22, 0), LocalTime.of(5, 0),
+                        isJourneeContinue, false, false, DailyAttendanceContext.LeavePart.NONE,
+                        false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false));
+                hMatin = hours(dailyResult.morningMinutes());
+                hAm = hours(dailyResult.afternoonMinutes());
+                totalH = hours(dailyResult.workedMinutes());
+                hNuit = hours(dailyResult.nightMinutes());
+                retMins = Math.toIntExact(dailyResult.lateMinutes());
                 boolean isDemiMatin = (em != null && sm != null && ea == null && sa == null);
                 boolean isDemiAm = (em == null && sm == null && ea != null && sa != null);
                 if (codeStatut == null || codeStatut.trim().isEmpty() || "NON_SAISI".equals(codeStatut) || "ANOMALIE_SAISIE".equals(codeStatut)) {
@@ -775,11 +771,12 @@ public class PointageAnomalieService {
                 repas = false;
             }
 
-            double fractionDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
-            double tarifJourDep = 0.0;
-            double tarifJourRepas = 0.0;
+            BigDecimal fractionDep = (depM ? new BigDecimal("0.5") : BigDecimal.ZERO)
+                    .add(depA ? new BigDecimal("0.5") : BigDecimal.ZERO);
+            BigDecimal tarifJourDep = BigDecimal.ZERO;
+            BigDecimal tarifJourRepas = BigDecimal.ZERO;
             boolean siteEstContinu = false;
-            double reductionDeplactRepasConfig = 1000.0;
+            BigDecimal reductionDeplactRepasConfig = new BigDecimal("1000");
 
             if (idSite != null && idSite > 0) {
                 try (PreparedStatement psSt = c.prepareStatement("SELECT horaire_continu FROM ref_site WHERE id_site = ?")) {
@@ -791,14 +788,13 @@ public class PointageAnomalieService {
                     }
                 } catch (Exception ignored) {}
 
-                int nbJoursOuvrables = 22;
+                int nbJoursOuvrables = 0;
                 if (datePtg != null) {
                     LocalDate ld = datePtg.toLocalDate();
                     nbJoursOuvrables = CalendrierOuvrableEngine.calculerJoursOuvrables(
                             LocalDate.of(ld.getYear(), ld.getMonth(), 1),
                             LocalDate.of(ld.getYear(), ld.getMonth(), ld.lengthOfMonth())
                     );
-                    if (nbJoursOuvrables <= 0) nbJoursOuvrables = 22;
                 }
 
                 String sqlSiteInd = "SELECT i.code, c.montant_reference FROM site_indemnite_config c " +
@@ -809,11 +805,12 @@ public class PointageAnomalieService {
                     try (ResultSet rsSI = psSI.executeQuery()) {
                         while (rsSI.next()) {
                             String codeInd = rsSI.getString("code");
-                            double mntRef = rsSI.getDouble("montant_reference");
+                            BigDecimal mntRef = rsSI.getBigDecimal("montant_reference");
+                            if (mntRef == null) mntRef = BigDecimal.ZERO;
                             if ("DEPLACEMENT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd)) {
-                                if (mntRef > 0) tarifJourDep = mntRef / nbJoursOuvrables;
+                                if (mntRef.signum() > 0) tarifJourDep = mntRef.divide(BigDecimal.valueOf(nbJoursOuvrables), 8, RoundingMode.HALF_UP);
                             } else if ("REPAS".equalsIgnoreCase(codeInd)) {
-                                if (mntRef > 0) tarifJourRepas = mntRef;
+                                if (mntRef.signum() > 0) tarifJourRepas = mntRef;
                             }
                         }
                     }
@@ -822,22 +819,21 @@ public class PointageAnomalieService {
                 try (PreparedStatement psP = c.prepareStatement("SELECT valeur FROM ref_parametre_global WHERE code = 'REDUCTION_DEPLACT_REPAS_MIDI' LIMIT 1")) {
                     try (ResultSet rsP = psP.executeQuery()) {
                         if (rsP.next()) {
-                            reductionDeplactRepasConfig = Double.parseDouble(rsP.getString("valeur").trim());
+                            reductionDeplactRepasConfig = new BigDecimal(rsP.getString("valeur").trim());
                         }
                     }
                 } catch (Exception ignored) {}
             }
 
-            double mntDepJour = 0.0;
-            if (fractionDep > 0.0) {
-                double reductionCeJour = (!siteEstContinu && (isJourneeContinue || repas))
+            BigDecimal mntDepJour = BigDecimal.ZERO;
+            if (fractionDep.signum() > 0) {
+                BigDecimal reductionCeJour = (!siteEstContinu && (isJourneeContinue || repas))
                         ? reductionDeplactRepasConfig
-                        : 0.0;
-                mntDepJour = Math.max(0.0, (fractionDep * tarifJourDep) - (fractionDep * reductionCeJour));
-                mntDepJour = Math.round(mntDepJour * 100.0) / 100.0;
+                        : BigDecimal.ZERO;
+                mntDepJour = MoneyRoundingPolicy.amount(fractionDep.multiply(tarifJourDep.subtract(reductionCeJour)).max(BigDecimal.ZERO));
             }
-            double mntRepasJour = repas ? tarifJourRepas : 0.0;
-            double mntTotalInd = mntRepasJour + mntDepJour;
+            BigDecimal mntRepasJour = repas ? tarifJourRepas : BigDecimal.ZERO;
+            BigDecimal mntTotalInd = mntRepasJour.add(mntDepJour);
 
             if (idPointage <= 0) {
                 String sqlInsert = "INSERT INTO pointage_jour (" +
@@ -864,7 +860,7 @@ public class PointageAnomalieService {
                     psIns.setDouble(13, hNuit);
                     psIns.setString(14, motif);
                     psIns.setString(15, codeStatut);
-                    psIns.setDouble(16, mntTotalInd);
+                    psIns.setBigDecimal(16, mntTotalInd);
                     psIns.setBoolean(17, isJourneeContinue);
                     try (ResultSet rsIns = psIns.executeQuery()) {
                         if (rsIns.next()) {
@@ -917,7 +913,7 @@ public class PointageAnomalieService {
                     ps.setDouble(9, hNuit);
                     ps.setString(10, motif);
                     ps.setString(11, codeStatut);
-                    ps.setDouble(12, mntTotalInd);
+                    ps.setBigDecimal(12, mntTotalInd);
                     ps.setBoolean(13, isJourneeContinue);
                     ps.setInt(14, idPointage);
                     ps.setInt(15, targetVer);
@@ -948,7 +944,7 @@ public class PointageAnomalieService {
     }
 }
 
-    private void syncIndemniteJour(Connection c, int idPointage, boolean repas, boolean depM, boolean depA, double mntDepJour, double mntRepasJour) {
+    private void syncIndemniteJour(Connection c, int idPointage, boolean repas, boolean depM, boolean depA, BigDecimal mntDepJour, BigDecimal mntRepasJour) {
         String sqlDyn = "INSERT INTO pointage_indemnite_jour (id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde, updated_at) " +
                 "VALUES (?, (SELECT id_indemnite FROM ref_indemnite WHERE code = ? LIMIT 1), 'JOUR_ENTIER', ?, ?, ?, CURRENT_TIMESTAMP) " +
                 "ON CONFLICT (id_pointage, id_indemnite, fraction) DO UPDATE SET " +
@@ -958,17 +954,18 @@ public class PointageAnomalieService {
             // REPAS
             psDyn.setInt(1, idPointage);
             psDyn.setString(2, "REPAS");
-            psDyn.setDouble(3, 1.0);
-            psDyn.setDouble(4, mntRepasJour);
+            psDyn.setBigDecimal(3, BigDecimal.ONE);
+            psDyn.setBigDecimal(4, mntRepasJour);
             psDyn.setBoolean(5, repas);
             psDyn.executeUpdate();
 
             // DEPLACEMENT
-            double qteDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
+            BigDecimal qteDep = (depM ? new BigDecimal("0.5") : BigDecimal.ZERO)
+                    .add(depA ? new BigDecimal("0.5") : BigDecimal.ZERO);
             psDyn.setInt(1, idPointage);
             psDyn.setString(2, "DEPLACEMENT");
-            psDyn.setDouble(3, qteDep);
-            psDyn.setDouble(4, mntDepJour);
+            psDyn.setBigDecimal(3, qteDep);
+            psDyn.setBigDecimal(4, mntDepJour);
             psDyn.setBoolean(5, depM || depA);
             psDyn.executeUpdate();
 
@@ -1060,6 +1057,10 @@ public class PointageAnomalieService {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private static BigDecimal zeroIfNull(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     private static double parseDouble(Object val, double defaultValue) {

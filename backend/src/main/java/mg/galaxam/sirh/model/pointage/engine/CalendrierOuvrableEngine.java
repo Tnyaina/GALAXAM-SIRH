@@ -6,6 +6,8 @@ import java.sql.ResultSet;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.math.BigDecimal;
+import mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy;
 import java.util.HashSet;
 import java.util.Set;
 import org.springframework.stereotype.Component;
@@ -205,6 +207,20 @@ public class CalendrierOuvrableEngine {
     }
 
     /**
+     * Calcule le nombre de jours ouvrables (du lundi au vendredi) hors week-end.
+     */
+    public static int calculerJoursOuvrables(LocalDate debut, LocalDate fin) {
+        if (debut == null || fin == null) return 0;
+        int count = 0;
+        for (LocalDate cur = debut; !cur.isAfter(fin); cur = cur.plusDays(1)) {
+            if (!isWeekend(cur)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
      * Calcule le nombre exact de jours ouvrables réels (Lundi au Vendredi hors jours chômés).
      */
     public int compterJoursOuvrables(LocalDate debut, LocalDate fin, Integer idSite, Connection c) {
@@ -243,15 +259,16 @@ public class CalendrierOuvrableEngine {
     /**
      * Calcule le montant journalier proratisé sur le nombre exact de jours ouvrables réels.
      */
-    public double calculerProrataJournalier(double montantReference, int nbJoursOuvrables) {
+    public BigDecimal calculerProrataJournalier(BigDecimal montantReference, int nbJoursOuvrables) {
+        if (montantReference == null) return BigDecimal.ZERO;
         if (nbJoursOuvrables <= 0) return montantReference;
-        return Math.round((montantReference / nbJoursOuvrables) * 100.0) / 100.0;
+        return MoneyRoundingPolicy.amount(montantReference.divide(BigDecimal.valueOf(nbJoursOuvrables), 8, java.math.RoundingMode.HALF_UP));
     }
 
     /**
      * Calcule le montant par trajet (aller ou retour = demi-journée).
      */
-    public double calculerMontantTrajet(double montantJournalier) {
-        return Math.round((montantJournalier / 2.0) * 100.0) / 100.0;
+    public BigDecimal calculerMontantTrajet(BigDecimal montantJournalier) {
+        return MoneyRoundingPolicy.amount(montantJournalier.divide(BigDecimal.valueOf(2), 8, java.math.RoundingMode.HALF_UP));
     }
 }

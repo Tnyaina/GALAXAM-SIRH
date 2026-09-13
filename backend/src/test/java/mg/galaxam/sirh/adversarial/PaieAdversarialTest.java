@@ -1,7 +1,9 @@
 package mg.galaxam.sirh.adversarial;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.Date;
+import java.sql.PreparedStatement;
 import java.time.LocalDate;
 import mg.galaxam.sirh.BaseIntegrationTest;
 import mg.galaxam.sirh.api.dto.paie.ActionPaiePeriodeRequest;
@@ -43,6 +45,27 @@ class PaieAdversarialTest extends BaseIntegrationTest {
                 "PERMANENT",
                 0
         );
+
+        creerCumulPointage(employe.idEmploye, idPeriode, 22, 22, 173.33);
+    }
+
+    private void creerCumulPointage(int idEmploye, int idPeriode, int ouvrables, int presents, double heures) {
+        String sql = "INSERT INTO pointage_cumul_periode (id_employe, id_periode_paie, nb_jours_ouvrables, nb_jours_presents, "
+                + "nb_jours_absence, nb_jours_conge, nb_jours_ferie_chome, nb_jours_ferie_travaille, "
+                + "total_heures_travaillees, heures_hs_30, heures_hs_50, heures_nuit_total, heures_absence_retenues, "
+                + "nb_jours_deplacement, montant_deplacement, nb_jours_repas, montant_repas, gele_par, gele_at) "
+                + "VALUES (?, ?, ?, ?, 0, 0, 0, 0, ?, 0, 0, 0, 0, 0, 0, 0, 0, 1, CURRENT_TIMESTAMP)";
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            ps.setInt(2, idPeriode);
+            ps.setInt(3, ouvrables);
+            ps.setInt(4, presents);
+            ps.setDouble(5, heures);
+            ps.executeUpdate();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test

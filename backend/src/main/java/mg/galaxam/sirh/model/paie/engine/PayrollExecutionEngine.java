@@ -2,7 +2,6 @@ package mg.galaxam.sirh.model.paie.engine;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
@@ -14,50 +13,104 @@ import mg.galaxam.sirh.model.paie.PaiePretEcheance;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet.ImpactPret;
 import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine;
-import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.CotisationResult;
-import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.TrancheIrsa;
 
 /**
- * Moteur de calcul pur et déterministe de paie pour GALAXAM-SIRH.
+ * Moteur de calcul modulaire, pur et déterministe de paie pour GALAXAM-SIRH.
  * 
- * Conforme au Code du Travail malgache, au Code Général des Impôts (LF 2026),
- * et aux résolutions du contre-audit.
+ * Décomposé en méthodes spécialisées pour chaque palier de calcul :
+ * 1. Salaire brut & gains (Salaire de base, absences, congés, HS, primes)
+ * 2. Cotisations sociales (CNaPS plafonnée à 8x SME, Santé OSTIE/OMSI, FMFP)
+ * 3. Net imposable
+ * 4. Fiscalité (Barème progressif IRSA 6 tranches, déductions familiales, minimum 3000 Ar, ou ISI 5%)
+ * 5. Indemnités non imposables (Repas, Transport proratisé, Frais)
+ * 6. Retenues de trésorerie (Acomptes, Avances plafonnées 1/10 Art. 68, Prêts plafonnés 1/3 Art. 72)
+ * 7. Net à payer bancaire & arrondi monétaire officiel
  */
 @Component
 public class PayrollExecutionEngine {
 
     public static final BigDecimal PLAFOND_QUOTITE_CESSIBLE = new BigDecimal("0.33333333"); // 1/3 légal (Saisies-arrêts et prêts Art. 72)
-    public static final BigDecimal PLAFOND_AVANCE_EMPLOYEUR_DIXIEME = new BigDecimal("0.10"); // 1/10 légal (Avances consenties par l'employeur Art. 68)
+    public static final BigDecimal PLAFOND_AVANCE_EMPLOYEUR_DIXIEME = new BigDecimal("0.10"); // 1/10 légal (Avances employeur Art. 68)
     public static final BigDecimal DIVISEUR_HEURES_MENSUELLES = new BigDecimal("173.33");
     public static final BigDecimal DIVISEUR_JOURS_TRENTIEME = new BigDecimal("30.0");
     public static final BigDecimal MULTIPLICATEUR_PLAFOND_CNAPS = new BigDecimal("8.0");
 
-    private final CalculateurPaieEngine calculateurPaieEngine;
+    public record CotisationsResult(BigDecimal totalCotisationsSalariales, BigDecimal totalCotisationsPatronales) {}
+    public record FiscaliteResult(BigDecimal irsaNet, BigDecimal retenueIsi) {}
+    public record RetenuesResult(BigDecimal totalRetenues, ImpactPret impactPret, List<Integer> idsAvancesImputees) {}
 
-    public PayrollExecutionEngine() {
-        this(new CalculateurPaieEngine());
-    }
+    public PayrollExecutionEngine() { }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    public PayrollExecutionEngine(CalculateurPaieEngine calculateurPaieEngine) {
-        this.calculateurPaieEngine = calculateurPaieEngine != null ? calculateurPaieEngine : new CalculateurPaieEngine();
-    }
+    /** Constructeur de compatibilité de tests; aucune dépendance métier n'est conservée. */
+    public PayrollExecutionEngine(Object ignoredLegacyCalculator) { }
 
     /**
-     * Calcule un bulletin de paie complet à partir des données d'entrée fournies.
+     * Point d'entrée principal pour le calcul d'un bulletin individuel.
+     * Orchestre séquentiellement chaque palier de calcul.
      */
     public BulletinPaieComplet calculer(PayrollCalculationInput input) {
+        return calculerBulletin(input);
+    }
+
+    public BulletinPaieComplet calculerBulletin(PayrollCalculationInput input) {
         if (input == null) {
             throw new IllegalArgumentException("Les données d'entrée de calcul (PayrollCalculationInput) sont obligatoires.");
         }
 
-        BulletinPaie bp = new BulletinPaie();
+        BulletinPaie bp = initialiserEnTete(input);
         List<BulletinPaieLigne> lignes = new ArrayList<>();
 
-        // 1. Initialisation de l'en-tête à partir du snapshot employé / contrat
+        // 1. Salaire brut et gains
+        BigDecimal totalGainsBruts = calculerSalaireBrut(input, bp, lignes);
+
+        // 2. Cotisations sociales (CNaPS, Santé, FMFP)
+        CotisationsResult cotis = calculerCotisationsSociales(totalGainsBruts, input, bp, lignes);
+
+        // 3. Net imposable
+        BigDecimal salaireNetImposable = calculerNetImposable(totalGainsBruts, cotis.totalCotisationsSalariales(), bp);
+
+        // 4. Fiscalité (IRSA progressif ou ISI 5%)
+        FiscaliteResult fisc = calculerFiscalite(salaireNetImposable, totalGainsBruts, input, bp, lignes);
+
+        // 5. Indemnités non imposables (Repas, Transport, Déplacements, Notes de frais)
+        BigDecimal totalIndemnitesNet = calculerIndemnitesNonImposables(input, bp, lignes);
+
+        // Net disponible avant les déductions de trésorerie personnelles
+        BigDecimal netAvantTresorerie = salaireNetImposable
+                .subtract(fisc.retenueIsi())
+                .subtract(fisc.irsaNet())
+                .add(totalIndemnitesNet)
+                .max(BigDecimal.ZERO);
+
+        // 6. Retenues de trésorerie (Acomptes, Avances, Prêts, Saisies)
+        RetenuesResult retenues = calculerRetenuesEtAvances(netAvantTresorerie, input, bp, lignes);
+
+        // 7. Net à payer bancaire & arrondi monétaire
+        calculerNetAPayer(totalGainsBruts, cotis.totalCotisationsPatronales(), totalIndemnitesNet,
+                netAvantTresorerie, retenues.totalRetenues(), bp, lignes);
+
+        List<Integer> idsAvancesImputees = new ArrayList<>(retenues.idsAvancesImputees());
+        if (input.getIdsMouvementsGains() != null && !input.getIdsMouvementsGains().isEmpty()) {
+            idsAvancesImputees.addAll(input.getIdsMouvementsGains());
+        }
+
+        BulletinPaieComplet complet = new BulletinPaieComplet(bp, lignes);
+        complet.setImpactPret(retenues.impactPret());
+        complet.setIdsAvancesImputees(idsAvancesImputees);
+
+        return complet;
+    }
+
+    // =========================================================================
+    // 1. INITIALISATION DE L'EN-TÊTE DU BULLETIN
+    // =========================================================================
+
+    public BulletinPaie initialiserEnTete(PayrollCalculationInput input) {
+        BulletinPaie bp = new BulletinPaie();
         bp.setIdPeriodePaie(input.getIdPeriodePaie());
         bp.setIdEmploye(input.getIdEmploye());
+        bp.setIdConfigLegale(input.getIdConfigLegale());
+        bp.setTypeBulletin(input.getTypeBulletin() != null ? input.getTypeBulletin() : "MENSUEL");
         bp.setReferenceBulletin(genererReferenceBulletin(input));
         bp.setMatricule(input.getMatricule());
         bp.setNomPrenom(input.getNomPrenom());
@@ -78,7 +131,6 @@ public class PayrollExecutionEngine {
         bp.setBanqueNom(input.getBanqueNom());
         bp.setBanqueRib(input.getBanqueRib());
 
-        // Compteurs de temps
         bp.setHeuresNormales(zeroIfNull(input.getHeuresNormales()));
         bp.setHeuresHs30(zeroIfNull(input.getHeuresHs30()));
         bp.setHeuresHs50(zeroIfNull(input.getHeuresHs50()));
@@ -89,32 +141,37 @@ public class PayrollExecutionEngine {
         bp.setJoursConges(zeroIfNull(input.getNbJoursConges()));
         bp.setMinutesRetard(input.getMinutesRetard());
 
-        // 2. Salaire de base et taux horaire
         BigDecimal salaireBaseContractuel = zeroIfNull(input.getSalaireBaseContractuel());
         BigDecimal tauxHoraire = input.getTauxHoraireEffectif();
         bp.setSalaireBase(salaireBaseContractuel);
         bp.setTauxHoraire(tauxHoraire);
 
-        // ----------------------------------------------------------------------
-        // ÉTAPE 1 : RÉMUNÉRATION BRUTE & GAINS
-        // ----------------------------------------------------------------------
-        BigDecimal totalGainsBruts = BigDecimal.ZERO;
+        return bp;
+    }
 
-        // 1.1 Salaire de base (avec prorata si entrée/sortie en cours de mois)
+    // =========================================================================
+    // 2. SALAIRE BRUT & GAINS (Palier 1)
+    // =========================================================================
+
+    public BigDecimal calculerSalaireBrut(PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
+        BigDecimal totalGainsBruts = BigDecimal.ZERO;
+        BigDecimal salaireBaseContractuel = zeroIfNull(input.getSalaireBaseContractuel());
+        BigDecimal tauxHoraire = input.getTauxHoraireEffectif();
+
+        // 1.1 Salaire de base (proratisé si entrée/sortie en cours de mois)
         BigDecimal salaireBaseLigne = salaireBaseContractuel;
         if (input.isEntreeSortieEnCoursDeMois()) {
             BigDecimal heuresReelles = zeroIfNull(input.getHeuresNormales());
-            salaireBaseLigne = tauxHoraire.multiply(heuresReelles).min(salaireBaseContractuel).setScale(2, RoundingMode.HALF_UP);
+            salaireBaseLigne = MoneyRoundingPolicy.amount(tauxHoraire.multiply(heuresReelles).min(salaireBaseContractuel));
         }
 
         lignes.add(creerLigne(bp, "SALAIRE_BASE", "Salaire de Base", "GAIN", "SALAIRE_BASE",
                 salaireBaseContractuel, null, salaireBaseLigne, null, 10));
         totalGainsBruts = totalGainsBruts.add(salaireBaseLigne);
 
-        // 1.2 Retenue sur salaire pour absences (Méthode légale des heures réelles vs trentième)
+        // 1.2 Retenue sur salaire pour absences
         BigDecimal nbJoursAbsence = zeroIfNull(input.getNbJoursAbsence());
         BigDecimal nbHeuresAbsence = zeroIfNull(input.getNbHeuresAbsence());
-        BigDecimal nbJoursOuvrables = zeroIfNull(input.getNbJoursOuvrables());
         BigDecimal montantAbsence = BigDecimal.ZERO;
 
         boolean aAbsence = nbHeuresAbsence.compareTo(BigDecimal.ZERO) > 0 || nbJoursAbsence.compareTo(BigDecimal.ZERO) > 0;
@@ -125,117 +182,114 @@ public class PayrollExecutionEngine {
 
             if ("TRENTIEME".equalsIgnoreCase(modeAbsence)) {
                 BigDecimal tauxJournalierTrentieme = input.getTauxJournalierTrentieme();
-                montantAbsence = nbJoursAbsence.multiply(tauxJournalierTrentieme).setScale(2, RoundingMode.HALF_UP);
+                montantAbsence = MoneyRoundingPolicy.amount(nbJoursAbsence.multiply(tauxJournalierTrentieme));
                 baseCalculLigne = tauxJournalierTrentieme;
                 libelleAbsence = "Retenue pour Absences Décomptées (1/30ème)";
             } else {
-                // Méthode légale des heures réelles (opposable Inspection du Travail)
                 BigDecimal heuresJourRef = input.getHeuresJournalieresLegales() != null && input.getHeuresJournalieresLegales().compareTo(BigDecimal.ZERO) > 0
                         ? input.getHeuresJournalieresLegales()
                         : new BigDecimal("8.00");
                 BigDecimal heuresACompter = nbHeuresAbsence.compareTo(BigDecimal.ZERO) > 0
                         ? nbHeuresAbsence
                         : nbJoursAbsence.multiply(heuresJourRef);
-                montantAbsence = heuresACompter.multiply(tauxHoraire).setScale(2, RoundingMode.HALF_UP);
+                montantAbsence = MoneyRoundingPolicy.amount(heuresACompter.multiply(tauxHoraire));
                 baseCalculLigne = tauxHoraire;
-                libelleAbsence = "Retenue pour Absences (" + heuresACompter + "h réelles)";
+                libelleAbsence = "Retenue pour Absences Décomptées (Heures réelles)";
             }
 
-            // Garde-fou 1 : Si absence totale sur le mois, la retenue absorbe tout le salaire de base
-            if (nbJoursOuvrables.compareTo(BigDecimal.ZERO) > 0 && nbJoursAbsence.compareTo(nbJoursOuvrables) >= 0) {
-                montantAbsence = salaireBaseLigne;
-            } else {
-                // Garde-fou 2 : Ne peut jamais dépasser le salaire de base
-                montantAbsence = montantAbsence.min(salaireBaseLigne);
+            montantAbsence = montantAbsence.min(salaireBaseLigne);
+            if (montantAbsence.compareTo(BigDecimal.ZERO) > 0) {
+                lignes.add(creerLigne(bp, "RETENUE_ABSENCE", libelleAbsence, "RETENUE", "SALAIRE_BASE",
+                        baseCalculLigne, null, montantAbsence, null, 20));
+                totalGainsBruts = totalGainsBruts.subtract(montantAbsence);
             }
-
-            lignes.add(creerLigne(bp, "RETENUE_ABSENCE", libelleAbsence, "RETENUE", "SALAIRE_BASE",
-                    baseCalculLigne, null, montantAbsence, null, 20));
-
-            totalGainsBruts = totalGainsBruts.subtract(montantAbsence);
         }
 
-        // 1.3 Gestion transparente et rigoureuse des congés payés (Art. 89 & Modèle GALAXAM)
-        // En salaire mensualisé (30 jours), les jours pris en congé sont déduits de la base
-        // (RETENUE_CONGE au trentième) et réintégrés via l'indemnité légale (INDEMNITE_CONGE à TCONGE).
-        // Si TCONGE == Base/30, l'opération est neutre (maintien pur à 100%).
-        // Si TCONGE != Base/30, la valorisation légale moyenne est rigoureusement appliquée sans double paiement.
+        // 1.3 Maintien de salaire pour Congés Payés (règle Galaxam OHATRA KAJY)
         BigDecimal nbJoursConges = zeroIfNull(input.getNbJoursConges());
         if (nbJoursConges.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal tauxTrentieme = input.getTauxJournalierTrentieme();
-            BigDecimal montantDeductionConge = nbJoursConges.multiply(tauxTrentieme).setScale(2, RoundingMode.HALF_UP);
-            lignes.add(creerLigne(bp, "RETENUE_CONGE", "Retenue sur Salaire pour Congés Pris (1/30ème)", "RETENUE", "SALAIRE_BASE",
-                    tauxTrentieme, null, montantDeductionConge, null, 25));
-            totalGainsBruts = totalGainsBruts.subtract(montantDeductionConge);
+            BigDecimal tauxJournalierTrentieme = input.getTauxJournalierTrentieme();
+            BigDecimal deductionCongeTrentieme = MoneyRoundingPolicy.amount(nbJoursConges.multiply(tauxJournalierTrentieme));
 
-            BigDecimal tauxEffectifConge = input.getTauxJournalierCongeEffectif();
-            BigDecimal montantIndemniteConge = nbJoursConges.multiply(tauxEffectifConge).setScale(2, RoundingMode.HALF_UP);
-            lignes.add(creerLigne(bp, "INDEMNITE_CONGE", "Indemnité de Congés Payés (Valorisation)", "GAIN", "SALAIRE_BASE",
-                    tauxEffectifConge, null, montantIndemniteConge, null, 30));
-            totalGainsBruts = totalGainsBruts.add(montantIndemniteConge);
+            lignes.add(creerLigne(bp, "DEDUCTION_CONGE_BASE", "Déduction Salaire Jours de Congé (1/30ème)", "RETENUE", "SALAIRE_BASE",
+                    tauxJournalierTrentieme, null, deductionCongeTrentieme, null, 25));
+            totalGainsBruts = totalGainsBruts.subtract(deductionCongeTrentieme);
+
+            BigDecimal tauxJournalierConge = input.getTauxJournalierConge() != null && input.getTauxJournalierConge().compareTo(BigDecimal.ZERO) > 0
+                    ? input.getTauxJournalierConge()
+                    : tauxJournalierTrentieme;
+            BigDecimal indemniteConges = MoneyRoundingPolicy.amount(nbJoursConges.multiply(tauxJournalierConge));
+
+            lignes.add(creerLigne(bp, "INDEMNITE_CONGE_PAYE", "Indemnité de Congés Payés (Maintien de salaire)", "GAIN", "SALAIRE_BASE",
+                    tauxJournalierConge, null, indemniteConges, null, 26));
+            totalGainsBruts = totalGainsBruts.add(indemniteConges);
         }
 
-        // 1.4 Heures supplémentaires et majorations
-        // Seuls les cadres dirigeants ou collaborateurs sous convention forfait-jours sont dispensés d'heures supplémentaires
-        boolean estCadreExempteHs = "CADRE_DIRIGEANT".equalsIgnoreCase(input.getCategorieProfessionnelle())
-                || "FORFAIT_JOUR".equalsIgnoreCase(input.getCategorieProfessionnelle());
-
-        if (!estCadreExempteHs) {
-            BigDecimal hs30 = zeroIfNull(input.getHeuresHs30());
-            if (hs30.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal mntHs30 = hs30.multiply(tauxHoraire).multiply(new BigDecimal("1.30")).setScale(2, RoundingMode.HALF_UP);
-                lignes.add(creerLigne(bp, "HEURES_SUP_30", "Heures Supplémentaires (+30%)", "GAIN", "HEURES_SUP",
-                        tauxHoraire, new BigDecimal("130.00"), mntHs30, null, 40));
-                totalGainsBruts = totalGainsBruts.add(mntHs30);
-            }
-
-            BigDecimal hs50 = zeroIfNull(input.getHeuresHs50());
-            if (hs50.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal mntHs50 = hs50.multiply(tauxHoraire).multiply(new BigDecimal("1.50")).setScale(2, RoundingMode.HALF_UP);
-                lignes.add(creerLigne(bp, "HEURES_SUP_50", "Heures Supplémentaires (+50%)", "GAIN", "HEURES_SUP",
-                        tauxHoraire, new BigDecimal("150.00"), mntHs50, null, 50));
-                totalGainsBruts = totalGainsBruts.add(mntHs50);
-            }
+        // 1.4 Heures supplémentaires et Majorations
+        OvertimePayCalculator overtimeCalculator = new OvertimePayCalculator();
+        OvertimePayCalculator.Result overtime = overtimeCalculator.calculate(input, tauxHoraire);
+        BigDecimal heuresHs30 = zeroIfNull(input.getHeuresHs30());
+        if (heuresHs30.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal montantHs30 = overtime.hs30();
+            lignes.add(creerLigne(bp, "HEURES_SUP_30", "Heures Supplémentaires (+30%)", "GAIN", "HEURES_SUP",
+                    tauxHoraire, new BigDecimal("130.00"), montantHs30, null, 30));
+            totalGainsBruts = totalGainsBruts.add(montantHs30);
         }
 
-        // Le travail de nuit et les jours fériés sont des compensations de sujétion légale dues à tous les collaborateurs
-        BigDecimal hNuit = zeroIfNull(input.getHeuresNuit());
-        if (hNuit.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal mntNuit = hNuit.multiply(tauxHoraire).multiply(new BigDecimal("0.30")).setScale(2, RoundingMode.HALF_UP);
-            lignes.add(creerLigne(bp, "HEURES_NUIT", "Majoration Travail de Nuit (+30%)", "GAIN", "HEURES_SUP",
-                    tauxHoraire, new BigDecimal("30.00"), mntNuit, null, 60));
-            totalGainsBruts = totalGainsBruts.add(mntNuit);
+        BigDecimal heuresHs50 = zeroIfNull(input.getHeuresHs50());
+        if (heuresHs50.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal montantHs50 = overtime.hs50();
+            lignes.add(creerLigne(bp, "HEURES_SUP_50", "Heures Supplémentaires (+50%)", "GAIN", "HEURES_SUP",
+                    tauxHoraire, new BigDecimal("150.00"), montantHs50, null, 40));
+            totalGainsBruts = totalGainsBruts.add(montantHs50);
         }
 
-        BigDecimal hFerie = zeroIfNull(input.getHeuresFeriees());
-        if (hFerie.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal mntFerie = hFerie.multiply(tauxHoraire).multiply(BigDecimal.ONE).setScale(2, RoundingMode.HALF_UP);
-            lignes.add(creerLigne(bp, "HEURES_FERIE", "Majoration Travail Jour Férié (+100%)", "GAIN", "HEURES_SUP",
-                    tauxHoraire, new BigDecimal("100.00"), mntFerie, null, 80));
-            totalGainsBruts = totalGainsBruts.add(mntFerie);
+        BigDecimal heuresNuit = zeroIfNull(input.getHeuresNuit());
+        if (heuresNuit.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal montantNuit = overtime.nuit();
+            lignes.add(creerLigne(bp, "MAJORATION_NUIT", "Majoration Travail de Nuit (+30%)", "GAIN", "HEURES_SUP",
+                    tauxHoraire, new BigDecimal("30.00"), montantNuit, null, 50));
+            totalGainsBruts = totalGainsBruts.add(montantNuit);
+        }
+
+        BigDecimal heuresFerie = zeroIfNull(input.getHeuresFeriees());
+        if (heuresFerie.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal montantFerie = overtime.ferie();
+            lignes.add(creerLigne(bp, "MAJORATION_FERIE", "Majoration Travail Jour Férié (+100%)", "GAIN", "HEURES_SUP",
+                    tauxHoraire, new BigDecimal("100.00"), montantFerie, null, 70));
+            totalGainsBruts = totalGainsBruts.add(montantFerie);
         }
 
         // 1.5 Primes & Ajustements opérationnels
         BigDecimal primePerfBase = zeroIfNull(input.getPrimePerformanceBase());
         if (primePerfBase.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal nbJoursOuvrables = zeroIfNull(input.getNbJoursOuvrables());
             BigDecimal nbPresents = zeroIfNull(input.getNbJoursPresents());
             BigDecimal ratioPresence = nbJoursOuvrables.compareTo(BigDecimal.ZERO) > 0
                     ? nbPresents.divide(nbJoursOuvrables, 4, RoundingMode.HALF_UP).min(BigDecimal.ONE)
                     : BigDecimal.ONE;
 
-            BigDecimal mntPrimePerf = primePerfBase.multiply(ratioPresence).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal mntPrimePerf = MoneyRoundingPolicy.amount(primePerfBase.multiply(ratioPresence));
 
-            // Malus performance si retard > seuil et congés > 1 jour
-            int seuilMalus = input.getSeuilRetardMalusPerformanceMinutes() > 0 ? input.getSeuilRetardMalusPerformanceMinutes() : 70;
-            if (input.getMinutesRetard() > seuilMalus && nbJoursConges.compareTo(BigDecimal.ONE) > 0) {
-                BigDecimal tauxMalus = input.getTauxMalusPerformance() != null ? input.getTauxMalusPerformance() : new BigDecimal("0.25");
-                BigDecimal coefMalus = BigDecimal.ONE.subtract(tauxMalus).max(BigDecimal.ZERO);
-                mntPrimePerf = mntPrimePerf.multiply(coefMalus).setScale(2, RoundingMode.HALF_UP);
+            // Règle Métier Ohatra (Feuille AJUSTEMENT Col J) :
+            // Déduction d'un quart (-25% ou taux configuré) si retards > seuil (défaut 70mn) ET congés > seuil (défaut 1j)
+            boolean penaliteApplicable = (input.getMinutesRetard() > input.getSeuilRetardMalusPerformanceMinutes())
+                    && (zeroIfNull(input.getNbJoursConges()).compareTo(zeroIfNull(input.getSeuilCongesMalusPerformanceJours())) > 0);
+
+            BigDecimal malusPp = BigDecimal.ZERO;
+            if (penaliteApplicable && input.getTauxMalusPerformance() != null && input.getTauxMalusPerformance().compareTo(BigDecimal.ZERO) > 0) {
+                malusPp = MoneyRoundingPolicy.amount(mntPrimePerf.multiply(input.getTauxMalusPerformance()));
             }
 
-            lignes.add(creerLigne(bp, "PRIME_PERFORMANCE", "Prime de Performance (Proratisée)", "GAIN", "PRIME",
-                    primePerfBase, ratioPresence.multiply(new BigDecimal("100")), mntPrimePerf, null, 90));
-            totalGainsBruts = totalGainsBruts.add(mntPrimePerf);
+            BigDecimal mntPrimePerfFinal = mntPrimePerf.subtract(malusPp);
+
+            String libellePp = malusPp.compareTo(BigDecimal.ZERO) > 0
+                    ? "Prime de Performance (Proratisée - Pénalité " + input.getTauxMalusPerformance().multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "% Retard/Congé)"
+                    : "Prime de Performance (Proratisée)";
+
+            lignes.add(creerLigne(bp, "PRIME_PERFORMANCE", libellePp, "GAIN", "PRIME",
+                    primePerfBase, ratioPresence.multiply(new BigDecimal("100")), mntPrimePerfFinal, null, 90));
+            totalGainsBruts = totalGainsBruts.add(mntPrimePerfFinal);
         }
 
         BigDecimal primeAssiduite = zeroIfNull(input.getPrimeAssiduiteForfait());
@@ -244,6 +298,17 @@ public class PayrollExecutionEngine {
             lignes.add(creerLigne(bp, "PRIME_ASSIDUITE", "Prime d'Assiduité", "GAIN", "PRIME",
                     primeAssiduite, null, primeAssiduite, null, 100));
             totalGainsBruts = totalGainsBruts.add(primeAssiduite);
+        }
+
+        if (input.isCalculerPrimeAncienneteAuto() && input.getAncienneteMois() >= 36) {
+            int annees = input.getAncienneteMois() / 12;
+            BigDecimal tauxAnciennete = BigDecimal.valueOf(Math.min(annees, 20) * 0.01);
+            BigDecimal primeAnc = MoneyRoundingPolicy.amount(salaireBaseContractuel.multiply(tauxAnciennete));
+            if (primeAnc.compareTo(BigDecimal.ZERO) > 0) {
+                lignes.add(creerLigne(bp, "PRIME_ANCIENNETE", "Prime d'Ancienneté (" + annees + " ans)", "GAIN", "PRIME",
+                        salaireBaseContractuel, tauxAnciennete.multiply(new BigDecimal("100")), primeAnc, null, 95));
+                totalGainsBruts = totalGainsBruts.add(primeAnc);
+            }
         }
 
         BigDecimal primeExceptionnelle = zeroIfNull(input.getPrimeExceptionnelle());
@@ -273,39 +338,59 @@ public class PayrollExecutionEngine {
             totalGainsBruts = totalGainsBruts.add(autimp);
         }
 
-        totalGainsBruts = totalGainsBruts.max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
-        bp.setTotalGainsBruts(totalGainsBruts);
+        // Primes et gains dynamiques imposables (configurés en BDD dans ref_type_mouvement_paie)
+        if (input.getGainsVariablesDynamiques() != null) {
+            for (PayrollCalculationInput.GainVariable gv : input.getGainsVariablesDynamiques()) {
+                if (gv.getMontant() != null && gv.getMontant().compareTo(BigDecimal.ZERO) > 0 && gv.isImposable()) {
+                    String cat = gv.getCategorie() != null ? gv.getCategorie() : "PRIME";
+                    String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
+                    lignes.add(creerLigne(bp, gv.getCode(), lib, "GAIN", cat,
+                            gv.getMontant(), null, gv.getMontant(), null, 120));
+                    totalGainsBruts = totalGainsBruts.add(gv.getMontant());
+                }
+            }
+        }
 
-        // ----------------------------------------------------------------------
-        // ----------------------------------------------------------------------
-        // ÉTAPE 2 : COTISATIONS SOCIALES (CNaPS, Santé, FMFP)
-        // ----------------------------------------------------------------------
-        BigDecimal totalCotisSalariales = BigDecimal.ZERO.setScale(2);
-        BigDecimal totalCotisPatronales = BigDecimal.ZERO.setScale(2);
+        totalGainsBruts = MoneyRoundingPolicy.amount(totalGainsBruts.max(BigDecimal.ZERO));
+        bp.setTotalGainsBruts(totalGainsBruts);
+        return totalGainsBruts;
+    }
+
+    // =========================================================================
+    // 3. COTISATIONS SOCIALES (Palier 2)
+    // =========================================================================
+
+    public CotisationsResult calculerCotisationsSociales(BigDecimal totalGainsBruts, PayrollCalculationInput input,
+                                                         BulletinPaie bp, List<BulletinPaieLigne> lignes) {
+        BigDecimal totalCotisSalariales = MoneyRoundingPolicy.amount(BigDecimal.ZERO);
+        BigDecimal totalCotisPatronales = MoneyRoundingPolicy.amount(BigDecimal.ZERO);
 
         BigDecimal sme = zeroIfNull(input.getSmeNational());
         BigDecimal plafondCnaps = sme.multiply(MULTIPLICATEUR_PLAFOND_CNAPS);
+        SocialContributionCalculator socialCalculator = new SocialContributionCalculator();
+        SocialContributionCalculator.Result social = socialCalculator.calculate(totalGainsBruts,
+                new SocialContributionCalculator.Rules(input.getTauxCnapsSalarialDecimal(), input.getTauxCnapsPatronalDecimal(),
+                        input.getTauxSanteSalarialDecimal(), input.getTauxSantePatronalDecimal(), input.getTauxFmfpPatronalDecimal(), sme, input.isEstPlafonneSante()));
 
         // 2.1 CNaPS (plafonnée à 8x SME) & FMFP Patronale (1% sur brut total)
         if (input.isSoumisCnaps()) {
-            CotisationResult resCnaps = calculateurPaieEngine.calculerCnaps(
-                    totalGainsBruts, input.getSmeNational(), input.getTauxCnapsSalarial(), input.getTauxCnapsPatronal());
+            SocialContributionCalculator.Contribution resCnaps = social.cnaps();
             BigDecimal assietteCnaps = resCnaps.assiette();
             BigDecimal cnapsSal = resCnaps.partSalariale();
             BigDecimal cnapsPat = resCnaps.partPatronale();
 
             lignes.add(creerLigne(bp, "COTISATION_CNAPS_SAL", "Cotisation CNaPS Salariale (1%)", "RETENUE", "COTISATION_SALARIALE",
-                    assietteCnaps, BigDecimal.valueOf(input.getTauxCnapsSalarial() * 100), cnapsSal, null, 200));
+                    assietteCnaps, input.getTauxCnapsSalarialDecimal().movePointRight(2), cnapsSal, null, 200));
             lignes.add(creerLigne(bp, "COTISATION_CNAPS_PAT", "Cotisation CNaPS Patronale (13%)", "PATRONAL", "COTISATION_PATRONALE",
-                    assietteCnaps, BigDecimal.valueOf(input.getTauxCnapsPatronal() * 100), null, cnapsPat, 300));
+                    assietteCnaps, input.getTauxCnapsPatronalDecimal().movePointRight(2), null, cnapsPat, 300));
 
             totalCotisSalariales = totalCotisSalariales.add(cnapsSal);
             totalCotisPatronales = totalCotisPatronales.add(cnapsPat);
 
             // 2.3 FMFP Patronale (1% sur brut total)
-            BigDecimal fmfpPat = totalGainsBruts.multiply(BigDecimal.valueOf(input.getTauxFmfpPatronal())).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal fmfpPat = MoneyRoundingPolicy.contribution(social.fmfp());
             lignes.add(creerLigne(bp, "COTISATION_FMFP_PAT", "Cotisation FMFP Patronale (1%)", "PATRONAL", "COTISATION_PATRONALE",
-                    totalGainsBruts, BigDecimal.valueOf(input.getTauxFmfpPatronal() * 100), null, fmfpPat, 330));
+                    totalGainsBruts, input.getTauxFmfpPatronalDecimal().movePointRight(2), null, fmfpPat, 330));
             totalCotisPatronales = totalCotisPatronales.add(fmfpPat);
         }
 
@@ -323,15 +408,14 @@ public class PayrollExecutionEngine {
                     ? totalGainsBruts.min(plafondCnaps)
                     : totalGainsBruts;
 
-            CotisationResult resSante = calculateurPaieEngine.calculerSante(
-                    assietteSante, input.getTauxSanteSalarial(), input.getTauxSantePatronal());
+            SocialContributionCalculator.Contribution resSante = social.health();
             BigDecimal santeSal = resSante.partSalariale();
             BigDecimal santePat = resSante.partPatronale();
 
             lignes.add(creerLigne(bp, codeSanteSal, libelleSanteSal, "RETENUE", "COTISATION_SALARIALE",
-                    assietteSante, BigDecimal.valueOf(input.getTauxSanteSalarial() * 100), santeSal, null, 210));
+                    assietteSante, input.getTauxSanteSalarialDecimal().movePointRight(2), santeSal, null, 210));
             lignes.add(creerLigne(bp, codeSantePat, libelleSantePat, "PATRONAL", "COTISATION_PATRONALE",
-                    assietteSante, BigDecimal.valueOf(input.getTauxSantePatronal() * 100), null, santePat, 310));
+                    assietteSante, input.getTauxSantePatronalDecimal().movePointRight(2), null, santePat, 310));
 
             totalCotisSalariales = totalCotisSalariales.add(santeSal);
             totalCotisPatronales = totalCotisPatronales.add(santePat);
@@ -340,26 +424,42 @@ public class PayrollExecutionEngine {
         bp.setTotalCotisationsSalariales(totalCotisSalariales);
         bp.setTotalCotisationsPatronales(totalCotisPatronales);
 
-        // ----------------------------------------------------------------------
-        // ÉTAPE 3 : FISCALITÉ (IRSA ou ISI 5%)
-        // ----------------------------------------------------------------------
+        return new CotisationsResult(totalCotisSalariales, totalCotisPatronales);
+    }
+
+    // =========================================================================
+    // 4. NET IMPOSABLE (Palier 3)
+    // =========================================================================
+
+    public BigDecimal calculerNetImposable(BigDecimal totalGainsBruts, BigDecimal totalCotisSalariales, BulletinPaie bp) {
         BigDecimal salaireNetImposable = totalGainsBruts.subtract(totalCotisSalariales).max(BigDecimal.ZERO);
         bp.setSalaireNetImposable(salaireNetImposable);
+        return salaireNetImposable;
+    }
 
-        BigDecimal irsaNet = BigDecimal.ZERO;
-        BigDecimal retenueIsi = BigDecimal.ZERO;
+    // =========================================================================
+    // 5. FISCALITÉ — IRSA OU ISI 5% (Palier 4)
+    // =========================================================================
+
+    public FiscaliteResult calculerFiscalite(BigDecimal salaireNetImposable, BigDecimal totalGainsBruts,
+                                            PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
+        BigDecimal irsaNet = MoneyRoundingPolicy.tax(BigDecimal.ZERO);
+        BigDecimal retenueIsi = MoneyRoundingPolicy.tax(BigDecimal.ZERO);
 
         if (input.isSoumisIsi5()) {
-            // Régime Prestataire / Consultant / Temporaire : Retenue libératoire ISI directe de 5%
-            BigDecimal tauxIsi = input.getTauxIsi() != null ? input.getTauxIsi() : new BigDecimal("5.00");
-            retenueIsi = totalGainsBruts.multiply(tauxIsi.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)).setScale(2, RoundingMode.HALF_UP);
+            // Régime Prestataire / Consultant : Retenue libératoire ISI directe de 5%
+            BigDecimal tauxIsi = input.getTauxIsi();
+            if (tauxIsi == null) {
+                throw new IllegalStateException("TAX_CONFIGURATION_MISSING: ISI");
+            }
+            retenueIsi = new IsiCalculator().calculate(totalGainsBruts, tauxIsi);
             lignes.add(creerLigne(bp, "RETENUE_ISI_5", "Retenue Libératoire ISI (" + tauxIsi.stripTrailingZeros().toPlainString() + "%)", "RETENUE", "IMPOT",
                     totalGainsBruts, tauxIsi, retenueIsi, null, 430));
             bp.setRetenueIsi5(retenueIsi);
-            bp.setIrsaNet(BigDecimal.ZERO.setScale(2));
+            bp.setIrsaNet(MoneyRoundingPolicy.tax(BigDecimal.ZERO));
         } else if (input.isSoumisIrsa()) {
-            // Régime Salarié : Barème progressif IRSA unifié via CalculateurPaieEngine
-            var irsaRes = calculateurPaieEngine.calculerIrsaDetaille(
+            // Régime Salarié : Barème progressif IRSA unifié (6 tranches, min 3 000 Ar)
+            var irsaRes = new IrsaCalculator().calculate(
                     salaireNetImposable,
                     input.getTranchesIrsa(),
                     input.getNbEnfantsEligibles(),
@@ -372,7 +472,7 @@ public class PayrollExecutionEngine {
             bp.setIrsaBrut(irsaRes.irsaBrut());
             bp.setReductionEnfants(irsaRes.reductionEnfants());
 
-            irsaNet = irsaRes.irsaNet().min(salaireNetImposable).setScale(2, RoundingMode.HALF_UP);
+            irsaNet = MoneyRoundingPolicy.tax(irsaRes.irsaNet().min(salaireNetImposable));
 
             lignes.add(creerLigne(bp, "IMPOT_IRSA_BRUT", "IRSA Brut (Barème Progressif 6 Tranches)", "INFO", "IMPOT",
                     irsaRes.baseIrsaArrondie(), null, irsaRes.irsaArrondiDizaine(), null, 400));
@@ -388,18 +488,24 @@ public class PayrollExecutionEngine {
                         irsaRes.baseIrsaArrondie(), null, irsaNet, null, 420));
             }
             bp.setIrsaNet(irsaNet);
-            bp.setRetenueIsi5(BigDecimal.ZERO.setScale(2));
+            bp.setRetenueIsi5(MoneyRoundingPolicy.tax(BigDecimal.ZERO));
         } else {
-            bp.setIrsaNet(BigDecimal.ZERO.setScale(2));
-            bp.setRetenueIsi5(BigDecimal.ZERO.setScale(2));
+            bp.setIrsaNet(MoneyRoundingPolicy.tax(BigDecimal.ZERO));
+            bp.setRetenueIsi5(MoneyRoundingPolicy.tax(BigDecimal.ZERO));
         }
 
-        // ----------------------------------------------------------------------
-        // ÉTAPE 4 : INDEMNITÉS NON IMPOSABLES & FRAIS (Ajouts au Net)
-        // ----------------------------------------------------------------------
-        BigDecimal totalIndemnitesNet = BigDecimal.ZERO;
+        return new FiscaliteResult(irsaNet, retenueIsi);
+    }
 
-        // 4.1 Indemnité repas
+    // =========================================================================
+    // 6. INDEMNITÉS NON IMPOSABLES & FRAIS (Palier 5)
+    // =========================================================================
+
+    public BigDecimal calculerIndemnitesNonImposables(PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
+        BigDecimal totalIndemnitesNet = BigDecimal.ZERO;
+        BigDecimal nbJoursOuvrables = zeroIfNull(input.getNbJoursOuvrables());
+
+        // 6.1 Indemnité repas
         BigDecimal montantRepas = input.getIndemniteRepas();
         if (montantRepas == null) {
             BigDecimal forfaitRepas = input.getForfaitRepasSite() != null ? input.getForfaitRepasSite() : BigDecimal.ZERO;
@@ -416,7 +522,7 @@ public class PayrollExecutionEngine {
             totalIndemnitesNet = totalIndemnitesNet.add(montantRepas);
         }
 
-        // 4.2 Indemnité de transport / déplacement
+        // 6.2 Indemnité de transport / déplacement
         BigDecimal montantTransport = input.getIndemniteTransport();
         if (montantTransport == null) {
             BigDecimal forfaitSite = input.getForfaitTransportSite() != null ? input.getForfaitTransportSite() : BigDecimal.ZERO;
@@ -424,7 +530,7 @@ public class PayrollExecutionEngine {
             BigDecimal ratio = nbJoursOuvrables.compareTo(BigDecimal.ZERO) > 0
                     ? nbPresents.divide(nbJoursOuvrables, 4, RoundingMode.HALF_UP).min(BigDecimal.ONE)
                     : BigDecimal.ONE;
-            montantTransport = forfaitSite.multiply(ratio).setScale(2, RoundingMode.HALF_UP);
+            montantTransport = MoneyRoundingPolicy.amount(forfaitSite.multiply(ratio));
         }
         if (montantTransport.compareTo(BigDecimal.ZERO) > 0) {
             lignes.add(creerLigne(bp, "INDEMNITE_TRANSPORT", "Indemnité Forfaitaire de Déplacement", "GAIN", "INDEMNITE_NON_IMPOSABLE",
@@ -432,7 +538,7 @@ public class PayrollExecutionEngine {
             totalIndemnitesNet = totalIndemnitesNet.add(montantTransport);
         }
 
-        // 4.3 Extra déplacement (missions / dépassement 19h30 non imposable)
+        // 6.3 Extra déplacement
         BigDecimal extraDepl = zeroIfNull(input.getExtraDeplacement());
         if (extraDepl.compareTo(BigDecimal.ZERO) > 0) {
             lignes.add(creerLigne(bp, "EXTRA_DEPLACEMENT", "Indemnité Extra Déplacement", "GAIN", "INDEMNITE_NON_IMPOSABLE",
@@ -440,7 +546,7 @@ public class PayrollExecutionEngine {
             totalIndemnitesNet = totalIndemnitesNet.add(extraDepl);
         }
 
-        // 4.4 Notes de frais remboursées
+        // 6.4 Notes de frais remboursées
         BigDecimal notesFrais = zeroIfNull(input.getRemboursementNotesFrais());
         if (notesFrais.compareTo(BigDecimal.ZERO) > 0) {
             lignes.add(creerLigne(bp, "REMBOURSEMENT_NOTE_FRAIS", "Remboursement Notes de Frais Validées", "GAIN", "INDEMNITE_NON_IMPOSABLE",
@@ -448,24 +554,34 @@ public class PayrollExecutionEngine {
             totalIndemnitesNet = totalIndemnitesNet.add(notesFrais);
         }
 
+        // 6.5 Indemnités et gains dynamiques non imposables
+        if (input.getGainsVariablesDynamiques() != null) {
+            for (PayrollCalculationInput.GainVariable gv : input.getGainsVariablesDynamiques()) {
+                if (gv.getMontant() != null && gv.getMontant().compareTo(BigDecimal.ZERO) > 0 && !gv.isImposable()) {
+                    String cat = gv.getCategorie() != null ? gv.getCategorie() : "INDEMNITE_NON_IMPOSABLE";
+                    String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
+                    lignes.add(creerLigne(bp, gv.getCode(), lib, "GAIN", cat,
+                            gv.getMontant(), null, gv.getMontant(), null, 530));
+                    totalIndemnitesNet = totalIndemnitesNet.add(gv.getMontant());
+                }
+            }
+        }
+
         bp.setTotalIndemnitesNonImposables(totalIndemnitesNet);
+        return totalIndemnitesNet;
+    }
 
-        // ----------------------------------------------------------------------
-        // ÉTAPE 5 : RETENUES DE TRÉSORERIE & QUOTITÉ CESSIBLE (Art. 68)
-        // ----------------------------------------------------------------------
-        // Net disponible avant les déductions de trésorerie personnelles
-        BigDecimal netAvantTresorerie = salaireNetImposable
-                .subtract(retenueIsi)
-                .subtract(irsaNet)
-                .add(totalIndemnitesNet)
-                .max(BigDecimal.ZERO);
+    // =========================================================================
+    // 7. RETENUES DE TRÉSORERIE & QUOTITÉ CESSIBLE (Palier 6)
+    // =========================================================================
 
-        // 5.1 Séparation des Acomptes sur salaire échu (Art. 64) et des dettes/avances spéciales (Art. 68)
+    public RetenuesResult calculerRetenuesEtAvances(BigDecimal netAvantTresorerie, PayrollCalculationInput input,
+                                                   BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal totalAcomptesQuinzaine = BigDecimal.ZERO;
         BigDecimal totalAvancesSpeciales = BigDecimal.ZERO;
         List<Integer> idsAvancesImputees = new ArrayList<>();
 
-        // Traitement prioritaire des acomptes de quinzaine (salaire déjà échu)
+        // Traitement prioritaire des acomptes de quinzaine (salaire échu)
         BigDecimal soldeDisponibleAcompte = netAvantTresorerie;
         if (input.getAvancesAcomptes() != null) {
             for (PaieAvanceAcompte a : input.getAvancesAcomptes()) {
@@ -478,7 +594,7 @@ public class PayrollExecutionEngine {
                     String codeRubrique = mapRubriqueAvance(type);
                     String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : "Acompte sur salaire";
 
-                    BigDecimal mntAcompte = a.getMontant().min(soldeDisponibleAcompte).setScale(2, RoundingMode.HALF_UP);
+                    BigDecimal mntAcompte = MoneyRoundingPolicy.amount(a.getMontant().min(soldeDisponibleAcompte));
                     if (mntAcompte.compareTo(BigDecimal.ZERO) > 0) {
                         lignes.add(creerLigne(bp, codeRubrique, libelle, "RETENUE", "ACOMPTE_AVANCE",
                                 a.getMontant(), null, mntAcompte, null, 600));
@@ -492,14 +608,11 @@ public class PayrollExecutionEngine {
             }
         }
 
-        // Net disponible après paiement de l'acompte de quinzaine déjà échu
         BigDecimal netApresAcompte = netAvantTresorerie.subtract(totalAcomptesQuinzaine).max(BigDecimal.ZERO);
 
-        // Plafond Art. 68 du Code du Travail : Le remboursement d'avances en espèces consenties par l'employeur
-        // ne peut excéder le dixième (10%) du montant des salaires échus
-        BigDecimal plafondDixiemeAvances = netApresAcompte.multiply(PLAFOND_AVANCE_EMPLOYEUR_DIXIEME).setScale(2, RoundingMode.HALF_UP);
+        // Plafond Art. 68 : Remboursement d'avances consenti par l'employeur max 1/10e (10%)
+        BigDecimal plafondDixiemeAvances = MoneyRoundingPolicy.amount(netApresAcompte.multiply(PLAFOND_AVANCE_EMPLOYEUR_DIXIEME));
 
-        // Traitement des avances exceptionnelles / spéciales (plafonnées au 1/10ème légal)
         if (input.getAvancesAcomptes() != null) {
             for (PaieAvanceAcompte a : input.getAvancesAcomptes()) {
                 if (a.getMontant() == null || a.getMontant().compareTo(BigDecimal.ZERO) <= 0) continue;
@@ -512,7 +625,7 @@ public class PayrollExecutionEngine {
                     String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : "Avance sur salaire (Art. 68)";
 
                     BigDecimal capaciteRestanteAvance = plafondDixiemeAvances.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
-                    BigDecimal mntAvanceRetenu = a.getMontant().min(capaciteRestanteAvance).setScale(2, RoundingMode.HALF_UP);
+                    BigDecimal mntAvanceRetenu = MoneyRoundingPolicy.amount(a.getMontant().min(capaciteRestanteAvance));
 
                     if (mntAvanceRetenu.compareTo(BigDecimal.ZERO) > 0) {
                         lignes.add(creerLigne(bp, codeRubrique, libelle, "RETENUE", "ACOMPTE_AVANCE",
@@ -526,13 +639,10 @@ public class PayrollExecutionEngine {
             }
         }
 
-        // Plafond global de la quotité cessible pour prêts et saisies (1/3 du net disponible après acompte Art. 72)
-        BigDecimal plafondTiers = netApresAcompte.multiply(PLAFOND_QUOTITE_CESSIBLE).setScale(2, RoundingMode.HALF_UP);
-
-        // Capacité d'endettement résiduelle pour l'échéance de prêt (après imputation des avances)
+        // Plafond global de quotité cessible (1/3 du net après acompte Art. 72)
+        BigDecimal plafondTiers = MoneyRoundingPolicy.amount(netApresAcompte.multiply(PLAFOND_QUOTITE_CESSIBLE));
         BigDecimal capaciteRestantePret = plafondTiers.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
 
-        // 5.2 Échéance de prêt (plafonnement au tiers légal Art. 68)
         ImpactPret impactPret = null;
         PaiePretEcheance echeanceActive = input.getEcheancePretActive();
         BigDecimal montantPrelevePret = BigDecimal.ZERO;
@@ -542,7 +652,7 @@ public class PayrollExecutionEngine {
                     ? echeanceActive.getMontantRestantEcheance()
                     : echeanceActive.getMontantEcheance();
 
-            montantPrelevePret = mensualiteTheorique.min(capaciteRestantePret).setScale(2, RoundingMode.HALF_UP);
+            montantPrelevePret = MoneyRoundingPolicy.amount(mensualiteTheorique.min(capaciteRestantePret));
             BigDecimal reliquatEcheance = mensualiteTheorique.subtract(montantPrelevePret).max(BigDecimal.ZERO);
 
             String nouveauStatut = reliquatEcheance.compareTo(BigDecimal.ZERO) == 0
@@ -569,7 +679,7 @@ public class PayrollExecutionEngine {
             );
         }
 
-        // 5.3 Autres retenues directes sur salaire (CALL PERSO, RETENUE DIVERSE, pénalités)
+        // Autres retenues directes sur salaire (CALL PERSO, RETENUE DIVERSE)
         BigDecimal totalAutresRetenues = BigDecimal.ZERO;
         BigDecimal netApresPret = netApresAcompte.subtract(totalAvancesSpeciales).subtract(montantPrelevePret).max(BigDecimal.ZERO);
 
@@ -589,7 +699,7 @@ public class PayrollExecutionEngine {
                     String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : libelleDefaut;
 
                     BigDecimal soldeDisponible = netApresPret.subtract(totalAutresRetenues).max(BigDecimal.ZERO);
-                    BigDecimal mntRetenu = a.getMontant().min(soldeDisponible).setScale(2, RoundingMode.HALF_UP);
+                    BigDecimal mntRetenu = MoneyRoundingPolicy.amount(a.getMontant().min(soldeDisponible));
 
                     if (mntRetenu.compareTo(BigDecimal.ZERO) > 0) {
                         int ordre = "CALL_PERSO".equalsIgnoreCase(type) ? 630 : 640;
@@ -607,10 +717,17 @@ public class PayrollExecutionEngine {
         BigDecimal totalRetenuesTresorerie = totalAcomptesQuinzaine.add(totalAvancesSpeciales).add(montantPrelevePret).add(totalAutresRetenues);
         bp.setTotalRetenuesAcomptePret(totalRetenuesTresorerie);
 
-        // ----------------------------------------------------------------------
-        // ÉTAPE 6 : NET À PAYER BANCAIRE & AJUSTEMENT D'ARRONDI COMPTABLE
-        // ----------------------------------------------------------------------
-        BigDecimal netAvantArrondi = netAvantTresorerie.subtract(totalRetenuesTresorerie);
+        return new RetenuesResult(totalRetenuesTresorerie, impactPret, idsAvancesImputees);
+    }
+
+    // =========================================================================
+    // 8. NET À PAYER BANCAIRE & ARRONDI MONÉTAIRE (Palier 7)
+    // =========================================================================
+
+    public void calculerNetAPayer(BigDecimal totalGainsBruts, BigDecimal totalCotisPatronales,
+                                 BigDecimal totalIndemnitesNet, BigDecimal netAvantTresorerie,
+                                 BigDecimal totalRetenues, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
+        BigDecimal netAvantArrondi = netAvantTresorerie.subtract(totalRetenues);
         bp.setNetAvantArrondi(netAvantArrondi);
 
         // Arrondi officiel bancaire à la dizaine d'Ariary la plus proche
@@ -618,9 +735,8 @@ public class PayrollExecutionEngine {
         bp.setNetAPayer(netAPayer);
 
         // Écart d'arrondi monétaire
-        BigDecimal ecartArrondi = netAPayer.subtract(netAvantArrondi).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal ecartArrondi = MoneyRoundingPolicy.netPay(netAPayer.subtract(netAvantArrondi));
 
-        // Ligne d'ajustement pour équilibre monétaire du net à payer :
         if (ecartArrondi.compareTo(BigDecimal.ZERO) != 0) {
             String sensArrondi = ecartArrondi.compareTo(BigDecimal.ZERO) > 0 ? "GAIN" : "RETENUE";
             BigDecimal montantLigneArrondi = ecartArrondi.abs();
@@ -630,34 +746,13 @@ public class PayrollExecutionEngine {
         }
 
         // Coût global employeur = Total Brut + Cotisations Patronales + Indemnités
-        BigDecimal coutGlobalEmployeur = totalGainsBruts.add(totalCotisPatronales).add(totalIndemnitesNet).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal coutGlobalEmployeur = MoneyRoundingPolicy.amount(totalGainsBruts.add(totalCotisPatronales).add(totalIndemnitesNet));
         bp.setCoutGlobalEmployeur(coutGlobalEmployeur);
-
-        // Statut
-        bp.setStatut(input.isSimulation() ? "CALCULE" : "VALIDE");
-        bp.setDateCalcul(new Timestamp(System.currentTimeMillis()));
-
-        // Assemblage final du conteneur
-        if (input.getIdsMouvementsGains() != null && !input.getIdsMouvementsGains().isEmpty()) {
-            idsAvancesImputees.addAll(input.getIdsMouvementsGains());
-        }
-
-        BulletinPaieComplet complet = new BulletinPaieComplet(bp, lignes);
-        complet.setImpactPret(impactPret);
-        complet.setIdsAvancesImputees(idsAvancesImputees);
-
-        return complet;
     }
 
-
-
-    /**
-     * Arrondit à la dizaine d'Ariary supérieure.
-     */
-    private BigDecimal arrondirDizaineSuperieure(BigDecimal montant) {
-        if (montant == null || montant.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
-        return montant.divide(BigDecimal.TEN, 0, RoundingMode.CEILING).multiply(BigDecimal.TEN).setScale(2, RoundingMode.HALF_UP);
-    }
+    // =========================================================================
+    // UTILITAIRES PRIVÉS
+    // =========================================================================
 
     private BulletinPaieLigne creerLigne(BulletinPaie bp, String codeRubrique, String libelle, String sens,
                                         String categorie, BigDecimal baseCalcul, BigDecimal taux,
@@ -668,10 +763,10 @@ public class PayrollExecutionEngine {
         l.setLibelleRubrique(libelle);
         l.setSens(sens);
         l.setCategorie(categorie);
-        l.setBaseCalcul(baseCalcul != null ? baseCalcul.setScale(2, RoundingMode.HALF_UP) : null);
-        l.setTauxSalarial(taux != null ? taux.setScale(2, RoundingMode.HALF_UP) : null);
-        l.setMontantSalarial(mntSal != null ? mntSal.setScale(2, RoundingMode.HALF_UP) : null);
-        l.setMontantPatronal(mntPat != null ? mntPat.setScale(2, RoundingMode.HALF_UP) : null);
+        l.setBaseCalcul(baseCalcul != null ? MoneyRoundingPolicy.amount(baseCalcul) : null);
+        l.setTauxSalarial(taux != null ? MoneyRoundingPolicy.amount(taux) : null);
+        l.setMontantSalarial(mntSal != null ? MoneyRoundingPolicy.amount(mntSal) : null);
+        l.setMontantPatronal(mntPat != null ? MoneyRoundingPolicy.amount(mntPat) : null);
         l.setOrdre(ordre);
         return l;
     }
@@ -689,7 +784,8 @@ public class PayrollExecutionEngine {
     private String genererReferenceBulletin(PayrollCalculationInput in) {
         String codePer = in.getCodePeriode() != null ? in.getCodePeriode() : "PER";
         String matr = in.getMatricule() != null ? in.getMatricule() : "EMP";
-        return "BP-" + codePer + "-" + matr;
+        String type = in.getTypeBulletin() != null && "STC".equalsIgnoreCase(in.getTypeBulletin()) ? "STC" : "BP";
+        return type + "-" + codePer + "-" + matr;
     }
 
     private BigDecimal zeroIfNull(BigDecimal val) {

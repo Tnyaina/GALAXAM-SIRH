@@ -27,7 +27,7 @@ public class PaieHonorairePrestation extends ClassMere {
     private Date datePrestation;
     private Date datePaiement;
     private BigDecimal montantBrut;
-    private BigDecimal tauxIsi = new BigDecimal("5.00");
+    private BigDecimal tauxIsi;
     private BigDecimal montantRetenueIsi = BigDecimal.ZERO;
     private BigDecimal montantNetPaye = BigDecimal.ZERO;
     private String adresse;
@@ -58,9 +58,7 @@ public class PaieHonorairePrestation extends ClassMere {
      * Calcule automatiquement la retenue ISI (5%) et le net à payer.
      */
     public void calculerMontants() {
-        if (tauxIsi == null) {
-            tauxIsi = new BigDecimal("5.00");
-        }
+        if (tauxIsi == null) throw new IllegalStateException("TAX_CONFIGURATION_MISSING: ISI");
         if (montantBrut != null) {
             this.montantRetenueIsi = montantBrut.multiply(tauxIsi).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
             this.montantNetPaye = montantBrut.subtract(this.montantRetenueIsi);
@@ -91,7 +89,8 @@ public class PaieHonorairePrestation extends ClassMere {
             ps.setDate(p++, datePrestation != null ? datePrestation : new Date(System.currentTimeMillis()));
             ps.setDate(p++, datePaiement);
             ps.setBigDecimal(p++, montantBrut != null ? montantBrut : BigDecimal.ZERO);
-            ps.setBigDecimal(p++, tauxIsi != null ? tauxIsi : new BigDecimal("5.00"));
+            if (tauxIsi == null) throw new IllegalStateException("TAX_CONFIGURATION_MISSING: ISI");
+            ps.setBigDecimal(p++, tauxIsi);
             ps.setBigDecimal(p++, montantRetenueIsi != null ? montantRetenueIsi : BigDecimal.ZERO);
             ps.setBigDecimal(p++, montantNetPaye != null ? montantNetPaye : BigDecimal.ZERO);
             ps.setString(p++, adresse);

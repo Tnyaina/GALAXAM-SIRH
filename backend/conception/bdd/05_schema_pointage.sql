@@ -201,6 +201,9 @@ CREATE TABLE pointage_cumul_periode (
     id_cumul SERIAL PRIMARY KEY,
     id_employe INTEGER NOT NULL REFERENCES employe(id_employe),
     id_periode_paie INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie),
+    version_snapshot INTEGER NOT NULL DEFAULT 1 CHECK (version_snapshot > 0),
+    statut_snapshot VARCHAR(20) NOT NULL DEFAULT 'GELE' CHECK (statut_snapshot IN ('GELE', 'CONSOMME', 'REMPLACE')),
+    remplace_id_cumul INTEGER REFERENCES pointage_cumul_periode(id_cumul),
     nb_jours_ouvrables INTEGER NOT NULL,
     nb_jours_presents INTEGER NOT NULL DEFAULT 0,
     nb_jours_absence INTEGER NOT NULL DEFAULT 0,
@@ -212,18 +215,43 @@ CREATE TABLE pointage_cumul_periode (
     heures_hs_50 DECIMAL(6,2) NOT NULL DEFAULT 0,
     heures_nuit_total DECIMAL(6,2) NOT NULL DEFAULT 0,
     heures_absence_retenues DECIMAL(6,2) NOT NULL DEFAULT 0,
+    total_minutes_retard INTEGER NOT NULL DEFAULT 0,
     nb_jours_deplacement DECIMAL(5,2) NOT NULL DEFAULT 0,
     montant_deplacement DECIMAL(10,2) NOT NULL DEFAULT 0,
     nb_jours_repas INTEGER NOT NULL DEFAULT 0,
     montant_repas DECIMAL(10,2) NOT NULL DEFAULT 0,
     gele_par INTEGER REFERENCES utilisateur(id_utilisateur),
     gele_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_cumul_employe_periode UNIQUE (id_employe, id_periode_paie)
+    CONSTRAINT uk_cumul_employe_periode_version UNIQUE (id_employe, id_periode_paie, version_snapshot)
 );
 
 CREATE INDEX idx_cumul_periode_employe ON pointage_cumul_periode(id_employe, id_periode_paie);
 CREATE INDEX idx_pointage_cumul_periode_periode ON pointage_cumul_periode(id_periode_paie);
 CREATE INDEX idx_pointage_cumul_periode_gele_par ON pointage_cumul_periode(gele_par);
+CREATE UNIQUE INDEX uk_cumul_snapshot_courant ON pointage_cumul_periode(id_employe, id_periode_paie)
+WHERE statut_snapshot = 'GELE';
+
+CREATE TABLE pointage_snapshot_jour (
+    id_cumul INTEGER NOT NULL REFERENCES pointage_cumul_periode(id_cumul) ON DELETE RESTRICT,
+    id_pointage INTEGER NOT NULL REFERENCES pointage_jour(id_pointage) ON DELETE RESTRICT,
+    version_pointage INTEGER NOT NULL CHECK (version_pointage > 0),
+    date_pointage DATE NOT NULL,
+    minutes_travaillees INTEGER NOT NULL CHECK (minutes_travaillees >= 0),
+    minutes_retard INTEGER NOT NULL CHECK (minutes_retard >= 0),
+    minutes_nuit INTEGER NOT NULL CHECK (minutes_nuit >= 0),
+    statut_jour VARCHAR(40) NOT NULL,
+    PRIMARY KEY (id_cumul, id_pointage)
+);
+
+CREATE TABLE pointage_snapshot_semaine (
+    id_cumul INTEGER NOT NULL REFERENCES pointage_cumul_periode(id_cumul) ON DELETE RESTRICT,
+    id_semaine_calcule INTEGER NOT NULL REFERENCES pointage_semaine_calcule(id_semaine_calcule) ON DELETE RESTRICT,
+    debut_semaine DATE NOT NULL,
+    minutes_travaillees INTEGER NOT NULL CHECK (minutes_travaillees >= 0),
+    minutes_hs_30 INTEGER NOT NULL CHECK (minutes_hs_30 >= 0),
+    minutes_hs_50 INTEGER NOT NULL CHECK (minutes_hs_50 >= 0),
+    PRIMARY KEY (id_cumul, id_semaine_calcule)
+);
 
 CREATE TABLE pointage_cumul_indemnite (
     id_cumul_indemnite SERIAL PRIMARY KEY,

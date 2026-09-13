@@ -1,5 +1,7 @@
 package mg.galaxam.sirh.api.dto.pointage;
 
+import java.math.BigDecimal;
+
 public class PointageJourDTO {
     private Integer idPointage;
     private String date;        // Format "dd/MM" ex "24/08"
@@ -19,9 +21,9 @@ public class PointageJourDTO {
     private boolean deplacementAm;
     private boolean indemniteRepas;
     private int nbRepas;                // 1 = Repas standard, 2 = Repas + 2e Repas/Nuit
-    private Double montantRepas;        // ex: 2000.0 ou 4000.0
+    private BigDecimal montantRepas;
     private boolean indemniteDeplacement;
-    private Double montantDeplacement;  // Montant proratisé journalier (si applicable)
+    private BigDecimal montantDeplacement;
     private boolean horaireContinuJour; // Indique si la journée a été réalisée en continu (sans pause méridienne)
     private Double totalHeuresDecimal;  // Heures en centésimal (décimal) ex: 8.85
 
@@ -43,14 +45,14 @@ public class PointageJourDTO {
     public int getNbRepas() { return nbRepas; }
     public void setNbRepas(int nbRepas) { this.nbRepas = nbRepas; }
 
-    public Double getMontantRepas() { return montantRepas; }
-    public void setMontantRepas(Double montantRepas) { this.montantRepas = montantRepas; }
+    public BigDecimal getMontantRepas() { return montantRepas; }
+    public void setMontantRepas(BigDecimal montantRepas) { this.montantRepas = montantRepas; }
 
     public boolean isIndemniteDeplacement() { return indemniteDeplacement; }
     public void setIndemniteDeplacement(boolean indemniteDeplacement) { this.indemniteDeplacement = indemniteDeplacement; }
 
-    public Double getMontantDeplacement() { return montantDeplacement; }
-    public void setMontantDeplacement(Double montantDeplacement) { this.montantDeplacement = montantDeplacement; }
+    public BigDecimal getMontantDeplacement() { return montantDeplacement; }
+    public void setMontantDeplacement(BigDecimal montantDeplacement) { this.montantDeplacement = montantDeplacement; }
     public Integer getIdPointage() { return idPointage; }
     public void setIdPointage(Integer idPointage) { this.idPointage = idPointage; }
 

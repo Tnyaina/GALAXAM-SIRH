@@ -460,12 +460,12 @@ public class PointageExcelExportService {
 
                     // K: Panier Repas
                     Cell cMntRep = rD.createCell(10);
-                    cMntRep.setCellValue(pj.getMontantRepas() != null ? pj.getMontantRepas() : 0.0);
+                    cMntRep.setCellValue(pj.getMontantRepas() != null ? pj.getMontantRepas().doubleValue() : 0.0);
                     cMntRep.setCellStyle(currencyStyle);
 
                     // L: Déplacement
                     Cell cMntDepl = rD.createCell(11);
-                    cMntDepl.setCellValue(pj.getMontantDeplacement() != null ? pj.getMontantDeplacement() : 0.0);
+                    cMntDepl.setCellValue(pj.getMontantDeplacement() != null ? pj.getMontantDeplacement().doubleValue() : 0.0);
                     cMntDepl.setCellStyle(currencyStyle);
 
                     // M: Observation

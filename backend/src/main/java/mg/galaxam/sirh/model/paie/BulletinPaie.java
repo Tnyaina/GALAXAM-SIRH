@@ -19,6 +19,11 @@ public class BulletinPaie extends ClassMere {
     private Integer idBulletin;
     private Integer idPeriodePaie;
     private Integer idEmploye;
+    private Integer idConfigLegale;
+    private Integer idSnapshotPointage;
+    private Integer versionSnapshotPointage;
+    private String typeBulletin = "MENSUEL";
+    private Integer idTypeBulletin;
     private String referenceBulletin;
 
     // Snapshot Employé & Organisation
@@ -38,6 +43,7 @@ public class BulletinPaie extends ClassMere {
     private Integer ancienneteMois = 0;
     private Integer nbEnfantsCharge = 0;
     private String modePaiement = "VIREMENT";
+    private Integer idModePaiement;
     private String banqueNom;
     private String banqueRib;
 
@@ -97,6 +103,11 @@ public class BulletinPaie extends ClassMere {
         return idBulletin;
     }
 
+    public Integer getIdSnapshotPointage() { return idSnapshotPointage; }
+    public void setIdSnapshotPointage(Integer value) { this.idSnapshotPointage = value; }
+    public Integer getVersionSnapshotPointage() { return versionSnapshotPointage; }
+    public void setVersionSnapshotPointage(Integer value) { this.versionSnapshotPointage = value; }
+
     @Override
     public String getAttributIDName() {
         return "id_bulletin";
@@ -105,10 +116,10 @@ public class BulletinPaie extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO bulletin_paie (" +
-                "id_periode_paie, id_employe, reference_bulletin, matricule, nom_prenom, " +
+                "id_periode_paie, id_employe, id_config_legale, type_bulletin, id_type_bulletin, reference_bulletin, matricule, nom_prenom, " +
                 "cin_numero, cin_date_delivrance, cin_lieu_delivrance, numero_cnaps, intitule_poste, " +
                 "nom_departement, nom_site, regime_intervenant, categorie_professionnelle, mode_calcul_paie, " +
-                "date_embauche, anciennete_mois, nb_enfants_charge, mode_paiement, banque_nom, banque_rib, " +
+                "date_embauche, anciennete_mois, nb_enfants_charge, mode_paiement, id_mode_paiement, banque_nom, banque_rib, " +
                 "heures_normales, heures_hs_30, heures_hs_50, heures_nuit, jours_ouvrables, jours_travailles, " +
                 "jours_absence, jours_conges, minutes_retard, salaire_base, taux_horaire, total_gains_bruts, " +
                 "total_cotisations_salariales, total_cotisations_patronales, salaire_net_imposable, " +
@@ -116,10 +127,10 @@ public class BulletinPaie extends ClassMere {
                 "total_indemnites_non_imposables, total_retenues_acompte_pret, net_avant_arrondi, " +
                 "net_a_payer, cout_global_employeur, statut, commentaire, date_calcul, calcule_par" +
                 ") VALUES (" +
+                "?, ?, ?, ?, ?, ?, ?, ?, " +
                 "?, ?, ?, ?, ?, " +
                 "?, ?, ?, ?, ?, " +
-                "?, ?, ?, ?, ?, " +
-                "?, ?, ?, ?, ?, ?, " +
+                "?, ?, ?, ?, ?, ?, ?, " +
                 "?, ?, ?, ?, ?, ?, " +
                 "?, ?, ?, ?, ?, ?, " +
                 "?, ?, ?, " +
@@ -132,6 +143,17 @@ public class BulletinPaie extends ClassMere {
             int p = 1;
             ps.setInt(p++, idPeriodePaie);
             ps.setInt(p++, idEmploye);
+            if (idConfigLegale != null) {
+                ps.setInt(p++, idConfigLegale);
+            } else {
+                ps.setNull(p++, java.sql.Types.INTEGER);
+            }
+            ps.setString(p++, typeBulletin != null ? typeBulletin : "MENSUEL");
+            if (idTypeBulletin != null) {
+                ps.setInt(p++, idTypeBulletin);
+            } else {
+                ps.setNull(p++, java.sql.Types.INTEGER);
+            }
             ps.setString(p++, referenceBulletin);
             ps.setString(p++, matricule);
             ps.setString(p++, nomPrenom);
@@ -152,6 +174,11 @@ public class BulletinPaie extends ClassMere {
             ps.setInt(p++, ancienneteMois != null ? ancienneteMois : 0);
             ps.setInt(p++, nbEnfantsCharge != null ? nbEnfantsCharge : 0);
             ps.setString(p++, modePaiement != null ? modePaiement : "VIREMENT");
+            if (idModePaiement != null) {
+                ps.setInt(p++, idModePaiement);
+            } else {
+                ps.setNull(p++, java.sql.Types.INTEGER);
+            }
             ps.setString(p++, banqueNom);
             ps.setString(p++, banqueRib);
 
@@ -205,10 +232,10 @@ public class BulletinPaie extends ClassMere {
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
         String sql = "UPDATE bulletin_paie SET " +
-                "id_periode_paie = ?, id_employe = ?, reference_bulletin = ?, matricule = ?, nom_prenom = ?, " +
+                "id_periode_paie = ?, id_employe = ?, id_config_legale = ?, type_bulletin = ?, id_type_bulletin = ?, reference_bulletin = ?, matricule = ?, nom_prenom = ?, " +
                 "cin_numero = ?, cin_date_delivrance = ?, cin_lieu_delivrance = ?, numero_cnaps = ?, intitule_poste = ?, " +
                 "nom_departement = ?, nom_site = ?, regime_intervenant = ?, categorie_professionnelle = ?, mode_calcul_paie = ?, " +
-                "date_embauche = ?, anciennete_mois = ?, nb_enfants_charge = ?, mode_paiement = ?, banque_nom = ?, banque_rib = ?, " +
+                "date_embauche = ?, anciennete_mois = ?, nb_enfants_charge = ?, mode_paiement = ?, id_mode_paiement = ?, banque_nom = ?, banque_rib = ?, " +
                 "heures_normales = ?, heures_hs_30 = ?, heures_hs_50 = ?, heures_nuit = ?, jours_ouvrables = ?, jours_travailles = ?, " +
                 "jours_absence = ?, jours_conges = ?, minutes_retard = ?, salaire_base = ?, taux_horaire = ?, total_gains_bruts = ?, " +
                 "total_cotisations_salariales = ?, total_cotisations_patronales = ?, salaire_net_imposable = ?, " +
@@ -223,6 +250,17 @@ public class BulletinPaie extends ClassMere {
             int p = 1;
             ps.setInt(p++, idPeriodePaie);
             ps.setInt(p++, idEmploye);
+            if (idConfigLegale != null) {
+                ps.setInt(p++, idConfigLegale);
+            } else {
+                ps.setNull(p++, java.sql.Types.INTEGER);
+            }
+            ps.setString(p++, typeBulletin != null ? typeBulletin : "MENSUEL");
+            if (idTypeBulletin != null) {
+                ps.setInt(p++, idTypeBulletin);
+            } else {
+                ps.setNull(p++, java.sql.Types.INTEGER);
+            }
             ps.setString(p++, referenceBulletin);
             ps.setString(p++, matricule);
             ps.setString(p++, nomPrenom);
@@ -243,6 +281,11 @@ public class BulletinPaie extends ClassMere {
             ps.setInt(p++, ancienneteMois != null ? ancienneteMois : 0);
             ps.setInt(p++, nbEnfantsCharge != null ? nbEnfantsCharge : 0);
             ps.setString(p++, modePaiement != null ? modePaiement : "VIREMENT");
+            if (idModePaiement != null) {
+                ps.setInt(p++, idModePaiement);
+            } else {
+                ps.setNull(p++, java.sql.Types.INTEGER);
+            }
             ps.setString(p++, banqueNom);
             ps.setString(p++, banqueRib);
 
@@ -349,10 +392,15 @@ public class BulletinPaie extends ClassMere {
     }
 
     public static BulletinPaie trouverParPeriodeEtEmploye(Integer idPeriode, Integer idEmploye, Connection c) throws Exception {
-        String sql = "SELECT * FROM bulletin_paie WHERE id_periode_paie = ? AND id_employe = ?";
+        return trouverParPeriodeEtEmployeEtType(idPeriode, idEmploye, "MENSUEL", c);
+    }
+
+    public static BulletinPaie trouverParPeriodeEtEmployeEtType(Integer idPeriode, Integer idEmploye, String typeBulletin, Connection c) throws Exception {
+        String sql = "SELECT * FROM bulletin_paie WHERE id_periode_paie = ? AND id_employe = ? AND type_bulletin = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idPeriode);
             ps.setInt(2, idEmploye);
+            ps.setString(3, typeBulletin != null ? typeBulletin : "MENSUEL");
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return mapResultSet(rs);
@@ -403,6 +451,19 @@ public class BulletinPaie extends ClassMere {
         b.setIdBulletin(rs.getInt("id_bulletin"));
         b.setIdPeriodePaie(rs.getInt("id_periode_paie"));
         b.setIdEmploye(rs.getInt("id_employe"));
+        try {
+            int idCfg = rs.getInt("id_config_legale");
+            b.setIdConfigLegale(rs.wasNull() ? null : idCfg);
+            int idSnapshot = rs.getInt("id_snapshot_pointage");
+            b.setIdSnapshotPointage(rs.wasNull() ? null : idSnapshot);
+            int snapshotVersion = rs.getInt("version_snapshot_pointage");
+            b.setVersionSnapshotPointage(rs.wasNull() ? null : snapshotVersion);
+            b.setTypeBulletin(rs.getString("type_bulletin") != null ? rs.getString("type_bulletin") : "MENSUEL");
+            int idTb = rs.getInt("id_type_bulletin");
+            b.setIdTypeBulletin(rs.wasNull() ? null : idTb);
+            int idMp = rs.getInt("id_mode_paiement");
+            b.setIdModePaiement(rs.wasNull() ? null : idMp);
+        } catch (Exception ignored) {}
         b.setReferenceBulletin(rs.getString("reference_bulletin"));
 
         b.setMatricule(rs.getString("matricule"));
@@ -666,6 +727,18 @@ public class BulletinPaie extends ClassMere {
 
     public Integer getRouvertPar() { return rouvertPar; }
     public void setRouvertPar(Integer rouvertPar) { this.rouvertPar = rouvertPar; }
+
+    public Integer getIdConfigLegale() { return idConfigLegale; }
+    public void setIdConfigLegale(Integer idConfigLegale) { this.idConfigLegale = idConfigLegale; }
+
+    public String getTypeBulletin() { return typeBulletin; }
+    public void setTypeBulletin(String typeBulletin) { this.typeBulletin = typeBulletin; }
+
+    public Integer getIdTypeBulletin() { return idTypeBulletin; }
+    public void setIdTypeBulletin(Integer idTypeBulletin) { this.idTypeBulletin = idTypeBulletin; }
+
+    public Integer getIdModePaiement() { return idModePaiement; }
+    public void setIdModePaiement(Integer idModePaiement) { this.idModePaiement = idModePaiement; }
 
     public List<BulletinPaieLigne> getLignes() { return lignes; }
     public void setLignes(List<BulletinPaieLigne> lignes) { this.lignes = lignes; }

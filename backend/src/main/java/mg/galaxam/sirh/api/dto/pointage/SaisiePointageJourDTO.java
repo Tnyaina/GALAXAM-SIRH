@@ -2,6 +2,7 @@ package mg.galaxam.sirh.api.dto.pointage;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.math.BigDecimal;
 
 public class SaisiePointageJourDTO {
     private Integer idPointage;
@@ -48,9 +49,9 @@ public class SaisiePointageJourDTO {
     private boolean indemniteDeplacementRecue;
     private boolean deplacementMatin = true;
     private boolean deplacementAm = true;
-    private Double montantDeplacement;
+    private BigDecimal montantDeplacement;
     private boolean indemniteRepasRecue;
-    private Double montantRepas;
+    private BigDecimal montantRepas;
 
     private String motifAjustement;
     private Integer idPeriodePaie;
@@ -212,14 +213,14 @@ public class SaisiePointageJourDTO {
     public boolean isDeplacementAm() { return deplacementAm; }
     public void setDeplacementAm(boolean deplacementAm) { this.deplacementAm = deplacementAm; }
 
-    public Double getMontantDeplacement() { return montantDeplacement; }
-    public void setMontantDeplacement(Double montantDeplacement) { this.montantDeplacement = montantDeplacement; }
+    public BigDecimal getMontantDeplacement() { return montantDeplacement; }
+    public void setMontantDeplacement(BigDecimal montantDeplacement) { this.montantDeplacement = montantDeplacement; }
 
     public boolean isIndemniteRepasRecue() { return indemniteRepasRecue; }
     public void setIndemniteRepasRecue(boolean indemniteRepasRecue) { this.indemniteRepasRecue = indemniteRepasRecue; }
 
-    public Double getMontantRepas() { return montantRepas; }
-    public void setMontantRepas(Double montantRepas) { this.montantRepas = montantRepas; }
+    public BigDecimal getMontantRepas() { return montantRepas; }
+    public void setMontantRepas(BigDecimal montantRepas) { this.montantRepas = montantRepas; }
 
     public String getMotifAjustement() { return motifAjustement; }
     public void setMotifAjustement(String motifAjustement) { this.motifAjustement = motifAjustement; }

@@ -374,6 +374,32 @@ public class ParametreGlobal extends ClassMere {
         }
     }
 
+    public static java.math.BigDecimal getBigDecimal(java.util.Map<String, String> params, String key,
+                                                      java.math.BigDecimal defaultValue) {
+        if (params == null || key == null) return defaultValue;
+        String value = params.get(key.toUpperCase());
+        if (value == null || value.isBlank()) return defaultValue;
+        try {
+            return new java.math.BigDecimal(value.trim());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    public static java.math.BigDecimal getBigDecimal(java.util.Map<String, ParametreEtat> params, String code,
+                                                      java.math.BigDecimal defaultValue,
+                                                      java.math.BigDecimal valueWhenInactive) {
+        if (params == null || code == null) return defaultValue;
+        ParametreEtat parameter = params.get(code.toUpperCase());
+        if (parameter == null) return defaultValue;
+        if (!parameter.isEstActif()) return valueWhenInactive;
+        try {
+            return new java.math.BigDecimal(parameter.getValeur().trim());
+        } catch (RuntimeException e) {
+            return defaultValue;
+        }
+    }
+
     public static int getInt(java.util.Map<String, String> params, String key, int defaultValue) {
         if (params == null || key == null) return defaultValue;
         try {

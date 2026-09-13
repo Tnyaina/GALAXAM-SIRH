@@ -53,7 +53,8 @@ public class DntsExportService {
             }
         }
 
-        int ordre = 1;
+        // Regroupement par employé pour garantir 1 ligne unique par salarié (Obligation DNTS CNaPS)
+        Map<Integer, List<BulletinPaie>> bulletinsParEmploye = new LinkedHashMap<>();
         for (BulletinPaie bp : bulletins) {
             // Exclure les consultants et intervenants sans affiliation CNaPS
             if ("CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) 
@@ -61,20 +62,34 @@ public class DntsExportService {
                     || "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant())) {
                 continue;
             }
+            bulletinsParEmploye.computeIfAbsent(bp.getIdEmploye(), k -> new ArrayList<>()).add(bp);
+        }
 
-            List<BulletinPaieLigne> lignes = BulletinPaieLigne.listerParBulletin(bp.getIdBulletin(), c);
+        int ordre = 1;
+        for (Map.Entry<Integer, List<BulletinPaie>> entry : bulletinsParEmploye.entrySet()) {
+            List<BulletinPaie> empBulletins = entry.getValue();
+            BulletinPaie bpPrincipal = empBulletins.stream()
+                    .filter(b -> "STC".equalsIgnoreCase(b.getTypeBulletin()))
+                    .findFirst()
+                    .orElse(empBulletins.get(empBulletins.size() - 1));
+
+            List<BulletinPaieLigne> lignes = new ArrayList<>();
+            BigDecimal totalBrutCumule = BigDecimal.ZERO;
+            for (BulletinPaie b : empBulletins) {
+                lignes.addAll(BulletinPaieLigne.listerParBulletin(b.getIdBulletin(), c));
+                if (b.getTotalGainsBruts() != null) totalBrutCumule = totalBrutCumule.add(b.getTotalGainsBruts());
+            }
 
             DntsRowDto row = new DntsRowDto();
             row.setNumeroOrdre(ordre++);
-            row.setMatricule(bp.getMatricule());
-            row.setNumAffiliationCnaps(bp.getNumeroCnaps() != null ? bp.getNumeroCnaps() : "");
-            row.setNomPrenom(bp.getNomPrenom());
-            row.setRefCin(bp.getCinNumero() != null ? bp.getCinNumero() : "");
-            row.setDateEmbauche(bp.getDateEmbauche() != null ? DATE_FMT.format(bp.getDateEmbauche().toLocalDate()) : "");
-            row.setDateDebauchage(chercherDateFinContrat(bp.getIdEmploye(), dateDebutPeriode, dateFinPeriode, c));
+            row.setMatricule(bpPrincipal.getMatricule());
+            row.setNumAffiliationCnaps(bpPrincipal.getNumeroCnaps() != null ? bpPrincipal.getNumeroCnaps() : "");
+            row.setNomPrenom(bpPrincipal.getNomPrenom());
+            row.setRefCin(bpPrincipal.getCinNumero() != null ? bpPrincipal.getCinNumero() : "");
+            row.setDateEmbauche(bpPrincipal.getDateEmbauche() != null ? DATE_FMT.format(bpPrincipal.getDateEmbauche().toLocalDate()) : "");
+            row.setDateDebauchage(chercherDateFinContrat(bpPrincipal.getIdEmploye(), dateDebutPeriode, dateFinPeriode, c));
 
-            BigDecimal brut = bp.getTotalGainsBruts() != null ? bp.getTotalGainsBruts() : BigDecimal.ZERO;
-            row.setSalaireBrutReel(brut.setScale(2, RoundingMode.HALF_UP));
+            row.setSalaireBrutReel(totalBrutCumule.setScale(2, RoundingMode.HALF_UP));
 
             BigDecimal assietteCnaps = BigDecimal.ZERO;
             BigDecimal cnapsSal = BigDecimal.ZERO;
@@ -89,14 +104,16 @@ public class DntsExportService {
 
                 if ("COTISATION_CNAPS".equals(code) || "COTISATION_CNAPS_SAL".equals(code) || "COTISATION_CNAPS_PAT".equals(code)) {
                     if (l.getBaseCalcul() != null && l.getBaseCalcul().compareTo(BigDecimal.ZERO) > 0) {
-                        assietteCnaps = l.getBaseCalcul();
+                        assietteCnaps = assietteCnaps.max(l.getBaseCalcul());
                     }
                     if (l.getMontantSalarial() != null) cnapsSal = cnapsSal.add(l.getMontantSalarial());
                     if (l.getMontantPatronal() != null) cnapsPat = cnapsPat.add(l.getMontantPatronal());
                 } else if ("COTISATION_FMFP".equals(code) || "COTISATION_FMFP_PAT".equals(code)) {
                     if (l.getMontantPatronal() != null) fmfpPat = fmfpPat.add(l.getMontantPatronal());
                 } else if ("COTISATION_OSTIE".equals(code) || "COTISATION_OSTIE_SAL".equals(code) || "COTISATION_OSTIE_PAT".equals(code)
-                        || "COTISATION_OMSI".equals(code) || "COTISATION_OMSI_SAL".equals(code) || "COTISATION_OMSI_PAT".equals(code)) {
+                        || "COTISATION_OMSI".equals(code) || "COTISATION_OMSI_SAL".equals(code) || "COTISATION_OMSI_PAT".equals(code)
+                        || code.contains("SANTE") || code.contains("SMIE") || code.contains("AMIT")
+                        || "COTISATION_SALARIALE".equalsIgnoreCase(l.getCategorie()) || "COTISATION_PATRONALE".equalsIgnoreCase(l.getCategorie())) {
                     if (l.getMontantSalarial() != null) santeSal = santeSal.add(l.getMontantSalarial());
                     if (l.getMontantPatronal() != null) santePat = santePat.add(l.getMontantPatronal());
                 }
@@ -372,6 +389,25 @@ public class DntsExportService {
     }
 
     private String chercherDateFinContrat(Integer idEmploye, Date dateDebutPeriode, Date dateFinPeriode, Connection c) {
+        // 1. Détection prioritaire via Solde de Tout Compte (indispensable pour les CDI dont ct.date_fin est NULL)
+        String sqlStc = "SELECT date_depart FROM paie_stc WHERE id_employe = ? ORDER BY date_depart DESC LIMIT 1";
+        try (PreparedStatement psStc = c.prepareStatement(sqlStc)) {
+            psStc.setInt(1, idEmploye);
+            try (ResultSet rsStc = psStc.executeQuery()) {
+                if (rsStc.next() && rsStc.getDate("date_depart") != null) {
+                    Date dateDepart = rsStc.getDate("date_depart");
+                    if (dateDebutPeriode != null && dateFinPeriode != null) {
+                        if (!dateDepart.before(dateDebutPeriode) && !dateDepart.after(dateFinPeriode)) {
+                            return DATE_FMT.format(dateDepart.toLocalDate());
+                        }
+                    } else {
+                        return DATE_FMT.format(dateDepart.toLocalDate());
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // 2. Recherche standard sur contrat_travail (échéances CDD)
         String sql = "SELECT ct.date_fin, rsa.code AS statut_rh " +
                      "FROM contrat_travail ct " +
                      "LEFT JOIN employe_affectation_carriere eac ON ct.id_contrat = eac.id_contrat " +
@@ -384,13 +420,10 @@ public class DntsExportService {
                     Date dateFin = rs.getDate("date_fin");
                     String statutRh = rs.getString("statut_rh");
 
-                    // 1. Échéance future : pas encore débauché
+                    // Échéance future : pas encore débauché
                     if (dateFinPeriode != null && dateFin.after(dateFinPeriode)) {
                         return "";
                     }
-                    // 2. Échéance antérieure à la période déclarée :
-                    // Si le salarié est encore ACTIF (ex: renouvellement/continuation), ce n'est pas un débauchage.
-                    // Si le salarié est non-actif, il s'agit d'un Solde de Tout Compte décalé : afficher la date réelle de cessation.
                     if (dateDebutPeriode != null && dateFin.before(dateDebutPeriode)) {
                         if ("ACTIF".equalsIgnoreCase(statutRh)) {
                             return "";

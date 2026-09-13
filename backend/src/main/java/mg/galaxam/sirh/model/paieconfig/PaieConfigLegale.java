@@ -214,19 +214,27 @@ public class PaieConfigLegale extends ClassMere {
      * Utilisé par le moteur de paie à chaque calcul de bulletin.
      */
     public static PaieConfigLegale findActiveAt(Connection c, java.time.LocalDate date) throws Exception {
+        if (date == null) {
+            throw new IllegalArgumentException("La date de référence de la configuration légale est obligatoire.");
+        }
         String sql = "SELECT *, ROUND(sme_national * plafond_cotisation_nb_sme, 2) AS plafond_cotisation_mensuel " +
                      "FROM paie_config_legale " +
                      "WHERE date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) " +
-                     "ORDER BY date_debut DESC LIMIT 1";
+                     "ORDER BY date_debut DESC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             java.sql.Date sqlDate = java.sql.Date.valueOf(date);
             ps.setDate(1, sqlDate);
             ps.setDate(2, sqlDate);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return mapRow(rs);
+                if (!rs.next()) return null;
+                PaieConfigLegale applicable = mapRow(rs);
+                if (rs.next()) {
+                    throw new IllegalStateException(
+                            "Plusieurs configurations légales se chevauchent à la date du " + date + ".");
+                }
+                return applicable;
             }
         }
-        return null;
     }
 
     /**

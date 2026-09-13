@@ -253,6 +253,11 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (27, 'DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS', 'CONGE', '119', 'Durée maximale du congé maternité en cas d extension pour état pathologique (98 + 21j)', '2026-01-01', NULL, TRUE, FALSE),
 (28, 'SEUIL_ANCIENNETE_BONIFICATION_ANS', 'CONGE', '3', 'Ancienneté minimale (en années) à partir de laquelle la bonification de congé s applique (Art. 86/87)', '2026-01-01', NULL, TRUE, TRUE),
 (29, 'PALIER_ANNEES_BONIFICATION', 'CONGE', '5', 'Nombre d années par tranche donnant droit à un jour de bonification supplémentaire (Art. 86/87)', '2026-01-01', NULL, TRUE, TRUE),
-(30, 'JOURS_BONIFICATION_PAR_PALIER', 'CONGE', '1', 'Nombre de jours de congé supplémentaires accordés par tranche d ancienneté atteinte (Art. 86/87)', '2026-01-01', NULL, TRUE, TRUE)
+(30, 'JOURS_BONIFICATION_PAR_PALIER', 'CONGE', '1', 'Nombre de jours de congé supplémentaires accordés par tranche d ancienneté atteinte (Art. 86/87)', '2026-01-01', NULL, TRUE, TRUE),
+(31, 'SEUIL_RETARD_ASSIDUITE_MIN', 'PAIE', '45', 'Seuil maximal de retard mensuel en minutes pour bénéficier de la prime d assiduité', '2026-01-01', NULL, TRUE, TRUE),
+(32, 'SEUIL_RETARD_PENALITE_PP_MIN', 'PAIE', '70', 'Seuil de retard mensuel en minutes déclenchant la pénalité sur la prime de performance si congés > seuil', '2026-01-01', NULL, TRUE, TRUE),
+(33, 'SEUIL_CONGES_PENALITE_PP_JOURS', 'PAIE', '1.0', 'Nombre de jours de congés dans le mois au-delà duquel la pénalité sur PP s applique si retard > seuil', '2026-01-01', NULL, TRUE, TRUE),
+(34, 'TAUX_PENALITE_PP', 'PAIE', '0.25', 'Taux de réduction appliqué sur la prime de performance (ex: 0.25 = 1/4 soit 25%)', '2026-01-01', NULL, TRUE, TRUE),
+(35, 'SEUIL_HEURES_SEMAINE_COMPENSATION', 'POINTAGE', '40.0', 'Seuil hebdomadaire normal d heures travaillées pour compensation des retards et déclenchement des HS', '2026-01-01', NULL, TRUE, TRUE)
 ON CONFLICT (code_parametre, date_debut) DO UPDATE SET valeur = EXCLUDED.valeur, description = EXCLUDED.description, est_actif = EXCLUDED.est_actif, est_desactivable = EXCLUDED.est_desactivable;
-SELECT setval('parametre_global_id_parametre_seq', (SELECT GREATEST(MAX(id_parametre), 30) FROM parametre_global));
+SELECT setval('parametre_global_id_parametre_seq', (SELECT GREATEST(MAX(id_parametre), 35) FROM parametre_global));

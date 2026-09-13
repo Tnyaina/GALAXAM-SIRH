@@ -2,7 +2,11 @@ package mg.galaxam.sirh.model.pointage.service;
 
 import mg.galaxam.sirh.api.dto.pointage.SaisiePointageJourDTO;
 import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
+import mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy;
 import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
+import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceCalculator;
+import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceContext;
+import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -15,8 +19,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Types;
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -39,28 +43,25 @@ public class PointageSaisieService {
     private mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine;
 
     @Autowired
-    private mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine calculateurEngine;
-
-    private static final mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine CALCULATEUR_ENGINE =
-            new mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine();
+    private DailyAttendanceCalculator dailyAttendanceCalculator;
 
     public PointageSaisieService() {
         this.calendrierEngine = new CalendrierOuvrableEngine();
-        this.calculateurEngine = CALCULATEUR_ENGINE;
+        this.dailyAttendanceCalculator = new DailyAttendanceCalculator();
     }
 
     public PointageSaisieService(DataSource dataSource) {
         this.dataSource = dataSource;
         this.calendrierEngine = new CalendrierOuvrableEngine();
-        this.calculateurEngine = CALCULATEUR_ENGINE;
+        this.dailyAttendanceCalculator = new DailyAttendanceCalculator();
     }
 
     public PointageSaisieService(DataSource dataSource,
                                  mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine,
-                                 mg.galaxam.sirh.model.pointage.engine.PointageCalculateurEngine calculateurEngine) {
+                                 mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine ignored) {
         this.dataSource = dataSource;
-        this.calendrierEngine = calendrierEngine != null ? calendrierEngine : new CalendrierOuvrableEngine();
-        this.calculateurEngine = calculateurEngine != null ? calculateurEngine : CALCULATEUR_ENGINE;
+        this.calendrierEngine = ignored != null ? ignored : new CalendrierOuvrableEngine();
+        this.dailyAttendanceCalculator = new DailyAttendanceCalculator();
     }
 
     /**
@@ -81,173 +82,41 @@ public class PointageSaisieService {
         }
     }
 
-    /**
-     * Calcul de la durée en heures entre 2 bornes (gère les shifts de nuit traversant minuit)
-     */
-    public static double calcHours(Time debut, Time fin) {
-        if (debut == null || fin == null) return 0.0;
-        LocalTime t1 = debut.toLocalTime();
-        LocalTime t2 = fin.toLocalTime();
-        long minutes;
-        if (t2.isBefore(t1)) {
-            minutes = Duration.between(t1, LocalTime.MAX).toMinutes() + 1 + Duration.between(LocalTime.MIN, t2).toMinutes();
-        } else {
-            minutes = Duration.between(t1, t2).toMinutes();
-        }
-        return Math.round((minutes / 60.0) * 100.0) / 100.0;
+    private static LocalTime toLocalTime(Time value) {
+        return value == null ? null : value.toLocalTime();
     }
 
-    /**
-     * Calcul des heures de nuit travaillées (entre 22h00 et 05h00) délégué au moteur.
-     */
-    public static double calcHeuresNuit(Time sortieSoir) {
-        return calcHeuresNuit(sortieSoir, LocalTime.of(22, 0), LocalTime.of(5, 0));
+    /** Conversion de frontière uniquement : le domaine conserve les minutes entières. */
+    private static double minutesToStorageHours(long minutes) {
+        return BigDecimal.valueOf(minutes)
+                .divide(BigDecimal.valueOf(60), 2, java.math.RoundingMode.HALF_UP)
+                .doubleValue();
     }
 
-    public static double calcHeuresNuit(Time sortieSoir, LocalTime debutNuit, LocalTime finNuit) {
-        if (sortieSoir == null || debutNuit == null) return 0.0;
-        return CALCULATEUR_ENGINE.calculerHeuresNuit(sortieSoir.toLocalTime(), debutNuit, finNuit);
+    private static DailyAttendanceContext.LeavePart parseLeavePart(String value) {
+        if (value == null || value.isBlank()) return DailyAttendanceContext.LeavePart.NONE;
+        return switch (value.toUpperCase(Locale.ROOT)) {
+            case "FULL_DAY" -> DailyAttendanceContext.LeavePart.FULL_DAY;
+            case "MATIN" -> DailyAttendanceContext.LeavePart.MORNING;
+            case "APRES_MIDI" -> DailyAttendanceContext.LeavePart.AFTERNOON;
+            default -> DailyAttendanceContext.LeavePart.NONE;
+        };
     }
 
-    /**
-     * Calcul des minutes de retard par rapport à une heure prévue délégué au moteur.
-     */
-    public static int calcMinutesRetard(Time reel, LocalTime prevu) {
-        if (reel == null || prevu == null) return 0;
-        return CALCULATEUR_ENGINE.calculerMinutesRetard(reel.toLocalTime(), prevu, null);
-    }
-
-    /**
-     * Matrice de décision logique stricte pour le statut du pointage.
-     * Note: Dans la BDD, un salarié en retard est "PRESENT" avec minutes_retard > 0.
-     */
-    public static String determinerStatutJour(
-            boolean isFerie,
-            String typeConge,
-            boolean isAutonome,
-            Time em, Time sm, Time ea, Time sa,
-            int retardMinutes,
-            boolean hasValidationErr
-    ) {
-        return determinerStatutJour(null, isFerie, typeConge, true, true, isAutonome, em, sm, ea, sa, retardMinutes, hasValidationErr);
-    }
-
-    public static String determinerStatutJour(
-            LocalDate date,
-            boolean isFerie,
-            String typeConge,
-            boolean isAutonome,
-            Time em, Time sm, Time ea, Time sa,
-            int retardMinutes,
-            boolean hasValidationErr
-    ) {
-        return determinerStatutJour(date, isFerie, typeConge, true, true, isAutonome, em, sm, ea, sa, retardMinutes, hasValidationErr);
-    }
-
-    public static String determinerStatutJour(
-            LocalDate date,
-            boolean isFerie,
-            String typeConge,
-            boolean isCongePaye,
-            boolean isCongeDecompteSolde,
-            boolean isAutonome,
-            Time em, Time sm, Time ea, Time sa,
-            int retardMinutes,
-            boolean hasValidationErr
-    ) {
-        return determinerStatutJour(date, isFerie, typeConge, isCongePaye, isCongeDecompteSolde, isAutonome, em, sm, ea, sa, retardMinutes, hasValidationErr, null);
-    }
-
-    public static String determinerStatutJour(
-            LocalDate date,
-            boolean isFerie,
-            String typeConge,
-            boolean isCongePaye,
-            boolean isCongeDecompteSolde,
-            boolean isAutonome,
-            Time em, Time sm, Time ea, Time sa,
-            int retardMinutes,
-            boolean hasValidationErr,
-            String motifAjustement
-    ) {
-        boolean isFullConge = "FULL_DAY".equalsIgnoreCase(typeConge);
-        boolean isCongeMatin = "MATIN".equalsIgnoreCase(typeConge);
-        boolean isCongeAm = "APRES_MIDI".equalsIgnoreCase(typeConge);
-
-        boolean aSaisiDesHeures = (em != null || sm != null || ea != null || sa != null);
-
-        // 1. Primauté absolue du FÉRIÉ CHÔMÉ
-        if (isFerie) {
-            if (aSaisiDesHeures) {
-                return "FERIE_TRAVAILLE";
-            }
-            return "FERIE_CHOME";
-        }
-
-        // 2. Erreur de cohérence chronologique
-        if (hasValidationErr) {
-            return "ANOMALIE_SAISIE";
-        }
-
-        // 3. Congé journée entière
-        if (isFullConge) {
-            if (!isCongePaye) {
-                return "ABSENCE_JUSTIFIEE";
-            }
-            if (!isCongeDecompteSolde) {
-                return "DISPENSE_POINTAGE";
-            }
-            return "CONGE";
-        }
-
-        // 4. Aucun horaire saisi
-        if (!aSaisiDesHeures) {
-            // Un week-end sans heures saisies n'est JAMAIS une absence : c'est un repos légal (même pour un cadre autonome) !
-            if (date != null && CalendrierOuvrableEngine.isWeekend(date)) {
-                return "REPOS";
-            }
-            if (isAutonome) return "DISPENSE_POINTAGE";
-            return "ABSENCE_NON_JUSTIFIEE";
-        }
-
-        // 5. Cas pause automatique (Entrée Matin et Sortie Soir uniquement)
-        if (em != null && sa != null && sm == null && ea == null) {
-            if (date != null && CalendrierOuvrableEngine.isWeekend(date)) {
-                return (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY) ? "SAMEDI_TRAVAILLE" : "DIMANCHE_TRAVAILLE";
-            }
-            return "PRESENT";
-        }
-
-        // 6. Incohérence de badgeage partiel (orphelin)
-        if ((em != null && sm == null) || (ea != null && sa == null) || (em == null && sm != null) || (ea == null && sa != null)) {
-            return "ANOMALIE_SAISIE";
-        }
-
-        // 7. Demi-journées de présence
-        boolean hasMotif = (motifAjustement != null && !motifAjustement.trim().isEmpty());
-        if (em != null && sm != null && ea == null && sa == null) {
-            if (isCongeAm) return "PRESENT";
-            if (hasMotif) return "DEMI_JOURNEE";
-            return "DEMI_JOURNEE";
-        }
-        if (em == null && sm == null && ea != null && sa != null) {
-            if (isCongeMatin) return "PRESENT";
-            if (hasMotif) return "DEMI_JOURNEE";
-            return "DEMI_JOURNEE";
-        }
-
-        // 8. Jour normal complet ou Week-end travaillé
-        double totalH = calcHours(em, sm) + calcHours(ea, sa);
-        if (totalH == 0.0) {
-            if (CalendrierOuvrableEngine.isWeekend(date)) {
-                return "REPOS";
-            }
-            return "ABSENCE_NON_JUSTIFIEE";
-        }
-        if (date != null && CalendrierOuvrableEngine.isWeekend(date)) {
-            return (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY) ? "SAMEDI_TRAVAILLE" : "DIMANCHE_TRAVAILLE";
-        }
-        return "PRESENT";
+    private static String toPersistenceStatus(DailyAttendanceResult result, SaisiePointageJourDTO dto) {
+        return switch (result.status()) {
+            case PRESENT -> "PRESENT";
+            case HALF_DAY -> "DEMI_JOURNEE";
+            case ABSENT -> "ABSENCE_NON_JUSTIFIEE";
+            case LEAVE -> !dto.isCongePaye() ? "ABSENCE_JUSTIFIEE"
+                    : (!dto.isCongeDecompteSolde() ? "DISPENSE_POINTAGE" : "CONGE");
+            case REST -> "REPOS";
+            case PUBLIC_HOLIDAY_OFF -> "FERIE_CHOME";
+            case PUBLIC_HOLIDAY_WORKED -> "FERIE_TRAVAILLE";
+            case SUNDAY_WORKED -> "DIMANCHE_TRAVAILLE";
+            case AUTONOMOUS -> "DISPENSE_POINTAGE";
+            case ANOMALY -> "ANOMALIE_SAISIE";
+        };
     }
 
     /**
@@ -291,8 +160,7 @@ public class PointageSaisieService {
                         if (dDeb != null && dFin != null) {
                             ouvrables = calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), idSite > 0 ? idSite : null, c);
                         }
-                        if (ouvrables == 0) ouvrables = 22;
-                        periodeInfo.put("nbJoursOuvrables", ouvrables);
+                        periodeInfo.put("nbJoursOuvrables", ouvrables > 0 ? ouvrables : null);
                     }
                 }
             }
@@ -338,17 +206,16 @@ public class PointageSaisieService {
 
             // 4. Indemnités Spécifiques du Site (site_indemnite_config) avec Prorata sur jours ouvrables réels
             int nbOuvrablesPeriode = (periodeInfo != null && periodeInfo.get("nbJoursOuvrables") != null)
-                    ? (int) periodeInfo.get("nbJoursOuvrables")
-                    : 22;
+                    ? (int) periodeInfo.get("nbJoursOuvrables") : 0;
 
             // Chargement anticipé des paramètres globaux pour résoudre MONTANT_REPAS_MIDI
             // (nécessaire dès la construction de siteIndemnites pour les sites à tarif repas = 0 comme TMM)
             Map<String, String> globalParams = ParametreGlobal.loadActiveMap(c);
-            double mntRepasMidiGlobal = ParametreGlobal.getDouble(globalParams, "MONTANT_REPAS_MIDI", 2000.0);
+            BigDecimal mntRepasMidiGlobal = ParametreGlobal.getBigDecimal(globalParams, "MONTANT_REPAS_MIDI", new BigDecimal("2000"));
 
-            double montantDeplacementMois = 0.0;
-            double montantDeplacementJour = 0.0;
-            double montantRepasSite = 0.0;
+            BigDecimal montantDeplacementMois = BigDecimal.ZERO;
+            BigDecimal montantDeplacementJour = BigDecimal.ZERO;
+            BigDecimal montantRepasSite = BigDecimal.ZERO;
             boolean siteRepasInclusParDefaut = false;
 
             List<Map<String, Object>> siteIndemnites = new ArrayList<>();
@@ -367,26 +234,26 @@ public class PointageSaisieService {
                         String libInd = rsI.getString("libelle");
                         boolean fractionnable = rsI.getBoolean("fractionnable");
                         String period = rsI.getString("periodicite");
-                        double montantRef = rsI.getDouble("montant_reference");
+                        BigDecimal montantRef = zeroIfNull(rsI.getBigDecimal("montant_reference"));
 
                         boolean isProratise = "MENSUEL".equalsIgnoreCase(period) || "MENSUEL_PRORATISE".equalsIgnoreCase(period);
-                        double montantJour = isProratise
+                        BigDecimal montantJour = isProratise
                                 ? calendrierEngine.calculerProrataJournalier(montantRef, nbOuvrablesPeriode)
                                 : montantRef;
-                        double montantTrajet = fractionnable ? calendrierEngine.calculerMontantTrajet(montantJour) : montantJour;
+                        BigDecimal montantTrajet = fractionnable ? calendrierEngine.calculerMontantTrajet(montantJour) : montantJour;
 
                         // Pour les indemnités REPAS avec montantRef = 0 (ex: TMM), le montant affiché
                         // quand la case est cochée manuellement doit être le montant global MONTANT_REPAS_MIDI.
-                        boolean isRepasZero = "REPAS".equalsIgnoreCase(codeInd) && montantRef <= 0.0;
-                        double montantGlobal = isRepasZero ? mntRepasMidiGlobal : montantJour;
+                        boolean isRepasZero = "REPAS".equalsIgnoreCase(codeInd) && montantRef.signum() <= 0;
+                        BigDecimal montantGlobal = isRepasZero ? mntRepasMidiGlobal : montantJour;
 
                         String sousTitre;
                         if (isRepasZero) {
-                            sousTitre = "Non inclus site (" + String.format(Locale.FRENCH, "%,d", Math.round(montantGlobal)) + " Ar/j si coché)";
+                            sousTitre = "Non inclus site (" + String.format(Locale.FRENCH, "%,d", montantGlobal.longValue()) + " Ar/j si coché)";
                         } else if (isProratise) {
-                            sousTitre = "prorata (" + String.format(Locale.FRENCH, "%,d", Math.round(montantJour)) + " Ar/j)";
+                            sousTitre = "prorata (" + String.format(Locale.FRENCH, "%,d", montantJour.longValue()) + " Ar/j)";
                         } else {
-                            sousTitre = String.format(Locale.FRENCH, "%,d", Math.round(montantJour)) + " Ar/j";
+                            sousTitre = String.format(Locale.FRENCH, "%,d", montantJour.longValue()) + " Ar/j";
                         }
 
                         ind.put("idIndemnite", idInd);
@@ -414,7 +281,7 @@ public class PointageSaisieService {
                             montantDeplacementJour = montantJour;
                         } else if ("REPAS".equalsIgnoreCase(codeInd)) {
                             montantRepasSite = montantRef;
-                            siteRepasInclusParDefaut = montantRef > 0.0;
+                            siteRepasInclusParDefaut = montantRef.signum() > 0;
                         }
                     }
                 }
@@ -424,7 +291,7 @@ public class PointageSaisieService {
             siteParams.put("nbJoursOuvrablesPeriode", nbOuvrablesPeriode);
             siteParams.put("montantDeplacementMois", montantDeplacementMois);
             siteParams.put("montantDeplacementJour", montantDeplacementJour);
-            siteParams.put("montantDeplacementTrajet", Math.round((montantDeplacementJour / 2.0) * 100.0) / 100.0);
+            siteParams.put("montantDeplacementTrajet", calendrierEngine.calculerMontantTrajet(montantDeplacementJour));
             siteParams.put("montantRepasJour", siteRepasInclusParDefaut ? montantRepasSite : mntRepasMidiGlobal);
             siteParams.put("montantRepasGlobal", mntRepasMidiGlobal);
             siteParams.put("siteRepasInclusParDefaut", siteRepasInclusParDefaut);
@@ -732,9 +599,9 @@ public class PointageSaisieService {
                                     boolean depM = false;
                                     boolean depA = false;
                                     boolean depRecue = false;
-                                    double mntDepDb = 0.0;
+                                    BigDecimal mntDepDb = BigDecimal.ZERO;
                                     boolean repasRecue = false;
-                                    double mntRepasDb = 0.0;
+                                    BigDecimal mntRepasDb = BigDecimal.ZERO;
 
                                     try (PreparedStatement psInd = c.prepareStatement(
                                             "SELECT ri.code, pij.fraction, pij.quantite, pij.montant_calcule, pij.accorde " +
@@ -746,9 +613,9 @@ public class PointageSaisieService {
                                             while (rsInd.next()) {
                                                 String codeInd = rsInd.getString("code");
                                                 boolean accorde = rsInd.getBoolean("accorde");
-                                                double mntCalc = rsInd.getDouble("montant_calcule");
+                                                BigDecimal mntCalc = zeroIfNull(rsInd.getBigDecimal("montant_calcule"));
                                                 String fraction = rsInd.getString("fraction");
-                                                double qte = rsInd.getDouble("quantite");
+                                                BigDecimal qte = zeroIfNull(rsInd.getBigDecimal("quantite"));
 
                                                 if ("REPAS".equalsIgnoreCase(codeInd)) {
                                                     repasRecue = accorde;
@@ -764,8 +631,8 @@ public class PointageSaisieService {
                                                             depM = false;
                                                             depA = true;
                                                         } else {
-                                                            depM = qte > 0;
-                                                            depA = qte >= 1.0;
+                                                            depM = qte.signum() > 0;
+                                                            depA = qte.compareTo(BigDecimal.ONE) >= 0;
                                                         }
                                                     } else {
                                                         depM = false;
@@ -780,11 +647,15 @@ public class PointageSaisieService {
                                     dto.setDeplacementAm(depA);
                                     dto.setIndemniteDeplacementRecue(depRecue);
 
-                                    double fractionDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
-                                    dto.setMontantDeplacement(mntDepDb > 0 ? mntDepDb : (depRecue ? Math.round(fractionDep * montantDeplacementJour * 100.0) / 100.0 : 0.0));
+                                    BigDecimal fractionDep = (depM ? new BigDecimal("0.5") : BigDecimal.ZERO)
+                                            .add(depA ? new BigDecimal("0.5") : BigDecimal.ZERO);
+                                    dto.setMontantDeplacement(mntDepDb.signum() > 0 ? mntDepDb
+                                            : (depRecue ? MoneyRoundingPolicy.amount(montantDeplacementJour.multiply(fractionDep)) : BigDecimal.ZERO));
 
                                     dto.setIndemniteRepasRecue(repasRecue);
-                                    dto.setMontantRepas(repasRecue ? (mntRepasDb > 0 ? mntRepasDb : (siteRepasInclusParDefaut ? montantRepasSite : mntRepasMidiGlobal)) : 0.0);
+                                    dto.setMontantRepas(repasRecue
+                                            ? (mntRepasDb.signum() > 0 ? mntRepasDb : (siteRepasInclusParDefaut ? montantRepasSite : mntRepasMidiGlobal))
+                                            : BigDecimal.ZERO);
                                 }
                             }
                         }
@@ -862,9 +733,9 @@ public class PointageSaisieService {
                                 dto.setDeplacementMatin(false);
                                 dto.setDeplacementAm(false);
                                 dto.setIndemniteDeplacementRecue(false);
-                                dto.setMontantDeplacement(0.0);
+                                dto.setMontantDeplacement(BigDecimal.ZERO);
                                 dto.setIndemniteRepasRecue(false);
-                                dto.setMontantRepas(0.0);
+                                dto.setMontantRepas(BigDecimal.ZERO);
                             } else if (isAutonome) {
                                 dto.setHeureEntreeMatin((String) siteParams.get("heureDebutMatin"));
                                 dto.setHeureSortieMatin((String) siteParams.get("heureFinMatin"));
@@ -879,7 +750,9 @@ public class PointageSaisieService {
                                 dto.setIndemniteDeplacementRecue(true);
                                 dto.setMontantDeplacement(montantDeplacementJour);
                                 dto.setIndemniteRepasRecue(siteRepasInclusParDefaut);
-                                dto.setMontantRepas(siteRepasInclusParDefaut ? (montantRepasSite > 0 ? montantRepasSite : mntRepasMidiGlobal) : 0.0);
+                                dto.setMontantRepas(siteRepasInclusParDefaut
+                                        ? (montantRepasSite.signum() > 0 ? montantRepasSite : mntRepasMidiGlobal)
+                                        : BigDecimal.ZERO);
                             } else {
                                 dto.setHeureEntreeMatin("");
                                 dto.setHeureSortieMatin("");
@@ -894,7 +767,9 @@ public class PointageSaisieService {
                                 dto.setIndemniteDeplacementRecue(true);
                                 dto.setMontantDeplacement(montantDeplacementJour);
                                 dto.setIndemniteRepasRecue(siteRepasInclusParDefaut);
-                                dto.setMontantRepas(siteRepasInclusParDefaut ? (montantRepasSite > 0 ? montantRepasSite : mntRepasMidiGlobal) : 0.0);
+                                dto.setMontantRepas(siteRepasInclusParDefaut
+                                        ? (montantRepasSite.signum() > 0 ? montantRepasSite : mntRepasMidiGlobal)
+                                        : BigDecimal.ZERO);
                             }
                         }
 
@@ -912,9 +787,9 @@ public class PointageSaisieService {
                                         Map<String, Object> item = new HashMap<>();
                                         boolean acc = rsDynL.getBoolean("accorde");
                                         String frac = rsDynL.getString("fraction");
-                                        double qte = rsDynL.getDouble("quantite");
+                                        BigDecimal qte = zeroIfNull(rsDynL.getBigDecimal("quantite"));
                                         item.put("accordee", acc);
-                                        item.put("montantApplique", rsDynL.getDouble("montant_calcule"));
+                                        item.put("montantApplique", zeroIfNull(rsDynL.getBigDecimal("montant_calcule")));
                                         item.put("fractionJour", qte);
                                         item.put("fraction", frac);
                                         if ("MATIN".equalsIgnoreCase(frac)) {
@@ -924,8 +799,8 @@ public class PointageSaisieService {
                                             item.put("matin", false);
                                             item.put("am", acc);
                                         } else {
-                                            item.put("matin", acc && qte > 0);
-                                            item.put("am", acc && qte >= 1.0);
+                                            item.put("matin", acc && qte.signum() > 0);
+                                            item.put("am", acc && qte.compareTo(BigDecimal.ONE) >= 0);
                                         }
                                         savedDyn.put(rsDynL.getInt("id_indemnite"), item);
                                     }
@@ -948,8 +823,8 @@ public class PointageSaisieService {
                                     }
                                     dynMap.put(String.valueOf(idInd), item);
                                 } else {
-                                    double mntJour = (double) sInd.get("montantJour");
-                                    double mntGlobal = sInd.get("montantGlobal") != null ? (double) sInd.get("montantGlobal") : mntJour;
+                                    BigDecimal mntJour = (BigDecimal) sInd.get("montantJour");
+                                    BigDecimal mntGlobal = sInd.get("montantGlobal") != null ? (BigDecimal) sInd.get("montantGlobal") : mntJour;
                                     boolean useGlobal = Boolean.TRUE.equals(sInd.get("useGlobalIfZero"));
                                     boolean cocheParDefaut = !Boolean.FALSE.equals(sInd.get("cocheParDefaut"));
                                     boolean acc = !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour) && cocheParDefaut;
@@ -1017,8 +892,8 @@ public class PointageSaisieService {
 
                             for (Map<String, Object> sInd : siteIndemnites) {
                                 int idInd = (int) sInd.get("idIndemnite");
-                                double mntJour = (double) sInd.get("montantJour");
-                                double mntGlobal = sInd.get("montantGlobal") != null ? (double) sInd.get("montantGlobal") : mntJour;
+                                BigDecimal mntJour = (BigDecimal) sInd.get("montantJour");
+                                BigDecimal mntGlobal = sInd.get("montantGlobal") != null ? (BigDecimal) sInd.get("montantGlobal") : mntJour;
                                 boolean useGlobal = Boolean.TRUE.equals(sInd.get("useGlobalIfZero"));
                                 boolean cocheParDefaut = !Boolean.FALSE.equals(sInd.get("cocheParDefaut"));
                                 boolean estExclu = exclusionsIndemnites.contains(idInd);
@@ -1201,14 +1076,14 @@ public class PointageSaisieService {
 
         Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMap(c);
         boolean actif2eRepas1 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_1", true);
-        double mntRepas1 = actif2eRepas1 ? ParametreGlobal.getDouble(etatMap, "MONTANT_2ND_REPAS_1", 2000.0, 0.0) : 0.0;
+        BigDecimal mntRepas1 = actif2eRepas1 ? ParametreGlobal.getBigDecimal(etatMap, "MONTANT_2ND_REPAS_1", new BigDecimal("2000"), BigDecimal.ZERO) : BigDecimal.ZERO;
         String seuilRepas1 = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_1", "19:30", "23:59");
 
         boolean actif2eRepas2 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_2", true);
-        double mntRepas2 = actif2eRepas2 ? ParametreGlobal.getDouble(etatMap, "MONTANT_2ND_REPAS_2", 4000.0, 0.0) : 0.0;
+        BigDecimal mntRepas2 = actif2eRepas2 ? ParametreGlobal.getBigDecimal(etatMap, "MONTANT_2ND_REPAS_2", new BigDecimal("4000"), BigDecimal.ZERO) : BigDecimal.ZERO;
         String seuilRepas2 = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_2", "21:00", "23:59");
 
-        double mntRepasMidi = ParametreGlobal.getDouble(etatMap, "MONTANT_REPAS_MIDI", 2000.0, 2000.0);
+        BigDecimal mntRepasMidi = ParametreGlobal.getBigDecimal(etatMap, "MONTANT_REPAS_MIDI", new BigDecimal("2000"), new BigDecimal("2000"));
         String debutNuitStr = ParametreGlobal.getString(etatMap, "SEUIL_NUIT_DEBUT", "22:00", "22:00");
         String finNuitStr = ParametreGlobal.getString(etatMap, "SEUIL_NUIT_FIN", "05:00", "05:00");
         LocalTime debutNuit = LocalTime.parse(debutNuitStr.length() == 5 ? debutNuitStr : debutNuitStr.substring(0, 5));
@@ -1282,16 +1157,20 @@ public class PointageSaisieService {
         } catch (Exception ignored) {}
 
         Map<String, String> paramsGlobauxBatch = ParametreGlobal.loadActiveMap(c);
-        double reductionDeplactRepasConfig = ParametreGlobal.getDouble(paramsGlobauxBatch, "REDUCTION_DEPLACT_REPAS_MIDI", 1000.0);
+        BigDecimal reductionDeplactRepasConfig = ParametreGlobal.getBigDecimal(paramsGlobauxBatch, "REDUCTION_DEPLACT_REPAS_MIDI", new BigDecimal("1000"));
 
-        Map<Integer, Double> siteDeplacementJourMap = new HashMap<>();
+        Map<Integer, BigDecimal> siteDeplacementJourMap = new HashMap<>();
         String sqlSiteDep = "SELECT c.id_site, c.montant_reference FROM site_indemnite_config c " +
                             "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
                             "WHERE i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE";
         try (PreparedStatement psSD = c.prepareStatement(sqlSiteDep);
              ResultSet rsSD = psSD.executeQuery()) {
             while (rsSD.next()) {
-                siteDeplacementJourMap.put(rsSD.getInt("id_site"), rsSD.getDouble("montant_reference") / 22.0);
+                int jours = CalendrierOuvrableEngine.calculerJoursOuvrables(
+                        LocalDate.now().withDayOfMonth(1), LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()));
+                if (jours <= 0) throw new IllegalStateException("MISSING_WORKING_CALENDAR");
+                siteDeplacementJourMap.put(rsSD.getInt("id_site"), MoneyRoundingPolicy.amount(
+                        zeroIfNull(rsSD.getBigDecimal("montant_reference")).divide(BigDecimal.valueOf(jours), 8, java.math.RoundingMode.HALF_UP)));
             }
         } catch (Exception ignored) {}
 
@@ -1308,8 +1187,7 @@ public class PointageSaisieService {
                 }
 
                 int idSiteRow = dto.getIdSite() != null ? dto.getIdSite() : 1;
-                double refMoisJour = siteDeplacementJourMap.getOrDefault(idSiteRow, 0.0);
-                double montantDeplacementJour = Math.round(refMoisJour * 100.0) / 100.0;
+                BigDecimal montantDeplacementJour = siteDeplacementJourMap.getOrDefault(idSiteRow, BigDecimal.ZERO);
                 Date dtPtg = Date.valueOf(dto.getDatePointage());
 
                 // 1. Contrôle P0-1 : Éligibilité stricte au pointage à l'écriture (Employé actif + Contrat ACTIF + Affectation ACTIVE sur le site)
@@ -1360,7 +1238,7 @@ public class PointageSaisieService {
                 /*
                 LocalTime ltPlafondSite = sH.length > 4 ? sH[4] : null;
                 LocalTime ltEmEcrete = (em != null && ltPlafondSite != null)
-                        ? CALCULATEUR_ENGINE.ecreterArriveeAuPlafond(em.toLocalTime(), ltPlafondSite)
+                        ? em.toLocalTime()
                         : (em != null ? em.toLocalTime() : null);
                 Time emEffectif = ltEmEcrete != null ? Time.valueOf(ltEmEcrete) : em;
                 */
@@ -1368,76 +1246,32 @@ public class PointageSaisieService {
                 // =========================================================================
 
                 boolean isJourneeContinue = dto.isHoraireContinu();
-                boolean isPauseAuto = (!isJourneeContinue && em != null && sa != null && sm == null && ea == null);
-                double hMatin;
-                double hAm;
-
-                if (isJourneeContinue) {
-                    // Journée continue (sans pause méridienne) : calcul direct entrée -> sortie
-                    hMatin = calcHours(emEffectif, sa);
-                    hAm = 0.0;
-                } else if (isPauseAuto) {
-                    Time smEff = Time.valueOf(siteFinM);
-                    Time eaEff = Time.valueOf(siteDebA);
-                    hMatin = calcHours(emEffectif, smEff);
-                    hAm = calcHours(eaEff, sa);
-                } else {
-                    hMatin = calcHours(emEffectif, sm);
-                    hAm = calcHours(ea, sa);
-                }
-
-                double totalH = hMatin + hAm;
-                double hNuit = calcHeuresNuit(sa, debutNuit, finNuit);
-
-                // Calcul du retard précis et juste selon le site
-                int retMatin = calcMinutesRetard(em, siteDebM);
-                int retAm = 0;
-                if (!isJourneeContinue && !isPauseAuto && ea != null) {
-                    if (sm != null && siteDebA.isAfter(siteFinM)) {
-                        long pauseTheorique = Duration.between(siteFinM, siteDebA).toMinutes();
-                        LocalTime ltSm = sm.toLocalTime();
-                        LocalTime ltEa = ea.toLocalTime();
-                        if (ltSm.isAfter(siteFinM) && ltEa.isAfter(ltSm)) {
-                            long pauseReelle = Duration.between(ltSm, ltEa).toMinutes();
-                            retAm = (int) Math.max(0, pauseReelle - pauseTheorique);
-                        } else {
-                            retAm = calcMinutesRetard(ea, siteDebA);
-                        }
-                    } else {
-                        retAm = calcMinutesRetard(ea, siteDebA);
-                    }
-                }
-
-                boolean isExemptRetard = dto.isFerieJour() || "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour()) || dto.isEstAutonome();
-                int retMins = isExemptRetard ? 0 : (retMatin + retAm);
-
                 LocalDate datePtg = null;
                 try {
                     if (dto.getDatePointage() != null) datePtg = LocalDate.parse(dto.getDatePointage());
                 } catch (Exception ignored) {}
-
                 boolean isWeekendPtg = (datePtg != null && CalendrierOuvrableEngine.isWeekend(datePtg));
+                DailyAttendanceContext.LeavePart leavePart = parseLeavePart(dto.getTypeCongeJour());
+                DailyAttendanceResult dailyResult = dailyAttendanceCalculator.calculateDay(new DailyAttendanceContext(
+                        dto.getIdEmploye(), datePtg,
+                        toLocalTime(emEffectif), toLocalTime(sm), toLocalTime(ea), toLocalTime(sa),
+                        siteDebM, siteFinM, siteDebA, siteFinA, debutNuit, finNuit,
+                        isJourneeContinue, dto.isEstAutonome(), dto.isFerieJour(), leavePart,
+                        false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false));
 
-                if ("FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) {
-                    totalH = 0.0;
-                } else if (dto.isFerieJour() && em == null && sm == null && ea == null && sa == null) {
-                    totalH = 0.0;
-                } else if (dto.isEstAutonome() && em == null && sm == null && ea == null && sa == null) {
-                    totalH = isWeekendPtg ? 0.0 : 8.0;
-                }
+                double hMatin = minutesToStorageHours(dailyResult.morningMinutes());
+                double hAm = minutesToStorageHours(dailyResult.afternoonMinutes());
+                double totalH = minutesToStorageHours(dailyResult.workedMinutes());
+                double hNuit = minutesToStorageHours(dailyResult.nightMinutes());
+                int retMins = Math.toIntExact(dailyResult.lateMinutes());
 
                 // Calcul dynamique du montant repas (déjeuner + extra soirée) via moteur
-                double mntRepasJour = 0.0;
+                BigDecimal mntRepasJour = BigDecimal.ZERO;
                 if (dto.isIndemniteRepasRecue() && !"FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour()) && !dto.isFerieJour()) {
-                    mntRepasJour = CALCULATEUR_ENGINE.calculerTotalRepasJour(
-                            true,
-                            mntRepasMidi,
-                            sa != null ? sa.toLocalTime() : null,
-                            LocalTime.parse(seuilRepas1),
-                            mntRepas1,
-                            LocalTime.parse(seuilRepas2),
-                            mntRepas2
-                    );
+                    mntRepasJour = dailyAttendanceCalculator.calculateMealAmount(
+                            true, mntRepasMidi, sa != null ? sa.toLocalTime() : null,
+                            LocalTime.parse(seuilRepas1), mntRepas1,
+                            LocalTime.parse(seuilRepas2), mntRepas2);
                 }
 
                 Integer idIndDep = idIndemniteByCode.get("DEPLACEMENT");
@@ -1471,14 +1305,11 @@ public class PointageSaisieService {
 
                 String codeStatut = dto.getCodeStatut();
                 if (codeStatut == null || codeStatut.isEmpty() || "NON_SAISI".equals(codeStatut)) {
-                    codeStatut = determinerStatutJour(
-                            datePtg,
-                            dto.isFerieJour(), dto.getTypeCongeJour(),
-                            dto.isCongePaye(), dto.isCongeDecompteSolde(),
-                            dto.isEstAutonome(),
-                            em, sm, ea, sa, retMins, false,
-                            dto.getMotifAjustement()
-                    );
+                    codeStatut = toPersistenceStatus(dailyResult, dto);
+                    if (datePtg != null && datePtg.getDayOfWeek() == DayOfWeek.SATURDAY
+                            && dailyResult.workedMinutes() > 0) {
+                        codeStatut = "SAMEDI_TRAVAILLE";
+                    }
                 } else if (dto.getTypeCongeJour() != null && "FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) {
                     // Sécurisation stricte côté serveur : si congé non payé, forcer ABSENCE_JUSTIFIEE
                     if (!dto.isCongePaye()) {
@@ -1521,19 +1352,16 @@ public class PointageSaisieService {
                     depM = false;
                     depA = false;
                     depRecue = false;
-                    mntRepasJour = 0.0;
+                    mntRepasJour = BigDecimal.ZERO;
                 }
 
                 boolean siteEstContinu = siteHoraireContinuMap.getOrDefault(idSiteRow, true);
-                double fractionDep = (depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0);
-                boolean doitReduireTransport = (!siteEstContinu && (isJourneeContinue || (dto.isIndemniteRepasRecue() && mntRepasJour > 0.0)));
-                double mntDepJour = CALCULATEUR_ENGINE.calculerDeplacementJour(
-                        fractionDep,
-                        montantDeplacementJour,
-                        doitReduireTransport,
-                        reductionDeplactRepasConfig
-                );
-                mntDepJour = Math.round(mntDepJour * 100.0) / 100.0;
+                BigDecimal fractionDep = (depM ? new BigDecimal("0.5") : BigDecimal.ZERO)
+                        .add(depA ? new BigDecimal("0.5") : BigDecimal.ZERO);
+                boolean doitReduireTransport = (!siteEstContinu && (isJourneeContinue || (dto.isIndemniteRepasRecue() && mntRepasJour.signum() > 0)));
+                BigDecimal mntDepJour = MoneyRoundingPolicy.amount(dailyAttendanceCalculator.calculateTravelAmount(
+                        fractionDep, montantDeplacementJour,
+                        doitReduireTransport, reductionDeplactRepasConfig));
 
                 int idPtg;
                 if (existingIdPointage != null) {
@@ -1547,7 +1375,8 @@ public class PointageSaisieService {
                                 + " (version attendue: " + currentDbVersion + ", version fournie: " + dto.getVersion() + "). Veuillez recharger la grille.");
                     }
 
-                    double mntTotalInd = (dto.isIndemniteRepasRecue() ? mntRepasJour : 0.0) + (depRecue ? mntDepJour : 0.0);
+                    BigDecimal mntTotalInd = (dto.isIndemniteRepasRecue() ? mntRepasJour : BigDecimal.ZERO)
+                            .add(depRecue ? mntDepJour : BigDecimal.ZERO);
                     psUp.setTime(1, em);
                     psUp.setTime(2, sm);
                     psUp.setTime(3, ea);
@@ -1559,7 +1388,7 @@ public class PointageSaisieService {
                     psUp.setDouble(9, hNuit);
                     psUp.setString(10, dto.getMotifAjustement());
                     psUp.setString(11, codeStatut);
-                    psUp.setDouble(12, mntTotalInd);
+                    psUp.setBigDecimal(12, mntTotalInd);
                     psUp.setBoolean(13, dto.isHoraireContinu());
                     psUp.setInt(14, existingIdPointage);
                     psUp.setInt(15, dto.getVersion());
@@ -1581,7 +1410,8 @@ public class PointageSaisieService {
                         continue;
                     }
 
-                    double mntTotalInd = (dto.isIndemniteRepasRecue() ? mntRepasJour : 0.0) + (depRecue ? mntDepJour : 0.0);
+                    BigDecimal mntTotalInd = (dto.isIndemniteRepasRecue() ? mntRepasJour : BigDecimal.ZERO)
+                            .add(depRecue ? mntDepJour : BigDecimal.ZERO);
                     psIns.setInt(1, dto.getIdEmploye());
                     psIns.setDate(2, Date.valueOf(dto.getDatePointage()));
                     psIns.setObject(3, idPer);
@@ -1597,7 +1427,7 @@ public class PointageSaisieService {
                     psIns.setDouble(13, hNuit);
                     psIns.setString(14, dto.getMotifAjustement());
                     psIns.setString(15, codeStatut);
-                    psIns.setDouble(16, mntTotalInd);
+                    psIns.setBigDecimal(16, mntTotalInd);
                     psIns.setBoolean(17, dto.isHoraireContinu());
 
                     try (ResultSet rsIns = psIns.executeQuery()) {
@@ -1620,22 +1450,25 @@ public class PointageSaisieService {
                     psDyn.setInt(1, idPtg);
                     psDyn.setInt(2, idIndRepas);
                     psDyn.setString(3, "JOUR_ENTIER");
-                    psDyn.setDouble(4, repasAccorde ? 1.0 : 0.0);
-                    psDyn.setDouble(5, repasAccorde ? mntRepasJour : 0.0);
+                    psDyn.setBigDecimal(4, repasAccorde ? BigDecimal.ONE : BigDecimal.ZERO);
+                    psDyn.setBigDecimal(5, repasAccorde ? mntRepasJour : BigDecimal.ZERO);
                     psDyn.setBoolean(6, repasAccorde);
                     psDyn.executeUpdate();
                 }
 
                 if (idIndDep != null) {
                     boolean depAccorde = !estNonTravaille && depRecue;
-                    double qteDep = depAccorde ? ((depM ? 0.5 : 0.0) + (depA ? 0.5 : 0.0)) : 0.0;
-                    double mntDep = depAccorde ? mntDepJour : 0.0;
+                    BigDecimal qteDep = depAccorde
+                            ? (depM ? new BigDecimal("0.5") : BigDecimal.ZERO)
+                                    .add(depA ? new BigDecimal("0.5") : BigDecimal.ZERO)
+                            : BigDecimal.ZERO;
+                    BigDecimal mntDep = depAccorde ? mntDepJour : BigDecimal.ZERO;
                     String fracDep = (depM && depA) ? "JOUR_ENTIER" : (depM ? "MATIN" : (depA ? "APRES_MIDI" : "JOUR_ENTIER"));
                     psDyn.setInt(1, idPtg);
                     psDyn.setInt(2, idIndDep);
                     psDyn.setString(3, fracDep);
-                    psDyn.setDouble(4, qteDep);
-                    psDyn.setDouble(5, mntDep);
+                    psDyn.setBigDecimal(4, qteDep);
+                    psDyn.setBigDecimal(5, mntDep);
                     psDyn.setBoolean(6, depAccorde);
                     psDyn.executeUpdate();
                 }
@@ -1649,15 +1482,17 @@ public class PointageSaisieService {
                         }
                         if (entry.getValue() instanceof Map<?, ?> vals) {
                             boolean acc = !estNonTravaille && Boolean.TRUE.equals(vals.get("accordee"));
-                            double mnt = estNonTravaille ? 0.0 : (vals.get("montantApplique") != null ? Double.parseDouble(vals.get("montantApplique").toString()) : 0.0);
-                            double fracQte = estNonTravaille ? 0.0 : (vals.get("fractionJour") != null ? Double.parseDouble(vals.get("fractionJour").toString()) : (acc ? 1.0 : 0.0));
+                            BigDecimal mnt = estNonTravaille ? BigDecimal.ZERO
+                                    : (vals.get("montantApplique") != null ? new BigDecimal(vals.get("montantApplique").toString()) : BigDecimal.ZERO);
+                            BigDecimal fracQte = estNonTravaille ? BigDecimal.ZERO
+                                    : (vals.get("fractionJour") != null ? new BigDecimal(vals.get("fractionJour").toString()) : (acc ? BigDecimal.ONE : BigDecimal.ZERO));
                             String fracStr = (vals.get("fraction") != null && !vals.get("fraction").toString().isBlank()) ? vals.get("fraction").toString() : "JOUR_ENTIER";
 
                             psDyn.setInt(1, idPtg);
                             psDyn.setInt(2, idInd);
                             psDyn.setString(3, fracStr);
-                            psDyn.setDouble(4, fracQte);
-                            psDyn.setDouble(5, mnt);
+                            psDyn.setBigDecimal(4, fracQte);
+                            psDyn.setBigDecimal(5, mnt);
                             psDyn.setBoolean(6, acc);
                             psDyn.executeUpdate();
                         }
@@ -1705,6 +1540,10 @@ public class PointageSaisieService {
      * Gère les transitions successives : si une ancienne affectation a une date_fin NULL,
      * sa date de fin effective est automatiquement déduite comme étant la veille de l'affectation suivante.
      */
+    private static BigDecimal zeroIfNull(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
     public static AffCandidat trouverAffectationApplicable(List<AffCandidat> affs, LocalDate targetDate) {
         if (affs == null || affs.isEmpty()) return null;
 

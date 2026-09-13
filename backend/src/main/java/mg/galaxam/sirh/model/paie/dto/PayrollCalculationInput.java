@@ -8,12 +8,14 @@ import java.util.List;
 import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
 import mg.galaxam.sirh.model.paie.PaiePretEcheance;
 import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
-import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.TrancheIrsa;
+import mg.galaxam.sirh.model.paie.engine.IrsaCalculator;
 
 /**
  * Objet d'entrée complet et immuable pour le calcul déterministe d'un bulletin de paie.
  */
 public class PayrollCalculationInput {
+
+    private PayrollAttendanceInput attendanceInput;
 
     // 1. Employé & Carrière
     private Integer idEmploye;
@@ -41,6 +43,8 @@ public class PayrollCalculationInput {
 
     // 2. Période & Rémunération de base
     private Integer idPeriodePaie;
+    private Integer idConfigLegale;
+    private String typeBulletin = "MENSUEL";
     private String codePeriode;
     private Date dateDebutPeriode;
     private Date dateFinPeriode;
@@ -49,7 +53,7 @@ public class PayrollCalculationInput {
     private BigDecimal tauxHoraire;
 
     // 3. Pointage scellé & Décompte temps
-    private BigDecimal nbJoursOuvrables = new BigDecimal("22.0");
+    private BigDecimal nbJoursOuvrables;
     private BigDecimal nbJoursPresents = BigDecimal.ZERO;
     private BigDecimal nbJoursAbsence = BigDecimal.ZERO;
     private BigDecimal nbJoursConges = BigDecimal.ZERO;
@@ -84,16 +88,39 @@ public class PayrollCalculationInput {
     private BigDecimal minimumPerceptionIrsa = new BigDecimal("3000.00");
     private BigDecimal deductionParEnfant = new BigDecimal("2000.00");
     private BigDecimal seuilExonerationIrsa = new BigDecimal("350000.00");
-    private List<TrancheIrsa> tranchesIrsa = new ArrayList<>();
-    private BigDecimal tauxIsi = new BigDecimal("5.00");
+    private List<IrsaCalculator.Tranche> tranchesIrsa = new ArrayList<>();
+    private BigDecimal tauxIsi;
+    // Majorations résolues par l'orchestrateur depuis ref_taux_majoration.
+    private BigDecimal majorationHs30 = new BigDecimal("0.30");
+    private BigDecimal majorationHs50 = new BigDecimal("0.50");
+    private BigDecimal majorationNuit = new BigDecimal("0.30");
+    private BigDecimal majorationFerie = BigDecimal.ZERO;
+
+    public BigDecimal getMajorationHs30() { return majorationHs30; }
+    public void setMajorationHs30(BigDecimal v) { this.majorationHs30 = v; }
+    public BigDecimal getMajorationHs50() { return majorationHs50; }
+    public void setMajorationHs50(BigDecimal v) { this.majorationHs50 = v; }
+    public BigDecimal getMajorationNuit() { return majorationNuit; }
+    public void setMajorationNuit(BigDecimal v) { this.majorationNuit = v; }
+    public BigDecimal getMajorationFerie() { return majorationFerie; }
+    public void setMajorationFerie(BigDecimal v) { this.majorationFerie = v; }
 
     // 7. Cotisations sociales (Taux légaux et régionaux)
     private String codeSanteOrgane = "OSTIE";
-    private double tauxCnapsSalarial = 0.01;
-    private double tauxCnapsPatronal = 0.13;
-    private double tauxSanteSalarial = 0.01; // OSTIE 1% (TNR) ou OMSI 1.5% (TMM)
-    private double tauxSantePatronal = 0.05; // OSTIE 5% (TNR) ou OMSI 5.5% (TMM)
-    private double tauxFmfpPatronal = 0.01;  // FMFP 1% patronal
+    // Valeurs d'initialisation historiques conservées pour les constructions unitaires;
+    // les flux applicatifs les remplacent obligatoirement par la configuration datée.
+    private BigDecimal tauxCnapsSalarial = new BigDecimal("0.01");
+    private BigDecimal tauxCnapsPatronal = new BigDecimal("0.13");
+    private BigDecimal tauxSanteSalarial = new BigDecimal("0.01");
+    private BigDecimal tauxSantePatronal = new BigDecimal("0.05");
+    private BigDecimal tauxFmfpPatronal = new BigDecimal("0.01");
+
+    /** Représentation financière exacte utilisée par les calculateurs modernes. */
+    public BigDecimal getTauxCnapsSalarialDecimal() { return tauxCnapsSalarial; }
+    public BigDecimal getTauxCnapsPatronalDecimal() { return tauxCnapsPatronal; }
+    public BigDecimal getTauxSanteSalarialDecimal() { return tauxSanteSalarial; }
+    public BigDecimal getTauxSantePatronalDecimal() { return tauxSantePatronal; }
+    public BigDecimal getTauxFmfpPatronalDecimal() { return tauxFmfpPatronal; }
 
     // 7.1 Régime fiscal et social (piloté par ref_type_intervenant)
     private boolean soumisCnaps = true;
@@ -104,7 +131,58 @@ public class PayrollCalculationInput {
     // 8. Trésorerie & Prêts
     private List<PaieAvanceAcompte> avancesAcomptes = new ArrayList<>();
     private List<Integer> idsMouvementsGains = new ArrayList<>();
+    private List<GainVariable> gainsVariablesDynamiques = new ArrayList<>();
     private PaiePretEcheance echeancePretActive;
+
+    public static class GainVariable {
+        private Integer idAvance;
+        private String code;
+        private String libelle;
+        private BigDecimal montant;
+        private String categorie = "PRIME";
+        private boolean imposable = true;
+        private boolean soumisCotisation = true;
+
+        public GainVariable() {}
+        public GainVariable(Integer idAvance, String code, String libelle, BigDecimal montant,
+                            String categorie, boolean imposable, boolean soumisCotisation) {
+            this.idAvance = idAvance;
+            this.code = code;
+            this.libelle = libelle;
+            this.montant = montant;
+            this.categorie = categorie;
+            this.imposable = imposable;
+            this.soumisCotisation = soumisCotisation;
+        }
+
+        public Integer getIdAvance() { return idAvance; }
+        public void setIdAvance(Integer idAvance) { this.idAvance = idAvance; }
+        public String getCode() { return code; }
+        public void setCode(String code) { this.code = code; }
+        public String getLibelle() { return libelle; }
+        public void setLibelle(String libelle) { this.libelle = libelle; }
+        public BigDecimal getMontant() { return montant; }
+        public void setMontant(BigDecimal montant) { this.montant = montant; }
+        public String getCategorie() { return categorie; }
+        public void setCategorie(String categorie) { this.categorie = categorie; }
+        public boolean isImposable() { return imposable; }
+        public void setImposable(boolean imposable) { this.imposable = imposable; }
+        public boolean isSoumisCotisation() { return soumisCotisation; }
+        public void setSoumisCotisation(boolean soumisCotisation) { this.soumisCotisation = soumisCotisation; }
+    }
+
+    public List<GainVariable> getGainsVariablesDynamiques() {
+        return gainsVariablesDynamiques;
+    }
+    public void setGainsVariablesDynamiques(List<GainVariable> gainsVariablesDynamiques) {
+        this.gainsVariablesDynamiques = gainsVariablesDynamiques;
+    }
+    public void ajouterGainVariable(GainVariable g) {
+        if (this.gainsVariablesDynamiques == null) {
+            this.gainsVariablesDynamiques = new ArrayList<>();
+        }
+        this.gainsVariablesDynamiques.add(g);
+    }
 
     // 9. Options & Flags
     private boolean entreeSortieEnCoursDeMois = false;
@@ -121,10 +199,38 @@ public class PayrollCalculationInput {
     private BigDecimal heuresJournalieresLegales = new BigDecimal("8.00");
     private int seuilRetardAssiduiteMinutes = 45;
     private int seuilRetardMalusPerformanceMinutes = 70;
+    private BigDecimal seuilCongesMalusPerformanceJours = BigDecimal.ONE;
     private BigDecimal tauxMalusPerformance = new BigDecimal("0.25");
 
     // Constructeur par défaut
     public PayrollCalculationInput() {}
+
+    public PayrollAttendanceInput getAttendanceInput() { return attendanceInput; }
+
+    /** Point d'entrée unique du Pointage : les anciens champs ne sont plus alimentés directement par SQL. */
+    public void setAttendanceInput(PayrollAttendanceInput value) {
+        if (value == null) throw new IllegalArgumentException("Le snapshot Pointage est obligatoire.");
+        if (idEmploye != null && value.employeeId() != idEmploye) {
+            throw new IllegalArgumentException("Le snapshot Pointage appartient à un autre employé.");
+        }
+        if (idPeriodePaie != null && value.payrollPeriodId() != idPeriodePaie) {
+            throw new IllegalArgumentException("Le snapshot Pointage appartient à une autre période.");
+        }
+        this.attendanceInput = value;
+        this.nbJoursOuvrables = value.workingDays();
+        this.nbJoursPresents = value.presentDays();
+        this.nbJoursAbsence = value.absenceDays();
+        this.nbJoursConges = value.leaveDays();
+        this.totalHeuresTravaillees = PayrollAttendanceInput.minutesToHours(value.workedMinutes());
+        this.heuresNormales = this.totalHeuresTravaillees;
+        this.heuresHs30 = PayrollAttendanceInput.minutesToHours(value.overtime30Minutes());
+        this.heuresHs50 = PayrollAttendanceInput.minutesToHours(value.overtime50Minutes());
+        this.heuresNuit = PayrollAttendanceInput.minutesToHours(value.nightMinutes());
+        this.nbHeuresAbsence = PayrollAttendanceInput.minutesToHours(value.unpaidAbsenceMinutes());
+        this.minutesRetard = value.lateMinutes();
+        this.indemniteRepas = value.mealAmount();
+        this.indemniteTransport = value.travelAmount();
+    }
 
     /**
      * Calcule ou retourne le taux horaire de référence (Base / 173.33 ou diviseur configurable).
@@ -365,26 +471,25 @@ public class PayrollCalculationInput {
     public BigDecimal getSeuilExonerationIrsa() { return seuilExonerationIrsa; }
     public void setSeuilExonerationIrsa(BigDecimal seuilExonerationIrsa) { this.seuilExonerationIrsa = seuilExonerationIrsa; }
 
-    public List<TrancheIrsa> getTranchesIrsa() { return tranchesIrsa; }
-    public void setTranchesIrsa(List<TrancheIrsa> tranchesIrsa) { this.tranchesIrsa = tranchesIrsa; }
+    public List<IrsaCalculator.Tranche> getTranchesIrsa() { return tranchesIrsa; }
+    public void setTranchesIrsa(List<IrsaCalculator.Tranche> tranches) {
+        this.tranchesIrsa = new ArrayList<>();
+        if (tranches == null) return;
+        this.tranchesIrsa.addAll(tranches);
+    }
 
     public BigDecimal getTauxIsi() { return tauxIsi; }
     public void setTauxIsi(BigDecimal tauxIsi) { this.tauxIsi = tauxIsi; }
 
-    public double getTauxCnapsSalarial() { return tauxCnapsSalarial; }
-    public void setTauxCnapsSalarial(double tauxCnapsSalarial) { this.tauxCnapsSalarial = tauxCnapsSalarial; }
+    public void setTauxCnapsSalarial(BigDecimal v) { this.tauxCnapsSalarial = v; }
 
-    public double getTauxCnapsPatronal() { return tauxCnapsPatronal; }
-    public void setTauxCnapsPatronal(double tauxCnapsPatronal) { this.tauxCnapsPatronal = tauxCnapsPatronal; }
+    public void setTauxCnapsPatronal(BigDecimal v) { this.tauxCnapsPatronal = v; }
 
-    public double getTauxSanteSalarial() { return tauxSanteSalarial; }
-    public void setTauxSanteSalarial(double tauxSanteSalarial) { this.tauxSanteSalarial = tauxSanteSalarial; }
+    public void setTauxSanteSalarial(BigDecimal v) { this.tauxSanteSalarial = v; }
 
-    public double getTauxSantePatronal() { return tauxSantePatronal; }
-    public void setTauxSantePatronal(double tauxSantePatronal) { this.tauxSantePatronal = tauxSantePatronal; }
+    public void setTauxSantePatronal(BigDecimal v) { this.tauxSantePatronal = v; }
 
-    public double getTauxFmfpPatronal() { return tauxFmfpPatronal; }
-    public void setTauxFmfpPatronal(double tauxFmfpPatronal) { this.tauxFmfpPatronal = tauxFmfpPatronal; }
+    public void setTauxFmfpPatronal(BigDecimal v) { this.tauxFmfpPatronal = v; }
 
     public List<PaieAvanceAcompte> getAvancesAcomptes() { return avancesAcomptes; }
     public void setAvancesAcomptes(List<PaieAvanceAcompte> avancesAcomptes) { this.avancesAcomptes = avancesAcomptes; }
@@ -446,8 +551,17 @@ public class PayrollCalculationInput {
     public int getSeuilRetardMalusPerformanceMinutes() { return seuilRetardMalusPerformanceMinutes; }
     public void setSeuilRetardMalusPerformanceMinutes(int seuilRetardMalusPerformanceMinutes) { this.seuilRetardMalusPerformanceMinutes = seuilRetardMalusPerformanceMinutes; }
 
+    public BigDecimal getSeuilCongesMalusPerformanceJours() { return seuilCongesMalusPerformanceJours; }
+    public void setSeuilCongesMalusPerformanceJours(BigDecimal seuilCongesMalusPerformanceJours) { this.seuilCongesMalusPerformanceJours = seuilCongesMalusPerformanceJours; }
+
     public BigDecimal getTauxMalusPerformance() { return tauxMalusPerformance; }
     public void setTauxMalusPerformance(BigDecimal tauxMalusPerformance) { this.tauxMalusPerformance = tauxMalusPerformance; }
+
+    public Integer getIdConfigLegale() { return idConfigLegale; }
+    public void setIdConfigLegale(Integer idConfigLegale) { this.idConfigLegale = idConfigLegale; }
+
+    public String getTypeBulletin() { return typeBulletin; }
+    public void setTypeBulletin(String typeBulletin) { this.typeBulletin = typeBulletin; }
 
     public BigDecimal getDiviseurMensuelHeures() { return diviseurMensuelHeures; }
     public void setDiviseurMensuelHeures(BigDecimal diviseurMensuelHeures) { this.diviseurMensuelHeures = diviseurMensuelHeures; }

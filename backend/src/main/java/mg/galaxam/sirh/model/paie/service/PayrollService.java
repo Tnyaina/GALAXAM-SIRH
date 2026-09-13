@@ -7,9 +7,11 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,9 +31,14 @@ import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet.ImpactPret;
 import mg.galaxam.sirh.model.paie.dto.PayrollBatchResult;
 import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.model.paie.dto.PayrollAttendanceInput;
 import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
-import mg.galaxam.sirh.model.paieconfig.engine.CalculateurPaieEngine.TrancheIrsa;
+import mg.galaxam.sirh.model.paieconfig.RefTauxMajoration;
+import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
+import mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche;
+import mg.galaxam.sirh.model.paie.engine.IrsaBracketResolver;
+import mg.galaxam.sirh.model.paie.engine.TaxConfigurationResolver;
 
 /**
  * Service d'orchestration de paie.
@@ -57,6 +64,69 @@ public class PayrollService {
         cacheRubriques.clear();
     }
 
+    private void lierBulletinAuSnapshot(Integer bulletinId, PayrollCalculationInput input, Connection c)
+            throws SQLException {
+        if (bulletinId == null || input.getAttendanceInput() == null) return;
+        var attendance = input.getAttendanceInput();
+        String sql = "UPDATE bulletin_paie SET id_snapshot_pointage = ?, version_snapshot_pointage = ? " +
+                "WHERE id_bulletin = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, attendance.snapshotId());
+            ps.setInt(2, attendance.snapshotVersion());
+            ps.setInt(3, bulletinId);
+            if (ps.executeUpdate() != 1) throw new SQLException("Impossible de rattacher le snapshot au bulletin.");
+        }
+        marquerSnapshotConsomme(bulletinId, c);
+    }
+
+    private void verifierBulletinNonObsolete(Integer bulletinId, Connection c) throws Exception {
+        String sql = "SELECT b.id_snapshot_pointage, b.version_snapshot_pointage, b.id_config_legale, " +
+                "b.id_employe, b.id_periode_paie, p.date_fin FROM bulletin_paie b " +
+                "JOIN periode_paie p ON p.id_periode_paie = b.id_periode_paie WHERE b.id_bulletin = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, bulletinId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new IllegalStateException("Bulletin introuvable pendant le contrôle d'obsolescence.");
+                Integer snapshotId = nullableInt(rs, "id_snapshot_pointage");
+                Integer snapshotVersion = nullableInt(rs, "version_snapshot_pointage");
+                if (snapshotId != null) {
+                    String latest = "SELECT id_cumul, version_snapshot FROM pointage_cumul_periode " +
+                            "WHERE id_employe = ? AND id_periode_paie = ? AND statut_snapshot IN ('GELE','CONSOMME') " +
+                            "ORDER BY version_snapshot DESC LIMIT 1";
+                    try (PreparedStatement current = c.prepareStatement(latest)) {
+                        current.setInt(1, rs.getInt("id_employe")); current.setInt(2, rs.getInt("id_periode_paie"));
+                        try (ResultSet now = current.executeQuery()) {
+                            if (!now.next() || now.getInt("id_cumul") != snapshotId
+                                    || now.getInt("version_snapshot") != snapshotVersion) {
+                                throw new IllegalStateException("PAYROLL_RESULT_OBSOLETE: le snapshot Pointage a changé; recalcul explicite requis.");
+                            }
+                        }
+                    }
+                }
+                Integer configId = nullableInt(rs, "id_config_legale");
+                if (configId != null) {
+                    PaieConfigLegale currentConfig = PaieConfigLegale.findActiveAt(c, rs.getDate("date_fin").toLocalDate());
+                    if (currentConfig == null || !configId.equals(currentConfig.getIdConfigLegale())) {
+                        throw new IllegalStateException("PAYROLL_RESULT_OBSOLETE: la configuration légale a changé; recalcul explicite requis.");
+                    }
+                }
+            }
+        }
+    }
+
+    private void marquerSnapshotConsomme(Integer bulletinId, Connection c) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(
+                "UPDATE pointage_cumul_periode SET statut_snapshot = 'CONSOMME' " +
+                "WHERE id_cumul = (SELECT id_snapshot_pointage FROM bulletin_paie WHERE id_bulletin = ?)")) {
+            ps.setInt(1, bulletinId); ps.executeUpdate();
+        }
+    }
+
+    private static Integer nullableInt(ResultSet rs, String column) throws SQLException {
+        int value = rs.getInt(column);
+        return rs.wasNull() ? null : value;
+    }
+
     /**
      * Calcule le bulletin d'un salarié pour une période donnée (transactionnel avec Connection fournie).
      */
@@ -74,6 +144,10 @@ public class PayrollService {
         BulletinPaieComplet complet = payrollExecutionEngine.calculer(input);
         BulletinPaie bp = complet.getBulletin();
 
+        // Les métadonnées techniques et le workflow sont appliqués hors du moteur pur.
+        bp.setStatut(simulation ? "CALCULE" : "VALIDE");
+        bp.setDateCalcul(new Timestamp(System.currentTimeMillis()));
+
         if (idUtilisateur != null) {
             bp.setCalculePar(idUtilisateur);
             if (!simulation) {
@@ -82,11 +156,11 @@ public class PayrollService {
             }
         }
 
-        // 3. Persistance du bulletin et de ses lignes
-        sauvegarderBulletinEtLignes(complet, c);
-
-        // 4. Si validation réelle (hors simulation) : imputation définitive des avances et prêts
+        // La simulation est sans effet de bord. Le même résultat pourra être persisté
+        // explicitement lors d'un calcul réel.
         if (!simulation) {
+            sauvegarderBulletinEtLignes(complet, c);
+            lierBulletinAuSnapshot(bp.getIdBulletin(), input, c);
             imputerAvancesEtPrets(complet, idPeriodePaie, c);
         }
 
@@ -116,13 +190,17 @@ public class PayrollService {
      */
     public PayrollBatchResult calculerPaiePeriode(Integer idPeriodePaie, boolean simulation,
                                                  Integer idUtilisateur, Connection c) throws Exception {
-        String sqlPeriode = "SELECT code FROM periode_paie WHERE id_periode_paie = ?";
+        String sqlPeriode = "SELECT code, date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
         String codePeriode = "PER";
+        Date dateDebutPeriode = null;
+        Date dateFinPeriode = null;
         try (PreparedStatement ps = c.prepareStatement(sqlPeriode)) {
             ps.setInt(1, idPeriodePaie);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     codePeriode = rs.getString("code");
+                    dateDebutPeriode = rs.getDate("date_debut");
+                    dateFinPeriode = rs.getDate("date_fin");
                 }
             }
         }
@@ -132,23 +210,36 @@ public class PayrollService {
         // Liste de tous les intervenants actifs (Permanents, Consultants, Temporaires) recevant un bulletin de paie
         String sqlEmployes = "SELECT DISTINCT e.id_employe, e.matricule FROM employe e " +
                 "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
-                "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
                 "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
                 "LEFT JOIN ref_type_intervenant tri ON ct.id_type_intervenant = tri.id_type_intervenant " +
-                "WHERE e.est_actif = true " +
+                "WHERE eac.date_debut <= ? AND (eac.date_fin IS NULL OR eac.date_fin >= ?) " +
+                "AND (ct.id_contrat IS NULL OR (ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?))) " +
                 "ORDER BY e.matricule ASC";
 
         List<Integer> idsEmployes = new ArrayList<>();
-        try (PreparedStatement ps = c.prepareStatement(sqlEmployes);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                idsEmployes.add(rs.getInt("id_employe"));
+        if (dateDebutPeriode == null || dateFinPeriode == null) {
+            throw new IllegalStateException("La période de paie ne possède pas de bornes de validité.");
+        }
+        try (PreparedStatement ps = c.prepareStatement(sqlEmployes)) {
+            ps.setDate(1, dateFinPeriode);
+            ps.setDate(2, dateDebutPeriode);
+            ps.setDate(3, dateFinPeriode);
+            ps.setDate(4, dateDebutPeriode);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) idsEmployes.add(rs.getInt("id_employe"));
             }
         }
 
         for (Integer idEmp : idsEmployes) {
-            BulletinPaieComplet bpc = calculerBulletinEmploye(idEmp, idPeriodePaie, simulation, idUtilisateur, c);
-            batch.ajouterBulletin(bpc);
+            Savepoint employeeSavepoint = c.getAutoCommit() ? null : c.setSavepoint("payroll_employee_" + idEmp);
+            try {
+                BulletinPaieComplet bpc = calculerBulletinEmploye(idEmp, idPeriodePaie, simulation, idUtilisateur, c);
+                batch.ajouterBulletin(bpc);
+                if (employeeSavepoint != null) c.releaseSavepoint(employeeSavepoint);
+            } catch (Exception employeeFailure) {
+                if (employeeSavepoint != null) c.rollback(employeeSavepoint);
+                batch.ajouterBloque(idEmp, employeeFailure.getMessage());
+            }
         }
 
         // Si validation réelle : génération automatique des bordereaux d'honoraires pour les consultants
@@ -215,7 +306,8 @@ public class PayrollService {
                     hono.setDatePrestation(dateFin != null ? dateFin : new Date(System.currentTimeMillis()));
                     hono.setDatePaiement(dateFin != null ? dateFin : new Date(System.currentTimeMillis()));
                     hono.setMontantBrut(brut != null ? brut : BigDecimal.ZERO);
-                    hono.setTauxIsi(new BigDecimal("5.00"));
+                    BigDecimal tauxIsi = chargerTauxIsiApplicable(c, dateFin != null ? dateFin.toLocalDate() : java.time.LocalDate.now());
+                    hono.setTauxIsi(tauxIsi);
                     hono.setAdresse(adr != null ? adr : "Antananarivo");
                     hono.setCommune(ville != null ? ville : "ANTANANARIVO RENIVOHITRA C.U");
                     hono.calculerMontants();
@@ -230,6 +322,10 @@ public class PayrollService {
             }
         }
         return honoraires;
+    }
+
+    private BigDecimal chargerTauxIsiApplicable(Connection c, java.time.LocalDate date) throws Exception {
+        return TaxConfigurationResolver.resolveIsiRate(date, c);
     }
 
     public List<PaieHonorairePrestation> genererHonorairesPeriode(Integer idPeriodePaie, Integer idUtilisateur) throws Exception {
@@ -273,8 +369,20 @@ public class PayrollService {
 
         for (BulletinPaie b : bulletins) {
             if ("CALCULE".equalsIgnoreCase(b.getStatut())) {
-                BulletinPaieComplet bpc = calculerBulletinEmploye(b.getIdEmploye(), idPeriodePaie, false, idUtilisateur, c);
-                batch.ajouterBulletin(bpc);
+                verifierBulletinNonObsolete(b.getIdBulletin(), c);
+                String sql = "UPDATE bulletin_paie SET statut = 'VALIDE', valide_par = ?, " +
+                        "date_validation = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP " +
+                        "WHERE id_bulletin = ? AND statut = 'CALCULE'";
+                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                    if (idUtilisateur == null) ps.setNull(1, java.sql.Types.INTEGER);
+                    else ps.setInt(1, idUtilisateur);
+                    ps.setInt(2, b.getIdBulletin());
+                    if (ps.executeUpdate() != 1) {
+                        throw new IllegalStateException("Le bulletin " + b.getIdBulletin() + " a changé pendant sa validation.");
+                    }
+                }
+                marquerSnapshotConsomme(b.getIdBulletin(), c);
+                batch.ajouterBulletin(obtenirBulletinComplet(b.getIdBulletin(), c));
             }
         }
         return batch;
@@ -327,6 +435,9 @@ public class PayrollService {
         }
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriodePaie, c);
         for (BulletinPaie bp : bulletins) {
+            if ("STC".equalsIgnoreCase(bp.getTypeBulletin())) {
+                continue; // Un Solde de Tout Compte est libératoire et sanctuarisé : il n'est pas rouvert avec la paie mensuelle
+            }
             bp.rouvrirBulletin(motif, idUtilisateur, c);
         }
 
@@ -394,7 +505,11 @@ public class PayrollService {
             }
         }
 
-        // 2. Employé et Affectation carrière active
+        // 2. Employé et affectation applicables à la fin de la période calculée.
+        Date dateReferenceEmploi = in.getDateFinPeriode();
+        if (dateReferenceEmploi == null) {
+            throw new IllegalStateException("La date de fin de période est obligatoire pour résoudre l'emploi.");
+        }
         String sqlEmploye = "SELECT e.*, " +
                 "eac.salaire_base, eac.date_debut AS affectation_date_debut, " +
                 "s.code_site, s.libelle AS site_nom, " +
@@ -410,7 +525,7 @@ public class PayrollService {
                 "COALESCE(tri.soumis_isi_5, FALSE) AS soumis_isi_5 " +
                 "FROM employe e " +
                 "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
-                "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+                "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh " +
                 "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
                 "LEFT JOIN ref_site s ON eac.id_site = s.id_site " +
                 "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
@@ -419,10 +534,17 @@ public class PayrollService {
                 "LEFT JOIN ref_mode_calcul_paie mcp ON eac.id_mode_calcul_paie = mcp.id_mode_calcul_paie " +
                 "LEFT JOIN ref_filiale fil ON ct.id_filiale = fil.id_filiale " +
                 "LEFT JOIN ref_type_intervenant tri ON ct.id_type_intervenant = tri.id_type_intervenant " +
-                "WHERE e.id_employe = ? AND e.est_actif = TRUE";
+                "WHERE e.id_employe = ? " +
+                "AND eac.date_debut <= ? AND (eac.date_fin IS NULL OR eac.date_fin >= ?) " +
+                "AND (ct.id_contrat IS NULL OR (ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?))) " +
+                "ORDER BY eac.date_debut DESC";
 
         try (PreparedStatement ps = c.prepareStatement(sqlEmploye)) {
             ps.setInt(1, idEmploye);
+            ps.setDate(2, dateReferenceEmploi);
+            ps.setDate(3, dateReferenceEmploi);
+            ps.setDate(4, dateReferenceEmploi);
+            ps.setDate(5, dateReferenceEmploi);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     in.setMatricule(rs.getString("matricule"));
@@ -447,6 +569,10 @@ public class PayrollService {
                     in.setModeCalculPaie(rs.getString("mode_calcul_code") != null ? rs.getString("mode_calcul_code") : "MENSUEL");
                     in.setSalaireBaseContractuel(rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO);
                     in.setDateEmbauche(rs.getDate("date_declaration")); // Ou date affectation initiale
+                    if (rs.next()) {
+                        throw new IllegalStateException("Plusieurs affectations concurrentes sont applicables à l'employé "
+                                + idEmploye + " au " + dateReferenceEmploi + ".");
+                    }
                 } else {
                     throw new IllegalArgumentException("Dossier employé ou affectation active introuvable pour l'id: " + idEmploye);
                 }
@@ -476,38 +602,39 @@ public class PayrollService {
         in.setNbEnfantsEligibles(nbEnfants);
 
         // 5. Compteurs de pointage scellé (pointage_cumul_periode)
-        String sqlCumul = "SELECT * FROM pointage_cumul_periode WHERE id_employe = ? AND id_periode_paie = ?";
+        String sqlCumul = "SELECT * FROM pointage_cumul_periode WHERE id_employe = ? AND id_periode_paie = ? " +
+                "AND statut_snapshot IN ('GELE', 'CONSOMME') ORDER BY version_snapshot DESC LIMIT 1";
         try (PreparedStatement ps = c.prepareStatement(sqlCumul)) {
             ps.setInt(1, idEmploye);
             ps.setInt(2, idPeriodePaie);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    in.setNbJoursOuvrables(rs.getBigDecimal("nb_jours_ouvrables"));
-                    in.setNbJoursPresents(rs.getBigDecimal("nb_jours_presents"));
-                    in.setNbJoursAbsence(rs.getBigDecimal("nb_jours_absence"));
-                    in.setNbJoursConges(rs.getBigDecimal("nb_jours_conge"));
-                    in.setTotalHeuresTravaillees(rs.getBigDecimal("total_heures_travaillees"));
-                    in.setHeuresNormales(rs.getBigDecimal("total_heures_travaillees"));
-                    in.setHeuresHs30(rs.getBigDecimal("heures_hs_30"));
-                    in.setHeuresHs50(rs.getBigDecimal("heures_hs_50"));
-                    in.setHeuresNuit(rs.getBigDecimal("heures_nuit_total"));
-                    in.setIndemniteRepas(rs.getBigDecimal("montant_repas"));
-                    in.setIndemniteTransport(rs.getBigDecimal("montant_deplacement"));
-
                     BigDecimal hAbs = rs.getBigDecimal("heures_absence_retenues");
-                    if (hAbs != null && hAbs.compareTo(BigDecimal.ZERO) > 0) {
-                        in.setNbHeuresAbsence(hAbs);
-                    } else if (in.getNbJoursAbsence() != null && in.getNbJoursAbsence().compareTo(BigDecimal.ZERO) > 0) {
-                        in.setNbHeuresAbsence(in.getNbJoursAbsence().multiply(new BigDecimal("8.0")));
+                    BigDecimal absenceDays = rs.getBigDecimal("nb_jours_absence");
+                    if ((hAbs == null || hAbs.signum() == 0) && absenceDays != null) {
+                        hAbs = absenceDays.multiply(new BigDecimal("8.0"));
                     }
+                    Timestamp frozenTimestamp = rs.getTimestamp("gele_at");
+                    Instant frozenAt = frozenTimestamp == null ? Instant.EPOCH : frozenTimestamp.toInstant();
+                    in.setAttendanceInput(new PayrollAttendanceInput(
+                            rs.getInt("id_cumul"), rs.getInt("version_snapshot"), idEmploye, idPeriodePaie, frozenAt,
+                            PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("total_heures_travaillees")),
+                            PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_30")),
+                            PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_50")),
+                            PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_nuit_total")),
+                            PayrollAttendanceInput.hoursToMinutes(hAbs), rs.getInt("total_minutes_retard"),
+                            rs.getBigDecimal("nb_jours_ouvrables"), rs.getBigDecimal("nb_jours_presents"),
+                            absenceDays, rs.getBigDecimal("nb_jours_conge"), rs.getBigDecimal("nb_jours_repas"),
+                            rs.getBigDecimal("montant_repas"), rs.getBigDecimal("nb_jours_deplacement"),
+                            rs.getBigDecimal("montant_deplacement")));
                     in.setModeCalculAbsence("HEURES_REELLES");
                 } else {
-                    // Fallback si la période de pointage n'a pas encore été gelée (simulation par défaut)
-                    in.setNbJoursOuvrables(new BigDecimal("22.0"));
-                    in.setNbJoursPresents(new BigDecimal("22.0"));
-                    in.setTotalHeuresTravaillees(PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES);
-                    in.setHeuresNormales(PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES);
-                    in.setModeCalculAbsence("HEURES_REELLES");
+                    if (!simulation) {
+                        throw new IllegalStateException("Le pointage de la période n'a pas encore été validé et gelé. Calcul réel impossible pour l'employé " + (in.getMatricule() != null ? in.getMatricule() : idEmploye) + ".");
+                    }
+                    // Une simulation sans snapshot ne doit pas inventer un calendrier
+                    // conventionnel : le contexte est explicitement incomplet.
+                    throw new IllegalStateException("MISSING_ATTENDANCE_SNAPSHOT: aucun snapshot Pointage applicable");
                 }
             }
         }
@@ -524,9 +651,14 @@ public class PayrollService {
         // 7. Variables de paie, Primes, Extras et Retenues (paie_avance_acompte & ref_type_mouvement_paie)
         String sqlMouvements = "SELECT paa.*, " +
                 "COALESCE(rtmp.code, paa.type_mouvement) AS code_effectif, " +
-                "COALESCE(rtmp.sens, paa.sens) AS sens_effectif " +
+                "COALESCE(rtmp.sens, paa.sens) AS sens_effectif, " +
+                "rtmp.libelle AS libelle_type, " +
+                "COALESCE(rtmp.categorie, 'PRIME') AS categorie_type, " +
+                "COALESCE(pr.soumis_irsa, TRUE) AS est_imposable, " +
+                "COALESCE(pr.soumis_cnaps, TRUE) AS est_soumis_cotisation " +
                 "FROM paie_avance_acompte paa " +
                 "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement " +
+                "LEFT JOIN paie_rubrique pr ON rtmp.id_rubrique = pr.id_rubrique " +
                 "WHERE paa.id_employe = ? AND (paa.id_periode_paie = ? OR paa.id_periode_paie IS NULL) " +
                 "AND paa.statut IN ('EN_ATTENTE', 'APPROUVE')";
 
@@ -568,6 +700,17 @@ public class PayrollService {
                             if (motif != null && !motif.isBlank()) {
                                 in.setMotifRegularisationPaie(motif);
                             }
+                        } else {
+                            // Variable / Prime dynamique configurée en base de données
+                            String libelleType = rs.getString("libelle_type");
+                            String catType = rs.getString("categorie_type");
+                            boolean imposable = rs.getBoolean("est_imposable");
+                            boolean soumisCotis = rs.getBoolean("est_soumis_cotisation");
+                            String libelleFinal = motif != null && !motif.isBlank() ? motif : (libelleType != null ? libelleType : codeType);
+
+                            PayrollCalculationInput.GainVariable gv = new PayrollCalculationInput.GainVariable(
+                                    idAvance, codeType, libelleFinal, montant, catType, imposable, soumisCotis);
+                            in.ajouterGainVariable(gv);
                         }
                     } else {
                         // RETENUE (ACOMPTE_15, AVANCE_SPECIALE, CALL_PERSO, RETENUE_DIVERSE)
@@ -620,56 +763,36 @@ public class PayrollService {
                 ? in.getDateFinPeriode().toLocalDate()
                 : java.time.LocalDate.now();
         PaieConfigLegale cfg = PaieConfigLegale.findActiveAt(c, dateRef);
-        int idConfig = 0;
-        if (cfg != null) {
-            idConfig = cfg.getIdConfigLegale();
-            in.setSmeNational(cfg.getSmeNational());
-            in.setMinimumPerceptionIrsa(cfg.getMinimumPerceptionIrsa());
-            in.setDeductionParEnfant(cfg.getDeductionChargeFamille());
-            if (cfg.getDiviseurMensuelHeures() != null && cfg.getDiviseurMensuelHeures().compareTo(BigDecimal.ZERO) > 0) {
-                in.setDiviseurMensuelHeures(cfg.getDiviseurMensuelHeures());
-            }
-        } else {
-            String sqlConfig = "SELECT * FROM paie_config_legale ORDER BY date_debut DESC LIMIT 1";
-            try (PreparedStatement ps = c.prepareStatement(sqlConfig);
-                 ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    idConfig = rs.getInt("id_config_legale");
-                    in.setSmeNational(rs.getBigDecimal("sme_national"));
-                    in.setMinimumPerceptionIrsa(rs.getBigDecimal("minimum_perception_irsa"));
-                    in.setDeductionParEnfant(rs.getBigDecimal("deduction_charge_famille"));
-                    BigDecimal diviseur = rs.getBigDecimal("diviseur_mensuel_heures");
-                    if (diviseur != null && diviseur.compareTo(BigDecimal.ZERO) > 0) {
-                        in.setDiviseurMensuelHeures(diviseur);
-                    }
-                } else {
-                    throw new IllegalStateException("Aucune configuration légale active trouvée dans paie_config_legale");
-                }
-            }
+        if (cfg == null) {
+            throw new IllegalStateException("Aucune configuration légale applicable à la date du " + dateRef + ".");
+        }
+        int idConfig = cfg.getIdConfigLegale();
+        in.setSmeNational(cfg.getSmeNational());
+        in.setMinimumPerceptionIrsa(cfg.getMinimumPerceptionIrsa());
+        in.setDeductionParEnfant(cfg.getDeductionChargeFamille());
+        if (cfg.getDiviseurMensuelHeures() != null && cfg.getDiviseurMensuelHeures().compareTo(BigDecimal.ZERO) > 0) {
+            in.setDiviseurMensuelHeures(cfg.getDiviseurMensuelHeures());
+        }
+
+        in.setIdConfigLegale(idConfig);
+        if (in.isSoumisIsi5()) {
+            in.setTauxIsi(TaxConfigurationResolver.resolveIsiRate(dateRef, c));
+        }
+
+        // Les majorations sont résolues une seule fois, avant le calcul pur.
+        try {
+            java.time.LocalDate d = dateRef;
+            in.setMajorationHs30(RefTauxMajoration.resolveApplicable(idConfig, "HS_30", d, c).getTaux());
+            in.setMajorationHs50(RefTauxMajoration.resolveApplicable(idConfig, "HS_50", d, c).getTaux());
+            in.setMajorationNuit(RefTauxMajoration.resolveApplicable(idConfig, "NUIT", d, c).getTaux());
+            RefTauxMajoration ferie = RefTauxMajoration.resolveApplicable(idConfig, "FERIE", d, c);
+            in.setMajorationFerie(ferie.getTaux());
+        } catch (IllegalStateException ex) {
+            throw new IllegalStateException("Configuration de majoration incomplète pour " + dateRef + ": " + ex.getMessage(), ex);
         }
 
         // Tranches IRSA
-        String sqlTranches = "SELECT tranche_min, tranche_max, taux FROM bareme_irsa " +
-                "WHERE id_config_legale = ? ORDER BY numero_tranche ASC";
-
-        List<TrancheIrsa> tranches = new ArrayList<>();
-        try (PreparedStatement ps = c.prepareStatement(sqlTranches)) {
-            ps.setInt(1, idConfig);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    tranches.add(new TrancheIrsa(
-                            rs.getBigDecimal("tranche_min"),
-                            rs.getBigDecimal("tranche_max"),
-                            rs.getDouble("taux")
-                    ));
-                }
-            }
-        }
-
-        if (tranches.isEmpty()) {
-            throw new IllegalStateException("Aucune tranche IRSA active trouvée en base. Vérifier la configuration paie_config_legale / bareme_irsa pour id_config=" + idConfig);
-        }
-        in.setTranchesIrsa(tranches);
+        in.setTranchesIrsa(IrsaBracketResolver.resolve(idConfig, dateRef, c));
 
         // Paramètres Santé & Cotisations selon site (depuis site_cotisation)
         String sqlCotisSante = "SELECT tc.code, tc.taux_salarial, tc.taux_patronal, sc.est_plafonne_sante " +
@@ -684,17 +807,21 @@ public class PayrollService {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     in.setCodeSanteOrgane(rs.getString("code"));
-                    in.setTauxSanteSalarial(rs.getDouble("taux_salarial") / 100.0);
-                    in.setTauxSantePatronal(rs.getDouble("taux_patronal") / 100.0);
+                    BigDecimal tauxSalPct = rs.getBigDecimal("taux_salarial");
+                    BigDecimal tauxPatPct = rs.getBigDecimal("taux_patronal");
+                    in.setTauxSanteSalarial(tauxSalPct == null ? null : tauxSalPct.movePointLeft(2));
+                    in.setTauxSantePatronal(tauxPatPct == null ? null : tauxPatPct.movePointLeft(2));
                     in.setEstPlafonneSante(rs.getBoolean("est_plafonne_sante"));
                     santeFound = true;
                 }
             }
         }
         if (!santeFound) {
+            // Compatibilité des environnements ne possédant pas encore la table de configuration;
+            // le domaine reçoit néanmoins des BigDecimal, jamais un double.
             in.setCodeSanteOrgane("OSTIE");
-            in.setTauxSanteSalarial(0.01);
-            in.setTauxSantePatronal(0.05);
+            in.setTauxSanteSalarial(new BigDecimal("0.01"));
+            in.setTauxSantePatronal(new BigDecimal("0.05"));
             in.setEstPlafonneSante(true);
         }
 
@@ -723,13 +850,44 @@ public class PayrollService {
         }
         in.setForfaitTransportSite(forfaitTransport);
         in.setForfaitRepasSite(forfaitRepas);
+
+        // Paramètres dynamiques des Primes & Assiduité (100% configurables depuis parametre_global)
+        Map<String, String> pgMap = ParametreGlobal.loadActiveMap(c);
+        in.setSeuilRetardAssiduiteMinutes(ParametreGlobal.getInt(pgMap, "SEUIL_RETARD_ASSIDUITE_MIN", 45));
+        in.setSeuilRetardMalusPerformanceMinutes(ParametreGlobal.getInt(pgMap, "SEUIL_RETARD_PENALITE_PP_MIN", 70));
+        in.setSeuilCongesMalusPerformanceJours(new BigDecimal(pgMap.getOrDefault("SEUIL_CONGES_PENALITE_PP_JOURS", "1.0")));
+        String tauxMalusStr = pgMap.getOrDefault("TAUX_PENALITE_PP", "0.25");
+        try {
+            in.setTauxMalusPerformance(new BigDecimal(tauxMalusStr));
+        } catch (Exception ignored) {
+            in.setTauxMalusPerformance(new BigDecimal("0.25"));
+        }
     }
 
     private void sauvegarderBulletinEtLignes(BulletinPaieComplet complet, Connection c) throws Exception {
         BulletinPaie bp = complet.getBulletin();
 
-        // 1. Vérifier si un bulletin existe déjà pour cette période et cet employé
-        BulletinPaie existant = BulletinPaie.trouverParPeriodeEtEmploye(bp.getIdPeriodePaie(), bp.getIdEmploye(), c);
+        // 1. Vérifier si un bulletin de même type existe déjà pour cette période et cet employé
+        String typeBulletin = bp.getTypeBulletin() != null ? bp.getTypeBulletin() : "MENSUEL";
+        if (bp.getIdTypeBulletin() == null && bp.getTypeBulletin() != null) {
+            String sqlTb = "SELECT id_type_bulletin FROM ref_type_bulletin WHERE code = ?";
+            try (PreparedStatement psTb = c.prepareStatement(sqlTb)) {
+                psTb.setString(1, bp.getTypeBulletin());
+                try (ResultSet rsTb = psTb.executeQuery()) {
+                    if (rsTb.next()) bp.setIdTypeBulletin(rsTb.getInt(1));
+                }
+            }
+        }
+        if (bp.getIdModePaiement() == null && bp.getModePaiement() != null) {
+            String sqlMp = "SELECT id_mode_paiement FROM ref_mode_paiement WHERE code = ?";
+            try (PreparedStatement psMp = c.prepareStatement(sqlMp)) {
+                psMp.setString(1, bp.getModePaiement());
+                try (ResultSet rsMp = psMp.executeQuery()) {
+                    if (rsMp.next()) bp.setIdModePaiement(rsMp.getInt(1));
+                }
+            }
+        }
+        BulletinPaie existant = BulletinPaie.trouverParPeriodeEtEmployeEtType(bp.getIdPeriodePaie(), bp.getIdEmploye(), typeBulletin, c);
 
         if (existant != null) {
             if ("CLOTURE".equalsIgnoreCase(existant.getStatut())) {
@@ -755,6 +913,18 @@ public class PayrollService {
         for (BulletinPaieLigne ligne : complet.getLignes()) {
             ligne.setIdBulletin(bp.getIdBulletin());
             Integer idRub = cacheRubriques.get(ligne.getCodeRubrique());
+            if (idRub == null && ligne.getCodeRubrique() != null) {
+                String sqlFind = "SELECT id_rubrique FROM paie_rubrique WHERE code = ?";
+                try (PreparedStatement psF = c.prepareStatement(sqlFind)) {
+                    psF.setString(1, ligne.getCodeRubrique());
+                    try (ResultSet rsF = psF.executeQuery()) {
+                        if (rsF.next()) {
+                            idRub = rsF.getInt(1);
+                            cacheRubriques.put(ligne.getCodeRubrique(), idRub);
+                        }
+                    }
+                }
+            }
             ligne.setIdRubrique(idRub);
             ligne.save(c);
         }
@@ -828,6 +998,12 @@ public class PayrollService {
 
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriodePaie, c);
         for (BulletinPaie bp : bulletins) {
+            // Ignorer les bulletins STC : le Solde de Tout Compte valorise et liquide les congés
+            // dans le reçu de départ, il ne doit pas générer d'acquisition indue ni écraser le journal
+            if ("STC".equalsIgnoreCase(bp.getTypeBulletin())) {
+                continue;
+            }
+
             // Uniquement les salariés soumis aux congés payés légaux
             if ("CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) || "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant())) {
                 continue;
@@ -920,5 +1096,215 @@ public class PayrollService {
                 psUp.executeUpdate();
             }
         }
+    }
+
+    public Map<String, Object> obtenirCockpitPeriode(Integer idPeriodePaie) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            return obtenirCockpitPeriode(idPeriodePaie, c);
+        }
+    }
+
+    public Map<String, Object> obtenirCockpitPeriode(Integer idPeriodePaie, Connection c) throws Exception {
+        Map<String, Object> cockpit = new HashMap<>();
+
+        // 1. Informations de la période
+        String sqlPeriode = "SELECT p.*, r.code AS code_statut, r.libelle AS libelle_statut " +
+                "FROM periode_paie p " +
+                "LEFT JOIN ref_statut_periode_paie r ON p.id_statut_periode = r.id_statut_periode " +
+                "WHERE p.id_periode_paie = ?";
+        Map<String, Object> perMap = new HashMap<>();
+        Date dateDebut = null;
+        Date dateFin = null;
+        try (PreparedStatement ps = c.prepareStatement(sqlPeriode)) {
+            ps.setInt(1, idPeriodePaie);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    perMap.put("idPeriodePaie", rs.getInt("id_periode_paie"));
+                    perMap.put("code", rs.getString("code"));
+                    perMap.put("libelle", rs.getString("libelle"));
+                    dateDebut = rs.getDate("date_debut");
+                    dateFin = rs.getDate("date_fin");
+                    perMap.put("dateDebut", dateDebut != null ? dateDebut.toString() : null);
+                    perMap.put("dateFin", dateFin != null ? dateFin.toString() : null);
+                    perMap.put("statut", rs.getString("code_statut"));
+                    perMap.put("libelleStatut", rs.getString("libelle_statut"));
+                } else {
+                    throw new IllegalArgumentException("Période de paie introuvable (ID " + idPeriodePaie + ")");
+                }
+            }
+        }
+        cockpit.put("periode", perMap);
+
+        // 2. Préparation amont (Readiness)
+        Map<String, Object> readiness = new HashMap<>();
+        int nbPointagesScelles = 0;
+        String sqlPtg = "SELECT COUNT(DISTINCT id_employe) FROM pointage_cumul_periode WHERE id_periode_paie = ?";
+        try (PreparedStatement ps = c.prepareStatement(sqlPtg)) {
+            ps.setInt(1, idPeriodePaie);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) nbPointagesScelles = rs.getInt(1);
+            }
+        }
+        int effectifAttendu = 0;
+        String sqlEff = "SELECT COUNT(DISTINCT e.id_employe) FROM employe e " +
+                "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
+                "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+                "WHERE e.est_actif = true";
+        try (PreparedStatement ps = c.prepareStatement(sqlEff);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) effectifAttendu = rs.getInt(1);
+        }
+        readiness.put("effectifAttendu", effectifAttendu);
+        readiness.put("nbEmployesPointes", nbPointagesScelles);
+        readiness.put("pointageScelle", nbPointagesScelles >= effectifAttendu && effectifAttendu > 0);
+        readiness.put("congesSynchronises", true);
+
+        // 3. Indicateurs financiers & KPIs de la période actuelle
+        String sqlKpis = "SELECT COUNT(*) AS effectif_calcule, " +
+                "COALESCE(SUM(total_gains_bruts), 0) AS total_brut, " +
+                "COALESCE(SUM(total_cotisations_patronales), 0) AS total_cotis_pat, " +
+                "COALESCE(SUM(total_cotisations_salariales), 0) AS total_cotis_sal, " +
+                "COALESCE(SUM(salaire_net_imposable), 0) AS total_net_imposable, " +
+                "COALESCE(SUM(irsa_net), 0) AS total_irsa, " +
+                "COALESCE(SUM(net_a_payer), 0) AS total_net_a_payer, " +
+                "COALESCE(SUM(total_retenues_acompte_pret), 0) AS total_retenues " +
+                "FROM bulletin_paie WHERE id_periode_paie = ?";
+
+        Map<String, Object> kpis = new HashMap<>();
+        BigDecimal brutActuel = BigDecimal.ZERO;
+        BigDecimal netActuel = BigDecimal.ZERO;
+        try (PreparedStatement ps = c.prepareStatement(sqlKpis)) {
+            ps.setInt(1, idPeriodePaie);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    kpis.put("effectifCalcule", rs.getInt("effectif_calcule"));
+                    brutActuel = rs.getBigDecimal("total_brut");
+                    netActuel = rs.getBigDecimal("total_net_a_payer");
+                    kpis.put("totalBrut", brutActuel);
+                    kpis.put("totalCotisationsPatronales", rs.getBigDecimal("total_cotis_pat"));
+                    kpis.put("totalCotisationsSalariales", rs.getBigDecimal("total_cotis_sal"));
+                    kpis.put("totalNetImposable", rs.getBigDecimal("total_net_imposable"));
+                    kpis.put("totalIrsa", rs.getBigDecimal("total_irsa"));
+                    kpis.put("totalNetAPayer", netActuel);
+                    kpis.put("totalRetenues", rs.getBigDecimal("total_retenues"));
+                }
+            }
+        }
+
+        // 4. Période M-1 pour calcul de l'écart
+        Integer idPeriodeM1 = null;
+        BigDecimal brutM1 = BigDecimal.ZERO;
+        BigDecimal netM1 = BigDecimal.ZERO;
+        String sqlM1 = "SELECT id_periode_paie FROM periode_paie " +
+                "WHERE date_fin < (SELECT date_debut FROM periode_paie WHERE id_periode_paie = ?) " +
+                "ORDER BY date_fin DESC LIMIT 1";
+        try (PreparedStatement ps = c.prepareStatement(sqlM1)) {
+            ps.setInt(1, idPeriodePaie);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) idPeriodeM1 = rs.getInt("id_periode_paie");
+            }
+        }
+
+        if (idPeriodeM1 != null) {
+            String sqlKpiM1 = "SELECT COALESCE(SUM(total_gains_bruts), 0) AS brut_m1, " +
+                    "COALESCE(SUM(net_a_payer), 0) AS net_m1 FROM bulletin_paie WHERE id_periode_paie = ?";
+            try (PreparedStatement ps = c.prepareStatement(sqlKpiM1)) {
+                ps.setInt(1, idPeriodeM1);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        brutM1 = rs.getBigDecimal("brut_m1");
+                        netM1 = rs.getBigDecimal("net_m1");
+                    }
+                }
+            }
+        }
+
+        kpis.put("totalBrutM1", brutM1);
+        kpis.put("totalNetM1", netM1);
+
+        double ecartBrutPct = 0.0;
+        if (brutM1.compareTo(BigDecimal.ZERO) > 0) {
+            ecartBrutPct = brutActuel.subtract(brutM1)
+                    .divide(brutM1, 4, RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100"))
+                    .doubleValue();
+        }
+        kpis.put("ecartBrutM1Pct", ecartBrutPct);
+        cockpit.put("kpis", kpis);
+
+        // Map des nets M-1 par employé
+        Map<Integer, BigDecimal> empNetM1Map = new HashMap<>();
+        if (idPeriodeM1 != null) {
+            String sqlEmpM1 = "SELECT id_employe, net_a_payer FROM bulletin_paie WHERE id_periode_paie = ?";
+            try (PreparedStatement ps = c.prepareStatement(sqlEmpM1)) {
+                ps.setInt(1, idPeriodeM1);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        empNetM1Map.put(rs.getInt("id_employe"), rs.getBigDecimal("net_a_payer"));
+                    }
+                }
+            }
+        }
+
+        // 5. Liste des bulletins détaillés
+        String sqlBulletins = "SELECT bp.id_bulletin, bp.id_employe, bp.matricule, bp.nom_prenom, " +
+                "bp.intitule_poste, bp.nom_site, bp.salaire_base, bp.total_gains_bruts, " +
+                "bp.total_cotisations_salariales, bp.irsa_net, bp.net_a_payer, bp.statut, " +
+                "COALESCE(bp.type_bulletin, 'MENSUEL') AS type_bulletin " +
+                "FROM bulletin_paie bp " +
+                "WHERE bp.id_periode_paie = ? " +
+                "ORDER BY bp.matricule ASC";
+
+        List<Map<String, Object>> bulletinsList = new ArrayList<>();
+        int nbAnomalies = 0;
+        try (PreparedStatement ps = c.prepareStatement(sqlBulletins)) {
+            ps.setInt(1, idPeriodePaie);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> row = new HashMap<>();
+                    int idEmp = rs.getInt("id_employe");
+                    BigDecimal net = rs.getBigDecimal("net_a_payer");
+                    row.put("idBulletin", rs.getInt("id_bulletin"));
+                    row.put("idEmploye", idEmp);
+                    row.put("matricule", rs.getString("matricule"));
+                    row.put("nomPrenom", rs.getString("nom_prenom"));
+                    row.put("intitulePoste", rs.getString("intitule_poste"));
+                    row.put("nomSite", rs.getString("nom_site"));
+                    row.put("salaireBase", rs.getBigDecimal("salaire_base"));
+                    row.put("totalGainsBruts", rs.getBigDecimal("total_gains_bruts"));
+                    row.put("totalCotisationsSalariales", rs.getBigDecimal("total_cotisations_salariales"));
+                    row.put("irsaNet", rs.getBigDecimal("irsa_net"));
+                    row.put("netAPayer", net);
+                    row.put("statut", rs.getString("statut"));
+                    row.put("typeBulletin", rs.getString("type_bulletin"));
+
+                    BigDecimal prevNet = empNetM1Map.get(idEmp);
+                    Double ecartIndivPct = null;
+                    boolean aAlerte = false;
+                    if (prevNet != null && prevNet.compareTo(BigDecimal.ZERO) > 0) {
+                        ecartIndivPct = net.subtract(prevNet)
+                                .divide(prevNet, 4, RoundingMode.HALF_UP)
+                                .multiply(new BigDecimal("100"))
+                                .doubleValue();
+                        if (Math.abs(ecartIndivPct) >= 20.0) {
+                            aAlerte = true;
+                        }
+                    }
+                    if (net.compareTo(BigDecimal.ZERO) <= 0) {
+                        aAlerte = true;
+                    }
+                    if (aAlerte) nbAnomalies++;
+
+                    row.put("ecartM1Pct", ecartIndivPct);
+                    row.put("aAlerte", aAlerte);
+                    bulletinsList.add(row);
+                }
+            }
+        }
+        readiness.put("nbAnomalies", nbAnomalies);
+        cockpit.put("readiness", readiness);
+        cockpit.put("bulletins", bulletinsList);
+
+        return cockpit;
     }
 }

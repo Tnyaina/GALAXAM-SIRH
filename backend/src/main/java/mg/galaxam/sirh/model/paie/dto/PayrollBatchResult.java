@@ -17,6 +17,10 @@ public class PayrollBatchResult {
     private BigDecimal totalChargesPatronales = BigDecimal.ZERO;
     private BigDecimal totalCoutGlobal = BigDecimal.ZERO;
     private List<String> referencesBulletins = new ArrayList<>();
+    private List<EmployeePayrollOutcome> employeeOutcomes = new ArrayList<>();
+
+    public record EmployeePayrollOutcome(Integer employeeId, String status, String message,
+                                         BulletinPaieComplet result) {}
 
     public PayrollBatchResult() {}
 
@@ -43,6 +47,12 @@ public class PayrollBatchResult {
         if (bpc.getBulletin().getReferenceBulletin() != null) {
             this.referencesBulletins.add(bpc.getBulletin().getReferenceBulletin());
         }
+        this.employeeOutcomes.add(new EmployeePayrollOutcome(
+                bpc.getBulletin().getIdEmploye(), "OK", null, bpc));
+    }
+
+    public void ajouterBloque(Integer employeeId, String message) {
+        this.employeeOutcomes.add(new EmployeePayrollOutcome(employeeId, "BLOCKED", message, null));
     }
 
     // Getters & Setters
@@ -69,4 +79,7 @@ public class PayrollBatchResult {
 
     public List<String> getReferencesBulletins() { return referencesBulletins; }
     public void setReferencesBulletins(List<String> referencesBulletins) { this.referencesBulletins = referencesBulletins; }
+
+    public List<EmployeePayrollOutcome> getEmployeeOutcomes() { return employeeOutcomes; }
+    public void setEmployeeOutcomes(List<EmployeePayrollOutcome> employeeOutcomes) { this.employeeOutcomes = employeeOutcomes; }
 }

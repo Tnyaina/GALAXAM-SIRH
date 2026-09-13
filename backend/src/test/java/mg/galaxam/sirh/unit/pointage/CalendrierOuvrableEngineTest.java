@@ -2,6 +2,7 @@ package mg.galaxam.sirh.unit.pointage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Set;
 import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
@@ -37,10 +38,12 @@ class CalendrierOuvrableEngineTest {
     @DisplayName("Calculs de prorata journalier et demi-trajet")
     void testCalculsProrataEtTrajet() {
         // 53 200 Ar sur 22 jours ouvrables -> 2 418.18 Ar / jour
-        assertThat(engine.calculerProrataJournalier(53200.0, 22)).isEqualTo(2418.18);
+        assertThat(engine.calculerProrataJournalier(new BigDecimal("53200"), 22))
+                .isEqualByComparingTo(new BigDecimal("2418.18"));
 
         // Montant par demi-trajet (aller ou retour) -> 1 209.09 Ar
-        assertThat(engine.calculerMontantTrajet(2418.18)).isEqualTo(1209.09);
+        assertThat(engine.calculerMontantTrajet(new BigDecimal("2418.18")))
+                .isEqualByComparingTo(new BigDecimal("1209.09"));
     }
 
     @Test

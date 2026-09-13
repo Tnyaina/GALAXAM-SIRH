@@ -918,7 +918,7 @@ export default function AnomalieRegularisationModal({
                                 </div>
                                 <div className="text-[11px] text-[var(--color-fg-muted)] flex items-center gap-1.5">
                                     <Info className="w-3.5 h-3.5 text-[var(--color-info)] shrink-0" />
-                                    <span>Formule Paie : Déduction nette = (Salaire Base ÷ 173.33) × Heures non travaillées.</span>
+                                    <span>La déduction est calculée par la Paie avec le diviseur légal applicable à la période.</span>
                                 </div>
                             </div>
                         )}

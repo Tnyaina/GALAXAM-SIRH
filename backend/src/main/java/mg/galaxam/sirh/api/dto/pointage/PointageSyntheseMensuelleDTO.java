@@ -57,9 +57,9 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
 
     // Indemnités
     private int nbJoursDeplacement;
-    private double montantDeplacement;
+    private BigDecimal montantDeplacement = BigDecimal.ZERO;
     private int nbJoursRepas;
-    private double montantRepas;
+    private BigDecimal montantRepas = BigDecimal.ZERO;
 
     // Contrôle & intégrité
     private int nbAnomaliesNonResolues;
@@ -355,11 +355,11 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
         this.nbJoursDeplacement = nbJoursDeplacement;
     }
 
-    public double getMontantDeplacement() {
+    public BigDecimal getMontantDeplacement() {
         return montantDeplacement;
     }
 
-    public void setMontantDeplacement(double montantDeplacement) {
+    public void setMontantDeplacement(BigDecimal montantDeplacement) {
         this.montantDeplacement = montantDeplacement;
     }
 
@@ -371,11 +371,11 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
         this.nbJoursRepas = nbJoursRepas;
     }
 
-    public double getMontantRepas() {
+    public BigDecimal getMontantRepas() {
         return montantRepas;
     }
 
-    public void setMontantRepas(double montantRepas) {
+    public void setMontantRepas(BigDecimal montantRepas) {
         this.montantRepas = montantRepas;
     }
 
