@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Clock,
@@ -29,15 +29,17 @@ import {
 import pointageEmployeService from '@/api/pointage/pointageEmployeService';
 import periodePaieService from '@/services/periodePaieService';
 import { useToast } from '@/components/ui/feedback/Toast';
-import PointageFichePrintModal from '@/components/pointage/PointageFichePrintModal';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import { Card } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import PeriodNavigator from '@/components/ui/navigation/PeriodNavigator';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import { getTodayDateString } from '@/utils/dateUtils';
 import { getPeriodeLabelForFilename } from '@/utils/pointageUtils';
+
+const PointageFichePrintModal = lazy(() => import('@/components/pointage/PointageFichePrintModal'));
 
 export default function PointageTab({ idEmploye, employe = null }) {
     const { toast } = useToast();
@@ -265,14 +267,13 @@ export default function PointageTab({ idEmploye, employe = null }) {
         (kpis?.primeAssiduiteEligible !== 'false' && (parseHhMmToDecimal(kpis?.retardCumule) * 60 < seuilAssiduiteMinutes));
     const hasRetardNet = Boolean(recap?.retardNet && recap.retardNet !== '00h00' && recap.retardNet !== '0h');
     const hasHsNettes = Boolean(recap?.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' && recap.heuresSuppNettes !== '0h');
-    const hasCompensation = Boolean(recap?.hasCompensation === 'true' || (recap?.retardCompense && recap.retardCompense !== '00h00'));
 
     const currIndexInList = periodesList.findIndex(p => p.idPeriodePaie === selectedPeriodeId);
 
     return (
         <div className="space-y-6 print:m-0 print:p-0">
             {/* 1. Barre d'outils supérieure : Sélecteur de Période, Bascule Période/Mois/Semaine/Jour et Actions */}
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+            <Card padding bordered className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
                 <div className="flex flex-wrap items-center gap-3">
                     <Button
                         type="button"
@@ -438,7 +439,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                         )}
                     </div>
                 </div>
-            </div>
+            </Card>
 
             {/* Bandeau d'en-tête de la Période affichée */}
             {ficheData && (
@@ -1152,13 +1153,17 @@ export default function PointageTab({ idEmploye, employe = null }) {
                 </>
             )}
 
-            {/* Modale d'aperçu officiel et d'impression PDF format A4 */}
-            <PointageFichePrintModal
-                isOpen={isPrintModalOpen}
-                onClose={() => setIsPrintModalOpen(false)}
-                employe={employe}
-                ficheData={ficheData}
-            />
+            {/* Modale d'aperçu officiel et d'impression PDF format A4 (Lazy Loaded) */}
+            {isPrintModalOpen && (
+                <Suspense fallback={null}>
+                    <PointageFichePrintModal
+                        isOpen={isPrintModalOpen}
+                        onClose={() => setIsPrintModalOpen(false)}
+                        employe={employe}
+                        ficheData={ficheData}
+                    />
+                </Suspense>
+            )}
         </div>
     );
 }

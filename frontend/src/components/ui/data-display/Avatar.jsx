@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import AuthenticatedImage from '@/components/ui/data-display/AuthenticatedImage';
 
 /**
  * Avatar — Composant de photo de profil ou initiales employé.
@@ -60,34 +60,32 @@ export function Avatar({
     status, // 'online' | 'offline' | 'busy' | 'away'
     className = '',
 }) {
-    const [imgError, setImgError] = useState(false);
-    const showImage = Boolean(src) && !imgError;
     const shapeClass = SHAPES[shape] || SHAPES.round;
 
-    return (
-        <div className={`relative inline-flex shrink-0 ${className}`}>
-            {showImage ? (
-                <img
-                    src={src}
-                    alt={alt || name}
-                    loading="lazy"
-                    decoding="async"
-                    onError={() => setImgError(true)}
-                    className={`${SIZES[size]} ${shapeClass} object-cover border border-[var(--color-border-subtle)]`}
-                />
-            ) : (
-                <div
-                    role="img"
-                    aria-label={name || 'Avatar'}
-                    className={`
+    const initials = (
+        <div
+            role="img"
+            aria-label={name || 'Avatar'}
+            className={`
             ${SIZES[size]} ${shapeClass} bg-[var(--color-brand-500)] text-white
             flex items-center justify-center font-bold font-data uppercase tracking-wider
             border border-[var(--color-brand-500)] select-none shadow-sm
           `}
-                >
-                    {getInitials(name)}
-                </div>
-            )}
+        >
+            {getInitials(name)}
+        </div>
+    );
+
+    return (
+        <div className={`relative inline-flex shrink-0 ${className}`}>
+            <AuthenticatedImage
+                src={src}
+                alt={alt || name}
+                loading="lazy"
+                decoding="async"
+                className={`${SIZES[size]} ${shapeClass} object-cover border border-[var(--color-border-subtle)]`}
+                fallback={initials}
+            />
 
             {status && (
                 <span

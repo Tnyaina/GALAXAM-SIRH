@@ -5,128 +5,115 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpEntity;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+/** Point d'accès unique et authentifié aux photos RH. */
 @RestController
 @RequestMapping("/employes")
 public class EmployePhotoController {
 
-    @Value("${app.imgbb.api-key:16da31a095830083321b07cab6e52c92}")
-    private String imgbbApiKey;
-
-    @Value("${app.imgbb.upload-url:https://api.imgbb.com/1/upload}")
-    private String imgbbUploadUrl;
+    private static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            MediaType.IMAGE_JPEG_VALUE, MediaType.IMAGE_PNG_VALUE, "image/webp");
 
     @Value("${app.upload.dir:uploads/photos}")
     private String uploadDir;
 
-    private final RestTemplate restTemplate = new RestTemplate();
-
-    /**
-     * Upload de la photo d'un employé vers ImgBB (stockage cloud permanent).
-     * En cas d'échec ou d'absence de réseau, utilise le stockage local de secours.
-     */
     @PostMapping("/upload-photo")
     @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> uploadPhoto(@RequestParam("file") MultipartFile file) {
         try {
-            if (file.isEmpty()) {
-                return ResponseEntity.badRequest().body("Aucun fichier sélectionné.");
-            }
-
-            String contentType = file.getContentType();
-            if (contentType == null || (!contentType.startsWith("image/"))) {
-                return ResponseEntity.badRequest().body("Seuls les fichiers image sont autorisés (JPEG, PNG, WEBP).");
-            }
-
-            if (file.getSize() > 5 * 1024 * 1024) {
-                return ResponseEntity.badRequest().body("La taille du fichier ne doit pas dépasser 5 Mo.");
-            }
-
-            // 1. Essai d'upload vers ImgBB Cloud API
-            if (imgbbApiKey != null && !imgbbApiKey.isBlank()) {
-                try {
-                    String cloudPhotoUrl = uploadToImgBB(file);
-                    if (cloudPhotoUrl != null && !cloudPhotoUrl.isBlank()) {
-                        return ResponseEntity.ok(Map.of("photoUrl", cloudPhotoUrl));
-                    }
-                } catch (Exception e) {
-                    System.err.println("Échec d'upload ImgBB, bascule vers stockage local : " + e.getMessage());
-                }
-            }
-
-            // 2. Fallback stockage local
-            Path uploadPath = Paths.get(uploadDir);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-            String uniqueFilename = UUID.randomUUID().toString() + extension;
-
-            Path filePath = uploadPath.resolve(uniqueFilename);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            String photoUrl = "/uploads/photos/" + uniqueFilename;
-            return ResponseEntity.ok(Map.of("photoUrl", photoUrl));
-
+            validateImage(file);
+            Files.createDirectories(normalizedUploadDirectory());
+            String uniqueFilename = UUID.randomUUID() + extensionFor(file.getContentType());
+            Files.copy(file.getInputStream(), safeResolve(uniqueFilename), StandardCopyOption.REPLACE_EXISTING);
+            return ResponseEntity.ok(Map.of("photoUrl", "/employes/photos/" + uniqueFilename));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         } catch (IOException e) {
-            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de l'upload de la photo.");
+                    .body("Erreur lors du stockage sécurisé de la photo.");
         }
     }
 
-    /**
-     * Envoie l'image binaire à l'API ImgBB.
-     * Retourne l'URL directe du CDN ImgBB (ex: https://i.ibb.co/w04gMT2/image.png)
-     */
-    private String uploadToImgBB(MultipartFile file) throws Exception {
-        String url = imgbbUploadUrl + "?key=" + imgbbApiKey;
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-
-        ByteArrayResource fileResource = new ByteArrayResource(file.getBytes()) {
-            @Override
-            public String getFilename() {
-                return file.getOriginalFilename() != null ? file.getOriginalFilename() : "image.jpg";
+    @GetMapping("/photos/{filename}")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getPhoto(@PathVariable String filename) {
+        try {
+            Path filePath = safeResolve(filename);
+            if (!Files.isRegularFile(filePath)) {
+                return ResponseEntity.notFound().build();
             }
-        };
-
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("image", fileResource);
-
-        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
-        ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
-
-        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-            Map<?, ?> responseBody = response.getBody();
-            if (Boolean.TRUE.equals(responseBody.get("success"))) {
-                Map<?, ?> data = (Map<?, ?>) responseBody.get("data");
-                if (data != null) {
-                    return (String) data.get("url");
-                }
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
+                return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).build();
             }
+            Resource resource = new UrlResource(filePath.toUri());
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePrivate().mustRevalidate())
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                    .body(resource);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-        return null;
+    }
+
+    private void validateImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Aucun fichier sélectionné.");
+        }
+        if (!ALLOWED_CONTENT_TYPES.contains(file.getContentType())) {
+            throw new IllegalArgumentException("Seuls les fichiers JPEG, PNG et WEBP sont autorisés.");
+        }
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new IllegalArgumentException("La taille du fichier ne doit pas dépasser 5 Mo.");
+        }
+    }
+
+    private Path normalizedUploadDirectory() {
+        return Paths.get(uploadDir).toAbsolutePath().normalize();
+    }
+
+    private Path safeResolve(String filename) {
+        if (filename == null || filename.isBlank()
+                || !filename.equals(Paths.get(filename).getFileName().toString())) {
+            throw new IllegalArgumentException("Nom de fichier photo invalide.");
+        }
+        Path resolved = normalizedUploadDirectory().resolve(filename).normalize();
+        if (!resolved.startsWith(normalizedUploadDirectory())) {
+            throw new IllegalArgumentException("Chemin de photo invalide.");
+        }
+        return resolved;
+    }
+
+    private String extensionFor(String contentType) {
+        return switch (contentType) {
+            case MediaType.IMAGE_JPEG_VALUE -> ".jpg";
+            case MediaType.IMAGE_PNG_VALUE -> ".png";
+            case "image/webp" -> ".webp";
+            default -> throw new IllegalArgumentException("Type de photo non autorisé.");
+        };
     }
 }

@@ -25,17 +25,10 @@ public class PointageAnomalieController {
             @RequestParam(required = false) Integer idPeriodePaie,
             @RequestParam(required = false) String datePointage,
             @RequestParam(required = false) String search
-    ) {
-        try {
-            Integer per = (idPeriode != null && idPeriode > 0) ? idPeriode : idPeriodePaie;
-            Map<String, Object> data = pointageAnomalieService.getAnomalies(
-                    idSite, per, datePointage, search
-            );
-            return ResponseEntity.ok(data);
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return ResponseEntity.badRequest().build();
-        }
+    ) throws SQLException {
+        Integer per = (idPeriode != null && idPeriode > 0) ? idPeriode : idPeriodePaie;
+        Map<String, Object> data = pointageAnomalieService.getAnomalies(idSite, per, datePointage, search);
+        return ResponseEntity.ok(data);
     }
 
     @PutMapping("/{idPointage}/regulariser")
@@ -43,30 +36,11 @@ public class PointageAnomalieController {
     public ResponseEntity<Map<String, Object>> regulariser(
             @PathVariable int idPointage,
             @RequestBody Map<String, Object> payload
-    ) {
+    ) throws Exception {
         Map<String, Object> resp = new HashMap<>();
-        try {
-            boolean ok = pointageAnomalieService.regulariserPointage(idPointage, payload);
-            resp.put("success", ok);
-            resp.put("message", ok ? "Pointage régularisé avec succès." : "Échec de la régularisation.");
-            return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            resp.put("success", false);
-            resp.put("message", e.getMessage());
-            resp.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
-        } catch (SQLException e) {
-            e.printStackTrace();
-            resp.put("success", false);
-            resp.put("message", "Erreur base de données lors de la régularisation : " + e.getMessage());
-            resp.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
-        } catch (Exception e) {
-            e.printStackTrace();
-            resp.put("success", false);
-            resp.put("message", "Erreur inattendue : " + e.getMessage());
-            resp.put("error", e.getMessage());
-            return ResponseEntity.internalServerError().body(resp);
-        }
+        boolean ok = pointageAnomalieService.regulariserPointage(idPointage, payload);
+        resp.put("success", ok);
+        resp.put("message", ok ? "Pointage régularisé avec succès." : "Échec de la régularisation.");
+        return ResponseEntity.ok(resp);
     }
 }

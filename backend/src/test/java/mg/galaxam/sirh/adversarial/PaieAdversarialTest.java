@@ -33,7 +33,7 @@ class PaieAdversarialTest extends BaseIntegrationTest {
                 "PER-2026-01",
                 LocalDate.of(2025, 12, 26),
                 LocalDate.of(2026, 1, 25),
-                "EN_COURS"
+                "VALIDEE"
         );
 
         employe = employeFixtures.createEmployeWithSalary(
@@ -83,14 +83,20 @@ class PaieAdversarialTest extends BaseIntegrationTest {
                         .content(toJson(req)))
                 .andExpect(status().isOk());
 
-        // 2. Clôture de la période
+        // 2. Validation des bulletins puis clôture de la période
         ActionPaiePeriodeRequest reqCloture = new ActionPaiePeriodeRequest();
         reqCloture.setIdPeriodePaie(idPeriode);
 
-        mockMvc.perform(post("/paie/cloturer-periode")
+        mockMvc.perform(post("/paie/valider-periode")
                         .header("Authorization", "Bearer " + getAdminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(reqCloture)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/CLOSE")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(java.util.Map.of("version", getPayrollPeriodVersion(idPeriode)))))
                 .andExpect(status().isOk());
 
         // 3. Tentative frauduleuse de recalculer le bulletin clôturé
@@ -143,13 +149,14 @@ class PaieAdversarialTest extends BaseIntegrationTest {
         req.setIdPeriodePaie(idPeriode);
         req.setMotif("abc"); // Moins de 5 caractères
 
-        mockMvc.perform(post("/paie/rouvrir-periode")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/REOPEN")
                         .header("Authorization", "Bearer " + getAdminToken())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(toJson(req)))
+                        .content(toJson(java.util.Map.of(
+                                "version", getPayrollPeriodVersion(idPeriode),
+                                "motif", req.getMotif()))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success", is(false)))
-                .andExpect(jsonPath("$.error", containsString("min 5 caractères")));
+                .andExpect(jsonPath("$.message", containsString("5 caractères minimum")));
     }
 
     @Test
@@ -185,13 +192,10 @@ class PaieAdversarialTest extends BaseIntegrationTest {
                 .andExpect(status().isForbidden());
 
         // 2. Clôture de période refusée
-        ActionPaiePeriodeRequest reqAct = new ActionPaiePeriodeRequest();
-        reqAct.setIdPeriodePaie(idPeriode);
-
-        mockMvc.perform(post("/paie/cloturer-periode")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/CLOSE")
                         .header("Authorization", "Bearer " + getPointageToken())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(toJson(reqAct)))
+                        .content(toJson(java.util.Map.of("version", getPayrollPeriodVersion(idPeriode)))))
                 .andExpect(status().isForbidden());
 
         // 3. Validation STC refusée

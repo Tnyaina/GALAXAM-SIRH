@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { 
+import {
     ArrowLeft, User, Users, Briefcase, XCircle, Folder,
     AlertTriangle, Calendar, Clock, ArrowRight, Compass
 } from 'lucide-react';
@@ -67,8 +67,8 @@ export default function EmployeFicheDetailPage() {
     const mainTabs = useMemo(() => {
         const tabs = [
             { id: 'personnel', label: 'Fiche Personnelle', icon: <User size={16} /> },
-            { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: <Folder size={16} /> },
             { id: 'famille', label: 'Famille & Contacts', icon: <Users size={16} /> },
+            { id: 'documents', label: `Documents RH (${documentsData.documents.length})`, icon: <Folder size={16} /> },
             { id: 'carriere', label: 'Carrière & Affectation', icon: <Briefcase size={16} /> },
         ];
         if (canReadConges) {
@@ -300,82 +300,85 @@ export default function EmployeFicheDetailPage() {
     const hasNoActiveContract = !emp?.idContratActif && !emp?.dateEmbauche && !emp?.nomFonction && (!emp?.statutContrat || emp?.statutContrat === 'Aucun contrat' || emp?.statutContrat === 'BROUILLON');
 
     return (
-        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
-            <SEO 
-                title={`Fiche de ${emp?.nom} ${emp?.prenom}`} 
-                description={`Fiche individuelle de ${emp?.nom} ${emp?.prenom} (${emp?.matricule})`} 
+        <div className="flex-1 min-h-0 flex flex-col gap-3 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans overflow-hidden">
+            <SEO
+                title={`Fiche de ${emp?.nom} ${emp?.prenom}`}
+                description={`Fiche individuelle de ${emp?.nom} ${emp?.prenom} (${emp?.matricule})`}
             />
-            {/* Fil d'Ariane */}
-            <Breadcrumb items={[
-                { label: 'Tableau de bord', href: '/dashboard' },
-                { label: 'Collaborateurs', href: '/employes' },
-                { label: `${emp?.nomComplet || `${emp?.nom || ''} ${emp?.prenom || ''}`.trim() || 'Fiche Collaborateur'}${emp?.matricule ? ` (${emp.matricule})` : ''}` }
-            ]} />
+            {/* Zone Haute Fixe : Fil d'Ariane + En-tête Profil Employé */}
+            <div className="shrink-0 flex flex-col gap-2">
+                <Breadcrumb items={[
+                    { label: 'Tableau de bord', href: '/dashboard' },
+                    { label: 'Collaborateurs', href: '/employes' },
+                    { label: `${emp?.nomComplet || `${emp?.nom || ''} ${emp?.prenom || ''}`.trim() || 'Fiche Collaborateur'}${emp?.matricule ? ` (${emp.matricule})` : ''}` }
+                ]} />
 
-            {/* En-tête Profil Employé */}
-            <EmployeHeaderCard
-                emp={emp}
-                canWrite={canWrite}
-                canValidate={canValidate}
-                onEdit={() => setIsFormOpen(true)}
-                onDesactiver={() => setIsDesactivationModalOpen(true)}
-                onReactiver={() => setIsReactiverModalOpen(true)}
-            />
+                <EmployeHeaderCard
+                    emp={emp}
+                    canWrite={canWrite}
+                    canValidate={canValidate}
+                    onEdit={() => setIsFormOpen(true)}
+                    onDesactiver={() => setIsDesactivationModalOpen(true)}
+                    onReactiver={() => setIsReactiverModalOpen(true)}
+                />
 
-            {/* Bandeau d'orientation post-création si pas de contrat actif */}
-            {hasNoActiveContract && canWrite && (
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] border-l-4 border-l-[var(--color-brand-500)] p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs rounded-none">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 flex items-center justify-center bg-[var(--color-bg-subtle)] text-[var(--color-brand-500)] shrink-0 border border-[var(--color-border-subtle)]">
-                            <Compass size={16} />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-xs sm:text-sm font-bold text-[var(--color-fg)]">Étape suivante recommandée : Contrat & Affectation</p>
-                                <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/20">
-                                    Nouveau collaborateur
-                                </span>
+                {/* Bandeau d'orientation post-création si pas de contrat actif */}
+                {hasNoActiveContract && canWrite && (
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] border-l-4 border-l-[var(--color-brand-500)] p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs rounded-none">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 flex items-center justify-center bg-[var(--color-bg-subtle)] text-[var(--color-brand-500)] shrink-0 border border-[var(--color-border-subtle)]">
+                                <Compass size={16} />
                             </div>
-                            <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                Cet employé n'a pas encore de contrat actif. Configurez son contrat initial pour l'intégrer aux plannings, feuilles de pointage et gestion des congés.
-                            </p>
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-xs sm:text-sm font-bold text-[var(--color-fg)]">Étape suivante recommandée : Contrat & Affectation</p>
+                                    <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/20">
+                                        Nouveau collaborateur
+                                    </span>
+                                </div>
+                                <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                    Cet employé n'a pas encore de contrat actif. Configurez son contrat initial pour l'intégrer aux plannings, feuilles de pointage et gestion des congés.
+                                </p>
+                            </div>
                         </div>
+                        <Button
+                            size="xs"
+                            variant="primary"
+                            onClick={() => handleTabChange('carriere')}
+                            className="shrink-0"
+                            iconRight={<ArrowRight size={13} />}
+                        >
+                            Configurer le contrat
+                        </Button>
                     </div>
-                    <Button 
-                        size="xs" 
-                        variant="primary" 
-                        onClick={() => handleTabChange('carriere')}
-                        className="shrink-0"
-                        iconRight={<ArrowRight size={13} />}
-                    >
-                        Configurer le contrat
-                    </Button>
-                </div>
-            )}
+                )}
+            </div>
 
-            {/* Grille Master-Detail : Contenu Principal (élargi) + Volet Contextuel (largeur compacte) */}
-            <div className="flex flex-col lg:flex-row items-start gap-3.5">
-                {/* Colonne Principale : Onglets & Contenu Métier */}
-                <div className="flex-1 min-w-0 w-full bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xs overflow-hidden">
-                    <Tabs 
-                        tabs={mainTabs} 
-                        activeTab={activeTab} 
-                        onChange={handleTabChange} 
-                        variant="underline" 
-                    />
+            {/* Grille Master-Detail : Barre d'onglets figée + Contenu Métier Scrollable */}
+            <div className="flex-1 min-h-0 flex flex-col lg:flex-row items-stretch gap-3.5 overflow-hidden">
+                {/* Colonne Principale : Carte avec Tabs fixe et corps scrollable */}
+                <div className="flex-1 min-h-0 w-full bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xs flex flex-col overflow-hidden">
+                    <div className="shrink-0 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                        <Tabs
+                            tabs={mainTabs}
+                            activeTab={activeTab}
+                            onChange={handleTabChange}
+                            variant="underline"
+                        />
+                    </div>
 
-                    {/* Contenu de l'onglet actif (Chargement lazy) */}
-                    <div className="p-4 sm:p-4.5">
+                    {/* Contenu de l'onglet actif avec scroll interne indépendant */}
+                    <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5">
 
                         {/* Onglet 1: Fiche Personnelle */}
                         {activeTab === 'personnel' && (
                             <Suspense fallback={<TabLoader label="Chargement de la fiche personnelle..." />}>
-                                <FichePersonnelleTab 
-                                    emp={emp} 
-                                    comptes={comptes} 
-                                    conjoint={conjoint} 
-                                    enfants={enfants} 
-                                    contactsUrgence={contactsUrgence} 
+                                <FichePersonnelleTab
+                                    emp={emp}
+                                    comptes={comptes}
+                                    conjoint={conjoint}
+                                    enfants={enfants}
+                                    contactsUrgence={contactsUrgence}
                                 />
                             </Suspense>
                         )}
@@ -438,17 +441,15 @@ export default function EmployeFicheDetailPage() {
                     </div>
                 </div>
 
-                {/* Volet Contextuel Permanent : Largeur compacte & Sticky */}
-                <aside className="w-full lg:w-64 xl:w-72 shrink-0">
-                    <div className="lg:sticky lg:top-3.5">
-                        <EmployeSideSummaryPanel
-                            emp={emp}
-                            documentsCount={documentsData.documents.length}
-                            activeTab={activeTab}
-                            onNavigateTab={handleTabChange}
-                            canWrite={canWrite}
-                        />
-                    </div>
+                {/* Volet Contextuel Permanent : Alignement plein et scroll indépendant */}
+                <aside className="w-full lg:w-64 xl:w-72 shrink-0 lg:overflow-y-auto">
+                    <EmployeSideSummaryPanel
+                        emp={emp}
+                        documentsCount={documentsData.documents.length}
+                        activeTab={activeTab}
+                        onNavigateTab={handleTabChange}
+                        canWrite={canWrite}
+                    />
                 </aside>
             </div>
 

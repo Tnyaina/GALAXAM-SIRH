@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
     Clock,
@@ -25,14 +25,13 @@ import SEO from '@/components/system/SEO';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Avatar } from '@/components/ui/data-display/Avatar';
-import { getFullPhotoUrl } from '@/utils/fileUtils';
 import { fmtDate } from '@/utils/carriereUtils';
 import organisationService from '@/api/admin/organisationService';
 import periodePaieService from '@/services/periodePaieService';
-import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 import usePointageAnomalies from '@/hooks/pointage/usePointageAnomalies';
 import Pagination from '@/components/ui/navigation/Pagination';
-import AnomalieRegularisationModal from '@/components/pointage/AnomalieRegularisationModal';
+
+const AnomalieRegularisationModal = lazy(() => import('@/components/pointage/AnomalieRegularisationModal'));
 
 export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onTabChange }) {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -261,11 +260,11 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         setTransmitting(true);
         try {
             const siteParam = Number(selectedSiteId) > 0 ? Number(selectedSiteId) : undefined;
-            const res = await pointageSyntheseService.transmettreDaf({
-                idPeriodePaie: Number(selectedPeriodeId),
+            const res = await periodePaieService.executeCommand(currentPeriodeObj.idPeriodePaie, 'SUBMIT', {
+                version: currentPeriodeObj.version,
                 idSite: siteParam
             });
-            if (res && res.success) {
+            if (res?.decision === 'ALLOWED') {
                 toast.success('Période transmise pour validation avec succès.');
                 setShowTransmissionConfirm(false);
                 const updatedList = await periodePaieService.getAllPeriodes();
@@ -663,8 +662,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                     </span>
                 </div>
 
-                {/* Tableau des anomalies scrollable dans son propre conteneur */}
-                <div className="overflow-x-auto overflow-y-auto max-h-[500px] border-b border-[var(--color-border-subtle)]">
+                {/* Tableau des anomalies */}
+                <div className="overflow-x-auto border-b border-[var(--color-border-subtle)]">
                     <Table size="sm" divided>
                         <Thead className="sticky top-0 bg-[var(--color-surface)] z-10 shadow-xs">
                             <Tr>
@@ -696,7 +695,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                             <Td>
                                                 <div className="flex items-center gap-2">
                                                     <Avatar
-                                                        src={getFullPhotoUrl(ano.photoUrl)}
+                                                        src={ano.photoUrl}
                                                         name={`${ano.nom || ''} ${ano.prenom || ''}`}
                                                         size="sm"
                                                     />
@@ -898,16 +897,20 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 </div>
             </div>
 
-            {/* Modale de régularisation intelligente */}
-            <AnomalieRegularisationModal
-                isOpen={isModalOpen}
-                onClose={() => {
-                    setIsModalOpen(false);
-                    setSelectedAnomalie(null);
-                }}
-                anomalie={selectedAnomalie}
-                onSuccess={handleSaveRegularisation}
-            />
+            {/* Modale de régularisation intelligente (Lazy Loaded) */}
+            {isModalOpen && (
+                <Suspense fallback={null}>
+                    <AnomalieRegularisationModal
+                        isOpen={isModalOpen}
+                        onClose={() => {
+                            setIsModalOpen(false);
+                            setSelectedAnomalie(null);
+                        }}
+                        anomalie={selectedAnomalie}
+                        onSuccess={handleSaveRegularisation}
+                    />
+                </Suspense>
+            )}
 
             {/* Dialogue de confirmation de transmission pour validation */}
             <ConfirmDialog
@@ -916,8 +919,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 onConfirm={handleTransmettreDaf}
                 title="Confirmer la transmission pour validation"
                 message="Êtes-vous sûr de vouloir transmettre la période de pointage pour validation ? Cette action fige la saisie pour les agents de site et transmet le dossier pour validation finale."
-                confirmText="Confirmer et transmettre"
-                cancelText="Annuler"
+                confirmLabel="Confirmer et transmettre"
+                cancelLabel="Annuler"
                 variant="primary"
                 loading={transmitting}
             />

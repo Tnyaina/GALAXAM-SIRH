@@ -15,10 +15,10 @@ import org.springframework.stereotype.Component;
 public class TestUserFixtures {
 
     public static final String ADMIN_EMAIL = "daf@galaxam.com";
-    public static final String ADMIN_RAW_PASSWORD = "TnrGalLog2605";
+    public static final String ADMIN_RAW_PASSWORD = "Test-Admin-Only-Password-2026!";
 
     public static final String POINTAGE_EMAIL = "pointage@galaxam.com";
-    public static final String POINTAGE_RAW_PASSWORD = "PointageGal2605";
+    public static final String POINTAGE_RAW_PASSWORD = "Test-Pointage-Only-Password-2026!";
 
     @Autowired
     private DataSource dataSource;

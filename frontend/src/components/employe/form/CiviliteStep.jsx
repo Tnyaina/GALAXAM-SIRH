@@ -2,6 +2,7 @@ import Input, { Select, AutocompleteInput } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
 import { Wand2 } from 'lucide-react';
 import { fmtDateInput } from '@/utils/dateUtils';
+import { GENRES_SEXE, SITUATIONS_FAMILIALES, REGLES_FISCALES_IRSA } from '@/constants/employeConstants';
 
 export default function CiviliteStep({
     formData,
@@ -43,8 +44,9 @@ export default function CiviliteStep({
                 </Button>
             </div>
             <Select label="Sexe" required value={formData.sexe} onChange={e => set('sexe', e.target.value)}>
-                <option value="M">Masculin (M)</option>
-                <option value="F">Féminin (F)</option>
+                {GENRES_SEXE.map(g => (
+                    <option key={g.value} value={g.value}>{g.label}</option>
+                ))}
             </Select>
             <Input label="Nom" required value={formData.nom} onChange={e => set('nom', e.target.value)} placeholder="Nom de famille" />
             <Input label="Prénom(s)" required value={formData.prenom} onChange={e => set('prenom', e.target.value)} placeholder="Prénoms" />
@@ -52,10 +54,10 @@ export default function CiviliteStep({
                 label="Date de Naissance" 
                 required 
                 type="date" 
-                max={fmtDateInput(new Date(new Date().setFullYear(new Date().getFullYear() - 16)))}
+                max={fmtDateInput(new Date(new Date().setFullYear(new Date().getFullYear() - REGLES_FISCALES_IRSA.AGE_MIN_LEGAL_EMPLOYE)))}
                 value={formData.dateNaissance} 
                 onChange={e => set('dateNaissance', e.target.value)} 
-                hint="Âge légal minimum : 16 ans"
+                hint={`Âge légal minimum : ${REGLES_FISCALES_IRSA.AGE_MIN_LEGAL_EMPLOYE} ans`}
             />
             
             <AutocompleteInput 
@@ -79,10 +81,9 @@ export default function CiviliteStep({
             />
 
             <Select label="Situation Familiale" value={formData.situationFamiliale} onChange={e => set('situationFamiliale', e.target.value)}>
-                <option value="Celibataire">Célibataire</option>
-                <option value="Marie">Marié(e)</option>
-                <option value="Divorce">Divorcé(e)</option>
-                <option value="Veuf">Veuf / Veuve</option>
+                {SITUATIONS_FAMILIALES.map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
             </Select>
             <Input label="Nom & Prénom du Père" value={formData.pereNomPrenom} onChange={e => set('pereNomPrenom', e.target.value)} placeholder="Nom du père" />
             <Input label="Nom & Prénom de la Mère" value={formData.mereNomPrenom} onChange={e => set('mereNomPrenom', e.target.value)} placeholder="Nom de la mère" />

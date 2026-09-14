@@ -42,10 +42,11 @@ public class AncienneteEngine {
             double anneesContratActuel,
             int moisContratActuel,
             String ancienneteContratTexte,
-            int nombreContratsChaine
+            int nombreContratsChaine,
+            LocalDate dateOrigineChaine
     ) {
         public static AncienneteBilan vide() {
-            return new AncienneteBilan(0.0, 0, 0, 0, "—", 0.0, 0, "—", 0);
+            return new AncienneteBilan(0.0, 0, 0, 0, "—", 0.0, 0, "—", 0, null);
         }
     }
 
@@ -94,6 +95,7 @@ public class AncienneteEngine {
 
         Integer currentId = idContratCible;
         Set<Integer> visited = new HashSet<>();
+        LocalDate dateOrigineChaine = cible.dateDebut();
 
         while (currentId != null && !visited.contains(currentId)) {
             visited.add(currentId);
@@ -101,6 +103,7 @@ public class AncienneteEngine {
             if (c == null || c.dateDebut() == null) {
                 break;
             }
+            dateOrigineChaine = c.dateDebut();
 
             LocalDate debut = c.dateDebut();
             LocalDate fin = (c.dateFin() != null) ? c.dateFin() : refDate;
@@ -151,7 +154,8 @@ public class AncienneteEngine {
                 anneesContrat,
                 moisContratActuel,
                 texteCtr,
-                nbContrats
+                nbContrats,
+                dateOrigineChaine
         );
     }
 

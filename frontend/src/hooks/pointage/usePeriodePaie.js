@@ -48,13 +48,16 @@ export function usePeriodePaie() {
         }
     };
 
-    const updateStatut = async (id, statutCode) => {
+    const executeCommand = async (periode, command, extra = {}) => {
         setLoading(true);
         setError(null);
         setSuccessMsg(null);
         try {
-            const resp = await periodePaieService.updateStatut(id, statutCode);
-            if (resp.success) {
+            const resp = await periodePaieService.executeCommand(periode.idPeriodePaie, command, {
+                version: periode.version,
+                ...extra
+            });
+            if (resp.decision === 'ALLOWED') {
                 setSuccessMsg(resp.message);
                 await loadPeriodes();
                 return true;
@@ -80,6 +83,6 @@ export function usePeriodePaie() {
         setSuccessMsg,
         loadPeriodes,
         createPeriode,
-        updateStatut
+        executeCommand
     };
 }

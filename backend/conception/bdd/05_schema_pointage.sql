@@ -45,6 +45,7 @@ CREATE TABLE periode_paie (
     date_validation TIMESTAMP,
     valide_par INTEGER REFERENCES utilisateur(id_utilisateur),
     motif_rejet TEXT,
+    version INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_periode_dates CHECK (date_fin > date_debut)
@@ -52,6 +53,22 @@ CREATE TABLE periode_paie (
 
 CREATE INDEX idx_periode_paie_statut ON periode_paie(id_statut_periode);
 CREATE INDEX idx_periode_paie_valide_par ON periode_paie(valide_par);
+
+CREATE TABLE periode_paie_transition (
+    id_transition BIGSERIAL PRIMARY KEY,
+    id_periode_paie INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie),
+    commande VARCHAR(30) NOT NULL,
+    statut_source VARCHAR(20) NOT NULL,
+    statut_cible VARCHAR(20) NOT NULL,
+    version_source INTEGER NOT NULL,
+    version_cible INTEGER NOT NULL,
+    id_utilisateur INTEGER REFERENCES utilisateur(id_utilisateur),
+    motif TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_periode_paie_transition_periode
+    ON periode_paie_transition(id_periode_paie, version_cible);
 
 -- 3. Statuts Journaliers & Indemnités de Référence
 CREATE TABLE ref_statut_pointage_jour (

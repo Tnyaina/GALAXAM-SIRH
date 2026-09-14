@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, Clock, Sparkles } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
@@ -11,9 +11,10 @@ import { getTodayDateString, isDateInFuture } from '@/utils/dateUtils';
 import PointageFerieAlert from '@/components/pointage/PointageFerieAlert';
 import PointageToolbar from '@/components/pointage/PointageToolbar';
 import PointageGridTable from '@/components/pointage/PointageGridTable';
-import PointageRecapModal from '@/components/pointage/PointageRecapModal';
 import usePointageSaisie from '@/hooks/pointage/usePointageSaisie';
 import useDebounce from '@/hooks/useDebounce';
+
+const PointageRecapModal = lazy(() => import('@/components/pointage/PointageRecapModal'));
 
 export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectPeriode = null }) {
     const { toast } = useToast();
@@ -491,17 +492,21 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                 )}
             </div>
 
-            {/* Modale Récapitulative & Validation Avant Sauvegarde */}
-            <PointageRecapModal
-                isOpen={isRecapModalOpen}
-                onClose={() => setIsRecapModalOpen(false)}
-                onConfirm={handleConfirmSave}
-                saving={saving}
-                grilleData={grilleData}
-                siteIndemnites={siteIndemnites}
-                selectedDate={selectedDate}
-                siteLabel={siteLabel}
-            />
+            {/* Modale Récapitulative & Validation Avant Sauvegarde (Lazy Loaded) */}
+            {isRecapModalOpen && (
+                <Suspense fallback={null}>
+                    <PointageRecapModal
+                        isOpen={isRecapModalOpen}
+                        onClose={() => setIsRecapModalOpen(false)}
+                        onConfirm={handleConfirmSave}
+                        saving={saving}
+                        grilleData={grilleData}
+                        siteIndemnites={siteIndemnites}
+                        selectedDate={selectedDate}
+                        siteLabel={siteLabel}
+                    />
+                </Suspense>
+            )}
         </>
     );
 }

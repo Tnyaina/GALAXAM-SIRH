@@ -152,12 +152,12 @@ public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest 
                 .content(toJson(calcReq)))
                 .andExpect(status().isOk());
 
-        // 2. Transmission à la DAF par l'Agent de Pointage via POST /pointages/synthese/transmettre-daf
+        // 2. Transmission à la DAF par la commande canonique de période
         Map<String, Object> transReq = new HashMap<>();
-        transReq.put("idPeriodePaie", idPeriode);
+        transReq.put("version", getPayrollPeriodVersion(idPeriode));
         transReq.put("idSite", 1);
 
-        mockMvc.perform(post("/pointages/synthese/transmettre-daf")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/SUBMIT")
                 .header("Authorization", "Bearer " + getPointageToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(transReq)))
@@ -179,13 +179,13 @@ public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest 
             }
         }
 
-        // 3. Rejet par la DAF via POST /pointages/synthese/rejeter-daf
+        // 3. Rejet par la DAF via la commande REJECT
         String motifRejet = "Erreur de pointage sur l'employé EMP010 - A corriger";
         Map<String, Object> rejetReq = new HashMap<>();
-        rejetReq.put("idPeriodePaie", idPeriode);
+        rejetReq.put("version", getPayrollPeriodVersion(idPeriode));
         rejetReq.put("motif", motifRejet);
 
-        mockMvc.perform(post("/pointages/synthese/rejeter-daf")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/REJECT")
                 .header("Authorization", "Bearer " + getAdminToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(rejetReq)))
@@ -207,17 +207,18 @@ public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest 
         }
 
         // 4. Nouvelle transmission après correction
-        mockMvc.perform(post("/pointages/synthese/transmettre-daf")
+        transReq.put("version", getPayrollPeriodVersion(idPeriode));
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/SUBMIT")
                 .header("Authorization", "Bearer " + getPointageToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(transReq)))
                 .andExpect(status().isOk());
 
-        // 5. Validation finale par la DAF via POST /pointages/synthese/valider-daf
+        // 5. Validation finale par la DAF via la commande APPROVE
         Map<String, Object> valReq = new HashMap<>();
-        valReq.put("idPeriodePaie", idPeriode);
+        valReq.put("version", getPayrollPeriodVersion(idPeriode));
 
-        mockMvc.perform(post("/pointages/synthese/valider-daf")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/APPROVE")
                 .header("Authorization", "Bearer " + getAdminToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(valReq)))

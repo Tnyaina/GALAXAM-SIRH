@@ -106,47 +106,6 @@ public class PaieController {
         }
     }
 
-    @PostMapping("/cloturer-periode")
-    @PreAuthorize("hasAuthority('PAIE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> cloturerPaiePeriode(@Valid @RequestBody ActionPaiePeriodeRequest req) {
-        Integer userId = getCurrentUserId();
-        try (Connection c = dataSource.getConnection()) {
-            payrollService.cloturerPaiePeriode(req.getIdPeriodePaie(), userId, c);
-            Map<String, Object> resp = new HashMap<>();
-            resp.put("success", true);
-            resp.put("message", "Période de paie clôturée avec succès.");
-            return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(createErrorResponse(e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("Erreur lors de la clôture : " + e.getMessage()));
-        }
-    }
-
-    @PostMapping("/rouvrir-periode")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> rouvrirPaiePeriode(@Valid @RequestBody ActionPaiePeriodeRequest req) {
-        Integer userId = getCurrentUserId();
-        if (req.getMotif() == null || req.getMotif().trim().length() < 5) {
-            return ResponseEntity.badRequest().body(createErrorResponse("Le motif de réouverture est obligatoire (min 5 caractères)."));
-        }
-        try (Connection c = dataSource.getConnection()) {
-            payrollService.rouvrirPaiePeriode(req.getIdPeriodePaie(), req.getMotif().trim(), userId, c);
-            Map<String, Object> resp = new HashMap<>();
-            resp.put("success", true);
-            resp.put("message", "Période de paie réouverte avec succès.");
-            return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("Erreur lors de la réouverture : " + e.getMessage()));
-        }
-    }
-
     // =========================================================================
     // CONSULTATION DES BULLETINS
     // =========================================================================

@@ -50,7 +50,7 @@ import org.springframework.http.MediaType;
  *    - TNR (RAKETAKA) : 08:00-12:00 / 13:00-17:00, avec indemnité repas (2 000 Ar/jour)
  *    - TMM (RAKOTO)   : 08:00-12:00 / 14:00-18:00, SANS indemnité repas (0 Ar)
  *
- * 5. Clôture du Pointage (POST /pointages/synthese/calculer-tout -> transmettre-daf -> valider-daf) :
+ * 5. Clôture du Pointage (calcul des semaines -> commandes SUBMIT puis APPROVE) :
  *    - Scellement des cumuls dans pointage_cumul_periode et pointage_cumul_indemnite
  *
  * 6. Variables de Paie & Ajustements (POST /paie/ajustements) :
@@ -346,8 +346,8 @@ public class GrandWorkflowOhatraE2ETest extends BaseIntegrationTest {
 
         // 5.2 Transmission à la DAF par l'agent de pointage (tous sites)
         Map<String, Object> transReq = new HashMap<>();
-        transReq.put("idPeriodePaie", idPeriode);
-        mockMvc.perform(post("/pointages/synthese/transmettre-daf")
+        transReq.put("version", getPayrollPeriodVersion(idPeriode));
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/SUBMIT")
                 .header("Authorization", "Bearer " + tokenAgent)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(transReq)))
@@ -355,8 +355,8 @@ public class GrandWorkflowOhatraE2ETest extends BaseIntegrationTest {
 
         // 5.3 Validation DAF (verrouillage pessimiste et scellement des cumuls)
         Map<String, Object> valPtgReq = new HashMap<>();
-        valPtgReq.put("idPeriodePaie", idPeriode);
-        mockMvc.perform(post("/pointages/synthese/valider-daf")
+        valPtgReq.put("version", getPayrollPeriodVersion(idPeriode));
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/APPROVE")
                 .header("Authorization", "Bearer " + tokenAdmin)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(valPtgReq)))

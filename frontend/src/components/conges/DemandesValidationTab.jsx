@@ -10,10 +10,10 @@ import { useDemandesValidation } from '@/hooks/conges/useDemandesValidation';
 // Sous-composants
 import ValidationFilters from './validation/ValidationFilters';
 import ValidationTable from './validation/ValidationTable';
-import ValidationModals from './validation/ValidationModals';
 
 // Modales asynchrones
 const DemandeCongeModal = lazy(() => import('@/components/conges/DemandeCongeModal'));
+const ValidationModals = lazy(() => import('./validation/ValidationModals'));
 
 export default function DemandesValidationTab({ referentiels, onReload: parentReload }) {
   const toast = useToast();
@@ -166,36 +166,40 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
         onOpenModifier={openModifier}
       />
 
-      {/* Toutes les Modales d'action */}
-      <ValidationModals
-        selectedDemande={selectedDemande}
+      {/* Toutes les Modales d'action (Lazy Loaded) */}
+      {(showDetailModal || showValiderModal || showRefusModal || showAnnulerModal) && (
+        <Suspense fallback={null}>
+          <ValidationModals
+            selectedDemande={selectedDemande}
 
-        showDetailModal={showDetailModal}
-        onCloseDetail={closeDetail}
-        onOpenValider={openValider}
-        onOpenRefus={openRefus}
-        onOpenModifier={openModifier}
-        onOpenAnnuler={openAnnuler}
+            showDetailModal={showDetailModal}
+            onCloseDetail={closeDetail}
+            onOpenValider={openValider}
+            onOpenRefus={openRefus}
+            onOpenModifier={openModifier}
+            onOpenAnnuler={openAnnuler}
 
-        showValiderModal={showValiderModal}
-        onCloseValider={() => { setShowValiderModal(false); setSelectedDemande(null); }}
-        onConfirmValider={onConfirmValider}
+            showValiderModal={showValiderModal}
+            onCloseValider={() => { setShowValiderModal(false); setSelectedDemande(null); }}
+            onConfirmValider={onConfirmValider}
 
-        showRefusModal={showRefusModal}
-        onCloseRefus={() => { setShowRefusModal(false); setSelectedDemande(null); setMotifRefus(''); }}
-        onConfirmRefus={onConfirmRefus}
-        motifRefus={motifRefus}
-        setMotifRefus={setMotifRefus}
+            showRefusModal={showRefusModal}
+            onCloseRefus={() => { setShowRefusModal(false); setSelectedDemande(null); setMotifRefus(''); }}
+            onConfirmRefus={onConfirmRefus}
+            motifRefus={motifRefus}
+            setMotifRefus={setMotifRefus}
 
-        showAnnulerModal={showAnnulerModal}
-        onCloseAnnuler={() => { setShowAnnulerModal(false); setSelectedDemande(null); setMotifAnnulation(''); }}
-        onConfirmAnnuler={onConfirmAnnuler}
-        motifAnnulation={motifAnnulation}
-        setMotifAnnulation={setMotifAnnulation}
+            showAnnulerModal={showAnnulerModal}
+            onCloseAnnuler={() => { setShowAnnulerModal(false); setSelectedDemande(null); setMotifAnnulation(''); }}
+            onConfirmAnnuler={onConfirmAnnuler}
+            motifAnnulation={motifAnnulation}
+            setMotifAnnulation={setMotifAnnulation}
 
-        actionLoading={actionLoading}
-        actionError={actionError}
-      />
+            actionLoading={actionLoading}
+            actionError={actionError}
+          />
+        </Suspense>
+      )}
 
       {/* Modale de création d'une nouvelle demande (Lazy Loaded) */}
       <Suspense fallback={null}>

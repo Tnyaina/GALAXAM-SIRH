@@ -1,18 +1,20 @@
 /**
- * Référentiel des données géographiques et nationalités pour Madagascar.
- * Permet l'autocomplétion immédiate (0ms latence) sans bloquer la saisie libre.
+ * Référentiel des données géographiques, agences bancaires et nationalités pour Madagascar.
+ * Source agences bancaires : Banky Foibe Madagascar (Banque Centrale de Madagascar - Recueil officiel des agences par région).
+ * Permet l'autocomplétion immédiate (0ms latence) sans bloquer la saisie libre via AutocompleteInput.
  */
 
 export const VILLES_MADAGASCAR = [
+    // 6 Grandes Provinces et Chefs-lieux
     'Antananarivo',
-    'Toamasina',
+    'Toamasina (Tamatave)',
     'Antsirabe',
     'Fianarantsoa',
-    'Mahajanga',
-    'Toliara',
+    'Mahajanga (Majunga)',
+    'Toliara (Tuléar)',
     'Antsiranana (Diego-Suarez)',
-    'Nosy Be',
     'Taolagnaro (Fort-Dauphin)',
+    'Nosy Be',
     'Morondava',
     'Sambava',
     'Ambatondrazaka',
@@ -22,14 +24,315 @@ export const VILLES_MADAGASCAR = [
     'Ihosy',
     'Tsiroanomandidy',
     'Maintirano',
-    'Fenerive Est (Vohipeno)',
+    'Fénérive-Est (Fenoarivo Atsinanana)',
     'Marovoay',
     'Ambanja',
     'Ambovombe',
+    'Moramanga',
+
+    // Région Analamanga & Grand Antananarivo
+    'Alarobia',
+    'Ambatobe',
+    'Ambatolampy',
+    'Ambohibao',
     'Ambohimangakely',
-    'Itaosy',
-    'Sabotsy Namehana',
+    'Ambohimanarina',
     'Andoharanofotsy',
+    'Anjozorobe',
+    'Ankazobe',
+    'Anosizato',
+    'Ilafy',
+    'Imerintsiatosika',
+    'Itaosy',
+    'Ivato',
+    'Manjakandriana',
+    'Sabotsy Namehana',
+    'Talatamaty',
+    'Tanjombato',
+
+    // Régions Vakinankaratra & Itasy & Bongolava
+    'Analavory',
+    'Antanifotsy',
+    'Arivonimamo',
+    'Betafo',
+    'Faratsiho',
+    'Fenoarivobe',
+    'Mandoto',
+    'Miarinarivo',
+    'Soavinandriana',
+
+    // Régions DIANA & SAVA
+    'Ambilobe',
+    'Andapa',
+    'Vohémar',
+
+    // Région Boeny & Betsiboka & Sofia
+    'Ambato-Boeny',
+    'Analalava',
+    'Antsohihy',
+    'Bealanana',
+    'Befandriana-Nord',
+    'Boriziny (Port-Bergé)',
+    'Kandreho',
+    'Maevatanàna',
+    'Mampikony',
+    'Mandritsara',
+    'Mitsinjo',
+    'Soalala',
+    'Tsaratanana',
+
+    // Région Melaky
+    'Antsalova',
+    'Besalampy',
+    'Morafenobe',
+
+    // Régions Atsinanana & Analanjirofo & Alaotra-Mangoro
+    'Amparafaravola',
+    'Andilamena',
+    'Anosibe An\'ala',
+    'Brickaville (Ampasimanolotra)',
+    'Mahanoro',
+    'Mananara-Nord',
+    'Maroantsetra',
+    'Marolambo',
+    'Sainte-Marie (Nosy Boraha)',
+    'Soanierana Ivongo',
+    'Tanambe',
+    'Vatomandry',
+    'Vavatenina',
+
+    // Régions Haute Matsiatra & Amoron\'i Mania
+    'Ambalavao',
+    'Ambatofinandrahana',
+    'Ambohimahasoa',
+    'Fandriana',
+    'Manandriana',
+
+    // Régions Vatovavy & Fitovinany & Atsimo-Atsinanana
+    'Farafangana',
+    'Ifanadiana',
+    'Ikongo',
+    'Mananjary',
+    'Nosy Varika',
+    'Vangaindrano',
+    'Vohipeno',
+    'Vondrozo',
+
+    // Région Menabe & Ihorombe
+    'Belo-sur-Tsiribihina',
+    'Mahabo',
+    'Manja',
+    'Miandrivazo',
+
+    // Région Atsimo-Andrefana & Androy & Anosy
+    'Amboasary-Atsimo',
+    'Ampanihy',
+    'Ankazoabo',
+    'Bekily',
+    'Beloha',
+    'Betioky',
+    'Betroka',
+    'Ilakaka',
+    'Morombe',
+    'Sakaraha',
+    'Tsihombe'
+];
+
+/**
+ * Référentiel unifié des agences bancaires de Madagascar.
+ * Recensé à partir des implantations bancaires officielles (BMOI, BNI, BOA, Société Générale,
+ * MCB, SBM, AccèsBanque, Baobab, BGFIBank, BM, SIPEM).
+ * Utilisé pour l'autocomplétion prédictive dans les formulaires bancaires collaborateur (CnapsBanqueStep).
+ */
+export const AGENCES_BANCAIRES = [
+    // --- Antananarivo / Analamanga (Quartiers & Agences) ---
+    '67 Ha',
+    '67 Ha Nord',
+    '67 Ha Sud',
+    'Alarobia',
+    'Ambanidia',
+    'Ambatobe',
+    'Ambatolampy',
+    'Ambatomena',
+    'Ambodivona',
+    'Ambohibao',
+    'Ambohidahy',
+    'Ambohimiandra',
+    'Ambohimanandray',
+    'Ambohimanarina',
+    'Ambohipo',
+    'Ampandrana',
+    'Ampasampito',
+    'Ampasanisadoda',
+    'Ampefiloha',
+    'Ampitatafika',
+    'Analakely',
+    'Analakely - Avenue de l\'Indépendance',
+    'Analakely - Face SICAM',
+    'Analakely - Siège',
+    'Andavamamba',
+    'Andoharanofotsy',
+    'Andohatapenaka',
+    'Andraharo',
+    'Andramasina',
+    'Andranomena',
+    'Andranomena - Ambassade USA',
+    'Andravoahangy',
+    'Andrefan\'Ambohijanahary',
+    'Anjozorobe',
+    'Ankadifotsy',
+    'Ankadimbahoaka',
+    'Ankadindramamy',
+    'Ankaditoho',
+    'Ankazobe',
+    'Ankazomanga',
+    'Ankorondrano',
+    'Ankorondrano - Agence VIP',
+    'Ankorondrano - Entreprise',
+    'Ankorondrano - Immeuble Fitaratra',
+    'Ankorondrano - Village des Jeux',
+    'Anosibe',
+    'Anosimasina',
+    'Anosizato',
+    'Anosizato Est',
+    'Anosy',
+    'Antanimasaja',
+    'Antanimena',
+    'Antanimenakely',
+    'Antaninarenina',
+    'Antaninarenina - Agence Elite',
+    'Antaninarenina - Agence Prestige',
+    'Antaninarenina - Siège',
+    'Antsakaviro',
+    'Antsahavola',
+    'Antsahavola - Siège',
+    'Arivonimamo',
+    'Behoririka',
+    'Digue Ambohimanarina',
+    'Imerinafovoany',
+    'Imerintsiatosika',
+    'Isotry',
+    'Itaosy',
+    'Ivandry',
+    'Ivandry - Immeuble Business Center',
+    'Ivandry - La City',
+    'Ivato',
+    'Ivato Aéroport',
+    'Mahamasina',
+    'Mahavoky',
+    'Mahazo',
+    'Mahitsy',
+    'Manjakandriana',
+    'Nanisana',
+    'Sabotsy Namehana',
+    'Soarano',
+    'Soavinandriana',
+    'Talatamaty',
+    'Tanjombato',
+    'Tanjombato - Galerie Eden',
+    'Tsaralalàna',
+    'Tsimbazaza',
+
+    // --- Vakinankaratra, Itasy, Bongolava ---
+    'Analavory',
+    'Antsirabe',
+    'Antsirabe - Ambohimena',
+    'Antsirabe - Ambohimiandrisoa',
+    'Antsirabe - Mahazoarivo',
+    'Betafo',
+    'Faratsiho',
+    'Miarinarivo',
+    'Tsiroanomandidy',
+
+    // --- DIANA & SAVA ---
+    'Ambanja',
+    'Ambilobe',
+    'Andapa',
+    'Antalaha',
+    'Antsiranana (Diego-Suarez)',
+    'Antsiranana - Grand Hôtel',
+    'Antsiranana - Rue Richelieu',
+    'Antsiranana - Tanambao',
+    'Nosy Be',
+    'Nosy Be - Andoany',
+    'Sambava',
+    'Vohémar',
+
+    // --- Boeny, Betsiboka, Sofia, Melaky ---
+    'Antsohihy',
+    'Boriziny (Port-Bergé)',
+    'Maevatanàna',
+    'Mahajanga',
+    'Mahajanga - Antanimasaja',
+    'Mahajanga - Avenue de France',
+    'Mahajanga - Avenue Général de Gaulle',
+    'Mahajanga - Tsaramandroso',
+    'Maintirano',
+    'Mampikony',
+    'Mandritsara',
+    'Marovoay',
+
+    // --- Atsinanana, Analanjirofo, Alaotra-Mangoro ---
+    'Ambatondrazaka',
+    'Amparafaravola',
+    'Brickaville',
+    'Fénérive-Est',
+    'Mahanoro',
+    'Mananara-Nord',
+    'Maroantsetra',
+    'Moramanga',
+    'Sainte-Marie',
+    'Sainte-Marie - Ambodifotatra',
+    'Soanierana Ivongo',
+    'Tanambe',
+    'Toamasina (Tamatave)',
+    'Toamasina - Ankirihiry Nord',
+    'Toamasina - Augagneur',
+    'Toamasina - Avenue de l\'Indépendance',
+    'Toamasina - Bazary Kely',
+    'Toamasina - Bel\'Air',
+    'Toamasina - Commerce',
+    'Toamasina - Mangarivotra Nord',
+    'Toamasina - Tanambao',
+    'Toamasina - Tanambao V',
+    'Toamasina - Tanamakoa',
+    'Vatomandry',
+
+    // --- Haute Matsiatra, Amoron\'i Mania ---
+    'Ambalakohosoa',
+    'Ambalavao',
+    'Ambohimahasoa',
+    'Ambositra',
+    'Fianarantsoa',
+    'Fianarantsoa - Ambalakohosoa',
+    'Fianarantsoa - Ampasambazaha',
+    'Fianarantsoa - Boulevard Philibert Tsiranana',
+    'Fianarantsoa - Matsiatra Ambony',
+
+    // --- Vatovavy, Fitovinany, Atsimo-Atsinanana ---
+    'Farafangana',
+    'Manakara',
+    'Mananjary',
+    'Vangaindrano',
+
+    // --- Menabe, Ihorombe ---
+    'Ihosy',
+    'Miandrivazo',
+    'Morondava',
+
+    // --- Atsimo-Andrefana, Androy, Anosy ---
+    'Ambovombe',
+    'Ilakaka',
+    'Morombe',
+    'Sakaraha',
+    'Tolagnaro (Fort-Dauphin)',
+    'Toliara (Tuléar)',
+    'Toliara - Tanambao II',
+
+    // --- Génériques / Spécialisés ---
+    'Agence Entreprise',
+    'Agence Prestige',
+    'Siège Social'
 ];
 
 export const REGIONS_MADAGASCAR = [
@@ -54,7 +357,7 @@ export const REGIONS_MADAGASCAR = [
     'Anosy',
     'Diana',
     'Sava',
-    'Amoron\'i Mania',
+    'Amoron\'i Mania'
 ];
 
 export const NATIONALITES_STANDARDS = [
@@ -68,5 +371,5 @@ export const NATIONALITES_STANDARDS = [
     'Allemande',
     'Italienne',
     'Suisse',
-    'Canadienne',
+    'Canadienne'
 ];

@@ -1,22 +1,25 @@
 package mg.galaxam.sirh.api.controller.pointage;
 
 import mg.galaxam.sirh.api.dto.pointage.PeriodePaieDTO;
-import mg.galaxam.sirh.securite.CustomUserDetails;
+import jakarta.validation.Valid;
+import mg.galaxam.sirh.model.paie.workflow.PayrollPeriodCommand;
+import mg.galaxam.sirh.model.paie.workflow.PayrollPeriodCommandRequest;
+import mg.galaxam.sirh.api.dto.common.BusinessDecision;
+import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.common.exception.SirhErrorCode;
+import mg.galaxam.sirh.model.paie.workflow.PayrollPeriodUserContext;
+import mg.galaxam.sirh.model.paie.workflow.PayrollPeriodWorkflowService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -30,17 +33,17 @@ public class PeriodePaieController {
     private DataSource dataSource;
 
     @Autowired
-    private mg.galaxam.sirh.model.pointage.service.PointageSyntheseService pointageSyntheseService;
+    private PayrollPeriodWorkflowService payrollPeriodWorkflowService;
 
     @Autowired
     private mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine calendrierEngine;
 
     @GetMapping
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<List<PeriodePaieDTO>> getAllPeriodes() {
+    public ResponseEntity<List<PeriodePaieDTO>> getAllPeriodes() throws SQLException {
         List<PeriodePaieDTO> list = new ArrayList<>();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
-                     "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle, p.motif_rejet " +
+                     "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle, p.motif_rejet, p.version " +
                      "FROM periode_paie p " +
                      "JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                      "ORDER BY p.date_debut DESC";
@@ -62,6 +65,7 @@ public class PeriodePaieController {
                 dto.setStatutCode(rs.getString("statut_code"));
                 dto.setStatutLibelle(rs.getString("statut_libelle"));
                 dto.setMotifRejet(rs.getString("motif_rejet"));
+                dto.setVersion(rs.getInt("version"));
 
                 if (dDeb != null && dFin != null) {
                     dto.setNbJoursOuvrables(calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
@@ -71,9 +75,6 @@ public class PeriodePaieController {
 
                 list.add(dto);
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return ResponseEntity.badRequest().build();
         }
 
         return ResponseEntity.ok(list);
@@ -81,10 +82,11 @@ public class PeriodePaieController {
 
     @GetMapping("/current")
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<PeriodePaieDTO> getCurrentPeriode(@RequestParam(required = false) String date) {
+    public ResponseEntity<PeriodePaieDTO> getCurrentPeriode(@RequestParam(required = false) String date)
+            throws SQLException {
         String targetDate = (date != null && !date.trim().isEmpty()) ? date : java.time.LocalDate.now().toString();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
-                     "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle, p.motif_rejet " +
+                     "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle, p.motif_rejet, p.version " +
                      "FROM periode_paie p " +
                      "JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                      "WHERE ? BETWEEN p.date_debut AND p.date_fin " +
@@ -107,6 +109,7 @@ public class PeriodePaieController {
                     dto.setStatutCode(rs.getString("statut_code"));
                     dto.setStatutLibelle(rs.getString("statut_libelle"));
                     dto.setMotifRejet(rs.getString("motif_rejet"));
+                    dto.setVersion(rs.getInt("version"));
 
                     if (dDeb != null && dFin != null) {
                         dto.setNbJoursOuvrables(calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
@@ -116,12 +119,8 @@ public class PeriodePaieController {
                     return ResponseEntity.ok(dto);
                 }
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return ResponseEntity.badRequest().build();
         }
-
-        return ResponseEntity.notFound().build();
+        throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_NOT_FOUND);
     }
 
     @GetMapping("/simuler")
@@ -129,20 +128,21 @@ public class PeriodePaieController {
     public ResponseEntity<Map<String, Object>> simulerPeriode(
             @RequestParam String dateDebut,
             @RequestParam String dateFin
-    ) {
+    ) throws Exception {
         if (dateDebut == null || dateFin == null || dateDebut.trim().isEmpty() || dateFin.trim().isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                    "Les dates de début et de fin sont obligatoires.");
         }
 
-        try {
-            java.time.LocalDate start = java.time.LocalDate.parse(dateDebut.trim());
-            java.time.LocalDate end = java.time.LocalDate.parse(dateFin.trim());
+        java.time.LocalDate start = java.time.LocalDate.parse(dateDebut.trim());
+        java.time.LocalDate end = java.time.LocalDate.parse(dateFin.trim());
 
-            if (end.isBefore(start)) {
-                return ResponseEntity.badRequest().build();
-            }
+        if (end.isBefore(start)) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                    "La date de fin ne peut pas précéder la date de début.");
+        }
 
-            try (Connection c = dataSource.getConnection()) {
+        try (Connection c = dataSource.getConnection()) {
                 // Délégation à CalendrierOuvrableEngine : source unique de vérité pour les jours ouvrables.
                 // Inclut weekends + fériés nationaux + fériés par site + périodes chômées exceptionnelles.
                 // Ancienne logique inline supprimée car incomplète (sans site, sans périodes chômées).
@@ -160,11 +160,7 @@ public class PeriodePaieController {
                 resp.put("nbJoursFeries", Math.max(0, nbFeries));
                 resp.put("nbWeekends", nbWeekends);
 
-                return ResponseEntity.ok(resp);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.ok(resp);
         }
     }
 
@@ -178,9 +174,8 @@ public class PeriodePaieController {
         String dateFin = (String) payload.get("dateFin");
 
         if (code == null || dateDebut == null || dateFin == null) {
-            resp.put("success", false);
-            resp.put("message", "Le code, la date de début et la date de fin sont requis.");
-            return ResponseEntity.badRequest().body(resp);
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                    "Le code, la date de début et la date de fin sont requis.");
         }
 
         String sql = "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode) " +
@@ -198,128 +193,29 @@ public class PeriodePaieController {
                 resp.put("message", "Période de paie créée avec succès.");
                 return ResponseEntity.ok(resp);
         } catch (SQLException e) {
-            e.printStackTrace();
-            resp.put("success", false);
-            resp.put("message", "Erreur lors de la création de la période : " + e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
+            if ("23505".equals(e.getSQLState())) {
+                throw new SirhBusinessException(SirhErrorCode.DATA_DUPLICATE,
+                        "Une période possédant ce code ou ces dates existe déjà.");
+            }
+            throw new SirhBusinessException(SirhErrorCode.PERSISTENCE_ERROR);
         }
     }
 
+    @PostMapping("/{id}/actions/{command}")
+    @PreAuthorize("hasAuthority('POINTAGE_WRITE') or hasAuthority('POINTAGE_VALIDATE') or hasAuthority('PAIE_WRITE') or hasAuthority('PAIE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public BusinessDecision executeCommand(
+            @PathVariable int id,
+            @PathVariable PayrollPeriodCommand command,
+            @Valid @RequestBody PayrollPeriodCommandRequest request,
+            Authentication authentication) throws Exception {
+        return payrollPeriodWorkflowService.execute(
+                id, command, request, PayrollPeriodUserContext.from(authentication));
+    }
+
+    /** Compatibilité explicite : l'affectation directe d'un état est définitivement retirée. */
     @PutMapping("/{id}/statut")
-    @PreAuthorize("hasAuthority('POINTAGE_VALIDATE') or hasAuthority('POINTAGE_WRITE') or hasAuthority('PAIE_VALIDATE') or hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<Map<String, Object>> updateStatut(@PathVariable Integer id, @RequestBody Map<String, String> body) {
-        Map<String, Object> resp = new HashMap<>();
-        String newStatutCode = body.get("statutCode");
-        
-        if (newStatutCode == null || newStatutCode.isEmpty()) {
-            resp.put("success", false);
-            resp.put("message", "Le code du nouveau statut est requis.");
-            return ResponseEntity.badRequest().body(resp);
-        }
-
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        boolean isAdmin = auth != null && auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("PAIE_VALIDATE"));
-
-        // Un agent de pointage ne peut que transmettre la période pour validation (A_VALIDER)
-        if (!isAdmin && !"A_VALIDER".equals(newStatutCode)) {
-            resp.put("success", false);
-            resp.put("message", "Action non autorisée : seuls les administrateurs habilités peuvent changer ce statut.");
-            return ResponseEntity.status(403).body(resp);
-        }
-
-        Integer currentUserId = null;
-        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails ud) {
-            currentUserId = ud.getIdUtilisateur();
-        }
-
-        boolean isValidee = "VALIDEE".equals(newStatutCode) || "CLOTUREE".equals(newStatutCode);
-        Timestamp dateValidation = isValidee ? new Timestamp(System.currentTimeMillis()) : null;
-        Integer valideurId = isValidee ? currentUserId : null;
-
-        String rawMotifRejet = body.containsKey("motifRejet") && body.get("motifRejet") != null ? ((String) body.get("motifRejet")).trim() : null;
-
-        // Décision métier Java sur la mise à jour du motif de rejet
-        String sql;
-        if (isValidee) {
-            sql = "UPDATE periode_paie " +
-                  "SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?), " +
-                  "date_validation = ?, valide_par = ?, motif_rejet = NULL " +
-                  "WHERE id_periode_paie = ?";
-        } else if (rawMotifRejet != null) {
-            sql = "UPDATE periode_paie " +
-                  "SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?), " +
-                  "date_validation = ?, valide_par = ?, motif_rejet = ? " +
-                  "WHERE id_periode_paie = ?";
-        } else {
-            sql = "UPDATE periode_paie " +
-                  "SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?), " +
-                  "date_validation = ?, valide_par = ? " +
-                  "WHERE id_periode_paie = ?";
-        }
-
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                // Contrôle temporel : interdiction de valider une période non commencée ou de clôturer une période non échue
-                if ("VALIDEE".equals(newStatutCode) || "CLOTUREE".equals(newStatutCode)) {
-                    String sqlDates = "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
-                    try (PreparedStatement psD = c.prepareStatement(sqlDates)) {
-                        psD.setInt(1, id);
-                        try (ResultSet rsD = psD.executeQuery()) {
-                            if (rsD.next()) {
-                                Date dDeb = rsD.getDate("date_debut");
-                                Date dFin = rsD.getDate("date_fin");
-                                LocalDate today = LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo"));
-                                if (dDeb != null && dDeb.toLocalDate().isAfter(today)) {
-                                    throw new IllegalStateException("Action interdite : Impossible de valider ou clôturer une période entièrement future (début : " + dDeb + ").");
-                                }
-                                if ("CLOTUREE".equals(newStatutCode) && dFin != null && dFin.toLocalDate().isAfter(today)) {
-                                    throw new IllegalStateException("Action interdite : Impossible de clôturer une période dont le terme n'est pas encore échu (fin : " + dFin + ").");
-                                }
-                            }
-                        }
-                    }
-                }
-
-                int rows;
-                try (PreparedStatement ps = c.prepareStatement(sql)) {
-                    int pIdx = 1;
-                    ps.setString(pIdx++, newStatutCode);
-                    if (dateValidation != null) ps.setTimestamp(pIdx++, dateValidation); else ps.setNull(pIdx++, java.sql.Types.TIMESTAMP);
-                    if (valideurId != null) ps.setInt(pIdx++, valideurId); else ps.setNull(pIdx++, java.sql.Types.INTEGER);
-                    if (!isValidee && rawMotifRejet != null) {
-                        ps.setString(pIdx++, rawMotifRejet);
-                    }
-                    ps.setInt(pIdx++, id);
-                    rows = ps.executeUpdate();
-                }
-
-                if (rows > 0) {
-                    if ("VALIDEE".equals(newStatutCode) || "CLOTUREE".equals(newStatutCode)) {
-                        pointageSyntheseService.gelerPeriode(id, currentUserId, c);
-                    } else if ("BROUILLON".equals(newStatutCode)) {
-                        pointageSyntheseService.degelerPeriode(id, c);
-                    }
-                    c.commit();
-                    resp.put("success", true);
-                    resp.put("message", "Statut de la période mis à jour avec succès.");
-                    return ResponseEntity.ok(resp);
-                } else {
-                    c.rollback();
-                    resp.put("success", false);
-                    resp.put("message", "Période introuvable.");
-                    return ResponseEntity.badRequest().body(resp);
-                }
-            } catch (Exception ex) {
-                c.rollback();
-                throw ex;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            resp.put("success", false);
-            resp.put("message", "Erreur lors de la mise à jour : " + e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
-        }
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> retiredGenericStatusMutation(@PathVariable int id) {
+        return ResponseEntity.status(410).build();
     }
 }

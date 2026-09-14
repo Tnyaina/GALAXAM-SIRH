@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { RefreshCw, ShieldAlert, Save, X, Eye, EyeOff, FileSignature, Building2, MessageSquareText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { RefreshCw, ShieldAlert, Save, X, Eye, EyeOff, FileSignature, Building2, MessageSquareText, Layers } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Textarea } from '@/components/ui/forms/Input';
 import Loading from '@/components/ui/feedback/Loading';
@@ -14,6 +14,7 @@ import ContratFieldsSection from '@/components/carriere/form/ContratFieldsSectio
 import AffectationFieldsSection from '@/components/carriere/form/AffectationFieldsSection';
 import PeriodeEssaiFieldsSection from '@/components/carriere/form/PeriodeEssaiFieldsSection';
 import AvenantPreviewDocument from '@/components/carriere/preview/AvenantPreviewDocument';
+import TransitionComparatifCard from '@/components/carriere/preview/TransitionComparatifCard';
 
 export default function TransitionModal({
     isOpen,
@@ -26,6 +27,8 @@ export default function TransitionModal({
     initialData = null,
     onSuccess,
 }) {
+    const [previewTab, setPreviewTab] = useState('comparatif'); // 'comparatif' | 'document'
+
     const {
         formData, setField,
         submitting, errorMsg,
@@ -191,38 +194,95 @@ export default function TransitionModal({
                         )}
                     </div>
 
-                    {/* Aperçu Avenant (6/12) */}
-                    <div className={`p-7 bg-ink-50/50 dark:bg-ink-950/30 lg:col-span-6 overflow-y-auto space-y-4 ${showPreviewMobile ? 'block' : 'hidden lg:block'}`}>
+                    {/* Aperçu & Comparatif (6/12) */}
+                    <div className={`p-4 sm:p-6 bg-ink-50/50 dark:bg-ink-950/30 lg:col-span-6 overflow-y-auto space-y-4 ${showPreviewMobile ? 'block' : 'hidden lg:block'}`}>
+                        {/* Sélecteur d'onglets du panneau de droite */}
                         <div className="flex items-center justify-between pb-2 border-b border-ink-200 dark:border-ink-700">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 flex items-center gap-2">
-                                <FileSignature size={14} className="text-brand-500" />
-                                Aperçu de l'Avenant RH
-                            </h3>
+                            <div className="inline-flex border border-ink-200 dark:border-ink-700 bg-ink-100/60 dark:bg-ink-900 p-0.5">
+                                <button
+                                    type="button"
+                                    onClick={() => setPreviewTab('comparatif')}
+                                    className={`
+                                        flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150 cursor-pointer
+                                        ${previewTab === 'comparatif'
+                                            ? 'bg-white dark:bg-ink-800 text-brand-500 shadow-xs border border-ink-200/50 dark:border-ink-600'
+                                            : 'text-ink-500 hover:text-ink-900 dark:hover:text-white'
+                                        }
+                                    `}
+                                >
+                                    <Layers size={13} />
+                                    <span>Comparatif Différentiel</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPreviewTab('document')}
+                                    className={`
+                                        flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150 cursor-pointer
+                                        ${previewTab === 'document'
+                                            ? 'bg-white dark:bg-ink-800 text-brand-500 shadow-xs border border-ink-200/50 dark:border-ink-600'
+                                            : 'text-ink-500 hover:text-ink-900 dark:hover:text-white'
+                                        }
+                                    `}
+                                >
+                                    <FileSignature size={13} />
+                                    <span>Avenant Officiel Rédigé</span>
+                                </button>
+                            </div>
                         </div>
 
-                        <AvenantPreviewDocument
-                            typeEvenementActuel={typeEvObj}
-                            nomEmploye={nomEmploye}
-                            formData={formData}
-                            exigeNouveauContrat={exigeNouveauContrat}
-                            avantTypeContrat={avantTypeContrat}
-                            apresTypeContrat={apresTypeContrat}
-                            avantSite={avantSite}
-                            apresSite={apresSite}
-                            avantDepartement={avantDepartement}
-                            apresDepartement={apresDepartement}
-                            avantService={avantService}
-                            apresService={apresService}
-                            avantFonction={avantFonction}
-                            apresFonction={apresFonction}
-                            avantCategorie={avantCategorie}
-                            apresCategorie={apresCategorie}
-                            avantResponsable={avantResponsable}
-                            apresResponsable={apresResponsable}
-                            avantModePaie={avantModePaie}
-                            apresModePaie={apresModePaie}
-                            avantSalaire={avantSalaire}
-                        />
+                        {/* Vue 1 : Comparatif Différentiel Analytique */}
+                        {previewTab === 'comparatif' && (
+                            <TransitionComparatifCard
+                                typeEvenementActuel={typeEvObj}
+                                nomEmploye={nomEmploye}
+                                formData={formData}
+                                exigeNouveauContrat={exigeNouveauContrat}
+                                avantTypeContrat={avantTypeContrat}
+                                apresTypeContrat={apresTypeContrat}
+                                avantSite={avantSite}
+                                apresSite={apresSite}
+                                avantDepartement={avantDepartement}
+                                apresDepartement={apresDepartement}
+                                avantService={avantService}
+                                apresService={apresService}
+                                avantFonction={avantFonction}
+                                apresFonction={apresFonction}
+                                avantCategorie={avantCategorie}
+                                apresCategorie={apresCategorie}
+                                avantResponsable={avantResponsable}
+                                apresResponsable={apresResponsable}
+                                avantModePaie={avantModePaie}
+                                apresModePaie={apresModePaie}
+                                avantSalaire={avantSalaire}
+                            />
+                        )}
+
+                        {/* Vue 2 : Document Contractuel Avenant */}
+                        {previewTab === 'document' && (
+                            <AvenantPreviewDocument
+                                typeEvenementActuel={typeEvObj}
+                                nomEmploye={nomEmploye}
+                                formData={formData}
+                                exigeNouveauContrat={exigeNouveauContrat}
+                                avantTypeContrat={avantTypeContrat}
+                                apresTypeContrat={apresTypeContrat}
+                                avantSite={avantSite}
+                                apresSite={apresSite}
+                                avantDepartement={avantDepartement}
+                                apresDepartement={apresDepartement}
+                                avantService={avantService}
+                                apresService={apresService}
+                                avantFonction={avantFonction}
+                                apresFonction={apresFonction}
+                                avantCategorie={avantCategorie}
+                                apresCategorie={apresCategorie}
+                                avantResponsable={avantResponsable}
+                                apresResponsable={apresResponsable}
+                                avantModePaie={avantModePaie}
+                                apresModePaie={apresModePaie}
+                                avantSalaire={avantSalaire}
+                            />
+                        )}
                     </div>
                 </div>
 

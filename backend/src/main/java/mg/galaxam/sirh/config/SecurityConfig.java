@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.config;
 
 import java.util.Arrays;
+import jakarta.annotation.PostConstruct;
 import mg.galaxam.sirh.securite.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,7 +29,7 @@ public class SecurityConfig {
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Value("${app.cors.allowed-origins:http://localhost:5173}")
+    @Value("${app.cors.allowed-origins}")
     private String[] allowedOrigins;
 
     public static final String ROLE_ADMIN = "ADMIN";
@@ -37,9 +38,17 @@ public class SecurityConfig {
         "/auth/login",
         "/auth/refresh",
         "/auth/logout",
-        "/uploads/photos/**",
         "/error"
     };
+
+    @PostConstruct
+    void validateCorsConfiguration() {
+        if (allowedOrigins == null || allowedOrigins.length == 0
+                || Arrays.stream(allowedOrigins).anyMatch(origin -> origin == null || origin.isBlank() || "*".equals(origin.trim()))) {
+            throw new IllegalStateException(
+                    "app.cors.allowed-origins doit contenir uniquement des origines explicites lorsque les credentials sont autorisés.");
+        }
+    }
 
     private static final String[] ADMIN_ENDPOINTS = {
         "/auth/register",

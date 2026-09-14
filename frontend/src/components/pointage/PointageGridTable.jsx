@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Moon, Car, Clock, UserX, FastForward } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { Avatar } from '@/components/ui/data-display/Avatar';
-import { getFullPhotoUrl } from '@/utils/fileUtils';
 import TimeInput from '@/components/ui/forms/TimeInput';
 import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
@@ -146,7 +145,7 @@ export default function PointageGridTable({
                 </div>
             </div>
 
-            <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
+            <div className="overflow-x-auto">
                 <Table className="w-full text-left border-collapse text-[13px]">
                     <Thead className="sticky top-0 z-10">
                         {/* Ligne 1 d'en-tête (Titres de Blocs) */}
@@ -235,7 +234,7 @@ export default function PointageGridTable({
                                     <Td className="px-3.5 py-2">
                                         <div className="flex items-center gap-2.5 min-w-[210px]">
                                             <Avatar
-                                                src={row.photoUrl ? getFullPhotoUrl(row.photoUrl) : null}
+                                                src={row.photoUrl}
                                                 name={`${row.prenom || ''} ${row.nom || ''}`}
                                                 size="sm"
                                                 shape="square"

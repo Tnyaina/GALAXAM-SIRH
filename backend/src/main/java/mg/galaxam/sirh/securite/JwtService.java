@@ -128,4 +128,8 @@ public class JwtService {
     public long getRefreshTokenExpirationMs() {
         return refreshTokenExpirationMs;
     }
+
+    public long getAccessTokenExpirationMs() {
+        return accessTokenExpirationMs;
+    }
 }

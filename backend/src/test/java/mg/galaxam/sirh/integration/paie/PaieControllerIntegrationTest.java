@@ -37,7 +37,7 @@ class PaieControllerIntegrationTest extends BaseIntegrationTest {
                 "PER-2026-01",
                 LocalDate.of(2025, 12, 26),
                 LocalDate.of(2026, 1, 25),
-                "OUVERTE"
+                "VALIDEE"
         );
 
         // 2. Collaborateur permanent (Salarié CDI - Base 625 000 Ar, conforme Ohatra)
@@ -262,12 +262,12 @@ class PaieControllerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isOk());
 
         // 3. Clôture de la période
-        mockMvc.perform(post("/paie/cloturer-periode")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/CLOSE")
                         .header("Authorization", "Bearer " + getAdminToken())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(toJson(reqAction)))
+                        .content(toJson(java.util.Map.of("version", getPayrollPeriodVersion(idPeriode)))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success", is(true)));
+                .andExpect(jsonPath("$.decision", is("ALLOWED")));
 
         // Vérification en base : La période doit être CLOTUREE et les bulletins CLOTURE
         try (Connection c = dataSource.getConnection();
@@ -281,12 +281,14 @@ class PaieControllerIntegrationTest extends BaseIntegrationTest {
 
         // 4. Réouverture de la période (Contre-Audit d'urgence avec motif)
         reqAction.setMotif("Erreur de pointage nécessitant régularisation");
-        mockMvc.perform(post("/paie/rouvrir-periode")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/REOPEN")
                         .header("Authorization", "Bearer " + getAdminToken())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(toJson(reqAction)))
+                        .content(toJson(java.util.Map.of(
+                                "version", getPayrollPeriodVersion(idPeriode),
+                                "motif", reqAction.getMotif()))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success", is(true)));
+                .andExpect(jsonPath("$.decision", is("ALLOWED")));
 
         // Vérification en base : La période est de nouveau EN_COURS (réouverte)
         try (Connection c = dataSource.getConnection();

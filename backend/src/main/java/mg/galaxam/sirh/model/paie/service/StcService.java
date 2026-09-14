@@ -79,10 +79,11 @@ public class StcService {
         // 1. Informations de l'employé et affectation
         String sqlEmp = "SELECT e.matricule, e.nom, e.prenom, e.cin_numero, e.cin_date_delivrance, e.cin_lieu_delivrance, e.num_affiliation_cnaps, " +
                 "eac.salaire_base, f.libelle AS fonction_nom, d.libelle AS dept_nom, s.libelle AS site_nom, s.code_site, " +
-                "cat.code AS cat_code, ct.date_debut AS date_embauche " +
+                "cat.code AS cat_code, COALESCE(c_emb.date_embauche_initiale, ct.date_debut) AS date_embauche " +
                 "FROM employe e " +
                 "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
                 "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+                "LEFT JOIN (SELECT id_employe, MIN(date_debut) AS date_embauche_initiale FROM contrat_travail GROUP BY id_employe) c_emb ON e.id_employe = c_emb.id_employe " +
                 "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
                 "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
                 "LEFT JOIN ref_departement d ON eac.id_departement = d.id_departement " +
@@ -128,9 +129,10 @@ public class StcService {
             // on récupère sa dernière affectation connue pour permettre le calcul et la régularisation du STC.
             String sqlFallback = "SELECT e.matricule, e.nom, e.prenom, e.cin_numero, e.cin_date_delivrance, e.cin_lieu_delivrance, e.num_affiliation_cnaps, " +
                     "eac.salaire_base, f.libelle AS fonction_nom, d.libelle AS dept_nom, s.libelle AS site_nom, s.code_site, " +
-                    "cat.code AS cat_code, ct.date_debut AS date_embauche " +
+                    "cat.code AS cat_code, COALESCE(c_emb.date_embauche_initiale, ct.date_debut) AS date_embauche " +
                     "FROM employe e " +
                     "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
+                    "LEFT JOIN (SELECT id_employe, MIN(date_debut) AS date_embauche_initiale FROM contrat_travail GROUP BY id_employe) c_emb ON e.id_employe = c_emb.id_employe " +
                     "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
                     "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
                     "LEFT JOIN ref_departement d ON eac.id_departement = d.id_departement " +
@@ -186,9 +188,13 @@ public class StcService {
 
         // 2. Ancienneté via AncienneteEngine (décompte complet des contrats successifs)
         AncienneteEngine.AncienneteBilan bilan = calculerAncienneteEmploye(idEmploye, dateDepartEffective, c);
-        if (bilan != null && bilan.ansEffectifs() > 0 || (bilan != null && bilan.moisEffectifs() > 0)) {
+        if (bilan != null && (bilan.ansEffectifs() > 0 || bilan.moisEffectifs() > 0 || bilan.dateOrigineChaine() != null)) {
             prep.setAncienneteAnnees(bilan.ansEffectifs());
             prep.setAncienneteMois(bilan.moisEffectifs());
+            if (bilan.dateOrigineChaine() != null) {
+                dateEmbauche = Date.valueOf(bilan.dateOrigineChaine());
+                prep.setDateEmbauche(dateEmbauche);
+            }
         } else if (dateEmbauche != null) {
             LocalDate dDebut = dateEmbauche.toLocalDate();
             LocalDate dFin = dateDepartEffective.toLocalDate();

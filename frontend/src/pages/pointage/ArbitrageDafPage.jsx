@@ -1,14 +1,15 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
     CheckCircle, XCircle, Lock, AlertTriangle, CheckCircle2, Clock,
-    Users, TrendingUp, Moon, Sun, Award, Search, ClipboardCheck,
+    Users, TrendingUp, Moon, Sun, Award, Search,
     Edit3, Calendar, Building2, X, GanttChartSquare,
     LayoutGrid, ShieldCheck, Car, Banknote, RefreshCw, Scale
 } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
 import Select from '@/components/ui/forms/Select';
+import { Textarea } from '@/components/ui/forms/Input';
 import Pagination from '@/components/ui/navigation/Pagination';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
@@ -20,14 +21,15 @@ import periodePaieService from '@/services/periodePaieService';
 import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 import pointageSaisieService from '@/api/pointage/pointageSaisieService';
 import { formatMonnaie, formatHeuresMinutes, formatHeuresDecimal } from '@/utils/pointageUtils';
-import DafAjustementPointageModal from '@/components/pointage/DafAjustementPointageModal';
-import PointageGanttView from '@/components/pointage/PointageGanttView';
 import { isDateInFuture } from '@/utils/dateUtils';
 import useDebounce from '@/hooks/useDebounce';
 
+const DafAjustementPointageModal = lazy(() => import('@/components/pointage/DafAjustementPointageModal'));
+const PointageGanttView = lazy(() => import('@/components/pointage/PointageGanttView'));
+
 /**
  * Arbitrage DAF — Etape 3 du cockpit Pointage (DAF uniquement).
- * Synthese mensuelle + Vue Gantt pour investigation + Actions : Valider / Rejeter / Cloture.
+ * Synthese mensuelle + Vue Gantt pour investigation + Actions : Valider / Rejeter.
  */
 export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode = null }) {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -57,7 +59,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
     const [showValiderModal, setShowValiderModal] = useState(false);
     const [showRejetModal, setShowRejetModal] = useState(false);
-    const [showCloturerModal, setShowCloturerModal] = useState(false);
     const [motifRejet, setMotifRejet] = useState('');
     const [processing, setProcessing] = useState(false);
 
@@ -162,7 +163,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
     const stCode = currentPeriodeObj?.statutCode;
     const isAValider = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
-    const isValidee = stCode === 'VALIDEE';
     const _isCloturee = stCode === 'CLOTUREE';
 
     const kpis = useMemo(() => {
@@ -248,8 +248,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         if (!selectedPeriode) return;
         setProcessing(true);
         try {
-            const res = await pointageSyntheseService.validerDaf({ idPeriodePaie: selectedPeriode });
-            if (res?.success) {
+            const res = await periodePaieService.executeCommand(currentPeriodeObj.idPeriodePaie, 'APPROVE', {
+                version: currentPeriodeObj.version
+            });
+            if (res?.decision === 'ALLOWED') {
                 toast({ title: 'Période validée avec succès', message: 'Les données de pointage sont validées et figées.', type: 'success' });
                 window.dispatchEvent(new Event('refresh-notifications'));
                 setShowValiderModal(false);
@@ -266,8 +268,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         if (!selectedPeriode || !motifRejet.trim()) return;
         setProcessing(true);
         try {
-            const res = await pointageSyntheseService.rejeterDaf({ idPeriodePaie: selectedPeriode, motif: motifRejet.trim() });
-            if (res?.success) {
+            const res = await periodePaieService.executeCommand(currentPeriodeObj.idPeriodePaie, 'REJECT', {
+                version: currentPeriodeObj.version,
+                motif: motifRejet.trim()
+            });
+            if (res?.decision === 'ALLOWED') {
                 toast({ title: 'Période renvoyée', message: 'La période a été renvoyée pour correction.', type: 'warning' });
                 window.dispatchEvent(new Event('refresh-notifications'));
                 setShowRejetModal(false);
@@ -311,22 +316,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         } finally {
             setRecalculating(false);
         }
-    };
-
-    const handleCloturerPeriode = async () => {
-        if (!selectedPeriode) return;
-        setProcessing(true);
-        try {
-            await periodePaieService.updateStatut(selectedPeriode, 'CLOTUREE');
-            toast({ title: 'Période clôturée', message: 'La période est clôturée. Les bulletins de paie peuvent être générés.', type: 'success' });
-            window.dispatchEvent(new Event('refresh-notifications'));
-            setShowCloturerModal(false);
-            const list = await periodePaieService.getAllPeriodes();
-            if (list) setPeriodes(list);
-            await loadData();
-        } catch (err) {
-            toast({ title: 'Erreur', message: err?.response?.data?.error || 'Impossible de clôturer la période.', type: 'error' });
-        } finally { setProcessing(false); }
     };
 
     if (!isDaf) {
@@ -422,12 +411,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                     Valider
                                 </Button>
                             </>
-                        )}
-                        {isValidee && (
-                            <Button type="button" variant="success" size="sm" onClick={() => setShowCloturerModal(true)}
-                                icon={<ClipboardCheck size={14} />} className="text-xs h-[32px] font-bold">
-                                Clôturer
-                            </Button>
                         )}
                     </div>
                 </div>
@@ -817,28 +800,30 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         )
                     )}
 
-                    {/* Vue Gantt hebdomadaire pour la DAF */}
+                    {/* Vue Gantt hebdomadaire pour la DAF (Lazy Loaded) */}
                     {viewMode === 'gantt' && (
-                        <PointageGanttView
-                            semaines={semaines}
-                            selectedSemaine={selectedSemaine}
-                            onSelectSemaine={(sem) => setSelectedSemaine(sem)}
-                            ganttData={ganttData}
-                            loadingGantt={loadingGantt}
-                            isReadOnly={false}
-                            onCellClick={(emp, day, _cellData) => {
-                                if (isDateInFuture(day?.date)) {
-                                    toast({
-                                        title: 'Action impossible',
-                                        message: 'Impossible d\'ajuster un pointage pour une date future.',
-                                        type: 'warning'
-                                    });
-                                    return;
-                                }
-                                setAdjustInitialDate(day.date);
-                                setSelectedEmployeToAdjust(emp);
-                            }}
-                        />
+                        <Suspense fallback={<div className="p-8 text-center text-xs font-bold text-[var(--color-fg-muted)]">Chargement de la vue Gantt…</div>}>
+                            <PointageGanttView
+                                semaines={semaines}
+                                selectedSemaine={selectedSemaine}
+                                onSelectSemaine={(sem) => setSelectedSemaine(sem)}
+                                ganttData={ganttData}
+                                loadingGantt={loadingGantt}
+                                isReadOnly={false}
+                                onCellClick={(emp, day, _cellData) => {
+                                    if (isDateInFuture(day?.date)) {
+                                        toast({
+                                            title: 'Action impossible',
+                                            message: 'Impossible d\'ajuster un pointage pour une date future.',
+                                            type: 'warning'
+                                        });
+                                        return;
+                                    }
+                                    setAdjustInitialDate(day.date);
+                                    setSelectedEmployeToAdjust(emp);
+                                }}
+                            />
+                        </Suspense>
                     )}
                 </div>
             </div>
@@ -851,68 +836,66 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 title={`Valider ${currentPeriodeObj?.libelle || ''} ?`}
                 message="Les pointages seront validés et figés. Les saisies et modifications directes seront désactivées pour cette période. Cette action est irréversible."
                 confirmLabel="Valider la période"
-                variant="primary"
+                variant="success"
                 loading={processing}
             />
 
-            <Modal isOpen={showRejetModal} onClose={() => setShowRejetModal(false)} title="Renvoyer pour correction" size="md">
-                <div className="space-y-3 text-xs">
-                    <p className="text-[var(--color-fg-muted)]">
-                        Indiquez le motif du renvoi pour correction. Les agents de site pourront rectifier les données puis re-transmettre la période.
-                    </p>
-                    <div>
-                        <label className="block text-[10.5px] font-semibold text-[var(--color-fg-muted)] mb-1">Motif (obligatoire)</label>
-                        <textarea
-                            value={motifRejet}
-                            onChange={e => setMotifRejet(e.target.value)}
-                            rows={3}
-                            placeholder="Ex: Incohérences sur les heures supplémentaires ou justificatifs d'absence..."
-                            className="w-full px-2 py-1.5 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:outline-none focus:border-[var(--color-brand-500)] resize-none"
-                        />
-                    </div>
-                    <div className="flex justify-end gap-2 pt-1">
+            <Modal
+                isOpen={showRejetModal}
+                onClose={() => setShowRejetModal(false)}
+                title="Renvoyer pour correction"
+                size="md"
+                footer={
+                    <div className="flex justify-end gap-2 w-full">
                         <Button type="button" variant="ghost" size="sm" onClick={() => setShowRejetModal(false)}>Annuler</Button>
                         <Button type="button" variant="danger" size="sm" loading={processing} onClick={handleRejeterPeriode}
                             disabled={!motifRejet.trim()}>
                             Renvoyer pour correction
                         </Button>
                     </div>
+                }
+            >
+                <div className="space-y-3 text-xs">
+                    <p className="text-[var(--color-fg-muted)]">
+                        Indiquez le motif du renvoi pour correction. Les agents de site pourront rectifier les données puis re-transmettre la période.
+                    </p>
+                    <div>
+                        <label className="block text-[10.5px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-1">Motif (obligatoire)</label>
+                        <Textarea
+                            value={motifRejet}
+                            onChange={e => setMotifRejet(e.target.value)}
+                            rows={3}
+                            placeholder="Ex: Incohérences sur les heures supplémentaires ou justificatifs d'absence..."
+                            required
+                        />
+                    </div>
                 </div>
             </Modal>
 
-            <ConfirmDialog
-                isOpen={showCloturerModal}
-                onClose={() => setShowCloturerModal(false)}
-                onConfirm={handleCloturerPeriode}
-                title={`Clôture définitive ${currentPeriodeObj?.libelle || ''} ?`}
-                message="La période sera définitivement clôturée et archivée. Les bulletins de paie pourront être générés. Cette action est irréversible."
-                confirmLabel="Clôturer définitivement"
-                variant="danger"
-                loading={processing}
-            />
-
-            {/* Modale ajustement DAF individuel */}
+            {/* Modale ajustement DAF individuel (Lazy Loaded) */}
             {selectedEmployeToAdjust && (
-                <DafAjustementPointageModal
-                    isOpen={Boolean(selectedEmployeToAdjust)}
-                    onClose={() => {
-                        setSelectedEmployeToAdjust(null);
-                        setAdjustInitialDate(null);
-                    }}
-                    employe={selectedEmployeToAdjust}
-                    idEmploye={selectedEmployeToAdjust?.idEmploye}
-                    employeNom={selectedEmployeToAdjust ? `${selectedEmployeToAdjust.nom || ''} ${selectedEmployeToAdjust.prenom || ''}`.trim() : ''}
-                    matricule={selectedEmployeToAdjust?.matricule}
-                    idPeriode={selectedPeriode}
-                    idPeriodePaie={selectedPeriode}
-                    initialDate={adjustInitialDate}
-                    onSuccess={() => {
-                        setSelectedEmployeToAdjust(null);
-                        setAdjustInitialDate(null);
-                        loadData();
-                        if (selectedSemaine) loadGanttData(selectedSemaine);
-                    }}
-                />
+                <Suspense fallback={null}>
+                    <DafAjustementPointageModal
+                        isOpen={Boolean(selectedEmployeToAdjust)}
+                        onClose={() => {
+                            setSelectedEmployeToAdjust(null);
+                            setAdjustInitialDate(null);
+                        }}
+                        employe={selectedEmployeToAdjust}
+                        idEmploye={selectedEmployeToAdjust?.idEmploye}
+                        employeNom={selectedEmployeToAdjust ? `${selectedEmployeToAdjust.nom || ''} ${selectedEmployeToAdjust.prenom || ''}`.trim() : ''}
+                        matricule={selectedEmployeToAdjust?.matricule}
+                        idPeriode={selectedPeriode}
+                        idPeriodePaie={selectedPeriode}
+                        initialDate={adjustInitialDate}
+                        onSuccess={() => {
+                            setSelectedEmployeToAdjust(null);
+                            setAdjustInitialDate(null);
+                            loadData();
+                            if (selectedSemaine) loadGanttData(selectedSemaine);
+                        }}
+                    />
+                </Suspense>
             )}
         </>
     );

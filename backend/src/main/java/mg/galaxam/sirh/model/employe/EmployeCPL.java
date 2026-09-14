@@ -92,6 +92,7 @@ public class EmployeCPL extends ClassMere {
     private Integer idFiliale;
     private String nomFiliale;
     private Date dateEmbauche;
+    private Date dateDebutContrat;
 
     // ANCIENNETE CALCULEE (BACKEND-DRIVEN)
     private Double ancienneteEffectiveAnnees;
@@ -149,9 +150,12 @@ public class EmployeCPL extends ClassMere {
                 "eac.id_service, rserv.libelle AS nom_service, eac.id_fonction, rf.libelle AS nom_fonction, " +
                 "ct.id_contrat AS id_contrat_actif, ct.numero_contrat AS numero_contrat_actif, " +
                 "rsc.code AS code_statut_contrat, rsc.libelle AS statut_contrat, " +
-                "ct.id_filiale, rfil.raison_sociale AS nom_filiale, ct.date_debut AS date_embauche, " +
+                "ct.id_filiale, rfil.raison_sociale AS nom_filiale, " +
+                "ct.date_debut AS date_debut_contrat, " +
+                "COALESCE(c_emb.date_embauche_initiale, ct.date_debut, e.date_declaration) AS date_embauche, " +
                 "ct.date_fin AS date_fin_contrat, ct.date_fin_essai AS date_fin_essai, rtc.libelle AS type_contrat " +
                 "FROM v_employe_cpl e " +
+                "LEFT JOIN (SELECT id_employe, MIN(date_debut) AS date_embauche_initiale FROM contrat_travail GROUP BY id_employe) c_emb ON e.id_employe = c_emb.id_employe " +
                 "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF' LIMIT 1), 1) " +
                 "LEFT JOIN ref_site rs ON eac.id_site = rs.id_site " +
                 "LEFT JOIN ref_departement rd ON eac.id_departement = rd.id_departement " +
@@ -231,9 +235,12 @@ public class EmployeCPL extends ClassMere {
                 "eac.id_service, rserv.libelle AS nom_service, eac.id_fonction, rf.libelle AS nom_fonction, " +
                 "ct.id_contrat AS id_contrat_actif, ct.numero_contrat AS numero_contrat_actif, " +
                 "rsc.code AS code_statut_contrat, rsc.libelle AS statut_contrat, " +
-                "ct.id_filiale, rfil.raison_sociale AS nom_filiale, ct.date_debut AS date_embauche, " +
+                "ct.id_filiale, rfil.raison_sociale AS nom_filiale, " +
+                "ct.date_debut AS date_debut_contrat, " +
+                "COALESCE(c_emb.date_embauche_initiale, ct.date_debut, e.date_declaration) AS date_embauche, " +
                 "ct.date_fin AS date_fin_contrat, ct.date_fin_essai AS date_fin_essai, rtc.libelle AS type_contrat " +
                 "FROM v_employe_cpl e " +
+                "LEFT JOIN (SELECT id_employe, MIN(date_debut) AS date_embauche_initiale FROM contrat_travail GROUP BY id_employe) c_emb ON e.id_employe = c_emb.id_employe " +
                 "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe AND eac.id_statut_rh = COALESCE((SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF' LIMIT 1), 1) " +
                 "LEFT JOIN ref_site rs ON eac.id_site = rs.id_site " +
                 "LEFT JOIN ref_departement rd ON eac.id_departement = rd.id_departement " +
@@ -401,6 +408,7 @@ public class EmployeCPL extends ClassMere {
         emp.setIdFiliale(getNullableIntFromRs(rs, "id_filiale"));
         emp.setNomFiliale(getNullableStringFromRs(rs, "nom_filiale"));
         emp.setDateEmbauche(getNullableDateFromRs(rs, "date_embauche"));
+        emp.setDateDebutContrat(getNullableDateFromRs(rs, "date_debut_contrat"));
 
         emp.setDateFinContrat(getNullableDateFromRs(rs, "date_fin_contrat"));
         emp.setDateFinEssai(getNullableDateFromRs(rs, "date_fin_essai"));
@@ -638,6 +646,9 @@ public class EmployeCPL extends ClassMere {
 
     public Date getDateEmbauche() { return dateEmbauche; }
     public void setDateEmbauche(Date dateEmbauche) { this.dateEmbauche = dateEmbauche; }
+
+    public Date getDateDebutContrat() { return dateDebutContrat; }
+    public void setDateDebutContrat(Date dateDebutContrat) { this.dateDebutContrat = dateDebutContrat; }
 
     public Double getAncienneteEffectiveAnnees() { return ancienneteEffectiveAnnees; }
     public void setAncienneteEffectiveAnnees(Double ancienneteEffectiveAnnees) { this.ancienneteEffectiveAnnees = ancienneteEffectiveAnnees; }

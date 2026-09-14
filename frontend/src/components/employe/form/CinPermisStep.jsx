@@ -1,10 +1,19 @@
+import { CreditCard, Award } from 'lucide-react';
 import Input, { AutocompleteInput } from '@/components/ui/forms/Input';
+import { Card } from '@/components/ui/data-display/Card';
+import Badge from '@/components/ui/data-display/Badge';
 
 export default function CinPermisStep({ formData, set, villesStandards }) {
     return (
-        <div className="space-y-6">
-            <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-3">Carte d'Identité Nationale (CIN)</h3>
+        <div className="space-y-4">
+            <Card padding className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
+                        <CreditCard size={14} className="text-brand-500" />
+                        Carte d'Identité Nationale (CIN)
+                    </h3>
+                    <Badge variant="primary" size="xs">Obligatoire</Badge>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input label="N° CIN" required value={formData.cinNumero} onChange={e => set('cinNumero', e.target.value)} placeholder="Ex: 101 234 567 890" />
                     <Input label="Date de Délivrance" required type="date" value={formData.cinDateDelivrance} onChange={e => set('cinDateDelivrance', e.target.value)} />
@@ -29,9 +38,16 @@ export default function CinPermisStep({ formData, set, villesStandards }) {
                         />
                     </div>
                 </div>
-            </div>
-            <div className="border-t border-[var(--color-border-subtle)] pt-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-3">Permis de Conduire</h3>
+            </Card>
+
+            <Card padding className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
+                        <Award size={14} className="text-brand-500" />
+                        Permis de Conduire
+                    </h3>
+                    <Badge variant="default" size="xs">Optionnel</Badge>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Input label="N° Permis" value={formData.permisConduireNumero} onChange={e => set('permisConduireNumero', e.target.value)} placeholder="N° de permis" />
                     <Input label="Date Délivrance" type="date" value={formData.permisConduireDateDelivrance} onChange={e => set('permisConduireDateDelivrance', e.target.value)} />
@@ -44,7 +60,7 @@ export default function CinPermisStep({ formData, set, villesStandards }) {
                         listId="permis-villes-list"
                     />
                 </div>
-            </div>
+            </Card>
         </div>
     );
 }

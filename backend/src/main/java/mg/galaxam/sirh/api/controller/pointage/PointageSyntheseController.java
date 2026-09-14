@@ -31,7 +31,7 @@ public class PointageSyntheseController {
             @RequestParam(required = false, defaultValue = "ALL") String filtre,
             @RequestParam(required = false, defaultValue = "1") int page,
             @RequestParam(required = false, defaultValue = "25") int size
-    ) {
+    ) throws Exception {
         Map<String, Object> resp = new HashMap<>();
         if (idPeriodePaie <= 0) {
             resp.put("synthese", java.util.Collections.emptyList());
@@ -41,25 +41,19 @@ public class PointageSyntheseController {
             resp.put("pageSize", size);
             return ResponseEntity.ok(resp);
         }
-        try {
-            if (page <= 0 && size <= 0) {
-                // Mode non-paginé pour compatibilité ascendante si demandé
-                List<PointageSyntheseMensuelleDTO> data = pointageSyntheseService.getSynthesePeriode(idPeriodePaie, idSite);
-                resp.put("synthese", data);
-                resp.put("totalElements", data.size());
-                resp.put("totalPages", 1);
-                resp.put("currentPage", 1);
-                resp.put("pageSize", data.size());
-                return ResponseEntity.ok(resp);
-            }
-            Map<String, Object> data = pointageSyntheseService.getSynthesePeriodePaginee(
-                    idPeriodePaie, idSite, search, filtre, page, size);
-            return ResponseEntity.ok(data);
-        } catch (Exception e) {
-            e.printStackTrace();
-            resp.put("error", "Erreur lors du calcul de la synthèse : " + e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
+        if (page <= 0 && size <= 0) {
+            // Mode non-paginé pour compatibilité ascendante si demandé
+            List<PointageSyntheseMensuelleDTO> data = pointageSyntheseService.getSynthesePeriode(idPeriodePaie, idSite);
+            resp.put("synthese", data);
+            resp.put("totalElements", data.size());
+            resp.put("totalPages", 1);
+            resp.put("currentPage", 1);
+            resp.put("pageSize", data.size());
+            return ResponseEntity.ok(resp);
         }
+        Map<String, Object> data = pointageSyntheseService.getSynthesePeriodePaginee(
+                idPeriodePaie, idSite, search, filtre, page, size);
+        return ResponseEntity.ok(data);
     }
 
     @GetMapping("/semaines")
@@ -67,21 +61,15 @@ public class PointageSyntheseController {
     public ResponseEntity<Map<String, Object>> getSemaines(
             @RequestParam(defaultValue = "0") int idPeriodePaie,
             @RequestParam(required = false) Integer idSite
-    ) {
+    ) throws Exception {
         Map<String, Object> resp = new HashMap<>();
         if (idPeriodePaie <= 0) {
             resp.put("semaines", java.util.Collections.emptyList());
             return ResponseEntity.ok(resp);
         }
-        try {
-            List<Map<String, Object>> data = pointageSyntheseService.getSemainesPeriode(idPeriodePaie, idSite);
-            resp.put("semaines", data);
-            return ResponseEntity.ok(resp);
-        } catch (Exception e) {
-            e.printStackTrace();
-            resp.put("error", "Erreur lors du découpage des semaines : " + e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
-        }
+        List<Map<String, Object>> data = pointageSyntheseService.getSemainesPeriode(idPeriodePaie, idSite);
+        resp.put("semaines", data);
+        return ResponseEntity.ok(resp);
     }
 
     @GetMapping("/semaine-detail")
@@ -91,23 +79,17 @@ public class PointageSyntheseController {
             @RequestParam String dateDebut,
             @RequestParam String dateFin,
             @RequestParam(required = false) Integer idSite
-    ) {
+    ) throws Exception {
         Map<String, Object> resp = new HashMap<>();
         if (idPeriodePaie <= 0 || dateDebut == null || dateFin == null) {
             resp.put("detail", java.util.Collections.emptyList());
             return ResponseEntity.ok(resp);
         }
-        try {
-            java.time.LocalDate dDebut = java.time.LocalDate.parse(dateDebut);
-            java.time.LocalDate dFin = java.time.LocalDate.parse(dateFin);
-            List<PointageSyntheseMensuelleDTO> data = pointageSyntheseService.getSyntheseSemaineDetail(idPeriodePaie, dDebut, dFin, idSite);
-            resp.put("detail", data);
-            return ResponseEntity.ok(resp);
-        } catch (Exception e) {
-            e.printStackTrace();
-            resp.put("error", "Erreur lors du calcul du détail de la semaine : " + e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
-        }
+        java.time.LocalDate dDebut = java.time.LocalDate.parse(dateDebut);
+        java.time.LocalDate dFin = java.time.LocalDate.parse(dateFin);
+        List<PointageSyntheseMensuelleDTO> data = pointageSyntheseService.getSyntheseSemaineDetail(idPeriodePaie, dDebut, dFin, idSite);
+        resp.put("detail", data);
+        return ResponseEntity.ok(resp);
     }
 
     @PostMapping("/semaines/valider")
@@ -115,56 +97,44 @@ public class PointageSyntheseController {
     public ResponseEntity<Map<String, Object>> validerSemaine(
             @RequestBody Map<String, Object> body,
             @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails
-    ) {
+    ) throws Exception {
         Map<String, Object> resp = new HashMap<>();
-        try {
-            Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
-            if (idPeriode == null || idPeriode <= 0) {
-                throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
-            }
-            String dateDebutStr = (String) body.get("dateDebut");
-            String dateFinStr = (String) body.get("dateFin");
-            Integer idSite = parseInteger(body.get("idSite"));
-            if (idSite != null && idSite <= 0) idSite = null;
-
-            java.time.LocalDate dDebut = java.time.LocalDate.parse(dateDebutStr);
-            java.time.LocalDate dFin = java.time.LocalDate.parse(dateFinStr);
-
-            Integer currentUserId = resolveCurrentUserId();
-            pointageSyntheseService.validerSemaine(idPeriode, dDebut, dFin, idSite, currentUserId);
-            resp.put("success", true);
-            resp.put("message", "Semaine validée et verrouillée avec succès.");
-            return ResponseEntity.ok(resp);
-        } catch (Exception e) {
-            e.printStackTrace();
-            resp.put("error", "Erreur lors de la validation de la semaine : " + e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
+        Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
+        if (idPeriode == null || idPeriode <= 0) {
+            throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
         }
+        String dateDebutStr = (String) body.get("dateDebut");
+        String dateFinStr = (String) body.get("dateFin");
+        Integer idSite = parseInteger(body.get("idSite"));
+        if (idSite != null && idSite <= 0) idSite = null;
+
+        java.time.LocalDate dDebut = java.time.LocalDate.parse(dateDebutStr);
+        java.time.LocalDate dFin = java.time.LocalDate.parse(dateFinStr);
+
+        Integer currentUserId = resolveCurrentUserId();
+        pointageSyntheseService.validerSemaine(idPeriode, dDebut, dFin, idSite, currentUserId);
+        resp.put("success", true);
+        resp.put("message", "Semaine validée et verrouillée avec succès.");
+        return ResponseEntity.ok(resp);
     }
 
     @PostMapping("/semaines/devalider")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> devaliderSemaine(
             @RequestBody Map<String, Object> body
-    ) {
+    ) throws Exception {
         Map<String, Object> resp = new HashMap<>();
-        try {
-            Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
-            if (idPeriode == null || idPeriode <= 0) {
-                throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
-            }
-            String dateDebutStr = (String) body.get("dateDebut");
-            java.time.LocalDate dDebut = java.time.LocalDate.parse(dateDebutStr);
-
-            pointageSyntheseService.devaliderSemaine(idPeriode, dDebut);
-            resp.put("success", true);
-            resp.put("message", "Semaine déverrouillée avec succès.");
-            return ResponseEntity.ok(resp);
-        } catch (Exception e) {
-            e.printStackTrace();
-            resp.put("error", "Erreur lors du déverrouillage de la semaine : " + e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
+        Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
+        if (idPeriode == null || idPeriode <= 0) {
+            throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
         }
+        String dateDebutStr = (String) body.get("dateDebut");
+        java.time.LocalDate dDebut = java.time.LocalDate.parse(dateDebutStr);
+
+        pointageSyntheseService.devaliderSemaine(idPeriode, dDebut);
+        resp.put("success", true);
+        resp.put("message", "Semaine déverrouillée avec succès.");
+        return ResponseEntity.ok(resp);
     }
 
     /**
@@ -175,107 +145,17 @@ public class PointageSyntheseController {
     @PreAuthorize("hasAuthority('POINTAGE_WRITE') or hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> calculerTout(
             @RequestBody Map<String, Object> body
-    ) {
-        Map<String, Object> resp = new HashMap<>();
-        try {
-            Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
-            if (idPeriode == null || idPeriode <= 0) {
-                throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
-            }
-            Integer idSite = parseInteger(body.get("idSite"));
-            if (idSite != null && idSite <= 0) idSite = null;
-
-            Integer currentUserId = resolveCurrentUserId();
-            Map<String, Object> res = pointageSyntheseService.calculerToutesSemainesPeriode(idPeriode, idSite, currentUserId);
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            e.printStackTrace();
-            resp.put("success", false);
-            resp.put("error", "Erreur lors du calcul global de la synthèse : " + e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
+    ) throws Exception {
+        Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
+        if (idPeriode == null || idPeriode <= 0) {
+            throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
         }
-    }
+        Integer idSite = parseInteger(body.get("idSite"));
+        if (idSite != null && idSite <= 0) idSite = null;
 
-    /**
-     * Transmet officiellement la periode a la DAF :
-     * Verifie 0 anomalie bloquante, actualise les calculs, passe a A_VALIDER et notifie la DAF.
-     */
-    @PostMapping("/transmettre-daf")
-    @PreAuthorize("hasAuthority('POINTAGE_WRITE') or hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<Map<String, Object>> transmettreDaf(
-            @RequestBody Map<String, Object> body
-    ) {
-        Map<String, Object> resp = new HashMap<>();
-        try {
-            Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
-            if (idPeriode == null || idPeriode <= 0) {
-                throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
-            }
-            Integer idSite = parseInteger(body.get("idSite"));
-            if (idSite != null && idSite <= 0) idSite = null;
-
-            Integer currentUserId = resolveCurrentUserId();
-            Map<String, Object> res = pointageSyntheseService.transmettreDaf(idPeriode, idSite, currentUserId);
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            e.printStackTrace();
-            resp.put("success", false);
-            resp.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
-        }
-    }
-
-    /**
-     * DAF valide et cloture la periode :
-     * Fige les cumuls, passe a VALIDEE et notifie l'agent.
-     */
-    @PostMapping("/valider-daf")
-    @PreAuthorize("hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<Map<String, Object>> validerDaf(
-            @RequestBody Map<String, Object> body
-    ) {
-        Map<String, Object> resp = new HashMap<>();
-        try {
-            Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
-            if (idPeriode == null || idPeriode <= 0) {
-                throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
-            }
-            Integer currentUserId = resolveCurrentUserId();
-            Map<String, Object> res = pointageSyntheseService.validerParDaf(idPeriode, currentUserId);
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            e.printStackTrace();
-            resp.put("success", false);
-            resp.put("error", "Erreur lors de la validation : " + e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
-        }
-    }
-
-    /**
-     * DAF renvoie la periode pour correction :
-     * Motif obligatoire, repasse a EN_COURS et notifie l'agent avec priorite HAUTE.
-     */
-    @PostMapping("/rejeter-daf")
-    @PreAuthorize("hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<Map<String, Object>> rejeterDaf(
-            @RequestBody Map<String, Object> body
-    ) {
-        Map<String, Object> resp = new HashMap<>();
-        try {
-            Integer idPeriode = parseInteger(body.get("idPeriodePaie"));
-            if (idPeriode == null || idPeriode <= 0) {
-                throw new IllegalArgumentException("L'identifiant de la période de paie est obligatoire.");
-            }
-            String motif = (String) body.get("motif");
-            Integer currentUserId = resolveCurrentUserId();
-            Map<String, Object> res = pointageSyntheseService.rejeterParDaf(idPeriode, motif, currentUserId);
-            return ResponseEntity.ok(res);
-        } catch (Exception e) {
-            e.printStackTrace();
-            resp.put("success", false);
-            resp.put("error", "Erreur lors du renvoi pour correction : " + e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
-        }
+        Integer currentUserId = resolveCurrentUserId();
+        Map<String, Object> res = pointageSyntheseService.calculerToutesSemainesPeriode(idPeriode, idSite, currentUserId);
+        return ResponseEntity.ok(res);
     }
 
     private Integer parseInteger(Object val) {

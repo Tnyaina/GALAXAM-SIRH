@@ -3,7 +3,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
-import { getFullPhotoUrl } from '@/utils/fileUtils';
+import AuthenticatedImage from '@/components/ui/data-display/AuthenticatedImage';
 
 const formatDateEmbauche = (dateStr) => {
     if (!dateStr) return '-';
@@ -139,23 +139,16 @@ export default function EmployeTable({
                             <Td>
                                 <div className="flex items-center gap-3">
                                     <div className="relative shrink-0">
-                                        {emp.photoUrl ? (
-                                            <img
-                                                src={getFullPhotoUrl(emp.photoUrl)}
-                                                alt={fullName}
-                                                className="w-9 h-9 rounded-none object-cover border border-[var(--color-border-subtle)]"
-                                                onError={(e) => {
-                                                    e.currentTarget.onerror = null;
-                                                    e.currentTarget.style.display = 'none';
-                                                    if (e.currentTarget.nextElementSibling) {
-                                                        e.currentTarget.nextElementSibling.classList.remove('hidden');
-                                                    }
-                                                }}
-                                            />
-                                        ) : null}
-                                        <div className={`w-9 h-9 bg-[var(--color-brand-500)] text-white flex items-center justify-center font-bold text-xs shrink-0 rounded-none shadow-xs ${emp.photoUrl ? 'hidden' : ''}`}>
-                                            {initial}
-                                        </div>
+                                        <AuthenticatedImage
+                                            src={emp.photoUrl}
+                                            alt={fullName}
+                                            className="w-9 h-9 rounded-none object-cover border border-[var(--color-border-subtle)]"
+                                            fallback={(
+                                                <div className="w-9 h-9 bg-[var(--color-brand-500)] text-white flex items-center justify-center font-bold text-xs shrink-0 rounded-none shadow-xs">
+                                                    {initial}
+                                                </div>
+                                            )}
+                                        />
                                         <span
                                             className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[var(--color-surface)] ${emp.estActif ? 'bg-[var(--color-success-500)]/80' : 'bg-[var(--color-ink-350)]'
                                                 }`}
@@ -242,9 +235,14 @@ export default function EmployeTable({
                             {/* 5. Date d'embauche & Alerte Contrat */}
                             <Td isData className="text-xs">
                                 <div className="space-y-1">
-                                    <div className="font-mono font-medium text-[var(--color-fg)]">
+                                    <div className="font-mono font-medium text-[var(--color-fg)]" title="Date d'embauche initiale">
                                         {dateEmbaucheText}
                                     </div>
+                                    {emp.dateDebutContrat && dateRef && String(emp.dateDebutContrat).substring(0, 10) !== String(dateRef).substring(0, 10) && (
+                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-sans" title="Date d'effet du contrat en cours">
+                                            Contrat : {formatDateEmbauche(emp.dateDebutContrat)}
+                                        </div>
+                                    )}
                                     {emp.estActif && emp.alerteContratTexte && (
                                         <div>
                                             <Badge

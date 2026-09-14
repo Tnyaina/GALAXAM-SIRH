@@ -11,6 +11,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import java.sql.PreparedStatement;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -70,5 +71,19 @@ public abstract class BaseIntegrationTest {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    protected int getPayrollPeriodVersion(int periodId) {
+        try (var connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT version FROM periode_paie WHERE id_periode_paie = ?")) {
+            statement.setInt(1, periodId);
+            try (var result = statement.executeQuery()) {
+                if (result.next()) return result.getInt(1);
+            }
+        } catch (Exception exception) {
+            throw new IllegalStateException("Impossible de lire la version de la période de test", exception);
+        }
+        throw new IllegalStateException("Période de test introuvable : " + periodId);
     }
 }

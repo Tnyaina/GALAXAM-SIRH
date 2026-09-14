@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { SkeletonCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { getErrorMessage } from '@/api/apiClient';
@@ -12,8 +12,10 @@ import { useSoldesOverview } from '@/hooks/conges/useSoldesOverview';
 import SoldesKpiBar from './soldes/SoldesKpiBar';
 import SoldesGantt from './soldes/SoldesGantt';
 import SoldesTable from './soldes/SoldesTable';
-import DemandeCongeModal from './DemandeCongeModal';
-import ValidationModals from './validation/ValidationModals';
+
+// Modales chargées à la demande
+const DemandeCongeModal = lazy(() => import('./DemandeCongeModal'));
+const ValidationModals = lazy(() => import('./validation/ValidationModals'));
 
 export default function SoldesOverviewTab({ loading, demandesGlobales = [], referentiels, onReload }) {
   const toast = useToast();
@@ -304,49 +306,55 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], refe
 
       {/* Modale de demande au clic sur une cellule ou modification */}
       {demandeModalState.isOpen && (
-        <DemandeCongeModal
-          isOpen={demandeModalState.isOpen}
-          onClose={() =>
-            setDemandeModalState({ isOpen: false, idEmploye: null, dateDebut: null, dateFin: null, initialDemande: null })
-          }
-          idEmploye={demandeModalState.idEmploye}
-          initialDateDebut={demandeModalState.dateDebut}
-          initialDateFin={demandeModalState.dateFin}
-          initialDemande={demandeModalState.initialDemande}
-          referentiels={referentiels}
-          onSuccess={handleModalSuccess}
-        />
+        <Suspense fallback={null}>
+          <DemandeCongeModal
+            isOpen={demandeModalState.isOpen}
+            onClose={() =>
+              setDemandeModalState({ isOpen: false, idEmploye: null, dateDebut: null, dateFin: null, initialDemande: null })
+            }
+            idEmploye={demandeModalState.idEmploye}
+            initialDateDebut={demandeModalState.dateDebut}
+            initialDateFin={demandeModalState.dateFin}
+            initialDemande={demandeModalState.initialDemande}
+            referentiels={referentiels}
+            onSuccess={handleModalSuccess}
+          />
+        </Suspense>
       )}
 
       {/* Modale de détails et actions contextuelles (Valider, Refuser, Annuler) */}
-      <ValidationModals
-        selectedDemande={selectedDemande}
-        showDetailModal={showDetailModal}
-        onCloseDetail={closeDetail}
-        onOpenValider={openValider}
-        onOpenRefus={openRefus}
-        onOpenModifier={openModifier}
-        onOpenAnnuler={openAnnuler}
+      {(showDetailModal || showValiderModal || showRefusModal || showAnnulerModal) && (
+        <Suspense fallback={null}>
+          <ValidationModals
+            selectedDemande={selectedDemande}
+            showDetailModal={showDetailModal}
+            onCloseDetail={closeDetail}
+            onOpenValider={openValider}
+            onOpenRefus={openRefus}
+            onOpenModifier={openModifier}
+            onOpenAnnuler={openAnnuler}
 
-        showValiderModal={showValiderModal}
-        onCloseValider={() => { setShowValiderModal(false); }}
-        onConfirmValider={onConfirmValider}
+            showValiderModal={showValiderModal}
+            onCloseValider={() => { setShowValiderModal(false); }}
+            onConfirmValider={onConfirmValider}
 
-        showRefusModal={showRefusModal}
-        onCloseRefus={() => { setShowRefusModal(false); setMotifRefus(''); }}
-        onConfirmRefus={onConfirmRefus}
-        motifRefus={motifRefus}
-        setMotifRefus={setMotifRefus}
+            showRefusModal={showRefusModal}
+            onCloseRefus={() => { setShowRefusModal(false); setMotifRefus(''); }}
+            onConfirmRefus={onConfirmRefus}
+            motifRefus={motifRefus}
+            setMotifRefus={setMotifRefus}
 
-        showAnnulerModal={showAnnulerModal}
-        onCloseAnnuler={() => { setShowAnnulerModal(false); setMotifAnnulation(''); }}
-        onConfirmAnnuler={onConfirmAnnuler}
-        motifAnnulation={motifAnnulation}
-        setMotifAnnulation={setMotifAnnulation}
+            showAnnulerModal={showAnnulerModal}
+            onCloseAnnuler={() => { setShowAnnulerModal(false); setMotifAnnulation(''); }}
+            onConfirmAnnuler={onConfirmAnnuler}
+            motifAnnulation={motifAnnulation}
+            setMotifAnnulation={setMotifAnnulation}
 
-        actionLoading={actionLoading}
-        actionError={actionError}
-      />
+            actionLoading={actionLoading}
+            actionError={actionError}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

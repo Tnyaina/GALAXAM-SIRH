@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { History, PlusCircle, Filter, X } from 'lucide-react';
+import { History, PlusCircle, Filter } from 'lucide-react';
 import congeService from '@/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Badge from '@/components/ui/data-display/Badge';
@@ -7,6 +7,9 @@ import Button from '@/components/ui/forms/Button';
 import Input, { Textarea } from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
+import { Card } from '@/components/ui/data-display/Card';
+import Modal from '@/components/ui/overlays/Modal';
+import Alert from '@/components/ui/feedback/Alert';
 
 const formatDateMouvement = (dateVal, fallbackTimestamp) => {
   const target = dateVal || fallbackTimestamp;
@@ -72,7 +75,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
   };
 
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4 font-sans">
+    <Card padding bordered className="space-y-4 font-sans">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[var(--color-border-subtle)]">
         <div className="flex items-center gap-2">
           <History className="w-4 h-4 text-brand-500" />
@@ -168,84 +171,78 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
         )}
       </div>
 
-      {/* Modal d'Ajustement Manuel RH */}
-      {showModalAjustement && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] max-w-md w-full p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
-                <PlusCircle className="w-4 h-4 text-brand-500" />
-                Ajustement Manuel du Solde
-              </h4>
-              <button
-                type="button"
-                onClick={() => setShowModalAjustement(false)}
-                className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)] cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {error && (
-              <div className="p-2.5 bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/30 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] text-xs">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleAjustementSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-1">
-                  Nombre de jours à ajouter / déduire
-                </label>
-                <Input
-                  type="number"
-                  step="0.5"
-                  value={nbJours}
-                  onChange={(e) => setNbJours(e.target.value)}
-                  placeholder="Ex : +1.5 ou -2"
-                  required
-                  className="font-mono text-sm"
-                />
-                <p className="text-[11px] text-[var(--color-fg-subtle)] mt-1">
-                  Nombre positif pour créditer des jours, négatif pour déduire.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-1">
-                  Motif / Justification réglementaire
-                </label>
-                <Textarea
-                  value={commentaire}
-                  onChange={(e) => setCommentaire(e.target.value)}
-                  placeholder="Justification RH obligatoire (ex: régularisation fin de contrat, rachat...)"
-                  rows={3}
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border-subtle)]">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  onClick={() => setShowModalAjustement(false)}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="xs"
-                  loading={loading}
-                >
-                  Valider l'Ajustement
-                </Button>
-              </div>
-            </form>
+      {/* Modal d'Ajustement Manuel RH (Standardisé Design System) */}
+      <Modal
+        isOpen={showModalAjustement}
+        onClose={() => {
+          setShowModalAjustement(false);
+          setError(null);
+        }}
+        title="Ajustement Manuel du Solde"
+        icon={<PlusCircle className="w-5 h-5 text-[var(--color-brand-500)]" />}
+        size="md"
+        footer={
+          <div className="flex justify-end gap-2 w-full">
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => {
+                setShowModalAjustement(false);
+                setError(null);
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              form="form-ajustement-solde"
+              variant="primary"
+              size="xs"
+              loading={loading}
+            >
+              Valider l'Ajustement
+            </Button>
           </div>
-        </div>
-      )}
-    </div>
+        }
+      >
+        <form id="form-ajustement-solde" onSubmit={handleAjustementSubmit} className="space-y-4">
+          {error && (
+            <Alert type="error" message={error} />
+          )}
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-1">
+              Nombre de jours à ajouter / déduire
+            </label>
+            <Input
+              type="number"
+              step="0.5"
+              value={nbJours}
+              onChange={(e) => setNbJours(e.target.value)}
+              placeholder="Ex : +1.5 ou -2"
+              required
+              className="font-mono text-sm"
+            />
+            <p className="text-[11px] text-[var(--color-fg-subtle)] mt-1">
+              Nombre positif pour créditer des jours, négatif pour déduire.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-1">
+              Motif / Justification réglementaire
+            </label>
+            <Textarea
+              value={commentaire}
+              onChange={(e) => setCommentaire(e.target.value)}
+              placeholder="Justification RH obligatoire (ex: régularisation fin de contrat, rachat...)"
+              rows={3}
+              required
+            />
+          </div>
+        </form>
+      </Modal>
+    </Card>
   );
 }

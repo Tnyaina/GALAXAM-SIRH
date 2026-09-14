@@ -29,21 +29,15 @@ public class PointageSaisieController {
     public ResponseEntity<Map<String, Object>> getGrilleSaisie(
             @RequestParam(defaultValue = "0") int idSite,
             @RequestParam String date
-    ) {
-        try {
-            Map<String, Object> data = pointageSaisieService.getGrilleSaisie(idSite, date);
-            return ResponseEntity.ok(data);
-        } catch (Exception e) {
-            e.printStackTrace();
-            Map<String, Object> err = new HashMap<>();
-            err.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(err);
-        }
+    ) throws Exception {
+        Map<String, Object> data = pointageSaisieService.getGrilleSaisie(idSite, date);
+        return ResponseEntity.ok(data);
     }
 
     @PostMapping("/batch")
     @PreAuthorize("hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<Map<String, Object>> enregistrerBatch(@RequestBody List<SaisiePointageJourDTO> pointages) {
+    public ResponseEntity<Map<String, Object>> enregistrerBatch(@RequestBody List<SaisiePointageJourDTO> pointages)
+            throws Exception {
         Map<String, Object> resp = new HashMap<>();
         if (pointages == null || pointages.isEmpty()) {
             resp.put("success", true);
@@ -61,11 +55,6 @@ public class PointageSaisieController {
                 c.rollback();
                 throw e;
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            resp.put("success", false);
-            resp.put("message", "Erreur lors de l'enregistrement : " + e.getMessage());
-            return ResponseEntity.badRequest().body(resp);
         }
     }
 }

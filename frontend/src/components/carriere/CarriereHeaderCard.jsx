@@ -1,8 +1,10 @@
 import { Clock } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import { Card, CardTitle } from '@/components/ui/data-display/Card';
 import HasPermission from '@/components/auth/HasPermission';
 import { fmtDate, fmtMoney } from '@/utils/carriereUtils';
+import { isDateInFuture, isDateInPast } from '@/utils/dateUtils';
 
 export default function CarriereHeaderCard({
     employe,
@@ -27,22 +29,26 @@ export default function CarriereHeaderCard({
         ? `${fmtMoney(affectationActive.salaireBase)} ${uniteLabel}`
         : null;
 
+    const isContratFutur = contratActif?.dateDebut && isDateInFuture(contratActif.dateDebut);
+    const isContratEchu = contratActif?.dateFin && isDateInPast(contratActif.dateFin);
+
     return (
         <div className="space-y-4">
-            {/* 1. Situation Contractuelle & Rémunération (Format Horizontal Aéré selon le Mockup) */}
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4">
+            {/* 1. Situation Contractuelle & Rémunération */}
+            <Card padding bordered className="space-y-4">
                 <div className="flex justify-between items-center">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                    <CardTitle size="sm" className="uppercase tracking-wider text-[var(--color-fg)]">
                         Situation Contractuelle & Rémunération
-                    </h3>
+                    </CardTitle>
                     {onRefresh && (
-                        <button
+                        <Button
                             type="button"
+                            variant="outline"
+                            size="xs"
                             onClick={onRefresh}
-                            className="px-3 py-1 text-xs font-semibold border border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)] text-[var(--color-fg-muted)] transition-colors cursor-pointer"
                         >
                             Actualiser
-                        </button>
+                        </Button>
                     )}
                 </div>
 
@@ -51,7 +57,17 @@ export default function CarriereHeaderCard({
                     <div>
                         <p className="text-[11px] font-medium text-[var(--color-fg-muted)] mb-1.5">Statut actuel</p>
                         {contratActif ? (
-                            <Badge variant="success" size="sm" className="font-bold">Actif</Badge>
+                            isContratFutur ? (
+                                <Badge variant="info" size="sm" className="font-bold" title={`Prend effet le ${fmtDate(contratActif.dateDebut)}`}>
+                                    Planifié
+                                </Badge>
+                            ) : isContratEchu ? (
+                                <Badge variant="danger" size="sm" className="font-bold">
+                                    Échu
+                                </Badge>
+                            ) : (
+                                <Badge variant="success" size="sm" className="font-bold">Actif</Badge>
+                            )
                         ) : brouillonWf ? (
                             <Badge variant="warning" size="sm" className="font-bold">Brouillon</Badge>
                         ) : (
@@ -99,7 +115,7 @@ export default function CarriereHeaderCard({
                         <span className="text-[var(--color-fg-subtle)] text-[11px]">{rawMode}</span>
                     </div>
                 </HasPermission>
-            </div>
+            </Card>
 
             {/* BANDEAU COMPACT PERIODE D'ESSAI EN COURS */}
             {(etatEssai?.aPeriodeEssai || etatEssai?.isEssaiActif) && (etatEssai?.dateFinEssai || etatEssai?.dateFinEssaiStr) && (

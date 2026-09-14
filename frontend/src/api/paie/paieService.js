@@ -32,16 +32,6 @@ export const paieService = {
         return response.data;
     },
 
-    cloturerPaiePeriode: async (idPeriodePaie) => {
-        const response = await apiClient.post('paie/cloturer-periode', { idPeriodePaie });
-        return response.data;
-    },
-
-    rouvrirPaiePeriode: async (idPeriodePaie, motif) => {
-        const response = await apiClient.post('paie/rouvrir-periode', { idPeriodePaie, motif });
-        return response.data;
-    },
-
     // --- Bulletins ---
     getBulletinComplet: async (idBulletin) => {
         const response = await apiClient.get(`paie/bulletin/${idBulletin}`);

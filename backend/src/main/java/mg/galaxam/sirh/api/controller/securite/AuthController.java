@@ -101,7 +101,7 @@ public class AuthController {
 
                         Map<String, Object> responseBody = new HashMap<>();
                         responseBody.put("accessToken", accessToken);
-                        responseBody.put("expiresIn", 900); // 15 minutes en secondes
+                        responseBody.put("expiresIn", jwtService.getAccessTokenExpirationMs() / 1000);
                         responseBody.put("identifiant", u.getIdentifiant());
                         responseBody.put("role", userDetails.getAuthorities().stream()
                                 .map(auth -> auth.getAuthority())

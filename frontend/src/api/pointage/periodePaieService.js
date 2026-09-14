@@ -21,11 +21,8 @@ const periodePaieService = {
         return response.data;
     },
 
-    /**
-     * Met à jour le statut d'une période de paie
-     */
-    updateStatut: async (id, statutCode) => {
-        const response = await apiClient.put(`/periodes/${id}/statut`, { statutCode });
+    executeCommand: async (id, command, payload) => {
+        const response = await apiClient.post(`/periodes/${id}/actions/${command}`, payload);
         return response.data;
     },
 

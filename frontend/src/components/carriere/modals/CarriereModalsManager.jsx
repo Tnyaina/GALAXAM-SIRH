@@ -1,13 +1,16 @@
-import EmbaucheModal from '@/pages/employe/carriere/b/EmbaucheModal';
-import TransitionModal from '@/pages/employe/carriere/b/TransitionModal';
-import RecapitulatifBrouillonModal from '@/pages/employe/carriere/RecapitulatifBrouillonModal';
-import ConfirmationEssaiModal from '@/pages/employe/carriere/b/ConfirmationEssaiModal';
-import RenouvellementEssaiModal from '@/pages/employe/carriere/b/RenouvellementEssaiModal';
-import RuptureContratModal from '@/pages/employe/carriere/b/RuptureContratModal';
-import CertificatTravailModal from '@/pages/employe/carriere/b/CertificatTravailModal';
-import AttestationTravailModal from '@/pages/employe/carriere/b/AttestationTravailModal';
-import ContratTravailModal from '@/pages/employe/carriere/b/ContratTravailModal';
+import { lazy, Suspense } from 'react';
 import Loading from '@/components/ui/feedback/Loading';
+
+// Chargement différé (lazy loading) des 9 modales de carrière pour réduire la taille du bundle initial
+const EmbaucheModal = lazy(() => import('@/pages/employe/carriere/b/EmbaucheModal'));
+const TransitionModal = lazy(() => import('@/pages/employe/carriere/b/TransitionModal'));
+const RecapitulatifBrouillonModal = lazy(() => import('@/pages/employe/carriere/RecapitulatifBrouillonModal'));
+const ConfirmationEssaiModal = lazy(() => import('@/pages/employe/carriere/b/ConfirmationEssaiModal'));
+const RenouvellementEssaiModal = lazy(() => import('@/pages/employe/carriere/b/RenouvellementEssaiModal'));
+const RuptureContratModal = lazy(() => import('@/pages/employe/carriere/b/RuptureContratModal'));
+const CertificatTravailModal = lazy(() => import('@/pages/employe/carriere/b/CertificatTravailModal'));
+const AttestationTravailModal = lazy(() => import('@/pages/employe/carriere/b/AttestationTravailModal'));
+const ContratTravailModal = lazy(() => import('@/pages/employe/carriere/b/ContratTravailModal'));
 
 export default function CarriereModalsManager({
     // Données de base
@@ -37,7 +40,7 @@ export default function CarriereModalsManager({
     } = modalsState;
 
     return (
-        <>
+        <Suspense fallback={null}>
             {isEmbaucheModalOpen && (
                 <EmbaucheModal
                     isOpen={isEmbaucheModalOpen}
@@ -182,6 +185,6 @@ export default function CarriereModalsManager({
                     </div>
                 </div>
             )}
-        </>
+        </Suspense>
     );
 }

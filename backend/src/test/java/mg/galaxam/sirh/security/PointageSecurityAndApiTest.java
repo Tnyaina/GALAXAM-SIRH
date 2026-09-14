@@ -64,10 +64,10 @@ public class PointageSecurityAndApiTest extends BaseIntegrationTest {
 
         // 2. Transmission DAF
         Map<String, Object> body = Map.of(
-                "idPeriodePaie", idPeriode,
+                "version", getPayrollPeriodVersion(idPeriode),
                 "idSite", 1
         );
-        mockMvc.perform(post("/pointages/synthese/transmettre-daf")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/SUBMIT")
                 .header("Authorization", "Bearer " + tokenAgent)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
@@ -79,9 +79,9 @@ public class PointageSecurityAndApiTest extends BaseIntegrationTest {
     public void testAgentPointage_InterditDeValiderDaf() throws Exception {
         String tokenAgent = userFixtures.getPointageToken();
 
-        Map<String, Object> body = Map.of("idPeriodePaie", idPeriode);
+        Map<String, Object> body = Map.of("version", getPayrollPeriodVersion(idPeriode));
 
-        mockMvc.perform(post("/pointages/synthese/valider-daf")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/APPROVE")
                 .header("Authorization", "Bearer " + tokenAgent)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
@@ -94,11 +94,11 @@ public class PointageSecurityAndApiTest extends BaseIntegrationTest {
         String tokenAgent = userFixtures.getPointageToken();
 
         Map<String, Object> body = Map.of(
-                "idPeriodePaie", idPeriode,
+                "version", getPayrollPeriodVersion(idPeriode),
                 "motif", "Tentative non autorisée"
         );
 
-        mockMvc.perform(post("/pointages/synthese/rejeter-daf")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/REJECT")
                 .header("Authorization", "Bearer " + tokenAgent)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
@@ -110,20 +110,32 @@ public class PointageSecurityAndApiTest extends BaseIntegrationTest {
     public void testAdmin_AutoriseValiderEtRejeterDaf() throws Exception {
         String tokenAdmin = userFixtures.getAdminToken();
 
-        // 1. Rejet par la DAF
+        // 1. Transmission préalable, puis rejet par la DAF
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/SUBMIT")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(Map.of("version", getPayrollPeriodVersion(idPeriode), "idSite", 1))))
+                .andExpect(status().isOk());
+
         Map<String, Object> bodyRejet = Map.of(
-                "idPeriodePaie", idPeriode,
+                "version", getPayrollPeriodVersion(idPeriode),
                 "motif", "À corriger par l'agent"
         );
-        mockMvc.perform(post("/pointages/synthese/rejeter-daf")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/REJECT")
                 .header("Authorization", "Bearer " + tokenAdmin)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(bodyRejet)))
                 .andExpect(status().isOk());
 
-        // 2. Validation par la DAF
-        Map<String, Object> bodyVal = Map.of("idPeriodePaie", idPeriode);
-        mockMvc.perform(post("/pointages/synthese/valider-daf")
+        // 2. Nouvelle transmission, puis validation par la DAF
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/SUBMIT")
+                .header("Authorization", "Bearer " + getPointageToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(Map.of("version", getPayrollPeriodVersion(idPeriode), "idSite", 1))))
+                .andExpect(status().isOk());
+
+        Map<String, Object> bodyVal = Map.of("version", getPayrollPeriodVersion(idPeriode));
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/APPROVE")
                 .header("Authorization", "Bearer " + tokenAdmin)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(bodyVal)))

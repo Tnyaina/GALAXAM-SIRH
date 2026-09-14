@@ -7,6 +7,66 @@ import org.springframework.http.HttpStatus;
  */
 public enum SirhErrorCode {
 
+    VALIDATION_ERROR(
+            HttpStatus.BAD_REQUEST,
+            "Les informations fournies sont invalides."),
+
+    DATA_DUPLICATE(
+            HttpStatus.CONFLICT,
+            "Un enregistrement comportant cette valeur existe déjà."),
+
+    DATA_REFERENCED(
+            HttpStatus.CONFLICT,
+            "Cet élément est lié à d'autres dossiers actifs."),
+
+    DATA_INTEGRITY_VIOLATION(
+            HttpStatus.CONFLICT,
+            "L'opération ne respecte pas une contrainte d'intégrité des données."),
+
+    FILE_TOO_LARGE(
+            HttpStatus.PAYLOAD_TOO_LARGE,
+            "Le fichier sélectionné dépasse la taille autorisée."),
+
+    PARAMETER_FORMAT_INVALID(
+            HttpStatus.BAD_REQUEST,
+            "Le paramètre fourni est invalide."),
+
+    PAYLOAD_INVALID(
+            HttpStatus.BAD_REQUEST,
+            "Le format des données transmises est incorrect."),
+
+    ACCESS_DENIED(
+            HttpStatus.FORBIDDEN,
+            "Vous ne disposez pas des autorisations nécessaires."),
+
+    PERSISTENCE_ERROR(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "Une erreur est survenue lors de l'enregistrement des données."),
+
+    INTERNAL_ERROR(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "Une anomalie temporaire est survenue lors du traitement."),
+
+    PAYROLL_PERIOD_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "La période de paie demandée n'existe pas."),
+
+    PAYROLL_PERIOD_VERSION_CONFLICT(
+            HttpStatus.CONFLICT,
+            "La période a été modifiée par un autre utilisateur. Rechargez les données."),
+
+    PAYROLL_PERIOD_TRANSITION_BLOCKED(
+            HttpStatus.CONFLICT,
+            "Cette action n'est pas autorisée dans l'état courant de la période."),
+
+    PAYROLL_PERIOD_REASON_REQUIRED(
+            HttpStatus.BAD_REQUEST,
+            "Un motif est obligatoire pour cette action."),
+
+    PAYROLL_PERIOD_PREREQUISITE_BLOCKED(
+            HttpStatus.CONFLICT,
+            "Un prérequis de la période n'est pas satisfait."),
+
     // =========================================================================
     // POINTAGE & PAIE
     // =========================================================================

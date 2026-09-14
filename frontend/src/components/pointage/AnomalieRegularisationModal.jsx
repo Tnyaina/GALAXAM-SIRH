@@ -19,7 +19,6 @@ import Badge from '@/components/ui/data-display/Badge';
 import Input from '@/components/ui/forms/Input';
 import Alert from '@/components/ui/feedback/Alert';
 import { Avatar } from '@/components/ui/data-display/Avatar';
-import { getFullPhotoUrl } from '@/utils/fileUtils';
 import { fmtDate } from '@/utils/carriereUtils';
 
 const MOTIFS_FAMILIAUX = [
@@ -346,7 +345,7 @@ export default function AnomalieRegularisationModal({
                 <div className="p-3.5 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-none flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <Avatar
-                            src={getFullPhotoUrl(anomalie.photoUrl)}
+                            src={anomalie.photoUrl}
                             name={`${anomalie.nom || ''} ${anomalie.prenom || ''}`}
                             size="md"
                             className="rounded-none"

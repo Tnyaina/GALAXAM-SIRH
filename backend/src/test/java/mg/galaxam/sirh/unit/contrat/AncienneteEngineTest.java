@@ -60,11 +60,34 @@ class AncienneteEngineTest {
         assertThat(bilan.nombreContratsChaine()).isEqualTo(3);
         assertThat(bilan.ansEffectifs()).isEqualTo(3);
         assertThat(bilan.moisRestantsEffectifs()).isEqualTo(6);
-        assertThat(bilan.ancienneteEffectiveTexte()).isEqualTo("3 ans 6 mois");
+        assertThat(bilan.dateOrigineChaine()).isEqualTo(LocalDate.of(2023, 1, 1));
 
         // Ancienneté spécifique au contrat actuel (CDI) : 18 mois (1 an et 6 mois)
         assertThat(bilan.moisContratActuel()).isEqualTo(18);
         assertThat(bilan.ancienneteContratTexte()).isEqualTo("1 an 6 mois");
+    }
+
+    @Test
+    @DisplayName("evaluerAnciennete : Réembauche ultérieure après rupture/STC (interruption non chaînée)")
+    void testReembaucheApresRupture() {
+        // Période 1 passée (2020) clôturée et soldée
+        AncienneteEngine.IntervalleContrat ancienContrat = new AncienneteEngine.IntervalleContrat(
+                50, LocalDate.of(2020, 1, 1), LocalDate.of(2021, 1, 1), null);
+
+        // Période 2 : Réembauche en 2025 avec un nouveau contrat non lié (idContratPrecedent = null)
+        AncienneteEngine.IntervalleContrat nouveauContrat = new AncienneteEngine.IntervalleContrat(
+                51, LocalDate.of(2025, 1, 1), null, null);
+
+        LocalDate refDate = LocalDate.of(2026, 1, 1); // 1 an après réembauche
+
+        AncienneteEngine.AncienneteBilan bilan = engine.evaluerAnciennete(
+                List.of(ancienContrat, nouveauContrat), 51, refDate);
+
+        // La nouvelle chaîne ne remonte PAS à 2020
+        assertThat(bilan.nombreContratsChaine()).isEqualTo(1);
+        assertThat(bilan.dateOrigineChaine()).isEqualTo(LocalDate.of(2025, 1, 1));
+        assertThat(bilan.ansEffectifs()).isEqualTo(1);
+        assertThat(bilan.ancienneteEffectiveTexte()).isEqualTo("1 an");
     }
 
     @Test

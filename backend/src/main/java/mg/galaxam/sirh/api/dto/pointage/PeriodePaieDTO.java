@@ -12,6 +12,7 @@ public class PeriodePaieDTO {
     private Integer nbJoursOuvrables;
     private Integer nbJoursCalendaires;
     private Integer nbJoursFeries;
+    private Integer version;
 
     public PeriodePaieDTO() {
     }
@@ -102,6 +103,14 @@ public class PeriodePaieDTO {
 
     public void setNbJoursFeries(Integer nbJoursFeries) {
         this.nbJoursFeries = nbJoursFeries;
+    }
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
     }
 
     private String motifRejet;

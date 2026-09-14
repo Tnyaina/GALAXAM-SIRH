@@ -1,123 +1,200 @@
-import { User, Edit2, Power, RotateCcw, Briefcase, MapPin } from 'lucide-react';
+import { User, Edit2, Power, RotateCcw, Briefcase, Building2, Calendar, Phone, Mail, Award } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
-import HasPermission from '@/components/auth/HasPermission';
-import { getFullPhotoUrl } from '@/utils/fileUtils';
+import AuthenticatedImage from '@/components/ui/data-display/AuthenticatedImage';
+import { fmtDateFr } from '@/utils/dateUtils';
 
 export default function EmployeHeaderCard({
     emp,
+    canWrite = true,
+    canValidate = false,
     onEdit,
     onDesactiver,
     onReactiver,
 }) {
     if (!emp) return null;
 
+    const contratLibelle = emp.typeContrat || (emp.statutContrat && emp.statutContrat !== 'Aucun contrat' && emp.statutContrat !== 'BROUILLON' ? emp.statutContrat : null);
+    const dateEntreeStr = emp.dateEmbauche ? fmtDateFr(emp.dateEmbauche) : null;
+
     return (
-        <div className="bg-[var(--color-surface)] rounded-none shadow-sm border border-[var(--color-border-subtle)] p-4 sm:p-4.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-                <div className="w-14 h-14 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none overflow-hidden flex items-center justify-center text-[var(--color-fg-subtle)] shrink-0">
-                    {emp.photoUrl ? (
-                        <img 
-                            src={getFullPhotoUrl(emp.photoUrl)} 
-                            alt="Photo" 
-                            loading="lazy" 
-                            decoding="async" 
-                            className="w-full h-full object-cover" 
-                            onError={(e) => {
-                                e.currentTarget.onerror = null;
-                                e.currentTarget.style.display = 'none';
-                                if (e.currentTarget.nextElementSibling) {
-                                    e.currentTarget.nextElementSibling.classList.remove('hidden');
-                                }
-                            }}
+        <div className="bg-[var(--color-surface)] rounded-none shadow-xs border border-[var(--color-border-subtle)] border-t-2 border-t-[var(--color-brand-500)] p-5 sm:p-6 transition-all">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+                
+                {/* Bloc Gauche : Photo + Identité + Attributs RH */}
+                <div className="flex items-start gap-4 sm:gap-5 min-w-0">
+                    {/* Photo de profil avec indicateur de statut */}
+                    <div className="relative shrink-0">
+                        <div className="w-18 h-18 sm:w-22 sm:h-22 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-none overflow-hidden flex items-center justify-center text-[var(--color-fg-subtle)] shadow-2xs">
+                            <AuthenticatedImage
+                                src={emp.photoUrl}
+                                alt={`Photo de ${emp.prenom || ''} ${emp.nom || ''}`.trim()}
+                                loading="lazy"
+                                decoding="async"
+                                className="w-full h-full object-cover"
+                                fallback={<User size={32} className="text-[var(--color-fg-subtle)]" />}
+                            />
+                        </div>
+                        <span 
+                            className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-[var(--color-surface)] flex items-center justify-center ${
+                                emp.estActif ? 'bg-[var(--color-success-500)]' : 'bg-[var(--color-danger-500)]'
+                            }`}
+                            title={emp.estActif ? 'Employé actif' : 'Employé inactif'}
                         />
-                    ) : null}
-                    <User size={26} className={emp.photoUrl ? 'hidden' : ''} />
-                </div>
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-[var(--color-fg)]">
-                            {emp.nom} {emp.prenom}
-                        </h1>
-                        {emp.estActif ? (
-                            <Badge variant="success" size="sm" dot>Actif</Badge>
-                        ) : (
-                            <Badge variant="default" size="sm" dot>Inactif</Badge>
-                        )}
-                        {emp.alerteContratTexte && (
-                            <Badge 
-                                variant={emp.alerteContratNiveau === 'DANGER' ? 'danger' : emp.alerteContratNiveau === 'WARNING' ? 'warning' : 'brand'} 
-                                size="sm" 
-                                dot
-                            >
-                                {emp.alerteContratTexte}
-                            </Badge>
-                        )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-[var(--color-fg-muted)] flex-wrap">
-                        <span>Matricule : <strong className="font-mono text-[var(--color-brand-500)]">{emp.matricule}</strong></span>
-                        <span>•</span>
-                        <span>CIN : <strong className="font-mono text-[var(--color-fg)]">{emp.cinNumero || '-'}</strong></span>
-                        <span>•</span>
-                        <span>Nationalité : <strong className="text-[var(--color-fg)]">{emp.nationalite || '-'}</strong></span>
-                    </div>
-                    {(emp.nomFonction || emp.nomSite || emp.statutContrat) && (
-                        <div className="flex items-center gap-3 text-xs text-[var(--color-fg-muted)] flex-wrap pt-0.5">
-                            {emp.nomFonction && (
-                                <span className="font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
-                                    <Briefcase size={13} className="text-[var(--color-brand-500)]" />
-                                    {emp.nomFonction}
-                                </span>
+
+                    {/* Informations principales */}
+                    <div className="space-y-1.5 min-w-0 flex-1">
+                        {/* Ligne 1 : Nom + Badges de statut & contrat */}
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--color-fg)] truncate">
+                                {emp.nom} {emp.prenom}
+                            </h1>
+
+                            <span className="font-mono font-bold text-xs bg-[var(--color-bg-subtle)] text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] px-2 py-0.5 border border-[var(--color-border-subtle)]">
+                                #{emp.matricule}
+                            </span>
+
+                            {emp.estActif ? (
+                                <Badge variant="success" size="sm" dot>Actif</Badge>
+                            ) : (
+                                <Badge variant="danger" size="sm" dot>Inactif</Badge>
                             )}
-                            {emp.nomSite && (
-                                <span className="flex items-center gap-1">
-                                    <MapPin size={13} className="text-[var(--color-fg-subtle)]" />
-                                    {emp.nomSite}{emp.nomDepartement ? ` · ${emp.nomDepartement}` : ''}
-                                </span>
+
+                            {contratLibelle && (
+                                <Badge variant="brand" size="sm">
+                                    {contratLibelle}
+                                </Badge>
                             )}
-                            {emp.statutContrat && emp.statutContrat !== 'Aucun contrat' && (
-                                <span className="px-2 py-0.5 bg-[var(--color-bg-subtle)] text-[var(--color-fg)] font-medium text-[11px] border border-[var(--color-border-subtle)]">
-                                    {emp.statutContrat}
-                                </span>
+
+                            {emp.alerteContratTexte && (
+                                <Badge 
+                                    variant={emp.alerteContratNiveau === 'DANGER' ? 'danger' : emp.alerteContratNiveau === 'WARNING' ? 'warning' : 'brand'} 
+                                    size="sm" 
+                                    dot
+                                >
+                                    {emp.alerteContratTexte}
+                                </Badge>
                             )}
                         </div>
-                    )}
-                </div>
-            </div>
 
-            <div className="flex items-center gap-2 self-stretch md:self-auto">
-                <HasPermission authority="EMPLOYE_WRITE">
-                    <Button
-                        onClick={onEdit}
-                        variant="outline"
-                        size="sm"
-                        iconLeft={<Edit2 size={15} />}
-                    >
-                        Modifier le profil
-                    </Button>
-                </HasPermission>
-                <HasPermission authority="EMPLOYE_VALIDATE">
-                    {emp.estActif ? (
-                        <Button
-                            onClick={onDesactiver}
-                            variant="ghost"
-                            size="sm"
-                            className="text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10"
-                            iconLeft={<Power size={15} />}
-                        >
-                            Désactiver
-                        </Button>
-                    ) : (
-                        <Button
-                            onClick={onReactiver}
-                            variant="primary"
-                            size="sm"
-                            iconLeft={<RotateCcw size={15} />}
-                        >
-                            Réactiver l'employé
-                        </Button>
+                        {/* Ligne 2 : Poste & Affectation */}
+                        <div className="flex items-center gap-3 text-xs sm:text-sm text-[var(--color-fg-muted)] flex-wrap">
+                            <span className="font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
+                                <Briefcase size={14} className="text-[var(--color-brand-500)] shrink-0" />
+                                {emp.nomFonction || 'Poste non renseigné'}
+                            </span>
+
+                            {(emp.nomSite || emp.nomDepartement) && (
+                                <>
+                                    <span className="text-[var(--color-fg-subtle)] hidden sm:inline">•</span>
+                                    <span className="flex items-center gap-1 text-[var(--color-fg-muted)]">
+                                        <Building2 size={14} className="text-[var(--color-fg-subtle)] shrink-0" />
+                                        {emp.nomSite || ''}
+                                        {emp.nomDepartement ? ` · ${emp.nomDepartement}` : ''}
+                                    </span>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Ligne 3 : Métadonnées administratives & Coordonnées rapides */}
+                        <div className="flex items-center gap-x-4 gap-y-1.5 text-xs text-[var(--color-fg-muted)] flex-wrap pt-0.5">
+                            {dateEntreeStr && (
+                                <span className="flex items-center gap-1.5" title="Date d'embauche effective">
+                                    <Calendar size={13} className="text-[var(--color-brand-500)] shrink-0" />
+                                    <span>Entrée le <strong className="text-[var(--color-fg)] font-medium">{dateEntreeStr}</strong></span>
+                                    {emp.ancienneteEffectiveTexte && (
+                                        <span className="text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] font-medium">
+                                            ({emp.ancienneteEffectiveTexte})
+                                        </span>
+                                    )}
+                                </span>
+                            )}
+
+                            {emp.cinNumero && (
+                                <span className="flex items-center gap-1">
+                                    <span className="text-[var(--color-fg-subtle)]">CIN :</span>
+                                    <strong className="font-mono text-[var(--color-fg)] font-medium">{emp.cinNumero}</strong>
+                                </span>
+                            )}
+
+                            {emp.telephone && (
+                                <a 
+                                    href={`tel:${emp.telephone}`} 
+                                    className="flex items-center gap-1 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-600)] transition-colors"
+                                    title="Appeler"
+                                >
+                                    <Phone size={12} className="text-[var(--color-brand-500)] shrink-0" />
+                                    <span className="font-mono">{emp.telephone}</span>
+                                </a>
+                            )}
+
+                            {emp.email && (
+                                <a 
+                                    href={`mailto:${emp.email}`} 
+                                    className="flex items-center gap-1 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-600)] transition-colors"
+                                    title="Envoyer un email"
+                                >
+                                    <Mail size={12} className="text-[var(--color-brand-500)] shrink-0" />
+                                    <span>{emp.email}</span>
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bloc Droit : Indicateurs clés + Actions */}
+                <div className="flex items-center lg:items-end flex-row lg:flex-col justify-between sm:justify-end gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-[var(--color-border-subtle)] shrink-0">
+                    {/* Indicateurs synthétiques */}
+                    {emp.ancienneteEffectiveTexte && (
+                        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-right">
+                            <Award size={15} className="text-[var(--color-brand-500)] shrink-0" />
+                            <div className="text-left">
+                                <p className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-fg-subtle)] leading-none">Ancienneté</p>
+                                <p className="text-xs font-bold text-[var(--color-fg)] mt-0.5">{emp.ancienneteEffectiveTexte}</p>
+                            </div>
+                        </div>
                     )}
-                </HasPermission>
+
+                    {/* Barre de boutons d'action */}
+                    <div className="flex items-center gap-2">
+                        {canWrite && (
+                            <Button
+                                onClick={onEdit}
+                                variant="outline"
+                                size="sm"
+                                iconLeft={<Edit2 size={14} />}
+                                className="shadow-2xs"
+                            >
+                                Modifier
+                            </Button>
+                        )}
+
+                        {canValidate && (
+                            emp.estActif ? (
+                                <Button
+                                    onClick={onDesactiver}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10"
+                                    iconLeft={<Power size={14} />}
+                                >
+                                    Désactiver
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={onReactiver}
+                                    variant="primary"
+                                    size="sm"
+                                    iconLeft={<RotateCcw size={14} />}
+                                >
+                                    Réactiver
+                                </Button>
+                            )
+                        )}
+                    </div>
+                </div>
+
             </div>
         </div>
     );

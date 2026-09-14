@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Order(1)
+@ConditionalOnProperty(name = "app.security.bootstrap-admin.enabled", havingValue = "true")
 public class AdminAccountSeeder implements CommandLineRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminAccountSeeder.class);
@@ -27,14 +29,19 @@ public class AdminAccountSeeder implements CommandLineRunner {
     @Autowired
     private DataSource dataSource;
 
-    @Value("${app.security.default-admin.username:admin}")
+    @Value("${app.security.default-admin.username:}")
     private String defaultAdminUsername;
 
-    @Value("${app.security.default-admin.password:Pass1234}")
+    @Value("${app.security.default-admin.password:}")
     private String defaultAdminPassword;
 
     @Override
     public void run(String... args) {
+        if (defaultAdminUsername == null || defaultAdminUsername.isBlank()
+                || defaultAdminPassword == null || defaultAdminPassword.isBlank()) {
+            throw new IllegalStateException(
+                    "Bootstrap administrateur activé sans GALAXAM_DEFAULT_ADMIN_USERNAME/GALAXAM_DEFAULT_ADMIN_PASSWORD.");
+        }
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {

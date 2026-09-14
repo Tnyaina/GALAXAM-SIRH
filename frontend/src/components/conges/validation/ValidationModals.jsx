@@ -213,7 +213,7 @@ export default function ValidationModals({
         title="Confirmer la validation"
         message={`Valider la demande de ${selectedDemande?.prenom || ''} ${selectedDemande?.nom || ''} (${selectedDemande?.estDemiJournee ? `0,5 jour ${selectedDemande?.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}` : `${selectedDemande?.nbJoursDecomptes} jours`} de ${selectedDemande?.codeTypeConge}) ?`}
         confirmLabel="Valider la demande"
-        confirmVariant="success"
+        variant="success"
         onConfirm={() => onConfirmValider(justificatifFourni, estRemunere, derogationSoldeNegatif)}
         onClose={onCloseValider}
         loading={actionLoading}

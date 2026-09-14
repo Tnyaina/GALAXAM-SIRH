@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, CheckCircle } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 
 /**
@@ -14,7 +14,7 @@ export default function ConfirmDialog({
     message = 'Êtes-vous sûr de vouloir effectuer cette action ?',
     confirmLabel = 'Confirmer',
     cancelLabel = 'Annuler',
-    variant = 'danger', // 'danger' | 'warning' | 'primary'
+    variant = 'danger', // 'danger' | 'warning' | 'primary' | 'success'
     loading = false,
     children
 }) {
@@ -35,6 +35,7 @@ export default function ConfirmDialog({
         danger: 'text-[var(--color-danger-500)] bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)]/30',
         warning: 'text-[var(--color-warning-500)] bg-[var(--color-warning-500)]/10 border-[var(--color-warning-500)]/30',
         primary: 'text-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10 border-[var(--color-brand-500)]/30',
+        success: 'text-[var(--color-success-500)] bg-[var(--color-success-500)]/10 border-[var(--color-success-500)]/30',
     };
 
     return (
@@ -49,7 +50,7 @@ export default function ConfirmDialog({
                 <div className="p-4 sm:p-5 space-y-3">
                     <div className="flex items-start gap-3">
                         <div className={`p-2.5 border shrink-0 rounded-none ${iconColors[variant] || iconColors.danger}`}>
-                            <AlertTriangle size={18} />
+                            {variant === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
                         </div>
                         <div className="space-y-0.5 min-w-0 flex-1">
                             <h3 id="confirm-dialog-title" className="text-sm sm:text-base font-bold text-[var(--color-fg)]">
@@ -79,7 +80,7 @@ export default function ConfirmDialog({
                     <Button
                         type="button"
                         onClick={onConfirm}
-                        variant={variant === 'danger' ? 'danger' : variant === 'warning' ? 'warning' : 'primary'}
+                        variant={variant === 'danger' ? 'danger' : variant === 'warning' ? 'warning' : variant === 'success' ? 'success' : 'primary'}
                         size="sm"
                         loading={loading}
                     >

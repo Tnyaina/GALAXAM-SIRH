@@ -58,7 +58,7 @@ const employeService = {
         const response = await apiClient.post('/employes/upload-photo', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
-        return response.data; // { photoUrl: "/uploads/photos/uuid.ext" }
+        return response.data; // { photoUrl: "/employes/photos/uuid.ext" }
     }
 };
 

@@ -135,10 +135,10 @@ apiClient.interceptors.response.use(
         let userMessage = "Une erreur inattendue est survenue.";
         if (error.response) {
             const data = error.response.data;
-            if (typeof data === 'string' && data.trim() !== '') {
-                userMessage = cleanUserFacingMessage(data);
+            if (typeof data === 'string' && data.trim()) {
+                userMessage = data.trim();
             } else if (data?.message && typeof data.message === 'string') {
-                userMessage = cleanUserFacingMessage(data.message);
+                userMessage = data.message;
             } else if (error.response.status === 400) {
                 userMessage = "Les informations fournies sont incomplètes ou invalides.";
             } else if (error.response.status === 403) {
@@ -156,45 +156,22 @@ apiClient.interceptors.response.use(
 
         error.userMessage = userMessage;
         error.message = userMessage;
+        error.code = error.response?.data?.code || 'UNEXPECTED_ERROR';
+        error.details = error.response?.data?.details || {};
+        error.issues = error.response?.data?.issues || [];
 
         return Promise.reject(error);
     }
 );
 
 /**
- * Nettoie et transforme tout jargon technique (SQL, Java, HTTP, stacktraces) en langage clair et orienté métier.
+ * Compatibilité d'affichage : le backend fournit déjà un message utilisateur et un code stable.
+ * Aucun texte technique n'est interprété dans React.
  */
 export const cleanUserFacingMessage = (rawMsg, fallback = "Une erreur inattendue est survenue.") => {
     if (!rawMsg || typeof rawMsg !== 'string') return fallback;
     const msg = rawMsg.trim();
     if (!msg) return fallback;
-
-    const lower = msg.toLowerCase();
-
-    // 1. Détection des erreurs d'unicité / doublons
-    if (lower.includes('duplicate key') || lower.includes('unique constraint') || lower.includes('unique index') || lower.includes('déjà existant') || lower.includes('violates unique')) {
-        return "Cet enregistrement existe déjà dans l'application (valeur unique ou matricule en double).";
-    }
-
-    // 2. Détection des contraintes de clés étrangères / dépendances
-    if (lower.includes('foreign key') || lower.includes('violates foreign key') || lower.includes('is still referenced') || lower.includes('fk_')) {
-        return "Cet élément est actuellement lié à d'autres données actives (employés, contrats, congés) et ne peut pas être supprimé.";
-    }
-
-    // 3. Détection des erreurs de format / parsing JSON
-    if (lower.includes('cannot deserialize') || lower.includes('json parse error') || lower.includes('failed to convert') || lower.includes('methodargumenttype') || lower.includes('httpmessagenotreadable')) {
-        return "Certaines informations saisies ne respectent pas le format attendu (ex: format de date ou valeur numérique invalide).";
-    }
-
-    // 4. Détection des erreurs de réseau / connectivité
-    if (lower.includes('network error') || lower.includes('err_connection') || lower.includes('failed to fetch') || lower.includes('timeout') || lower.includes('econnrefused')) {
-        return "Impossible de joindre le serveur. Veuillez vérifier votre connexion au réseau.";
-    }
-
-    // 5. Détection des exceptions internes / traces Java
-    if (lower.includes('nullpointerexception') || lower.includes('sqlexception') || lower.includes('psqlexception') || lower.includes('dataaccess') || lower.includes('hibernate') || lower.includes('at mg.galaxam') || lower.includes('java.lang') || lower.includes('status code')) {
-        return "Une anomalie temporaire est survenue lors du traitement. Veuillez réessayer dans quelques instants.";
-    }
 
     return msg;
 };

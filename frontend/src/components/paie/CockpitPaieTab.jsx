@@ -19,6 +19,7 @@ import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import paieService from '@/api/paie/paieService';
+import periodePaieService from '@/api/pointage/periodePaieService';
 import employeService from '@/api/employe/employeService';
 import BulletinPaieDrawer from './BulletinPaieDrawer';
 
@@ -188,7 +189,9 @@ export default function CockpitPaieTab({
         setActionLoading('cloturer');
         setFeedback(null);
         try {
-            await paieService.cloturerPaiePeriode(idPeriodeActive);
+            await periodePaieService.executeCommand(idPeriodeActive, 'CLOSE', {
+                version: cockpit?.periode?.version
+            });
             setFeedback({ type: 'success', text: 'Période clôturée avec succès. Bulletins archivés immuables.' });
             await chargerCockpit();
             if (onReloadPeriodes) onReloadPeriodes();
@@ -211,7 +214,10 @@ export default function CockpitPaieTab({
 
         setActionLoading('rouvrir');
         try {
-            await paieService.rouvrirPaiePeriode(idPeriodeActive, motifReouverture.trim());
+            await periodePaieService.executeCommand(idPeriodeActive, 'REOPEN', {
+                version: cockpit?.periode?.version,
+                motif: motifReouverture.trim()
+            });
             setIsReopenModalOpen(false);
             setMotifReouverture('');
             setFeedback({ type: 'success', text: 'Période réouverte pour corrections.' });

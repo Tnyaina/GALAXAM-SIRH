@@ -1,7 +1,8 @@
 import { X, User, CreditCard, Phone, ShieldAlert, Edit2, Power, Calendar, MapPin, Heart, Baby, Landmark } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
-import { getFullPhotoUrl } from '@/utils/fileUtils';
+import AuthenticatedImage from '@/components/ui/data-display/AuthenticatedImage';
+import useFiscalConfig, { evaluateEnfantIrsaEligibility } from '@/hooks/useFiscalConfig';
 
 const InfoRow = ({ label, value, icon, mono = false }) => (
     <div className="flex items-start gap-3 py-2">
@@ -21,6 +22,8 @@ const SectionTitle = ({ icon, children }) => (
 );
 
 export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit, onToggleStatus }) {
+    const { fiscalConfig } = useFiscalConfig();
+
     if (!isOpen || !detailData) return null;
 
     const emp = detailData.employe || detailData;
@@ -41,21 +44,12 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
                 <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="w-14 h-14 bg-ink-50 dark:bg-ink-800 border border-ink-200 dark:border-ink-700 flex items-center justify-center text-ink-300 overflow-hidden">
-                            {emp.photoUrl ? (
-                                <img 
-                                    src={getFullPhotoUrl(emp.photoUrl)} 
-                                    alt="Photo" 
-                                    className="w-full h-full object-cover" 
-                                    onError={(e) => {
-                                        e.currentTarget.onerror = null;
-                                        e.currentTarget.style.display = 'none';
-                                        if (e.currentTarget.nextElementSibling) {
-                                            e.currentTarget.nextElementSibling.classList.remove('hidden');
-                                        }
-                                    }}
-                                />
-                            ) : null}
-                            <User size={28} className={emp.photoUrl ? 'hidden' : ''} />
+                            <AuthenticatedImage
+                                src={emp.photoUrl}
+                                alt={`Photo de ${emp.prenom || ''} ${emp.nom || ''}`.trim()}
+                                className="w-full h-full object-cover"
+                                fallback={<User size={28} />}
+                            />
                         </div>
                         <div>
                             <h2 className="text-lg font-bold text-ink-900 dark:text-white">
@@ -127,6 +121,7 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
                                 <InfoRow label="Nom" value={conjoint.nom} />
                                 <InfoRow label="Prénom" value={conjoint.prenom} />
                                 <InfoRow label="Date Naissance" value={fmtDate(conjoint.dateNaissance)} />
+                                <InfoRow label="Lieu Naissance" value={conjoint.lieuNaissance} />
                                 <InfoRow label="Société" value={conjoint.societe} />
                                 <InfoRow label="Fonction" value={conjoint.fonction} />
                             </div>
@@ -139,22 +134,7 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
                             <div className="flex items-center justify-between mb-2">
                                 <SectionTitle icon={<Baby size={16} />}>Enfants ({enfants.length})</SectionTitle>
                                 <span className="text-xs text-ink-500 dark:text-ink-400">
-                                    {enfants.filter(e => {
-                                        if (!e.aCharge) return false;
-                                        if (e.estHandicape) return true;
-                                        if (!e.dateNaissance) return false;
-                                        const dob = new Date(e.dateNaissance);
-                                        if (isNaN(dob.getTime())) return false;
-                                        const now = new Date();
-                                        let age = now.getFullYear() - dob.getFullYear();
-                                        const m = now.getMonth() - dob.getMonth();
-                                        if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
-                                        if (age < 21) return true;
-                                        if (age < 25 && e.estEtudiant && e.certificatFourni) {
-                                            return !e.dateFinScolarite || new Date(e.dateFinScolarite) >= now;
-                                        }
-                                        return false;
-                                    }).length} déductible(s) fiscalement IRSA (-2 000 Ar)
+                                    {enfants.filter(e => evaluateEnfantIrsaEligibility(e, fiscalConfig).eligible).length} déductible(s) fiscalement IRSA (-{fiscalConfig.deductionParCharge.toLocaleString('fr-FR')} Ar • {fiscalConfig.codeVersion})
                                 </span>
                             </div>
                             <div className="overflow-x-auto border border-ink-150 dark:border-ink-700">
@@ -171,29 +151,18 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
                                     </thead>
                                     <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
                                         {enfants.map((enf, i) => {
-                                            let age = null;
-                                            if (enf.dateNaissance) {
-                                                const dob = new Date(enf.dateNaissance);
-                                                if (!isNaN(dob.getTime())) {
-                                                    const now = new Date();
-                                                    age = now.getFullYear() - dob.getFullYear();
-                                                    const m = now.getMonth() - dob.getMonth();
-                                                    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
-                                                }
-                                            }
-                                            const isEligible = Boolean(
-                                                enf.aCharge && (
-                                                    enf.estHandicape ||
-                                                    (age !== null && age < 21) ||
-                                                    (age !== null && age < 25 && enf.estEtudiant && enf.certificatFourni && (!enf.dateFinScolarite || new Date(enf.dateFinScolarite) >= new Date()))
-                                                )
-                                            );
+                                            const evalRes = evaluateEnfantIrsaEligibility(enf, fiscalConfig);
+                                            const age = evalRes.age;
+                                            const isEligible = evalRes.eligible;
 
                                             return (
                                                 <tr key={i} className="hover:bg-ink-50/50 dark:hover:bg-ink-950/20 text-ink-900 dark:text-ink-100">
                                                     <td className="px-4 py-3 font-semibold">{enf.nom} {enf.prenom}</td>
                                                     <td className="px-4 py-3 text-ink-500">{enf.sexe === 'M' ? 'Garçon' : 'Fille'}</td>
-                                                    <td className="px-4 py-3 font-mono text-xs">{fmtDate(enf.dateNaissance)} {age !== null ? `(${age} ans)` : ''}</td>
+                                                    <td className="px-4 py-3 font-mono text-xs">
+                                                        <div>{fmtDate(enf.dateNaissance)} {age !== null ? `(${age} ans)` : ''}</div>
+                                                        {enf.lieuNaissance && <span className="block text-[11px] text-ink-400 font-sans">à {enf.lieuNaissance}</span>}
+                                                    </td>
                                                     <td className="px-4 py-3 text-xs">
                                                         {enf.estHandicape ? (
                                                             <Badge variant="purple" size="sm">Handicap</Badge>
@@ -219,7 +188,7 @@ export default function EmployeFicheDetail({ isOpen, onClose, detailData, onEdit
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
                                                         {isEligible ? (
-                                                            <Badge variant="success" size="sm">-2 000 Ar</Badge>
+                                                            <Badge variant="success" size="sm">-{fiscalConfig.deductionParCharge.toLocaleString('fr-FR')} Ar</Badge>
                                                         ) : (
                                                             <Badge variant="default" size="sm">Exclu</Badge>
                                                         )}

@@ -1,8 +1,11 @@
-import { Briefcase, Clock, FileCheck, RefreshCw, UserMinus, Plus, Building, Landmark, CheckCircle } from 'lucide-react';
+import { Briefcase, Clock, FileCheck, RefreshCw, UserMinus, Plus, Building, Landmark, CheckCircle, Info } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import { Card } from '@/components/ui/data-display/Card';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import HasPermission from '@/components/auth/HasPermission';
 import { fmtDate, fmtMoney } from '@/utils/carriereUtils';
+import { isDateInFuture, isDateInPast } from '@/utils/dateUtils';
 
 /**
  * InfoRow — Ligne label/valeur sans séparateur systématique.
@@ -40,55 +43,51 @@ export default function ContratActifSection({
         const hasHistory = Array.isArray(contratsList) && contratsList.length > 0;
 
         return (
-            /* EMPTY STATE : PAS DE CONTRAT ACTIF */
-            <div className={`p-8 text-center bg-[var(--color-surface)] border rounded-none space-y-4 ${hasHistory ? 'border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/[0.02]' : 'border-dashed border-[var(--color-border)]'}`}>
-                <div className={`w-14 h-14 rounded-none flex items-center justify-center mx-auto ${hasHistory ? 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)]' : 'bg-brand-500/10 text-brand-500'}`}>
-                    <Briefcase size={28} />
-                </div>
-                <div className="max-w-md mx-auto space-y-1">
-                    <h3 className="text-base font-bold text-[var(--color-fg)] flex items-center justify-center gap-2">
-                        <span>{hasHistory ? 'Collaborateur Inactif (Aucun Contrat en cours)' : 'Aucun Contrat Actif'}</span>
-                        {hasHistory && (
-                            <Badge variant="warning" size="xs">Inactif</Badge>
-                        )}
-                    </h3>
-                    <p className="text-xs text-[var(--color-fg-muted)]">
-                        {hasHistory
-                            ? "Cet employé dispose d'un historique de contrats passés. Vous pouvez initier une nouvelle réembauche, une réintégration avec reprise d'ancienneté ou un contrat de consultant."
-                            : "Cet employé ne dispose pas encore de contrat de travail enregistré. Vous pouvez initier son embauche initiale."}
-                    </p>
-                </div>
-                {canWrite && (
-                    <Button
-                        onClick={onOpenCreateEmbauche}
-                        variant="primary"
-                        size="sm"
-                        iconLeft={<Plus size={16} />}
-                    >
-                        {hasHistory ? 'Contractualiser (Réembauche / Réintégration)' : "Initier l'Embauche (Créer Contrat)"}
-                    </Button>
-                )}
-            </div>
+            <EmptyState
+                icon={Briefcase}
+                title={hasHistory ? 'Collaborateur Inactif (Aucun Contrat en cours)' : 'Aucun Contrat Actif'}
+                description={hasHistory
+                    ? "Cet employé dispose d'un historique de contrats passés. Vous pouvez initier une nouvelle réembauche, une réintégration avec reprise d'ancienneté ou un contrat de consultant."
+                    : "Cet employé ne dispose pas encore de contrat de travail enregistré. Vous pouvez initier son embauche initiale."}
+                actionLabel={canWrite ? (hasHistory ? 'Contractualiser (Réembauche / Réintégration)' : "Initier l'Embauche (Créer Contrat)") : undefined}
+                onAction={canWrite ? onOpenCreateEmbauche : undefined}
+                actionIcon={<Plus size={16} />}
+            />
         );
     }
 
+    const isContratFutur = contratActif.dateDebut && isDateInFuture(contratActif.dateDebut);
+    const isContratEchu = contratActif.dateFin && isDateInPast(contratActif.dateFin);
+
     return (
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-5">
+        <Card padding bordered className="space-y-5">
             {/* En-tête : Titre + Statut + Actions */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[var(--color-border-subtle)]">
                 <div className="space-y-1">
                     <div className="flex items-center gap-2.5 flex-wrap">
                         <h3 className="text-base font-bold text-[var(--color-fg)]">
-                            Contrat actif N° {contratActif.numeroContrat}
+                            Contrat {isContratFutur ? 'planifié' : isContratEchu ? 'échu' : 'actif'} N° {contratActif.numeroContrat}
                         </h3>
-                        <Badge variant="success" size="sm" className="font-bold">Actif</Badge>
+                        {isContratFutur ? (
+                            <Badge variant="info" size="sm" className="font-bold">Planifié</Badge>
+                        ) : isContratEchu ? (
+                            <Badge variant="danger" size="sm" className="font-bold">Échu</Badge>
+                        ) : (
+                            <Badge variant="success" size="sm" className="font-bold">Actif</Badge>
+                        )}
                         {(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai) && !workflowsList.some(w => (w.isActif ?? (w.codeStatutWorkflow === 'ACTIF')) && w.codeTypeEvenement === 'CONFIRMATION_ESSAI' && (Number(w.idContratCible) === Number(contratActif.idContrat) || Number(w.idContratSource) === Number(contratActif.idContrat))) && (
                             <Badge variant="warning" size="xs" icon={<Clock size={11} />} className="font-semibold">
                                 Période d'Essai (Fin le {fmtDate(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai)})
                             </Badge>
                         )}
                     </div>
-                    <p className="text-xs text-[var(--color-fg-muted)]">Relation contractuelle et juridique en cours d'exécution</p>
+                    <p className="text-xs text-[var(--color-fg-muted)]">
+                        {isContratFutur
+                            ? `Ce contrat prendra juridiquement effet le ${fmtDate(contratActif.dateDebut)}`
+                            : isContratEchu
+                                ? `Le terme de ce contrat a été atteint le ${fmtDate(contratActif.dateFin)}`
+                                : "Relation contractuelle et juridique en cours d'exécution"}
+                    </p>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap shrink-0">
@@ -137,6 +136,16 @@ export default function ContratActifSection({
                     )}
                 </div>
             </div>
+
+            {/* Alerte informative si contrat futur planifié */}
+            {isContratFutur && (
+                <div className="bg-brand-500/10 border border-brand-500/25 p-3 rounded-none text-xs flex items-center gap-2.5 text-brand-700 dark:text-brand-300">
+                    <Info size={16} className="shrink-0 text-brand-500" />
+                    <span>
+                        Contrat à terme différé : ce contrat a été validé et prendra automatiquement effet le <strong>{fmtDate(contratActif.dateDebut)}</strong>.
+                    </span>
+                </div>
+            )}
 
             {/* Grille Contrat + Affectation — séparation par surface, pas par bordures répétées */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
@@ -233,6 +242,6 @@ export default function ContratActifSection({
                     </HasPermission>
                 </div>
             </div>
-        </div>
+        </Card>
     );
 }

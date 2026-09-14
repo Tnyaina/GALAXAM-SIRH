@@ -71,16 +71,24 @@ export function useTransitionForm({
         const updated = { ...currentFormData };
 
         if (config.defaultTypeContrat && typesContrat.length > 0) {
-            const tc = typesContrat.find(t => t.code === config.defaultTypeContrat);
-            if (tc) {
-                updated.idTypeContrat = String(tc.idTypeContrat);
+            const currentTc = typesContrat.find(t => String(t.idTypeContrat) === String(updated.idTypeContrat));
+            const isAllowed = config.allowedTypesContrat ? config.allowedTypesContrat.includes(currentTc?.code) : true;
+            if (!updated.idTypeContrat || config.lockTypeContrat || !isAllowed) {
+                const tc = typesContrat.find(t => t.code === config.defaultTypeContrat);
+                if (tc) {
+                    updated.idTypeContrat = String(tc.idTypeContrat);
+                }
             }
         }
 
         if (config.defaultTypeIntervenant && typesIntervenant.length > 0) {
-            const ti = typesIntervenant.find(t => t.code === config.defaultTypeIntervenant);
-            if (ti) {
-                updated.idTypeIntervenant = String(ti.idTypeIntervenant);
+            const currentTi = typesIntervenant.find(t => String(t.idTypeIntervenant) === String(updated.idTypeIntervenant));
+            const isAllowed = config.allowedTypesIntervenant ? config.allowedTypesIntervenant.includes(currentTi?.code) : true;
+            if (!updated.idTypeIntervenant || config.lockTypeIntervenant || !isAllowed) {
+                const ti = typesIntervenant.find(t => t.code === config.defaultTypeIntervenant);
+                if (ti) {
+                    updated.idTypeIntervenant = String(ti.idTypeIntervenant);
+                }
             }
         }
 
@@ -212,7 +220,9 @@ export function useTransitionForm({
             let changed = false;
             const next = { ...prev };
 
-            if (config.defaultTypeContrat && (!prev.idTypeContrat || config.lockTypeContrat) && typesContrat.length > 0) {
+            const currentTc = typesContrat.find(tc => String(tc.idTypeContrat) === String(prev.idTypeContrat));
+            const isTcAllowed = config.allowedTypesContrat ? config.allowedTypesContrat.includes(currentTc?.code) : true;
+            if (config.defaultTypeContrat && (!prev.idTypeContrat || config.lockTypeContrat || !isTcAllowed) && typesContrat.length > 0) {
                 const foundTc = typesContrat.find(tc => tc.code === config.defaultTypeContrat);
                 if (foundTc && String(prev.idTypeContrat) !== String(foundTc.idTypeContrat)) {
                     next.idTypeContrat = String(foundTc.idTypeContrat);
@@ -220,7 +230,9 @@ export function useTransitionForm({
                 }
             }
 
-            if (config.defaultTypeIntervenant && (!prev.idTypeIntervenant || config.lockTypeIntervenant) && typesIntervenant.length > 0) {
+            const currentTi = typesIntervenant.find(ti => String(ti.idTypeIntervenant) === String(prev.idTypeIntervenant));
+            const isTiAllowed = config.allowedTypesIntervenant ? config.allowedTypesIntervenant.includes(currentTi?.code) : true;
+            if (config.defaultTypeIntervenant && (!prev.idTypeIntervenant || config.lockTypeIntervenant || !isTiAllowed) && typesIntervenant.length > 0) {
                 const foundTi = typesIntervenant.find(ti => ti.code === config.defaultTypeIntervenant);
                 if (foundTi && String(prev.idTypeIntervenant) !== String(foundTi.idTypeIntervenant)) {
                     next.idTypeIntervenant = String(foundTi.idTypeIntervenant);
@@ -310,6 +322,21 @@ export function useTransitionForm({
 
             if (selectedTypeContrat?.exigeDateFin && !formData.dateFin) {
                 setErrorMsg(`La date de fin est obligatoire pour le type de contrat "${selectedTypeContrat.libelle || selectedTypeContrat.code}".`);
+                return;
+            }
+
+            if (formData.dateFin && formData.dateDebut && formData.dateFin <= formData.dateDebut) {
+                setErrorMsg("La date de fin de contrat doit être strictement postérieure à la date de début.");
+                return;
+            }
+
+            if (formData.aPeriodeEssai && formData.dateFinEssai && formData.dateDebut && formData.dateFinEssai <= formData.dateDebut) {
+                setErrorMsg("La date de fin d'essai doit être strictement postérieure à la date de début de contrat.");
+                return;
+            }
+
+            if (formData.dateFin && formData.aPeriodeEssai && formData.dateFinEssai && formData.dateFinEssai > formData.dateFin) {
+                setErrorMsg("La période d'essai ne peut pas se prolonger au-delà du terme du contrat.");
                 return;
             }
         }

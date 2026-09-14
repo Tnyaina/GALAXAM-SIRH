@@ -392,7 +392,7 @@ public class PayrollService {
      * Clôture définitivement une période de paie et tous ses bulletins.
      * Active le verrou d'immutabilité PostgreSQL.
      */
-    public void cloturerPaiePeriode(Integer idPeriodePaie, Integer idUtilisateur, Connection c) throws Exception {
+    public void cloturerDonneesPaie(Integer idPeriodePaie, Integer idUtilisateur, Connection c) throws Exception {
         // 1. Clôture des bulletins
         String sqlUpdateBulletins = "UPDATE bulletin_paie SET " +
                 "statut = 'CLOTURE', " +
@@ -411,25 +411,14 @@ public class PayrollService {
             ps.executeUpdate();
         }
 
-        // 2. Mise à jour du statut de la période_paie en CLOTUREE si applicable
-        String sqlUpdatePeriode = "UPDATE periode_paie SET " +
-                "id_statut_periode = COALESCE((SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'CLOTUREE'), id_statut_periode), " +
-                "updated_at = CURRENT_TIMESTAMP " +
-                "WHERE id_periode_paie = ?";
-
-        try (PreparedStatement ps = c.prepareStatement(sqlUpdatePeriode)) {
-            ps.setInt(1, idPeriodePaie);
-            ps.executeUpdate();
-        }
-
-        // 3. Alimentation automatique du grand-livre de valorisation des congés (OHATRA KAJY DROITS CONGES)
+        // 2. Alimentation automatique du grand-livre de valorisation des congés (OHATRA KAJY DROITS CONGES)
         mettreAJourJournalConge(idPeriodePaie, c);
     }
 
     /**
      * Procédure de réouverture exceptionnelle d'urgence d'une période de paie clôturée (Contre-Audit).
      */
-    public void rouvrirPaiePeriode(Integer idPeriodePaie, String motif, Integer idUtilisateur, Connection c) throws Exception {
+    public void rouvrirDonneesPaie(Integer idPeriodePaie, String motif, Integer idUtilisateur, Connection c) throws Exception {
         if (motif == null || motif.trim().length() < 5) {
             throw new IllegalArgumentException("Le motif de réouverture est obligatoire (min 5 caractères).");
         }
@@ -458,14 +447,6 @@ public class PayrollService {
             ps.executeUpdate();
         }
 
-        String sql = "UPDATE periode_paie SET " +
-                "id_statut_periode = COALESCE((SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'EN_COURS'), (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'OUVERTE'), id_statut_periode), " +
-                "updated_at = CURRENT_TIMESTAMP " +
-                "WHERE id_periode_paie = ?";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, idPeriodePaie);
-            ps.executeUpdate();
-        }
     }
 
     /**
@@ -522,8 +503,10 @@ public class PayrollService {
                 "COALESCE(tri.soumis_cnaps, TRUE) AS soumis_cnaps, " +
                 "COALESCE(tri.soumis_sante, TRUE) AS soumis_sante, " +
                 "COALESCE(tri.soumis_irsa, TRUE) AS soumis_irsa, " +
-                "COALESCE(tri.soumis_isi_5, FALSE) AS soumis_isi_5 " +
+                "COALESCE(tri.soumis_isi_5, FALSE) AS soumis_isi_5, " +
+                "COALESCE(c_emb.date_embauche_initiale, ct.date_debut, e.date_declaration) AS date_embauche_resolue " +
                 "FROM employe e " +
+                "LEFT JOIN (SELECT id_employe, MIN(date_debut) AS date_embauche_initiale FROM contrat_travail GROUP BY id_employe) c_emb ON e.id_employe = c_emb.id_employe " +
                 "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
                 "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh " +
                 "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
@@ -568,7 +551,7 @@ public class PayrollService {
                     in.setCategorieProfessionnelle(rs.getString("categorie_code") != null ? rs.getString("categorie_code") : "AGENT");
                     in.setModeCalculPaie(rs.getString("mode_calcul_code") != null ? rs.getString("mode_calcul_code") : "MENSUEL");
                     in.setSalaireBaseContractuel(rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO);
-                    in.setDateEmbauche(rs.getDate("date_declaration")); // Ou date affectation initiale
+                    in.setDateEmbauche(rs.getDate("date_embauche_resolue") != null ? rs.getDate("date_embauche_resolue") : rs.getDate("date_declaration"));
                     if (rs.next()) {
                         throw new IllegalStateException("Plusieurs affectations concurrentes sont applicables à l'employé "
                                 + idEmploye + " au " + dateReferenceEmploi + ".");
@@ -1129,6 +1112,7 @@ public class PayrollService {
                     perMap.put("dateFin", dateFin != null ? dateFin.toString() : null);
                     perMap.put("statut", rs.getString("code_statut"));
                     perMap.put("libelleStatut", rs.getString("libelle_statut"));
+                    perMap.put("version", rs.getInt("version"));
                 } else {
                     throw new IllegalArgumentException("Période de paie introuvable (ID " + idPeriodePaie + ")");
                 }

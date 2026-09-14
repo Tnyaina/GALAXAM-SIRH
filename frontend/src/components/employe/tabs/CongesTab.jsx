@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Plus, RefreshCw, CalendarDays, ExternalLink } from 'lucide-react';
 import congeService from '@/api/congeService';
@@ -8,6 +8,8 @@ import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import Alert from '@/components/ui/feedback/Alert';
 import Loading from '@/components/ui/feedback/Loading';
+import { Card } from '@/components/ui/data-display/Card';
+import Tabs from '@/components/ui/navigation/Tabs';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
@@ -15,7 +17,8 @@ import Pagination from '@/components/ui/navigation/Pagination';
 
 import SoldeCongeWidget from '@/components/conges/SoldeCongeWidget';
 import MouvementsSoldeTable from '@/components/conges/MouvementsSoldeTable';
-import DemandeCongeModal from '@/components/conges/DemandeCongeModal';
+
+const DemandeCongeModal = lazy(() => import('@/components/conges/DemandeCongeModal'));
 
 const formatDateOnly = (dateString) => {
   if (!dateString) return '—';
@@ -117,14 +120,19 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
     );
   }
 
+  const subTabs = [
+    { id: 'demandes', label: `Demandes de Congé (${totalDemandes})` },
+    { id: 'registre', label: 'Registre des Mouvements de Solde' },
+  ];
+
   return (
     <div className="space-y-5 font-sans">
       {/* En-tête de l'onglet avec CTA Soumettre Congé */}
-      <div className="bg-[var(--color-surface)] dark:bg-[var(--color-surface)] border border-[var(--color-border-subtle)] dark:border-[var(--color-border)] shadow-xs p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <Card padding bordered className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] dark:text-white flex items-center gap-2">
-            <CalendarDays size={15} className="text-brand-500" />
-            Situation Individuelle des Congés & Absences
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
+            <CalendarDays size={15} className="text-[var(--color-brand-500)]" />
+            Situation Individuelle des Congés &amp; Absences
           </h3>
           <p className="text-xs text-[var(--color-fg-subtle)] mt-0.5">
             Suivi des droits légaux, compteurs et historique des demandes
@@ -162,41 +170,25 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
             </Button>
           )}
         </div>
-      </div>
+      </Card>
 
       {error && <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />}
 
       {/* Synthèse des Soldes */}
       <SoldeCongeWidget soldeData={soldeEmploye} consommationPool={consommationPool} employe={employe} />
 
-      {/* Navigation Sous-onglets sobre */}
-      <div className="flex border-b border-[var(--color-border-subtle)] dark:border-[var(--color-border-subtle)] gap-6 text-xs font-bold uppercase tracking-wider">
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('demandes')}
-          className={`pb-3 transition-colors cursor-pointer ${
-            activeSubTab === 'demandes'
-              ? 'border-b-2 border-brand-500 text-brand-600 font-extrabold'
-              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] dark:hover:text-white border-b-2 border-transparent'
-          }`}
-        >
-          Demandes de Congé ({totalDemandes})
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('registre')}
-          className={`pb-3 transition-colors cursor-pointer ${
-            activeSubTab === 'registre'
-              ? 'border-b-2 border-brand-500 text-brand-600 font-extrabold'
-              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] dark:hover:text-white border-b-2 border-transparent'
-          }`}
-        >
-          Registre des Mouvements de Solde
-        </button>
+      {/* Navigation Sous-onglets officielle */}
+      <div className="border-b border-[var(--color-border-subtle)]">
+        <Tabs
+          tabs={subTabs}
+          activeTab={activeSubTab}
+          onChange={setActiveSubTab}
+          variant="underline"
+        />
       </div>
 
       {activeSubTab === 'demandes' && (
-        <div className="bg-[var(--color-surface)] dark:bg-[var(--color-surface)] border border-[var(--color-border-subtle)] dark:border-[var(--color-border)] shadow-xs p-5 sm:p-6 space-y-4">
+        <Card padding bordered className="space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-[var(--color-border-subtle)] dark:border-[var(--color-border-subtle)]">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] dark:text-white flex items-center gap-2">
               <Calendar size={14} className="text-brand-500" />
@@ -315,7 +307,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
               className="bg-transparent border-t-0 pt-1"
             />
           )}
-        </div>
+        </Card>
       )}
 
       {activeSubTab === 'registre' && (
@@ -326,25 +318,30 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
         />
       )}
 
-      {/* Modal création/modification demande */}
-      <DemandeCongeModal
-        idEmploye={idEmploye}
-        initialDemande={selectedDemande}
-        referentiels={referentiels}
-        isOpen={showDemandeModal}
-        onClose={() => { setShowDemandeModal(false); setSelectedDemande(null); }}
-        onSuccess={() => { setShowDemandeModal(false); setSelectedDemande(null); loadData(); }}
-      />
+      {/* Modal création/modification demande (Lazy) */}
+      {showDemandeModal && (
+        <Suspense fallback={null}>
+          <DemandeCongeModal
+            idEmploye={idEmploye}
+            initialDemande={selectedDemande}
+            referentiels={referentiels}
+            isOpen={showDemandeModal}
+            onClose={() => { setShowDemandeModal(false); setSelectedDemande(null); }}
+            onSuccess={() => { setShowDemandeModal(false); setSelectedDemande(null); loadData(); }}
+          />
+        </Suspense>
+      )}
 
       {/* Modal confirmation annulation */}
       <ConfirmDialog
         isOpen={confirmAnnulerState.isOpen}
         title="Annuler la demande de congé"
         message="Êtes-vous sûr de vouloir annuler cette demande ? Cette action est irréversible."
-        confirmVariant="danger"
-        confirmText="Confirmer l'annulation"
+        variant="danger"
+        confirmLabel="Confirmer l'annulation"
+        cancelLabel="Conserver la demande"
         onConfirm={handleAnnulerConfirm}
-        onCancel={() => setConfirmAnnulerState({ isOpen: false, idDemande: null })}
+        onClose={() => setConfirmAnnulerState({ isOpen: false, idDemande: null })}
       />
     </div>
   );

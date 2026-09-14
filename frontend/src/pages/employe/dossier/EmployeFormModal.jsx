@@ -1,18 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { User, CreditCard, Phone, Users, ShieldAlert, Building, Check, ArrowRight, ArrowLeft } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import employeService from '@/api/employe/employeService';
 import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
 import Alert from '@/components/ui/feedback/Alert';
+import { SkeletonForm } from '@/components/ui/feedback/Skeleton';
 import { VILLES_MADAGASCAR, NATIONALITES_STANDARDS } from '@/constants/madagascarGeo';
 
-import CiviliteStep from '@/components/employe/form/CiviliteStep';
-import CinPermisStep from '@/components/employe/form/CinPermisStep';
-import CoordonneesPhotoStep from '@/components/employe/form/CoordonneesPhotoStep';
-import FamilleFormStep from '@/components/employe/form/FamilleFormStep';
-import UrgenceFormStep from '@/components/employe/form/UrgenceFormStep';
-import CnapsBanqueStep from '@/components/employe/form/CnapsBanqueStep';
+// Lazy loading des étapes du formulaire collaborateur pour optimiser la taille du bundle et le temps de chargement
+const CiviliteStep = lazy(() => import('@/components/employe/form/CiviliteStep'));
+const CinPermisStep = lazy(() => import('@/components/employe/form/CinPermisStep'));
+const CoordonneesPhotoStep = lazy(() => import('@/components/employe/form/CoordonneesPhotoStep'));
+const FamilleFormStep = lazy(() => import('@/components/employe/form/FamilleFormStep'));
+const UrgenceFormStep = lazy(() => import('@/components/employe/form/UrgenceFormStep'));
+const CnapsBanqueStep = lazy(() => import('@/components/employe/form/CnapsBanqueStep'));
+
 import { formaterDateEmploye, validerEtapeEmploye, validerToutesEtapesEmploye } from '@/utils/employeFormValidation';
 
 const STEPS = [
@@ -152,16 +155,18 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
         setMatriculeError('');
     }, [employeData, isOpen]);
 
-    const set = (field, val) => setFormData(prev => ({ ...prev, [field]: val }));
+    const set = useCallback((field, val) => {
+        setFormData(prev => ({ ...prev, [field]: val }));
+    }, []);
 
-    const setNested = (parent, field, val) => {
+    const setNested = useCallback((parent, field, val) => {
         setFormData(prev => ({
             ...prev,
             [parent]: { ...prev[parent], [field]: val }
         }));
-    };
+    }, []);
 
-    const addEnfant = () => {
+    const addEnfant = useCallback(() => {
         setFormData(prev => ({
             ...prev,
             enfants: [
@@ -180,44 +185,44 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                 }
             ]
         }));
-    };
+    }, []);
 
-    const removeEnfant = (index) => {
+    const removeEnfant = useCallback((index) => {
         setFormData(prev => ({
             ...prev,
             enfants: prev.enfants.filter((_, i) => i !== index)
         }));
-    };
+    }, []);
 
-    const setEnfant = (index, field, val) => {
+    const setEnfant = useCallback((index, field, val) => {
         setFormData(prev => {
             const copy = [...prev.enfants];
             copy[index] = { ...copy[index], [field]: val };
             return { ...prev, enfants: copy };
         });
-    };
+    }, []);
 
-    const addContact = () => {
+    const addContact = useCallback(() => {
         setFormData(prev => ({
             ...prev,
             contactsUrgence: [...prev.contactsUrgence, { nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }]
         }));
-    };
+    }, []);
 
-    const removeContact = (index) => {
+    const removeContact = useCallback((index) => {
         setFormData(prev => ({
             ...prev,
             contactsUrgence: prev.contactsUrgence.filter((_, i) => i !== index)
         }));
-    };
+    }, []);
 
-    const setContact = (index, field, val) => {
+    const setContact = useCallback((index, field, val) => {
         setFormData(prev => {
             const copy = [...prev.contactsUrgence];
             copy[index] = { ...copy[index], [field]: val };
             return { ...prev, contactsUrgence: copy };
         });
-    };
+    }, []);
 
     const handlePhotoSelect = async (e) => {
         const file = e.target.files?.[0];
@@ -491,74 +496,77 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
                         <Alert type="error" message={errorMsg} />
                     )}
 
-                    {/* Step 1: Identité */}
-                    {STEPS[activeStep].id === 'civilite' && (
-                        <CiviliteStep
-                            formData={formData}
-                            set={set}
-                            villesStandards={VILLES_MADAGASCAR}
-                            nationalitesStandards={NATIONALITES_STANDARDS}
-                            isCustomNat={isCustomNat}
-                            customNationalite={customNationalite}
-                            setCustomNationalite={setCustomNationalite}
-                            handleNationaliteChange={handleNationaliteChange}
-                            onGenerateMatricule={handleGenerateMatricule}
-                            onBlurMatricule={handleBlurMatricule}
-                            matriculeError={matriculeError}
-                            generatingMatricule={generatingMatricule}
-                        />
-                    )}
+                    <Suspense fallback={<SkeletonForm fields={6} />}>
+                        {/* Step 1: Identité */}
+                        {STEPS[activeStep].id === 'civilite' && (
+                            <CiviliteStep
+                                formData={formData}
+                                set={set}
+                                villesStandards={VILLES_MADAGASCAR}
+                                nationalitesStandards={NATIONALITES_STANDARDS}
+                                isCustomNat={isCustomNat}
+                                customNationalite={customNationalite}
+                                setCustomNationalite={setCustomNationalite}
+                                handleNationaliteChange={handleNationaliteChange}
+                                onGenerateMatricule={handleGenerateMatricule}
+                                onBlurMatricule={handleBlurMatricule}
+                                matriculeError={matriculeError}
+                                generatingMatricule={generatingMatricule}
+                            />
+                        )}
 
-                    {/* Step 2: CIN & Permis */}
-                    {STEPS[activeStep].id === 'cin' && (
-                        <CinPermisStep
-                            formData={formData}
-                            set={set}
-                            villesStandards={VILLES_MADAGASCAR}
-                        />
-                    )}
+                        {/* Step 2: CIN & Permis */}
+                        {STEPS[activeStep].id === 'cin' && (
+                            <CinPermisStep
+                                formData={formData}
+                                set={set}
+                                villesStandards={VILLES_MADAGASCAR}
+                            />
+                        )}
 
-                    {/* Step 3: Coordonnées & Photo */}
-                    {STEPS[activeStep].id === 'coordonnees' && (
-                        <CoordonneesPhotoStep
-                            formData={formData}
-                            set={set}
-                            villesStandards={VILLES_MADAGASCAR}
-                            uploadingPhoto={uploadingPhoto}
-                            handlePhotoSelect={handlePhotoSelect}
-                        />
-                    )}
+                        {/* Step 3: Coordonnées & Photo */}
+                        {STEPS[activeStep].id === 'coordonnees' && (
+                            <CoordonneesPhotoStep
+                                formData={formData}
+                                set={set}
+                                villesStandards={VILLES_MADAGASCAR}
+                                uploadingPhoto={uploadingPhoto}
+                                handlePhotoSelect={handlePhotoSelect}
+                            />
+                        )}
 
-                    {/* Step 4: Famille */}
-                    {STEPS[activeStep].id === 'famille' && (
-                        <FamilleFormStep
-                            formData={formData}
-                            setNested={setNested}
-                            addEnfant={addEnfant}
-                            removeEnfant={removeEnfant}
-                            setEnfant={setEnfant}
-                        />
-                    )}
+                        {/* Step 4: Famille */}
+                        {STEPS[activeStep].id === 'famille' && (
+                            <FamilleFormStep
+                                formData={formData}
+                                setNested={setNested}
+                                addEnfant={addEnfant}
+                                removeEnfant={removeEnfant}
+                                setEnfant={setEnfant}
+                                villesStandards={VILLES_MADAGASCAR}
+                            />
+                        )}
 
-                    {/* Step 5: Urgence */}
-                    {STEPS[activeStep].id === 'urgence' && (
-                        <UrgenceFormStep
-                            formData={formData}
-                            addContact={addContact}
-                            removeContact={removeContact}
-                            setContact={setContact}
-                        />
-                    )}
+                        {/* Step 5: Urgence */}
+                        {STEPS[activeStep].id === 'urgence' && (
+                            <UrgenceFormStep
+                                formData={formData}
+                                addContact={addContact}
+                                removeContact={removeContact}
+                                setContact={setContact}
+                            />
+                        )}
 
-                    {/* Step 6: CNaPS & Banque */}
-                    {STEPS[activeStep].id === 'banque' && (
-                        <CnapsBanqueStep
-                            formData={formData}
-                            set={set}
-                            setNested={setNested}
-                            banques={banques}
-                        />
-                    )}
+                        {/* Step 6: CNaPS & Banque */}
+                        {STEPS[activeStep].id === 'banque' && (
+                            <CnapsBanqueStep
+                                formData={formData}
+                                set={set}
+                                setNested={setNested}
+                                banques={banques}
+                            />
+                        )}
+                    </Suspense>
                 </form>
             </div>
         </Modal>

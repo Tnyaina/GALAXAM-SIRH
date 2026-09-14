@@ -47,7 +47,7 @@ public class PaieConfigLegaleController {
     }
 
     @GetMapping("/active")
-    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('EMPLOYE_READ') or hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getActiveConfig() {
         try (Connection c = dataSource.getConnection()) {
             PaieConfigLegale config = PaieConfigLegale.findActiveAt(c, LocalDate.now());
@@ -63,7 +63,7 @@ public class PaieConfigLegaleController {
     }
 
     @GetMapping("/active-at")
-    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('EMPLOYE_READ') or hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getConfigAt(@RequestParam("date") String dateStr) {
         try (Connection c = dataSource.getConnection()) {
             LocalDate date = LocalDate.parse(dateStr);

@@ -178,7 +178,49 @@ public class EmployeContactUrgence extends ClassMere {
     public void setPrenom(String prenom) { this.prenom = prenom; }
 
     public String getLienParente() { return lienParente; }
-    public void setLienParente(String lienParente) { this.lienParente = lienParente; }
+    public void setLienParente(String lienParente) {
+        if (lienParente == null || lienParente.isBlank()) {
+            this.lienParente = "Autre";
+            return;
+        }
+        String clean = lienParente.trim();
+        switch (clean.toLowerCase()) {
+            case "pere":
+            case "père":
+                this.lienParente = "Pere";
+                break;
+            case "mere":
+            case "mère":
+                this.lienParente = "Mere";
+                break;
+            case "conjoint":
+            case "conjointe":
+            case "conjoint(e)":
+            case "epoux":
+            case "époux":
+            case "epouse":
+            case "épouse":
+                this.lienParente = "Conjoint";
+                break;
+            case "frere":
+            case "frère":
+                this.lienParente = "Frere";
+                break;
+            case "soeur":
+            case "sœur":
+                this.lienParente = "Soeur";
+                break;
+            case "enfant":
+            case "fils":
+            case "fille":
+                this.lienParente = "Enfant";
+                break;
+            case "autre":
+            default:
+                this.lienParente = "Autre";
+                break;
+        }
+    }
 
     public String getAdresse() { return adresse; }
     public void setAdresse(String adresse) { this.adresse = adresse; }

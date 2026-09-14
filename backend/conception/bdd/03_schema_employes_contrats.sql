@@ -599,8 +599,8 @@ SELECT
     COALESCE(tri.soumis_cnaps, TRUE) AS soumis_cnaps,
     COALESCE(tri.soumis_sante, TRUE) AS soumis_sante,
     COALESCE(tri.soumis_irsa, TRUE) AS soumis_irsa,
-    COALESCE(tri.soumis_isi_5, FALSE) AS soumis_isi_5,
-    ct.date_debut AS date_embauche,
+    ct.date_debut AS date_debut_contrat,
+    COALESCE((SELECT MIN(ct_init.date_debut) FROM contrat_travail ct_init WHERE ct_init.id_employe = e.id_employe), ct.date_debut, e.date_declaration) AS date_embauche,
     tc.code AS type_contrat_code
 FROM employe e
 JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe

@@ -103,12 +103,13 @@ public class PointageE2EWorkflowTest extends BaseIntegrationTest {
         // =========================================================================
         // ÉTAPE 3 : L'Agent transmet la période à la DAF
         // =========================================================================
-        mockMvc.perform(post("/pointages/synthese/transmettre-daf")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/SUBMIT")
                 .header("Authorization", "Bearer " + tokenAgent)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(Map.of("idPeriodePaie", idPeriode, "idSite", 1))))
+                .content(objectMapper.writeValueAsString(Map.of(
+                        "version", getPayrollPeriodVersion(idPeriode), "idSite", 1))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.decision").value("ALLOWED"));
 
         // Vérification statut en base : A_VALIDER ou TRANSMIS_DAF
         try (Connection c = dataSource.getConnection();
@@ -126,12 +127,13 @@ public class PointageE2EWorkflowTest extends BaseIntegrationTest {
         // ÉTAPE 4 : La DAF rejette la période avec motif de correction
         // =========================================================================
         String motifRejet = "Erreur de pointage sur EMP102 : vérifier sortie du vendredi";
-        mockMvc.perform(post("/pointages/synthese/rejeter-daf")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/REJECT")
                 .header("Authorization", "Bearer " + tokenAdmin)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(Map.of("idPeriodePaie", idPeriode, "motif", motifRejet))))
+                .content(objectMapper.writeValueAsString(Map.of(
+                        "version", getPayrollPeriodVersion(idPeriode), "motif", motifRejet))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.decision").value("ALLOWED"));
 
         // Vérification retour en EN_COURS
         try (Connection c = dataSource.getConnection();
@@ -189,21 +191,23 @@ public class PointageE2EWorkflowTest extends BaseIntegrationTest {
                 .content(objectMapper.writeValueAsString(Map.of("idPeriodePaie", idPeriode, "idSite", 1))))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(post("/pointages/synthese/transmettre-daf")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/SUBMIT")
                 .header("Authorization", "Bearer " + tokenAgent)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(Map.of("idPeriodePaie", idPeriode, "idSite", 1))))
+                .content(objectMapper.writeValueAsString(Map.of(
+                        "version", getPayrollPeriodVersion(idPeriode), "idSite", 1))))
                 .andExpect(status().isOk());
 
         // =========================================================================
         // ÉTAPE 6 : La DAF valide définitivement la période
         // =========================================================================
-        mockMvc.perform(post("/pointages/synthese/valider-daf")
+        mockMvc.perform(post("/periodes/" + idPeriode + "/actions/APPROVE")
                 .header("Authorization", "Bearer " + tokenAdmin)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(Map.of("idPeriodePaie", idPeriode))))
+                .content(objectMapper.writeValueAsString(Map.of(
+                        "version", getPayrollPeriodVersion(idPeriode)))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.decision").value("ALLOWED"));
 
         // =========================================================================
         // ÉTAPE 7 : Vérifications finales d'intégrité en base

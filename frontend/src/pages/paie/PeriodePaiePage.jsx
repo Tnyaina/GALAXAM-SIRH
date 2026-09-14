@@ -7,7 +7,6 @@ import {
     CheckCircle,
     Play,
     ArrowRight,
-    RotateCcw,
     Clock,
     CheckCheck,
     Archive,
@@ -188,7 +187,7 @@ export default function PeriodePaiePage() {
         setError,
         loadPeriodes,
         createPeriode,
-        updateStatut
+        executeCommand
     } = usePeriodePaie();
 
     const toast = useToast();
@@ -433,9 +432,18 @@ export default function PeriodePaiePage() {
         }
     };
 
-    const handleExecuteStatut = async (id, targetStatut) => {
+    const handleExecuteStatut = async (periode, targetStatut) => {
+        const commandByTransition = {
+            'BROUILLON:EN_COURS': 'OPEN',
+            'EN_COURS:A_VALIDER': 'SUBMIT',
+            'A_VALIDER:VALIDEE': 'APPROVE',
+            'TRANSMIS_DAF:VALIDEE': 'APPROVE',
+            'VALIDEE:CLOTUREE': 'CLOSE'
+        };
+        const command = commandByTransition[`${periode.statutCode}:${targetStatut}`];
+        if (!command) return;
         setSubmitting(true);
-        const success = await updateStatut(id, targetStatut);
+        const success = await executeCommand(periode, command);
         setSubmitting(false);
         setConfirmAction(prev => ({ ...prev, isOpen: false }));
         if (success) {
@@ -653,19 +661,6 @@ export default function PeriodePaiePage() {
                                                         Clôturer
                                                     </Button>
                                                 )}
-                                                {isLocked && (
-                                                    <HasPermission authority={['PAIE_VALIDATE', 'POINTAGE_VALIDATE']}>
-                                                        <Button
-                                                            size="xs"
-                                                            variant="ghost"
-                                                            className="!text-warning-600 dark:!text-warning-400 hover:!bg-warning-500/10"
-                                                            icon={<RotateCcw size={13} />}
-                                                            onClick={() => triggerStatutChange(p, 'EN_COURS')}
-                                                        >
-                                                            Rouvrir la période
-                                                        </Button>
-                                                    </HasPermission>
-                                                )}
                                             </Td>
                                         </Tr>
                                     );
@@ -814,7 +809,7 @@ export default function PeriodePaiePage() {
             <ConfirmDialog
                 isOpen={confirmAction.isOpen}
                 onClose={() => setConfirmAction(prev => ({ ...prev, isOpen: false }))}
-                onConfirm={() => handleExecuteStatut(confirmAction.periode?.idPeriodePaie, confirmAction.targetStatut)}
+                onConfirm={() => handleExecuteStatut(confirmAction.periode, confirmAction.targetStatut)}
                 title={confirmAction.title}
                 message={confirmAction.message}
                 confirmLabel={confirmAction.confirmLabel}
