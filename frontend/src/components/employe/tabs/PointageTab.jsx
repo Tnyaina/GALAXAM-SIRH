@@ -1118,12 +1118,12 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     </div>
                                 </div>
 
-                                {/* Encadré Prime d'Assiduité RG-PAIE-08 */}
+                                {/* Encadré Prime d'Assiduité */}
                                 <div className="mt-2 pt-2 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/70 p-2.5 space-y-1.5">
                                     <div className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wider">
                                         <span className="flex items-center gap-1 text-[var(--color-fg-muted)]">
                                             <Award size={12} className={isAssiduiteEligible ? 'text-emerald-600' : 'text-amber-600'} />
-                                            Prime Assiduité (RG-PAIE-08)
+                                            Prime d'Assiduité
                                         </span>
                                         <span className={`text-[10px] font-mono font-bold ${isAssiduiteEligible ? 'text-emerald-600' : 'text-amber-600'}`}>
                                             {isAssiduiteEligible ? '✓ ÉLIGIBLE' : '✕ HORS CRITÈRE'}
