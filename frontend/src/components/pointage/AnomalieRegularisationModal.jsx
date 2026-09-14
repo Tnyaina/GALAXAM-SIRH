@@ -145,7 +145,7 @@ export default function AnomalieRegularisationModal({
         setStatutAbsenceDeduite('ABSENCE_JUSTIFIEE');
 
         setMotifAjustement(anomalie.motifAjustement || '');
-    }, [anomalie, isOpen]);
+    }, [anomalie, isOpen, siteEstContinu]);
 
     // Calcul des heures travaillées en temps réel (Mode 1)
     const calculHeures = useMemo(() => {

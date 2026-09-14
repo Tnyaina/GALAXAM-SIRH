@@ -132,6 +132,26 @@ class AttendanceCalculationPipelineTest {
         assertThat(result.nightMinutes()).isEqualTo(255);
     }
 
+    @Test
+    void periodContextAcceptsNullPeriodId() {
+        AttendancePeriodContext context = new AttendancePeriodContext(1, null,
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30));
+        assertThat(context.employeeId()).isEqualTo(1);
+        assertThat(context.periodId()).isNull();
+        assertThat(context.startsOn()).isEqualTo(LocalDate.of(2026, 9, 1));
+        assertThat(context.endsOn()).isEqualTo(LocalDate.of(2026, 9, 30));
+    }
+
+    @Test
+    void periodContextRejectsNullEmployeeOrInvertedDates() {
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () ->
+                new AttendancePeriodContext(null, 1, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30)));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () ->
+                new AttendancePeriodContext(1, 1, null, LocalDate.of(2026, 9, 30)));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () ->
+                new AttendancePeriodContext(1, 1, LocalDate.of(2026, 9, 30), LocalDate.of(2026, 9, 1)));
+    }
+
     private DailyAttendanceContext discontinuous(LocalTime em, LocalTime sm, LocalTime ea, LocalTime sa) {
         return new DailyAttendanceContext(1, LocalDate.of(2026, 9, 14), em, sm, ea, sa,
                 LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0),

@@ -249,11 +249,11 @@ public class PointageSaisieService {
 
                         String sousTitre;
                         if (isRepasZero) {
-                            sousTitre = "Non inclus site (" + String.format(Locale.FRENCH, "%,d", montantGlobal.longValue()) + " Ar/j si coché)";
+                            sousTitre = "Non inclus site (" + String.format(Locale.FRENCH, "%,d", Math.round(montantGlobal.doubleValue())) + " Ar/j si coché)";
                         } else if (isProratise) {
-                            sousTitre = "prorata (" + String.format(Locale.FRENCH, "%,d", montantJour.longValue()) + " Ar/j)";
+                            sousTitre = "prorata (" + String.format(Locale.FRENCH, "%,d", Math.round(montantJour.doubleValue())) + " Ar/j)";
                         } else {
-                            sousTitre = String.format(Locale.FRENCH, "%,d", montantJour.longValue()) + " Ar/j";
+                            sousTitre = String.format(Locale.FRENCH, "%,d", Math.round(montantJour.doubleValue())) + " Ar/j";
                         }
 
                         ind.put("idIndemnite", idInd);
@@ -1097,7 +1097,8 @@ public class PointageSaisieService {
             }
         }
 
-        String sqlFindPer = "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
+        String sqlFindPer = "SELECT id_periode_paie, date_debut, date_fin FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
+        String sqlPerById = "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
         String sqlCheckPer = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ? FOR SHARE";
         String sqlCheckRow = "SELECT id_pointage, COALESCE(version, 1) AS version FROM pointage_jour WHERE id_employe = ? AND date_pointage = ?";
 
@@ -1159,22 +1160,22 @@ public class PointageSaisieService {
         Map<String, String> paramsGlobauxBatch = ParametreGlobal.loadActiveMap(c);
         BigDecimal reductionDeplactRepasConfig = ParametreGlobal.getBigDecimal(paramsGlobauxBatch, "REDUCTION_DEPLACT_REPAS_MIDI", new BigDecimal("1000"));
 
-        Map<Integer, BigDecimal> siteDeplacementJourMap = new HashMap<>();
+        Map<Integer, BigDecimal> siteDeplacementRefMap = new HashMap<>();
         String sqlSiteDep = "SELECT c.id_site, c.montant_reference FROM site_indemnite_config c " +
                             "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
                             "WHERE i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE";
         try (PreparedStatement psSD = c.prepareStatement(sqlSiteDep);
              ResultSet rsSD = psSD.executeQuery()) {
             while (rsSD.next()) {
-                int jours = CalendrierOuvrableEngine.calculerJoursOuvrables(
-                        LocalDate.now().withDayOfMonth(1), LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()));
-                if (jours <= 0) throw new IllegalStateException("MISSING_WORKING_CALENDAR");
-                siteDeplacementJourMap.put(rsSD.getInt("id_site"), MoneyRoundingPolicy.amount(
-                        zeroIfNull(rsSD.getBigDecimal("montant_reference")).divide(BigDecimal.valueOf(jours), 8, java.math.RoundingMode.HALF_UP)));
+                siteDeplacementRefMap.put(rsSD.getInt("id_site"), zeroIfNull(rsSD.getBigDecimal("montant_reference")));
             }
         } catch (Exception ignored) {}
 
+        Map<Integer, LocalDate[]> periodeBoundsCache = new HashMap<>();
+        Map<String, BigDecimal> sitePeriodeDeplacementJourMap = new HashMap<>();
+
         try (PreparedStatement psFindPer = c.prepareStatement(sqlFindPer);
+             PreparedStatement psPerById = c.prepareStatement(sqlPerById);
              PreparedStatement psCheckPer = c.prepareStatement(sqlCheckPer);
              PreparedStatement psCheckRow = c.prepareStatement(sqlCheckRow);
              PreparedStatement psUp = c.prepareStatement(sqlUpdate);
@@ -1187,7 +1188,6 @@ public class PointageSaisieService {
                 }
 
                 int idSiteRow = dto.getIdSite() != null ? dto.getIdSite() : 1;
-                BigDecimal montantDeplacementJour = siteDeplacementJourMap.getOrDefault(idSiteRow, BigDecimal.ZERO);
                 Date dtPtg = Date.valueOf(dto.getDatePointage());
 
                 // 1. Contrôle P0-1 : Éligibilité stricte au pointage à l'écriture (Employé actif + Contrat ACTIF + Affectation ACTIVE sur le site)
@@ -1195,10 +1195,22 @@ public class PointageSaisieService {
 
                 // 2. Contrôle P0-3 : Verrouillage de la Période de Paie (avec verrou partagé FOR SHARE)
                 Integer idPer = dto.getIdPeriodePaie();
+                LocalDate perDebut = null;
+                LocalDate perFin = null;
+
                 if (idPer == null || idPer == 0) {
                     psFindPer.setDate(1, dtPtg);
                     try (ResultSet rsF = psFindPer.executeQuery()) {
-                        if (rsF.next()) idPer = rsF.getInt(1);
+                        if (rsF.next()) {
+                            idPer = rsF.getInt("id_periode_paie");
+                            Date d1 = rsF.getDate("date_debut");
+                            Date d2 = rsF.getDate("date_fin");
+                            if (d1 != null && d2 != null) {
+                                perDebut = d1.toLocalDate();
+                                perFin = d2.toLocalDate();
+                                periodeBoundsCache.put(idPer, new LocalDate[]{perDebut, perFin});
+                            }
+                        }
                     }
                 }
 
@@ -1212,6 +1224,46 @@ public class PointageSaisieService {
                             }
                         }
                     }
+
+                    if (perDebut == null || perFin == null) {
+                        if (periodeBoundsCache.containsKey(idPer)) {
+                            LocalDate[] b = periodeBoundsCache.get(idPer);
+                            perDebut = b[0];
+                            perFin = b[1];
+                        } else {
+                            psPerById.setInt(1, idPer);
+                            try (ResultSet rsPBI = psPerById.executeQuery()) {
+                                if (rsPBI.next()) {
+                                    Date d1 = rsPBI.getDate("date_debut");
+                                    Date d2 = rsPBI.getDate("date_fin");
+                                    if (d1 != null && d2 != null) {
+                                        perDebut = d1.toLocalDate();
+                                        perFin = d2.toLocalDate();
+                                        periodeBoundsCache.put(idPer, new LocalDate[]{perDebut, perFin});
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (perDebut == null || perFin == null) {
+                    LocalDate ld = dtPtg.toLocalDate();
+                    perDebut = LocalDate.of(ld.getYear(), ld.getMonth(), 1);
+                    perFin = LocalDate.of(ld.getYear(), ld.getMonth(), ld.lengthOfMonth());
+                }
+
+                String cacheKey = idSiteRow + "_" + (idPer != null ? idPer : (perDebut + "_" + perFin));
+                BigDecimal montantDeplacementJour = sitePeriodeDeplacementJourMap.get(cacheKey);
+                if (montantDeplacementJour == null) {
+                    int jours = calendrierEngine.compterJoursOuvrables(perDebut, perFin, idSiteRow, c);
+                    if (jours <= 0) {
+                        jours = CalendrierOuvrableEngine.calculerJoursOuvrables(perDebut, perFin);
+                    }
+                    if (jours <= 0) throw new IllegalStateException("MISSING_WORKING_CALENDAR");
+                    BigDecimal refMnt = siteDeplacementRefMap.getOrDefault(idSiteRow, BigDecimal.ZERO);
+                    montantDeplacementJour = calendrierEngine.calculerProrataJournalier(refMnt, jours);
+                    sitePeriodeDeplacementJourMap.put(cacheKey, montantDeplacementJour);
                 }
 
                 LocalTime[] sH = siteHoraires.getOrDefault(idSiteRow, new LocalTime[]{

@@ -2,13 +2,11 @@ import { useState } from 'react';
 import { 
     FileSpreadsheet, 
     FileCode, 
-    FileText, 
     Download, 
     CreditCard, 
     Eye, 
     AlertCircle, 
     CheckCircle2,
-    Building2,
     ShieldCheck
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
@@ -51,13 +49,13 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
         try {
             if (type === 'safi') {
                 const data = await paieService.obtenirDonneesSafi(idPeriodeActive);
-                setPreviewData(data || []);
+                setPreviewData(Array.isArray(data) ? data : (data?.content || data?.items || []));
             } else if (type === 'dnts') {
                 const data = await paieService.obtenirDonneesDnts(idPeriodeActive);
-                setPreviewData(data || []);
+                setPreviewData(Array.isArray(data) ? data : (data?.content || data?.items || []));
             } else if (type === 'virement') {
                 const data = await paieService.obtenirDonneesVirement(idPeriodeActive);
-                setPreviewData(data || []);
+                setPreviewData(Array.isArray(data) ? data : (data?.content || data?.items || []));
             }
         } catch (err) {
             alert(err.response?.data?.error || 'Erreur lors du chargement des données d\'aperçu.');

@@ -387,4 +387,72 @@ public class PointageSaisieServiceIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(content().string(containsString("n'est pas rattaché au site ID 1")));
     }
+
+    @Test
+    @DisplayName("API Pointage Saisie : Prorata indemnité déplacement TNR tenant compte du jour férié (21j -> 1485.71 Ar)")
+    public void testEnregistrerPointage_TransportProrataAvecFerieChome() throws Exception {
+        // Insertion du jour férié Noël dans la base de test
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement psDel = c.prepareStatement("DELETE FROM ref_calendrier_ferie WHERE date_ferie = '2025-12-25'")) {
+                psDel.executeUpdate();
+            }
+            try (PreparedStatement psIns = c.prepareStatement(
+                    "INSERT INTO ref_calendrier_ferie (date_ferie, libelle, est_chome, est_national, est_actif) " +
+                    "VALUES ('2025-12-25', 'Noël', true, true, true)")) {
+                psIns.executeUpdate();
+            }
+        }
+
+        try {
+            LocalDate debutDec = LocalDate.of(2025, 11, 26);
+            LocalDate finDec = LocalDate.of(2025, 12, 25);
+            int idPerDec = employeFixtures.createPeriodePaie("P-2025-12-TEST", debutDec, finDec, "EN_COURS");
+
+            TestEmployeFixtures.CreatedEmploye empDec = employeFixtures.createActiveEmploye(
+                    "EMP_DEC_01", "RAKETAKA", "Raketaka", 1, LocalDate.of(2025, 1, 1));
+
+            LocalDate datePointage = LocalDate.of(2025, 12, 1);
+
+            SaisiePointageJourDTO dto = new SaisiePointageJourDTO();
+            dto.setIdEmploye(empDec.idEmploye);
+            dto.setIdSite(1); // TNR (montant ref 31 200)
+            dto.setDatePointage(datePointage.toString());
+            dto.setIdPeriodePaie(idPerDec);
+            dto.setHeureEntreeMatin("08:00");
+            dto.setHeureSortieMatin("12:00");
+            dto.setHeureEntreeAm("13:00");
+            dto.setHeureSortieAm("17:00");
+            dto.setDeplacementMatin(true);
+            dto.setDeplacementAm(true);
+
+            mockMvc.perform(post("/pointages/saisie/batch")
+                    .header("Authorization", "Bearer " + getPointageToken())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(toJson(List.of(dto))))
+                    .andExpect(status().isOk());
+
+            // Vérification en base : 31 200 / 21 jours ouvrables (22 - 1 férié Noël) = 1485.71 Ar
+            try (Connection c = dataSource.getConnection()) {
+                String sqlInd = "SELECT p.montant_calcule FROM pointage_indemnite_jour p " +
+                        "JOIN ref_indemnite r ON p.id_indemnite = r.id_indemnite " +
+                        "WHERE r.code = 'DEPLACEMENT' AND p.id_pointage IN " +
+                        "(SELECT id_pointage FROM pointage_jour WHERE id_employe = ? AND date_pointage = ?)";
+                try (PreparedStatement ps = c.prepareStatement(sqlInd)) {
+                    ps.setInt(1, empDec.idEmploye);
+                    ps.setDate(2, Date.valueOf(datePointage));
+                    try (ResultSet rs = ps.executeQuery()) {
+                        assertTrue(rs.next(), "L'indemnité déplacement doit être enregistrée");
+                        assertEquals(1485.71, rs.getDouble("montant_calcule"), 0.01,
+                                "Sur 21 jours ouvrables avec jour férié Noël, transport = 1485.71 Ar et non 1418.18 Ar");
+                    }
+                }
+            }
+        } finally {
+            try (Connection c = dataSource.getConnection();
+                 PreparedStatement ps = c.prepareStatement("DELETE FROM ref_calendrier_ferie WHERE date_ferie = '2025-12-25'")) {
+                ps.executeUpdate();
+            }
+        }
+    }
 }
+

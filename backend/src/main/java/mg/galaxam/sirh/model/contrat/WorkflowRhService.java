@@ -57,7 +57,7 @@ public class WorkflowRhService {
         Integer idTypeEvenementEmbauche = resolveTypeEvenement(codeTypeEv, c);
         Integer idMotifMouvement = resolveMotifMouvement("EMBAUCHE", c);
 
-        validerExigenceDateFin(req.getIdTypeContrat(), req.getDateFin(), c);
+        validerExigenceDateFin(req.getIdTypeContrat(), req.getDateDebut(), req.getDateFin(), c);
 
         // ── 1. Création du Contrat BROUILLON ────────────────────────────────────
         ContratTravail contrat = new ContratTravail();
@@ -239,7 +239,7 @@ public class WorkflowRhService {
                 throw new IllegalStateException(
                         "Le contrat cible (id=" + workflow.getIdContratCible() + ") est introuvable.");
             }
-            validerExigenceDateFin(contrat.getIdTypeContrat(), contrat.getDateFin(), c);
+            validerExigenceDateFin(contrat.getIdTypeContrat(), contrat.getDateDebut(), contrat.getDateFin(), c);
 
             // Clôturer tout ancien contrat actif restant pour cet employé pour éviter les doublons
             Date dateFermetureCt = null;
@@ -444,7 +444,7 @@ public class WorkflowRhService {
 
         if (!estEvenementEssai && !estEvenementRupture && req.getIdTypeContrat() != null && (exigeNouveauContrat
                 || contratActif == null || !req.getIdTypeContrat().equals(contratActif.getIdTypeContrat()))) {
-            validerExigenceDateFin(req.getIdTypeContrat(), req.getDateFin(), c);
+            validerExigenceDateFin(req.getIdTypeContrat(), dateDebutValidation(req), dateFinValidation(req), c);
             ContratTravail contratCbl = new ContratTravail();
             contratCbl.setIdEmploye(idEmploye);
             contratCbl.setIdFiliale(req.getIdFiliale());
@@ -745,8 +745,9 @@ public class WorkflowRhService {
             if (contrat != null) {
                 Integer targetTypeId = req.getIdTypeContrat() != null ? req.getIdTypeContrat()
                         : contrat.getIdTypeContrat();
+                Date targetDateDebut = req.getDateDebut() != null ? req.getDateDebut() : contrat.getDateDebut();
                 Date targetDateFin = req.getDateFin() != null ? req.getDateFin() : contrat.getDateFin();
-                validerExigenceDateFin(targetTypeId, targetDateFin, c);
+                validerExigenceDateFin(targetTypeId, targetDateDebut, targetDateFin, c);
 
                 if (req.getIdFiliale() != null)
                     contrat.setIdFiliale(req.getIdFiliale());
@@ -1197,7 +1198,7 @@ public class WorkflowRhService {
                 if (workflow.getIdContratSource() != null) {
                     contratCbl.setIdContratPrecedent(workflow.getIdContratSource());
                 }
-                validerExigenceDateFin(contratCbl.getIdTypeContrat(), contratCbl.getDateFin(), c);
+                validerExigenceDateFin(contratCbl.getIdTypeContrat(), contratCbl.getDateDebut(), contratCbl.getDateFin(), c);
                 contratCbl.activer(c);
             }
         }
@@ -1543,19 +1544,23 @@ public class WorkflowRhService {
         NotificationRhService.creer(c, typeAlerte, priorite, titre, message, lien, idEmployeConcerne, idUtilisateur);
     }
 
-    private static void validerExigenceDateFin(Integer idTypeContrat, Date dateFin, Connection c) throws Exception {
+    private static void validerExigenceDateFin(Integer idTypeContrat, Date dateDebut, Date dateFin, Connection c) throws Exception {
         if (idTypeContrat == null)
             return;
-        String sql = "SELECT libelle, exige_date_fin FROM ref_type_contrat WHERE id_type_contrat = ?";
+        String sql = "SELECT code, libelle, exige_date_fin FROM ref_type_contrat WHERE id_type_contrat = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idTypeContrat);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
+                    String code = rs.getString("code");
                     boolean exigeDateFin = rs.getBoolean("exige_date_fin");
                     String libelle = rs.getString("libelle");
                     if (exigeDateFin && dateFin == null) {
                         throw new IllegalArgumentException(
                                 "La date de fin est obligatoire pour le type de contrat \"" + libelle + "\".");
+                    }
+                    if ("CDD".equalsIgnoreCase(code) && dateDebut != null && dateFin != null) {
+                        CarriereTransitionValidator.validerDureeContratCDD(dateDebut, dateFin, c);
                     }
                 }
             }

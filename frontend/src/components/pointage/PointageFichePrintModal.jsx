@@ -270,7 +270,7 @@ export default function PointageFichePrintModal({
                         </table>
                     </div>
 
-                    {/* 4. DÉCOMPOSITION HEBDOMADAIRE (RG-PTG-05) */}
+                    {/* 4. DÉCOMPOSITION HEBDOMADAIRE () */}
                     <div>
                         <h2 className="text-[10px] font-bold text-slate-900 uppercase tracking-wider mb-1 flex items-center gap-1.5">
                             <ShieldCheck size={11} />

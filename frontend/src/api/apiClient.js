@@ -155,6 +155,7 @@ apiClient.interceptors.response.use(
         }
 
         error.userMessage = userMessage;
+        error.message = userMessage;
 
         return Promise.reject(error);
     }

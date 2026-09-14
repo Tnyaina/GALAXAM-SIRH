@@ -233,11 +233,11 @@ export default function ValidationModals({
               className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
             />
             <span className="text-sm font-medium text-[var(--color-fg)]">
-              Maintien de la rémunération (Rémunéré à 100%)
+              Congé rémunéré (indemnisé sur les droits acquis)
               <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5 font-normal">
                 {estRemunere
-                  ? 'Rémunération maintenue : 100% du salaire préservé lors du calcul de paie.'
-                  : 'Non rémunéré (sans solde) : déduction proportionnelle au temps de travail sur le bulletin.'}
+                  ? "Congé rémunéré : indemnité de congés payés versée selon la valorisation des droits acquis de l'employé."
+                  : "Non rémunéré (congé sans solde) : retenue au taux d'absence sur le bulletin de paie."}
               </span>
             </span>
           </label>
@@ -249,9 +249,9 @@ export default function ValidationModals({
               className="w-4 h-4 mt-0.5 accent-warning-500 cursor-pointer shrink-0"
             />
             <span className="text-sm font-medium text-[var(--color-fg)]">
-              Accorder la dérogation RH : Solde négatif / Anticipation
+              Autoriser le dépassement de solde (prise par anticipation)
               <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5 font-normal">
-                Permet d'autoriser la validation même si le solde acquis du collaborateur est inférieur aux jours demandés.
+                Permet de valider la demande même si le solde acquis est insuffisant. Le solde négatif sera régularisé par les prochaines acquisitions mensuelles.
               </span>
             </span>
           </label>

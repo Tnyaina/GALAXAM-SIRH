@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
     SlidersHorizontal, 
     Plus, 
@@ -7,8 +7,6 @@ import {
     TrendingDown, 
     AlertCircle, 
     CheckCircle2, 
-    Filter,
-    Calendar,
     Search
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
@@ -37,12 +35,7 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
         motif: ''
     });
 
-    useEffect(() => {
-        chargerDonnees();
-        chargerEmployes();
-    }, [idPeriodeActive]);
-
-    const chargerDonnees = async () => {
+    const chargerDonnees = useCallback(async () => {
         setLoading(true);
         setFeedbackMsg(null);
         try {
@@ -50,8 +43,8 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                 paieService.listerAjustements(idPeriodeActive || null),
                 paieService.listerTypesMouvements()
             ]);
-            setVariables(ajustementsRes || []);
-            setTypesMouvements(typesRes || []);
+            setVariables(Array.isArray(ajustementsRes) ? ajustementsRes : (ajustementsRes?.content || ajustementsRes?.items || []));
+            setTypesMouvements(Array.isArray(typesRes) ? typesRes : (typesRes?.content || typesRes?.items || []));
         } catch (err) {
             setFeedbackMsg({
                 type: 'error',
@@ -60,16 +53,21 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [idPeriodeActive]);
 
-    const chargerEmployes = async () => {
+    const chargerEmployes = useCallback(async () => {
         try {
-            const res = await employeService.getEmployes({ limit: 1000 });
-            setEmployes(res?.items || res || []);
+            const res = await employeService.getEmployes({ size: 1000, actif: true });
+            setEmployes(Array.isArray(res) ? res : (res?.content || res?.items || []));
         } catch (err) {
             console.error('Erreur chargement employés :', err);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        chargerDonnees();
+        chargerEmployes();
+    }, [chargerDonnees, chargerEmployes]);
 
     const handleFormChange = (field, val) => {
         setForm(prev => {
@@ -145,7 +143,8 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
     };
 
     // Filtrage
-    const filteredVariables = variables.filter(v => {
+    const listVariables = Array.isArray(variables) ? variables : [];
+    const filteredVariables = listVariables.filter(v => {
         const matchSens = filterSens === 'ALL' || v.sens === filterSens;
         const q = searchQuery.toLowerCase();
         const matchSearch = !q || 
@@ -384,7 +383,7 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                             onChange={(e) => handleFormChange('idEmploye', e.target.value)}
                         >
                             <option value="">-- Sélectionner un collaborateur --</option>
-                            {employes.map((emp) => (
+                            {(Array.isArray(employes) ? employes : []).map((emp) => (
                                 <option key={emp.idEmploye || emp.id_employe} value={emp.idEmploye || emp.id_employe}>
                                     [{emp.matricule}] {emp.nom} {emp.prenom}
                                 </option>
@@ -406,7 +405,7 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                                 <option value="ACOMPTE_15">Acompte quinzaine (Retenue)</option>
                                 <option value="AVANCE_SPEC">Avance spéciale (Retenue)</option>
                                 <option value="DED_DIV">Déduction diverse (Retenue)</option>
-                                {typesMouvements.map((t) => (
+                                {(Array.isArray(typesMouvements) ? typesMouvements : []).map((t) => (
                                     <option key={t.idTypeMouvement || t.code} value={t.code}>
                                         {t.libelle} ({t.sens})
                                     </option>

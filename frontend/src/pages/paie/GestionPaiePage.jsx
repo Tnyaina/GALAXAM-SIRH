@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CalendarRange, Banknote, SlidersHorizontal, FileText } from 'lucide-react';
 import PageHeader from '@/components/ui/navigation/PageHeader';
@@ -30,9 +30,9 @@ export default function GestionPaiePage() {
     // État partagé des périodes de paie
     const [periodes, setPeriodes] = useState([]);
     const [idPeriodeActive, setIdPeriodeActive] = useState(null);
-    const [loadingPeriodes, setLoadingPeriodes] = useState(false);
+    const [_loadingPeriodes, setLoadingPeriodes] = useState(false);
 
-    const chargerPeriodes = async () => {
+    const chargerPeriodes = useCallback(async () => {
         setLoadingPeriodes(true);
         try {
             const data = await periodePaieService.getAllPeriodes();
@@ -40,21 +40,24 @@ export default function GestionPaiePage() {
             setPeriodes(liste);
 
             // Sélection par défaut : première période ouverte ou première de la liste
-            if (liste.length > 0 && !idPeriodeActive) {
-                const enCours = liste.find(p => p.codeStatut === 'EN_COURS' || p.codeStatut === 'OUVERTE' || p.statut === 'EN_COURS');
-                const selected = enCours || liste[0];
-                setIdPeriodeActive(selected.idPeriodePaie || selected.id_periode_paie);
+            if (liste.length > 0) {
+                setIdPeriodeActive(current => {
+                    if (current) return current;
+                    const enCours = liste.find(p => p.codeStatut === 'EN_COURS' || p.codeStatut === 'OUVERTE' || p.statut === 'EN_COURS');
+                    const selected = enCours || liste[0];
+                    return selected.idPeriodePaie || selected.id_periode_paie;
+                });
             }
         } catch (err) {
             console.error('Erreur lors du chargement des périodes de paie :', err);
         } finally {
             setLoadingPeriodes(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         chargerPeriodes();
-    }, []);
+    }, [chargerPeriodes]);
 
     const handleTabChange = (tabId) => {
         setSearchParams(prev => {

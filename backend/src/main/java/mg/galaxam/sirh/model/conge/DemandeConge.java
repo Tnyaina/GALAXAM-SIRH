@@ -137,7 +137,7 @@ public class DemandeConge extends ClassMere {
             if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0) {
                 throw new IllegalArgumentException(
                         "Solde de congé insuffisant (" + soldeDisponible + "j disponibles pour " + nbJoursDecomptes
-                                + "j demandés). Une dérogation RH de solde négatif / anticipation est requise.");
+                                + "j demandés). L'autorisation de prise par anticipation (dépassement de solde) est requise.");
             }
         }
 
@@ -455,16 +455,16 @@ public class DemandeConge extends ClassMere {
                 if (!derogationSoldeNegatif) {
                     throw new IllegalArgumentException(
                             "Solde de congé insuffisant (" + soldeDisponible + "j disponibles pour " + nbJoursDecomptes
-                                    + "j demandés). Dérogation RH de solde négatif requise.");
+                                    + "j demandés). Veuillez autoriser la prise par anticipation (dépassement de solde) pour valider cette demande.");
                 }
                 boolean anticipationActive = ParametreGlobal.isActif(etatMap, "PLAFOND_SOLDE_CONGE_NEGATIF", true);
                 if (!anticipationActive) {
-                    throw new IllegalArgumentException("L'anticipation de congé (solde négatif) est actuellement désactivée par la direction RH.");
+                    throw new IllegalArgumentException("La prise de congés par anticipation (dépassement de solde) est actuellement désactivée dans les paramètres RH.");
                 }
                 int plafondNegatif = ParametreGlobal.getInt(etatMap, "PLAFOND_SOLDE_CONGE_NEGATIF", -10, 0);
                 if (nouveauSolde.compareTo(BigDecimal.valueOf(plafondNegatif)) < 0) {
-                    throw new IllegalArgumentException("Le solde négatif maximal d'anticipation autorisé est de "
-                            + plafondNegatif + " jours (" + nouveauSolde + "j calculés).");
+                    throw new IllegalArgumentException("Le dépassement maximal autorisé pour une prise par anticipation est de "
+                            + Math.abs(plafondNegatif) + " jours (" + nouveauSolde.abs() + "j requis).");
                 }
             }
 

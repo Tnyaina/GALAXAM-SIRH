@@ -7,6 +7,7 @@ import {
     detectSourceContractCode, 
     getRelevantEventTypes 
 } from '@/utils/carriereTransitionMatrix';
+import { getErrorMessage } from '@/api/apiClient';
 
 export function useTransitionForm({
     isOpen,
@@ -362,7 +363,7 @@ export function useTransitionForm({
             onClose();
         } catch (err) {
             console.error('Erreur soumission transition:', err);
-            setErrorMsg(err.message || 'Erreur lors de l\'enregistrement de la transition.');
+            setErrorMsg(getErrorMessage(err, 'Erreur lors de l\'enregistrement de la transition.'));
         } finally {
             setSubmitting(false);
         }

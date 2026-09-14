@@ -21,11 +21,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.beans.factory.annotation.Autowired;
 import mg.galaxam.sirh.model.pointage.service.PointageSyntheseService;
+import mg.galaxam.sirh.model.pointage.service.PointageEmployeService;
+import mg.galaxam.sirh.api.dto.pointage.FichePointageEmployeDTO;
 
 public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private PointageSyntheseService pointageSyntheseService;
+
+    @Autowired
+    private PointageEmployeService pointageEmployeService;
 
     private TestEmployeFixtures.CreatedEmploye emp;
     private int idPeriode;
@@ -293,6 +298,69 @@ public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest 
                     assertFalse(rs.next(), "Après dévalidation, la semaine calculée est supprimée de pointage_semaine_calcule");
                 }
             }
+        }
+    }
+
+    @Test
+    @DisplayName("Fiche pointage employé : repli automatique sur la période active/récente quand date hors période")
+    public void testFichePointageEmploye_SansIdPeriode_FallbackPeriodeExistante() {
+        // Date future (2099-01-01) sans période définie : doit replier sur idPeriode sans lever IllegalArgumentException
+        FichePointageEmployeDTO fiche = pointageEmployeService.getFichePointageEmploye(emp.idEmploye, "2099-01-01", "periode", null);
+        assertNotNull(fiche, "La fiche pointage ne doit pas être nulle");
+        assertEquals(idPeriode, fiche.getIdPeriode(), "La période doit être résolue par repli sur la période existante");
+        assertNotNull(fiche.getPointagesData(), "Les données de pointage doivent être présentes");
+        assertNotNull(fiche.getKpis(), "Les KPIs doivent être calculés sans exception");
+        assertTrue(fiche.getKpis().containsKey("heuresRealisees"), "Les KPIs doivent contenir heuresRealisees");
+    }
+
+    @Test
+    @DisplayName("Fiche pointage employé : vue semaine avec idPeriode null ne lève pas d'exception")
+    public void testFichePointageEmploye_VueSemaine_SansIdPeriode() {
+        FichePointageEmployeDTO fiche = pointageEmployeService.getFichePointageEmploye(emp.idEmploye, lundi.toString(), "semaine", null);
+        assertNotNull(fiche, "La fiche pointage vue semaine ne doit pas être nulle");
+        assertNotNull(fiche.getPointagesData(), "Les lignes de pointage doivent être présentes");
+        assertFalse(fiche.getPointagesData().isEmpty());
+    }
+
+    @Test
+    @DisplayName("Fiche pointage employé : vue jour avec idPeriode null ne lève pas d'exception")
+    public void testFichePointageEmploye_VueJour_SansIdPeriode() {
+        FichePointageEmployeDTO fiche = pointageEmployeService.getFichePointageEmploye(emp.idEmploye, lundi.toString(), "jour", null);
+        assertNotNull(fiche, "La fiche pointage vue jour ne doit pas être nulle");
+        assertNotNull(fiche.getPointagesData(), "Les lignes de pointage doivent être présentes");
+        assertEquals(1, fiche.getPointagesData().size());
+    }
+
+    @Test
+    @DisplayName("Calcul synthèse employé directe avec idPeriode = null")
+    public void testCalculerSyntheseEmploye_SansIdPeriode_NeLevePasException() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            var synthese = pointageSyntheseService.calculerSyntheseEmploye(
+                    emp.idEmploye,
+                    "EMP010",
+                    "RAKOTOARISOA",
+                    "Michel",
+                    null,
+                    emp.idSite,
+                    "TNR",
+                    "Antananarivo",
+                    "OP1",
+                    false,
+                    false,
+                    lundi,
+                    dimanche,
+                    null, // idPeriode null
+                    null,
+                    null,
+                    null,
+                    5,
+                    Map.of(emp.idSite, new java.math.BigDecimal("31200")),
+                    Map.of(),
+                    c
+            );
+            assertNotNull(synthese);
+            assertEquals(40.0, synthese.getTotalHeuresTravaillees(), 0.01);
+            assertNull(synthese.getIdPeriodePaie());
         }
     }
 }

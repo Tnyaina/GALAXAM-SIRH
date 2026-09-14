@@ -24,10 +24,6 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
         return Number(val).toLocaleString('fr-MG', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' Ar';
     };
 
-    // Séparation des lignes de gains et de retenues
-    const lignesGains = lignes.filter(l => l.sens === 'GAIN' || (l.montantGain && Number(l.montantGain) > 0));
-    const lignesRetenues = lignes.filter(l => l.sens === 'RETENUE' || (l.montantRetenue && Number(l.montantRetenue) > 0));
-
     return (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm overflow-y-auto flex flex-col items-center p-4 sm:p-6 print:p-0 print:bg-white print:static">
             {/* Barre d'actions non imprimable */}

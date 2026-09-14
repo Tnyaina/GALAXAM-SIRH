@@ -25,6 +25,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -109,6 +110,23 @@ public class PointageEmployeService {
                         resolvedStatutPeriode = rsP.getString("statut_code");
                         startDate = rsP.getDate("date_debut").toLocalDate();
                         endDate = rsP.getDate("date_fin").toLocalDate();
+                    } else {
+                        // Repli sur la période active (OUVERTE / EN_COURS) ou la plus récente si aucune ne contient targetDate
+                        String sqlFallback = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, s.code AS statut_code " +
+                                             "FROM periode_paie p " +
+                                             "LEFT JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
+                                             "ORDER BY (s.code IN ('OUVERTE', 'EN_COURS')) DESC, p.date_debut DESC LIMIT 1";
+                        try (PreparedStatement psFb = c.prepareStatement(sqlFallback);
+                             ResultSet rsFb = psFb.executeQuery()) {
+                            if (rsFb.next()) {
+                                resolvedIdPeriode = rsFb.getInt("id_periode_paie");
+                                resolvedCodePeriode = rsFb.getString("code");
+                                resolvedLibellePeriode = rsFb.getString("libelle");
+                                resolvedStatutPeriode = rsFb.getString("statut_code");
+                                startDate = rsFb.getDate("date_debut").toLocalDate();
+                                endDate = rsFb.getDate("date_fin").toLocalDate();
+                            }
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -216,13 +234,15 @@ public class PointageEmployeService {
         // Calculs dynamique des règles
         long pauseMins = Duration.between(hFinMatin, hDebutAm).toMinutes();
         long dureeJourMins = Duration.between(hDebutMatin, hFinMatin).toMinutes() + Duration.between(hDebutAm, hFinAm).toMinutes();
+        long toleranceMins = Duration.between(hDebutMatin, hPlafondTolerance).toMinutes();
+        if (toleranceMins < 0) toleranceMins = 0;
 
         Map<String, String> regles = new LinkedHashMap<>();
         regles.put("horaireJournalier", String.format("%02dh%02d", dureeJourMins / 60, dureeJourMins % 60));
         regles.put("pause", String.format("%02dh%02d", pauseMins / 60, pauseMins % 60));
         regles.put("debutNormal", hDebutMatin.toString().substring(0, 5));
         regles.put("plafondArrivee", hPlafondTolerance.toString().substring(0, 5));
-        regles.put("toleranceRetard", "0 min");
+        regles.put("toleranceRetard", toleranceMins > 0 ? toleranceMins + " min" : "0 min");
 
         // 1. Récupération des infos salarié (date embauche / fin de contrat robuste & statut autonome en code Java)
         LocalDate dateEmbauche = null;
@@ -628,8 +648,10 @@ public class PointageEmployeService {
 
         // 3. Calcul de la synthèse exacte unifiée via le moteur métier centralisé
         PointageSyntheseMensuelleDTO synDto = null;
+        Map<String, String> activeParams = Collections.emptyMap();
         try (Connection c = dataSource.getConnection()) {
             Map<String, String> pMap = ParametreGlobal.loadActiveMap(c);
+            activeParams = pMap;
 
             // Récupération des infos carrières de l'employé
             String sqlCarriere = "SELECT e.matricule, e.nom, e.prenom, e.photo_url, " +
@@ -757,6 +779,30 @@ public class PointageEmployeService {
         kpis.put("heuresSuppStatut", (hsNettes > 0) ? "à valider" : (hsBrutes > 0 ? "compensées" : "aucune"));
         kpis.put("absences", String.format("%02d j", synDto != null ? synDto.getNbJoursAbsence() : nbAbsences));
         kpis.put("absencesStatut", nbAbsences > 0 ? "justifiée" : "aucune");
+        kpis.put("retardBrutMinutes", String.valueOf(retardsMins));
+        kpis.put("retardCompenseMinutes", String.valueOf((int) Math.round(retardCompense * 60)));
+        kpis.put("deficitNetMinutes", String.valueOf((int) Math.round(deficitNet * 60)));
+        kpis.put("heuresHsNettesMinutes", String.valueOf((int) Math.round(hsNettes * 60)));
+        kpis.put("heuresHsBrutesMinutes", String.valueOf((int) Math.round(hsBrutes * 60)));
+        int seuilAssiduite = ParametreGlobal.getInt(activeParams, "SEUIL_RETARD_ASSIDUITE_MIN", 45);
+        boolean primeAssiduiteEligible = (retardsMins < seuilAssiduite);
+        kpis.put("primeAssiduiteEligible", String.valueOf(primeAssiduiteEligible));
+        kpis.put("seuilAssiduiteMinutes", String.valueOf(seuilAssiduite));
+        regles.put("seuilAssiduiteMinutes", String.valueOf(seuilAssiduite));
+
+        int dureeHebdo = ParametreGlobal.getInt(activeParams, "DUREE_HEBDO_LEGALE", 40);
+        regles.put("dureeHebdoLegale", String.valueOf(dureeHebdo));
+        kpis.put("dureeHebdoLegale", String.valueOf(dureeHebdo));
+
+        BigDecimal tarifRepasMidi = ParametreGlobal.getBigDecimal(activeParams, "MONTANT_REPAS_MIDI", new BigDecimal("2000"));
+        kpis.put("tarifRepas", String.format("%,.0f Ar", tarifRepasMidi).replace(',', ' '));
+        int nbCongesVal = synDto != null ? synDto.getNbJoursConge() : 0;
+        int nbFerieChomeVal = synDto != null ? synDto.getNbJoursFerieChome() : 0;
+        int nbPresentsVal = (synDto != null && synDto.getNbJoursPresents() > 0) ? synDto.getNbJoursPresents() : totalJoursTravailles;
+        kpis.put("nbJoursPresents", String.valueOf(nbPresentsVal));
+        kpis.put("nbJoursConges", String.valueOf(nbCongesVal));
+        kpis.put("nbJoursFerieChome", String.valueOf(nbFerieChomeVal));
+        kpis.put("nbJoursOuvrables", String.valueOf(totalJoursOuvrables));
 
         // Détails Repas & Trajets
         kpis.put("totalRepas", nbRep + " repas");

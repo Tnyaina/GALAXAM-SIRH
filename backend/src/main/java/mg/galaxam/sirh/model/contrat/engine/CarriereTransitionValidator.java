@@ -102,6 +102,8 @@ public final class CarriereTransitionValidator {
             validerRenouvellementEssai(idContratReference, dateDebutCible, dateFinCible, c);
         } else if ("RUPTURE_ESSAI".equals(event)) {
             validerRuptureEssai(idContratReference, c);
+        } else if ("CDD".equals(normalize(targetCode)) && dateDebutCible != null && dateFinCible != null) {
+            validerDureeContratCDD(dateDebutCible, dateFinCible, c);
         }
     }
 
@@ -233,6 +235,26 @@ public final class CarriereTransitionValidator {
         }
     }
 
+    public static void validerDureeContratCDD(Date dateDebut, Date dateFin, Connection c) throws Exception {
+        if (dateDebut == null || dateFin == null) {
+            throw new IllegalArgumentException(
+                    "Les dates de début et de fin sont obligatoires pour un contrat CDD.");
+        }
+        if (!dateFin.after(dateDebut)) {
+            throw new IllegalArgumentException("La date de fin du CDD doit être postérieure à sa date de début.");
+        }
+        if (dateFin.toLocalDate().isBefore(dateDebut.toLocalDate().plusMonths(1))) {
+            throw new IllegalArgumentException(
+                    "Un CDD doit avoir une durée minimale d'un mois selon le Code du travail malgache.");
+        }
+        int maxDureeIndividuelle = resolveParametreGlobalInt("DUREE_MAX_CONTRAT_CDD_MOIS", 24, c);
+        if (dateFin.toLocalDate().isAfter(dateDebut.toLocalDate().plusMonths(maxDureeIndividuelle))) {
+            throw new IllegalArgumentException(
+                    "Chaque CDD, renouvellement compris, ne peut excéder " + maxDureeIndividuelle
+                            + " mois (" + (maxDureeIndividuelle / 12) + " ans) selon la réglementation en vigueur.");
+        }
+    }
+
     private static void validerRenouvellementCDD(
             Integer idContrat,
             Date dateDebut,
@@ -240,21 +262,7 @@ public final class CarriereTransitionValidator {
             Connection c) throws Exception {
 
         exigerContrat(idContrat, "Le renouvellement de CDD nécessite un contrat source.");
-        if (dateDebut == null || dateFin == null) {
-            throw new IllegalArgumentException(
-                    "Les dates de début et de fin sont obligatoires pour le renouvellement du CDD.");
-        }
-        if (!dateFin.after(dateDebut)) {
-            throw new IllegalArgumentException("La date de fin du CDD doit être postérieure à sa date de début.");
-        }
-        if (dateFin.toLocalDate().isAfter(dateDebut.toLocalDate().plusYears(2))) {
-            throw new IllegalArgumentException(
-                    "Chaque CDD, renouvellement compris, ne peut excéder 24 mois selon le Code du travail malgache.");
-        }
-        if (dateFin.toLocalDate().isBefore(dateDebut.toLocalDate().plusMonths(1))) {
-            throw new IllegalArgumentException(
-                    "Un CDD doit avoir une durée minimale d'un mois selon le Code du travail malgache.");
-        }
+        validerDureeContratCDD(dateDebut, dateFin, c);
 
         int maxRenouvellements = resolveParametreGlobalInt("NB_MAX_RENOUVELLEMENTS_CDD", 2, c);
         int nbExistants = compterRenouvellementsCDD(idContrat, c);
@@ -304,19 +312,30 @@ public final class CarriereTransitionValidator {
         int count = 0;
         Integer currentId = idContrat;
         while (currentId != null) {
-            String sql = "SELECT ct.id_contrat, ct.id_contrat_precedent, tc.code " +
-                    "FROM contrat_travail ct JOIN ref_type_contrat tc ON ct.id_type_contrat = tc.id_type_contrat " +
+            String sql = "SELECT ct.id_contrat, ct.id_contrat_precedent, tc.code, tc_prec.code AS code_prec " +
+                    "FROM contrat_travail ct " +
+                    "JOIN ref_type_contrat tc ON ct.id_type_contrat = tc.id_type_contrat " +
+                    "LEFT JOIN contrat_travail ct_prec ON ct.id_contrat_precedent = ct_prec.id_contrat " +
+                    "LEFT JOIN ref_type_contrat tc_prec ON ct_prec.id_type_contrat = tc_prec.id_type_contrat " +
                     "WHERE ct.id_contrat = ?";
             try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setInt(1, currentId);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) break;
                     String code = rs.getString("code");
+                    String codePrec = rs.getString("code_prec");
                     Integer precedent = rs.getObject("id_contrat_precedent") != null
                             ? rs.getInt("id_contrat_precedent") : null;
-                    if (!"CDD".equals(normalize(code)) || precedent == null) break;
-                    count++;
-                    currentId = precedent;
+
+                    if (!"CDD".equals(normalize(code))) break;
+
+                    if ("CDD".equals(normalize(codePrec))) {
+                        count++;
+                        currentId = precedent;
+                    } else {
+                        // Le précédent n'est pas un CDD (ex: stage, prestation ou aucun contrat) -> c'est le CDD initial
+                        break;
+                    }
                 }
             }
         }
@@ -359,11 +378,10 @@ public final class CarriereTransitionValidator {
         return totalJours / 30.4375;
     }
 
-    private static int resolveParametreGlobalInt(String code, int defaultValue, Connection c) throws Exception {
+    public static int resolveParametreGlobalInt(String code, int defaultValue, Connection c) throws Exception {
         try (PreparedStatement ps = c.prepareStatement(
-                "SELECT valeur FROM parametre_global WHERE code_parametre = ? " +
-                "AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) " +
-                "ORDER BY date_debut DESC LIMIT 1")) {
+                "SELECT valeur FROM parametre_global WHERE code_parametre = ? AND est_actif = TRUE " +
+                "ORDER BY (CASE WHEN date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) THEN 0 ELSE 1 END), date_debut DESC LIMIT 1")) {
             ps.setString(1, code);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {

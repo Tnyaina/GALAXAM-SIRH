@@ -196,6 +196,13 @@ public class PointageSyntheseService {
             Map<String, String> params,
             Connection c
     ) throws SQLException {
+        if (dateDebut == null || dateFin == null || dateFin.isBefore(dateDebut)) {
+            log.warn("[PointageSyntheseService] Dates de période invalides pour l'employé {}: debut={}, fin={}", idEmp, dateDebut, dateFin);
+            PointageSyntheseMensuelleDTO emptyDto = new PointageSyntheseMensuelleDTO();
+            emptyDto.setIdEmploye(idEmp);
+            emptyDto.setIdPeriodePaie(idPeriode);
+            return emptyDto;
+        }
         int joursOuvrablesReels = calendrierEngine.compterJoursOuvrables(dateDebut, dateFin, idSite, c);
         if (joursOuvrablesReels > 0) nbJoursOuvrablesPeriode = joursOuvrablesReels;
         BigDecimal seuilHeuresJour = ParametreGlobal.getBigDecimal(params, "SEUIL_HEURES_JOUR", new BigDecimal("8"));

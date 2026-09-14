@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
     FileText, 
     Printer, 
@@ -8,13 +8,8 @@ import {
     CheckCircle2, 
     Clock, 
     DollarSign,
-    User,
-    Building2,
-    Calendar,
-    ChevronDown,
     ChevronUp,
-    Info,
-    Shield
+    Info
 } from 'lucide-react';
 import SlideOver from '@/components/ui/overlays/SlideOver';
 import Button from '@/components/ui/forms/Button';
@@ -35,7 +30,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const [showDetailRubriques, setShowDetailRubriques] = useState(false);
 
     // Formulaire d'ajout d'ajustement contextuel
-    const [typeMouvements, setTypesMouvements] = useState([]);
+    const [typeMouvements, setTypeMouvements] = useState([]);
     const [submittingAjustement, setSubmittingAjustement] = useState(false);
     const [recalculating, setRecalculating] = useState(false);
     const [ajustementForm, setAjustementForm] = useState({
@@ -45,6 +40,29 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         motif: ''
     });
     const [feedbackMsg, setFeedbackMsg] = useState(null);
+
+    const chargerBulletin = useCallback(async () => {
+        if (!idBulletin) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await paieService.getBulletinComplet(idBulletin);
+            setData(res);
+        } catch (err) {
+            setError(err.response?.data?.error || err.message || 'Impossible de charger le bulletin.');
+        } finally {
+            setLoading(false);
+        }
+    }, [idBulletin]);
+
+    const chargerTypesMouvements = useCallback(async () => {
+        try {
+            const types = await paieService.listerTypesMouvements();
+            setTypeMouvements(Array.isArray(types) ? types : (types?.content || types?.items || []));
+        } catch (err) {
+            console.error('Erreur chargement types mouvements :', err);
+        }
+    }, []);
 
     useEffect(() => {
         if (isOpen && idBulletin) {
@@ -57,29 +75,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
             setShowAddVariable(false);
             setShowDetailRubriques(false);
         }
-    }, [isOpen, idBulletin]);
-
-    const chargerBulletin = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const res = await paieService.getBulletinComplet(idBulletin);
-            setData(res);
-        } catch (err) {
-            setError(err.response?.data?.error || err.message || 'Impossible de charger le bulletin.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const chargerTypesMouvements = async () => {
-        try {
-            const types = await paieService.listerTypesMouvements();
-            setTypeMouvements(types || []);
-        } catch (err) {
-            console.error('Erreur chargement types mouvements :', err);
-        }
-    };
+    }, [isOpen, idBulletin, chargerBulletin, chargerTypesMouvements]);
 
     const handleAjustementChange = (field, value) => {
         setAjustementForm(prev => {
@@ -168,24 +164,24 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     };
 
     const bulletin = data?.bulletin;
-    const lignes = data?.lignes || [];
+    const lignes = Array.isArray(data?.lignes) ? data.lignes : [];
 
     // Classification des lignes pour l'affichage fidèle au Wireframe 2
     const lignesPointage = lignes.filter(l => 
         ['HEURES_SUP', 'HEURES_SUP_30', 'HEURES_SUP_50', 'HEURES_NUIT', 'INDEMNITE_REPAS', 'INDEMNITE_DEPLACEMENT', 'ABSENCE_RETENUE'].includes(l.codeRubrique) ||
-        l.libelleRubrique.toLowerCase().includes('heure') ||
-        l.libelleRubrique.toLowerCase().includes('nuit') ||
-        l.libelleRubrique.toLowerCase().includes('absence') ||
-        l.libelleRubrique.toLowerCase().includes('repas') ||
-        l.libelleRubrique.toLowerCase().includes('deplacement')
+        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('heure')) ||
+        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('nuit')) ||
+        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('absence')) ||
+        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('repas')) ||
+        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('deplacement'))
     );
 
     const lignesVariables = lignes.filter(l => 
         ['PRIME_PERF', 'PRIME_EXC', 'PRIME_ASSI', 'ACOMPTE_15', 'AVANCE_SPEC', 'PRET_ENTREPRISE'].includes(l.codeRubrique) ||
-        l.libelleRubrique.toLowerCase().includes('prime') ||
-        l.libelleRubrique.toLowerCase().includes('acompte') ||
-        l.libelleRubrique.toLowerCase().includes('avance') ||
-        l.libelleRubrique.toLowerCase().includes('pret')
+        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('prime')) ||
+        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('acompte')) ||
+        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('avance')) ||
+        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('pret'))
     );
 
     return (
@@ -361,7 +357,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                 <option value="ACOMPTE_15">Acompte quinzaine (- Retenue)</option>
                                                 <option value="AVANCE_SPEC">Avance spéciale (- Retenue)</option>
                                                 <option value="DED_DIV">Déduction diverse (- Retenue)</option>
-                                                {typeMouvements.map(t => (
+                                                {(Array.isArray(typeMouvements) ? typeMouvements : []).map(t => (
                                                     <option key={t.idTypeMouvement || t.code} value={t.code}>
                                                         {t.libelle} ({t.sens})
                                                     </option>

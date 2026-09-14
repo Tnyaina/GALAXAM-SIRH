@@ -102,8 +102,8 @@ export const paieService = {
     },
 
     telechargerFichierExport: async (idPeriode, type) => {
-        let endpoint = '';
-        let defaultFilename = '';
+        let endpoint;
+        let defaultFilename;
 
         switch (type) {
             case 'safi-csv':

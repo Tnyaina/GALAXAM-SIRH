@@ -32,9 +32,9 @@ export default function OptionsRHSection({
                 className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
               />
               <span className="text-sm font-medium text-[var(--color-fg)]">
-                Maintien de la rémunération (Rémunéré à 100%)
+                Congé rémunéré (indemnisé sur les droits acquis)
                 <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5 font-normal">
-                  Coché : le salaire est intégralement maintenu. Décoché : absence non rémunérée / sans solde, décomptée au temps de travail sur la paie.
+                  Coché : l'absence donne droit à l'indemnité légale de congés payés. Décoché : congé sans solde (retenue sur paie au taux d'absence et droits du mois proratisés).
                 </span>
               </span>
             </label>
@@ -47,9 +47,9 @@ export default function OptionsRHSection({
               className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
             />
             <span className="text-sm text-[var(--color-fg)]">
-              Dérogation RH : Prise par anticipation / Solde négatif
+              Autoriser le dépassement de solde (prise par anticipation)
               <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">
-                Autorise la pose même si l'ancienneté est &lt; 12 mois (Art. 85) ou si le solde disponible est insuffisant.
+                Autorise la demande même si le solde actuel est insuffisant ou si l'ancienneté est &lt; 1 an. Le solde négatif temporaire sera régularisé par les prochains droits acquis.
               </span>
             </span>
           </label>
@@ -61,9 +61,9 @@ export default function OptionsRHSection({
               className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
             />
             <span className="text-sm text-[var(--color-fg)]">
-              Ignorer le délai de préavis
+              Dérogation de préavis
               <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">
-                Permet de soumettre la demande même si le préavis réglementaire n'est pas respecté.
+                Autorise le dépôt ou la validation de la demande même si le délai de préavis habituel n'est pas respecté.
               </span>
             </span>
           </label>
@@ -75,9 +75,9 @@ export default function OptionsRHSection({
               className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
             />
             <span className="text-sm text-[var(--color-fg)]">
-              Dérogation de continuité de service (Poste commun)
+              Continuité d'activité : autoriser les absences simultanées
               <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">
-                Autorise l'absence même si un ou plusieurs collaborateurs du même poste sont déjà absents sur cette période.
+                Autorise le congé même si d'autres collaborateurs occupant le même poste sont déjà planifiés absents sur cette période.
               </span>
             </span>
           </label>

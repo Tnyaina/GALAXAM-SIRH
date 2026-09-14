@@ -308,6 +308,7 @@ public class WorkflowRhCPL {
     public boolean isBrouillon() { return "BROUILLON".equals(codeStatutWorkflow); }
     public boolean isPlanifie()  { return "PLANIFIE".equals(codeStatutWorkflow); }
     public boolean isActif()     { return "ACTIF".equals(codeStatutWorkflow) || "VALIDE".equals(codeStatutWorkflow); }
+    public boolean isHistorise() { return "HISTORISE".equals(codeStatutWorkflow) || "CLOTURE".equals(codeStatutWorkflow); }
     public boolean isAnnule()    { return "ANNULE".equals(codeStatutWorkflow); }
     public boolean isEnAttente() { return isBrouillon() || isPlanifie(); }
     public boolean isModifiable() { return isBrouillon(); }

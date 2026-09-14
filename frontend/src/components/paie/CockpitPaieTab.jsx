@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
     Play, 
     CheckCheck, 
@@ -8,20 +8,10 @@ import {
     CheckCircle2, 
     Search, 
     Eye, 
-    TrendingUp, 
-    TrendingDown, 
     ArrowUpRight, 
     ArrowDownRight,
-    Users, 
-    DollarSign, 
-    Building, 
     ShieldCheck, 
-    Clock, 
-    FileText, 
     Download,
-    Calendar,
-    ChevronDown,
-    Sparkles,
     Plus,
     RefreshCw
 } from 'lucide-react';
@@ -68,15 +58,7 @@ export default function CockpitPaieTab({
     const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
     const [motifReouverture, setMotifReouverture] = useState('');
 
-    useEffect(() => {
-        if (idPeriodeActive) {
-            chargerCockpit();
-        } else {
-            setCockpit(null);
-        }
-    }, [idPeriodeActive]);
-
-    const chargerCockpit = async () => {
+    const chargerCockpit = useCallback(async () => {
         setLoading(true);
         setFeedback(null);
         try {
@@ -90,16 +72,24 @@ export default function CockpitPaieTab({
         } finally {
             setLoading(false);
         }
-    };
+    }, [idPeriodeActive]);
+
+    useEffect(() => {
+        if (idPeriodeActive) {
+            chargerCockpit();
+        } else {
+            setCockpit(null);
+        }
+    }, [idPeriodeActive, chargerCockpit]);
 
     const chargerReferentielsVariables = async () => {
         try {
             const [types, emps] = await Promise.all([
                 paieService.listerTypesMouvements(),
-                employeService.getEmployes({ limit: 1000 })
+                employeService.getEmployes({ size: 1000, actif: true })
             ]);
-            setTypesMouvements(types || []);
-            setEmployesList(emps?.items || emps || []);
+            setTypesMouvements(Array.isArray(types) ? types : (types?.content || types?.items || []));
+            setEmployesList(Array.isArray(emps) ? emps : (emps?.content || emps?.items || []));
         } catch (err) {
             console.error('Erreur chargement listes variables :', err);
         }
@@ -242,7 +232,7 @@ export default function CockpitPaieTab({
     const readiness = cockpit?.readiness || {};
     const kpis = cockpit?.kpis || {};
     const periode = cockpit?.periode || {};
-    const bulletins = cockpit?.bulletins || [];
+    const bulletins = useMemo(() => Array.isArray(cockpit?.bulletins) ? cockpit.bulletins : [], [cockpit]);
 
     const isCloture = periode.statut === 'CLOTUREE';
     const isValide = periode.statut === 'VALIDEE';
@@ -337,6 +327,7 @@ export default function CockpitPaieTab({
                                 onChange={(e) => setIdPeriodeActive(Number(e.target.value))}
                                 className="text-xs font-bold font-mono px-2 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-none focus:outline-none"
                             >
+                                <option value="">Selectionnez une période</option>
                                 {periodes.map(p => (
                                     <option key={p.idPeriodePaie || p.id_periode_paie} value={p.idPeriodePaie || p.id_periode_paie}>
                                         {p.code} ({p.codeStatut || p.statut || 'EN_COURS'})
@@ -756,7 +747,7 @@ export default function CockpitPaieTab({
                             onChange={(e) => setVariableForm({ ...variableForm, idEmploye: e.target.value })}
                         >
                             <option value="">-- Choisir un collaborateur --</option>
-                            {employesList.map((emp) => (
+                            {(Array.isArray(employesList) ? employesList : []).map((emp) => (
                                 <option key={emp.idEmploye || emp.id_employe} value={emp.idEmploye || emp.id_employe}>
                                     [{emp.matricule}] {emp.nom} {emp.prenom}
                                 </option>
@@ -778,7 +769,7 @@ export default function CockpitPaieTab({
                                 <option value="ACOMPTE_15">Acompte quinzaine (Retenue)</option>
                                 <option value="AVANCE_SPEC">Avance spéciale (Retenue)</option>
                                 <option value="DED_DIV">Déduction diverse (Retenue)</option>
-                                {typesMouvements.map((t) => (
+                                {(Array.isArray(typesMouvements) ? typesMouvements : []).map((t) => (
                                     <option key={t.idTypeMouvement || t.code} value={t.code}>
                                         {t.libelle} ({t.sens})
                                     </option>

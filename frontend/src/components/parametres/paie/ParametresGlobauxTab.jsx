@@ -159,17 +159,23 @@ const PARAMETRE_METADATA = {
     },
 
     // Contrats & Carrière
+    DUREE_MAX_CONTRAT_CDD_MOIS: {
+        titre: "Durée Max Contrat CDD",
+        icone: FileText,
+        unite: "mois",
+        explication: "Durée maximale d'un contrat CDD individuel ou d'un avenant (24 mois selon le Code du Travail malgache, Art. 19).",
+    },
     DUREE_MAX_CDD_MOIS: {
         titre: "Plafond Durée Cumulée CDD",
         icone: FileText,
         unite: "mois",
-        explication: "Plafond absolu de durée pour un CDD incluant ses renouvellements (6 ans).",
+        explication: "Plafond cumulé maximal de l'ensemble des CDD successifs d'un salarié (72 mois / 6 ans).",
     },
     NB_MAX_RENOUVELLEMENTS_CDD: {
         titre: "Renouvellements Max CDD",
         icone: Repeat,
         unite: "fois",
-        explication: "Nombre maximal d'avenants de renouvellement avant obligation de CDI.",
+        explication: "Nombre maximal d'avenants de renouvellement avant obligation de CDI (2 fois max).",
     },
     MAX_RENOUVELLEMENTS_ESSAI: {
         titre: "Renouvellements Max Période d'Essai",
@@ -264,7 +270,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     // Filtres et Navigation
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState(fixedCategory || 'ALL');
-    const [selectedStatut, setSelectedStatut] = useState('ALL');
+    const [selectedStatut, setSelectedStatut] = useState('EN_VIGUEUR'); // Par défaut : uniquement les paramètres ayant pris effet (En vigueur)
     const [selectedNature, setSelectedNature] = useState('ALL'); // ALL, RULES, SYSTEM
     const [selectedEtatActif, setSelectedEtatActif] = useState('ALL'); // ALL, ACTIF, INACTIF
     const [viewMode, setViewMode] = useState('CARDS'); // CARDS, TABLE
@@ -310,23 +316,30 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     const metrics = useMemo(() => {
         const total = parametres.length;
         let enVigueur = 0;
+        let programme = 0;
+        let archive = 0;
         let reglesActives = 0;
         let reglesInactives = 0;
         let constantesSysteme = 0;
 
         parametres.forEach(p => {
             const st = getStatut(p);
-            if (st === 'EN_VIGUEUR') enVigueur++;
-
-            if (p.estDesactivable) {
-                if (p.estActif) reglesActives++;
-                else reglesInactives++;
-            } else {
-                constantesSysteme++;
+            if (st === 'EN_VIGUEUR') {
+                enVigueur++;
+                if (p.estDesactivable) {
+                    if (p.estActif) reglesActives++;
+                    else reglesInactives++;
+                } else {
+                    constantesSysteme++;
+                }
+            } else if (st === 'PROGRAMME') {
+                programme++;
+            } else if (st === 'ARCHIVE') {
+                archive++;
             }
         });
 
-        return { total, enVigueur, reglesActives, reglesInactives, constantesSysteme };
+        return { total, enVigueur, programme, archive, reglesActives, reglesInactives, constantesSysteme };
     }, [parametres]);
 
     // Catégories uniques disponibles
@@ -496,7 +509,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                 {/* Total */}
                 <button
                     type="button"
-                    onClick={() => { setSelectedStatut('ALL'); setSelectedNature('ALL'); setSelectedEtatActif('ALL'); }}
+                    onClick={() => { setSelectedStatut('EN_VIGUEUR'); setSelectedNature('ALL'); setSelectedEtatActif('ALL'); }}
                     className="group text-left p-4 rounded-none border border-[var(--color-border-subtle)] bg-[var(--color-surface)] hover:border-[var(--color-border)] transition-all cursor-pointer"
                 >
                     <div className="flex items-center justify-between text-xs text-[var(--color-fg-muted)] font-medium">
@@ -504,17 +517,17 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                         <Sliders size={16} className="text-[var(--color-fg-muted)]" />
                     </div>
                     <div className="text-2xl font-black text-[var(--color-fg)] mt-1.5 tracking-tight">
-                        {metrics.total}
+                        {metrics.enVigueur}
                     </div>
                     <div className="text-[11px] text-[var(--color-fg-muted)] mt-1 flex items-center gap-1">
-                        <span>{metrics.enVigueur} en vigueur</span>
+                        <span>{metrics.programme > 0 ? `${metrics.programme} programmé(s) à venir` : `${metrics.enVigueur} en vigueur`}</span>
                     </div>
                 </button>
 
                 {/* Règles Métier Actives */}
                 <button
                     type="button"
-                    onClick={() => { setSelectedNature('RULES'); setSelectedEtatActif('ACTIF'); }}
+                    onClick={() => { setSelectedNature('RULES'); setSelectedEtatActif('ACTIF'); setSelectedStatut('EN_VIGUEUR'); }}
                     className="group text-left p-4 rounded-none border border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/10 hover:border-[var(--color-success-500)]/60 transition-all cursor-pointer"
                 >
                     <div className="flex items-center justify-between text-xs text-[var(--color-success-600)] font-medium">
@@ -532,7 +545,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                 {/* Règles Métier Inactives */}
                 <button
                     type="button"
-                    onClick={() => { setSelectedNature('RULES'); setSelectedEtatActif('INACTIF'); }}
+                    onClick={() => { setSelectedNature('RULES'); setSelectedEtatActif('INACTIF'); setSelectedStatut('EN_VIGUEUR'); }}
                     className="group text-left p-4 rounded-none border border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/10 hover:border-[var(--color-warning-500)]/60 transition-all cursor-pointer"
                 >
                     <div className="flex items-center justify-between text-xs text-[var(--color-warning-600)] font-medium">
@@ -550,7 +563,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                 {/* Constantes Système Incompressibles */}
                 <button
                     type="button"
-                    onClick={() => { setSelectedNature('SYSTEM'); setSelectedEtatActif('ALL'); }}
+                    onClick={() => { setSelectedNature('SYSTEM'); setSelectedEtatActif('ALL'); setSelectedStatut('EN_VIGUEUR'); }}
                     className="group text-left p-4 rounded-none border border-[var(--color-brand-500)]/30 bg-[var(--color-brand-500)]/10 hover:border-[var(--color-brand-500)]/60 transition-all cursor-pointer"
                 >
                     <div className="flex items-center justify-between text-xs text-[var(--color-brand-600)] font-medium">
@@ -619,12 +632,12 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                         <Select
                             value={selectedStatut}
                             onChange={(e) => setSelectedStatut(e.target.value)}
-                            className="w-40 text-xs"
+                            className="w-48 text-xs"
                         >
-                            <option value="ALL">Tous statuts</option>
-                            <option value="EN_VIGUEUR">En vigueur</option>
-                            <option value="PROGRAMME">Programmé</option>
-                            <option value="ARCHIVE">Archivé</option>
+                            <option value="EN_VIGUEUR">En vigueur ({metrics.enVigueur})</option>
+                            <option value="PROGRAMME">Programmés ({metrics.programme})</option>
+                            <option value="ARCHIVE">Archivés ({metrics.archive})</option>
+                            <option value="ALL">Tous les statuts ({metrics.total})</option>
                         </Select>
 
                         {/* Bascule Vue Cartes / Tableau */}

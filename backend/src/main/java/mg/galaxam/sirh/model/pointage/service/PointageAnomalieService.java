@@ -639,12 +639,33 @@ public class PointageAnomalieService {
             // Contrôle d'éligibilité et verrouillage de période
             pointageSaisieService.verifierEligibilitePointage(c, idEmp, idSite, datePtg);
 
+            LocalDate perDebut = null;
+            LocalDate perFin = null;
             if ((idPer == null || idPer <= 0) && datePtg != null) {
-                String sqlFindPer2 = "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
+                String sqlFindPer2 = "SELECT id_periode_paie, date_debut, date_fin FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
                 try (PreparedStatement psF2 = c.prepareStatement(sqlFindPer2)) {
                     psF2.setDate(1, datePtg);
                     try (ResultSet rsF2 = psF2.executeQuery()) {
-                        if (rsF2.next()) idPer = rsF2.getInt(1);
+                        if (rsF2.next()) {
+                            idPer = rsF2.getInt("id_periode_paie");
+                            Date d1 = rsF2.getDate("date_debut");
+                            Date d2 = rsF2.getDate("date_fin");
+                            if (d1 != null) perDebut = d1.toLocalDate();
+                            if (d2 != null) perFin = d2.toLocalDate();
+                        }
+                    }
+                }
+            } else if (idPer != null && idPer > 0) {
+                String sqlPerBounds = "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
+                try (PreparedStatement psPB = c.prepareStatement(sqlPerBounds)) {
+                    psPB.setInt(1, idPer);
+                    try (ResultSet rsPB = psPB.executeQuery()) {
+                        if (rsPB.next()) {
+                            Date d1 = rsPB.getDate("date_debut");
+                            Date d2 = rsPB.getDate("date_fin");
+                            if (d1 != null) perDebut = d1.toLocalDate();
+                            if (d2 != null) perFin = d2.toLocalDate();
+                        }
                     }
                 }
             }
@@ -789,12 +810,24 @@ public class PointageAnomalieService {
                 } catch (Exception ignored) {}
 
                 int nbJoursOuvrables = 0;
-                if (datePtg != null) {
+                if (perDebut != null && perFin != null) {
+                    nbJoursOuvrables = calendrierOuvrableEngine.compterJoursOuvrables(perDebut, perFin, idSite, c);
+                } else if (datePtg != null) {
                     LocalDate ld = datePtg.toLocalDate();
-                    nbJoursOuvrables = CalendrierOuvrableEngine.calculerJoursOuvrables(
-                            LocalDate.of(ld.getYear(), ld.getMonth(), 1),
-                            LocalDate.of(ld.getYear(), ld.getMonth(), ld.lengthOfMonth())
-                    );
+                    LocalDate d1 = LocalDate.of(ld.getYear(), ld.getMonth(), 1);
+                    LocalDate d2 = LocalDate.of(ld.getYear(), ld.getMonth(), ld.lengthOfMonth());
+                    nbJoursOuvrables = calendrierOuvrableEngine.compterJoursOuvrables(d1, d2, idSite, c);
+                }
+                if (nbJoursOuvrables <= 0) {
+                    if (perDebut != null && perFin != null) {
+                        nbJoursOuvrables = CalendrierOuvrableEngine.calculerJoursOuvrables(perDebut, perFin);
+                    } else if (datePtg != null) {
+                        LocalDate ld = datePtg.toLocalDate();
+                        nbJoursOuvrables = CalendrierOuvrableEngine.calculerJoursOuvrables(
+                                LocalDate.of(ld.getYear(), ld.getMonth(), 1),
+                                LocalDate.of(ld.getYear(), ld.getMonth(), ld.lengthOfMonth())
+                        );
+                    }
                 }
 
                 String sqlSiteInd = "SELECT i.code, c.montant_reference FROM site_indemnite_config c " +
@@ -808,7 +841,7 @@ public class PointageAnomalieService {
                             BigDecimal mntRef = rsSI.getBigDecimal("montant_reference");
                             if (mntRef == null) mntRef = BigDecimal.ZERO;
                             if ("DEPLACEMENT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd)) {
-                                if (mntRef.signum() > 0) tarifJourDep = mntRef.divide(BigDecimal.valueOf(nbJoursOuvrables), 8, RoundingMode.HALF_UP);
+                                if (mntRef.signum() > 0) tarifJourDep = calendrierOuvrableEngine.calculerProrataJournalier(mntRef, nbJoursOuvrables);
                             } else if ("REPAS".equalsIgnoreCase(codeInd)) {
                                 if (mntRef.signum() > 0) tarifJourRepas = mntRef;
                             }
@@ -816,13 +849,10 @@ public class PointageAnomalieService {
                     }
                 } catch (Exception ignored) {}
 
-                try (PreparedStatement psP = c.prepareStatement("SELECT valeur FROM ref_parametre_global WHERE code = 'REDUCTION_DEPLACT_REPAS_MIDI' LIMIT 1")) {
-                    try (ResultSet rsP = psP.executeQuery()) {
-                        if (rsP.next()) {
-                            reductionDeplactRepasConfig = new BigDecimal(rsP.getString("valeur").trim());
-                        }
-                    }
-                } catch (Exception ignored) {}
+                Map<String, mg.galaxam.sirh.model.paieconfig.ParametreGlobal.ParametreEtat> paramsGlobaux =
+                        mg.galaxam.sirh.model.paieconfig.ParametreGlobal.loadEtatMap(c);
+                reductionDeplactRepasConfig = mg.galaxam.sirh.model.paieconfig.ParametreGlobal.getBigDecimal(
+                        paramsGlobaux, "REDUCTION_DEPLACT_REPAS_MIDI", new BigDecimal("1000"), BigDecimal.ZERO);
             }
 
             BigDecimal mntDepJour = BigDecimal.ZERO;

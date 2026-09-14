@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
     FileText, Building, Landmark, CheckCircle, Edit2, XCircle,
-    AlertTriangle, ShieldAlert, Clock, X
+    AlertTriangle, ShieldAlert, Clock, History, X
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -156,6 +156,8 @@ export default function RecapitulatifBrouillonModal({
     const isBrouillon = currentWf.isBrouillon ?? (currentWf.codeStatutWorkflow === 'BROUILLON');
     const isPlanifie = currentWf.isPlanifie ?? (currentWf.codeStatutWorkflow === 'PLANIFIE');
     const isActif = currentWf.isActif ?? (currentWf.codeStatutWorkflow === 'ACTIF' || currentWf.codeStatutWorkflow === 'VALIDE');
+    const isHistorise = currentWf.isHistorise ?? (currentWf.codeStatutWorkflow === 'HISTORISE' || currentWf.codeStatutWorkflow === 'CLOTURE');
+    const isAnnule = currentWf.isAnnule ?? (currentWf.codeStatutWorkflow === 'ANNULE');
 
     const {
         isEmbauche, isConfirmation: isConfirmationEssai,
@@ -247,14 +249,26 @@ export default function RecapitulatifBrouillonModal({
                             <CheckCircle size={18} className="text-success-600 flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
                                 <p className="font-bold text-success-700 dark:text-success-400">
-                                    {isEmbauche ? 'Embauche Initiale Validée et Appliquée' : isConfirmationEssai ? 'Confirmation d\'Essai Validée avec Succès' : isRenouvellementEssai ? 'Renouvellement d\'Essai Validé et Appliqué' : 'Événement RH Validé et Appliqué'}
+                                    {isEmbauche ? 'Embauche Initiale Validée et Appliquée' : isConfirmationEssai ? 'Confirmation d\'Essai Validée avec Succès' : isRenouvellementEssai ? 'Renouvellement d\'Essai Validé et Appliqué' : 'Événement RH Validé et Actif'}
                                 </p>
                                 <p className="text-ink-500 dark:text-ink-300">
-                                    {isEmbauche ? 'Ce contrat d\'embauche a été validé. Le contrat et l\'affectation sont actifs.' : isConfirmationEssai ? 'La période d\'essai de cet employé a été confirmée et validée.' : isRenouvellementEssai ? 'Le renouvellement de l\'essai a été validé et la date de fin a été mise à jour en BDD.' : 'Ce mouvement RH a été validé et enregistré dans le dossier de l\'employé.'}
+                                    {isEmbauche ? 'Ce contrat d\'embauche a été validé. Le contrat et l\'affectation sont actifs.' : isConfirmationEssai ? 'La période d\'essai de cet employé a été confirmée et validée.' : isRenouvellementEssai ? 'Le renouvellement de l\'essai a été validé et la date de fin a été mise à jour en BDD.' : 'Ce mouvement RH est actuellement en vigueur dans le dossier de l\'employé.'}
                                 </p>
                             </div>
                         </div>
-                    ) : (
+                    ) : isHistorise ? (
+                        <div className="bg-ink-100/70 dark:bg-ink-800/40 border border-ink-200 dark:border-ink-700 p-4 rounded-none flex items-start gap-3">
+                            <History size={18} className="text-ink-500 flex-shrink-0 mt-0.5" />
+                            <div className="text-xs space-y-1">
+                                <p className="font-bold text-ink-700 dark:text-ink-200">
+                                    Mouvement RH Historisé (Passé)
+                                </p>
+                                <p className="text-ink-500 dark:text-ink-400">
+                                    Ce mouvement RH a été appliqué avec succès le {fmtDate(currentWf.dateEffet)}. Il est archivé dans l'historique suite à la prise d'effet d'un mouvement ultérieur.
+                                </p>
+                            </div>
+                        </div>
+                    ) : isAnnule ? (
                         <div className="bg-danger-500/10 border border-danger-500/30 p-4 rounded-none flex items-start gap-3">
                             <XCircle size={18} className="text-danger-600 flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
@@ -277,7 +291,7 @@ export default function RecapitulatifBrouillonModal({
                                 )}
                             </div>
                         </div>
-                    )}
+                    ) : null}
 
                     {/* Bloc Synthèse Période d'Essai si l'événement concerne l'essai */}
                     {(isConfirmationEssai || isRenouvellementEssai || (isEmbauche && (currentWf.dureeEssaiMois || currentWf.dateFinEssai))) && (

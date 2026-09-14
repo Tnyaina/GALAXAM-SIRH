@@ -256,7 +256,7 @@ export default function DatesCongeSection({
                   <div className="flex items-center justify-between text-xs text-success-600 dark:text-success-400 font-semibold bg-success-500/10 p-2 border border-success-500/20">
                     <div className="flex items-center gap-1.5">
                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>Dérogation RH solde négatif (prise par anticipation) activée</span>
+                      <span>Prise de congés par anticipation autorisée (solde temporairement négatif)</span>
                     </div>
                     <button
                       type="button"
@@ -275,7 +275,7 @@ export default function DatesCongeSection({
                     }}
                     className="text-xs font-bold underline text-[var(--color-warning-500)] hover:text-[var(--color-warning-700)] cursor-pointer block"
                   >
-                    Activer la dérogation RH de solde négatif
+                    Autoriser la prise par anticipation (dépassement du solde)
                   </button>
                 )}
               </div>

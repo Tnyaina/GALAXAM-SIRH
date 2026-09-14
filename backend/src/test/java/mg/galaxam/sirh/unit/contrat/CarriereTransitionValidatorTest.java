@@ -105,4 +105,33 @@ class CarriereTransitionValidatorTest {
                 "CDI", "REVALORISATION", "CDI", "PERMANENT", 0))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    @DisplayName("CDD : Durée maximale et minimale de contrat individuel")
+    void testValiderDureeContratCDD() {
+        java.sql.Date debut = java.sql.Date.valueOf("2026-01-01");
+        
+        // CDD de 6 mois : valide
+        java.sql.Date finValide = java.sql.Date.valueOf("2026-07-01");
+        assertThatCode(() -> CarriereTransitionValidator.validerDureeContratCDD(debut, finValide, null))
+                .doesNotThrowAnyException();
+
+        // CDD de 3 ans (36 mois) : rejeté (> 24 mois)
+        java.sql.Date fin3Ans = java.sql.Date.valueOf("2029-01-01");
+        assertThatThrownBy(() -> CarriereTransitionValidator.validerDureeContratCDD(debut, fin3Ans, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ne peut excéder 24 mois");
+
+        // CDD de moins d'un mois : rejeté
+        java.sql.Date finTropCourt = java.sql.Date.valueOf("2026-01-15");
+        assertThatThrownBy(() -> CarriereTransitionValidator.validerDureeContratCDD(debut, finTropCourt, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("durée minimale d'un mois");
+
+        // Date fin antérieure à date début : rejeté
+        java.sql.Date finAnterieure = java.sql.Date.valueOf("2025-12-01");
+        assertThatThrownBy(() -> CarriereTransitionValidator.validerDureeContratCDD(debut, finAnterieure, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("postérieure à sa date de début");
+    }
 }

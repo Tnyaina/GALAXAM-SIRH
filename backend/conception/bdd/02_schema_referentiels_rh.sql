@@ -299,7 +299,7 @@ INSERT INTO ref_type_intervenant (id_type_intervenant, code, libelle, soumis_irs
 (1, 'PERMANENT', 'Salarié Permanent', TRUE, FALSE, TRUE, TRUE),
 (2, 'CONSULTANT', 'Consultant Indépendant (+60 ans)', FALSE, TRUE, FALSE, TRUE),
 (3, 'TEMPORAIRE', 'Travailleur Temporaire', FALSE, TRUE, FALSE, FALSE),
-(4, 'STAGIAIRE', 'Stagiaire (Gratification)', FALSE, FALSE, FALSE, FALSE);
+(4, 'STAGIAIRE', 'Stagiaire', FALSE, FALSE, FALSE, FALSE);
 SELECT setval('ref_type_intervenant_id_type_intervenant_seq', (SELECT GREATEST(MAX(id_type_intervenant), 4) FROM ref_type_intervenant));
 
 -- Statuts RH

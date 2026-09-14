@@ -1027,9 +1027,10 @@ public class PayrollService {
             BigDecimal netBase = base;
             BigDecimal mntHs = BigDecimal.ZERO;
             for (BulletinPaieLigne l : lignes) {
-                if ("RETENUE_ABSENCE".equalsIgnoreCase(l.getCodeRubrique()) || "RETENUE_CONGE".equalsIgnoreCase(l.getCodeRubrique())) {
+                String codeRub = l.getCodeRubrique() != null ? l.getCodeRubrique().toUpperCase() : "";
+                if ("RETENUE_ABSENCE".equals(codeRub) || "RETENUE_CONGE".equals(codeRub) || "DEDUCTION_CONGE_BASE".equals(codeRub)) {
                     if (l.getMontantSalarial() != null) netBase = netBase.subtract(l.getMontantSalarial());
-                } else if ("INDEMNITE_CONGE".equalsIgnoreCase(l.getCodeRubrique())) {
+                } else if ("INDEMNITE_CONGE".equals(codeRub) || "INDEMNITE_CONGE_PAYE".equals(codeRub)) {
                     if (l.getMontantSalarial() != null) netBase = netBase.add(l.getMontantSalarial());
                 } else if ("HEURES_SUP".equalsIgnoreCase(l.getCategorie())) {
                     if (l.getMontantSalarial() != null) mntHs = mntHs.add(l.getMontantSalarial());
