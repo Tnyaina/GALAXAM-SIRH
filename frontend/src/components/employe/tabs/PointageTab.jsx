@@ -263,6 +263,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const hasMajorations = (hs30Val > 0 || hs50Val > 0 || nuitVal > 0 || dimVal > 0 || ferVal > 0);
     const seuilAssiduiteMinutes = parseInt(kpis?.seuilAssiduiteMinutes || regles?.seuilAssiduiteMinutes, 10) || 45;
     const dureeHebdoLegale = regles?.dureeHebdoLegale || kpis?.dureeHebdoLegale || '40';
+    const dureeJourNormale = Number(dureeHebdoLegale) > 0 ? Number(dureeHebdoLegale) / 5 : null;
     const isAssiduiteEligible = kpis?.primeAssiduiteEligible === 'true' || 
         (kpis?.primeAssiduiteEligible !== 'false' && (parseHhMmToDecimal(kpis?.retardCumule) * 60 < seuilAssiduiteMinutes));
     const hasRetardNet = Boolean(recap?.retardNet && recap.retardNet !== '00h00' && recap.retardNet !== '0h');
@@ -847,10 +848,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             </div>
 
                             {/* Bannière explicative règle légale */}
-                            <div className="p-2.5 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/50 text-xs text-sky-900 dark:text-sky-200 flex items-center gap-2">
-                                <Scale size={15} className="text-sky-600 dark:text-sky-400 shrink-0" />
+                            <div className="attendance-info p-2.5 text-xs flex items-center gap-2">
+                                <Scale size={15} className="shrink-0" />
                                 <div>
-                                    <strong>Règle {dureeHebdoLegale}h/semaine :</strong> Les heures au-delà de 8h/j comblent en priorité les heures manquantes de la semaine. Les congés (-8h/j) et fériés (-8h) abaissent ce seuil. Le surplus restant passe en <span className="font-semibold text-emerald-700 dark:text-emerald-300">Heures Sup (+30%/+50%)</span>. En-dessous = <span className="font-semibold text-rose-700 dark:text-rose-300">Retenue sur salaire</span>.
+                                    <strong>Règle {dureeHebdoLegale}h/semaine :</strong> les heures au-delà de {dureeJourNormale || 'la durée prévue'}h par jour compensent d&apos;abord les heures manquantes de la semaine. L&apos;objectif est ajusté pour les congés et jours fériés. Le solde devient une <span className="font-semibold text-emerald-700 dark:text-emerald-300">heure supplémentaire</span> ou une <span className="font-semibold text-rose-700 dark:text-rose-300">retenue sur salaire</span>.
                                 </div>
                             </div>
 
@@ -861,8 +862,9 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Jours</Th>
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase" title="Heures à réaliser sur la semaine (abaissé pour congés et fériés)">Objectif semaine</Th>
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase" title="Total des heures effectivement travaillées">Heures faites</Th>
-                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase text-rose-600 dark:text-rose-400" title="Cumul des retards constatés sur la semaine (matin et après-midi)">Retards</Th>
-                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase text-emerald-600 dark:text-emerald-400" title="Surplus d'un jour ayant comblé le manque d'un autre jour de la même semaine">Compensé</Th>
+                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]" title="Cumul des retards constatés sur la semaine (matin et après-midi)">Retards</Th>
+                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase text-[var(--color-info-700)] dark:text-[var(--color-info-200)]" title="Heures réalisées au-delà de la durée normale d'une journée">Heures en plus</Th>
+                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase text-[var(--color-success-600)] dark:text-[var(--color-success-400)]" title="Surplus d'un jour ayant comblé le manque d'un autre jour de la même semaine">Compensé</Th>
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase" title="Conséquence nette sur le bulletin de paie">Impact Paie</Th>
                                     </Thead>
                                     <Tbody>
@@ -876,8 +878,8 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                     </Td>
                                                     <Td className="text-xs text-center py-2 px-3">{b.nbJoursTroncon} j</Td>
                                                     <Td className="font-mono text-xs text-center py-2 px-3">
-                                                        <div className="font-bold">{formatDecimalHours(b.seuilHeuresTroncon)}</div>
-                                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatHeuresMinutes(b.seuilHeuresTroncon)})</div>
+                                                        <div className="font-bold">{formatHeuresMinutes(b.seuilHeuresTroncon)}</div>
+                                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatDecimalHours(b.seuilHeuresTroncon)})</div>
                                                         {(b.nbJoursConge > 0 || b.nbJoursFerie > 0) && (
                                                             <div className="flex flex-wrap items-center justify-center gap-1 mt-1">
                                                                 {b.nbJoursConge > 0 && (
@@ -894,17 +896,30 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                         )}
                                                     </Td>
                                                     <Td className="font-mono text-xs text-center font-bold py-2 px-3">
-                                                        <div>{formatDecimalHours(b.totalHeuresTravaillees)}</div>
-                                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatHeuresMinutes(b.totalHeuresTravaillees)})</div>
+                                                        <div>{formatHeuresMinutes(b.totalHeuresTravaillees)}</div>
+                                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatDecimalHours(b.totalHeuresTravaillees)})</div>
                                                     </Td>
-                                                    <Td className={`font-mono text-xs text-center py-2 px-3 ${b.heuresRetard > 0 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-[var(--color-fg-muted)] opacity-50'}`}>
-                                                        {b.heuresRetard > 0 ? formatHeuresMinutes(b.heuresRetard) : '—'}
+                                                    <Td className={`attendance-duration text-xs text-center py-2 px-3 ${b.heuresRetard > 0 ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] font-bold' : 'text-[var(--color-fg-muted)] opacity-50'}`}>
+                                                        {b.heuresRetard > 0 ? (
+                                                            <div>
+                                                                <div>{formatHeuresMinutes(b.heuresRetard)}</div>
+                                                                <div className="text-[9.5px] opacity-70 font-normal">({formatDecimalHours(b.heuresRetard)})</div>
+                                                            </div>
+                                                        ) : '—'}
                                                     </Td>
-                                                    <Td className="font-mono text-xs text-center py-2 px-3 font-semibold text-emerald-600 dark:text-emerald-400" title={b.heuresCompensees > 0 ? `${formatHeuresMinutes(b.heuresCompensees, false)} de surplus ont comblé un manque de cette semaine` : 'Aucune compensation requise'}>
+                                                    <Td className="attendance-duration text-xs text-center py-2 px-3 font-semibold text-[var(--color-info-700)] dark:text-[var(--color-info-200)]" title={b.heuresHsBrutes > 0 ? `${formatHeuresMinutes(b.heuresHsBrutes)} au-delà de la durée normale d'une journée` : 'Aucune heure en plus cette semaine'}>
+                                                        {b.heuresHsBrutes > 0 ? (
+                                                            <div>
+                                                                <div>+{formatHeuresMinutes(b.heuresHsBrutes)}</div>
+                                                                <div className="text-[9.5px] opacity-70 font-normal">(+{formatDecimalHours(b.heuresHsBrutes)})</div>
+                                                            </div>
+                                                        ) : <span className="opacity-40 font-normal">—</span>}
+                                                    </Td>
+                                                    <Td className="attendance-duration text-xs text-center py-2 px-3 font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]" title={b.heuresCompensees > 0 ? `${formatHeuresMinutes(b.heuresCompensees)} de surplus ont comblé un manque de cette semaine` : 'Aucune compensation requise'}>
                                                         {b.heuresCompensees > 0 ? (
                                                             <div>
-                                                                <div>{formatHeuresMinutes(b.heuresCompensees, false)}</div>
-                                                                <div className="text-[9.5px] opacity-70 font-normal">({formatDecimalHours(b.heuresCompensees, false)})</div>
+                                                                <div>{formatHeuresMinutes(b.heuresCompensees)}</div>
+                                                                <div className="text-[9.5px] opacity-70 font-normal">({formatDecimalHours(b.heuresCompensees)})</div>
                                                             </div>
                                                         ) : (
                                                             <span className="opacity-40 font-normal">—</span>
@@ -997,13 +1012,13 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center text-xs" title="Heures travaillées au-delà de 8h/jour dans les semaines">
-                                            <span className="text-[var(--color-fg-muted)]">Surplus journaliers (&gt; 8h)</span>
+                                            <span className="text-[var(--color-fg-muted)]">Heures en plus sur la journée</span>
                                             <span className="font-mono text-[var(--color-fg)]">
                                                 {recap.heuresSuppBrutes || '00h00'}
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center text-xs text-emerald-600 dark:text-emerald-400" title="Surplus absorbés pour combler les heures manquantes de la même semaine">
-                                            <span>Heures compensées</span>
+                                            <span>Heures utilisées pour compenser</span>
                                             <span className="font-mono font-bold">
                                                 {recap.retardCompense && recap.retardCompense !== '00h00' ? `-${recap.retardCompense}` : '00h00'}
                                             </span>

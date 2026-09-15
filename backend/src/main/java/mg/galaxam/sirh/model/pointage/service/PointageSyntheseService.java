@@ -320,6 +320,13 @@ public class PointageSyntheseService {
         Map<LocalDate, List<DailyAttendanceResult>> parSemaine = new LinkedHashMap<>();
         Set<LocalDate> datesAvecPointage = new HashSet<>();
 
+        // Une semaine sans aucun badge reste une semaine à contrôler : son objectif
+        // doit produire une absence, et non disparaître de la synthèse.
+        for (LocalDate day = dateDebut; !day.isAfter(dateFin); day = day.plusDays(1)) {
+            LocalDate monday = day.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            parSemaine.computeIfAbsent(monday, ignored -> new ArrayList<>());
+        }
+
         try (PreparedStatement psPtg = c.prepareStatement(sqlPtg)) {
             psPtg.setInt(1, idEmp);
             psPtg.setDate(2, Date.valueOf(dateDebut));
@@ -499,38 +506,17 @@ public class PointageSyntheseService {
             long firstBandMinutes = seuilHsTranche1.multiply(BigDecimal.valueOf(60))
                     .setScale(0, RoundingMode.HALF_UP).longValueExact();
             WeeklyAttendanceResult res = weeklyAttendanceCalculator.calculateWeek(
-                    new WeeklyAttendanceContext(lundi, expectedMinutes, firstBandMinutes, !isCadre), jours);
+                    new WeeklyAttendanceContext(lundi, expectedMinutes, firstBandMinutes, !isCadre,
+                            seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValueExact()), jours);
             weeklyResults.add(res);
             totalHs30Minutes += res.overtime30Minutes();
             totalHs50Minutes += res.overtime50Minutes();
 
-            // Calcul du surplus brut journalier (heures faites au-delà de 8h/j ou 4h/demi-journée)
-            // et des heures manquantes journalières sur les jours ouvrables du tronçon
-            long standardJourMinutes = seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValue();
-            long sumSurplusJourMinutes = 0;
-            long sumManqueJourMinutes = 0;
-            for (DailyAttendanceResult j : jours) {
-                if (j.sunday() || j.publicHoliday()
-                        || j.status() == DailyAttendanceResult.Status.LEAVE
-                        || j.status() == DailyAttendanceResult.Status.REST
-                        || j.status() == DailyAttendanceResult.Status.PUBLIC_HOLIDAY_OFF) {
-                    continue;
-                }
-                long dailyTarget = (j.status() == DailyAttendanceResult.Status.HALF_DAY)
-                        ? standardJourMinutes / 2
-                        : standardJourMinutes;
-                long diff = j.workedMinutes() - dailyTarget;
-                if (diff > 0) {
-                    sumSurplusJourMinutes += diff;
-                } else if (diff < 0) {
-                    sumManqueJourMinutes += (-diff);
-                }
-            }
-
-            // Compensation intra-semaine : le surplus journalier compense les heures manquantes
-            long surplusBrutTroncon = Math.max(sumSurplusJourMinutes, res.grossOvertimeMinutes());
-            long heuresCompenseesTroncon = Math.min(surplusBrutTroncon, sumManqueJourMinutes);
-            long deficitTroncon = res.absenceMinutes(); // Heures nettes non compensées de la semaine
+            // Résultat unique du moteur hebdomadaire : affichage et paie utilisent
+            // exactement la même compensation, y compris pour les jours sans badge.
+            long surplusBrutTroncon = res.dailySurplusMinutes();
+            long heuresCompenseesTroncon = res.compensatedMinutes();
+            long deficitTroncon = res.absenceMinutes();
 
             totalHsBrutesMinutes += surplusBrutTroncon;
             totalRetardCompenseMinutes += heuresCompenseesTroncon;

@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
     CheckCircle, XCircle, Lock, AlertTriangle, CheckCircle2, Clock,
-    Users, TrendingUp, Moon, Sun, Award, Search,
+    Users, TrendingUp, Moon, Award, Search,
     Edit3, Calendar, Building2, X, GanttChartSquare,
-    LayoutGrid, ShieldCheck, Car, Banknote, RefreshCw, Scale, Eye
+    LayoutGrid, ShieldCheck, Banknote, RefreshCw, Scale, Eye
 } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
@@ -553,10 +553,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         ) : (
                             <div className="space-y-0 overflow-x-auto">
                                 {/* Bannière explicative règle de compensation */}
-                                <div className="mb-3 p-2.5 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/50 text-xs text-sky-900 dark:text-sky-200 flex items-center gap-2">
-                                    <Scale size={15} className="text-sky-600 dark:text-sky-400 shrink-0" />
+                                <div className="attendance-info mb-3 p-2.5 text-xs flex items-center gap-2">
+                                    <Scale size={15} className="shrink-0" />
                                     <div>
-                                        <strong>Règle 40h/semaine :</strong> Les surplus journaliers (&gt; 8h) comblent en priorité les heures manquantes de la semaine. Les congés (-8h/j) et fériés (-8h) abaissent ce seuil. Au-delà = <span className="font-semibold text-violet-700 dark:text-violet-300">Heures Sup (+30%/+50%)</span>. En-dessous = <span className="font-semibold text-rose-700 dark:text-rose-300">Retenue sur salaire</span>. L&apos;assiduité suit les retards constatés sur la journée à part.
+                                        <strong>Compensation hebdomadaire :</strong> les heures en plus sur une journée compensent d&apos;abord les heures manquantes de la même semaine. L&apos;objectif est automatiquement ajusté pour les congés et jours fériés. Le solde devient une <span className="font-semibold text-[var(--color-purple-700)] dark:text-[var(--color-purple-200)]">heure supplémentaire</span> ou une <span className="font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">retenue sur salaire</span>. Les retards restent suivis séparément.
                                     </div>
                                 </div>
 
@@ -566,47 +566,47 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                             <Th className="w-[190px] max-w-[210px]">Collaborateur</Th>
                                             <Th className="text-center w-16">Jours</Th>
                                             <Th className="text-center w-20">Heures</Th>
-                                            <Th className="text-center w-16">
-                                                <span className="inline-flex items-center gap-1 text-violet-700 dark:text-violet-300">
+                                                    <Th className="text-center w-16">
+                                                        <span className="inline-flex items-center gap-1 text-[var(--color-purple-700)] dark:text-[var(--color-purple-200)]">
                                                     <TrendingUp size={11} /> HS 30%
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-16">
-                                                <span className="inline-flex items-center gap-1 text-violet-700 dark:text-violet-300">
+                                                    <Th className="text-center w-16">
+                                                        <span className="inline-flex items-center gap-1 text-[var(--color-purple-700)] dark:text-[var(--color-purple-200)]">
                                                     <Award size={11} /> HS 50%
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-14">
-                                                <span className="inline-flex items-center gap-1 text-sky-700 dark:text-sky-300">
+                                                    <Th className="text-center w-14">
+                                                        <span className="inline-flex items-center gap-1 text-[var(--color-info-700)] dark:text-[var(--color-info-200)]">
                                                     <Moon size={11} /> Nuit
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-28">
-                                                <span className="inline-flex items-center gap-1 text-teal-700 dark:text-teal-300">
+                                                    <Th className="text-center w-28">
+                                                        <span className="inline-flex items-center gap-1 text-[var(--color-orange-700)] dark:text-[var(--color-orange-200)]">
                                                     <Banknote size={11} /> Indemnités
                                                 </span>
                                             </Th>
-                                            <Th className="text-center w-20" title="Retards constatés sur la journée (matin et après-midi)">
-                                                <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-400">
+                                                    <Th className="text-center w-20" title="Retards constatés sur la journée (matin et après-midi)">
+                                                        <span className="inline-flex items-center gap-1 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
                                                     <Clock size={11} /> Retards
                                                 </span>
                                             </Th>
                                             {showAuditColumns && (
                                                 <>
-                                                    <Th className="text-center w-20" title="Heures travaillées au-delà de 8h/jour dans les semaines">
-                                                        <span className="inline-flex items-center gap-1 text-indigo-700 dark:text-indigo-300">
-                                                            <TrendingUp size={11} /> Surplus
+                                                    <Th className="text-center w-20" title="Heures réalisées au-delà de la durée normale d'une journée">
+                                                        <span className="inline-flex items-center gap-1 text-[var(--color-info-700)] dark:text-[var(--color-info-200)]">
+                                                            <TrendingUp size={11} /> En plus
                                                         </span>
                                                     </Th>
-                                                    <Th className="text-center w-22" title="Heures de surplus ayant comblé un manque de la même semaine">
-                                                        <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
-                                                            <Scale size={11} /> Compensé
+                                                    <Th className="text-center w-22" title="Heures en plus utilisées pour compenser un manque de la même semaine">
+                                                        <span className="inline-flex items-center gap-1 text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
+                                                            <Scale size={11} /> Utilisées
                                                         </span>
                                                     </Th>
                                                 </>
                                             )}
                                             <Th className="text-center w-20" title="Heures manquantes non comblées (déduction salaire)">
-                                                <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-300">
+                                                <span className="inline-flex items-center gap-1 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
                                                     <AlertTriangle size={11} /> Retenue
                                                 </span>
                                             </Th>
@@ -665,16 +665,16 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     <Td className="text-center font-mono text-xs font-semibold">
                                                         {row.totalHeuresTravaillees != null ? (
                                                             <div>
-                                                                <div>{formatHeuresDecimal(row.totalHeuresTravaillees)}</div>
-                                                                <div className="text-[10px] text-slate-500 font-normal">({formatHeuresMinutes(row.totalHeuresTravaillees)})</div>
+                                                                <div>{formatHeuresMinutes(row.totalHeuresTravaillees)}</div>
+                                                                <div className="attendance-duration-secondary">({formatHeuresDecimal(row.totalHeuresTravaillees)})</div>
                                                             </div>
                                                         ) : '—'}
                                                     </Td>
                                                     <Td className="text-center">
                                                         {(row.heuresHs30 || 0) > 0 ? (
-                                                            <span className="inline-block font-mono text-xs text-violet-700 dark:text-violet-300 font-bold bg-violet-500/10 px-1.5 py-0.5 border border-violet-500/20" title={`${formatHeuresMinutes(row.heuresHs30)}`}>
-                                                                {formatHeuresDecimal(row.heuresHs30)}
-                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">({formatHeuresMinutes(row.heuresHs30)})</span>
+                                                            <span className="attendance-overtime inline-block attendance-duration text-xs font-bold px-1.5 py-0.5" title={`${formatHeuresMinutes(row.heuresHs30)}`}>
+                                                                {formatHeuresMinutes(row.heuresHs30)}
+                                                                <span className="attendance-duration-secondary block">({formatHeuresDecimal(row.heuresHs30)})</span>
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
@@ -682,9 +682,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     </Td>
                                                     <Td className="text-center">
                                                         {(row.heuresHs50 || 0) > 0 ? (
-                                                            <span className="inline-block font-mono text-xs text-violet-700 dark:text-violet-300 font-bold bg-violet-500/10 px-1.5 py-0.5 border border-violet-500/20" title={`${formatHeuresMinutes(row.heuresHs50)}`}>
-                                                                {formatHeuresDecimal(row.heuresHs50)}
-                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">({formatHeuresMinutes(row.heuresHs50)})</span>
+                                                            <span className="attendance-overtime inline-block attendance-duration text-xs font-bold px-1.5 py-0.5" title={`${formatHeuresMinutes(row.heuresHs50)}`}>
+                                                                {formatHeuresMinutes(row.heuresHs50)}
+                                                                <span className="attendance-duration-secondary block">({formatHeuresDecimal(row.heuresHs50)})</span>
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
@@ -692,9 +692,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     </Td>
                                                     <Td className="text-center">
                                                         {(row.heuresNuitTotal || 0) > 0 ? (
-                                                            <span className="inline-block font-mono text-xs text-sky-700 dark:text-sky-300 font-bold bg-sky-500/10 px-1.5 py-0.5 border border-sky-500/20" title={`${formatHeuresMinutes(row.heuresNuitTotal)}`}>
-                                                                {formatHeuresDecimal(row.heuresNuitTotal)}
-                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">({formatHeuresMinutes(row.heuresNuitTotal)})</span>
+                                                            <span className="attendance-info inline-block attendance-duration text-xs font-bold px-1.5 py-0.5" title={`${formatHeuresMinutes(row.heuresNuitTotal)}`}>
+                                                                {formatHeuresMinutes(row.heuresNuitTotal)}
+                                                                <span className="attendance-duration-secondary block">({formatHeuresDecimal(row.heuresNuitTotal)})</span>
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
@@ -702,12 +702,12 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     </Td>
                                                     {/* Total Indemnités regroupé */}
                                                     <Td
-                                                        className="text-center font-mono text-xs cursor-help bg-teal-500/5 border-x border-teal-500/15"
+                                                        className="attendance-allowance text-center attendance-duration text-xs cursor-help"
                                                         title={`Détail des indemnités :\n• Repas : ${formatMonnaie(row.montantRepas || 0)} (${row.nbJoursRepas || 0}j)\n• Déplacement : ${formatMonnaie(row.montantDeplacement || 0)} (${row.nbJoursDeplacement || 0}j)\n• Total : ${formatMonnaie(totalIndRow)}`}
                                                     >
                                                         {totalIndRow > 0 ? (
                                                             <div className="flex flex-col items-center">
-                                                                <span className="font-bold text-teal-700 dark:text-teal-300">{formatMonnaie(totalIndRow)}</span>
+                                                                <span className="font-bold">{formatMonnaie(totalIndRow)}</span>
                                                                 <div className="flex items-center gap-1 text-[9px] text-[var(--color-fg-muted)] mt-0.5">
                                                                     {(row.nbJoursRepas || 0) > 0 && <span>{row.nbJoursRepas}j repas</span>}
                                                                     {(row.nbJoursRepas || 0) > 0 && (row.nbJoursDeplacement || 0) > 0 && <span>•</span>}
@@ -722,11 +722,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     <Td className="text-center">
                                                         {(row.totalMinutesRetard || 0) > 0 ? (
                                                             <span
-                                                                className="inline-block font-mono text-xs text-rose-700 dark:text-rose-400 font-bold bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20 cursor-help"
+                                                                className="attendance-retention inline-block attendance-duration text-xs font-bold px-1.5 py-0.5 cursor-help"
                                                                 title={`Retards constatés (matin et après-midi) : ${formatHeuresDecimal(row.totalMinutesRetard / 60)} (${formatHeuresMinutes(row.totalMinutesRetard / 60)})`}
                                                             >
-                                                                {formatHeuresDecimal(row.totalMinutesRetard / 60)}
-                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">({formatHeuresMinutes(row.totalMinutesRetard / 60)})</span>
+                                                                {formatHeuresMinutes(row.totalMinutesRetard / 60)}
+                                                                <span className="attendance-duration-secondary block">({formatHeuresDecimal(row.totalMinutesRetard / 60)})</span>
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
@@ -739,11 +739,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                             <Td className="text-center">
                                                                 {(row.surplusBrut || 0) > 0 ? (
                                                                     <span
-                                                                        className="inline-block font-mono text-xs text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-500/10 px-1.5 py-0.5 border border-indigo-500/20 cursor-help"
-                                                                        title={`Surplus journaliers (> 8h/j) : +${formatHeuresDecimal(row.surplusBrut)} (+${formatHeuresMinutes(row.surplusBrut)})`}
+                                                                        className="attendance-info inline-block attendance-duration text-xs font-bold px-1.5 py-0.5 cursor-help"
+                                                                        title={`Heures en plus sur la journée : +${formatHeuresMinutes(row.surplusBrut)} (+${formatHeuresDecimal(row.surplusBrut)})`}
                                                                     >
-                                                                        +{formatHeuresDecimal(row.surplusBrut)}
-                                                                        <span className="block text-[9px] font-normal opacity-80 font-mono">(+{formatHeuresMinutes(row.surplusBrut)})</span>
+                                                                        +{formatHeuresMinutes(row.surplusBrut)}
+                                                                        <span className="attendance-duration-secondary block">(+{formatHeuresDecimal(row.surplusBrut)})</span>
                                                                     </span>
                                                                 ) : (
                                                                     <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
@@ -753,11 +753,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                             <Td className="text-center">
                                                                 {(row.retardCompense || 0) > 0 ? (
                                                                     <span
-                                                                        className="inline-block font-mono text-xs text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-500/10 px-1.5 py-0.5 border border-emerald-500/20 cursor-help"
+                                                                        className="attendance-compensation inline-block attendance-duration text-xs font-bold px-1.5 py-0.5 cursor-help"
                                                                         title={`Heures manquantes comblées par les surplus intra-semaine : -${formatHeuresDecimal(row.retardCompense)} (-${formatHeuresMinutes(row.retardCompense)})`}
                                                                     >
-                                                                        -{formatHeuresDecimal(row.retardCompense)}
-                                                                        <span className="block text-[9px] font-normal opacity-80 font-mono">(-{formatHeuresMinutes(row.retardCompense)})</span>
+                                                                        -{formatHeuresMinutes(row.retardCompense)}
+                                                                        <span className="attendance-duration-secondary block">(-{formatHeuresDecimal(row.retardCompense)})</span>
                                                                     </span>
                                                                 ) : (
                                                                     <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
@@ -769,11 +769,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     <Td className="text-center">
                                                         {(row.heuresAbsenceRetenues || 0) > 0 ? (
                                                             <span
-                                                                className="inline-block font-mono text-xs text-rose-700 dark:text-rose-400 font-bold bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20 cursor-help"
+                                                                className="attendance-retention inline-block attendance-duration text-xs font-bold px-1.5 py-0.5 cursor-help"
                                                                 title={`Déficit d'heures sous le seuil hebdo à déduire en paie : -${formatHeuresDecimal(row.heuresAbsenceRetenues)} (-${formatHeuresMinutes(row.heuresAbsenceRetenues)})`}
                                                             >
-                                                                -{formatHeuresDecimal(row.heuresAbsenceRetenues)}
-                                                                <span className="block text-[9px] font-normal opacity-80 font-mono">(-{formatHeuresMinutes(row.heuresAbsenceRetenues)})</span>
+                                                                -{formatHeuresMinutes(row.heuresAbsenceRetenues)}
+                                                                <span className="attendance-duration-secondary block">(-{formatHeuresDecimal(row.heuresAbsenceRetenues)})</span>
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>

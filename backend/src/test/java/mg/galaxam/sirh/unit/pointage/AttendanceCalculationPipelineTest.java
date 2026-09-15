@@ -93,6 +93,31 @@ class AttendanceCalculationPipelineTest {
         assertThat(bands.overtime50Minutes()).isEqualTo(180);
     }
 
+    @Test
+    void weeklyCompensationMatchesTheBusinessExamples() {
+        LocalDate monday = LocalDate.of(2026, 9, 14);
+        WeeklyAttendanceContext rule = new WeeklyAttendanceContext(monday, 2_400, 480, true, 480);
+
+        // 12h30 manquantes et 13h au-delà de 8h/j : il reste 30 minutes d'heures supplémentaires.
+        WeeklyAttendanceResult compensated = weekly.calculateWeek(rule, List.of(
+                resultWithMinutes(monday, 480), resultWithMinutes(monday.plusDays(1), 480),
+                resultWithMinutes(monday.plusDays(2), 210), resultWithMinutes(monday.plusDays(3), 0),
+                resultWithMinutes(monday.plusDays(4), 1_260)));
+        assertThat(compensated.dailySurplusMinutes()).isEqualTo(780);
+        assertThat(compensated.compensatedMinutes()).isEqualTo(750);
+        assertThat(compensated.overtime30Minutes()).isEqualTo(30);
+        assertThat(compensated.absenceMinutes()).isZero();
+
+        // 14h manquantes et 13h au-delà de 8h/j : une heure reste à retenir.
+        WeeklyAttendanceResult deficit = weekly.calculateWeek(rule, List.of(
+                resultWithMinutes(monday, 480), resultWithMinutes(monday.plusDays(1), 480),
+                resultWithMinutes(monday.plusDays(2), 120), resultWithMinutes(monday.plusDays(3), 0),
+                resultWithMinutes(monday.plusDays(4), 1_260)));
+        assertThat(deficit.compensatedMinutes()).isEqualTo(780);
+        assertThat(deficit.overtime30Minutes()).isZero();
+        assertThat(deficit.absenceMinutes()).isEqualTo(60);
+    }
+
     private WeeklyAttendanceResult week(LocalDate monday, long worked, long late, boolean eligible) {
         DailyAttendanceResult day = new DailyAttendanceResult(1, monday, DailyAttendanceResult.Status.PRESENT,
                 worked, 0, worked, worked, late, 0, 0, false, false,

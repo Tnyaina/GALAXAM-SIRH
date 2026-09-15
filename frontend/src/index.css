@@ -347,6 +347,87 @@
 }
 
 /* ============================================================================
+   4. POINTAGE — Données horaires et états métier partagés
+   Les écrans Employé et DAF emploient ces mêmes repères visuels.
+   ============================================================================ */
+@layer components {
+  .attendance-duration {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .attendance-duration-secondary {
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+  }
+
+  .attendance-info,
+  .attendance-overtime,
+  .attendance-compensation,
+  .attendance-retention,
+  .attendance-allowance {
+    border: 1px solid;
+  }
+
+  .attendance-info {
+    background: var(--color-info-50);
+    border-color: var(--color-info-200);
+    color: var(--color-info-700);
+  }
+
+  .attendance-overtime {
+    background: var(--color-purple-50);
+    border-color: var(--color-purple-200);
+    color: var(--color-purple-700);
+  }
+
+  .attendance-compensation {
+    background: color-mix(in srgb, var(--color-success-400) 12%, transparent);
+    border-color: color-mix(in srgb, var(--color-success-500) 28%, transparent);
+    color: var(--color-success-600);
+  }
+
+  .attendance-retention {
+    background: color-mix(in srgb, var(--color-danger-400) 12%, transparent);
+    border-color: color-mix(in srgb, var(--color-danger-500) 28%, transparent);
+    color: var(--color-danger-600);
+  }
+
+  .attendance-allowance {
+    background: var(--color-orange-50);
+    border-color: var(--color-orange-200);
+    color: var(--color-orange-700);
+  }
+
+  .dark .attendance-info {
+    background: color-mix(in srgb, var(--color-info-700) 35%, transparent);
+    border-color: color-mix(in srgb, var(--color-info-200) 40%, transparent);
+    color: var(--color-info-200);
+  }
+
+  .dark .attendance-overtime {
+    background: color-mix(in srgb, var(--color-purple-700) 35%, transparent);
+    border-color: color-mix(in srgb, var(--color-purple-200) 40%, transparent);
+    color: var(--color-purple-200);
+  }
+
+  .dark .attendance-compensation {
+    color: var(--color-success-400);
+  }
+
+  .dark .attendance-retention {
+    color: var(--color-danger-400);
+  }
+
+  .dark .attendance-allowance {
+    background: color-mix(in srgb, var(--color-orange-700) 35%, transparent);
+    border-color: color-mix(in srgb, var(--color-orange-200) 40%, transparent);
+    color: var(--color-orange-200);
+  }
+}
+
+/* ============================================================================
    4. UTILITAIRES MAISON & ALIAS
    ============================================================================ */
 @utility skip-link {
