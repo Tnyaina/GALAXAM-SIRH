@@ -1,4 +1,6 @@
 # Module Paie & Rémunération — Documentation Technique, Réglementaire & Fonctionnelle
+
+> **Statut : LEGAL_REVIEW / UPDATE.** Ce mémoire est un contexte historique. Les affirmations légales, scores et nombres de tests doivent être revérifiés ; le code, les tests et les migrations actives priment.
 ## GALAXAM SIRH — Mémoire de Fin d'Études
 
 > **Projet** : GALAXAM SIRH — Système d'Information des Ressources Humaines  

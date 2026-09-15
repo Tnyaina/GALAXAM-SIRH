@@ -237,7 +237,7 @@ export default function DafAjustementPointageModal({
                             </div>
 
                             {/* Option Journée continue */}
-                            <div className="sm:col-span-2 bg-amber-500/10 border border-amber-500/25 rounded-md p-2.5 flex items-center justify-between">
+                            <div className="sm:col-span-2 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/25 rounded-none p-2.5 flex items-center justify-between">
                                 <div className="flex flex-col">
                                     <span className="text-xs font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
                                         <FastForward size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />

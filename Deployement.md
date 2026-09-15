@@ -50,14 +50,39 @@ Pour maximiser le score de **Bonnes Pratiques** dans Lighthouse et sécuriser le
 
 ---
 
-### 5. 🗄️ Base de Données PostgreSQL & Indexation Haute Performance (SP8)
+### 5. 🗄️ Base de données PostgreSQL et migrations actives
 Lors du déploiement ou de la réinitialisation de l'environnement :
 *   **Ordre d'exécution des scripts BDD :**
-    1. Schéma initial et tables de référence : `backend/conception/bdd/26-08-01-schema.sql`
-    2. Vues relationnelles et extensions : `backend/conception/bdd/26-08-05-vues-cpl.sql`
-    3. Module Paie, STC et ventilation : `backend/conception/bdd/26-09-02-sp4-paie.sql`
-    4. **Indexation exhaustive des clés étrangères (SP8) :** `backend/conception/bdd/26-09-16-sp8-indexes-foreign-keys.sql`
-*   **Impact de la migration SP8 :**
-    *   Crée **71 index B-Tree** sur l'ensemble des colonnes de clés étrangères (`idx_fk_*`).
-    *   Élimine 100% des Seq Scans sur les jointures de clôture de paie, les vérifications de solde de congés et les filtres multi-filiales.
-    *   Garantit des temps de réponse sous les 15ms même sous charge volumique élevée en production.
+    1. `01_schema_core_securite.sql`
+    2. `02_schema_referentiels_rh.sql`
+    3. `03_schema_employes_contrats.sql`
+    4. `04_schema_conges.sql`
+    5. `05_schema_pointage.sql`
+    6. `06_schema_paie.sql`
+    7. `2026-09-13_snapshot_pointage_versionne.sql`
+    8. `2026-09-14_workflow_periode_paie.sql`
+    9. `2026-09-14_remove_business_sql.sql`
+
+Les scripts sous `archive_migrations_historiques/` sont conservés pour traçabilité et ne doivent pas être rejoués comme migrations actives. Ne pas revendiquer de couverture d'index ou de temps de réponse sans mesure `EXPLAIN ANALYZE` sur la base cible.
+
+### 6. Variables obligatoires en production
+
+Le profil `prod` doit recevoir explicitement :
+
+- `SPRING_DATASOURCE_URL` (ou `DATABASE_URL` au format JDBC), ainsi que les identifiants si l'URL ne les contient pas ;
+- `JWT_SECRET`, suffisamment long et aléatoire ;
+- `CORS_ORIGIN`, liste d'origines HTTPS explicites ;
+- `UPLOAD_DIR`, répertoire persistant non servi publiquement.
+
+Le bootstrap administrateur est désactivé par défaut. Pour une initialisation ponctuelle et auditée seulement, fournir `BOOTSTRAP_ADMIN_ENABLED=true`, `GALAXAM_DEFAULT_ADMIN_USERNAME` et `GALAXAM_DEFAULT_ADMIN_PASSWORD`, puis désactiver le bootstrap après le premier démarrage.
+
+Avant déployer :
+
+```bash
+cd backend
+./mvnw test
+cd ../frontend
+npm ci
+npm run lint
+npm run build
+```

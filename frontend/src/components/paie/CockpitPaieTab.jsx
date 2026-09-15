@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     Play, 
     CheckCheck, 
@@ -24,6 +24,10 @@ import periodePaieService from '@/api/pointage/periodePaieService';
 import BulletinPaieDrawer from './BulletinPaieDrawer';
 import { getErrorMessage } from '@/api/apiClient';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
+import Pagination from '@/components/ui/navigation/Pagination';
+import useDebounce from '@/hooks/useDebounce';
+import Badge from '@/components/ui/data-display/Badge';
+import Alert from '@/components/ui/feedback/Alert';
 
 /**
  * Cockpit Principal de Paie DAF (GALAXAM LOGISTICS)
@@ -39,12 +43,16 @@ export default function CockpitPaieTab({
     requestedEmployeeId = null
 }) {
     const navigate = useNavigate();
+    const [urlParams, setUrlParams] = useSearchParams();
     const [cockpit, setCockpit] = useState(null);
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState(null); // 'simuler' | 'calculer' | 'valider' | 'cloturer' | 'rouvrir'
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filterSite, setFilterSite] = useState('ALL');
-    const [filterAlert, setFilterAlert] = useState('ALL'); // 'ALL' | 'ALERTS' | 'STC' | 'VALIDE' | 'CLOTURE'
+    const [searchQuery, setSearchQuery] = useState(urlParams.get('q') || '');
+    const [filterSite, setFilterSite] = useState(urlParams.get('site') || 'ALL');
+    const [filterAlert, setFilterAlert] = useState(urlParams.get('filter') || 'ALL'); // 'ALL' | 'ALERTS' | 'STC' | 'VALIDE' | 'CLOTURE'
+    const [currentPage, setCurrentPage] = useState(Number(urlParams.get('page')) || 1);
+    const [pageSize, setPageSize] = useState(Number(urlParams.get('size')) || 25);
+    const debouncedSearch = useDebounce(searchQuery, 300);
     const [selectedBulletinId, setSelectedBulletinId] = useState(null);
     const [feedback, setFeedback] = useState(null);
 
@@ -68,7 +76,13 @@ export default function CockpitPaieTab({
         setLoading(true);
         setFeedback(null);
         try {
-            const data = await paieService.getCockpitPeriode(idPeriodeActive);
+            const data = await paieService.getCockpitPeriode(idPeriodeActive, {
+                page: currentPage,
+                size: pageSize,
+                q: debouncedSearch || undefined,
+                site: filterSite === 'ALL' ? undefined : filterSite,
+                filter: filterAlert === 'ALL' ? undefined : filterAlert
+            });
             setCockpit(data);
         } catch (err) {
             setFeedback({
@@ -78,7 +92,24 @@ export default function CockpitPaieTab({
         } finally {
             setLoading(false);
         }
-    }, [idPeriodeActive]);
+    }, [idPeriodeActive, currentPage, pageSize, debouncedSearch, filterSite, filterAlert]);
+
+    useEffect(() => {
+        setUrlParams(previous => {
+            const next = new URLSearchParams(previous);
+            const values = { q: debouncedSearch, site: filterSite, filter: filterAlert };
+            Object.entries(values).forEach(([key, value]) => {
+                if (value && value !== 'ALL') next.set(key, value); else next.delete(key);
+            });
+            if (currentPage > 1) next.set('page', String(currentPage)); else next.delete('page');
+            if (pageSize !== 25) next.set('size', String(pageSize)); else next.delete('size');
+            return next;
+        }, { replace: true });
+    }, [debouncedSearch, filterSite, filterAlert, currentPage, pageSize, setUrlParams]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedSearch, filterSite, filterAlert]);
 
     useEffect(() => {
         if (idPeriodeActive) {
@@ -241,6 +272,7 @@ export default function CockpitPaieTab({
     const periode = cockpit?.periode || {};
     const bulletins = useMemo(() => Array.isArray(cockpit?.bulletins) ? cockpit.bulletins : [], [cockpit]);
     const population = Array.isArray(cockpit?.population) ? cockpit.population : [];
+    const bulletinsPage = cockpit?.bulletinsPage || {};
     const validationSummary = cockpit?.validationSummary || {};
 
     const pointageScelle = readiness.pointageScelle === true;
@@ -258,32 +290,8 @@ export default function CockpitPaieTab({
     }, [requestedEmployeeId, bulletins]);
 
     // Liste unique des sites pour le filtre
-    const sites = useMemo(() => {
-        const set = new Set();
-        bulletins.forEach(b => {
-            if (b.nomSite) set.add(b.nomSite);
-        });
-        return Array.from(set);
-    }, [bulletins]);
-
-    // Filtrage employés
-    const filteredBulletins = bulletins.filter(b => {
-        const q = searchQuery.toLowerCase();
-        const matchSearch = !q ||
-            (b.nomPrenom && b.nomPrenom.toLowerCase().includes(q)) ||
-            (b.matricule && b.matricule.toLowerCase().includes(q)) ||
-            (b.intitulePoste && b.intitulePoste.toLowerCase().includes(q));
-
-        const matchSite = filterSite === 'ALL' || b.nomSite === filterSite;
-
-        let matchFilter = true;
-        if (filterAlert === 'ALERTS') matchFilter = b.aAlerte === true;
-        else if (filterAlert === 'STC') matchFilter = b.typeBulletin === 'STC';
-        else if (filterAlert === 'VALIDE') matchFilter = b.statut === 'VALIDE';
-        else if (filterAlert === 'CLOTURE') matchFilter = b.statut === 'CLOTURE';
-
-        return matchSearch && matchSite && matchFilter;
-    });
+    const sites = Array.isArray(cockpit?.sites) ? cockpit.sites : [];
+    const filteredBulletins = bulletins;
 
     const nbAlertes = bulletins.filter(b => b.aAlerte).length;
 
@@ -336,29 +344,16 @@ export default function CockpitPaieTab({
                                     <p className="text-xs font-bold text-[var(--color-fg)]">{check.code}</p>
                                     <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{check.message}</p>
                                 </div>
-                                <span className={`text-[10px] font-bold px-2 py-1 border ${
-                                    check.status === 'PASS'
-                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                        : check.status === 'BLOCK'
-                                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                                }`}>{check.status}</span>
+                                <Badge variant={check.status === 'PASS' ? 'success' : check.status === 'BLOCK' ? 'danger' : 'warning'}>
+                                    {check.status}
+                                </Badge>
                             </div>
                         ))}
                     </div>
                 )}
             </div>
             {/* Feedback message */}
-            {feedback && (
-                <div className={`p-3 text-xs flex items-center gap-2 border ${
-                    feedback.type === 'success' 
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
-                        : 'bg-rose-50 border-rose-200 text-rose-800'
-                }`}>
-                    {feedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-                    <span>{feedback.text}</span>
-                </div>
-            )}
+            {feedback && <Alert type={feedback.type === 'success' ? 'success' : 'error'} message={feedback.text} />}
 
             {/* En-tête Wireframe 1 : Exercice, Cycle d'activité & Statut */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4">
@@ -412,7 +407,7 @@ export default function CockpitPaieTab({
                             title={actionReason('SIMULATE')}
                             className="flex items-center gap-1.5 text-xs"
                         >
-                            <Play size={13} className="text-blue-500" />
+                            <Play size={13} className="text-[var(--color-info-500)]" />
                             {actionLoading === 'simuler' ? 'Simulation...' : 'Simuler'}
                         </Button>
 
@@ -434,7 +429,7 @@ export default function CockpitPaieTab({
                                 onClick={handleValiderPaie}
                                 disabled={actionLoading !== null || !actionAllowed('VALIDATE')}
                                 title={actionReason('VALIDATE')}
-                                className="flex items-center gap-1.5 text-xs bg-emerald-700 hover:bg-emerald-800 border-emerald-800"
+                                className="flex items-center gap-1.5 text-xs"
                             >
                                 <CheckCheck size={14} />
                                 {actionLoading === 'valider' ? 'Validation...' : 'VALIDER LA PAIE →'}
@@ -457,7 +452,7 @@ export default function CockpitPaieTab({
                                 onClick={() => setIsReopenModalOpen(true)}
                                 disabled={actionLoading !== null || !actionAllowed('REOPEN')}
                                 title={actionReason('REOPEN')}
-                                className="flex items-center gap-1.5 text-xs text-amber-600 border-amber-300"
+                                className="flex items-center gap-1.5 text-xs text-[var(--color-warning-600)] border-[var(--color-warning-500)]"
                             >
                                 <RotateCcw size={13} />
                                 Réouvrir (Audit)
@@ -468,11 +463,11 @@ export default function CockpitPaieTab({
                 {/* Bandeau Dépendances & Contrôles Amont (Wireframe 1) */}
                 {(view === 'overview' || view === 'readiness') && <div className="flex flex-wrap items-center gap-3 text-xs">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 border font-medium ${
-                        pointageScelle 
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                            : 'bg-rose-50 text-rose-800 border-rose-200'
+                        pointageScelle
+                            ? 'bg-[var(--color-success-500)]/10 text-[var(--color-success-600)] border-[var(--color-success-500)]/30'
+                            : 'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)] border-[var(--color-danger-500)]/30'
                     }`}>
-                        <CheckCircle2 size={13} className={pointageScelle ? 'text-emerald-600' : 'text-rose-500'} />
+                        <CheckCircle2 size={13} />
                         Pointage validé ({readiness.nbEmployesPointes ?? 0}/{readiness.effectifAttendu ?? 0})
                     </span>
 
@@ -481,16 +476,16 @@ export default function CockpitPaieTab({
                             onClick={() => setFilterAlert(filterAlert === 'ALERTS' ? 'ALL' : 'ALERTS')}
                             className={`inline-flex items-center gap-1.5 px-2.5 py-1 border font-medium cursor-pointer transition-colors ${
                                 filterAlert === 'ALERTS'
-                                    ? 'bg-amber-100 text-amber-900 border-amber-400 font-bold'
-                                    : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                                    ? 'bg-[var(--color-warning-500)]/20 text-[var(--color-warning-700)] border-[var(--color-warning-500)] font-bold'
+                                    : 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] border-[var(--color-warning-500)]/30'
                             }`}
                         >
-                            <AlertTriangle size={13} className="text-amber-600" />
+                            <AlertTriangle size={13} />
                             ⚠ {nbAlertes} variation(s) atypique(s) détectée(s) &gt; 20%
                         </button>
                     ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-700 border border-slate-200 font-medium">
-                            <ShieldCheck size={13} className="text-emerald-600" />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)] font-medium">
+                            <ShieldCheck size={13} className="text-[var(--color-success-600)]" />
                             Aucune variation atypique
                         </span>
                     )}
@@ -508,7 +503,7 @@ export default function CockpitPaieTab({
                     </span>
                     <div className="flex items-center gap-1 text-[10px] mt-1 font-mono text-[var(--color-fg-muted)]">
                         {kpis.ecartBrutM1Pct !== undefined && kpis.ecartBrutM1Pct !== null && (
-                            <span className={`flex items-center ${kpis.ecartBrutM1Pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            <span className={`flex items-center ${kpis.ecartBrutM1Pct >= 0 ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
                                 {kpis.ecartBrutM1Pct >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
                                 Écart M-1 : {kpis.ecartBrutM1Pct >= 0 ? '+' : ''}{Math.abs(kpis.ecartBrutM1Pct).toFixed(1)}%
                             </span>
@@ -520,7 +515,7 @@ export default function CockpitPaieTab({
                     <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                         Charges Patronales
                     </span>
-                    <span className="text-sm font-bold font-mono text-slate-700 block mt-1">
+                    <span className="text-sm font-bold font-mono text-[var(--color-fg)] block mt-1">
                         {formatAr(kpis.totalCotisationsPatronales)}
                     </span>
                     <span className="text-[10px] text-[var(--color-fg-muted)] block mt-1">
@@ -532,7 +527,7 @@ export default function CockpitPaieTab({
                     <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                         Cotisations Salariales
                     </span>
-                    <span className="text-sm font-bold font-mono text-rose-600 block mt-1">
+                    <span className="text-sm font-bold font-mono text-[var(--color-danger-600)] block mt-1">
                         -{formatAr(kpis.totalCotisationsSalariales)}
                     </span>
                     <span className="text-[10px] text-[var(--color-fg-muted)] block mt-1">
@@ -544,7 +539,7 @@ export default function CockpitPaieTab({
                     <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                         Retenue IRSA DGI
                     </span>
-                    <span className="text-sm font-bold font-mono text-rose-600 block mt-1">
+                    <span className="text-sm font-bold font-mono text-[var(--color-danger-600)] block mt-1">
                         -{formatAr(kpis.totalIrsa)}
                     </span>
                     <span className="text-[10px] text-[var(--color-fg-muted)] block mt-1">
@@ -667,7 +662,7 @@ export default function CockpitPaieTab({
                 </div>
 
                 <div className="text-xs text-[var(--color-fg-muted)] font-mono">
-                    Affichage : <span className="font-bold text-[var(--color-fg)]">{filteredBulletins.length}</span> sur {bulletins.length} salariés
+                    Affichage : <span className="font-bold text-[var(--color-fg)]">{filteredBulletins.length}</span> sur {bulletinsPage.totalElements ?? bulletins.length} salariés
                 </div>
             </div>}
 
@@ -712,7 +707,7 @@ export default function CockpitPaieTab({
                                             <span className="font-medium text-[var(--color-fg)] block">{b.intitulePoste || '-'}</span>
                                             <span className="text-[10px] text-[var(--color-fg-subtle)]">{b.nomSite || 'Siège'}</span>
                                         </td>
-                                        <td className="p-3 text-right font-mono font-bold text-slate-800">
+                                        <td className="p-3 text-right font-mono font-bold text-[var(--color-fg)]">
                                             {formatAr(b.totalGainsBruts)}
                                         </td>
                                         <td className="p-3 text-right font-mono font-black text-[var(--color-brand-500)] bg-[var(--color-brand-500)]/5 text-[13px]">
@@ -720,14 +715,14 @@ export default function CockpitPaieTab({
                                         </td>
                                         <td className="p-3 text-center font-mono">
                                             {b.typeBulletin === 'STC' ? (
-                                                <span className="text-[10px] font-bold text-blue-600">N/A</span>
+                                                <span className="text-[10px] font-bold text-[var(--color-info-600)]">N/A</span>
                                             ) : b.ecartM1Pct !== null && b.ecartM1Pct !== undefined ? (
                                                 <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-semibold border ${
                                                     b.aAlerte 
-                                                        ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold'
+                                                        ? 'bg-[var(--color-warning-500)]/15 text-[var(--color-warning-700)] border-[var(--color-warning-500)]/30 font-bold'
                                                         : b.ecartM1Pct >= 0 
-                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                                                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                            ? 'bg-[var(--color-success-500)]/15 text-[var(--color-success-600)] border-[var(--color-success-500)]/30'
+                                                            : 'bg-[var(--color-danger-500)]/15 text-[var(--color-danger-600)] border-[var(--color-danger-500)]/30'
                                                 }`}>
                                                     {b.ecartM1Pct >= 0 ? '+' : ''}{Number(b.ecartM1Pct).toFixed(1)}%
                                                     {b.aAlerte && ' ⚠️'}
@@ -738,25 +733,15 @@ export default function CockpitPaieTab({
                                         </td>
                                         <td className="p-3 text-center">
                                             {b.typeBulletin === 'STC' ? (
-                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                                                    ★ STC Inclus
-                                                </span>
+                                                <Badge variant="info">★ STC inclus</Badge>
                                             ) : b.aAlerte ? (
-                                                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
-                                                    ⚠ Contrôle
-                                                </span>
+                                                <Badge variant="warning">⚠ Contrôle</Badge>
                                             ) : b.statut === 'CLOTURE' ? (
-                                                <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
-                                                    ✓ Clôturé
-                                                </span>
+                                                <Badge variant="neutral">✓ Clôturé</Badge>
                                             ) : b.statut === 'VALIDE' ? (
-                                                <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                    ✓ Validé
-                                                </span>
+                                                <Badge variant="success">✓ Validé</Badge>
                                             ) : (
-                                                <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                    ✓ Prêt
-                                                </span>
+                                                <Badge variant="success">✓ Prêt</Badge>
                                             )}
                                         </td>
                                         <td className="p-3 text-right">
@@ -775,12 +760,14 @@ export default function CockpitPaieTab({
                         </tbody>
                     </table>
 
-                    {/* Pied de tableau (Wireframe 1) */}
-                    <div className="px-4 py-3 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex items-center justify-between">
-                        <span className="text-xs text-[var(--color-fg-muted)] font-mono">
-                            Page 1 / 1 ({filteredBulletins.length} salariés)
-                        </span>
-
+                    <div className="px-4 py-3 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex flex-col gap-2">
+                        <Pagination
+                            currentPage={currentPage}
+                            totalElements={bulletinsPage.totalElements ?? bulletins.length}
+                            pageSize={pageSize}
+                            onPageChange={setCurrentPage}
+                            onPageSizeChange={(nextSize) => { setPageSize(nextSize); setCurrentPage(1); }}
+                        />
                         <Button
                             variant="outline"
                             size="sm"
@@ -917,7 +904,7 @@ export default function CockpitPaieTab({
                 isOpen={isReopenModalOpen}
                 onClose={() => setIsReopenModalOpen(false)}
                 title="Réouverture Exceptionnelle de la Période"
-                icon={<RotateCcw size={18} className="text-amber-600" />}
+                icon={<RotateCcw size={18} className="text-[var(--color-warning-600)]" />}
                 size="md"
                 footer={
                     <div className="flex items-center justify-end gap-2 w-full">
@@ -936,7 +923,7 @@ export default function CockpitPaieTab({
                 }
             >
                 <form onSubmit={handleRouvrirPaie} className="space-y-3 text-xs">
-                    <p className="text-slate-600 leading-relaxed">
+                    <p className="text-[var(--color-fg-muted)] leading-relaxed">
                         La réouverture d'une période clôturée permet d'effectuer des corrections sur les variables ou les pointages. 
                         Cette action est strictement auditée et requiert la saisie d'un motif obligatoire.
                     </p>

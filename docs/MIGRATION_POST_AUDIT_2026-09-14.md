@@ -492,3 +492,220 @@ Les tests existants Paie, Pointage, sécurité et E2E ont été migrés vers les
 - workflow Paie : environ 8/10 ;
 - frontend Paie : environ 7,5/10 ;
 - explicabilité et traçabilité des sorties : environ 8/10.
+
+## Phase 8 — Pointage, Congés, Carrière et Employés — TERMINÉE
+
+### Avant
+
+- Pointage recomposait dans plusieurs pages les droits de saisie, transmission et arbitrage à partir du statut, de la date, des anomalies et des permissions ;
+- Congés exposait de nombreux booléens redondants (`canValidate`, `isModifiable`, etc.) au lieu d'un vocabulaire d'actions commun ;
+- les pages choisissaient encore localement une période avec le premier élément ou le dernier statut connu ;
+- les onglets Employé n'étaient pas restaurables par URL.
+
+### Modifications
+
+- extension de l'unique `PayrollPeriodWorkflowService` avec les actions Pointage `EDIT_POINTAGE` et `REGULARIZE_ANOMALY`, sans créer de workflow parallèle ;
+- la capacité `SUBMIT` vérifie et explique côté backend : période achevée, pointage présent et absence d'anomalie bloquante ; l'exécution impose exactement la même décision ;
+- Saisie, Anomalies et Arbitrage utilisent le contexte de période et les `availableActions` backend ;
+- Congés publie un unique message `availableActions` (`APPROVE`, `REJECT`, `EDIT`, `CANCEL`, `MODIFY_DATES`) et les anciens booléens sérialisés ont été supprimés ;
+- les vues Congés consomment ces actions sans recomposer le workflow ;
+- les sections Employé sont partageables via `/employes/:id/:section` ;
+- les conditions de statut restantes sont limitées à la présentation et aux données affichées.
+
+### Fichiers principaux
+
+- `backend/src/main/java/mg/galaxam/sirh/model/paie/workflow/PayrollPeriodWorkflowService.java`
+- `backend/src/main/java/mg/galaxam/sirh/model/paie/workflow/PointagePeriodAction.java`
+- `backend/src/main/java/mg/galaxam/sirh/model/conge/VDemandeCongeCpl.java`
+- `frontend/src/pages/pointage/SaisieQuotidiennePage.jsx`
+- `frontend/src/pages/pointage/SuiviAnomaliesPage.jsx`
+- `frontend/src/pages/pointage/ArbitrageDafPage.jsx`
+- `frontend/src/components/conges/validation/ValidationTable.jsx`
+- `frontend/src/pages/employe/EmployeFicheDetailPage.jsx`
+
+### Tests ajoutés et exécutés
+
+- `WorkflowCapabilitiesTest` couvre les capacités Pointage et Congés ;
+- `WorkflowAssistantArchitectureTest` interdit les recompositions critiques dans React ;
+- E2E Pointage, Congés et workflow d'intégration ciblés : verts ;
+- les anciens tests RBAC ont été caractérisés avec une période achevée et un pointage réel ;
+- backend complet : 186/186 ;
+- frontend lint : OK ; frontend build : OK ;
+- `git diff --check` : OK.
+
+### Dette restante
+
+- le workflow Carrière historique conserve des helpers de présentation ; ses mutations restent toutefois gouvernées par le backend et ses tests E2E ;
+- la modal multi-jours d'anomalie reste volumineuse : la remplacer par un drawer est une amélioration UX, pas un second moteur métier ;
+- les recherches de population sont traitées en phase 9.
+
+### Impact estimé
+
+- workflow Pointage : environ 7,5/10 ;
+- workflow Congés : environ 7,5/10 ;
+- navigation Employé : environ 7/10.
+
+## Phase 9 — Pagination, performance et accessibilité — TERMINÉE
+
+### Avant
+
+- plusieurs sélecteurs chargeaient arbitrairement 1 000 ou 10 000 salariés ;
+- la liste Employés refiltrait et retriait en mémoire une page déjà tronquée ;
+- le cockpit Paie renvoyait tous les bulletins et appliquait recherche et filtres dans React ;
+- ses filtres n'étaient pas restaurables via URL.
+
+### Modifications
+
+- recherche, statut, site, département, service et tri de la liste Employés sont exécutés côté serveur avec une taille maximale de page de 100 ;
+- suppression du second filtrage/tri/paging React ;
+- remplacement des chargements massifs par l'unique `EmployeSearchSelect`, débouncé et paginé serveur ;
+- ajout de pagination, recherche et filtres serveur au message cockpit Paie ;
+- le parcours JDBC calcule chaque contrôle individuel en Java une seule fois, compte les correspondances et ne conserve que la page demandée ;
+- les métadonnées `bulletinsPage` et `populationPage` sont transportées dans la même réponse ;
+- recherche, filtres et pagination Paie sont restaurables dans l'URL ;
+- utilisation du composant commun `Pagination`, avec libellés et contrôles accessibles.
+
+### Fichiers principaux
+
+- `backend/src/main/java/mg/galaxam/sirh/model/employe/service/EmployeService.java`
+- `backend/src/main/java/mg/galaxam/sirh/model/employe/EmployeCPL.java`
+- `backend/src/main/java/mg/galaxam/sirh/model/paie/service/PayrollService.java`
+- `backend/src/main/java/mg/galaxam/sirh/api/controller/paie/PaieController.java`
+- `frontend/src/pages/employe/EmployeList.jsx`
+- `frontend/src/components/paie/CockpitPaieTab.jsx`
+- `frontend/src/components/ui/forms/EmployeSearchSelect.jsx`
+
+### Tests ajoutés et exécutés
+
+- `EmployePaginationIntegrationTest` injecte 10 001 salariés et vérifie les 101 pages ainsi que le dernier enregistrement ;
+- test API du cockpit : page 2, taille 1, total et recherche serveur ;
+- test d'architecture interdisant `size=1000`, `size=10000` et le retour des filtres Paie locaux ;
+- backend complet : 189/189 ;
+- frontend lint : OK ; frontend build : OK ;
+- `git diff --check` : OK.
+
+### Dette restante
+
+- la résolution de population parcourt encore les dossiers actifs pour produire les décisions individuelles canoniques ; seule la page demandée est sérialisée, et le batch réutilise exactement ce resolver ;
+- une optimisation par curseur pourra être ajoutée au-delà de plusieurs dizaines de milliers de salariés, sans déplacer la décision vers SQL ;
+- l'accessibilité visuelle et les statuts sémantiques sont consolidés en phase 10.
+
+### Impact estimé
+
+- pagination et exhaustivité : environ 8/10 ;
+- performance des parcours de liste : environ 7,5/10 ;
+- navigation filtrée : environ 8/10.
+
+## Phase 10 — Design system — TERMINÉE
+
+### Avant
+
+- les écrans métier les plus exposés mélangeaient encore des couleurs nominatives et des badges locaux ;
+- quelques contrôles de Pointage ne suivaient pas la convention existante `rounded-none` ;
+- le système de composants était présent, mais aucune règle automatisée ne protégeait son usage dans le cockpit Paie.
+
+### Modifications
+
+- lecture de `frontend/src/index.css` avant migration : les tokens et composants existants ont été réutilisés, sans créer un second design system ;
+- les statuts du cockpit Paie utilisent désormais les composants communs `Badge`, `Alert` et `Pagination` ainsi que des tokens sémantiques ;
+- l'en-tête du tableau de bord et les contrôles Pointage migrés n'emploient plus de couleurs de statut nominatives ni de rayon non conforme ;
+- ajout d'un test d'architecture qui vérifie les composants socles, les usages du cockpit et la convention de rayon.
+
+### Fichiers principaux
+
+- `frontend/src/index.css` (contexte vérifié, non dupliqué)
+- `frontend/src/components/paie/CockpitPaieTab.jsx`
+- `frontend/src/components/dashboard/DashboardHeader.jsx`
+- `frontend/src/components/pointage/PointageToolbar.jsx`
+- `frontend/src/components/pointage/DafAjustementPointageModal.jsx`
+- `backend/src/test/java/mg/galaxam/sirh/unit/architecture/DesignSystemArchitectureTest.java`
+
+### Tests ajoutés et exécutés
+
+- `DesignSystemArchitectureTest` : vert ;
+- backend complet : 189/189 à la clôture de la phase ;
+- frontend lint : OK ; frontend build : OK ;
+- `git diff --check` : OK.
+
+### Dette restante
+
+- les écrans non critiques conservent encore quelques couleurs historiques : leur migration doit rester progressive et sémantique, sans remplacement mécanique global ;
+- l'extension de la bibliothèque de composants se fera seulement lorsqu'un besoin récurrent le justifiera.
+
+### Impact estimé
+
+- cohérence visuelle : environ 7/10 ;
+- design system : environ 7/10.
+
+## Phase 11 — Documentation et CI — TERMINÉE
+
+### Avant
+
+- le wrapper Maven n'était pas reproductible ;
+- le projet ne possédait pas de pipeline CI couvrant les gates backend, frontend et qualité de diff ;
+- README, guide de déploiement et documents d'architecture contenaient des noms de moteurs, versions ou compteurs de tests périmés ;
+- certains documents métier anciens pouvaient être lus à tort comme des règles légales actuelles.
+
+### Modifications
+
+- génération du wrapper Maven officiel 3.9.9 (`./mvnw`) et ajout de sa configuration versionnée ;
+- ajout de la CI GitHub : PostgreSQL prêt par healthcheck, tests Maven par wrapper, résumé Surefire généré, lint/build frontend et contrôle `git diff --check` ;
+- ajout du script `surefire-summary.py` : le nombre de tests est désormais lu depuis les rapports Surefire, jamais maintenu à la main ;
+- mise à jour du README, du déploiement et de l'architecture pour refléter les moteurs canoniques et les exigences de production ;
+- ajout des migrations actives nécessaires aux bases Docker et d'un healthcheck PostgreSQL ;
+- marquage explicite des documents anciens comme `OBSOLETE`, `UPDATE` ou `LEGAL_REVIEW` lorsque le code et les tests constituent la source de vérité.
+
+### Fichiers principaux
+
+- `backend/mvnw`, `backend/mvnw.cmd`, `backend/.mvn/wrapper/maven-wrapper.properties`
+- `.github/workflows/ci.yml`
+- `backend/scripts/surefire-summary.py`
+- `docker-compose.yml`, `docker/init-databases.sql`
+- `README.md`, `Deployement.md`, `backend/docs/ARCHITECTURE_BACKEND.md`
+- `docs/cartographie_architecturale_sirh.md`, `docs/GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md`, `backend/docs/boky/module-paie.md`
+
+### Tests exécutés
+
+- `backend/./mvnw -q test` : 192/192, 0 échec, 0 erreur ;
+- exécution ciblée des scénarios adversariaux Paie/Pointage : verte ;
+- frontend lint : OK ; frontend build : OK ;
+- `docker compose config -q` : OK ;
+- `git diff --check` : OK.
+
+### Dette restante
+
+- la CI n'a pas encore eu sa première exécution sur GitHub : sa syntaxe et ses commandes ont été validées localement ;
+- les contenus légaux marqués `LEGAL_REVIEW` exigent une validation humaine compétente avant toute évolution de règle ;
+- le contre-audit de phase 12 doit encore vérifier l'ensemble du périmètre, sans recycler les anciens scores.
+
+### Impact estimé
+
+- reproductibilité CI : environ 8/10 ;
+- documentation opérationnelle : environ 7/10.
+
+## Phase 12 — Contre-audit final — TERMINÉE
+
+### Méthode et résultat
+
+- contre-audit mené sur le code, les migrations Docker actives, les tests d'intégration et les tests d'architecture actuels ;
+- les fichiers documentaires historiques ont été traités comme contexte et classifiés séparément ;
+- aucun P0/P1 structurel de l'audit initial n'est conservé dans son périmètre ;
+- score global conservateur : **76/100**.
+
+### Preuves de gate
+
+- `backend/./mvnw -q test` : **192/192**, 0 échec, 0 erreur ;
+- frontend lint et build : OK ;
+- `docker compose config -q` : OK ;
+- `git diff --check` : OK ;
+- test 10 001 employés, tests de sécurité, concurrence, temporalité, routes et workflow : verts.
+
+### Rapport détaillé
+
+- `docs/CONTRE_AUDIT_GLOBAL_2026-09-15.md`
+
+### Dette restante
+
+- maintenance progressive des services historiques les plus longs ;
+- UX mobile/accessibilité approfondie et première exécution GitHub de CI ;
+- validation juridique externe des règles marquées `LEGAL_REVIEW`.

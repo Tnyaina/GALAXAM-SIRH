@@ -9,6 +9,11 @@ services:
       POSTGRES_PASSWORD: galaxam_password
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U galaxam_admin -d sirh_galaxam_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     volumes:
       - galaxam_pg_data:/var/lib/postgresql/data
       - ./docker/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro

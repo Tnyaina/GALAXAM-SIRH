@@ -119,9 +119,15 @@ public class PaieController {
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> obtenirCockpitPeriode(
             @PathVariable("idPeriode") Integer idPeriode,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "25") int size,
+            @RequestParam(value = "q", required = false) String query,
+            @RequestParam(value = "site", required = false) String site,
+            @RequestParam(value = "filter", required = false) String filter,
             Authentication authentication) throws Exception {
         try (Connection c = dataSource.getConnection()) {
-            Map<String, Object> cockpit = payrollService.obtenirCockpitPeriode(idPeriode, c);
+            Map<String, Object> cockpit = payrollService.obtenirCockpitPeriode(
+                    idPeriode, page, size, query, site, filter, c);
             // Une seule réponse porte les données de travail et la décision canonique du backend.
             cockpit.put("context", payrollPeriodWorkflowService.describeContext(
                     idPeriode, null, PayrollPeriodUserContext.from(authentication)));

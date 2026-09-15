@@ -358,6 +358,38 @@ class PaieControllerIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
+    @DisplayName("GET cockpit - pagination serveur et recherche ne masquent pas la population")
+    void testCockpitPaginationServeur() throws Exception {
+        CalculPeriodeRequest calculation = new CalculPeriodeRequest();
+        calculation.setIdPeriodePaie(idPeriode);
+        calculation.setSimulation(false);
+        mockMvc.perform(post("/paie/calculer-periode")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(calculation)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/paie/periode/" + idPeriode + "/cockpit")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .param("page", "2")
+                        .param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bulletins", hasSize(1)))
+                .andExpect(jsonPath("$.bulletinsPage.totalElements", is(2)))
+                .andExpect(jsonPath("$.bulletinsPage.currentPage", is(2)))
+                .andExpect(jsonPath("$.populationPage.totalElements", is(2)));
+
+        mockMvc.perform(get("/paie/periode/" + idPeriode + "/cockpit")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .param("q", "EMP-PERM-01")
+                        .param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bulletins", hasSize(1)))
+                .andExpect(jsonPath("$.bulletins[0].idEmploye", is(empPermanent.idEmploye)))
+                .andExpect(jsonPath("$.bulletinsPage.totalElements", is(1)));
+    }
+
+    @Test
     @DisplayName("GET /paie/periode/{id}/export/* - Exports réglementaires (SAFI, EDI ISI XML, DNTS, Virement)")
     void testExportsReglementairesPaie() throws Exception {
         // Pré-calculer la période

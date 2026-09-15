@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw, AlertTriangle, RotateCcw, CalendarClock, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { RefreshCw, AlertTriangle, RotateCcw, CalendarClock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import Button from '@/components/ui/forms/Button';
@@ -19,29 +19,15 @@ function resolveStatutStyle(statutCode) {
     switch (statutCode) {
         case 'A_VALIDER':
         case 'TRANSMIS_DAF':
-            return { dot: 'bg-amber-300 animate-pulse', badge: 'bg-amber-400 text-amber-950' };
+            return { dot: 'bg-[var(--color-warning-400)] animate-pulse', badge: 'bg-[var(--color-warning-400)] text-[var(--color-warning-700)]' };
         case 'EN_COURS':
         case 'CALCULE':
-            return { dot: 'bg-emerald-400 animate-pulse', badge: 'bg-emerald-400/90 text-emerald-950' };
+            return { dot: 'bg-[var(--color-success-400)] animate-pulse', badge: 'bg-[var(--color-success-500)] text-white' };
         case 'VALIDEE':
         case 'CLOTUREE':
-            return { dot: 'bg-sky-300', badge: 'bg-sky-400/90 text-sky-950' };
+            return { dot: 'bg-[var(--color-info-200)]', badge: 'bg-[var(--color-info-500)] text-white' };
         default:
             return { dot: 'bg-white/50', badge: 'bg-white/20 text-white' };
-    }
-}
-
-/** Icône de statut pour le widget paie. */
-function StatutIcon({ statutCode, size = 14 }) {
-    switch (statutCode) {
-        case 'VALIDEE':
-        case 'CLOTUREE':
-            return <CheckCircle2 size={size} className="text-sky-300" />;
-        case 'A_VALIDER':
-        case 'TRANSMIS_DAF':
-            return <AlertCircle size={size} className="text-amber-300" />;
-        default:
-            return <Clock size={size} className="text-emerald-300" />;
     }
 }
 

@@ -1,5 +1,7 @@
 # GUIDE COMPLET DU MODULE PAIE & RÉMUNÉRATION — GALAXAM SIRH
 
+> **Statut : LEGAL_REVIEW.** Guide fonctionnel historique : les taux, articles, formules et volumes de tests ne constituent pas une certification légale ni la source de vérité du code.
+
 ---
 
 ## Sommaire
@@ -489,4 +491,3 @@ Le module Paie et l'ensemble du SIRH GALAXAM font l'objet d'un audit contradicto
 - **Moteur Paie Duale (`PayrollExecutionEngineTest.java`)** : 21 tests de calculs bruts, nets, cotisations CNaPS/Santé, tranches IRSA, et retenues ISI 5%.
 - **STC & Quittance (`StcIntegrationTest.java`)** : Tests d'apurement automatique des dettes, ICCP, préavis, et balance décimale réconciliée.
 - **Exports Fiscaux & Sociaux (`PaieExportServiceIntegrationTest.java`)** : Vérification des 25 colonnes SAFI État 301, du format TradXML EDI ISI, de la DNTS CNaPS trimestrielle et des bordereaux de santé.
-

@@ -66,4 +66,18 @@ class BackendDrivenFrontendArchitectureTest {
             assertThat(sources).doesNotContain("size: 1000", "size: 10000", "size=1000", "size=10000");
         }
     }
+
+    @Test
+    void payrollResultsUseTheSharedServerPaginationContract() throws Exception {
+        String controller = Files.readString(Path.of(
+                "src/main/java/mg/galaxam/sirh/api/controller/paie/PaieController.java"));
+        String service = Files.readString(Path.of(
+                "src/main/java/mg/galaxam/sirh/model/paie/service/PayrollService.java"));
+        String cockpit = Files.readString(Path.of("../frontend/src/components/paie/CockpitPaieTab.jsx"));
+
+        assertThat(controller).contains("@RequestParam(value = \"page\"", "@RequestParam(value = \"size\"");
+        assertThat(service).contains("cockpit.put(\"bulletinsPage\"", "cockpit.put(\"populationPage\"");
+        assertThat(cockpit).contains("<Pagination", "bulletinsPage.totalElements", "useDebounce(searchQuery, 300)");
+        assertThat(cockpit).doesNotContain("const matchSearch", "const matchSite", "let matchFilter");
+    }
 }

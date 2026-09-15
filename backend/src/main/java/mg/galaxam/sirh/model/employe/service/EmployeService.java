@@ -45,9 +45,9 @@ public class EmployeService {
     }
 
     public Map<String, Long> getStats(String q, Connection c) throws Exception {
-        long total = EmployeCPL.compterEmployes(c, q, null);
-        long actifs = EmployeCPL.compterEmployes(c, q, true);
-        long inactifs = EmployeCPL.compterEmployes(c, q, false);
+        long total = EmployeCPL.compterEmployes(c, q, null, null, null, null);
+        long actifs = EmployeCPL.compterEmployes(c, q, true, null, null, null);
+        long inactifs = EmployeCPL.compterEmployes(c, q, false, null, null, null);
 
         return Map.of(
             "total", total,
@@ -435,10 +435,11 @@ public class EmployeService {
         return matriculeEngine.genererMatriculeParDefaut(maxSeq + 1);
     }
 
-    public List<Map<String, Object>> getOptions(Boolean actif) throws Exception {
+    public PageDTO<Map<String, Object>> getOptions(String query, Boolean actif, int page, int size) throws Exception {
         try (Connection c = dataSource.getConnection()) {
-            List<EmployeCPL> list = EmployeCPL.rechercherEmployes(c, null, actif, 1000, 0);
-            return list.stream().map(e -> Map.<String, Object>of(
+            PageDTO<EmployeCPL> employees = getEmployes(
+                    query, actif, null, null, null, "MATRICULE", "ASC", page, size, c);
+            List<Map<String, Object>> options = employees.getContent().stream().map(e -> Map.<String, Object>of(
                 "idEmploye", e.getTuppleID(),
                 "matricule", e.getMatricule() != null ? e.getMatricule() : "",
                 "nom", e.getNom() != null ? e.getNom() : "",
@@ -446,6 +447,8 @@ public class EmployeService {
                 "nomComplet", e.getNomComplet() != null ? e.getNomComplet() : "",
                 "photoUrl", e.getPhotoUrl() != null ? e.getPhotoUrl() : ""
             )).toList();
+            return new PageDTO<>(options, employees.getTotalElements(),
+                    employees.getCurrentPage(), employees.getPageSize());
         }
     }
 }

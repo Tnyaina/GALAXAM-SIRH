@@ -5,8 +5,8 @@ import apiClient from '@/api/apiClient';
  */
 export const paieService = {
     // --- Cockpit & Calculs ---
-    getCockpitPeriode: async (idPeriode) => {
-        const response = await apiClient.get(`paie/periode/${idPeriode}/cockpit`);
+    getCockpitPeriode: async (idPeriode, params = {}) => {
+        const response = await apiClient.get(`paie/periode/${idPeriode}/cockpit`, { params });
         return response.data;
     },
 

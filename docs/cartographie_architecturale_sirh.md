@@ -1,5 +1,7 @@
 # LIVRE BLANC D'ARCHITECTURE & MANUEL TECHNIQUE DU REPOSITORY
 
+> **Statut : OBSOLETE pour les inventaires, scores et noms de moteurs.** Conserver comme contexte historique. Utiliser le code courant, les migrations actives, les tests et `MIGRATION_POST_AUDIT_2026-09-14.md` pour l'état actuel.
+
 # GALAXAM-SIRH — SYSTÈME D'INFORMATION DES RESSOURCES HUMAINES & DE LA PRÉ-PAIE
 
 ---

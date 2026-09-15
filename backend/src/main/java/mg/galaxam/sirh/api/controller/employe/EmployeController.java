@@ -59,9 +59,13 @@ public class EmployeController {
 
     @GetMapping("/options")
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> getEmployeOptions(@RequestParam(required = false, defaultValue = "true") Boolean actif) {
+    public ResponseEntity<?> getEmployeOptions(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "true") Boolean actif,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
         try {
-            List<Map<String, Object>> options = employeService.getOptions(actif);
+            var options = employeService.getOptions(q, actif, page, size);
             return ResponseEntity.ok(options);
         } catch (Exception e) {
             e.printStackTrace();

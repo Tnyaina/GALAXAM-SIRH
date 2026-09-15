@@ -132,7 +132,7 @@ export default function PointageToolbar({
                         )}
                         <span>{saving ? 'Enregistrement…' : dirtyCount > 0 ? 'Enregistrer' : 'Enregistré'}</span>
                         {dirtyCount > 0 && (
-                            <span className="bg-white/25 text-white text-[10px] font-mono px-1.5 py-0.5 rounded-sm leading-none">
+                            <span className="bg-white/25 text-white text-[10px] font-mono px-1.5 py-0.5 rounded-none leading-none">
                                 {dirtyCount}
                             </span>
                         )}

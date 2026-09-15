@@ -20,7 +20,7 @@ L'objectif est de remplacer une gestion RH actuellement dispersée sur de multip
 
 ## 🛠 Architecture Technique et Choix Conceptuels
 
-Le projet est structuré en **Monorepo** et applique les principes du **Domain-Driven Design (DDD)** et de l'architecture **Backend-Driven** avec 100% de la logique métier exécutée en code Java pur :
+Le projet est structuré en **monorepo**. Les décisions de workflow et les calculs critiques sont portés par le backend Java ; PostgreSQL charge, filtre, joint et agrège techniquement les données. L'état réel est décrit dans le [journal de migration](docs/MIGRATION_POST_AUDIT_2026-09-14.md), le code et les tests restant les sources de vérité.
 
 *   **Frontend :** React.js propulsé par Vite (Architecture 3 couches : Pages / Hooks / Components UI).
 *   **Backend (Cœur Métier & Moteurs de Domaine) :** Logique implémentée en POO pure en **Java 17**, isolée dans des composants spécialisés (`mg.galaxam.sirh.model.<domaine>.engine`) :
@@ -31,18 +31,18 @@ Le projet est structuré en **Monorepo** et applique les principes du **Domain-D
     *   `CarriereTransitionValidator` : Contrôle des transitions d'affectation, de salaires et de postes.
     *   `CongeCalculateurEngine` : Décompte en jours calendaires, acquisition mensuelle (2.5j), bonifications d'ancienneté (+1j par 5 ans), fractionnement et scission maladie > 30 jours.
     *   `PurgeFifoEngine` : Algorithme FIFO exact d'expiration des congés acquis il y a plus de 36 mois (Art. 85).
-    *   `PointageCalculateurEngine` : Règle de 0 tolérance aux retards, heures de nuit (>22h), déductions repas Tamatave (-1 000 Ar/j) et péréquation hebdomadaire 40h (compensation ).
-    *   `CalendrierOuvrableEngine` : Calcul des jours ouvrables, chômés et fériés légaux par site (injecté dans Pointage et Congés).
-    *   `CalculateurPaieEngine` : Cotisations CNaPS (1%/13% plafonné à 8x SMIG), OSTIE (1%/5%), barème progressif canonique IRSA (CGI Art. 01.03.18, 5 tranches, déduction enfants, min. perception 3 000 Ar) avec parité exacte entre Paie Mensuelle et STC.
-    *   `PayrollExecutionEngine` : Moteur complet d'orchestration paie, calcul du brut, décompte d'absence horaire réel, workflow de régularisation congés DAF (`REGULARISATION_CONGE`), quotité cessible (Art. 72 - tiers légal max), avances spéciales (Art. 68 - dixième max), quittance STC et équilibre bancaire strict à la dizaine d'Ariary.
+    *   `DailyAttendanceCalculator`, `WeeklyAttendanceCalculator`, `AttendancePeriodCalculator` : composition canonique jour → semaine → période.
+    *   `CalendrierOuvrableEngine` : résolution datée des jours ouvrables et calendriers applicables par site.
+    *   `OvertimePayCalculator`, `SocialContributionCalculator`, `IrsaCalculator`, `IsiCalculator` : calculateurs unitaires Paie partagés par les orchestrations concernées.
+    *   `PayrollExecutionEngine` : composition d'une paie individuelle à partir d'un contexte explicite ; le batch appelle ce même moteur et ne possède pas de formule parallèle.
 *   **Exports Réglementaires & Déclaratifs :**
     *   **État 301 IRSA SAFI / e-Hetra** : Fichier matriciel officiel DGI à 25 colonnes.
     *   **EDI ISI 5%** : Format XML normalisé (`TradXML`) et feuille tabulaire pour macro DGI.
     *   **DNTS CNaPS & FMFP** : Déclarations nominatives trimestrielles consolidées (3 mois civils).
     *   **Organismes de Santé** : Bordereaux nominatifs trimestriels pour OSTIE (Antananarivo) et OMSI (Toamasina).
-*   **Backend (Accès Données & Infrastructure) :** API REST avec **Spring Boot 3.3.4** et **Spring Data JDBC** avec transactions explicites. La base de données PostgreSQL sert uniquement au stockage et aux projections relationnelles (vues `*CPL`), sans aucune logique de calcul en SQL (`INTERVAL`, `FILTER (WHERE)`, `CASE WHEN` éliminés au profit du code Java typé).
-*   **Base de Données & Performance :** PostgreSQL 15 conteneurisé. Migration SP8 (`26-09-16-sp8-indexes-foreign-keys.sql`) appliquée couvrant **100% des clés étrangères avec 71 index B-Tree dédiés** (0 table scan sur les jointures volumineuses).
-*   **Qualité & Tests :** **328 tests automatisés avec 100% de succès** (0 échec, 0 erreur) couvrant audits contradictoires, cas limites légaux, calculs fiscaux, STC et exports. **0 erreur et 0 avertissement ESLint** côté frontend.
+*   **Backend (Accès Données & Infrastructure) :** API REST Spring Boot/Java 17 et JDBC. Les transactions des parcours critiques sont centralisées dans `TransactionRunner` ; les vues SQL actives restent des projections et non des moteurs de décision.
+*   **Base de Données & Performance :** PostgreSQL 15 conteneurisé, migrations actives ordonnées dans `backend/conception/bdd/`. Les listes importantes utilisent recherche, filtres, tri et pagination serveur.
+*   **Qualité & Tests :** le volume n'est pas maintenu manuellement. Exécuter `./mvnw test` puis lire les rapports Surefire ; exécuter `npm run lint` et `npm run build` pour le frontend.
 
 ## 📚 Cartographie de la Documentation (Puits de Contexte pour le Repository)
 
@@ -50,12 +50,12 @@ Pour appréhender immédiatement et exhaustivement le projet, voici les document
 
 | Document | Emplacement | Périmètre & Rôle Clé |
 | :--- | :--- | :--- |
-| **Livre Blanc d'Architecture** | [`docs/cartographie_architecturale_sirh.md`](docs/cartographie_architecturale_sirh.md) | **Le document maître (1 300+ lignes)** : Cartographie complète Front + Back + BDD, inventaire des 44 contrôleurs REST, 14 services API, Domain Engines Java, entités Active Record, vues `*CPL` et traçabilité bidirectionnelle. |
+| **Livre Blanc d'Architecture** | [`docs/cartographie_architecturale_sirh.md`](docs/cartographie_architecturale_sirh.md) | Contexte historique à confronter au code courant ; certains inventaires et scores sont obsolètes. |
 | **Dictionnaire Métier & Scénarios** | [`docs/GUIDE_REGLES_METIER_ET_MODIFICATIONS.md`](docs/GUIDE_REGLES_METIER_ET_MODIFICATIONS.md) | **Le manuel pratique "Où modifier quoi ?"** : Répertoire exhaustif des règles de gestion (IRSA, CNaPS, OSTIE, Ancienneté, Pointage, Congés, STC, RBAC) et guide pas à pas pour 19 scénarios de modification réelle. |
 | **Spécification Technique Paie** | [`docs/CONCEPTION_ARCHITECTURE_MODULE_PAIE.md`](docs/CONCEPTION_ARCHITECTURE_MODULE_PAIE.md) | **Dossier de conception du moteur de paie** : Pipelines de calcul du brut, barèmes fiscaux, déductions légales, modèle de persistance (`bulletin_paie`, `stc`), formats d'exports déclaratifs DGI/CNaPS. |
 | **Guide Opérationnel Paie** | [`docs/GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md`](docs/GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md) | **Guide utilisateur et DAF** : Procédure de clôture de pointage, génération de la paie, acomptes, prêts, validation DAF et émission des bulletins PDF. |
 | **Cahier des Charges Fonctionnel** | [`docs/CAHIER_DES_CHARGES_GALAXAM.md`](docs/CAHIER_DES_CHARGES_GALAXAM.md) | **Exigences métier & cadre juridique** : Contexte légal malgache (Code du Travail, CGI), périmètre fonctionnel des 9 modules et critères d'acceptation. |
-| **Architecture Backend** | [`backend/docs/ARCHITECTURE_BACKEND.md`](backend/docs/ARCHITECTURE_BACKEND.md) | **Conception technique Java/Spring Boot** : Structure des packages `engine/`, suppression du SQL procédural, transactions, schedulers de fond et suite de 328 tests. |
+| **Architecture Backend** | [`backend/docs/ARCHITECTURE_BACKEND.md`](backend/docs/ARCHITECTURE_BACKEND.md) | Conception technique à lire avec le journal de migration et les tests courants. |
 | **Architecture Frontend** | [`frontend/docs/ARCHITECTURE_GUIDE.md`](frontend/docs/ARCHITECTURE_GUIDE.md) | **Conception technique React 19/Vite** : Architecture 4 couches (Pages / Hooks / Utilitaires Purs / Composants UI), source unique de dates `dateUtils.js`, gestion du state. |
 | **Guide de Déploiement** | [`Deployement.md`](Deployement.md) | **Infrastructure & Sécurité Production** : Déploiement Cloud/Render, Docker Compose, cookies HTTPS Cross-Site, en-têtes CSP/HSTS et migration des 71 index BDD. |
 
@@ -78,7 +78,7 @@ galaxam-sirh/
 │   │   ├── cron/              # Schedulers automatiques de maintenance et alertes
 │   │   └── securite/          # Authentification JWT, Refresh Cookies & RBAC
 │   ├── conception/bdd/        # Scripts SQL de migration ordonnancés (dont SP8 indexation)
-│   └── src/test/java/         # 328 tests automatisés (Unitaires, Intégration, Audits)
+│   └── src/test/java/         # Tests unitaires, intégration, architecture et workflows
 ├── docs/                      # Documentation complète d'architecture, règles métier et guides
 ├── docker-compose.yml         # Déclaration des services (PostgreSQL 15 conteneurisé)
 └── README.md                  # Point d'entrée et cartographie du projet
@@ -90,11 +90,11 @@ galaxam-sirh/
 # Lancer l'environnement de base de données
 docker compose up -d
 
-# Exécuter les 328 tests backend
-cd backend && mvn test
+# Exécuter la suite backend avec le Maven reproductible du projet
+cd backend && ./mvnw test
 
 # Lancer l'API Spring Boot
-cd backend && mvn spring-boot:run
+cd backend && ./mvnw spring-boot:run
 
 # Linter et validation du code Frontend (0 erreur, 0 warning)
 cd frontend && npm run lint

@@ -37,6 +37,7 @@ import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
 import mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche;
 import mg.galaxam.sirh.model.paie.engine.TaxConfigurationResolver;
 import mg.galaxam.sirh.common.transaction.TransactionRunner;
+import mg.galaxam.sirh.api.dto.paie.PayrollPopulationMember;
 
 /**
  * Service d'orchestration de paie.
@@ -936,6 +937,14 @@ public class PayrollService {
     }
 
     public Map<String, Object> obtenirCockpitPeriode(Integer idPeriodePaie, Connection c) throws Exception {
+        return obtenirCockpitPeriode(idPeriodePaie, 1, 25, null, null, null, c);
+    }
+
+    public Map<String, Object> obtenirCockpitPeriode(
+            Integer idPeriodePaie, int requestedPage, int requestedSize,
+            String query, String site, String filter, Connection c) throws Exception {
+        int page = Math.max(1, requestedPage);
+        int size = Math.min(100, Math.max(1, requestedSize));
         Map<String, Object> cockpit = new HashMap<>();
 
         // 1. Informations de la période
@@ -1083,7 +1092,11 @@ public class PayrollService {
                 "WHERE bp.id_periode_paie = ? " +
                 "ORDER BY bp.matricule ASC";
 
-        List<Map<String, Object>> bulletinsList = new ArrayList<>();
+        List<Map<String, Object>> bulletinPage = new ArrayList<>();
+        java.util.Set<String> bulletinSites = new java.util.TreeSet<>();
+        int totalBulletins = 0;
+        int matchingBulletins = 0;
+        int requestedOffset = (page - 1) * size;
         int nbAnomalies = 0;
         try (PreparedStatement ps = c.prepareStatement(sqlBulletins)) {
             ps.setInt(1, idPeriodePaie);
@@ -1125,10 +1138,21 @@ public class PayrollService {
 
                     row.put("ecartM1Pct", ecartIndivPct);
                     row.put("aAlerte", aAlerte);
-                    bulletinsList.add(row);
+                    totalBulletins++;
+                    if (row.get("nomSite") != null) bulletinSites.add(row.get("nomSite").toString());
+                    if (matchesCockpitFilters(row, query, site, filter)) {
+                        if (matchingBulletins >= requestedOffset && bulletinPage.size() < size) {
+                            bulletinPage.add(row);
+                        }
+                        matchingBulletins++;
+                    }
                 }
             }
         }
+        List<PayrollPopulationMember> populationMembers = population.members();
+        int populationFrom = Math.min((page - 1) * size, populationMembers.size());
+        int populationTo = Math.min(populationFrom + size, populationMembers.size());
+        List<PayrollPopulationMember> populationPage = populationMembers.subList(populationFrom, populationTo);
         readiness.put("nbAnomalies", nbAnomalies);
         readiness.put("checks", List.of(
                 Map.of(
@@ -1141,10 +1165,10 @@ public class PayrollService {
                         "expected", effectifAttendu),
                 Map.of(
                         "code", "PAYROLL_RESULTS",
-                        "status", bulletinsList.isEmpty() ? "WARNING" : "PASS",
-                        "message", bulletinsList.isEmpty()
+                        "status", totalBulletins == 0 ? "WARNING" : "PASS",
+                        "message", totalBulletins == 0
                                 ? "Aucun résultat de paie n'a encore été calculé."
-                                : bulletinsList.size() + " résultat(s) de paie disponible(s)."),
+                                : totalBulletins + " résultat(s) de paie disponible(s)."),
                 Map.of(
                         "code", "PAYROLL_POPULATION",
                         "status", populationBlocked > 0 ? "BLOCK" : "PASS",
@@ -1158,8 +1182,11 @@ public class PayrollService {
                                 ? nbAnomalies + " résultat(s) exigent un contrôle."
                                 : "Aucune variation bloquante détectée dans les résultats.")));
         cockpit.put("readiness", readiness);
-        cockpit.put("population", population.members());
-        cockpit.put("bulletins", bulletinsList);
+        cockpit.put("population", populationPage);
+        cockpit.put("populationPage", pageMetadata(populationMembers.size(), page, size));
+        cockpit.put("bulletins", bulletinPage);
+        cockpit.put("bulletinsPage", pageMetadata(matchingBulletins, page, size));
+        cockpit.put("sites", List.copyOf(bulletinSites));
 
         Map<String, Object> validationSummary = new HashMap<>();
         validationSummary.put("population", effectifAttendu);
@@ -1183,5 +1210,37 @@ public class PayrollService {
         cockpit.put("validationSummary", validationSummary);
 
         return cockpit;
+    }
+
+    private boolean matchesCockpitFilters(
+            Map<String, Object> row, String query, String site, String filter) {
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
+        boolean matchesQuery = normalizedQuery.isEmpty()
+                || containsIgnoreCase(row.get("matricule"), normalizedQuery)
+                || containsIgnoreCase(row.get("nomPrenom"), normalizedQuery)
+                || containsIgnoreCase(row.get("intitulePoste"), normalizedQuery);
+        boolean matchesSite = site == null || site.isBlank() || "ALL".equalsIgnoreCase(site)
+                || site.equals(row.get("nomSite"));
+        String normalizedFilter = filter == null ? "ALL" : filter.toUpperCase(java.util.Locale.ROOT);
+        boolean matchesStatus = switch (normalizedFilter) {
+            case "ALERTS" -> Boolean.TRUE.equals(row.get("aAlerte"));
+            case "STC" -> "STC".equals(row.get("typeBulletin"));
+            case "VALIDE" -> "VALIDE".equals(row.get("statut"));
+            case "CLOTURE" -> "CLOTURE".equals(row.get("statut"));
+            default -> true;
+        };
+        return matchesQuery && matchesSite && matchesStatus;
+    }
+
+    private boolean containsIgnoreCase(Object value, String normalizedQuery) {
+        return value != null && value.toString().toLowerCase(java.util.Locale.ROOT).contains(normalizedQuery);
+    }
+
+    private Map<String, Object> pageMetadata(int totalElements, int page, int size) {
+        return Map.of(
+                "totalElements", totalElements,
+                "totalPages", Math.max(1, (int) Math.ceil((double) totalElements / size)),
+                "currentPage", page,
+                "pageSize", size);
     }
 }
