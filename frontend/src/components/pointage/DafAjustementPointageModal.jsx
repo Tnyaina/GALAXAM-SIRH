@@ -348,7 +348,7 @@ export default function DafAjustementPointageModal({
                                         onChange={(e) => setFormData(prev => ({ ...prev, indemniteRepasRecue: e.target.checked }))}
                                         className="rounded accent-brand-600"
                                     />
-                                    <span>Indemnité repas accordée (2 000 Ar)</span>
+                                    <span>Indemnité repas accordée</span>
                                 </label>
                                 <label className="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] font-semibold">
                                     <input
@@ -541,7 +541,7 @@ export default function DafAjustementPointageModal({
                                                     <Td className="py-2 px-2 text-center font-mono text-[10.5px]">
                                                         {aRepas ? (
                                                             <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/20">
-                                                                2 000 Ar
+                                                                Oui
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)]">—</span>

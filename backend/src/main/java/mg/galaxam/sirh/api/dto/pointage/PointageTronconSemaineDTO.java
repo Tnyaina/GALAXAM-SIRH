@@ -22,6 +22,8 @@ public class PointageTronconSemaineDTO implements Serializable {
     private int numeroSemaine;
     private int nbJoursTroncon;
     private double seuilHeuresTroncon;
+    private double nbJoursConge;
+    private int nbJoursFerie;
 
     private double totalHeuresTravaillees;
     private double heuresRetard;
@@ -252,5 +254,21 @@ public class PointageTronconSemaineDTO implements Serializable {
 
     public void setHeuresNuit(double heuresNuit) {
         this.heuresNuit = heuresNuit;
+    }
+
+    public double getNbJoursConge() {
+        return nbJoursConge;
+    }
+
+    public void setNbJoursConge(double nbJoursConge) {
+        this.nbJoursConge = nbJoursConge;
+    }
+
+    public int getNbJoursFerie() {
+        return nbJoursFerie;
+    }
+
+    public void setNbJoursFerie(int nbJoursFerie) {
+        this.nbJoursFerie = nbJoursFerie;
     }
 }

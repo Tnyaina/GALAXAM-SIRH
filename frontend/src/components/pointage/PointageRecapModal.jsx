@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { CheckCircle2, AlertTriangle, Clock, Calendar, Users, Coffee, Car } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
@@ -15,6 +16,21 @@ export default function PointageRecapModal({
     selectedDate = '',
     siteLabel = ''
 }) {
+    // Raccourci clavier : validation immédiate avec la touche Entrée
+    useEffect(() => {
+        if (!isOpen || saving) return;
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                onConfirm?.();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, saving, onConfirm]);
     const safeData = Array.isArray(grilleData) ? grilleData : [];
 
     const fmtMoney = (val) => formatMonnaie(val);
@@ -65,9 +81,12 @@ export default function PointageRecapModal({
                             size="md"
                             onClick={onClose}
                             disabled={saving}
-                            className="font-medium"
+                            className="font-medium inline-flex items-center gap-2"
                         >
-                            Corriger la saisie
+                            <span>Corriger la saisie</span>
+                            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-[var(--color-bg-subtle)] border border-[var(--color-border)] text-[var(--color-fg-muted)] leading-none">
+                                Échap
+                            </kbd>
                         </Button>
                         <Button
                             type="button"
@@ -79,6 +98,9 @@ export default function PointageRecapModal({
                         >
                             <CheckCircle2 size={16} />
                             <span>Confirmer &amp; Enregistrer</span>
+                            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-white/20 border border-white/30 text-white leading-none">
+                                Entrée ↵
+                            </kbd>
                         </Button>
                     </div>
                 </div>

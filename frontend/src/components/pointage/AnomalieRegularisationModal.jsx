@@ -608,52 +608,79 @@ export default function AnomalieRegularisationModal({
                         )}
 
                         {/* Traitement de l'autre demi-journée en mode demi-journée */}
-                        {(modePresence === 'MATIN_SEUL' || modePresence === 'APRES_MIDI_SEUL') && (
-                            <div className="p-3 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">
-                                <div className="text-xs font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
-                                    <Info className="w-3.5 h-3.5 text-[var(--color-primary)]" />
-                                    <span>Traitement de la demi-journée non travaillée ({modePresence === 'MATIN_SEUL' ? 'Après-midi' : 'Matin'}) :</span>
+                        {(modePresence === 'MATIN_SEUL' || modePresence === 'APRES_MIDI_SEUL') && (() => {
+                            const labelDemiJournee = modePresence === 'MATIN_SEUL' ? "l'après-midi" : "la matinée";
+                            const soldeApres05 = Math.max(0, Math.round((soldeRestant - 0.5) * 100) / 100);
+
+                            return (
+                                <div className="p-3 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">
+                                    <div className="text-xs font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
+                                        <Info className="w-3.5 h-3.5 text-[var(--color-primary)]" />
+                                        <span>Traitement de la demi-journée non travaillée ({modePresence === 'MATIN_SEUL' ? 'Après-midi' : 'Matin'}) :</span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setOptionAutreDemiJournee('AUCUNE')}
+                                            className={`p-2 rounded-none text-left border text-xs transition-all cursor-pointer ${
+                                                optionAutreDemiJournee === 'AUCUNE'
+                                                    ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold'
+                                                    : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
+                                            }`}
+                                        >
+                                            <div className="font-bold">Départ autorisé</div>
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">Payé au réel (sans solde) • Congé intact</div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setOptionAutreDemiJournee('CONGE_PAYE')}
+                                            className={`p-2 rounded-none text-left border text-xs transition-all cursor-pointer ${
+                                                optionAutreDemiJournee === 'CONGE_PAYE'
+                                                    ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold'
+                                                    : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
+                                            }`}
+                                        >
+                                            <div className="font-bold">Congé payé (0.5 j)</div>
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">Payé 100% • Solde : {soldeRestant} j. → {soldeApres05} j.</div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setOptionAutreDemiJournee('ABSENCE_DEDUITE')}
+                                            className={`p-2 rounded-none text-left border text-xs transition-all cursor-pointer ${
+                                                optionAutreDemiJournee === 'ABSENCE_DEDUITE'
+                                                    ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold'
+                                                    : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] hover:border-[var(--color-border)]'
+                                            }`}
+                                        >
+                                            <div className="font-bold">Absence déduite</div>
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">Retenue horaire sur salaire</div>
+                                        </button>
+                                    </div>
+
+                                    {/* Explication contextuelle dynamique de l'impact */}
+                                    <div className="text-[11px] p-2 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] leading-relaxed">
+                                        {optionAutreDemiJournee === 'AUCUNE' && (
+                                            <div>
+                                                <strong className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">Impact : </strong>
+                                                L'absence sur {labelDemiJournee} est autorisée par la hiérarchie. Seules les <strong>{calculHeures.totalH || 0} h</strong> travaillées sont rémunérées. Le solde de congés n'est pas débité.
+                                            </div>
+                                        )}
+                                        {optionAutreDemiJournee === 'CONGE_PAYE' && (
+                                            <div>
+                                                <strong className="text-emerald-700 dark:text-emerald-400">Impact : </strong>
+                                                0.5 jour de congé payé sera déduit du solde ({soldeRestant} j. → {soldeApres05} j.). La demi-journée d'absence est maintenue et indemnisée à 100%.
+                                            </div>
+                                        )}
+                                        {optionAutreDemiJournee === 'ABSENCE_DEDUITE' && (
+                                            <div>
+                                                <strong className="text-rose-700 dark:text-rose-400">Impact : </strong>
+                                                Absence non excusée. Les heures non faites de {labelDemiJournee} feront l'objet d'une retenue sur le bulletin de paie.
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setOptionAutreDemiJournee('AUCUNE')}
-                                        className={`p-2 rounded-none text-left border text-xs transition-all ${
-                                            optionAutreDemiJournee === 'AUCUNE'
-                                                ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold'
-                                                : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)]'
-                                        }`}
-                                    >
-                                        <div className="font-semibold">Absence autorisée</div>
-                                        <div className="text-[10px] text-[var(--color-fg-muted)]">Payé au réel travaillé</div>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setOptionAutreDemiJournee('CONGE_PAYE')}
-                                        className={`p-2 rounded-none text-left border text-xs transition-all ${
-                                            optionAutreDemiJournee === 'CONGE_PAYE'
-                                                ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold'
-                                                : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)]'
-                                        }`}
-                                    >
-                                        <div className="font-semibold">Décompte congé 0.5j</div>
-                                        <div className="text-[10px] text-[var(--color-fg-muted)]">Solde : {soldeRestant} j. → {Math.max(0, Math.round((soldeRestant - 0.5) * 100) / 100)} j.</div>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setOptionAutreDemiJournee('ABSENCE_DEDUITE')}
-                                        className={`p-2 rounded-none text-left border text-xs transition-all ${
-                                            optionAutreDemiJournee === 'ABSENCE_DEDUITE'
-                                                ? 'border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)] font-semibold'
-                                                : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)]'
-                                        }`}
-                                    >
-                                        <div className="font-semibold">Absence déduite</div>
-                                        <div className="text-[10px] text-[var(--color-fg-muted)]">Déduction horaire en paie</div>
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                            );
+                        })()}
 
                         {/* Synthèse calculée des heures */}
                         <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none flex items-center justify-between text-xs">
@@ -691,7 +718,7 @@ export default function AnomalieRegularisationModal({
                                     <Bus className="w-3.5 h-3.5 text-[var(--color-fg-muted)]" />
                                     <span>Déplacement Retour</span>
                                 </label>
-                                <label className="flex items-center gap-2 cursor-pointer text-[var(--color-fg)]">
+                                <label className="flex items-center gap-2 cursor-pointer text-[var(--color-fg)]" title={siteEstContinu ? 'Site en horaire continu : repas accordé sans déduction transport' : 'Site discontinu : repas accordé avec déduction transport midi'}>
                                     <input
                                         type="checkbox"
                                         checked={indemniteRepas}
@@ -699,9 +726,14 @@ export default function AnomalieRegularisationModal({
                                         className="rounded-none text-[var(--color-primary)]"
                                     />
                                     <Utensils className="w-3.5 h-3.5 text-[var(--color-fg-muted)]" />
-                                    <span>Panier Repas (2 000 Ar)</span>
+                                    <span>Panier Repas</span>
                                 </label>
                             </div>
+                            {!siteEstContinu && indemniteRepas && (
+                                <p className="text-[10.5px] text-amber-700 dark:text-amber-300 font-medium mt-1">
+                                    ℹ️ Site discontinu : le repas pris sur site entraîne une déduction sur le transport du midi.
+                                </p>
+                            )}
                         </div>
                     </div>
                 )}

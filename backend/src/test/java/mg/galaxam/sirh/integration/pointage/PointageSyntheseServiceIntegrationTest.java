@@ -364,4 +364,84 @@ public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest 
             assertNull(synthese.getIdPeriodePaie());
         }
     }
+
+    @Test
+    @DisplayName("Synthèse avec Congé : 1 jour de congé payé abaisse le seuil à 32h et évite toute retenue absence")
+    public void testSyntheseSemaineAvecConge_AbaissSeuilA32h_EtZeroDeficit() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            // Mettre le vendredi en congé payé (CONGE, 0h)
+            LocalDate vendredi = lundi.plusDays(4);
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE pointage_jour SET id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'CONGE'), " +
+                    "total_heures = 0 WHERE id_employe = ? AND date_pointage = ?")) {
+                ps.setInt(1, emp.idEmploye);
+                ps.setDate(2, Date.valueOf(vendredi));
+                ps.executeUpdate();
+            }
+
+            var synthese = pointageSyntheseService.calculerSyntheseEmploye(
+                    emp.idEmploye, "EMP010", "RAKOTOARISOA", "Michel", null,
+                    emp.idSite, "TNR", "Antananarivo", "OP1", false, false,
+                    lundi, dimanche, idPeriode, "P-SYNTH", "P-SYNTH", "EN_COURS",
+                    5, Map.of(emp.idSite, new java.math.BigDecimal("31200")), Map.of(), c);
+
+            assertNotNull(synthese);
+            assertEquals(1, synthese.getNbJoursConge());
+            assertEquals(32.0, synthese.getTotalHeuresTravaillees(), 0.01);
+            assertEquals(0.0, synthese.getHeuresAbsenceRetenues(), 0.01, "Le jour de congé ne doit pas créer d'heures d'absence retenues");
+
+            assertNotNull(synthese.getTronconsSemaine());
+            assertFalse(synthese.getTronconsSemaine().isEmpty());
+            var troncon = synthese.getTronconsSemaine().get(0);
+            assertEquals(32.0, troncon.getSeuilHeuresTroncon(), 0.01, "Le seuil attendu de la semaine doit être abaissé à 32h");
+            assertEquals(1.0, troncon.getNbJoursConge(), 0.01);
+            assertEquals(32.0, troncon.getTotalHeuresTravaillees(), 0.01);
+            assertEquals(0.0, troncon.getHeuresDeficit(), 0.01, "Le déficit net doit de 0h");
+            assertEquals(0.0, troncon.getHeuresHsNettes(), 0.01);
+        }
+    }
+
+    @Test
+    @DisplayName("Synthèse avec Congé et Surplus : Les heures au-delà du seuil réduit (32h) passent en Heures Supplémentaires")
+    public void testSyntheseSemaineAvecConge_SurplusDevientHsNette() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            // Mettre le vendredi en congé payé (CONGE, 0h)
+            LocalDate vendredi = lundi.plusDays(4);
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE pointage_jour SET id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'CONGE'), " +
+                    "total_heures = 0 WHERE id_employe = ? AND date_pointage = ?")) {
+                ps.setInt(1, emp.idEmploye);
+                ps.setDate(2, Date.valueOf(vendredi));
+                ps.executeUpdate();
+            }
+
+            // Faire 10h le jeudi (au lieu de 8h) -> +2h de surplus journalier, total travaillé = 34h
+            LocalDate jeudi = lundi.plusDays(3);
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE pointage_jour SET total_heures = 10.0, heures_am = 6.0 " +
+                    "WHERE id_employe = ? AND date_pointage = ?")) {
+                ps.setInt(1, emp.idEmploye);
+                ps.setDate(2, Date.valueOf(jeudi));
+                ps.executeUpdate();
+            }
+
+            var synthese = pointageSyntheseService.calculerSyntheseEmploye(
+                    emp.idEmploye, "EMP010", "RAKOTOARISOA", "Michel", null,
+                    emp.idSite, "TNR", "Antananarivo", "OP1", false, false,
+                    lundi, dimanche, idPeriode, "P-SYNTH", "P-SYNTH", "EN_COURS",
+                    5, Map.of(emp.idSite, new java.math.BigDecimal("31200")), Map.of(), c);
+
+            assertNotNull(synthese);
+            assertEquals(34.0, synthese.getTotalHeuresTravaillees(), 0.01);
+            assertEquals(2.0, synthese.getHeuresHs30(), 0.01, "Les 2h effectuées au-delà du seuil 32h doivent être en HS 30%");
+            assertEquals(0.0, synthese.getHeuresAbsenceRetenues(), 0.01);
+
+            var troncon = synthese.getTronconsSemaine().get(0);
+            assertEquals(32.0, troncon.getSeuilHeuresTroncon(), 0.01);
+            assertEquals(34.0, troncon.getTotalHeuresTravaillees(), 0.01);
+            assertEquals(2.0, troncon.getHeuresHsNettes(), 0.01);
+            assertEquals(2.0, troncon.getHeuresHs30(), 0.01);
+            assertEquals(0.0, troncon.getHeuresDeficit(), 0.01);
+        }
+    }
 }

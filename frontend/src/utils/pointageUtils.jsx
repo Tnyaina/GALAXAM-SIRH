@@ -57,7 +57,7 @@ export const getStatutPointageBadge = (codeStatut, minutesRetard = 0) => {
 
     // En BDD, le retard est qualifié par le statut PRESENT avec minutes_retard > 0
     if ((upper === 'PRESENT' || upper === 'RETARD') && minutesRetard > 0) {
-        return <Badge variant="warning">Retard ({minutesRetard} min)</Badge>;
+        return <Badge variant="danger">Retard ({minutesRetard} min)</Badge>;
     }
 
     switch (upper) {

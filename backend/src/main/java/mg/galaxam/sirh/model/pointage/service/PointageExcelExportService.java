@@ -169,6 +169,11 @@ public class PointageExcelExportService {
             currencyStyle.setAlignment(HorizontalAlignment.RIGHT);
             currencyStyle.setDataFormat(df.getFormat("#,##0 \"Ar\""));
 
+            // Style Écart (+0.00 / -0.00)
+            CellStyle ecartStyle = workbook.createCellStyle();
+            ecartStyle.cloneStyleFrom(numberStyle);
+            ecartStyle.setDataFormat(df.getFormat("+0.00;-0.00;0.00"));
+
             // Style Lignes de Totaux (Gras + double bordure inférieure)
             CellStyle totalLabelStyle = workbook.createCellStyle();
             totalLabelStyle.setFont(fontBold);
@@ -246,10 +251,10 @@ public class PointageExcelExportService {
 
             Row rHead1 = sheet.createRow(rowIdx++);
             String[] headersHebdo = {
-                    "Tronçon / Semaine", "Jours Ovr.", "Seuil (h)",
-                    "Réalisé (hh:mm)", "Réalisé (déc.)",
-                    "Retards (hh:mm)", "Retards (déc.)",
-                    "Surplus Brut (déc.)", "Compensé  (déc.)", "Solde Net (déc.)"
+                    "Semaine", "Jours", "Objectif semaine (h)",
+                    "Heures faites (hh:mm)", "Heures faites (déc.)",
+                    "Retards (min)",
+                    "Compensé (h)", "Impact Paie (h)"
             };
             for (int i = 0; i < headersHebdo.length; i++) {
                 Cell ch = rHead1.createCell(i);
@@ -276,45 +281,36 @@ public class PointageExcelExportService {
                     cJ.setCellValue(b.getNbJoursTroncon());
                     cJ.setCellStyle(integerStyle);
 
-                    // C: Seuil (Formule native Excel: =B{R} * 8, prend en compte les jours fériés chômés)
+                    // C: Objectif semaine (h) - valeur calculée intégrant les congés et fériés
                     Cell cSeuil = rH.createCell(2);
-                    cSeuil.setCellFormula("B" + excelR + " * 8");
+                    cSeuil.setCellValue(b.getSeuilHeuresTroncon() > 0 ? b.getSeuilHeuresTroncon() : 40.0);
                     cSeuil.setCellStyle(numberStyle);
 
-                    // D: Réalisé (hh:mm)
+                    // D: Heures faites (hh:mm)
                     Cell cRealTime = rH.createCell(3);
                     cRealTime.setCellValue(b.getTotalHeuresTravaillees() / 24.0);
                     cRealTime.setCellStyle(durationTimeStyle);
 
-                    // E: Réalisé (déc.)
+                    // E: Heures faites (déc.)
                     Cell cRealDec = rH.createCell(4);
                     cRealDec.setCellValue(b.getTotalHeuresTravaillees());
                     cRealDec.setCellStyle(numberStyle);
 
-                    // F: Retards (hh:mm)
-                    Cell cRetTime = rH.createCell(5);
-                    cRetTime.setCellValue(b.getHeuresRetard() / 24.0);
-                    cRetTime.setCellStyle(durationTimeStyle);
+                    // F: Retards matin (min)
+                    Cell cRetMin = rH.createCell(5);
+                    int retMin = (int) Math.round(b.getHeuresRetard() * 60);
+                    cRetMin.setCellValue(retMin);
+                    cRetMin.setCellStyle(integerStyle);
 
-                    // G: Retards (déc.)
-                    Cell cRetDec = rH.createCell(6);
-                    cRetDec.setCellValue(b.getHeuresRetard());
-                    cRetDec.setCellStyle(numberStyle);
-
-                    // H: Surplus Brut (Formule Excel native: =MAX(0; Réalisé déc. - Seuil))
-                    Cell cSurplus = rH.createCell(7);
-                    cSurplus.setCellFormula("MAX(0, E" + excelR + " - C" + excelR + ")");
-                    cSurplus.setCellStyle(numberStyle);
-
-                    // I: Compensé  (Formule Excel native: =MIN(Retards déc.; Surplus déc.))
-                    Cell cComp = rH.createCell(8);
-                    cComp.setCellFormula("MIN(G" + excelR + ", H" + excelR + ")");
+                    // G: Compensé (h) - surplus absorbé pour combler un manque de la même semaine
+                    Cell cComp = rH.createCell(6);
+                    cComp.setCellValue(b.getHeuresCompensees());
                     cComp.setCellStyle(numberStyle);
 
-                    // J: Solde Net (Formule Excel native: =IF(Surplus >= Retards; Surplus - Compensé; -(Retards - Compensé)))
-                    Cell cSolde = rH.createCell(9);
-                    cSolde.setCellFormula("IF(H" + excelR + " >= G" + excelR + ", H" + excelR + " - I" + excelR + ", -(G" + excelR + " - I" + excelR + "))");
-                    cSolde.setCellStyle(numberStyle);
+                    // H: Impact Paie (h) = Heures faites - Objectif semaine (+ = Heures Sup, - = Retenue)
+                    Cell cImpact = rH.createCell(7);
+                    cImpact.setCellFormula("ROUND(E" + excelR + " - C" + excelR + ", 2)");
+                    cImpact.setCellStyle(numberStyle);
 
                     HebdoRowHolder holder = new HebdoRowHolder();
                     holder.row = rH;
@@ -347,25 +343,17 @@ public class PointageExcelExportService {
             cTotRealDec.setCellFormula("SUM(E" + hebdoStartRow + ":E" + hebdoEndRow + ")");
             cTotRealDec.setCellStyle(totalNumberStyle);
 
-            Cell cTotRetTime = rTotHebdo.createCell(5);
-            cTotRetTime.setCellFormula("SUM(F" + hebdoStartRow + ":F" + hebdoEndRow + ")");
-            cTotRetTime.setCellStyle(totalDurationTimeStyle);
+            Cell cTotRetMin = rTotHebdo.createCell(5);
+            cTotRetMin.setCellFormula("SUM(F" + hebdoStartRow + ":F" + hebdoEndRow + ")");
+            cTotRetMin.setCellStyle(totalNumberStyle);
 
-            Cell cTotRetDec = rTotHebdo.createCell(6);
-            cTotRetDec.setCellFormula("SUM(G" + hebdoStartRow + ":G" + hebdoEndRow + ")");
-            cTotRetDec.setCellStyle(totalNumberStyle);
-
-            Cell cTotSurplus = rTotHebdo.createCell(7);
-            cTotSurplus.setCellFormula("SUM(H" + hebdoStartRow + ":H" + hebdoEndRow + ")");
-            cTotSurplus.setCellStyle(totalNumberStyle);
-
-            Cell cTotComp = rTotHebdo.createCell(8);
-            cTotComp.setCellFormula("SUM(I" + hebdoStartRow + ":I" + hebdoEndRow + ")");
+            Cell cTotComp = rTotHebdo.createCell(6);
+            cTotComp.setCellFormula("SUM(G" + hebdoStartRow + ":G" + hebdoEndRow + ")");
             cTotComp.setCellStyle(totalNumberStyle);
 
-            Cell cTotSolde = rTotHebdo.createCell(9);
-            cTotSolde.setCellFormula("SUM(J" + hebdoStartRow + ":J" + hebdoEndRow + ")");
-            cTotSolde.setCellStyle(totalNumberStyle);
+            Cell cTotImpact = rTotHebdo.createCell(7);
+            cTotImpact.setCellFormula("SUM(H" + hebdoStartRow + ":H" + hebdoEndRow + ")");
+            cTotImpact.setCellStyle(totalNumberStyle);
 
             rowIdx++; // Espace
             rowIdx++; // Espace
@@ -378,13 +366,14 @@ public class PointageExcelExportService {
 
             Row rHead2 = sheet.createRow(rowIdx++);
             String[] headersJour = {
-                    "Date", "Jour", "Statut", "Entrée 1", "Sortie 1", "Entrée 2", "Sortie 2",
-                    "Total (hh:mm)", "Total (déc.)", "Retard (min)", "Repas (Ar)", "Déplacement (Ar)", "Observation"
+                    "Date", "Jour", "Entrée", "Sortie Pause", "Retour Pause", "Sortie",
+                    "Retard (min)", "Heures faites (hh:mm)", "Heures faites (déc.)",
+                    "Écart (vs 8h)", "Statut", "Transport (Ar)", "Repas (Ar)"
             };
             for (int i = 0; i < headersJour.length; i++) {
                 Cell ch = rHead2.createCell(i);
                 ch.setCellValue(headersJour[i]);
-                ch.setCellStyle(i < 3 ? headerLeftStyle : headerStyle);
+                ch.setCellStyle(i < 2 ? headerLeftStyle : headerStyle);
             }
 
             int dailyStartRow = rowIdx + 1; // 1-indexed
@@ -407,72 +396,70 @@ public class PointageExcelExportService {
                     cJour.setCellValue(pj.getJour() != null ? pj.getJour() : "");
                     cJour.setCellStyle(textStyle);
 
-                    // C: Statut
-                    Cell cStat = rD.createCell(2);
-                    cStat.setCellValue(pj.getStatut() != null ? pj.getStatut() : "Présent");
-                    cStat.setCellStyle(textStyle);
+                    // C, D, E, F: Horaires au format Heure Excel native (hh:mm)
+                    createTimeCell(rD, 2, pj.getEntree(), timeStyle);
+                    createTimeCell(rD, 3, pj.getSortiePause(), timeStyle);
+                    createTimeCell(rD, 4, pj.getRetourPause(), timeStyle);
+                    createTimeCell(rD, 5, pj.getSortie(), timeStyle);
 
-                    // D, E, F, G: Horaires au format Heure Excel native (hh:mm)
-                    createTimeCell(rD, 3, pj.getEntree(), timeStyle);
-                    createTimeCell(rD, 4, pj.getSortiePause(), timeStyle);
-                    createTimeCell(rD, 5, pj.getRetourPause(), timeStyle);
-                    createTimeCell(rD, 6, pj.getSortie(), timeStyle);
+                    // G: Retard matin en minutes
+                    Cell cRetM = rD.createCell(6);
+                    cRetM.setCellValue(pj.getMinutesRetard() != null ? pj.getMinutesRetard() : 0);
+                    cRetM.setCellStyle(integerStyle);
 
-                    // H: Total Heures (hh:mm)
-                    // DISPENSE_POINTAGE → valeur fixe directe (pas de formule, plus clair pour l'auditeur)
-                    // Horaire continu (E vide, F vide) → Sortie - Entrée directement
-                    // Horaire scindé → (Sortie1 - Entrée1) + (Sortie2 - Entrée2)
-                    //
-                    // Formule finale (2 termes lisibles) :
-                    //   Terme matin : si Sortie1 existe  → Sortie1 - Entrée1
-                    //                 sinon (continu)    → Sortie2 - Entrée1
-                    //   Terme AM    : si Entrée2 ET Sortie2 existent → Sortie2 - Entrée2
+                    // H: Heures faites (hh:mm)
+                    // DISPENSE_POINTAGE → valeur fixe 8 h
+                    // Congé / Férié → 0 h
+                    // Horaire continu ou scindé → formule native
                     Cell cTotTime = rD.createCell(7);
                     boolean isDispense = "DISPENSE_POINTAGE".equals(pj.getStatut());
+                    boolean isCongeOuFerie = pj.isConge() || "CONGE".equals(pj.getStatut()) || "CONGE_PAYE".equals(pj.getStatut()) || "FERIE_CHOME".equals(pj.getStatut());
+
                     if (isDispense) {
-                        // Valeur directe : 8 h = 8/24 en fraction de jour Excel
                         cTotTime.setCellValue(8.0 / 24.0);
+                    } else if (isCongeOuFerie) {
+                        cTotTime.setCellValue(0.0);
                     } else {
                         String r = String.valueOf(excelR);
-                        // Terme matin  : si E présent → E-D ; sinon si continu → G-D ; sinon 0
-                        String matin = "IF(ISNUMBER(E" + r + "), E" + r + "-D" + r +
-                                ", IF(AND(ISNUMBER(D" + r + "), ISNUMBER(G" + r + ")), G" + r + "-D" + r + ", 0))";
-                        // Terme AM : si F ET G présents → G-F ; sinon 0
-                        // (on soustrait l'intégralité G-D déjà prise par "matin continu")
-                        String am = "IF(AND(ISNUMBER(F" + r + "), ISNUMBER(G" + r + ")), G" + r + "-F" + r + ", 0)";
+                        // Terme matin : si SortiePause (D) présent → D-C ; sinon si continu et Sortie (F) présent → F-C ; sinon 0
+                        String matin = "IF(ISNUMBER(D" + r + "), D" + r + "-C" + r +
+                                ", IF(AND(ISNUMBER(C" + r + "), ISNUMBER(F" + r + ")), F" + r + "-C" + r + ", 0))";
+                        // Terme AM : si RetourPause (E) ET Sortie (F) présents → F-E ; sinon 0
+                        String am = "IF(AND(ISNUMBER(E" + r + "), ISNUMBER(F" + r + ")), F" + r + "-E" + r + ", 0)";
                         cTotTime.setCellFormula(matin + "+" + am);
                     }
                     cTotTime.setCellStyle(timeStyle);
 
-                    // I: Total Heures (déc.) = conversion centésimale depuis H
+                    // I: Heures faites (déc.) = conversion centésimale depuis H
                     Cell cTotDec = rD.createCell(8);
                     if (isDispense) {
                         cTotDec.setCellValue(8.0);
+                    } else if (isCongeOuFerie) {
+                        cTotDec.setCellValue(0.0);
                     } else {
                         cTotDec.setCellFormula("ROUND(H" + excelR + " * 24, 2)");
                     }
                     cTotDec.setCellStyle(numberStyle);
 
-                    // J: Retard en minutes
-                    Cell cRetM = rD.createCell(9);
-                    cRetM.setCellValue(parseRetardMinutes(pj.getEcart(), pj.isEcartPositif()));
-                    cRetM.setCellStyle(integerStyle);
+                    // J: Écart vs 8h standard
+                    Cell cEcart = rD.createCell(9);
+                    cEcart.setCellFormula("IF(ISNUMBER(I" + excelR + "), ROUND(I" + excelR + " - 8, 2), 0)");
+                    cEcart.setCellStyle(ecartStyle);
 
-                    // K: Panier Repas
-                    Cell cMntRep = rD.createCell(10);
-                    cMntRep.setCellValue(pj.getMontantRepas() != null ? pj.getMontantRepas().doubleValue() : 0.0);
-                    cMntRep.setCellStyle(currencyStyle);
+                    // K: Statut
+                    Cell cStat = rD.createCell(10);
+                    cStat.setCellValue(formatStatutLabel(pj.getStatut()));
+                    cStat.setCellStyle(textStyle);
 
-                    // L: Déplacement
+                    // L: Transport
                     Cell cMntDepl = rD.createCell(11);
                     cMntDepl.setCellValue(pj.getMontantDeplacement() != null ? pj.getMontantDeplacement().doubleValue() : 0.0);
                     cMntDepl.setCellStyle(currencyStyle);
 
-                    // M: Observation
-                    Cell cObs = rD.createCell(12);
-                    String obs = pj.isConge() ? "Congé" : (pj.isRepos() ? "Repos" : (pj.isAbsent() ? "Absent" : (pj.isRetard() ? "Retard" : "")));
-                    cObs.setCellValue(obs);
-                    cObs.setCellStyle(textStyle);
+                    // M: Panier Repas
+                    Cell cMntRep = rD.createCell(12);
+                    cMntRep.setCellValue(pj.getMontantRepas() != null ? pj.getMontantRepas().doubleValue() : 0.0);
+                    cMntRep.setCellStyle(currencyStyle);
                 }
             }
             int dailyEndRow = rowIdx; // 1-indexed
@@ -495,21 +482,17 @@ public class PointageExcelExportService {
                     }
                 }
                 if (sDayRow != -1 && eDayRow != -1) {
-                    // Correction : hh:mm = somme exacte des horaires du journal (sans double arrondi)
+                    // D: Heures faites hh:mm = somme exacte des horaires du journal
                     Cell cRealTime = h.row.getCell(3);
                     cRealTime.setCellFormula("SUM(H" + sDayRow + ":H" + eDayRow + ")");
 
-                    // Correction : déc. = conversion depuis le total hh:mm exact, arrondi UNE SEULE FOIS
+                    // E: Heures faites déc. = conversion depuis le total hh:mm exact
                     Cell cRealDec = h.row.getCell(4);
                     cRealDec.setCellFormula("ROUND(SUM(H" + sDayRow + ":H" + eDayRow + ") * 24, 2)");
 
-                    // Retards (hh:mm) : inchangé (stocké depuis le backend, pas calculé en Excel)
-                    Cell cRetTime = h.row.getCell(5);
-                    cRetTime.setCellFormula("G" + h.excelR + " / 24");
-
-                    // Retards (déc.) : somme des minutes du journal ÷ 60
-                    Cell cRetDec = h.row.getCell(6);
-                    cRetDec.setCellFormula("ROUND(SUM(J" + sDayRow + ":J" + eDayRow + ") / 60, 2)");
+                    // F: Retards matin (min) = somme des minutes de retard du journal
+                    Cell cRetMin = h.row.getCell(5);
+                    cRetMin.setCellFormula("SUM(G" + sDayRow + ":G" + eDayRow + ")");
                 }
             }
 
@@ -519,46 +502,50 @@ public class PointageExcelExportService {
             cTotD1.setCellValue("CUMULS JOURNALIERS");
             cTotD1.setCellStyle(totalLabelStyle);
 
-            for (int i = 1; i <= 6; i++) {
+            for (int i = 1; i <= 5; i++) {
                 Cell cEmpty = rTotDaily.createCell(i);
                 cEmpty.setCellStyle(totalLabelStyle);
             }
 
-            // H: Somme heures (hh:mm) (Formule dynamique)
+            // G: Somme retards matin (minutes)
+            Cell cTotRetAll = rTotDaily.createCell(6);
+            cTotRetAll.setCellFormula("SUM(G" + dailyStartRow + ":G" + dailyEndRow + ")");
+            cTotRetAll.setCellStyle(totalNumberStyle);
+
+            // H: Somme heures faites (hh:mm)
             Cell cTotHTime = rTotDaily.createCell(7);
             cTotHTime.setCellFormula("SUM(H" + dailyStartRow + ":H" + dailyEndRow + ")");
             cTotHTime.setCellStyle(totalDurationTimeStyle);
 
-            // I: Somme heures (déc.) (Formule dynamique)
+            // I: Somme heures faites (déc.)
             Cell cTotHDec = rTotDaily.createCell(8);
             cTotHDec.setCellFormula("SUM(I" + dailyStartRow + ":I" + dailyEndRow + ")");
             cTotHDec.setCellStyle(totalNumberStyle);
 
-            // J: Somme retards (minutes)
-            Cell cTotRetAll = rTotDaily.createCell(9);
-            cTotRetAll.setCellFormula("SUM(J" + dailyStartRow + ":J" + dailyEndRow + ")");
-            cTotRetAll.setCellStyle(totalNumberStyle);
+            // J: Somme écarts journaliers
+            Cell cTotEcartAll = rTotDaily.createCell(9);
+            cTotEcartAll.setCellFormula("SUM(J" + dailyStartRow + ":J" + dailyEndRow + ")");
+            cTotEcartAll.setCellStyle(totalNumberStyle);
 
-            // K: Somme repas
-            Cell cTotRepAll = rTotDaily.createCell(10);
-            cTotRepAll.setCellFormula("SUM(K" + dailyStartRow + ":K" + dailyEndRow + ")");
-            cTotRepAll.setCellStyle(totalCurrencyStyle);
+            Cell cTotStat = rTotDaily.createCell(10);
+            cTotStat.setCellStyle(totalLabelStyle);
 
             // L: Somme déplacements
             Cell cTotDeplAll = rTotDaily.createCell(11);
             cTotDeplAll.setCellFormula("SUM(L" + dailyStartRow + ":L" + dailyEndRow + ")");
             cTotDeplAll.setCellStyle(totalCurrencyStyle);
 
-            Cell cTotEnd = rTotDaily.createCell(12);
-            cTotEnd.setCellStyle(totalLabelStyle);
+            // M: Somme repas
+            Cell cTotRepAll = rTotDaily.createCell(12);
+            cTotRepAll.setCellFormula("SUM(M" + dailyStartRow + ":M" + dailyEndRow + ")");
+            cTotRepAll.setCellStyle(totalCurrencyStyle);
 
             sheet.setForceFormulaRecalculation(true);
 
-            // Correction finale : TOTAL MENSUEL déc. et hh:mm
-            // référencent la somme exacte du journal quotidien
-            // (pas la ré-somme des lignes hebdo déjà arrondies)
+            // TOTAL MENSUEL Hebdo : référencent la somme exacte du journal quotidien
             cTotRealTime.setCellFormula("SUM(H" + dailyStartRow + ":H" + dailyEndRow + ")");
             cTotRealDec.setCellFormula("ROUND(SUM(H" + dailyStartRow + ":H" + dailyEndRow + ") * 24, 2)");
+            cTotRetMin.setCellFormula("SUM(G" + dailyStartRow + ":G" + dailyEndRow + ")");
 
             // Ajustement automatique des largeurs de colonnes
             for (int col = 0; col < 13; col++) {
@@ -670,5 +657,26 @@ public class PointageExcelExportService {
         }
         cell.setBlank();
         cell.setCellStyle(style);
+    }
+
+    private static String formatStatutLabel(String statut) {
+        if (statut == null || statut.trim().isEmpty()) return "Présent";
+        switch (statut) {
+            case "CONGE":
+            case "CONGE_PAYE":
+                return "Congé payé";
+            case "FERIE_CHOME":
+                return "Férié chômé";
+            case "REPOS":
+                return "Repos";
+            case "ABSENT":
+                return "Absent";
+            case "DISPENSE_POINTAGE":
+                return "Dispensé";
+            case "PRESENT":
+                return "Présent";
+            default:
+                return statut;
+        }
     }
 }

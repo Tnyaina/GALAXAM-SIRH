@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Printer, X, Download, ShieldCheck, Calendar, Clock } from 'lucide-react';
+import { Printer, X, Download, ShieldCheck, Calendar, Clock, Scale } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { formatMonnaie, getPeriodeLabelForFilename } from '@/utils/pointageUtils';
 
@@ -231,37 +231,40 @@ export default function PointageFichePrintModal({
                         <table className="w-full border-collapse border border-slate-300 text-center text-[9px]">
                             <thead>
                                 <tr className="bg-slate-100 font-bold text-slate-800 border-b border-slate-300">
-                                    <th className="py-1 px-1 border-r border-slate-300 text-left">Jours Présents</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Réalisé (déc.)</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Réalisé (hh:mm)</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">HS 30%</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">HS 50%</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Nuit</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Retard Brut</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Compensé </th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Retenue Nette</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Repas</th>
-                                    <th className="py-1 px-1">Déplacement</th>
+                                    <th className="py-1 px-1 border-r border-slate-300 text-left">Jours Travaillés</th>
+                                    <th className="py-1 px-1 border-r border-slate-300">Heures faites</th>
+                                    <th className="py-1 px-1 border-r border-slate-300">Heures Sup (30%)</th>
+                                    <th className="py-1 px-1 border-r border-slate-300">Heures Sup (50%)</th>
+                                    <th className="py-1 px-1 border-r border-slate-300">Heures de Nuit</th>
+                                    <th className="py-1 px-1 border-r border-slate-300 text-rose-700">Retards</th>
+                                    <th className="py-1 px-1 border-r border-slate-300 text-emerald-700">Heures compensées</th>
+                                    <th className="py-1 px-1 border-r border-slate-300 text-rose-700">Retenue salaire</th>
+                                    <th className="py-1 px-1 border-r border-slate-300">Paniers Repas</th>
+                                    <th className="py-1 px-1">Transport</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr className="font-mono font-medium">
                                     <td className="py-1 px-1 border-r border-slate-300 text-left font-sans">{kpis.joursTravailles || '—'}</td>
-                                    <td className="py-1 px-1 border-r border-slate-300 font-bold text-slate-700">
-                                        {kpis.heuresRealisees ? `${parseHhMmToDecimal(kpis.heuresRealisees).toFixed(2)}h` : '0.00h'}
+                                    <td className="py-1 px-1 border-r border-slate-300 font-bold text-slate-800">
+                                        {kpis.heuresRealisees || '00h00'}
+                                        {kpis.heuresRealisees && (
+                                            <span className="text-[8px] text-slate-500 font-normal ml-1">
+                                                ({parseHhMmToDecimal(kpis.heuresRealisees).toFixed(2)}h)
+                                            </span>
+                                        )}
                                     </td>
-                                    <td className="py-1 px-1 border-r border-slate-300 font-bold">{kpis.heuresRealisees || '00h00'}</td>
                                     <td className="py-1 px-1 border-r border-slate-300">{kpis.heuresHs30 || '0.0h'}</td>
                                     <td className="py-1 px-1 border-r border-slate-300">{kpis.heuresHs50 || '0.0h'}</td>
                                     <td className="py-1 px-1 border-r border-slate-300">{kpis.heuresNuit || '0.0h'}</td>
-                                    <td className="py-1 px-1 border-r border-slate-300">
-                                        {kpis.retardCumule ? `${parseHhMmToDecimal(kpis.retardCumule).toFixed(2)}h (${kpis.retardCumule})` : '0.00h (00h00)'}
+                                    <td className="py-1 px-1 border-r border-slate-300 text-rose-700 font-bold">
+                                        {kpis.retardCumule || '00h00'}
                                     </td>
-                                    <td className="py-1 px-1 border-r border-slate-300 font-bold text-slate-800">
-                                        {recap.retardCompense && recap.retardCompense !== '00h00' ? `-${parseHhMmToDecimal(recap.retardCompense).toFixed(2)}h (-${recap.retardCompense})` : '—'}
+                                    <td className="py-1 px-1 border-r border-slate-300 font-bold text-emerald-700">
+                                        {recap.retardCompense && recap.retardCompense !== '00h00' ? recap.retardCompense : '—'}
                                     </td>
-                                    <td className="py-1 px-1 border-r border-slate-300 font-bold text-slate-900">
-                                        {recap.retardNet && recap.retardNet !== '00h00' ? `-${parseHhMmToDecimal(recap.retardNet).toFixed(2)}h (-${recap.retardNet})` : '0.00h (00h00)'}
+                                    <td className="py-1 px-1 border-r border-slate-300 font-bold text-rose-700">
+                                        {recap.retardNet && recap.retardNet !== '00h00' ? `-${recap.retardNet}` : '00h00'}
                                     </td>
                                     <td className="py-1 px-1 border-r border-slate-300">{kpis.montantRepasTotal || '0 Ar'}</td>
                                     <td className="py-1 px-1">{kpis.montantDeplacementTotal || '0 Ar'}</td>
@@ -270,25 +273,27 @@ export default function PointageFichePrintModal({
                         </table>
                     </div>
 
-                    {/* 4. DÉCOMPOSITION HEBDOMADAIRE () */}
+                    {/* 4. DÉCOMPOSITION HEBDOMADAIRE & COMPENSATION */}
                     <div>
-                        <h2 className="text-[10px] font-bold text-slate-900 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                            <ShieldCheck size={11} />
-                            II. Décomposition Hebdomadaire &amp; Compensation
-                        </h2>
-                        <table className="w-full border-collapse border border-slate-300 text-center text-[9px]">
+                        <div className="flex items-center justify-between mb-1">
+                            <h2 className="text-[10px] font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                                <Scale size={11} />
+                                II. Décomposition Hebdomadaire &amp; Compensation
+                            </h2>
+                            <span className="text-[8px] text-slate-600 font-sans italic">
+                                Objectif ajusté pour congés (-8h/j) et fériés (-8h) · Compensation intra-semaine (40h)
+                            </span>
+                        </div>
+                        <table className="w-full border-collapse border border-slate-300 text-center text-[8.5px]">
                             <thead>
                                 <tr className="bg-slate-100 font-bold text-slate-800 border-b border-slate-300">
                                     <th className="py-1 px-1.5 border-r border-slate-300 text-left">Semaine</th>
                                     <th className="py-1 px-1 border-r border-slate-300">Jours</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Seuil</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Réalisé (déc.)</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Réalisé (hh:mm)</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Retards (déc.)</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Retards (hh:mm)</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Surplus Brut</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Compensé </th>
-                                    <th className="py-1 px-1">Solde Net</th>
+                                    <th className="py-1 px-1 border-r border-slate-300" title="Objectif hebdomadaire à atteindre (abaissé pour congés et fériés)">Objectif semaine</th>
+                                    <th className="py-1 px-1 border-r border-slate-300">Heures faites</th>
+                                    <th className="py-1 px-1 border-r border-slate-300 text-rose-700" title="Cumul des retards constatés sur la semaine (matin et après-midi)">Retards</th>
+                                    <th className="py-1 px-1 border-r border-slate-300 text-emerald-700">Compensé</th>
+                                    <th className="py-1 px-1">Impact Paie</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
@@ -297,21 +302,46 @@ export default function PointageFichePrintModal({
                                     const hasHs = b.heuresHsNettes > 0;
                                     const hRealDec = b.totalHeuresTravaillees != null ? Number(b.totalHeuresTravaillees) : 0;
                                     const hRetDec = b.heuresRetard != null ? Number(b.heuresRetard) : 0;
+                                    const hSeuil = b.seuilHeuresTroncon != null ? Number(b.seuilHeuresTroncon) : 40.0;
                                     return (
                                         <tr key={idx} className="font-mono">
                                             <td className="py-0.5 px-1.5 border-r border-slate-300 text-left font-sans">
                                                 Semaine {b.numeroSemaine || idx + 1} ({b.debutSemaine} au {b.finSemaine})
                                             </td>
                                             <td className="py-0.5 px-1 border-r border-slate-300">{b.nbJoursTroncon} j</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300">{b.seuilHeuresTroncon ? `${Number(b.seuilHeuresTroncon).toFixed(2)}h (${Math.round(b.seuilHeuresTroncon)}h00)` : '—'}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300 font-bold text-slate-700">{hRealDec > 0 ? `${hRealDec.toFixed(2)}h` : '0.00h'}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300 font-bold">{formatDecimalToHhMm(hRealDec)}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300 text-slate-600">{hRetDec > 0 ? `${hRetDec.toFixed(2)}h` : '—'}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300">{hRetDec > 0 ? formatDecimalToHhMm(hRetDec) : '—'}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300">{b.heuresHsBrutes > 0 ? `+${b.heuresHsBrutes.toFixed(2)}h (+${formatDecimalToHhMm(b.heuresHsBrutes)})` : '—'}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300">{b.heuresCompensees > 0 ? `-${b.heuresCompensees.toFixed(2)}h (-${formatDecimalToHhMm(b.heuresCompensees)})` : '—'}</td>
+                                            <td className="py-0.5 px-1 border-r border-slate-300 font-bold text-slate-800">
+                                                <div>{formatDecimalToHhMm(hSeuil)}</div>
+                                                {(b.nbJoursConge > 0 || b.nbJoursFerie > 0) && (
+                                                    <div className="text-[7.5px] font-sans font-normal text-slate-500">
+                                                        {b.nbJoursConge > 0 && `-${b.nbJoursConge}j congé `}
+                                                        {b.nbJoursFerie > 0 && `-${b.nbJoursFerie}j férié`}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="py-0.5 px-1 border-r border-slate-300 font-bold text-slate-800">
+                                                {formatDecimalToHhMm(hRealDec)}
+                                                <span className="text-[7.5px] text-slate-500 font-normal ml-1">
+                                                    ({hRealDec.toFixed(2)}h)
+                                                </span>
+                                            </td>
+                                            <td className="py-0.5 px-1 border-r border-slate-300 text-rose-700 font-bold">
+                                                {hRetDec > 0 ? formatDecimalToHhMm(hRetDec) : '—'}
+                                            </td>
+                                            <td className="py-0.5 px-1 border-r border-slate-300 font-semibold text-emerald-700">
+                                                {b.heuresCompensees > 0 ? formatDecimalToHhMm(b.heuresCompensees) : '—'}
+                                            </td>
                                             <td className="py-0.5 px-1 font-bold font-sans">
-                                                {hasDeficit ? `-${b.heuresDeficit.toFixed(2)}h (-${formatDecimalToHhMm(b.heuresDeficit)})` : hasHs ? `+${b.heuresHsNettes.toFixed(2)}h (+${formatDecimalToHhMm(b.heuresHsNettes)})` : 'Équilibré'}
+                                                {hasDeficit ? (
+                                                    <span className="text-rose-700">
+                                                        Retenue : -{formatDecimalToHhMm(b.heuresDeficit)}
+                                                    </span>
+                                                ) : hasHs ? (
+                                                    <span className="text-emerald-700">
+                                                        Heures Sup : +{formatDecimalToHhMm(b.heuresHsNettes)}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-slate-600">Semaine validée</span>
+                                                )}
                                             </td>
                                         </tr>
                                     );
@@ -331,50 +361,112 @@ export default function PointageFichePrintModal({
                                 <tr className="bg-slate-100 font-bold text-slate-800 border-b border-slate-300">
                                     <th className="py-0.5 px-1 border-r border-slate-300 text-left">Date</th>
                                     <th className="py-0.5 px-0.5 border-r border-slate-300">Jour</th>
+                                    <th className="py-0.5 px-0.5 border-r border-slate-300">Entrée</th>
+                                    <th className="py-0.5 px-0.5 border-r border-slate-300">Sortie Pause</th>
+                                    <th className="py-0.5 px-0.5 border-r border-slate-300">Retour</th>
+                                    <th className="py-0.5 px-0.5 border-r border-slate-300">Sortie</th>
+                                    <th className="py-0.5 px-0.5 border-r border-slate-300 text-rose-700" title="Retards constatés sur la journée (matin et après-midi)">Retard</th>
+                                    <th className="py-0.5 px-1 border-r border-slate-300" title="Temps travaillé sur la journée">Heures faites</th>
+                                    <th className="py-0.5 px-1 border-r border-slate-300" title="Écart par rapport aux 8h standard (surplus + ou manque -)">Écart (vs 8h)</th>
                                     <th className="py-0.5 px-1 border-r border-slate-300 text-left">Statut</th>
-                                    <th className="py-0.5 px-0.5 border-r border-slate-300">Entrée 1</th>
-                                    <th className="py-0.5 px-0.5 border-r border-slate-300">Sortie 1</th>
-                                    <th className="py-0.5 px-0.5 border-r border-slate-300">Entrée 2</th>
-                                    <th className="py-0.5 px-0.5 border-r border-slate-300">Sortie 2</th>
-                                    <th className="py-0.5 px-1 border-r border-slate-300">Total (hh:mm)</th>
-                                    <th className="py-0.5 px-1 border-r border-slate-300">Total (déc.)</th>
-                                    <th className="py-0.5 px-1 border-r border-slate-300">Écart</th>
-                                    <th className="py-0.5 px-1 border-r border-slate-300">Repas</th>
-                                    <th className="py-0.5 px-1">Dépl.</th>
+                                    <th className="py-0.5 px-1 border-r border-slate-300">Transport</th>
+                                    <th className="py-0.5 px-1">Repas</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 font-mono">
                                 {pointages.map((pj, idx) => {
                                     const isWeekend = pj.isRepos && pj.isRepos();
                                     const decVal = pj.totalHeuresDecimal != null ? pj.totalHeuresDecimal : (pj.heures ? parseHhMmToDecimal(pj.heures) : null);
+                                    const isContinu = Boolean(
+                                        pj.horaireContinuJour ||
+                                        pj.horaireContinu ||
+                                        (pj.sortiePause === '12:00' && pj.retourPause === '12:00')
+                                    );
+                                    const isRetard = pj.minutesRetard > 0;
+                                    const isPositiveEcart = pj.ecart && pj.ecart.startsWith('+');
+                                    const isNegativeEcart = pj.ecart && pj.ecart.startsWith('-');
+
                                     return (
                                         <tr key={idx} className={isWeekend ? 'bg-slate-50 text-slate-400' : ''}>
-                                            <td className="py-0.5 px-1 border-r border-slate-300 text-left font-sans">
+                                            <td className="py-0.5 px-1 border-r border-slate-300 text-left font-sans font-medium">
                                                 {pj.dateComplete || pj.date}
                                             </td>
                                             <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.jour}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300 text-left font-sans font-medium">
-                                                {pj.statut || 'Présent'}
+                                            <td className="py-0.5 px-0.5 border-r border-slate-300 font-medium">
+                                                {pj.entree || '—'}
                                             </td>
-                                            <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.entree || '—'}</td>
-                                            <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.sortiePause || '—'}</td>
-                                            <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.retourPause || '—'}</td>
+                                            {isContinu ? (
+                                                <td colSpan={2} className="py-0.5 px-0.5 border-r border-slate-300 text-[7.5px] font-sans text-amber-800 bg-amber-50">
+                                                    Journée continue
+                                                </td>
+                                            ) : (
+                                                <>
+                                                    <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.sortiePause || '—'}</td>
+                                                    <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.retourPause || '—'}</td>
+                                                </>
+                                            )}
                                             <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.sortie || '—'}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300 font-bold">{pj.heures || '—'}</td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300 font-bold text-slate-700">
-                                                {decVal != null && decVal > 0 ? decVal.toFixed(2) : (pj.heures && pj.heures !== '00h00' ? decVal?.toFixed(2) : '—')}
+                                            <td className="py-0.5 px-0.5 border-r border-slate-300 font-medium">
+                                                {isRetard ? (
+                                                    <span className="text-rose-700 font-bold">{pj.minutesRetard} min</span>
+                                                ) : '—'}
                                             </td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300">{pj.ecart || '—'}</td>
+                                            <td className="py-0.5 px-1 border-r border-slate-300 font-bold">
+                                                {pj.statut === 'CONGE' || pj.statut === 'CONGE_PAYE' ? (
+                                                    <span className="text-blue-700 font-sans font-medium">Congé (-8h)</span>
+                                                ) : pj.statut === 'FERIE_CHOME' ? (
+                                                    <span className="text-amber-700 font-sans font-medium">Férié (-8h)</span>
+                                                ) : (
+                                                    pj.heures || '—'
+                                                )}
+                                            </td>
+                                            <td className="py-0.5 px-1 border-r border-slate-300 font-bold">
+                                                {isPositiveEcart ? (
+                                                    <span className="text-emerald-700">{pj.ecart}</span>
+                                                ) : isNegativeEcart ? (
+                                                    <span className="text-rose-700">{pj.ecart}</span>
+                                                ) : (
+                                                    <span className="text-slate-500">{pj.ecart || '—'}</span>
+                                                )}
+                                            </td>
+                                            <td className="py-0.5 px-1 border-r border-slate-300 text-left font-sans font-medium">
+                                                {pj.statut === 'CONGE' || pj.statut === 'CONGE_PAYE' ? 'Congé payé' : pj.statut === 'FERIE_CHOME' ? 'Férié chômé' : (pj.statut || 'Présent')}
+                                            </td>
                                             <td className="py-0.5 px-1 border-r border-slate-300 font-sans">
-                                                {pj.montantRepas > 0 ? formatMonnaie(pj.montantRepas) : '—'}
+                                                {pj.montantDeplacement > 0 ? formatMonnaie(pj.montantDeplacement) : '—'}
                                             </td>
                                             <td className="py-0.5 px-1 font-sans">
-                                                {pj.montantDeplacement > 0 ? formatMonnaie(pj.montantDeplacement) : '—'}
+                                                {pj.montantRepas > 0 ? formatMonnaie(pj.montantRepas) : '—'}
                                             </td>
                                         </tr>
                                     );
                                 })}
                             </tbody>
+                            <tfoot className="border-t-2 border-slate-800 bg-slate-100 font-bold text-[8px]">
+                                <tr>
+                                    <td colSpan={6} className="py-1 px-1.5 text-left font-sans uppercase">
+                                        Total Période
+                                    </td>
+                                    <td className="py-1 px-0.5 border-r border-slate-300 text-rose-700 font-mono font-bold">
+                                        {kpis.retardCumule || '00h00'}
+                                    </td>
+                                    <td className="py-1 px-1 border-r border-slate-300 font-mono">
+                                        {recap.tempsRealise || '00h00'}
+                                    </td>
+                                    <td className="py-1 px-1 border-r border-slate-300 font-mono text-slate-700">
+                                        {recap.ecartCumule || '—'}
+                                    </td>
+                                    <td className="py-1 px-1 border-r border-slate-300 text-left font-sans">
+                                        {pointages.filter(p => p.statut === 'PRESENT' || p.statut === 'DISPENSE_POINTAGE').length} j travaillés
+                                    </td>
+                                    <td className="py-1 px-1 border-r border-slate-300 font-sans">
+                                        {kpis.montantDeplacementTotal || '0 Ar'}
+                                    </td>
+                                    <td className="py-1 px-1 font-sans">
+                                        {kpis.montantRepasTotal || '0 Ar'}
+                                    </td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
 

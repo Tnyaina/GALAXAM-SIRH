@@ -320,8 +320,9 @@ function GanttTooltip({ tooltip, tooltipRef }) {
     // Repas
     let repasLabel = 'Non';
     if (cellData?.indemniteRepasRecue || cellData?.repas) {
-        const mnt = cellData?.montantRepas ? Math.round(cellData.montantRepas).toLocaleString('fr-FR') : '2 000';
-        repasLabel = `Accordée (${mnt} Ar)`;
+        repasLabel = cellData?.montantRepas 
+            ? `Accordée (${Math.round(cellData.montantRepas).toLocaleString('fr-FR')} Ar)`
+            : 'Accordée';
     } else if (cellData?.estDerogeRepas) {
         repasLabel = `Dérogé (${cellData.motifDerogationRepas || 'Prise en charge'})`;
     }
@@ -330,11 +331,11 @@ function GanttTooltip({ tooltip, tooltipRef }) {
     let depLabel = 'Non';
     const hasDeplacement = Boolean(cellData?.indemniteDeplacementRecue || cellData?.deplacement || cellData?.deplacementMatin || cellData?.deplacementAm || (cellData?.montantDeplacement > 0));
     if (hasDeplacement && !cellData?.estDerogeDeplacement) {
-        const mntVal = cellData?.montantDeplacement ? `${Math.round(cellData.montantDeplacement).toLocaleString('fr-FR')} Ar` : '1 418 Ar';
-        if (cellData?.deplacementMatin && cellData?.deplacementAm) depLabel = `Accordé — AR (${mntVal})`;
-        else if (cellData?.deplacementMatin) depLabel = `Accordé — Matin (${mntVal})`;
-        else if (cellData?.deplacementAm) depLabel = `Accordé — Soir (${mntVal})`;
-        else depLabel = `Accordé (${mntVal})`;
+        const mntSuffix = cellData?.montantDeplacement ? ` (${Math.round(cellData.montantDeplacement).toLocaleString('fr-FR')} Ar)` : '';
+        if (cellData?.deplacementMatin && cellData?.deplacementAm) depLabel = `Accordé — AR${mntSuffix}`;
+        else if (cellData?.deplacementMatin) depLabel = `Accordé — Matin${mntSuffix}`;
+        else if (cellData?.deplacementAm) depLabel = `Accordé — Soir${mntSuffix}`;
+        else depLabel = `Accordé${mntSuffix}`;
     } else if (cellData?.estDerogeDeplacement) {
         depLabel = `Dérogé (${cellData.motifDerogationDeplacement || 'Véhicule société'})`;
     }

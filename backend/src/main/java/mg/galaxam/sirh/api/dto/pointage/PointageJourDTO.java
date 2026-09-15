@@ -12,8 +12,9 @@ public class PointageJourDTO {
     private String retourPause; // ex "13:00"
     private String sortie;      // ex "17:00"
     private String heures;      // ex "08h00"
-    private String ecart;       // ex "+05 min" ou "-10 min" ou "00 min"
+    private String ecart;       // ex "+05 min" ou "-10 min" ou "00 min" (différence temps travaillé vs norme)
     private boolean ecartPositif;
+    private Integer minutesRetard; // Retard d'embauche le matin en minutes
     private String statut;      // PRESENT, RETARD, ABSENT, CONGE, REPOS, EN_COURS
 
     // Indemnités journalières
@@ -89,9 +90,12 @@ public class PointageJourDTO {
     public String getStatut() { return statut; }
     public void setStatut(String statut) { this.statut = statut; }
 
+    public Integer getMinutesRetard() { return minutesRetard; }
+    public void setMinutesRetard(Integer minutesRetard) { this.minutesRetard = minutesRetard; }
+
     // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
     public boolean isPresent()  { return "PRESENT".equalsIgnoreCase(statut); }
-    public boolean isRetard()   { return "RETARD".equalsIgnoreCase(statut) || (isPresent() && !ecartPositif && ecart != null && !ecart.startsWith("00")); }
+    public boolean isRetard()   { return "RETARD".equalsIgnoreCase(statut) || (minutesRetard != null && minutesRetard > 0); }
     public boolean isAbsent()   { return "ABSENT".equalsIgnoreCase(statut) || "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(statut); }
     public boolean isConge()    { return "CONGE".equalsIgnoreCase(statut); }
     public boolean isRepos()    { return "REPOS".equalsIgnoreCase(statut); }

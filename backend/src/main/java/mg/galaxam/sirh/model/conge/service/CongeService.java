@@ -167,8 +167,7 @@ public class CongeService {
 
         java.util.Set<java.time.LocalDate> feries = calendrierOuvrableEngine.getDatesFeriesEtChomeesEmploye(cur, end, idEmploye, c);
         while (!cur.isAfter(end)) {
-            java.time.DayOfWeek dow = cur.getDayOfWeek();
-            boolean isWe = (dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY);
+            boolean isWe = CalendrierOuvrableEngine.isWeekend(cur);
             boolean isFerie = feries.contains(cur);
 
             if (isFerie) {

@@ -444,7 +444,7 @@ public class PointageEmployeService {
 
         int nbJoursOuvrablesPeriode = 0;
         for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
-            boolean isWeekend = (d.getDayOfWeek() == DayOfWeek.SATURDAY || d.getDayOfWeek() == DayOfWeek.SUNDAY);
+            boolean isWeekend = CalendrierOuvrableEngine.isWeekend(d);
             boolean isAvantEmbauche = (dateEmbauche != null && d.isBefore(dateEmbauche));
             boolean isApresDepart = (dateDepart != null && d.isAfter(dateDepart));
             boolean isFerie = feriesChomes != null && feriesChomes.contains(d);
@@ -454,7 +454,7 @@ public class PointageEmployeService {
         }
 
         for (LocalDate curr = startDate; !curr.isAfter(endDate); curr = curr.plusDays(1)) {
-            boolean isWeekend = (curr.getDayOfWeek() == DayOfWeek.SATURDAY || curr.getDayOfWeek() == DayOfWeek.SUNDAY);
+            boolean isWeekend = CalendrierOuvrableEngine.isWeekend(curr);
             boolean isAvantEmbauche = (dateEmbauche != null && curr.isBefore(dateEmbauche));
             boolean isApresDepart = (dateDepart != null && curr.isAfter(dateDepart));
             boolean isFerie = feriesChomes != null && feriesChomes.contains(curr);
@@ -484,7 +484,7 @@ public class PointageEmployeService {
                 dto.setHoraireContinuJour(rec.horaireContinuJour);
 
                 long totalMinutesJour = rec.totalMinutes;
-                boolean isWeekendRec = (curr.getDayOfWeek() == DayOfWeek.SATURDAY || curr.getDayOfWeek() == DayOfWeek.SUNDAY);
+                boolean isWeekendRec = CalendrierOuvrableEngine.isWeekend(curr);
 
                 if ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut)) {
                     if (isWeekendRec && totalMinutesJour <= 0) {
@@ -547,17 +547,22 @@ public class PointageEmployeService {
                     totalHeuresFerie += PointageTimeBoundaryMapper.toLegacyDecimalHours(totalMinutesJour);
                     dto.setEcart("+" + dto.getHeures() + " (Gratif. 100%)");
                     dto.setEcartPositif(true);
-                } else if (rec.minutesRetard > 0 && !isAutonome) {
-                    dto.setEcart("-" + rec.minutesRetard + " min");
-                    dto.setEcartPositif(false);
-                    totalMinutesRetard += rec.minutesRetard;
-                    nbOccurrencesRetard++;
-                } else if (totalMinutesJour > dureeJourMins) {
-                    dto.setEcart("+" + PointageTimeBoundaryMapper.formatHoursMinutes(totalMinutesJour - dureeJourMins));
-                    dto.setEcartPositif(true);
                 } else {
-                    dto.setEcart("00 min");
-                    dto.setEcartPositif(true);
+                    if (rec.minutesRetard > 0 && !isAutonome) {
+                        dto.setMinutesRetard(rec.minutesRetard);
+                        totalMinutesRetard += rec.minutesRetard;
+                        nbOccurrencesRetard++;
+                    }
+                    if (totalMinutesJour > dureeJourMins) {
+                        dto.setEcart("+" + PointageTimeBoundaryMapper.formatHoursMinutes(totalMinutesJour - dureeJourMins));
+                        dto.setEcartPositif(true);
+                    } else if (totalMinutesJour < dureeJourMins && totalMinutesJour > 0) {
+                        dto.setEcart("-" + PointageTimeBoundaryMapper.formatHoursMinutes(dureeJourMins - totalMinutesJour));
+                        dto.setEcartPositif(false);
+                    } else {
+                        dto.setEcart("00 min");
+                        dto.setEcartPositif(true);
+                    }
                 }
 
                 if ("PRESENT".equalsIgnoreCase(rec.codeStatut) || ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) && !isWeekendRec) || "SAMEDI_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
@@ -790,7 +795,11 @@ public class PointageEmployeService {
         kpis.put("seuilAssiduiteMinutes", String.valueOf(seuilAssiduite));
         regles.put("seuilAssiduiteMinutes", String.valueOf(seuilAssiduite));
 
-        int dureeHebdo = ParametreGlobal.getInt(activeParams, "DUREE_HEBDO_LEGALE", 40);
+        BigDecimal dureeHebdoBd = ParametreGlobal.getBigDecimal(activeParams, "SEUIL_HEURES_SEMAINE_COMPENSATION", null);
+        if (dureeHebdoBd == null) {
+            dureeHebdoBd = ParametreGlobal.getBigDecimal(activeParams, "DUREE_HEBDO_LEGALE", new BigDecimal("40"));
+        }
+        int dureeHebdo = dureeHebdoBd.intValue();
         regles.put("dureeHebdoLegale", String.valueOf(dureeHebdo));
         kpis.put("dureeHebdoLegale", String.valueOf(dureeHebdo));
 

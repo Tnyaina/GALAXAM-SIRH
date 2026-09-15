@@ -205,16 +205,23 @@ public class PointageSyntheseService {
         }
         int joursOuvrablesReels = calendrierEngine.compterJoursOuvrables(dateDebut, dateFin, idSite, c);
         if (joursOuvrablesReels > 0) nbJoursOuvrablesPeriode = joursOuvrablesReels;
-        BigDecimal seuilHeuresJour = ParametreGlobal.getBigDecimal(params, "SEUIL_HEURES_JOUR", new BigDecimal("8"));
+        BigDecimal dureeHebdoLegale = ParametreGlobal.getBigDecimal(params, "SEUIL_HEURES_SEMAINE_COMPENSATION", new BigDecimal("40.0"));
         BigDecimal seuilHsTranche1 = new BigDecimal("8");
         try {
             mg.galaxam.sirh.model.paieconfig.PaieConfigLegale leg = mg.galaxam.sirh.model.paieconfig.PaieConfigLegale.findActiveAt(c, dateDebut != null ? dateDebut : LocalDate.now());
-            if (leg != null && leg.getSeuilHsTranche1() != null) {
-                seuilHsTranche1 = leg.getSeuilHsTranche1();
+            if (leg != null) {
+                if (leg.getSeuilHsTranche1() != null) {
+                    seuilHsTranche1 = leg.getSeuilHsTranche1();
+                }
+                if (leg.getDureeHebdoLegale() != null) {
+                    dureeHebdoLegale = leg.getDureeHebdoLegale();
+                }
             }
         } catch (Exception e) {
-            log.warn("Impossible de charger PaieConfigLegale pour seuilHsTranche1, repli sur 8.0 : {}", e.getMessage());
+            log.warn("Impossible de charger PaieConfigLegale pour seuilHsTranche1/dureeHebdoLegale, repli : {}", e.getMessage());
         }
+        BigDecimal seuilHeuresJour = ParametreGlobal.getBigDecimal(
+                params, "SEUIL_HEURES_JOUR", dureeHebdoLegale.divide(BigDecimal.valueOf(5), 2, RoundingMode.HALF_UP));
         Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMapAtDate(dateDebut != null ? Date.valueOf(dateDebut) : null, c);
         // Résolution de l'horaire continu du site (TRUE = TNR / continu, FALSE = TMM / discontinu)
         boolean siteHoraireContinu;
@@ -454,26 +461,40 @@ public class PointageSyntheseService {
             LocalDate lundi = entry.getKey();
             List<DailyAttendanceResult> jours = entry.getValue();
 
-            // Compter les jours ouvrés du tronçon dans la période (en excluant les jours fériés chômés)
-            int joursOuvresTroncon = 0;
+            // Compter les jours ouvrés et fériés chômés du tronçon via le moteur centralisé
             LocalDate finTroncon = lundi.plusDays(6);
             if (finTroncon.isAfter(dateFin)) {
                 finTroncon = dateFin;
             }
             LocalDate debutTroncon = lundi.isBefore(dateDebut) ? dateDebut : lundi;
 
-            for (int i = 0; i < 7; i++) {
-                LocalDate cur = lundi.plusDays(i);
-                if (!cur.isBefore(dateDebut) && !cur.isAfter(dateFin)) {
-                    if (!CalendrierOuvrableEngine.isWeekend(cur) && !feriesChomesTroncon.contains(cur)) {
-                        joursOuvresTroncon++;
+            int joursOuvresTroncon = (calendrierEngine != null)
+                    ? calendrierEngine.compterJoursOuvrables(debutTroncon, finTroncon, idSite, c)
+                    : CalendrierOuvrableEngine.calculerJoursOuvrables(debutTroncon, finTroncon);
+            int joursFerieTroncon = 0;
+            for (LocalDate cur = debutTroncon; !cur.isAfter(finTroncon); cur = cur.plusDays(1)) {
+                if (!CalendrierOuvrableEngine.isWeekend(cur) && feriesChomesTroncon.contains(cur)) {
+                    joursFerieTroncon++;
+                }
+            }
+
+            // Décompter les congés validés sur les jours ouvrés non fériés du tronçon
+            // (évite le cumul : un jour férié chômé ne peut pas être décompté deux fois)
+            double joursCongeTroncon = 0.0;
+            for (DailyAttendanceResult j : jours) {
+                if (!CalendrierOuvrableEngine.isWeekend(j.date()) && !feriesChomesTroncon.contains(j.date())) {
+                    if (j.status() == DailyAttendanceResult.Status.LEAVE) {
+                        joursCongeTroncon += 1.0;
+                    } else if (j.status() == DailyAttendanceResult.Status.HALF_DAY) {
+                        joursCongeTroncon += 0.5;
                     }
                 }
             }
-            if (joursOuvresTroncon == 0) joursOuvresTroncon = 1;
 
+            // Seuil d'heures attendu de la semaine abaissé proportionnellement aux congés
+            double joursRequis = Math.max(0.0, (double) joursOuvresTroncon - joursCongeTroncon);
             long expectedMinutes = seuilHeuresJour
-                    .multiply(BigDecimal.valueOf(joursOuvresTroncon)).multiply(BigDecimal.valueOf(60))
+                    .multiply(BigDecimal.valueOf(joursRequis)).multiply(BigDecimal.valueOf(60))
                     .setScale(0, RoundingMode.HALF_UP).longValueExact();
             long firstBandMinutes = seuilHsTranche1.multiply(BigDecimal.valueOf(60))
                     .setScale(0, RoundingMode.HALF_UP).longValueExact();
@@ -482,10 +503,38 @@ public class PointageSyntheseService {
             weeklyResults.add(res);
             totalHs30Minutes += res.overtime30Minutes();
             totalHs50Minutes += res.overtime50Minutes();
-            totalHsBrutesMinutes += res.grossOvertimeMinutes();
-            long retardCompense = Math.max(0, res.lateMinutes() - res.absenceMinutes());
-            totalRetardCompenseMinutes += retardCompense;
-            totalDeficitMinutes += Math.min(res.lateMinutes(), res.absenceMinutes());
+
+            // Calcul du surplus brut journalier (heures faites au-delà de 8h/j ou 4h/demi-journée)
+            // et des heures manquantes journalières sur les jours ouvrables du tronçon
+            long standardJourMinutes = seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValue();
+            long sumSurplusJourMinutes = 0;
+            long sumManqueJourMinutes = 0;
+            for (DailyAttendanceResult j : jours) {
+                if (j.sunday() || j.publicHoliday()
+                        || j.status() == DailyAttendanceResult.Status.LEAVE
+                        || j.status() == DailyAttendanceResult.Status.REST
+                        || j.status() == DailyAttendanceResult.Status.PUBLIC_HOLIDAY_OFF) {
+                    continue;
+                }
+                long dailyTarget = (j.status() == DailyAttendanceResult.Status.HALF_DAY)
+                        ? standardJourMinutes / 2
+                        : standardJourMinutes;
+                long diff = j.workedMinutes() - dailyTarget;
+                if (diff > 0) {
+                    sumSurplusJourMinutes += diff;
+                } else if (diff < 0) {
+                    sumManqueJourMinutes += (-diff);
+                }
+            }
+
+            // Compensation intra-semaine : le surplus journalier compense les heures manquantes
+            long surplusBrutTroncon = Math.max(sumSurplusJourMinutes, res.grossOvertimeMinutes());
+            long heuresCompenseesTroncon = Math.min(surplusBrutTroncon, sumManqueJourMinutes);
+            long deficitTroncon = res.absenceMinutes(); // Heures nettes non compensées de la semaine
+
+            totalHsBrutesMinutes += surplusBrutTroncon;
+            totalRetardCompenseMinutes += heuresCompenseesTroncon;
+            totalDeficitMinutes += deficitTroncon;
 
             PointageTronconSemaineDTO tDto = new PointageTronconSemaineDTO();
             tDto.setIdEmploye(idEmp);
@@ -502,13 +551,15 @@ public class PointageSyntheseService {
             tDto.setFinSemaine(finTroncon.toString());
             tDto.setNumeroSemaine(semIndex++);
             tDto.setNbJoursTroncon(joursOuvresTroncon);
+            tDto.setNbJoursConge(joursCongeTroncon);
+            tDto.setNbJoursFerie(joursFerieTroncon);
             tDto.setSeuilHeuresTroncon(minutesToHours(res.expectedMinutes()));
             tDto.setTotalHeuresTravaillees(minutesToHours(res.workedMinutes()));
             tDto.setHeuresRetard(minutesToHours(res.lateMinutes()));
-            tDto.setHeuresHsBrutes(minutesToHours(res.grossOvertimeMinutes()));
-            tDto.setHeuresCompensees(minutesToHours(retardCompense));
+            tDto.setHeuresHsBrutes(minutesToHours(surplusBrutTroncon));
+            tDto.setHeuresCompensees(minutesToHours(heuresCompenseesTroncon));
             tDto.setHeuresHsNettes(minutesToHours(res.overtime30Minutes() + res.overtime50Minutes()));
-            tDto.setHeuresDeficit(minutesToHours(Math.min(res.lateMinutes(), res.absenceMinutes())));
+            tDto.setHeuresDeficit(minutesToHours(deficitTroncon));
             tDto.setHeuresHs30(minutesToHours(res.overtime30Minutes()));
             tDto.setHeuresHs50(minutesToHours(res.overtime50Minutes()));
             tronconsList.add(tDto);
@@ -561,6 +612,7 @@ public class PointageSyntheseService {
         }
         dto.setMontantDeplacement(mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy.amount(montantDeplacementFinal));
         dto.setNbAnomaliesNonResolues(nbAnomalies);
+        dto.setHeuresNormales(seuilHeuresJour.multiply(BigDecimal.valueOf(nbJoursOuvrablesPeriode)).doubleValue());
 
         return dto;
     }
@@ -772,11 +824,13 @@ public class PointageSyntheseService {
         int countRetard = 0;
         int countAbsence = 0;
         int countHs = 0;
+        int countCompense = 0;
         StringBuilder sqlAl = new StringBuilder(
             "SELECT " +
             "(SELECT COUNT(DISTINCT pj.id_employe) FROM pointage_jour pj JOIN employe e ON pj.id_employe = e.id_employe WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE AND pj.heures_nuit > 0 " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + ") AS count_nuit, " +
             "(SELECT COUNT(DISTINCT pj.id_employe) FROM pointage_jour pj JOIN employe e ON pj.id_employe = e.id_employe WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE AND pj.minutes_retard > 0 " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + ") AS count_retard, " +
             "(SELECT COUNT(DISTINCT pj.id_employe) FROM pointage_jour pj JOIN ref_statut_pointage_jour spj ON pj.id_statut_jour = spj.id_statut_jour JOIN employe e ON pj.id_employe = e.id_employe WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE AND spj.code LIKE '%ABS%' " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + ") AS count_absence, " +
+            "(SELECT COUNT(DISTINCT psc.id_employe) FROM pointage_semaine_calcule psc JOIN employe e ON psc.id_employe = e.id_employe WHERE psc.id_periode_paie = ? AND e.est_actif = TRUE AND (psc.heures_hs_brutes > psc.heures_hs_nettes) " + (idSite != null && idSite > 0 ? "AND EXISTS (SELECT 1 FROM pointage_jour pj2 WHERE pj2.id_employe = e.id_employe AND pj2.id_periode_paie = psc.id_periode_paie AND pj2.id_site = ?) " : "") + ") AS count_compense, " +
             "(SELECT COUNT(DISTINCT e.id_employe) FROM employe e WHERE e.est_actif = TRUE AND (" +
             "   EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + " AND pj.total_heures > 8.0) " +
             "   OR EXISTS (SELECT 1 FROM pointage_semaine_calcule psc WHERE psc.id_employe = e.id_employe AND psc.id_periode_paie = ? " + (idSite != null && idSite > 0 ? "AND EXISTS (SELECT 1 FROM pointage_jour pj2 WHERE pj2.id_employe = e.id_employe AND pj2.id_periode_paie = ? AND pj2.id_site = ?) " : "") + " AND (psc.heures_hs_30 > 0 OR psc.heures_hs_50 > 0))" +
@@ -784,6 +838,8 @@ public class PointageSyntheseService {
         );
         try (PreparedStatement psAl = c.prepareStatement(sqlAl.toString())) {
             int aIdx = 1;
+            psAl.setInt(aIdx++, idPeriode);
+            if (idSite != null && idSite > 0) psAl.setInt(aIdx++, idSite);
             psAl.setInt(aIdx++, idPeriode);
             if (idSite != null && idSite > 0) psAl.setInt(aIdx++, idSite);
             psAl.setInt(aIdx++, idPeriode);
@@ -802,6 +858,7 @@ public class PointageSyntheseService {
                     countNuit = rsAl.getInt("count_nuit");
                     countRetard = rsAl.getInt("count_retard");
                     countAbsence = rsAl.getInt("count_absence");
+                    countCompense = rsAl.getInt("count_compense");
                     countHs = rsAl.getInt("count_hs");
                 }
             }
@@ -899,6 +956,9 @@ public class PointageSyntheseService {
             filterParams.add(idPeriode);
         } else if ("ABSENCE".equalsIgnoreCase(filtre)) {
             whereFilter.append("AND EXISTS (SELECT 1 FROM pointage_jour pj JOIN ref_statut_pointage_jour spj ON pj.id_statut_jour = spj.id_statut_jour WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND spj.code LIKE '%ABS%') ");
+            filterParams.add(idPeriode);
+        } else if ("COMPENSE".equalsIgnoreCase(filtre)) {
+            whereFilter.append("AND EXISTS (SELECT 1 FROM pointage_semaine_calcule psc WHERE psc.id_employe = e.id_employe AND psc.id_periode_paie = ? AND (psc.heures_hs_brutes > psc.heures_hs_nettes)) ");
             filterParams.add(idPeriode);
         }
 
@@ -1020,6 +1080,7 @@ public class PointageSyntheseService {
         alertCountsMap.put("nuit", countNuit);
         alertCountsMap.put("retard", countRetard);
         alertCountsMap.put("absence", countAbsence);
+        alertCountsMap.put("compense", countCompense);
 
         resp.put("synthese", pageList);
         resp.put("totalElements", totalElements);
@@ -1380,13 +1441,10 @@ public class PointageSyntheseService {
         String seuil2eRepas2Str = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_2", "21:00", "23:59");
         LocalTime seuil2eRepas2 = LocalTime.parse(seuil2eRepas2Str.length() == 5 ? seuil2eRepas2Str : seuil2eRepas2Str.substring(0, 5));
 
-        // Compter les jours ouvrés du tronçon
-        int nbOuvrables = 0;
-        for (LocalDate d = dateDebutTroncon; !d.isAfter(dateFinTroncon); d = d.plusDays(1)) {
-            if (!CalendrierOuvrableEngine.isWeekend(d)) {
-                nbOuvrables++;
-            }
-        }
+        // Compter les jours ouvrés du tronçon via le moteur centralisé
+        int nbOuvrables = (calendrierEngine != null)
+                ? calendrierEngine.compterJoursOuvrables(dateDebutTroncon, dateFinTroncon, idSite, c)
+                : CalendrierOuvrableEngine.calculerJoursOuvrables(dateDebutTroncon, dateFinTroncon);
 
         // Charger les indemnités de déplacement/transport configurées par site (site_indemnite_config)
         Map<Integer, BigDecimal> siteDeplacementRefMap = new HashMap<>();
