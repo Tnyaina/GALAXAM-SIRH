@@ -60,7 +60,8 @@ class PayrollPeriodWorkflowIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.state").value("EN_COURS"))
                 .andExpect(jsonPath("$.decision").value("ALLOWED"))
                 .andExpect(jsonPath("$.version").value(2))
-                .andExpect(jsonPath("$.availableActions.SUBMIT.allowed").value(true));
+                .andExpect(jsonPath("$.availableActions.SUBMIT.allowed").value(false))
+                .andExpect(jsonPath("$.availableActions.SUBMIT.reasonCodes[0]").value("POINTAGE_EMPTY"));
 
         assertThat(singleText(
                 "SELECT commande || ':' || statut_source || ':' || statut_cible "

@@ -38,7 +38,6 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     const { hasPermission } = useAuth();
     const toastContext = useToast();
     const toast = toastContext?.toast || toastContext;
-    const canWrite = hasPermission('POINTAGE_WRITE');
     const isDaf = hasPermission('POINTAGE_VALIDATE');
 
     // Sélecteurs de contexte (Période & Site)
@@ -83,18 +82,16 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     useEffect(() => {
         const init = async () => {
             try {
-                const [resPeriodes, resSites] = await Promise.all([
+                const paramPeriode = searchParams.get('periode');
+                const [resPeriodes, resSites, context] = await Promise.all([
                     periodePaieService.getAllPeriodes(),
-                    organisationService.getSites()
+                    organisationService.getSites(),
+                    periodePaieService.getContext(paramPeriode ? Number(paramPeriode) : null)
                 ]);
                 if (resPeriodes && resPeriodes.length > 0) {
                     setPeriodes(resPeriodes);
-                    const paramPeriode = searchParams.get('periode');
-                    const found = paramPeriode ? resPeriodes.find(p => String(p.idPeriodePaie) === paramPeriode) : null;
                     const active = (activePeriode ? resPeriodes.find(p => p.idPeriodePaie === activePeriode.idPeriodePaie) : null)
-                        || found
-                        || resPeriodes.find(p => p.statutCode === 'EN_COURS')
-                        || resPeriodes[0];
+                        || resPeriodes.find(p => String(p.idPeriodePaie) === String(context?.selectedPeriod?.id));
                     if (active) {
                         const pid = String(active.idPeriodePaie);
                         setSelectedPeriodeId(pid);
@@ -141,12 +138,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         periodes.find(p => String(p.idPeriodePaie) === String(selectedPeriodeId)) || null,
     [periodes, selectedPeriodeId]);
 
-    const stCode = currentPeriodeObj?.statutCode;
-    const isEnCours = stCode === 'EN_COURS' || stCode === 'OUVERTE' || !stCode;
-    const isAValider = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
-    const isValidee = stCode === 'VALIDEE_DAF';
-    const isCloturee = stCode === 'CLOTUREE';
-    const isLocked = isAValider || isValidee || isCloturee;
+    const actions = currentPeriodeObj?.availableActions || {};
+    const isLocked = actions.REGULARIZE_ANOMALY?.allowed !== true;
 
     // Anomalies bloquantes pour la transmission DAF
     const nbBloquantes = useMemo(() => {
@@ -158,27 +151,11 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         return (semaines || []).filter(s => s.statutSemaine !== 'CLOTUREE' && (s.progressPercent || 0) < 100).length;
     }, [semaines]);
 
-    // Vérification de la date de fin de période
-    const todayStr = useMemo(() => new Date().toISOString().substring(0, 10), []);
-    const dateFinPeriode = currentPeriodeObj?.dateFin;
-    const isPeriodeEnded = useMemo(() => {
-        if (!dateFinPeriode) return true;
-        return todayStr >= dateFinPeriode;
-    }, [todayStr, dateFinPeriode]);
-
-    // Prérequis globaux pour transmission DAF (pour un agent de site)
     const hasIncompleteWeeks = nbSemainesRestantes > 0;
-    const canTransmitDaf = isEnCours && nbBloquantes === 0 && !hasIncompleteWeeks && isPeriodeEnded && canWrite;
+    const canTransmitDaf = actions.SUBMIT?.allowed === true;
 
     // Raison du blocage de transmission pour le tooltip ou le message d'aide
-    const transmissionBlockReason = useMemo(() => {
-        if (isLocked) return 'Cette période est déjà transmise ou validée.';
-        if (!canWrite) return 'Vos permissions ne vous permettent pas de transmettre la période.';
-        if (nbBloquantes > 0) return `Il reste ${nbBloquantes} anomalie(s) bloquante(s) non régularisée(s).`;
-        if (hasIncompleteWeeks) return `Toutes les semaines doivent être saisies (${nbSemainesRestantes} semaine(s) incomplète(s)).`;
-        if (!isPeriodeEnded) return `La période ne peut être transmise avant sa date de fin (${dateFinPeriode || 'en cours'}).`;
-        return null;
-    }, [isLocked, canWrite, nbBloquantes, hasIncompleteWeeks, isPeriodeEnded, nbSemainesRestantes, dateFinPeriode]);
+    const transmissionBlockReason = (actions.SUBMIT?.reasonCodes || []).join(' · ');
 
     // Filtrage dynamique des anomalies
     const filteredAnomalies = useMemo(() => {
@@ -256,7 +233,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
     // Transmission officielle à la DAF
     const handleTransmettreDaf = async () => {
-        if (!selectedPeriodeId || nbBloquantes > 0) return;
+        if (!selectedPeriodeId || !canTransmitDaf) return;
         setTransmitting(true);
         try {
             const siteParam = Number(selectedSiteId) > 0 ? Number(selectedSiteId) : undefined;
@@ -782,7 +759,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                                     variant={isDone ? 'ghost' : 'outline'}
                                                     size="xs"
                                                     onClick={() => handleOpenRegularisation(ano)}
-                                                    disabled={isLocked || !canWrite}
+                                                    disabled={isLocked}
                                                     className="font-bold text-[11px] h-[28px]"
                                                 >
                                                     {isDone ? 'Modifier' : 'Régulariser'}
@@ -828,10 +805,10 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 <AlertTriangle size={15} className="text-amber-500" />
                                 <span>Saisie en cours : {nbSemainesRestantes} semaine(s) incomplète(s) avant clôture de période</span>
                             </div>
-                        ) : !isPeriodeEnded ? (
+                        ) : !canTransmitDaf ? (
                             <div className="flex items-center gap-2 text-xs font-semibold text-sky-600 dark:text-sky-400">
                                 <Clock size={15} className="text-sky-500" />
-                                <span>Période en cours (date de fin : {dateFinPeriode || 'à venir'}) — Aucune anomalie bloquante</span>
+                                <span>{transmissionBlockReason || 'Transmission indisponible pour cette période.'}</span>
                             </div>
                         ) : (
                             <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -854,7 +831,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         {isDaf ? (
                             // Rôle Validateur / Administrateur : Navigation directe vers Contrôle & Validation
                             <div className="flex items-center gap-2">
-                                {isEnCours && canTransmitDaf && (
+                                {canTransmitDaf && (
                                     <Button
                                         variant="outline"
                                         size="md"

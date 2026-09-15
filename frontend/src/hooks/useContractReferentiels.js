@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import organisationService from '@/api/admin/organisationService';
 import contratService from '@/api/employe/contratService';
-import employeService from '@/api/employe/employeService';
 
 // Cache en mémoire partagé avec horodatage
 let cacheData = null;
@@ -22,7 +21,7 @@ export function invalidateContractReferentiels() {
  * @param {boolean} enabled - Si false, ne déclenche pas le chargement tant que le composant est masqué
  * @param {number|string|null} excludeEmployeId - ID employé à exclure de la liste des responsables N+1
  */
-export function useContractReferentiels(enabled = true, excludeEmployeId = null) {
+export function useContractReferentiels(enabled = true, _excludeEmployeId = null) {
     const [referentiels, setReferentiels] = useState(cacheData || {
         filiales: [],
         sites: [],
@@ -34,7 +33,6 @@ export function useContractReferentiels(enabled = true, excludeEmployeId = null)
         categoriesPro: [],
         modesPaie: [],
         typesEvenementRh: [],
-        employes: [],
     });
 
     const [loading, setLoading] = useState(!cacheData);
@@ -56,7 +54,7 @@ export function useContractReferentiels(enabled = true, excludeEmployeId = null)
         try {
             const [
                 filRes, siteRes, depRes, srvRes, fnRes,
-                tcRes, tiRes, catRes, paieRes, tevRes, empRes
+                tcRes, tiRes, catRes, paieRes, tevRes
             ] = await Promise.all([
                 organisationService.getFiliales(true),
                 organisationService.getSites(true),
@@ -68,10 +66,8 @@ export function useContractReferentiels(enabled = true, excludeEmployeId = null)
                 contratService.getCategoriesPro(true),
                 contratService.getModesPaie(),
                 contratService.getTypesEvenementRh(),
-                employeService.getEmployes({ size: 10000, actif: true }),
             ]);
 
-            const empArray = Array.isArray(empRes) ? empRes : (empRes?.content || []);
             const isItemActive = (item) => item && item.estActif !== false && item.actif !== false;
 
             const newData = {
@@ -85,7 +81,6 @@ export function useContractReferentiels(enabled = true, excludeEmployeId = null)
                 categoriesPro: (catRes || []).filter(isItemActive),
                 modesPaie: (paieRes || []).filter(isItemActive),
                 typesEvenementRh: (tevRes || []).filter(isItemActive),
-                employes: empArray.filter(e => isItemActive(e) && e.statut !== 'INACTIF' && e.statutEmploye !== 'INACTIF'),
             };
 
 
@@ -106,16 +101,9 @@ export function useContractReferentiels(enabled = true, excludeEmployeId = null)
         }
     }, [enabled, fetchAll]);
 
-    // Filtrer la liste des responsables (N+1 potentiel) en excluant l'employé concerné (mémoïsé)
-    const responsables = useMemo(() => {
-        return excludeEmployeId
-            ? referentiels.employes.filter(e => Number(e.idEmploye || e.id_employe) !== Number(excludeEmployeId))
-            : referentiels.employes;
-    }, [referentiels.employes, excludeEmployeId]);
-
     return {
         ...referentiels,
-        responsables,
+        responsables: [],
         loading,
         error,
         refresh: () => fetchAll(true),

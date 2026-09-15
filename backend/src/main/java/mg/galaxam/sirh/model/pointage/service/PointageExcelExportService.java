@@ -61,13 +61,26 @@ public class PointageExcelExportService {
 
         Integer idEmploye = fiche.getIdEmploye();
         if ((matricule.equals("—") || nomComplet.equals("—")) && idEmploye != null) {
+            // Utiliser la date de début de la fiche comme date de référence pour l'affectation,
+            // jamais CURRENT_DATE — garantit la cohérence des exports historiques (Phase 4).
+            java.time.LocalDate dateRef;
+            try {
+                String dateStr = fiche.getDateDebut() != null ? fiche.getDateDebut()
+                                 : fiche.getDateFin() != null ? fiche.getDateFin() : null;
+                dateRef = dateStr != null ? java.time.LocalDate.parse(dateStr) : java.time.LocalDate.now();
+            } catch (Exception parseErr) {
+                log.warn("Impossible de parser la date de la fiche, fallback date courante : {}", parseErr.getMessage());
+                dateRef = java.time.LocalDate.now();
+            }
+
             String sqlEmp = "SELECT e.matricule, e.nom, e.prenom, " +
                             "COALESCE(s.libelle, 'Siège') AS site_nom, " +
                             "COALESCE(f.libelle, 'Collaborateur') AS fonction_nom, " +
                             "COALESCE(cp.code, '—') AS code_categorie " +
                             "FROM employe e " +
                             "LEFT JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
-                            "    AND (a.date_fin IS NULL OR a.date_fin >= CURRENT_DATE) " +
+                            "    AND a.date_debut <= ? " +
+                            "    AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
                             "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
                             "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
                             "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
@@ -75,7 +88,9 @@ public class PointageExcelExportService {
                             "ORDER BY a.date_debut DESC LIMIT 1";
             try (Connection c = dataSource.getConnection();
                  PreparedStatement ps = c.prepareStatement(sqlEmp)) {
-                ps.setInt(1, idEmploye);
+                ps.setDate(1, java.sql.Date.valueOf(dateRef));
+                ps.setDate(2, java.sql.Date.valueOf(dateRef));
+                ps.setInt(3, idEmploye);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         matricule = rs.getString("matricule");

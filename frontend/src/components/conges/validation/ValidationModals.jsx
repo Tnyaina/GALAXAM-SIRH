@@ -67,7 +67,7 @@ export default function ValidationModals({
           selectedDemande ? (
             <div className="flex flex-wrap items-center justify-between gap-3 w-full">
               <div>
-                {selectedDemande.codeStatutDemande === 'VALIDE' && onOpenAnnuler && (
+                {selectedDemande.availableActions?.CANCEL?.allowed === true && onOpenAnnuler && (
                   <Button
                     variant="danger"
                     size="sm"
@@ -82,7 +82,7 @@ export default function ValidationModals({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {selectedDemande?.codeStatutDemande === 'VALIDE' && selectedDemande?.dateDebut && new Date(selectedDemande.dateDebut).setHours(0,0,0,0) >= new Date().setHours(0,0,0,0) && onOpenModifier && (
+                {selectedDemande?.availableActions?.MODIFY_DATES?.allowed === true && onOpenModifier && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -96,7 +96,7 @@ export default function ValidationModals({
                   </Button>
                 )}
 
-                {(selectedDemande?.isEnAttente ?? (selectedDemande?.codeStatutDemande === 'EN_ATTENTE')) && (
+                {selectedDemande?.availableActions?.APPROVE?.allowed === true && (
                   <>
                     <Button
                       variant="outline"

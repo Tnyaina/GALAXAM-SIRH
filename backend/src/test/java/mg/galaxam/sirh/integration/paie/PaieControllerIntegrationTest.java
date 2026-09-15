@@ -151,7 +151,7 @@ class PaieControllerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.bulletin.matricule", is("EMP-PERM-01")))
                 .andExpect(jsonPath("$.bulletin.salaireBase", is(625000.0)))
-                .andExpect(jsonPath("$.bulletin.statut", anyOf(is("CALCULE"), is("VALIDE"))));
+                .andExpect(jsonPath("$.bulletin.statut", is("CALCULE")));
 
         // Vérification en base : Le bulletin et ses lignes doivent exister
         Integer idBulletinCree = null;
@@ -223,6 +223,53 @@ class PaieControllerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.bulletin.idBulletin", is(idBulletin)))
                 .andExpect(jsonPath("$.bulletin.matricule", is("EMP-PERM-01")))
                 .andExpect(jsonPath("$.lignes", not(empty())));
+    }
+
+    @Test
+    @DisplayName("GET /paie/periode/{id}/cockpit - données, règles et actions dans une réponse unique")
+    void testCockpitUnifieLeContexteDeDecision() throws Exception {
+        mockMvc.perform(get("/paie/periode/" + idPeriode + "/cockpit")
+                        .header("Authorization", "Bearer " + getAdminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.periode.idPeriodePaie", is(idPeriode)))
+                .andExpect(jsonPath("$.readiness.checks", hasSize(4)))
+                .andExpect(jsonPath("$.readiness.checks[0].status", is("PASS")))
+                .andExpect(jsonPath("$.population", hasSize(2)))
+                .andExpect(jsonPath("$.population[0].decision", is("INCLUDED")))
+                .andExpect(jsonPath("$.validationSummary.population", is(2)))
+                .andExpect(jsonPath("$.validationSummary.version", greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.context.selectedPeriod.id", is(idPeriode)))
+                .andExpect(jsonPath("$.context.availableActions.CALCULATE.allowed", is(true)))
+                .andExpect(jsonPath("$.context.outputs", hasSize(6)))
+                .andExpect(jsonPath("$.context.outputs[0].checksum", hasLength(64)))
+                .andExpect(jsonPath("$.context.selectedPeriod.version", greaterThanOrEqualTo(0)));
+    }
+
+    @Test
+    @DisplayName("Population ambiguë - le backend bloque le calcul et explique le salarié concerné")
+    void testPopulationAmbigueBloqueLeCalcul() throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "INSERT INTO employe_affectation_carriere "
+                             + "(id_employe, id_contrat, id_statut_rh, id_motif_mouvement, id_site, "
+                             + "id_departement, id_service, id_fonction, id_responsable_hierarchique, "
+                             + "id_categorie_professionnelle, id_mode_calcul_paie, salaire_base, date_debut, date_fin) "
+                             + "SELECT id_employe, id_contrat, id_statut_rh, id_motif_mouvement, id_site, "
+                             + "id_departement, id_service, id_fonction, id_responsable_hierarchique, "
+                             + "id_categorie_professionnelle, id_mode_calcul_paie, salaire_base, date_debut, date_fin "
+                             + "FROM employe_affectation_carriere WHERE id_employe = ? LIMIT 1")) {
+            statement.setInt(1, empPermanent.idEmploye);
+            assertEquals(1, statement.executeUpdate());
+        }
+
+        mockMvc.perform(get("/paie/periode/" + idPeriode + "/cockpit")
+                        .header("Authorization", "Bearer " + getAdminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.population[?(@.employeeId == " + empPermanent.idEmploye + ")].decision",
+                        contains("BLOCKED")))
+                .andExpect(jsonPath("$.context.availableActions.CALCULATE.allowed", is(false)))
+                .andExpect(jsonPath("$.context.availableActions.CALCULATE.reasonCodes[0]",
+                        is("PAYROLL_POPULATION_BLOCKED")));
     }
 
     @Test
@@ -322,6 +369,20 @@ class PaieControllerIntegrationTest extends BaseIntegrationTest {
                         .header("Authorization", "Bearer " + getAdminToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(reqCalc)))
+                .andExpect(status().isOk());
+
+        // Les sorties officielles restent bloquées tant que la campagne n'est pas validée.
+        mockMvc.perform(get("/paie/periode/" + idPeriode + "/export/safi")
+                        .header("Authorization", "Bearer " + getAdminToken()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.details.reasonCodes[0]", is("PAYROLL_NOT_VALIDATED")));
+
+        ActionPaiePeriodeRequest validation = new ActionPaiePeriodeRequest();
+        validation.setIdPeriodePaie(idPeriode);
+        mockMvc.perform(post("/paie/valider-periode")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(validation)))
                 .andExpect(status().isOk());
 
         // 1. Export SAFI 25 Colonnes (JSON data)

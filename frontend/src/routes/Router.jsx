@@ -111,6 +111,7 @@ export default function Router() {
                     <Route element={<ProtectedRoute requiredPermission="EMPLOYE_READ" />}>
                         <Route path="/employes" element={<EmployeList />} />
                         <Route path="/employes/:id" element={<EmployeFicheDetailPage />} />
+                        <Route path="/employes/:id/:section" element={<EmployeFicheDetailPage />} />
                         <Route path="/carrieres" element={<CarrieresSupervisionPage />} />
                     </Route>
 

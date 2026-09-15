@@ -74,19 +74,16 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     useEffect(() => {
         const init = async () => {
             try {
-                const [resPeriodes, resSites] = await Promise.all([
+                const paramPeriode = searchParams.get('periode');
+                const [resPeriodes, resSites, context] = await Promise.all([
                     periodePaieService.getAllPeriodes(),
-                    organisationService.getSites()
+                    organisationService.getSites(),
+                    periodePaieService.getContext(paramPeriode ? Number(paramPeriode) : null)
                 ]);
                 if (resPeriodes && resPeriodes.length > 0) {
                     setPeriodes(resPeriodes);
-                    const paramPeriode = searchParams.get('periode');
-                    const found = paramPeriode ? resPeriodes.find(p => String(p.idPeriodePaie) === paramPeriode) : null;
                     const activeP = (activePeriode ? resPeriodes.find(p => p.idPeriodePaie === activePeriode.idPeriodePaie) : null)
-                        || found
-                        || resPeriodes.find(p => p.statutCode === 'A_VALIDER' || p.statutCode === 'TRANSMIS_DAF')
-                        || resPeriodes.find(p => p.statutCode === 'EN_COURS')
-                        || resPeriodes[0];
+                        || resPeriodes.find(p => String(p.idPeriodePaie) === String(context?.selectedPeriod?.id));
                     if (activeP) {
                         const pid = String(activeP.idPeriodePaie);
                         setSelectedPeriode(pid);
@@ -106,21 +103,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         };
         init();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Sécurité : auto-sélection dès que la liste des périodes est disponible
-    useEffect(() => {
-        if (periodes.length > 0 && !selectedPeriode) {
-            const activeP = (activePeriode ? periodes.find(p => p.idPeriodePaie === activePeriode.idPeriodePaie) : null)
-                || periodes.find(p => p.statutCode === 'A_VALIDER' || p.statutCode === 'TRANSMIS_DAF')
-                || periodes.find(p => p.statutCode === 'EN_COURS')
-                || periodes[0];
-            if (activeP) {
-                const pid = String(activeP.idPeriodePaie);
-                setSelectedPeriode(pid);
-                setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('periode', pid); return n; }, { replace: true });
-            }
-        }
-    }, [periodes, selectedPeriode, activePeriode, setSearchParams]);
 
     // Synchronisation réactive avec activePeriode provenant du parent
     useEffect(() => {
@@ -164,9 +146,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         periodes.find(p => p.idPeriodePaie === Number(selectedPeriode)) || null,
         [periodes, selectedPeriode]);
 
-    const stCode = currentPeriodeObj?.statutCode;
-    const isAValider = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
-    const _isCloturee = stCode === 'CLOTUREE';
+    const periodActions = currentPeriodeObj?.availableActions || {};
+    const canDecide = periodActions.APPROVE?.allowed === true || periodActions.REJECT?.allowed === true;
 
     const kpis = useMemo(() => {
         const totalInd = Math.round(syntheseData.reduce((a, r) => a + ((r.montantRepas || 0) + (r.montantDeplacement || 0)), 0));
@@ -404,7 +385,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             <span className="hidden md:inline">Actualiser les calculs</span>
                             <span className="md:hidden">Actualiser</span>
                         </Button>
-                        {isAValider && (
+                        {canDecide && (
                             <>
                                 <Button type="button" variant="danger" size="sm" onClick={() => setShowRejetModal(true)}
                                     icon={<XCircle size={14} />} className="text-xs h-[32px] font-bold">

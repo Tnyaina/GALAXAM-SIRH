@@ -305,13 +305,21 @@ public class WorkflowRhCPL {
     public String getLibelleStatutAffectation() { return libelleStatutAffectation; }
 
     // ─── Helpers Statuts & Nature (Flags sérialisés pour le frontend) ───────
+    @com.fasterxml.jackson.annotation.JsonProperty("isBrouillon")
     public boolean isBrouillon() { return "BROUILLON".equals(codeStatutWorkflow); }
+    @com.fasterxml.jackson.annotation.JsonProperty("isPlanifie")
     public boolean isPlanifie()  { return "PLANIFIE".equals(codeStatutWorkflow); }
+    @com.fasterxml.jackson.annotation.JsonProperty("isActif")
     public boolean isActif()     { return "ACTIF".equals(codeStatutWorkflow) || "VALIDE".equals(codeStatutWorkflow); }
+    @com.fasterxml.jackson.annotation.JsonProperty("isHistorise")
     public boolean isHistorise() { return "HISTORISE".equals(codeStatutWorkflow) || "CLOTURE".equals(codeStatutWorkflow); }
+    @com.fasterxml.jackson.annotation.JsonProperty("isAnnule")
     public boolean isAnnule()    { return "ANNULE".equals(codeStatutWorkflow); }
+    @com.fasterxml.jackson.annotation.JsonProperty("isEnAttente")
     public boolean isEnAttente() { return isBrouillon() || isPlanifie(); }
+    @com.fasterxml.jackson.annotation.JsonProperty("isModifiable")
     public boolean isModifiable() { return isBrouillon(); }
+    @com.fasterxml.jackson.annotation.JsonProperty("isAnnulable")
     public boolean isAnnulable() { return isBrouillon() || isPlanifie(); }
 
     public boolean isEmbauche() {

@@ -5,8 +5,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
@@ -17,10 +21,12 @@ import mg.galaxam.sirh.api.dto.common.DecisionStatus;
 import mg.galaxam.sirh.api.dto.common.RuleResult;
 import mg.galaxam.sirh.api.dto.paie.PayrollPeriodContextView;
 import mg.galaxam.sirh.api.dto.paie.PayrollPeriodSummary;
+import mg.galaxam.sirh.api.dto.paie.PayrollOutputView;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
 import mg.galaxam.sirh.model.paie.service.PayrollService;
+import mg.galaxam.sirh.model.paie.service.PayrollPopulationResolver;
 import mg.galaxam.sirh.model.pointage.service.PointageSyntheseService;
 import org.springframework.stereotype.Service;
 import org.springframework.security.access.AccessDeniedException;
@@ -34,14 +40,17 @@ public class PayrollPeriodWorkflowService {
     private final DataSource dataSource;
     private final PointageSyntheseService pointageSyntheseService;
     private final PayrollService payrollService;
+    private final PayrollPopulationResolver payrollPopulationResolver;
 
     public PayrollPeriodWorkflowService(
             DataSource dataSource,
             PointageSyntheseService pointageSyntheseService,
-            PayrollService payrollService) {
+            PayrollService payrollService,
+            PayrollPopulationResolver payrollPopulationResolver) {
         this.dataSource = dataSource;
         this.pointageSyntheseService = pointageSyntheseService;
         this.payrollService = payrollService;
+        this.payrollPopulationResolver = payrollPopulationResolver;
     }
 
     public BusinessDecision execute(
@@ -107,7 +116,7 @@ public class PayrollPeriodWorkflowService {
             if (selected == null) {
                 return new PayrollPeriodContextView(targetDate, null, null, Map.of(),
                         List.of(new BusinessIssue("PAYROLL_PERIOD_CONTEXT_REQUIRED",
-                                "Sélectionnez explicitement une période de paie.", Map.of())), List.of());
+                                "Sélectionnez explicitement une période de paie.", Map.of())), List.of(), List.of());
             }
             return new PayrollPeriodContextView(
                     targetDate,
@@ -115,7 +124,7 @@ public class PayrollPeriodWorkflowService {
                     toSummary(selected),
                     availableActions(selected.id(), selected.state(), user, connection),
                     contextIssues(selected.id(), selected.state(), connection),
-                    List.of());
+                    List.of(), outputViews(selected, user, connection));
         }
     }
 
@@ -240,7 +249,15 @@ public class PayrollPeriodWorkflowService {
             case OPEN -> {
                 // La matrice porte toute la décision ; aucune donnée dérivée à produire.
             }
-            case SUBMIT -> preparePointageSubmission(period.id(), request.getIdSite(), user.userId(), connection);
+            case SUBMIT -> {
+                ActionCapability capability = submissionCapability(period.id(), connection);
+                if (!capability.allowed()) {
+                    throw failure(SirhErrorCode.PAYROLL_PERIOD_PREREQUISITE_BLOCKED,
+                            "Transmission impossible : les prérequis Pointage ne sont pas satisfaits.",
+                            Map.of("periodId", period.id(), "reasonCodes", capability.reasonCodes()));
+                }
+                preparePointageSubmission(period.id(), request.getIdSite(), user.userId(), connection);
+            }
             case APPROVE -> pointageSyntheseService.gelerPeriode(period.id(), user.userId(), connection);
             case REJECT -> requireReason(request.getMotif(), 1, "Le motif de rejet est obligatoire.");
             case CLOSE -> {
@@ -423,13 +440,22 @@ public class PayrollPeriodWorkflowService {
                 case REOPEN -> "CLOTUREE".equals(state);
             };
             boolean authorized = isAuthorized(command, user);
-            actions.put(command.name(), transitionAllowed && authorized
+            ActionCapability capability = transitionAllowed && authorized
                     ? ActionCapability.permit()
-                    : ActionCapability.denied(
-                            authorized ? "INVALID_STATE" : "FORBIDDEN"));
+                    : ActionCapability.denied(authorized ? "INVALID_STATE" : "FORBIDDEN");
+            if (command == PayrollPeriodCommand.SUBMIT && capability.allowed()) {
+                capability = submissionCapability(periodId, connection);
+            }
+            actions.put(command.name(), capability);
         }
         for (PayrollAction action : PayrollAction.values()) {
             actions.put(action.name(), payrollCapability(periodId, state, action, user, connection));
+        }
+        for (PointagePeriodAction action : PointagePeriodAction.values()) {
+            boolean authorized = user.hasAny("POINTAGE_WRITE");
+            actions.put(action.name(), authorized && "EN_COURS".equals(state)
+                    ? ActionCapability.permit()
+                    : ActionCapability.denied(authorized ? "INVALID_STATE" : "FORBIDDEN"));
         }
         return Map.copyOf(actions);
     }
@@ -443,9 +469,20 @@ public class PayrollPeriodWorkflowService {
         boolean authorized = switch (action) {
             case SIMULATE, CALCULATE, ADD_VARIABLE -> user.hasAny("PAIE_WRITE");
             case VALIDATE -> user.hasAny("PAIE_VALIDATE");
+            case GENERATE_OUTPUT -> user.hasAny("PAIE_READ");
         };
         if (!authorized) return ActionCapability.denied("FORBIDDEN");
         if (action == PayrollAction.SIMULATE) return ActionCapability.permit();
+        if (action == PayrollAction.GENERATE_OUTPUT) {
+            int total = count(connection,
+                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ?", periodId);
+            int validated = count(connection,
+                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('VALIDE','CLOTURE')",
+                    periodId);
+            return total > 0 && total == validated
+                    ? ActionCapability.permit()
+                    : ActionCapability.denied("PAYROLL_NOT_VALIDATED");
+        }
         if ("CLOTUREE".equals(state)) return ActionCapability.denied("PERIOD_CLOSED");
         if (action == PayrollAction.ADD_VARIABLE) {
             return ActionCapability.permit();
@@ -453,6 +490,9 @@ public class PayrollPeriodWorkflowService {
         if (!"VALIDEE".equals(state)) return ActionCapability.denied("POINTAGE_NOT_FROZEN");
 
         if (action == PayrollAction.CALCULATE) {
+            boolean populationBlocked = payrollPopulationResolver.resolve(periodId, connection).members().stream()
+                    .anyMatch(member -> "BLOCKED".equals(member.decision()));
+            if (populationBlocked) return ActionCapability.denied("PAYROLL_POPULATION_BLOCKED");
             return count(connection,
                     "SELECT COUNT(*) FROM pointage_cumul_periode WHERE id_periode_paie = ? "
                             + "AND statut_snapshot IN ('GELE','CONSOMME')",
@@ -466,6 +506,30 @@ public class PayrollPeriodWorkflowService {
         return calculated > 0
                 ? ActionCapability.permit()
                 : ActionCapability.denied("PAYROLL_NOT_CALCULATED");
+    }
+
+    private ActionCapability submissionCapability(int periodId, Connection connection) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT date_fin FROM periode_paie WHERE id_periode_paie = ?")) {
+            statement.setInt(1, periodId);
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                if (result.getDate(1).toLocalDate().isAfter(LocalDate.now(BUSINESS_ZONE))) {
+                    return ActionCapability.denied("PERIOD_NOT_ENDED");
+                }
+            }
+        }
+        if (count(connection, "SELECT COUNT(*) FROM pointage_jour WHERE id_periode_paie = ?", periodId) == 0) {
+            return ActionCapability.denied("POINTAGE_EMPTY");
+        }
+        String blockingSql = "SELECT COUNT(*) FROM pointage_jour p "
+                + "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour "
+                + "WHERE p.id_periode_paie = ? AND (st.code = 'ANOMALIE_SAISIE' "
+                + "OR (st.code = 'ABSENCE_NON_JUSTIFIEE' "
+                + "AND (p.motif_ajustement IS NULL OR TRIM(p.motif_ajustement) = '')))";
+        return count(connection, blockingSql, periodId) == 0
+                ? ActionCapability.permit()
+                : ActionCapability.denied("BLOCKING_ANOMALIES");
     }
 
     private List<BusinessIssue> contextIssues(int periodId, String state, Connection connection) throws SQLException {
@@ -501,6 +565,39 @@ public class PayrollPeriodWorkflowService {
             try (ResultSet result = statement.executeQuery()) {
                 result.next();
                 return result.getInt(1);
+            }
+        }
+    }
+
+    private List<PayrollOutputView> outputViews(
+            PeriodState period, PayrollPeriodUserContext user, Connection connection) throws SQLException {
+        ActionCapability capability = payrollCapability(
+                period.id(), period.state(), PayrollAction.GENERATE_OUTPUT, user, connection);
+        String status = capability.allowed() ? "AVAILABLE" : "BLOCKED";
+        String checksum = payrollSourceChecksum(period, connection);
+        return List.of("PAYSLIPS", "BANK_TRANSFER", "SAFI", "ISI", "DNTS", "HEALTH").stream()
+                .map(code -> new PayrollOutputView(
+                        code, status, period.version(), checksum, period.code()))
+                .toList();
+    }
+
+    private String payrollSourceChecksum(PeriodState period, Connection connection) throws SQLException {
+        String sql = "SELECT COUNT(*), COALESCE(SUM(total_gains_bruts), 0), "
+                + "COALESCE(SUM(total_cotisations_salariales), 0), COALESCE(SUM(irsa_net), 0), "
+                + "COALESCE(SUM(net_a_payer), 0) FROM bulletin_paie WHERE id_periode_paie = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, period.id());
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                String source = period.id() + "|" + period.version() + "|" + result.getInt(1)
+                        + "|" + result.getBigDecimal(2) + "|" + result.getBigDecimal(3)
+                        + "|" + result.getBigDecimal(4) + "|" + result.getBigDecimal(5);
+                try {
+                    return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                            .digest(source.getBytes(StandardCharsets.UTF_8)));
+                } catch (NoSuchAlgorithmException exception) {
+                    throw new IllegalStateException("SHA-256 indisponible.", exception);
+                }
             }
         }
     }

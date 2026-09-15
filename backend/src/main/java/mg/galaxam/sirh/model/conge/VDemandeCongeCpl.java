@@ -9,6 +9,11 @@ import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import mg.galaxam.sirh.api.dto.common.ActionCapability;
 
 public class VDemandeCongeCpl extends ClassMere {
 
@@ -409,13 +414,32 @@ public class VDemandeCongeCpl extends ClassMere {
     public Boolean getEstRemunere() { return estRemunere; }
     public void setEstRemunere(Boolean estRemunere) { this.estRemunere = estRemunere; }
 
-    // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
-    public boolean isEnAttente() { return "EN_ATTENTE".equalsIgnoreCase(codeStatutDemande); }
-    public boolean isValide()    { return "VALIDE".equalsIgnoreCase(codeStatutDemande); }
-    public boolean isRefuse()    { return "REFUSE".equalsIgnoreCase(codeStatutDemande); }
-    public boolean isAnnule()    { return "ANNULE".equalsIgnoreCase(codeStatutDemande); }
-    public boolean isModifiable() { return isEnAttente(); }
-    public boolean isAnnulable() { return isEnAttente() || isValide(); }
-    public boolean canValidate() { return isEnAttente(); }
-    public boolean canRefuse()   { return isEnAttente(); }
+
+    /**
+     * Indique si cette demande est dans un état validé.
+     * Sérialisé en JSON par Jackson — consommé directement par le frontend (backend-driven, Phase 6).
+     * Évite que le frontend recalcule l'état depuis codeStatutDemande.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty("isValide")
+    public boolean isValide() {
+        return "VALIDE".equalsIgnoreCase(codeStatutDemande);
+    }
+
+    /** Message unique des décisions de gestion de la demande. */
+    public Map<String, ActionCapability> getAvailableActions() {
+        boolean pending = "EN_ATTENTE".equalsIgnoreCase(codeStatutDemande);
+        boolean approved = "VALIDE".equalsIgnoreCase(codeStatutDemande);
+        boolean futureOrToday = dateDebut != null && !dateDebut.toLocalDate().isBefore(
+                LocalDate.now(ZoneId.of("Indian/Antananarivo")));
+        Map<String, ActionCapability> actions = new LinkedHashMap<>();
+        actions.put("APPROVE", pending ? ActionCapability.permit() : ActionCapability.denied("INVALID_STATE"));
+        actions.put("REJECT", pending ? ActionCapability.permit() : ActionCapability.denied("INVALID_STATE"));
+        actions.put("EDIT", pending ? ActionCapability.permit() : ActionCapability.denied("INVALID_STATE"));
+        actions.put("CANCEL", pending || approved
+                ? ActionCapability.permit() : ActionCapability.denied("INVALID_STATE"));
+        actions.put("MODIFY_DATES", approved && futureOrToday
+                ? ActionCapability.permit()
+                : ActionCapability.denied(approved ? "LEAVE_ALREADY_STARTED" : "INVALID_STATE"));
+        return Map.copyOf(actions);
+    }
 }

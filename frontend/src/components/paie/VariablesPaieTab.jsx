@@ -13,13 +13,12 @@ import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import paieService from '@/api/paie/paieService';
-import employeService from '@/api/employe/employeService';
+import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 
 export default function VariablesPaieTab({ idPeriodeActive }) {
     const [variables, setVariables] = useState([]);
     const [loading, setLoading] = useState(false);
     const [typesMouvements, setTypesMouvements] = useState([]);
-    const [employes, setEmployes] = useState([]);
     const [filterSens, setFilterSens] = useState('ALL');
     const [searchQuery, setSearchQuery] = useState('');
     const [feedbackMsg, setFeedbackMsg] = useState(null);
@@ -55,19 +54,9 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
         }
     }, [idPeriodeActive]);
 
-    const chargerEmployes = useCallback(async () => {
-        try {
-            const res = await employeService.getEmployes({ size: 1000, actif: true });
-            setEmployes(Array.isArray(res) ? res : (res?.content || res?.items || []));
-        } catch (err) {
-            console.error('Erreur chargement employés :', err);
-        }
-    }, []);
-
     useEffect(() => {
         chargerDonnees();
-        chargerEmployes();
-    }, [chargerDonnees, chargerEmployes]);
+    }, [chargerDonnees]);
 
     const handleFormChange = (field, val) => {
         setForm(prev => {
@@ -376,19 +365,12 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                         <label className="text-[11px] font-semibold text-[var(--color-fg-muted)] block mb-1">
                             Collaborateur *
                         </label>
-                        <select
+                        <EmployeSearchSelect
                             required
-                            className="w-full text-xs p-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none focus:outline-none"
                             value={form.idEmploye}
-                            onChange={(e) => handleFormChange('idEmploye', e.target.value)}
-                        >
-                            <option value="">-- Sélectionner un collaborateur --</option>
-                            {(Array.isArray(employes) ? employes : []).map((emp) => (
-                                <option key={emp.idEmploye || emp.id_employe} value={emp.idEmploye || emp.id_employe}>
-                                    [{emp.matricule}] {emp.nom} {emp.prenom}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(employeeId) => handleFormChange('idEmploye', employeeId)}
+                            placeholder="Rechercher un collaborateur…"
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

@@ -76,7 +76,6 @@ export default function ValidationTable({
             <Tbody>
               {demandes.map((d) => {
                 const employeName = `${d.prenom || ''} ${d.nom || ''}`.trim() || `Employé ${d.idEmploye}`;
-                const isEnAttente = Boolean(d.isEnAttente ?? (d.codeStatutDemande === 'EN_ATTENTE'));
                 const isRefuse = Boolean(d.isRefuse ?? (d.codeStatutDemande === 'REFUSE'));
 
                 return (
@@ -173,7 +172,7 @@ export default function ValidationTable({
                     {/* Actions décisionnelles */}
                     <Td align="right" className="whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
-                        {isEnAttente && canValidate ? (
+                        {canValidate && d.availableActions?.APPROVE?.allowed === true ? (
                           <>
                             <Button
                               variant="danger"
@@ -196,7 +195,7 @@ export default function ValidationTable({
                           </>
                         ) : null}
 
-                        {d.codeStatutDemande === 'VALIDE' && d.dateDebut && new Date(d.dateDebut).setHours(0,0,0,0) >= new Date().setHours(0,0,0,0) && onOpenModifier && (
+                        {d.availableActions?.MODIFY_DATES?.allowed === true && onOpenModifier && (
                           <Button
                             variant="outline"
                             size="xs"

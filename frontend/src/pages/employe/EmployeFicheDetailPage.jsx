@@ -36,7 +36,7 @@ const TabLoader = () => (
 );
 
 export default function EmployeFicheDetailPage() {
-    const { id } = useParams();
+    const { id, section } = useParams();
     const navigate = useNavigate();
     const { hasPermission } = useAuth();
     const canWrite = hasPermission('EMPLOYE_WRITE');
@@ -50,9 +50,13 @@ export default function EmployeFicheDetailPage() {
     const toast = useToast();
 
     const [searchParams, setSearchParams] = useSearchParams();
-    const tabFromUrl = searchParams.get('tab');
+    const tabFromUrl = section || searchParams.get('tab');
 
     const handleTabChange = (tabId) => {
+        if (section) {
+            navigate(`/employes/${id}/${tabId}`);
+            return;
+        }
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
             next.set('tab', tabId);

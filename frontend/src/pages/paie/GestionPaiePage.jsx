@@ -194,6 +194,8 @@ export default function GestionPaiePage() {
                         <ExportsPaieTab
                             idPeriodeActive={idPeriodeActive}
                             codePeriode={periodeActiveObj?.code || ''}
+                            outputCapability={periodContext?.availableActions?.GENERATE_OUTPUT}
+                            outputs={periodContext?.outputs || []}
                         />
                     )}
                 </Suspense>

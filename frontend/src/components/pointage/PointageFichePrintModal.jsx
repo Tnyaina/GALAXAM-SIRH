@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Printer, X, Download, ShieldCheck, Calendar, Clock, Scale } from 'lucide-react';
+import { Printer, X, Download, Calendar, Clock, Scale } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { formatMonnaie, getPeriodeLabelForFilename } from '@/utils/pointageUtils';
 
@@ -376,7 +376,6 @@ export default function PointageFichePrintModal({
                             <tbody className="divide-y divide-slate-200 font-mono">
                                 {pointages.map((pj, idx) => {
                                     const isWeekend = pj.isRepos && pj.isRepos();
-                                    const decVal = pj.totalHeuresDecimal != null ? pj.totalHeuresDecimal : (pj.heures ? parseHhMmToDecimal(pj.heures) : null);
                                     const isContinu = Boolean(
                                         pj.horaireContinuJour ||
                                         pj.horaireContinu ||

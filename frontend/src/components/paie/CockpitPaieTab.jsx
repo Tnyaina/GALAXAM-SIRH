@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
     Play, 
     CheckCheck, 
@@ -20,9 +21,9 @@ import Modal from '@/components/ui/overlays/Modal';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import paieService from '@/api/paie/paieService';
 import periodePaieService from '@/api/pointage/periodePaieService';
-import employeService from '@/api/employe/employeService';
 import BulletinPaieDrawer from './BulletinPaieDrawer';
 import { getErrorMessage } from '@/api/apiClient';
+import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 
 /**
  * Cockpit Principal de Paie DAF (GALAXAM LOGISTICS)
@@ -33,8 +34,11 @@ export default function CockpitPaieTab({
     setIdPeriodeActive, 
     periodes = [], 
     onReloadPeriodes,
-    periodContext
+    periodContext,
+    view = 'overview',
+    requestedEmployeeId = null
 }) {
+    const navigate = useNavigate();
     const [cockpit, setCockpit] = useState(null);
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState(null); // 'simuler' | 'calculer' | 'valider' | 'cloturer' | 'rouvrir'
@@ -47,7 +51,6 @@ export default function CockpitPaieTab({
     // Modal Nouvelle Variable contextuelle
     const [isVariableModalOpen, setIsVariableModalOpen] = useState(false);
     const [typesMouvements, setTypesMouvements] = useState([]);
-    const [employesList, setEmployesList] = useState([]);
     const [submittingVariable, setSubmittingVariable] = useState(false);
     const [variableForm, setVariableForm] = useState({
         idEmploye: '',
@@ -87,12 +90,8 @@ export default function CockpitPaieTab({
 
     const chargerReferentielsVariables = async () => {
         try {
-            const [types, emps] = await Promise.all([
-                paieService.listerTypesMouvements(),
-                employeService.getEmployes({ size: 1000, actif: true })
-            ]);
+            const types = await paieService.listerTypesMouvements();
             setTypesMouvements(Array.isArray(types) ? types : (types?.content || types?.items || []));
-            setEmployesList(Array.isArray(emps) ? emps : (emps?.content || emps?.items || []));
         } catch (err) {
             console.error('Erreur chargement listes variables :', err);
         }
@@ -241,13 +240,22 @@ export default function CockpitPaieTab({
     const kpis = cockpit?.kpis || {};
     const periode = cockpit?.periode || {};
     const bulletins = useMemo(() => Array.isArray(cockpit?.bulletins) ? cockpit.bulletins : [], [cockpit]);
+    const population = Array.isArray(cockpit?.population) ? cockpit.population : [];
+    const validationSummary = cockpit?.validationSummary || {};
 
     const pointageScelle = readiness.pointageScelle === true;
-    const availableActions = periodContext?.availableActions || {};
+    const decisionContext = cockpit?.context || periodContext;
+    const availableActions = decisionContext?.availableActions || {};
     const actionAllowed = (action) => availableActions[action]?.allowed === true;
     const actionReason = (action) => (availableActions[action]?.reasonCodes || [])
-        .map(code => periodContext?.issues?.find(issue => issue.code === code)?.message || code)
+        .map(code => decisionContext?.issues?.find(issue => issue.code === code)?.message || code)
         .join(' · ');
+
+    useEffect(() => {
+        if (!requestedEmployeeId || bulletins.length === 0) return;
+        const requested = bulletins.find(item => item.idEmploye === requestedEmployeeId);
+        if (requested?.idBulletin) setSelectedBulletinId(requested.idBulletin);
+    }, [requestedEmployeeId, bulletins]);
 
     // Liste unique des sites pour le filtre
     const sites = useMemo(() => {
@@ -309,6 +317,37 @@ export default function CockpitPaieTab({
 
     return (
         <div className="space-y-4">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
+                <p className="text-[10px] uppercase tracking-wider text-[var(--color-fg-muted)]">Étape courante</p>
+                <h2 className="text-sm font-bold text-[var(--color-fg)]">
+                    {{
+                        overview: 'Vue d’ensemble de la période',
+                        readiness: 'Prérequis de calcul',
+                        population: 'Population de paie',
+                        results: 'Résultats et contrôles',
+                        validation: 'Validation de la campagne'
+                    }[view] || 'Vue d’ensemble de la période'}
+                </h2>
+                {view === 'readiness' && (
+                    <div className="grid gap-2 mt-3" aria-live="polite">
+                        {(readiness.checks || []).map(check => (
+                            <div key={check.code} className="flex items-start justify-between gap-3 border border-[var(--color-border-subtle)] p-3">
+                                <div>
+                                    <p className="text-xs font-bold text-[var(--color-fg)]">{check.code}</p>
+                                    <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{check.message}</p>
+                                </div>
+                                <span className={`text-[10px] font-bold px-2 py-1 border ${
+                                    check.status === 'PASS'
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                        : check.status === 'BLOCK'
+                                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}>{check.status}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
             {/* Feedback message */}
             {feedback && (
                 <div className={`p-3 text-xs flex items-center gap-2 border ${
@@ -427,7 +466,7 @@ export default function CockpitPaieTab({
                 </div>
 
                 {/* Bandeau Dépendances & Contrôles Amont (Wireframe 1) */}
-                <div className="flex flex-wrap items-center gap-3 text-xs">
+                {(view === 'overview' || view === 'readiness') && <div className="flex flex-wrap items-center gap-3 text-xs">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 border font-medium ${
                         pointageScelle 
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
@@ -435,11 +474,6 @@ export default function CockpitPaieTab({
                     }`}>
                         <CheckCircle2 size={13} className={pointageScelle ? 'text-emerald-600' : 'text-rose-500'} />
                         Pointage validé ({readiness.nbEmployesPointes ?? 0}/{readiness.effectifAttendu ?? 0})
-                    </span>
-
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium">
-                        <CheckCircle2 size={13} className="text-emerald-600" />
-                        Congés synchronisés
                     </span>
 
                     {nbAlertes > 0 ? (
@@ -460,11 +494,11 @@ export default function CockpitPaieTab({
                             Aucune variation atypique
                         </span>
                     )}
-                </div>
+                </div>}
             </div>
 
             {/* KPIs DE LA PÉRIODE (Wireframe 1) */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            {(view === 'overview' || view === 'results' || view === 'validation') && <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
                     <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                         Masse Brute
@@ -541,10 +575,55 @@ export default function CockpitPaieTab({
                         Brut + Charges patronales
                     </span>
                 </div>
-            </div>
+            </div>}
+
+            {view === 'validation' && (
+                <section aria-label="Résumé avant validation" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4">
+                    <h3 className="text-xs font-bold uppercase text-[var(--color-fg)] mb-3">Résumé avant validation</h3>
+                    <dl className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                        <div><dt className="text-[var(--color-fg-muted)]">Population</dt><dd className="font-bold">{validationSummary.population ?? 0}</dd></div>
+                        <div><dt className="text-[var(--color-fg-muted)]">Net total</dt><dd className="font-bold font-mono">{formatAr(validationSummary.netTotal)}</dd></div>
+                        <div><dt className="text-[var(--color-fg-muted)]">Charges employeur</dt><dd className="font-bold font-mono">{formatAr(validationSummary.employerContributions)}</dd></div>
+                        <div><dt className="text-[var(--color-fg-muted)]">Impôts</dt><dd className="font-bold font-mono">{formatAr(validationSummary.taxes)}</dd></div>
+                        <div><dt className="text-[var(--color-fg-muted)]">Warnings</dt><dd className="font-bold">{validationSummary.warnings ?? 0}</dd></div>
+                        <div><dt className="text-[var(--color-fg-muted)]">Version campagne</dt><dd className="font-bold font-mono">v{validationSummary.version ?? 0}</dd></div>
+                        <div><dt className="text-[var(--color-fg-muted)]">Calculé par</dt><dd className="font-bold">{validationSummary.calculatedBy ?? '—'}</dd></div>
+                        <div><dt className="text-[var(--color-fg-muted)]">Date du calcul</dt><dd className="font-bold font-mono">{validationSummary.calculatedAt || '—'}</dd></div>
+                    </dl>
+                </section>
+            )}
+
+            {view === 'population' && (
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] uppercase">
+                            <tr>
+                                <th className="p-3">Matricule</th>
+                                <th className="p-3">Employé</th>
+                                <th className="p-3">Contrat applicable</th>
+                                <th className="p-3">Régime</th>
+                                <th className="p-3">Décision backend</th>
+                                <th className="p-3">Raison</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                            {population.map(member => (
+                                <tr key={member.employeeId}>
+                                    <td className="p-3 font-mono font-bold">{member.matricule}</td>
+                                    <td className="p-3">{member.employeeName}</td>
+                                    <td className="p-3 font-mono">{member.contractNumber || '—'}</td>
+                                    <td className="p-3">{member.regime || '—'}</td>
+                                    <td className="p-3 font-bold">{member.decision}</td>
+                                    <td className="p-3 text-[var(--color-fg-muted)]">{member.reasonCode || '—'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* Barre de Recherche & Filtres (Wireframe 1) */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
+            {(view === 'overview' || view === 'results' || view === 'validation') && <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                     <div className="relative flex-1 sm:w-64">
                         <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
@@ -590,10 +669,10 @@ export default function CockpitPaieTab({
                 <div className="text-xs text-[var(--color-fg-muted)] font-mono">
                     Affichage : <span className="font-bold text-[var(--color-fg)]">{filteredBulletins.length}</span> sur {bulletins.length} salariés
                 </div>
-            </div>
+            </div>}
 
             {/* Table des Salariés (Wireframe 1) */}
-            {loading ? (
+            {(view === 'overview' || view === 'results' || view === 'validation') && (loading ? (
                 <SkeletonTable rows={8} cols={7} />
             ) : (
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-x-auto">
@@ -682,7 +761,7 @@ export default function CockpitPaieTab({
                                         </td>
                                         <td className="p-3 text-right">
                                             <button
-                                                onClick={() => setSelectedBulletinId(b.idBulletin)}
+                                                onClick={() => navigate(`/paie/periods/${idPeriodeActive}/results/${b.idEmploye}`)}
                                                 className="px-2.5 py-1 text-xs font-semibold bg-[var(--color-bg-subtle)] hover:bg-[var(--color-border)] text-[var(--color-fg)] border border-[var(--color-border)] cursor-pointer inline-flex items-center gap-1.5"
                                                 title="Consulter le bulletin détaillé"
                                             >
@@ -714,12 +793,15 @@ export default function CockpitPaieTab({
                         </Button>
                     </div>
                 </div>
-            )}
+            ))}
 
             {/* SlideOver Détail Bulletin & Formulaire d'ajustements contextuels (Wireframe 2) */}
             <BulletinPaieDrawer
                 isOpen={!!selectedBulletinId}
-                onClose={() => setSelectedBulletinId(null)}
+                onClose={() => {
+                    setSelectedBulletinId(null);
+                    if (requestedEmployeeId) navigate(`/paie/periods/${idPeriodeActive}/results`, { replace: true });
+                }}
                 idBulletin={selectedBulletinId}
                 onRecalculateSuccess={chargerCockpit}
             />
@@ -752,19 +834,12 @@ export default function CockpitPaieTab({
                         <label className="text-[11px] font-semibold text-[var(--color-fg-muted)] block mb-1">
                             Collaborateur *
                         </label>
-                        <select
+                        <EmployeSearchSelect
                             required
-                            className="w-full text-xs p-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none focus:outline-none"
                             value={variableForm.idEmploye}
-                            onChange={(e) => setVariableForm({ ...variableForm, idEmploye: e.target.value })}
-                        >
-                            <option value="">-- Choisir un collaborateur --</option>
-                            {(Array.isArray(employesList) ? employesList : []).map((emp) => (
-                                <option key={emp.idEmploye || emp.id_employe} value={emp.idEmploye || emp.id_employe}>
-                                    [{emp.matricule}] {emp.nom} {emp.prenom}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(employeeId) => setVariableForm({ ...variableForm, idEmploye: employeeId })}
+                            placeholder="Rechercher un collaborateur…"
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

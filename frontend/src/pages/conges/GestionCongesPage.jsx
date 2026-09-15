@@ -58,7 +58,7 @@ export default function GestionCongesPage() {
     : (demandesGlobales?.items || demandesGlobales?.content || demandesGlobales?.data || []);
 
   const nbEnAttente = demandesList.filter(
-    (d) => Boolean(d.isEnAttente ?? (d.statutCode === 'EN_ATTENTE' || d.codeStatutDemande === 'EN_ATTENTE'))
+    (d) => d.availableActions?.APPROVE?.allowed === true
   ).length;
 
   const tabsList = [

@@ -56,6 +56,9 @@ public class PayrollService {
     private PayrollLegalContextResolver payrollLegalContextResolver;
 
     @Autowired
+    private PayrollPopulationResolver payrollPopulationResolver;
+
+    @Autowired
     private TransactionRunner transactionRunner;
 
     // Cache local des id_rubrique par code (thread-safe)
@@ -181,45 +184,12 @@ public class PayrollService {
      */
     public PayrollBatchResult calculerPaiePeriode(Integer idPeriodePaie, boolean simulation,
                                                  Integer idUtilisateur, Connection c) throws Exception {
-        String sqlPeriode = "SELECT code, date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
-        String codePeriode = "PER";
-        Date dateDebutPeriode = null;
-        Date dateFinPeriode = null;
-        try (PreparedStatement ps = c.prepareStatement(sqlPeriode)) {
-            ps.setInt(1, idPeriodePaie);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    codePeriode = rs.getString("code");
-                    dateDebutPeriode = rs.getDate("date_debut");
-                    dateFinPeriode = rs.getDate("date_fin");
-                }
-            }
-        }
-
-        PayrollBatchResult batch = new PayrollBatchResult(idPeriodePaie, codePeriode);
-
-        // Liste de tous les intervenants actifs (Permanents, Consultants, Temporaires) recevant un bulletin de paie
-        String sqlEmployes = "SELECT DISTINCT e.id_employe, e.matricule FROM employe e " +
-                "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
-                "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
-                "LEFT JOIN ref_type_intervenant tri ON ct.id_type_intervenant = tri.id_type_intervenant " +
-                "WHERE eac.date_debut <= ? AND (eac.date_fin IS NULL OR eac.date_fin >= ?) " +
-                "AND (ct.id_contrat IS NULL OR (ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?))) " +
-                "ORDER BY e.matricule ASC";
-
-        List<Integer> idsEmployes = new ArrayList<>();
-        if (dateDebutPeriode == null || dateFinPeriode == null) {
-            throw new IllegalStateException("La période de paie ne possède pas de bornes de validité.");
-        }
-        try (PreparedStatement ps = c.prepareStatement(sqlEmployes)) {
-            ps.setDate(1, dateFinPeriode);
-            ps.setDate(2, dateDebutPeriode);
-            ps.setDate(3, dateFinPeriode);
-            ps.setDate(4, dateDebutPeriode);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) idsEmployes.add(rs.getInt("id_employe"));
-            }
-        }
+        PayrollPopulationResolver.PayrollPopulation population = payrollPopulationResolver.resolve(idPeriodePaie, c);
+        PayrollBatchResult batch = new PayrollBatchResult(idPeriodePaie, population.periodCode());
+        population.members().stream()
+                .filter(member -> "BLOCKED".equals(member.decision()))
+                .forEach(member -> batch.ajouterBloque(member.employeeId(), member.reasonCode()));
+        List<Integer> idsEmployes = population.includedEmployeeIds();
 
         for (Integer idEmp : idsEmployes) {
             Savepoint employeeSavepoint = c.getAutoCommit() ? null : c.setSavepoint("payroll_employee_" + idEmp);
@@ -997,6 +967,8 @@ public class PayrollService {
         }
         cockpit.put("periode", perMap);
 
+        PayrollPopulationResolver.PayrollPopulation population = payrollPopulationResolver.resolve(idPeriodePaie, c);
+
         // 2. Préparation amont (Readiness)
         Map<String, Object> readiness = new HashMap<>();
         int nbPointagesScelles = 0;
@@ -1007,19 +979,13 @@ public class PayrollService {
                 if (rs.next()) nbPointagesScelles = rs.getInt(1);
             }
         }
-        int effectifAttendu = 0;
-        String sqlEff = "SELECT COUNT(DISTINCT e.id_employe) FROM employe e " +
-                "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
-                "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
-                "WHERE e.est_actif = true";
-        try (PreparedStatement ps = c.prepareStatement(sqlEff);
-             ResultSet rs = ps.executeQuery()) {
-            if (rs.next()) effectifAttendu = rs.getInt(1);
-        }
+        int effectifAttendu = population.includedEmployeeIds().size();
         readiness.put("effectifAttendu", effectifAttendu);
         readiness.put("nbEmployesPointes", nbPointagesScelles);
         readiness.put("pointageScelle", nbPointagesScelles >= effectifAttendu && effectifAttendu > 0);
-        readiness.put("congesSynchronises", true);
+        long populationBlocked = population.members().stream()
+                .filter(member -> "BLOCKED".equals(member.decision())).count();
+        readiness.put("populationBlocked", populationBlocked);
 
         // 3. Indicateurs financiers & KPIs de la période actuelle
         String sqlKpis = "SELECT COUNT(*) AS effectif_calcule, " +
@@ -1164,8 +1130,57 @@ public class PayrollService {
             }
         }
         readiness.put("nbAnomalies", nbAnomalies);
+        readiness.put("checks", List.of(
+                Map.of(
+                        "code", "POINTAGE_FROZEN",
+                        "status", Boolean.TRUE.equals(readiness.get("pointageScelle")) ? "PASS" : "BLOCK",
+                        "message", Boolean.TRUE.equals(readiness.get("pointageScelle"))
+                                ? "Le pointage de toute la population est figé."
+                                : "Le pointage doit être figé pour toute la population avant le calcul réel.",
+                        "actual", nbPointagesScelles,
+                        "expected", effectifAttendu),
+                Map.of(
+                        "code", "PAYROLL_RESULTS",
+                        "status", bulletinsList.isEmpty() ? "WARNING" : "PASS",
+                        "message", bulletinsList.isEmpty()
+                                ? "Aucun résultat de paie n'a encore été calculé."
+                                : bulletinsList.size() + " résultat(s) de paie disponible(s)."),
+                Map.of(
+                        "code", "PAYROLL_POPULATION",
+                        "status", populationBlocked > 0 ? "BLOCK" : "PASS",
+                        "message", populationBlocked > 0
+                                ? populationBlocked + " collaborateur(s) ont une configuration de carrière ambiguë ou absente."
+                                : "La population de paie est résolue sans ambiguïté."),
+                Map.of(
+                        "code", "PAYROLL_CONTROL",
+                        "status", nbAnomalies > 0 ? "WARNING" : "PASS",
+                        "message", nbAnomalies > 0
+                                ? nbAnomalies + " résultat(s) exigent un contrôle."
+                                : "Aucune variation bloquante détectée dans les résultats.")));
         cockpit.put("readiness", readiness);
+        cockpit.put("population", population.members());
         cockpit.put("bulletins", bulletinsList);
+
+        Map<String, Object> validationSummary = new HashMap<>();
+        validationSummary.put("population", effectifAttendu);
+        validationSummary.put("netTotal", kpis.get("totalNetAPayer"));
+        validationSummary.put("employerContributions", kpis.get("totalCotisationsPatronales"));
+        validationSummary.put("taxes", kpis.get("totalIrsa"));
+        validationSummary.put("warnings", nbAnomalies);
+        validationSummary.put("version", perMap.get("version"));
+        try (PreparedStatement statement = c.prepareStatement(
+                "SELECT MAX(date_calcul) AS calculated_at, MAX(date_validation) AS validated_at, "
+                        + "CASE WHEN COUNT(DISTINCT calcule_par) = 1 THEN MAX(calcule_par) END AS calculated_by "
+                        + "FROM bulletin_paie WHERE id_periode_paie = ?")) {
+            statement.setInt(1, idPeriodePaie);
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                validationSummary.put("calculatedAt", result.getTimestamp("calculated_at"));
+                validationSummary.put("validatedAt", result.getTimestamp("validated_at"));
+                validationSummary.put("calculatedBy", result.getObject("calculated_by"));
+            }
+        }
+        cockpit.put("validationSummary", validationSummary);
 
         return cockpit;
     }

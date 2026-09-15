@@ -12,17 +12,25 @@ import {
 import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
 import paieService from '@/api/paie/paieService';
+import { getErrorMessage } from '@/api/apiClient';
 
-export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
+export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCapability, outputs = [] }) {
     const [downloading, setDownloading] = useState(null);
     const [previewType, setPreviewType] = useState(null);
     const [previewData, setPreviewData] = useState([]);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [feedback, setFeedback] = useState(null);
+    const outputAllowed = outputCapability?.allowed === true;
+    const outputReason = (outputCapability?.reasonCodes || []).join(' · ');
 
     const handleDownload = async (type, label) => {
-        if (!idPeriodeActive) {
-            setFeedback({ type: 'error', text: 'Veuillez sélectionner une période de paie.' });
+        if (!idPeriodeActive || !outputAllowed) {
+            setFeedback({
+                type: 'error',
+                text: !idPeriodeActive
+                    ? 'Veuillez sélectionner une période de paie.'
+                    : `Sorties indisponibles : ${outputReason || 'la campagne doit être validée.'}`
+            });
             return;
         }
 
@@ -34,7 +42,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
         } catch (err) {
             setFeedback({ 
                 type: 'error', 
-                text: err.response?.data?.error || err.message || `Erreur lors du téléchargement de l'export ${label}.` 
+                text: getErrorMessage(err, `Erreur lors du téléchargement de l'export ${label}.`)
             });
         } finally {
             setDownloading(null);
@@ -42,7 +50,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
     };
 
     const handleOpenPreview = async (type) => {
-        if (!idPeriodeActive) return;
+        if (!idPeriodeActive || !outputAllowed) return;
         setPreviewType(type);
         setPreviewLoading(true);
         setPreviewData([]);
@@ -58,7 +66,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
                 setPreviewData(Array.isArray(data) ? data : (data?.content || data?.items || []));
             }
         } catch (err) {
-            alert(err.response?.data?.error || 'Erreur lors du chargement des données d\'aperçu.');
+            alert(getErrorMessage(err, 'Erreur lors du chargement des données d\'aperçu.'));
             setPreviewType(null);
         } finally {
             setPreviewLoading(false);
@@ -95,6 +103,31 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
                 </div>
             </div>
 
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-x-auto">
+                <table className="w-full text-xs">
+                    <thead className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]">
+                        <tr>
+                            <th className="text-left p-2">Sortie</th>
+                            <th className="text-left p-2">Statut</th>
+                            <th className="text-left p-2">Version</th>
+                            <th className="text-left p-2">Campagne source</th>
+                            <th className="text-left p-2">Checksum source</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                        {outputs.map(output => (
+                            <tr key={output.code}>
+                                <td className="p-2 font-semibold">{output.code}</td>
+                                <td className="p-2">{output.status}</td>
+                                <td className="p-2 font-mono">v{output.version}</td>
+                                <td className="p-2 font-mono">{output.sourceCampaign}</td>
+                                <td className="p-2 font-mono" title={output.checksum}>{output.checksum?.slice(0, 12)}…</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
             {/* Grille des formats d'export */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* 1. Déclaration Fiscale SAFI 25 Colonnes (DGI Madagascar) */}
@@ -128,6 +161,8 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
                             variant="outline"
                             size="sm"
                             onClick={() => handleOpenPreview('safi')}
+                            disabled={!outputAllowed}
+                            title={outputReason}
                             className="flex items-center gap-1 text-xs"
                         >
                             <Eye size={13} />
@@ -139,7 +174,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
                                 variant="secondary"
                                 size="sm"
                                 onClick={() => handleDownload('safi-ods', 'SAFI Modèle ODS')}
-                                disabled={downloading === 'safi-ods'}
+                                disabled={!outputAllowed || downloading === 'safi-ods'}
                                 className="flex items-center gap-1.5 text-xs"
                             >
                                 <Download size={13} />
@@ -150,7 +185,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
                                 variant="primary"
                                 size="sm"
                                 onClick={() => handleDownload('safi-csv', 'SAFI CSV')}
-                                disabled={downloading === 'safi-csv'}
+                                disabled={!outputAllowed || downloading === 'safi-csv'}
                                 className="flex items-center gap-1.5 text-xs"
                             >
                                 <Download size={13} />
@@ -191,7 +226,8 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
                             variant="primary"
                             size="sm"
                             onClick={() => handleDownload('edi-isi', 'EDI ISI XML')}
-                            disabled={downloading === 'edi-isi'}
+                            disabled={!outputAllowed || downloading === 'edi-isi'}
+                            title={outputReason}
                             className="flex items-center gap-1.5 text-xs"
                         >
                             <Download size={13} />
@@ -231,6 +267,8 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
                             variant="outline"
                             size="sm"
                             onClick={() => handleOpenPreview('dnts')}
+                            disabled={!outputAllowed}
+                            title={outputReason}
                             className="flex items-center gap-1 text-xs"
                         >
                             <Eye size={13} />
@@ -241,7 +279,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
                             variant="primary"
                             size="sm"
                             onClick={() => handleDownload('dnts-csv', 'DNTS CNaPS')}
-                            disabled={downloading === 'dnts-csv'}
+                            disabled={!outputAllowed || downloading === 'dnts-csv'}
                             className="flex items-center gap-1.5 text-xs"
                         >
                             <Download size={13} />
@@ -280,6 +318,8 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
                             variant="outline"
                             size="sm"
                             onClick={() => handleOpenPreview('virement')}
+                            disabled={!outputAllowed}
+                            title={outputReason}
                             className="flex items-center gap-1 text-xs"
                         >
                             <Eye size={13} />
@@ -290,7 +330,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode }) {
                             variant="primary"
                             size="sm"
                             onClick={() => handleDownload('virement-csv', 'Ordre Virement')}
-                            disabled={downloading === 'virement-csv'}
+                            disabled={!outputAllowed || downloading === 'virement-csv'}
                             className="flex items-center gap-1.5 text-xs"
                         >
                             <Download size={13} />

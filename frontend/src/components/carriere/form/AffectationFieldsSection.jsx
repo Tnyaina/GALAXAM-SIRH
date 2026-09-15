@@ -11,7 +11,6 @@ export default function AffectationFieldsSection({
     fonctions = [],
     categoriesPro = [],
     modesPaie = [],
-    responsables = [],
 }) {
     return (
         <div className="space-y-4">
@@ -87,7 +86,6 @@ export default function AffectationFieldsSection({
                         label="Responsable Hiérarchique (N+1)"
                         value={formData.idResponsableHierarchique}
                         onChange={(empId) => setField('idResponsableHierarchique', empId)}
-                        employes={responsables}
                         placeholder="Rechercher le manager N+1…"
                     />
                 </div>

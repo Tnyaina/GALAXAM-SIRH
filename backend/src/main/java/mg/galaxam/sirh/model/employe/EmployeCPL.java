@@ -192,24 +192,12 @@ public class EmployeCPL extends ClassMere {
         return null;
     }
 
-    public static long compterEmployes(Connection c, String query, Boolean estActif) throws Exception {
+    public static long compterEmployes(
+            Connection c, String query, Boolean estActif,
+            Integer site, Integer departement, Integer service) throws Exception {
         StringBuilder sql = new StringBuilder("SELECT COUNT(e.id_employe) FROM v_employe_cpl e WHERE 1=1 ");
         List<Object> params = new ArrayList<>();
-
-        if (estActif != null) {
-            sql.append(" AND e.est_actif = ? ");
-            params.add(estActif);
-        }
-
-        if (query != null && !query.isBlank()) {
-            sql.append(" AND (LOWER(e.matricule) LIKE ? OR LOWER(e.nom) LIKE ? OR LOWER(e.prenom) LIKE ? OR LOWER(e.cin_numero) LIKE ? OR LOWER(e.telephone) LIKE ?) ");
-            String search = "%" + query.trim().toLowerCase() + "%";
-            params.add(search);
-            params.add(search);
-            params.add(search);
-            params.add(search);
-            params.add(search);
-        }
+        appendFilters(sql, params, query, estActif, site, departement, service, false);
 
         try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
             for (int i = 0; i < params.size(); i++) {
@@ -229,7 +217,10 @@ public class EmployeCPL extends ClassMere {
         return 0;
     }
 
-    public static List<EmployeCPL> rechercherEmployes(Connection c, String query, Boolean estActif, Integer limit, Integer offset) throws Exception {
+    public static List<EmployeCPL> rechercherEmployes(
+            Connection c, String query, Boolean estActif,
+            Integer site, Integer departement, Integer service,
+            String sort, String direction, Integer limit, Integer offset) throws Exception {
         List<EmployeCPL> list = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT e.*, eac.id_site, rs.libelle AS nom_site, eac.id_departement, rd.libelle AS nom_departement, " +
                 "eac.id_service, rserv.libelle AS nom_service, eac.id_fonction, rf.libelle AS nom_fonction, " +
@@ -254,22 +245,22 @@ public class EmployeCPL extends ClassMere {
 
         List<Object> params = new ArrayList<>();
 
-        if (estActif != null) {
-            sql.append(" AND e.est_actif = ? ");
-            params.add(estActif);
-        }
+        appendFilters(sql, params, query, estActif, site, departement, service, true);
 
-        if (query != null && !query.isBlank()) {
-            sql.append(" AND (LOWER(e.matricule) LIKE ? OR LOWER(e.nom) LIKE ? OR LOWER(e.prenom) LIKE ? OR LOWER(e.cin_numero) LIKE ? OR LOWER(e.telephone) LIKE ?) ");
-            String search = "%" + query.trim().toLowerCase() + "%";
-            params.add(search);
-            params.add(search);
-            params.add(search);
-            params.add(search);
-            params.add(search);
-        }
-
-        sql.append(" ORDER BY e.nom ASC, e.prenom ASC");
+        String orderBy = switch (sort == null ? "" : sort.toUpperCase()) {
+            case "MATRICULE", "MATRICULE_ASC", "MATRICULE_DESC" -> "e.matricule";
+            case "DEPARTEMENT" -> "rd.libelle";
+            case "FONCTION" -> "rf.libelle";
+            case "SITE" -> "rs.libelle";
+            case "DATEEMBAUCHE", "ANCIENNETE_ASC", "ANCIENNETE_DESC" -> "ct.date_debut";
+            case "STATUT" -> "e.est_actif";
+            case "SITE_SERVICE" -> "rs.libelle, rserv.libelle, e.nom, e.prenom";
+            case "HIERARCHICAL" -> "rd.libelle, rserv.libelle, e.nom, e.prenom";
+            default -> "e.nom, e.prenom";
+        };
+        boolean descending = "DESC".equalsIgnoreCase(direction)
+                || (sort != null && sort.toUpperCase().endsWith("_DESC"));
+        sql.append(" ORDER BY ").append(orderBy).append(descending ? " DESC" : " ASC");
         
         if (limit != null) {
             sql.append(" LIMIT ?");
@@ -302,7 +293,38 @@ public class EmployeCPL extends ClassMere {
     }
 
     public static List<EmployeCPL> listAll(Connection c) throws Exception {
-        return rechercherEmployes(c, null, null, null, null);
+        return rechercherEmployes(c, null, null, null, null, null,
+                "HIERARCHICAL", "asc", null, null);
+    }
+
+    private static void appendFilters(
+            StringBuilder sql, List<Object> params, String query, Boolean estActif,
+            Integer site, Integer departement, Integer service, boolean joinedAffectation) {
+        if (estActif != null) {
+            sql.append(" AND e.est_actif = ? ");
+            params.add(estActif);
+        }
+        if (query != null && !query.isBlank()) {
+            sql.append(" AND (LOWER(e.matricule) LIKE ? OR LOWER(e.nom) LIKE ? OR LOWER(e.prenom) LIKE ? "
+                    + "OR LOWER(e.cin_numero) LIKE ? OR LOWER(e.telephone) LIKE ?) ");
+            String search = "%" + query.trim().toLowerCase() + "%";
+            for (int i = 0; i < 5; i++) params.add(search);
+        }
+        appendAffectationFilter(sql, params, site, "id_site", joinedAffectation);
+        appendAffectationFilter(sql, params, departement, "id_departement", joinedAffectation);
+        appendAffectationFilter(sql, params, service, "id_service", joinedAffectation);
+    }
+
+    private static void appendAffectationFilter(
+            StringBuilder sql, List<Object> params, Integer value, String column, boolean joinedAffectation) {
+        if (value == null) return;
+        if (joinedAffectation) {
+            sql.append(" AND eac.").append(column).append(" = ? ");
+        } else {
+            sql.append(" AND EXISTS (SELECT 1 FROM employe_affectation_carriere fa WHERE fa.id_employe = e.id_employe "
+                    + "AND fa.").append(column).append(" = ?) ");
+        }
+        params.add(value);
     }
 
     private static String getNullableStringFromRs(ResultSet rs, String colName) {

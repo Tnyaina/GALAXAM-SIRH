@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 class BackendDrivenFrontendArchitectureTest {
@@ -19,5 +20,50 @@ class BackendDrivenFrontendArchitectureTest {
                 "disabled={actionLoading !== null || bulletins.length === 0}",
                 "disabled={actionLoading !== null || !pointageScelle}");
         assertThat(cockpit).contains("availableActions[action]?.allowed === true");
+    }
+
+    @Test
+    void payrollWorkflowRoutesAreShareableAndLegacyBulletinsCannotRenderBlank() throws Exception {
+        String router = Files.readString(Path.of("../frontend/src/routes/Router.jsx"));
+        String page = Files.readString(Path.of("../frontend/src/pages/paie/GestionPaiePage.jsx"));
+
+        assertThat(router).contains(
+                "/paie/periods/:periodId/:step",
+                "/paie/periods/:periodId/results/:employeeId");
+        assertThat(page).contains(
+                "rawTab === 'bulletins'",
+                "`/paie/periods/${requestedPeriodId}/results`",
+                "['overview', 'Préparation']",
+                "['validation', 'Validation']",
+                "['outputs', 'Sorties']");
+    }
+
+    @Test
+    void payrollWorkspaceResponseCarriesTheCanonicalDecisionContext() throws Exception {
+        String controller = Files.readString(Path.of(
+                "src/main/java/mg/galaxam/sirh/api/controller/paie/PaieController.java"));
+        String cockpit = Files.readString(Path.of("../frontend/src/components/paie/CockpitPaieTab.jsx"));
+
+        assertThat(controller).contains("cockpit.put(\"context\", payrollPeriodWorkflowService.describeContext(");
+        assertThat(cockpit).contains("const decisionContext = cockpit?.context || periodContext");
+    }
+
+    @Test
+    void frontendDoesNotHideEmployeesBehindHardCodedBulkLimits() throws Exception {
+        try (Stream<Path> files = Files.walk(Path.of("../frontend/src"))) {
+            String sources = files
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(".js") || path.toString().endsWith(".jsx"))
+                    .map(path -> {
+                        try {
+                            return Files.readString(path);
+                        } catch (Exception exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    })
+                    .reduce("", String::concat);
+
+            assertThat(sources).doesNotContain("size: 1000", "size: 10000", "size=1000", "size=10000");
+        }
     }
 }

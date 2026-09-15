@@ -9,6 +9,7 @@ import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.api.dto.securite.UtilisateurRequest;
 import mg.galaxam.sirh.api.dto.securite.UtilisateurResponse;
+import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.model.admin.RefRole;
 import mg.galaxam.sirh.model.securite.Utilisateur;
 import mg.galaxam.sirh.securite.AuditLog;
@@ -24,6 +25,9 @@ public class UtilisateurController {
 
     @Autowired
     private DataSource dataSource;
+
+    @Autowired
+    private TransactionRunner transactionRunner;
 
     @GetMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
@@ -51,7 +55,6 @@ public class UtilisateurController {
             }
             return ResponseEntity.ok(responses);
         } catch (Exception e) {
-            e.printStackTrace();
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
@@ -79,11 +82,12 @@ public class UtilisateurController {
                     res.setMotifDesactivation(rs.getString("motif_desactivation"));
                     return ResponseEntity.ok(res);
                 } else {
-                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Utilisateur non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                            "Utilisateur non trouvé.");
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
@@ -92,146 +96,118 @@ public class UtilisateurController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createUser(@RequestBody UtilisateurRequest request) {
         if (request.getIdentifiant() == null || request.getIdentifiant().isBlank()) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'identifiant est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "L'identifiant est obligatoire.");
         }
         if (request.getMotDePasse() == null || request.getMotDePasse().isBlank()) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le mot de passe est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "Le mot de passe est obligatoire.");
         }
         if (request.getIdRole() == null) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le rôle est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "Le rôle est obligatoire.");
         }
 
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                // Vérifier si le rôle existe et est actif
-                RefRole role = new RefRole();
-                RefRole r = (RefRole) role.findById(String.valueOf(request.getIdRole()), c);
-                if (r == null) {
-                    c.rollback();
-                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rôle assigné non trouvé.");
-                }
-                if (!r.isEstActif()) {
-                    c.rollback();
-                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le rôle assigné est désactivé.");
-                }
-
-                // Créer l'utilisateur
-                Utilisateur u = new Utilisateur();
-                u.setIdentifiant(request.getIdentifiant());
-                u.setIdRole(request.getIdRole());
-                u.setMotDePasseEnClair(request.getMotDePasse());
-                u.setEstActif(true);
-
-                u.controler(c);
-                u.save(c);
-
-                AuditLog.audit(c, "INSERT", "utilisateur", String.valueOf(u.getIdUtilisateur()), null, u);
-
-                c.commit();
-
-                UtilisateurResponse res = new UtilisateurResponse();
-                res.setIdUtilisateur(u.getIdUtilisateur());
-                res.setIdentifiant(u.getIdentifiant());
-                res.setIdRole(u.getIdRole());
-                res.setCodeRole(r.getCodeRole());
-                res.setRoleLibelle(r.getLibelle());
-                res.setEstActif(u.isEstActif());
-
-                return ResponseEntity.status(HttpStatus.CREATED).body(res);
-
-            } catch (IllegalArgumentException e) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
-            } catch (Exception e) {
-                c.rollback();
-                e.printStackTrace();
-                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        return transactionRunner.required(c -> {
+            RefRole r = (RefRole) new RefRole().findById(String.valueOf(request.getIdRole()), c);
+            if (r == null) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Rôle assigné non trouvé.");
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+            if (!r.isEstActif()) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                        "Le rôle assigné est désactivé.");
+            }
+
+            Utilisateur u = new Utilisateur();
+            u.setIdentifiant(request.getIdentifiant());
+            u.setIdRole(request.getIdRole());
+            u.setMotDePasseEnClair(request.getMotDePasse());
+            u.setEstActif(true);
+
+            u.controler(c);
+            u.save(c);
+
+            AuditLog.audit(c, "INSERT", "utilisateur", String.valueOf(u.getIdUtilisateur()), null, u);
+
+            UtilisateurResponse res = new UtilisateurResponse();
+            res.setIdUtilisateur(u.getIdUtilisateur());
+            res.setIdentifiant(u.getIdentifiant());
+            res.setIdRole(u.getIdRole());
+            res.setCodeRole(r.getCodeRole());
+            res.setRoleLibelle(r.getLibelle());
+            res.setEstActif(u.isEstActif());
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(res);
+        });
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateUser(@PathVariable int id, @RequestBody UtilisateurRequest request) {
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                Utilisateur user = new Utilisateur();
-                Utilisateur existing = (Utilisateur) user.findById(String.valueOf(id), c);
-                if (existing == null) {
-                    c.rollback();
-                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Utilisateur non trouvé.");
-                }
-
-                // Pour l'audit
-                Utilisateur oldState = new Utilisateur();
-                oldState.setIdUtilisateur(existing.getIdUtilisateur());
-                oldState.setIdentifiant(existing.getIdentifiant());
-                oldState.setMotDePasseHache(existing.getMotDePasseHache());
-                oldState.setIdRole(existing.getIdRole());
-                oldState.setEstActif(existing.isEstActif());
-                oldState.setDateDesactivation(existing.getDateDesactivation());
-                oldState.setMotifDesactivation(existing.getMotifDesactivation());
-
-                if (request.getIdentifiant() != null && !request.getIdentifiant().isBlank()) {
-                    existing.setIdentifiant(request.getIdentifiant());
-                }
-                if (request.getIdRole() != null) {
-                    // Vérifier si le rôle existe et est actif
-                    RefRole r = (RefRole) new RefRole().findById(String.valueOf(request.getIdRole()), c);
-                    if (r == null) {
-                        c.rollback();
-                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rôle assigné non trouvé.");
-                    }
-                    if (!r.isEstActif()) {
-                        c.rollback();
-                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le rôle assigné est désactivé.");
-                    }
-                    existing.setIdRole(request.getIdRole());
-                }
-                if (request.getMotDePasse() != null && !request.getMotDePasse().isBlank()) {
-                    existing.setMotDePasseEnClair(request.getMotDePasse());
-                }
-
-                existing.controler(c);
-                existing.update(c);
-
-                AuditLog.audit(c, "UPDATE", "utilisateur", String.valueOf(id), oldState, existing);
-
-                c.commit();
-
-                // Charger les infos du rôle mis à jour
-                RefRole finalRole = (RefRole) new RefRole().findById(String.valueOf(existing.getIdRole()), c);
-                UtilisateurResponse res = new UtilisateurResponse();
-                res.setIdUtilisateur(existing.getIdUtilisateur());
-                res.setIdentifiant(existing.getIdentifiant());
-                res.setIdRole(existing.getIdRole());
-                if (finalRole != null) {
-                    res.setCodeRole(finalRole.getCodeRole());
-                    res.setRoleLibelle(finalRole.getLibelle());
-                }
-                res.setEstActif(existing.isEstActif());
-                res.setDateDesactivation(existing.getDateDesactivation());
-                res.setMotifDesactivation(existing.getMotifDesactivation());
-
-                return ResponseEntity.ok(res);
-
-            } catch (IllegalArgumentException e) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
-            } catch (Exception e) {
-                c.rollback();
-                e.printStackTrace();
-                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        return transactionRunner.required(c -> {
+            Utilisateur existing = (Utilisateur) new Utilisateur().findById(String.valueOf(id), c);
+            if (existing == null) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Utilisateur non trouvé.");
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+
+            Utilisateur oldState = new Utilisateur();
+            oldState.setIdUtilisateur(existing.getIdUtilisateur());
+            oldState.setIdentifiant(existing.getIdentifiant());
+            oldState.setMotDePasseHache(existing.getMotDePasseHache());
+            oldState.setIdRole(existing.getIdRole());
+            oldState.setEstActif(existing.isEstActif());
+            oldState.setDateDesactivation(existing.getDateDesactivation());
+            oldState.setMotifDesactivation(existing.getMotifDesactivation());
+
+            if (request.getIdentifiant() != null && !request.getIdentifiant().isBlank()) {
+                existing.setIdentifiant(request.getIdentifiant());
+            }
+            if (request.getIdRole() != null) {
+                RefRole r = (RefRole) new RefRole().findById(String.valueOf(request.getIdRole()), c);
+                if (r == null) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                            "Rôle assigné non trouvé.");
+                }
+                if (!r.isEstActif()) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                            "Le rôle assigné est désactivé.");
+                }
+                existing.setIdRole(request.getIdRole());
+            }
+            if (request.getMotDePasse() != null && !request.getMotDePasse().isBlank()) {
+                existing.setMotDePasseEnClair(request.getMotDePasse());
+            }
+
+            existing.controler(c);
+            existing.update(c);
+
+            AuditLog.audit(c, "UPDATE", "utilisateur", String.valueOf(id), oldState, existing);
+
+            RefRole finalRole = (RefRole) new RefRole().findById(String.valueOf(existing.getIdRole()), c);
+            UtilisateurResponse res = new UtilisateurResponse();
+            res.setIdUtilisateur(existing.getIdUtilisateur());
+            res.setIdentifiant(existing.getIdentifiant());
+            res.setIdRole(existing.getIdRole());
+            if (finalRole != null) {
+                res.setCodeRole(finalRole.getCodeRole());
+                res.setRoleLibelle(finalRole.getLibelle());
+            }
+            res.setEstActif(existing.isEstActif());
+            res.setDateDesactivation(existing.getDateDesactivation());
+            res.setMotifDesactivation(existing.getMotifDesactivation());
+
+            return ResponseEntity.ok(res);
+        });
     }
 
     @PutMapping("/{id}/desactiver")
@@ -239,131 +215,103 @@ public class UtilisateurController {
     public ResponseEntity<?> deactivateUser(@PathVariable int id, @RequestBody(required = false) UtilisateurRequest request) {
         String motif = (request != null) ? request.getMotifDesactivation() : null;
         if (motif == null || motif.isBlank()) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le motif de désactivation est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "Le motif de désactivation est obligatoire.");
         }
 
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                Utilisateur user = new Utilisateur();
-                Utilisateur existing = (Utilisateur) user.findById(String.valueOf(id), c);
-                if (existing == null) {
-                    c.rollback();
-                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Utilisateur non trouvé.");
-                }
-
-                if (!existing.isEstActif()) {
-                    c.rollback();
-                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'utilisateur est déjà désactivé.");
-                }
-
-                Utilisateur oldState = new Utilisateur();
-                oldState.setIdUtilisateur(existing.getIdUtilisateur());
-                oldState.setIdentifiant(existing.getIdentifiant());
-                oldState.setMotDePasseHache(existing.getMotDePasseHache());
-                oldState.setIdRole(existing.getIdRole());
-                oldState.setEstActif(existing.isEstActif());
-                oldState.setDateDesactivation(existing.getDateDesactivation());
-                oldState.setMotifDesactivation(existing.getMotifDesactivation());
-
-                existing.setEstActif(false);
-                existing.setDateDesactivation(new Timestamp(System.currentTimeMillis()));
-                existing.setMotifDesactivation(motif);
-
-                existing.update(c);
-
-                AuditLog.audit(c, "UPDATE", "utilisateur", String.valueOf(id), oldState, existing);
-
-                c.commit();
-
-                // Retourner l'utilisateur désactivé
-                RefRole finalRole = (RefRole) new RefRole().findById(String.valueOf(existing.getIdRole()), c);
-                UtilisateurResponse res = new UtilisateurResponse();
-                res.setIdUtilisateur(existing.getIdUtilisateur());
-                res.setIdentifiant(existing.getIdentifiant());
-                res.setIdRole(existing.getIdRole());
-                if (finalRole != null) {
-                    res.setCodeRole(finalRole.getCodeRole());
-                    res.setRoleLibelle(finalRole.getLibelle());
-                }
-                res.setEstActif(existing.isEstActif());
-                res.setDateDesactivation(existing.getDateDesactivation());
-                res.setMotifDesactivation(existing.getMotifDesactivation());
-
-                return ResponseEntity.ok(res);
-
-            } catch (Exception e) {
-                c.rollback();
-                e.printStackTrace();
-                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        return transactionRunner.required(c -> {
+            Utilisateur existing = (Utilisateur) new Utilisateur().findById(String.valueOf(id), c);
+            if (existing == null) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Utilisateur non trouvé.");
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+            if (!existing.isEstActif()) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                        "L'utilisateur est déjà désactivé.");
+            }
+
+            Utilisateur oldState = new Utilisateur();
+            oldState.setIdUtilisateur(existing.getIdUtilisateur());
+            oldState.setIdentifiant(existing.getIdentifiant());
+            oldState.setMotDePasseHache(existing.getMotDePasseHache());
+            oldState.setIdRole(existing.getIdRole());
+            oldState.setEstActif(existing.isEstActif());
+            oldState.setDateDesactivation(existing.getDateDesactivation());
+            oldState.setMotifDesactivation(existing.getMotifDesactivation());
+
+            existing.setEstActif(false);
+            existing.setDateDesactivation(new Timestamp(System.currentTimeMillis()));
+            existing.setMotifDesactivation(motif);
+
+            existing.update(c);
+            AuditLog.audit(c, "UPDATE", "utilisateur", String.valueOf(id), oldState, existing);
+
+            RefRole finalRole = (RefRole) new RefRole().findById(String.valueOf(existing.getIdRole()), c);
+            UtilisateurResponse res = new UtilisateurResponse();
+            res.setIdUtilisateur(existing.getIdUtilisateur());
+            res.setIdentifiant(existing.getIdentifiant());
+            res.setIdRole(existing.getIdRole());
+            if (finalRole != null) {
+                res.setCodeRole(finalRole.getCodeRole());
+                res.setRoleLibelle(finalRole.getLibelle());
+            }
+            res.setEstActif(existing.isEstActif());
+            res.setDateDesactivation(existing.getDateDesactivation());
+            res.setMotifDesactivation(existing.getMotifDesactivation());
+
+            return ResponseEntity.ok(res);
+        });
     }
 
     @PutMapping("/{id}/activer")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> activateUser(@PathVariable int id) {
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                Utilisateur user = new Utilisateur();
-                Utilisateur existing = (Utilisateur) user.findById(String.valueOf(id), c);
-                if (existing == null) {
-                    c.rollback();
-                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Utilisateur non trouvé.");
-                }
-
-                if (existing.isEstActif()) {
-                    c.rollback();
-                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'utilisateur est déjà actif.");
-                }
-
-                Utilisateur oldState = new Utilisateur();
-                oldState.setIdUtilisateur(existing.getIdUtilisateur());
-                oldState.setIdentifiant(existing.getIdentifiant());
-                oldState.setMotDePasseHache(existing.getMotDePasseHache());
-                oldState.setIdRole(existing.getIdRole());
-                oldState.setEstActif(existing.isEstActif());
-                oldState.setDateDesactivation(existing.getDateDesactivation());
-                oldState.setMotifDesactivation(existing.getMotifDesactivation());
-
-                existing.setEstActif(true);
-                existing.setDateDesactivation(null);
-                existing.setMotifDesactivation(null);
-
-                existing.update(c);
-
-                AuditLog.audit(c, "UPDATE", "utilisateur", String.valueOf(id), oldState, existing);
-
-                c.commit();
-
-                // Retourner l'utilisateur réactivé
-                RefRole finalRole = (RefRole) new RefRole().findById(String.valueOf(existing.getIdRole()), c);
-                UtilisateurResponse res = new UtilisateurResponse();
-                res.setIdUtilisateur(existing.getIdUtilisateur());
-                res.setIdentifiant(existing.getIdentifiant());
-                res.setIdRole(existing.getIdRole());
-                if (finalRole != null) {
-                    res.setCodeRole(finalRole.getCodeRole());
-                    res.setRoleLibelle(finalRole.getLibelle());
-                }
-                res.setEstActif(existing.isEstActif());
-                res.setDateDesactivation(existing.getDateDesactivation());
-                res.setMotifDesactivation(existing.getMotifDesactivation());
-
-                return ResponseEntity.ok(res);
-
-            } catch (Exception e) {
-                c.rollback();
-                e.printStackTrace();
-                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        return transactionRunner.required(c -> {
+            Utilisateur existing = (Utilisateur) new Utilisateur().findById(String.valueOf(id), c);
+            if (existing == null) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Utilisateur non trouvé.");
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+            if (existing.isEstActif()) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                        "L'utilisateur est déjà actif.");
+            }
+
+            Utilisateur oldState = new Utilisateur();
+            oldState.setIdUtilisateur(existing.getIdUtilisateur());
+            oldState.setIdentifiant(existing.getIdentifiant());
+            oldState.setMotDePasseHache(existing.getMotDePasseHache());
+            oldState.setIdRole(existing.getIdRole());
+            oldState.setEstActif(existing.isEstActif());
+            oldState.setDateDesactivation(existing.getDateDesactivation());
+            oldState.setMotifDesactivation(existing.getMotifDesactivation());
+
+            existing.setEstActif(true);
+            existing.setDateDesactivation(null);
+            existing.setMotifDesactivation(null);
+
+            existing.update(c);
+            AuditLog.audit(c, "UPDATE", "utilisateur", String.valueOf(id), oldState, existing);
+
+            RefRole finalRole = (RefRole) new RefRole().findById(String.valueOf(existing.getIdRole()), c);
+            UtilisateurResponse res = new UtilisateurResponse();
+            res.setIdUtilisateur(existing.getIdUtilisateur());
+            res.setIdentifiant(existing.getIdentifiant());
+            res.setIdRole(existing.getIdRole());
+            if (finalRole != null) {
+                res.setCodeRole(finalRole.getCodeRole());
+                res.setRoleLibelle(finalRole.getLibelle());
+            }
+            res.setEstActif(existing.isEstActif());
+            res.setDateDesactivation(existing.getDateDesactivation());
+            res.setMotifDesactivation(existing.getMotifDesactivation());
+
+            return ResponseEntity.ok(res);
+        });
     }
 }

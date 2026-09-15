@@ -56,18 +56,23 @@ public class EmployeService {
         );
     }
 
-    public PageDTO<EmployeCPL> getEmployes(String q, Boolean actif, int page, int size) throws Exception {
+    public PageDTO<EmployeCPL> getEmployes(
+            String q, Boolean actif, Integer site, Integer departement, Integer service,
+            String sort, String direction, int page, int size) throws Exception {
         try (Connection c = dataSource.getConnection()) {
-            return getEmployes(q, actif, page, size, c);
+            return getEmployes(q, actif, site, departement, service, sort, direction, page, size, c);
         }
     }
 
-    public PageDTO<EmployeCPL> getEmployes(String q, Boolean actif, int page, int size, Connection c) throws Exception {
+    public PageDTO<EmployeCPL> getEmployes(
+            String q, Boolean actif, Integer site, Integer departement, Integer service,
+            String sort, String direction, int page, int size, Connection c) throws Exception {
         int safePage = Math.max(1, page);
-        int safeSize = Math.max(1, size);
+        int safeSize = Math.min(100, Math.max(1, size));
         int offset = (safePage - 1) * safeSize;
-        long totalElements = EmployeCPL.compterEmployes(c, q, actif);
-        List<EmployeCPL> content = EmployeCPL.rechercherEmployes(c, q, actif, safeSize, offset);
+        long totalElements = EmployeCPL.compterEmployes(c, q, actif, site, departement, service);
+        List<EmployeCPL> content = EmployeCPL.rechercherEmployes(
+                c, q, actif, site, departement, service, sort, direction, safeSize, offset);
         return new PageDTO<>(content, totalElements, safePage, safeSize);
     }
 

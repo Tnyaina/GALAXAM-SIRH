@@ -40,10 +40,16 @@ public class EmployeController {
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getEmployes(@RequestParam(required = false) String q,
                                          @RequestParam(required = false) Boolean actif,
+                                         @RequestParam(required = false) Integer site,
+                                         @RequestParam(required = false) Integer departement,
+                                         @RequestParam(required = false) Integer service,
+                                         @RequestParam(defaultValue = "HIERARCHICAL") String sort,
+                                         @RequestParam(defaultValue = "asc") String direction,
                                          @RequestParam(defaultValue = "1") int page,
                                          @RequestParam(defaultValue = "10") int size) {
         try {
-            PageDTO<EmployeCPL> pageDto = employeService.getEmployes(q, actif, page, size);
+            PageDTO<EmployeCPL> pageDto = employeService.getEmployes(
+                    q, actif, site, departement, service, sort, direction, page, size);
             return ResponseEntity.ok(pageDto);
         } catch (Exception e) {
             e.printStackTrace();

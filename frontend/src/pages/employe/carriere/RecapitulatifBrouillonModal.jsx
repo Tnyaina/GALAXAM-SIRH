@@ -153,11 +153,12 @@ export default function RecapitulatifBrouillonModal({
 
     if (!isOpen || !currentWf) return null;
 
-    const isBrouillon = currentWf.isBrouillon ?? (currentWf.codeStatutWorkflow === 'BROUILLON');
-    const isPlanifie = currentWf.isPlanifie ?? (currentWf.codeStatutWorkflow === 'PLANIFIE');
-    const isActif = currentWf.isActif ?? (currentWf.codeStatutWorkflow === 'ACTIF' || currentWf.codeStatutWorkflow === 'VALIDE');
-    const isHistorise = currentWf.isHistorise ?? (currentWf.codeStatutWorkflow === 'HISTORISE' || currentWf.codeStatutWorkflow === 'CLOTURE');
-    const isAnnule = currentWf.isAnnule ?? (currentWf.codeStatutWorkflow === 'ANNULE');
+    // Backend-driven : les champs booléens d'état proviennent de WorkflowRhCPL, avec fallback défensif
+    const isBrouillon = !!(currentWf.isBrouillon ?? currentWf.brouillon ?? (currentWf.codeStatutWorkflow === 'BROUILLON'));
+    const isPlanifie = !!(currentWf.isPlanifie ?? currentWf.planifie ?? (currentWf.codeStatutWorkflow === 'PLANIFIE'));
+    const isActif = !!(currentWf.isActif ?? currentWf.actif ?? (currentWf.codeStatutWorkflow === 'ACTIF' || currentWf.codeStatutWorkflow === 'VALIDE'));
+    const isHistorise = !!(currentWf.isHistorise ?? currentWf.historise ?? (currentWf.codeStatutWorkflow === 'HISTORISE' || currentWf.codeStatutWorkflow === 'CLOTURE'));
+    const isAnnule = !!(currentWf.isAnnule ?? currentWf.annule ?? (currentWf.codeStatutWorkflow === 'ANNULE'));
 
     const {
         isEmbauche, isConfirmation: isConfirmationEssai,

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import pointageParametreService from '@/api/admin/pointageParametreService';
 import paieConfigService from '@/api/admin/paieConfigService';
-import employeService from '@/api/employe/employeService';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { fmtDateInput } from '@/utils/paieUtils';
 
@@ -10,7 +9,6 @@ export function useDerogationIndemnites() {
 
     const [derogations, setDerogations] = useState([]);
     const [indemnites, setIndemnites] = useState([]);
-    const [employes, setEmployes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -37,15 +35,12 @@ export function useDerogationIndemnites() {
         setLoading(true);
         setError(null);
         try {
-            const [derogData, indData, empData] = await Promise.all([
+            const [derogData, indData] = await Promise.all([
                 pointageParametreService.getDerogations(),
                 paieConfigService.getIndemnites(),
-                employeService.getEmployes({ size: 1000, actif: true })
             ]);
-            const empList = Array.isArray(empData) ? empData : (empData?.content || []);
             setDerogations(derogData || []);
             setIndemnites(indData || []);
-            setEmployes(empList);
         } catch (err) {
             setError("Erreur lors du chargement des dérogations d'indemnités.");
             console.error(err);
@@ -152,7 +147,6 @@ export function useDerogationIndemnites() {
         derogations: filteredDerogations,
         rawDerogationsCount: derogations.length,
         indemnites,
-        employes,
         loading,
         error,
         searchTerm,

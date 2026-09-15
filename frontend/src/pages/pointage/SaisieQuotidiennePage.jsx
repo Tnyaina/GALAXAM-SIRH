@@ -22,7 +22,6 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [sites, setSites] = useState([]);
-    const canWrite = hasPermission('POINTAGE_WRITE');
     const canValidate = hasPermission('POINTAGE_VALIDATE');
     const canReadConge = hasPermission('CONGE_READ');
 
@@ -268,13 +267,8 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
 
     const isReadOnly = useMemo(() => {
         if (isFuture) return true;
-        if (!canWrite) return true;
-        if (!periodeInfo) return true;
-        const statut = periodeInfo.statut_code;
-        if (statut === 'VALIDEE' || statut === 'CLOTUREE') return true;
-        if (statut === 'A_VALIDER' && !canValidate) return true;
-        return false;
-    }, [isFuture, periodeInfo, canValidate, canWrite]);
+        return activePeriode?.availableActions?.EDIT_POINTAGE?.allowed !== true;
+    }, [isFuture, activePeriode]);
 
     const currentSiteObj = sites.find(s => s.idSite === selectedSite);
     const siteLabel = currentSiteObj

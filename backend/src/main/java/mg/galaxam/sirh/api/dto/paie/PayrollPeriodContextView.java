@@ -13,11 +13,13 @@ public record PayrollPeriodContextView(
         PayrollPeriodSummary selectedPeriod,
         Map<String, ActionCapability> availableActions,
         List<BusinessIssue> issues,
-        List<BusinessIssue> warnings) {
+        List<BusinessIssue> warnings,
+        List<PayrollOutputView> outputs) {
 
     public PayrollPeriodContextView {
         availableActions = availableActions == null ? Map.of() : Map.copyOf(availableActions);
         issues = issues == null ? List.of() : List.copyOf(issues);
         warnings = warnings == null ? List.of() : List.copyOf(warnings);
+        outputs = outputs == null ? List.of() : List.copyOf(outputs);
     }
 }

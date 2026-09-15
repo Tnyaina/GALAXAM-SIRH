@@ -45,25 +45,15 @@ export default function GestionPointagesPage() {
         let isMounted = true;
         const fetchData = async () => {
             try {
-                const list = await periodePaieService.getAllPeriodes();
+                const [list, context] = await Promise.all([
+                    periodePaieService.getAllPeriodes(),
+                    periodePaieService.getContext(paramPeriodeId ? Number(paramPeriodeId) : null)
+                ]);
                 if (!isMounted || !list || list.length === 0) return;
                 setAllPeriodes(list);
 
-                let target = null;
-                if (paramPeriodeId) {
-                    target = list.find(p => String(p.idPeriodePaie) === String(paramPeriodeId));
-                }
-                if (!target) {
-                    if (activeStep === 'arbitrage') {
-                        target = list.find(p => p.statutCode === 'A_VALIDER' || p.statutCode === 'TRANSMIS_DAF')
-                              || list.find(p => p.statutCode === 'EN_COURS')
-                              || list[0];
-                    } else {
-                        target = list.find(p => p.statutCode === 'EN_COURS')
-                              || list.find(p => p.statutCode === 'A_VALIDER' || p.statutCode === 'TRANSMIS_DAF')
-                              || list[0];
-                    }
-                }
+                const selectedId = context?.selectedPeriod?.id;
+                const target = list.find(p => String(p.idPeriodePaie) === String(selectedId)) || null;
                 setActivePeriode(target);
 
                 // Initialisation ou correction du paramètre d'URL s'il est absent ou invalide
@@ -94,7 +84,7 @@ export default function GestionPointagesPage() {
         };
         fetchData();
         return () => { isMounted = false; };
-    }, [activeStep, paramPeriodeId, setSearchParams]);
+    }, [paramPeriodeId, setSearchParams]);
 
     const handlePeriodeChange = (newPeriodeId) => {
         const found = allPeriodes.find(p => String(p.idPeriodePaie) === String(newPeriodeId));
@@ -120,46 +110,25 @@ export default function GestionPointagesPage() {
         });
     };
 
-    // Calcul du statut de la periode active
-    const stCode = activePeriode?.statutCode;
-    const _isEnCours = stCode === 'EN_COURS' || !stCode;
-    const isTransmis = stCode === 'A_VALIDER' || stCode === 'TRANSMIS_DAF';
-    const isValidee = stCode === 'VALIDEE';
-    const isCloturee = stCode === 'CLOTUREE';
-
-    // Construction des etapes pour le stepper
+    // Le stepper décrit uniquement la navigation ; le backend porte les décisions de workflow.
     const steps = useMemo(() => {
-        const saisieStatus = activeStep === 'saisie' ? 'active'
-            : (isTransmis || isValidee || isCloturee) ? 'done' : 'done';
-
-        const suiviStatus = activeStep === 'suivi' ? 'active'
-            : (isTransmis || isValidee || isCloturee) ? 'done'
-            : anomaliesCount > 0 ? 'pending'
-            : 'pending';
-
-        // Pour la DAF / Admin : arbitrage accessible pour supervision ou arbitrage direct
-        // Pour les agents : verrouillé tant que non transmis
-        const dafStatus = isDaf
-            ? (activeStep === 'arbitrage' ? 'active' : (isTransmis || isValidee || isCloturee) ? 'pending' : 'pending')
-            : 'daf-only';
-
         const allSteps = [
             {
                 id: 'saisie',
                 label: 'Saisie',
                 sublabel: null,
-                status: saisieStatus
+                status: activeStep === 'saisie' ? 'active' : 'pending'
             },
             {
                 id: 'suivi',
                 label: 'Suivi & Anomalies',
                 sublabel: anomaliesCount > 0 ? `${anomaliesCount} anom.` : null,
-                status: suiviStatus
+                status: activeStep === 'suivi' ? 'active' : 'pending'
             },
             {
                 id: 'arbitrage',
                 label: 'Contrôle & Validation',
-                status: dafStatus,
+                status: isDaf ? (activeStep === 'arbitrage' ? 'active' : 'pending') : 'daf-only',
                 lockReason: isDaf
                     ? null
                     : 'Étape réservée aux validateurs habilités'
@@ -167,7 +136,7 @@ export default function GestionPointagesPage() {
         ];
 
         return allSteps;
-    }, [activeStep, isDaf, anomaliesCount, isTransmis, isValidee, isCloturee]);
+    }, [activeStep, isDaf, anomaliesCount]);
 
     return (
         <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">

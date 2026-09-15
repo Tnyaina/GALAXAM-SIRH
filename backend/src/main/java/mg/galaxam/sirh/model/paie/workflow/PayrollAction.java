@@ -5,5 +5,6 @@ public enum PayrollAction {
     SIMULATE,
     CALCULATE,
     VALIDATE,
-    ADD_VARIABLE
+    ADD_VARIABLE,
+    GENERATE_OUTPUT
 }

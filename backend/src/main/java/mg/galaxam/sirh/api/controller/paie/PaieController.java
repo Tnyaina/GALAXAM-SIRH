@@ -117,9 +117,14 @@ public class PaieController {
 
     @GetMapping("/periode/{idPeriode}/cockpit")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> obtenirCockpitPeriode(@PathVariable("idPeriode") Integer idPeriode) throws Exception {
+    public ResponseEntity<?> obtenirCockpitPeriode(
+            @PathVariable("idPeriode") Integer idPeriode,
+            Authentication authentication) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             Map<String, Object> cockpit = payrollService.obtenirCockpitPeriode(idPeriode, c);
+            // Une seule réponse porte les données de travail et la décision canonique du backend.
+            cockpit.put("context", payrollPeriodWorkflowService.describeContext(
+                    idPeriode, null, PayrollPeriodUserContext.from(authentication)));
             return ResponseEntity.ok(cockpit);
         }
     }
@@ -139,7 +144,8 @@ public class PaieController {
 
     @GetMapping("/periode/{idPeriode}/export/safi")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> telechargerSafiCsv(@PathVariable("idPeriode") Integer idPeriode) throws Exception {
+    public ResponseEntity<?> telechargerSafiCsv(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
+        requireOutput(idPeriode, authentication);
         String csv = paieExportService.exporterSafiCsv(idPeriode);
         byte[] bytes = csv.getBytes(StandardCharsets.UTF_8);
         return ResponseEntity.ok()
@@ -150,7 +156,8 @@ public class PaieController {
 
     @GetMapping("/periode/{idPeriode}/export/safi-ods")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> telechargerSafiOds(@PathVariable("idPeriode") Integer idPeriode) throws Exception {
+    public ResponseEntity<?> telechargerSafiOds(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
+        requireOutput(idPeriode, authentication);
         byte[] odsBytes = paieExportService.exporterSafiOds(idPeriode);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"modele_declaration_irsa_safi_periode_" + idPeriode + ".ods\"")
@@ -160,13 +167,15 @@ public class PaieController {
 
     @GetMapping("/periode/{idPeriode}/export/safi-data")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> obtenirDonneesSafi(@PathVariable("idPeriode") Integer idPeriode) throws Exception {
+    public ResponseEntity<?> obtenirDonneesSafi(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
+        requireOutput(idPeriode, authentication);
         return ResponseEntity.ok(paieExportService.obtenirDonneesSafi(idPeriode));
     }
 
     @GetMapping("/periode/{idPeriode}/export/edi-isi")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> telechargerEdiIsiXml(@PathVariable("idPeriode") Integer idPeriode) throws Exception {
+    public ResponseEntity<?> telechargerEdiIsiXml(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
+        requireOutput(idPeriode, authentication);
         String xml = paieExportService.exporterEdiXml(idPeriode);
         byte[] bytes = xml.getBytes(StandardCharsets.UTF_8);
         return ResponseEntity.ok()
@@ -177,7 +186,8 @@ public class PaieController {
 
     @GetMapping("/periode/{idPeriode}/export/dnts")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> telechargerDntsCsv(@PathVariable("idPeriode") Integer idPeriode) throws Exception {
+    public ResponseEntity<?> telechargerDntsCsv(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
+        requireOutput(idPeriode, authentication);
         String csv = paieExportService.exporterDntsCsv(idPeriode);
         byte[] bytes = csv.getBytes(StandardCharsets.UTF_8);
         return ResponseEntity.ok()
@@ -188,13 +198,15 @@ public class PaieController {
 
     @GetMapping("/periode/{idPeriode}/export/dnts-data")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> obtenirDonneesDnts(@PathVariable("idPeriode") Integer idPeriode) throws Exception {
+    public ResponseEntity<?> obtenirDonneesDnts(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
+        requireOutput(idPeriode, authentication);
         return ResponseEntity.ok(paieExportService.obtenirDonneesDnts(idPeriode));
     }
 
     @GetMapping("/periode/{idPeriode}/export/virement")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> telechargerVirementCsv(@PathVariable("idPeriode") Integer idPeriode) throws Exception {
+    public ResponseEntity<?> telechargerVirementCsv(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
+        requireOutput(idPeriode, authentication);
         String csv = paieExportService.exporterVirementCsv(idPeriode);
         byte[] bytes = csv.getBytes(StandardCharsets.UTF_8);
         return ResponseEntity.ok()
@@ -205,7 +217,8 @@ public class PaieController {
 
     @GetMapping("/periode/{idPeriode}/export/virement-data")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> obtenirDonneesVirement(@PathVariable("idPeriode") Integer idPeriode) throws Exception {
+    public ResponseEntity<?> obtenirDonneesVirement(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
+        requireOutput(idPeriode, authentication);
         return ResponseEntity.ok(paieExportService.obtenirDonneesVirement(idPeriode));
     }
 
@@ -218,7 +231,13 @@ public class PaieController {
         if (auth != null && auth.getPrincipal() instanceof CustomUserDetails ud) {
             return ud.getIdUtilisateur();
         }
-        return 1; // ID fallback système / admin
+        throw new org.springframework.security.access.AccessDeniedException("Utilisateur authentifié requis.");
+    }
+
+    private void requireOutput(Integer periodId, Authentication authentication) throws Exception {
+        payrollPeriodWorkflowService.requirePayrollAction(
+                periodId, PayrollAction.GENERATE_OUTPUT,
+                PayrollPeriodUserContext.from(authentication));
     }
 
 }

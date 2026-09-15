@@ -434,3 +434,61 @@ Les tests existants Paie, Pointage, sécurité et E2E ont été migrés vers les
 - backend-driven du workflow Paie critique : environ 8/10 ;
 - frontend assistant sur les actions de période : environ 8/10 ;
 - cohérence calcul/validation : gain structurel estimé de 2 à 3 points globaux.
+
+## Phase 7 — Refonte du workflow Paie — TERMINÉE
+
+### Avant
+
+- `/paie?tab=bulletins` pouvait sélectionner un onglet inexistant et rendre une zone vide ;
+- la Paie restait présentée comme quatre CRUD sans parcours partageable par période ;
+- la population du batch et l'effectif du cockpit provenaient de requêtes différentes ;
+- les exports réglementaires étaient accessibles dès le calcul, avant validation ;
+- readiness, résultats, validation et sorties ne formaient pas un message de campagne traçable unique.
+
+### Modifications
+
+- ajout d'un parcours linéaire partageable par URL : préparation, prérequis, population, variables, calcul/contrôle, validation et sorties ;
+- redirection sûre de l'ancien onglet `bulletins` et fallback systématique des onglets inconnus ;
+- route individuelle partageable `/paie/periods/:periodId/results/:employeeId` ouvrant le détail explicable du bulletin ;
+- création de l'unique `PayrollPopulationResolver`, utilisé à la fois par le batch et le cockpit ;
+- population datée exposée avec contrat, régime, décision `INCLUDED/EXCLUDED/BLOCKED` et reason code ;
+- une affectation ambiguë bloque désormais réellement la capacité `CALCULATE` au lieu d'être choisie implicitement ;
+- le cockpit renvoie dans une seule réponse données, readiness `PASS/WARNING/BLOCK`, population, synthèse de validation et contexte de décision canonique ;
+- la validation affiche population, net, charges, impôts, warnings, version, auteur et date de calcul ;
+- création de la capacité backend `GENERATE_OUTPUT` : toutes les sorties et prévisualisations sont refusées avant validation ;
+- sorties exposées avec statut, version, campagne source et checksum SHA-256 de leur source de campagne ;
+- suppression du faux indicateur statique « Congés synchronisés ».
+
+### Fichiers principaux
+
+- `backend/src/main/java/mg/galaxam/sirh/model/paie/service/PayrollPopulationResolver.java`
+- `backend/src/main/java/mg/galaxam/sirh/model/paie/workflow/PayrollPeriodWorkflowService.java`
+- `backend/src/main/java/mg/galaxam/sirh/api/dto/paie/PayrollPopulationMember.java`
+- `backend/src/main/java/mg/galaxam/sirh/api/dto/paie/PayrollOutputView.java`
+- `backend/src/main/java/mg/galaxam/sirh/api/controller/paie/PaieController.java`
+- `frontend/src/pages/paie/GestionPaiePage.jsx`
+- `frontend/src/components/paie/CockpitPaieTab.jsx`
+- `frontend/src/components/paie/ExportsPaieTab.jsx`
+- `frontend/src/routes/Router.jsx`
+
+### Tests ajoutés et exécutés
+
+- test d'intégration du message cockpit unifié, de la population et des métadonnées de sortie ;
+- test d'affectation ambiguë et blocage backend du calcul ;
+- test de refus des exports avant validation puis succès après validation ;
+- test d'architecture des routes Paie, du lien historique et de la décision unifiée ;
+- backend complet : 181/181 ;
+- frontend lint : OK ; frontend build : OK ;
+- `git diff --check` : OK.
+
+### Dette restante
+
+- les résultats restent chargés sans pagination serveur ; la phase 9 remplace ce chargement collectif ;
+- l'historique d'import des variables reste moins riche que le parcours principal ;
+- le checksum porte la source canonique de campagne ; la persistance d'un registre de fichiers effectivement générés serait une amélioration ultérieure, non nécessaire pour autoriser correctement le workflow.
+
+### Impact estimé
+
+- workflow Paie : environ 8/10 ;
+- frontend Paie : environ 7,5/10 ;
+- explicabilité et traçabilité des sorties : environ 8/10.

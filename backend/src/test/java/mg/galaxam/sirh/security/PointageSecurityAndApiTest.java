@@ -20,7 +20,7 @@ public class PointageSecurityAndApiTest extends BaseIntegrationTest {
     @BeforeEach
     public void setUp() {
         databaseCleaner.cleanTransactionalData();
-        LocalDate d = LocalDate.now().minusDays(5);
+        LocalDate d = LocalDate.now().minusDays(20);
         idPeriode = employeFixtures.createPeriodePaie("P-SEC", d, d.plusDays(10), "EN_COURS");
         emp = employeFixtures.createActiveEmploye("EMP030", "RAZAFY", "Haja", 1, d.minusMonths(1));
 

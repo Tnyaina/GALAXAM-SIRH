@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { UserPlus, Users, RefreshCw } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import employeService from '@/api/employe/employeService';
@@ -30,6 +30,7 @@ export default function EmployeList() {
     const { sites = [], departements = [], services = [] } = useContractReferentiels(true);
 
     const [rawEmployes, setRawEmployes] = useState([]);
+    const [totalElements, setTotalElements] = useState(0);
     const [statsCounts, setStatsCounts] = useState({ total: 0, actifs: 0, inactifs: 0 });
     const [loading, setLoading] = useState(true);
 
@@ -67,14 +68,24 @@ export default function EmployeList() {
     const loadEmployes = useCallback(async () => {
         setLoading(true);
         try {
-            // Charger la liste globale pour permettre le multi-filtrage et multi-tri instantané
             const [data, stats] = await Promise.all([
-                employeService.getEmployes({ size: 1000 }),
+                employeService.getEmployes({
+                    q: debouncedSearch.trim() || undefined,
+                    actif: statusFilter === 'ACTIVE' ? true : statusFilter === 'INACTIVE' ? false : undefined,
+                    site: siteFilter || undefined,
+                    departement: departementFilter || undefined,
+                    service: serviceFilter || undefined,
+                    sort: columnSortConfig.key || sortPreset,
+                    direction: columnSortConfig.direction,
+                    page: currentPage,
+                    size: pageSize
+                }),
                 employeService.getEmployeStats()
             ]);
 
             const list = data?.content || (Array.isArray(data) ? data : []);
             setRawEmployes(list);
+            setTotalElements(data?.totalElements ?? list.length);
 
             if (stats) {
                 setStatsCounts(stats);
@@ -86,7 +97,8 @@ export default function EmployeList() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [debouncedSearch, statusFilter, siteFilter, departementFilter, serviceFilter,
+        columnSortConfig, sortPreset, currentPage, pageSize]);
 
     useEffect(() => {
         loadEmployes();
@@ -115,143 +127,7 @@ export default function EmployeList() {
         setCurrentPage(1);
     }, [debouncedSearch, statusFilter, siteFilter, departementFilter, serviceFilter]);
 
-    // 1. Filtrage combiné en mémoire (stabilisé par debounce)
-    const filteredEmployes = useMemo(() => {
-        return rawEmployes.filter((emp) => {
-            // Recherche texte
-            if (debouncedSearch.trim()) {
-                const q = debouncedSearch.trim().toLowerCase();
-                const fullName = (emp.nomComplet || `${emp.prenom || ''} ${emp.nom || ''}`).toLowerCase();
-                const matricule = (emp.matricule || '').toLowerCase();
-                const cin = (emp.cinNumero || '').toLowerCase();
-                const tel = (emp.telephone || '').toLowerCase();
-                const fn = (emp.nomFonction || emp.fonction || '').toLowerCase();
-                const matches = fullName.includes(q) || matricule.includes(q) || cin.includes(q) || tel.includes(q) || fn.includes(q);
-                if (!matches) return false;
-            }
-
-            // Statut
-            if (statusFilter === 'ACTIVE' && !emp.estActif) return false;
-            if (statusFilter === 'INACTIVE' && emp.estActif) return false;
-
-            // Site
-            if (siteFilter) {
-                const empSiteId = emp.idSite || emp.id_site;
-                if (String(empSiteId) !== String(siteFilter)) return false;
-            }
-
-            // Département
-            if (departementFilter) {
-                const empDeptId = emp.idDepartement || emp.id_departement;
-                if (String(empDeptId) !== String(departementFilter)) return false;
-            }
-
-            // Service
-            if (serviceFilter) {
-                const empSrvId = emp.idService || emp.id_service;
-                if (String(empSrvId) !== String(serviceFilter)) return false;
-            }
-
-            return true;
-        });
-    }, [rawEmployes, debouncedSearch, statusFilter, siteFilter, departementFilter, serviceFilter]);
-
-    // 2. Multi-Tri Logique et Hiérarchique
-    const sortedEmployes = useMemo(() => {
-        const list = [...filteredEmployes];
-
-        // Si l'utilisateur a cliqué sur un en-tête de colonne spécifique
-        if (columnSortConfig.key) {
-            const { key, direction } = columnSortConfig;
-            const factor = direction === 'asc' ? 1 : -1;
-
-            return list.sort((a, b) => {
-                let valA;
-                let valB;
-
-                switch (key) {
-                    case 'matricule':
-                        valA = a.matricule || '';
-                        valB = b.matricule || '';
-                        break;
-                    case 'departement':
-                        valA = a.nomDepartement || a.departement || '';
-                        valB = b.nomDepartement || b.departement || '';
-                        break;
-                    case 'fonction':
-                        valA = a.nomFonction || a.fonction || '';
-                        valB = b.nomFonction || b.fonction || '';
-                        break;
-                    case 'site':
-                        valA = a.nomSite || a.site || '';
-                        valB = b.nomSite || b.site || '';
-                        break;
-                    case 'dateEmbauche':
-                        valA = a.dateEmbauche || a.dateDeclaration || a.createdAt || '';
-                        valB = b.dateEmbauche || b.dateDeclaration || b.createdAt || '';
-                        break;
-                    case 'statut':
-                        valA = a.estActif ? 'A' : 'Z';
-                        valB = b.estActif ? 'A' : 'Z';
-                        break;
-                    default:
-                        valA = a.nomComplet || `${a.nom || ''} ${a.prenom || ''}`;
-                        valB = b.nomComplet || `${b.nom || ''} ${b.prenom || ''}`;
-                }
-
-                return valA.localeCompare(valB, 'fr', { numeric: true, sensitivity: 'base' }) * factor;
-            });
-        }
-
-        // Sinon appliquer le preset sélectionné
-        return list.sort((a, b) => {
-            const getDept = (emp) => emp.nomDepartement || emp.departement || '';
-            const getService = (emp) => emp.nomService || emp.service || '';
-            const getSite = (emp) => emp.nomSite || emp.site || '';
-            const getNom = (emp) => emp.nomComplet || `${emp.nom || ''} ${emp.prenom || ''}`;
-            const getMatricule = (emp) => emp.matricule || '';
-            const getAnc = (emp) => {
-                if (emp.ancienneteEffectiveMois !== undefined && emp.ancienneteEffectiveMois !== null) {
-                    return Number(emp.ancienneteEffectiveMois);
-                }
-                const d = emp.dateEmbauche || emp.dateDeclaration || emp.createdAt;
-                return d ? (new Date().getTime() - new Date(d).getTime()) : 0;
-            };
-
-            switch (sortPreset) {
-                case 'HIERARCHICAL':
-                    // Département → Service → Nom
-                    return (
-                        getDept(a).localeCompare(getDept(b), 'fr') ||
-                        getService(a).localeCompare(getService(b), 'fr') ||
-                        getNom(a).localeCompare(getNom(b), 'fr')
-                    );
-                case 'SITE_SERVICE':
-                    // Site → Service → Nom
-                    return (
-                        getSite(a).localeCompare(getSite(b), 'fr') ||
-                        getService(a).localeCompare(getService(b), 'fr') ||
-                        getNom(a).localeCompare(getNom(b), 'fr')
-                    );
-                case 'NOM_ASC':
-                    return getNom(a).localeCompare(getNom(b), 'fr');
-                case 'NOM_DESC':
-                    return getNom(b).localeCompare(getNom(a), 'fr');
-                case 'MATRICULE_ASC':
-                    return getMatricule(a).localeCompare(getMatricule(b), 'fr', { numeric: true });
-                case 'MATRICULE_DESC':
-                    return getMatricule(b).localeCompare(getMatricule(a), 'fr', { numeric: true });
-                case 'ANCIENNETE_DESC':
-                    return getAnc(b) - getAnc(a);
-                case 'ANCIENNETE_ASC':
-                    return getAnc(a) - getAnc(b);
-                default:
-                    return getNom(a).localeCompare(getNom(b), 'fr');
-            }
-        });
-    }, [filteredEmployes, sortPreset, columnSortConfig]);
-
-    const totalPages = Math.ceil(sortedEmployes.length / pageSize) || 1;
+    const totalPages = Math.ceil(totalElements / pageSize) || 1;
 
     // Sécurité ajustement : si la page courante dépasse le total de pages
     useEffect(() => {
@@ -260,11 +136,7 @@ export default function EmployeList() {
         }
     }, [totalPages, currentPage]);
 
-    // 3. Découpage pagination
-    const paginatedEmployes = useMemo(() => {
-        const start = (currentPage - 1) * pageSize;
-        return sortedEmployes.slice(start, start + pageSize);
-    }, [sortedEmployes, currentPage, pageSize]);
+    const paginatedEmployes = rawEmployes;
 
     const handleSortChange = (key, direction) => {
         setColumnSortConfig({ key, direction });
@@ -461,7 +333,7 @@ export default function EmployeList() {
                     setColumnSortConfig({ key: '', direction: 'asc' });
                 }}
                 onResetFilters={handleResetFilters}
-                totalFound={sortedEmployes.length}
+                totalFound={totalElements}
             />
 
             {/* Tableau des employés */}
@@ -482,10 +354,10 @@ export default function EmployeList() {
                 />
                 
                 {/* Pagination */}
-                {!loading && sortedEmployes.length > 0 && (
+                {!loading && totalElements > 0 && (
                     <Pagination
                         currentPage={currentPage}
-                        totalItems={sortedEmployes.length}
+                        totalItems={totalElements}
                         pageSize={pageSize}
                         onPageChange={setCurrentPage}
                         onPageSizeChange={setPageSize}

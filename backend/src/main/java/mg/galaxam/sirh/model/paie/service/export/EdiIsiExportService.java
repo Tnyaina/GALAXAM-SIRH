@@ -24,27 +24,31 @@ public class EdiIsiExportService {
 
     /**
      * Génère le document XML EDI ISI pour les consultants et prestataires assujettis à l'ISI 5%.
+     * La date de fin utilisée dans le fichier EDI est obligatoirement celle de la période de paie
+     * stockée en base, jamais la date courante, pour garantir la cohérence des exports historiques.
      */
     public String exporterEdiXml(Integer idPeriode, Connection c) throws Exception {
         // 1. Informations de la période et du déclarant (GALAXAM LOGISTICS)
+        // La date de fin provient exclusivement de la période de paie — pas de fallback LocalDate.now()
         String sqlPeriode = "SELECT pp.date_fin, rf.nif " +
                 "FROM periode_paie pp " +
                 "LEFT JOIN ref_filiale rf ON rf.id_filiale = 1 " +
                 "WHERE pp.id_periode_paie = ?";
 
-        LocalDate dateFin = LocalDate.now();
+        LocalDate dateFin;
         String nifContribuable = "3000019434";
 
         try (PreparedStatement ps = c.prepareStatement(sqlPeriode)) {
             ps.setInt(1, idPeriode);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    if (rs.getDate("date_fin") != null) {
-                        dateFin = rs.getDate("date_fin").toLocalDate();
-                    }
-                    if (rs.getString("nif") != null) {
-                        nifContribuable = rs.getString("nif");
-                    }
+                if (!rs.next() || rs.getDate("date_fin") == null) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                            "Période de paie introuvable ou date de fin manquante pour l'export EDI ISI (id=" + idPeriode + ").");
+                }
+                dateFin = rs.getDate("date_fin").toLocalDate();
+                if (rs.getString("nif") != null) {
+                    nifContribuable = rs.getString("nif");
                 }
             }
         }

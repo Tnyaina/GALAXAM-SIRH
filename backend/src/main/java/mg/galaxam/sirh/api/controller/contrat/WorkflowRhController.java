@@ -1,12 +1,12 @@
 package mg.galaxam.sirh.api.controller.contrat;
 
-import java.sql.Connection;
 import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.api.dto.common.PageDTO;
 import mg.galaxam.sirh.api.dto.contrat.EmbaucheInitialeRequest;
 import mg.galaxam.sirh.api.dto.contrat.TransitionCarriereRequest;
 import mg.galaxam.sirh.api.dto.contrat.ValiderWorkflowRequest;
+import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.model.contrat.WorkflowRh;
 import mg.galaxam.sirh.model.contrat.WorkflowRhCPL;
 import mg.galaxam.sirh.model.contrat.WorkflowRhService;
@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * Controller REST pour la gestion des Workflows RH.
- * Délègue l'orchestration métier transactionnelle au service WorkflowRhService.
+ * Délègue l'orchestration métier transactionnelle à TransactionRunner (frontière JDBC unique).
  */
 @RestController
 public class WorkflowRhController {
@@ -31,6 +31,9 @@ public class WorkflowRhController {
 
     @Autowired
     private WorkflowRhService workflowRhService;
+
+    @Autowired
+    private TransactionRunner transactionRunner;
 
     @Autowired
     @org.springframework.context.annotation.Lazy
@@ -45,24 +48,9 @@ public class WorkflowRhController {
     public ResponseEntity<?> creerBrouillonEmbauche(
             @PathVariable Integer idEmploye,
             @RequestBody EmbaucheInitialeRequest req) {
-
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                WorkflowRhCPL result = workflowRhService.creerBrouillonEmbauche(idEmploye, req, getCurrentUserId(), c);
-                c.commit();
-                return ResponseEntity.status(HttpStatus.CREATED).body(result);
-            } catch (IllegalArgumentException ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            } catch (Exception ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+        WorkflowRhCPL result = transactionRunner.required(c ->
+                workflowRhService.creerBrouillonEmbauche(idEmploye, req, getCurrentUserId(), c));
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
     // =========================================================================
@@ -74,24 +62,9 @@ public class WorkflowRhController {
     public ResponseEntity<?> validerWorkflow(
             @PathVariable Integer idWorkflow,
             @RequestBody(required = false) ValiderWorkflowRequest req) {
-
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                WorkflowRhCPL result = workflowRhService.validerWorkflow(idWorkflow, req, getCurrentUserId(), c);
-                c.commit();
-                return ResponseEntity.ok(result);
-            } catch (IllegalArgumentException ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            } catch (Exception ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+        WorkflowRhCPL result = transactionRunner.required(c ->
+                workflowRhService.validerWorkflow(idWorkflow, req, getCurrentUserId(), c));
+        return ResponseEntity.ok(result);
     }
 
     // =========================================================================
@@ -103,43 +76,18 @@ public class WorkflowRhController {
     public ResponseEntity<?> creerBrouillonTransition(
             @PathVariable Integer idEmploye,
             @RequestBody TransitionCarriereRequest req) {
-
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                WorkflowRhCPL result = workflowRhService.creerBrouillonTransition(idEmploye, req, getCurrentUserId(), c);
-                c.commit();
-                return ResponseEntity.status(HttpStatus.CREATED).body(result);
-            } catch (IllegalArgumentException ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            } catch (Exception ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+        WorkflowRhCPL result = transactionRunner.required(c ->
+                workflowRhService.creerBrouillonTransition(idEmploye, req, getCurrentUserId(), c));
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
     @PostMapping("/employes/{idEmploye}/workflows/essai/confirmer-directement")
     @PreAuthorize("hasAuthority('EMPLOYE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> confirmerEssaiDirectement(
             @PathVariable Integer idEmploye, @RequestBody TransitionCarriereRequest req) {
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                WorkflowRhCPL result = workflowRhService.confirmerEssaiDirectement(idEmploye, req, getCurrentUserId(), c);
-                c.commit();
-                return ResponseEntity.status(HttpStatus.CREATED).body(result);
-            } catch (Exception ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            }
-        } catch (Exception ex) {
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(ex);
-        }
+        WorkflowRhCPL result = transactionRunner.required(c ->
+                workflowRhService.confirmerEssaiDirectement(idEmploye, req, getCurrentUserId(), c));
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
     @PutMapping("/workflows/{idWorkflow}")
@@ -147,24 +95,9 @@ public class WorkflowRhController {
     public ResponseEntity<?> modifierBrouillonWorkflow(
             @PathVariable Integer idWorkflow,
             @RequestBody TransitionCarriereRequest req) {
-
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                WorkflowRhCPL detail = workflowRhService.modifierBrouillonWorkflow(idWorkflow, req, c);
-                c.commit();
-                return ResponseEntity.ok(detail);
-            } catch (IllegalArgumentException ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            } catch (Exception ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+        WorkflowRhCPL detail = transactionRunner.required(c ->
+                workflowRhService.modifierBrouillonWorkflow(idWorkflow, req, c));
+        return ResponseEntity.ok(detail);
     }
 
     // =========================================================================
@@ -176,24 +109,9 @@ public class WorkflowRhController {
     public ResponseEntity<?> annulerWorkflow(
             @PathVariable Integer idWorkflow,
             @RequestBody(required = false) ValiderWorkflowRequest req) {
-
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                WorkflowRhCPL result = workflowRhService.annulerWorkflow(idWorkflow, req, getCurrentUserId(), c);
-                c.commit();
-                return ResponseEntity.ok(result);
-            } catch (IllegalArgumentException ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            } catch (Exception ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+        WorkflowRhCPL result = transactionRunner.required(c ->
+                workflowRhService.annulerWorkflow(idWorkflow, req, getCurrentUserId(), c));
+        return ResponseEntity.ok(result);
     }
 
     @PutMapping("/workflows/{idWorkflow}/annuler-planification")
@@ -201,43 +119,27 @@ public class WorkflowRhController {
     public ResponseEntity<?> annulerWorkflowPlanifie(
             @PathVariable Integer idWorkflow,
             @RequestBody(required = false) ValiderWorkflowRequest req) {
-
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                WorkflowRhCPL result = workflowRhService.annulerWorkflowPlanifie(idWorkflow, req, getCurrentUserId(), c);
-                c.commit();
-                return ResponseEntity.ok(result);
-            } catch (IllegalArgumentException ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            } catch (Exception ex) {
-                c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+        WorkflowRhCPL result = transactionRunner.required(c ->
+                workflowRhService.annulerWorkflowPlanifie(idWorkflow, req, getCurrentUserId(), c));
+        return ResponseEntity.ok(result);
     }
 
     // =========================================================================
-    // CONSULTATIONS
+    // CONSULTATIONS (lecture seule — pas de transaction d'écriture)
     // =========================================================================
 
     @GetMapping("/workflows/{idWorkflow}")
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getWorkflow(@PathVariable Integer idWorkflow) {
-        try (Connection c = dataSource.getConnection()) {
+        return transactionRunner.required(c -> {
             WorkflowRhCPL wf = WorkflowRhCPL.rechercherParId(idWorkflow, c);
             if (wf == null) {
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Workflow introuvable.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Workflow introuvable.");
             }
             return ResponseEntity.ok(wf);
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+        });
     }
 
     @GetMapping("/workflows")
@@ -249,48 +151,39 @@ public class WorkflowRhController {
             @RequestParam(required = false) Integer idSite,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "15") int size) {
-        try (Connection c = dataSource.getConnection()) {
+        return transactionRunner.required(c -> {
             PageDTO<WorkflowRhCPL> result = WorkflowRhCPL.listerGlobal(q, codeTypeEvenement, codeStatut, idSite, page, size, c);
             return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+        });
     }
 
     @GetMapping("/employes/{idEmploye}/workflows")
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getWorkflowsEmploye(@PathVariable Integer idEmploye) {
-        try (Connection c = dataSource.getConnection()) {
+        return transactionRunner.required(c -> {
             List<WorkflowRhCPL> list = WorkflowRhCPL.listerParEmploye(idEmploye, c);
             return ResponseEntity.ok(list);
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+        });
     }
 
     @GetMapping("/employes/{idEmploye}/workflows/brouillon")
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getBrouillonEmploye(@PathVariable Integer idEmploye) {
-        try (Connection c = dataSource.getConnection()) {
+        return transactionRunner.required(c -> {
             WorkflowRh wf = WorkflowRh.rechercherBrouillonParEmploye(idEmploye, c);
             if (wf == null) {
                 return ResponseEntity.ok(null);
             }
             WorkflowRhCPL detail = WorkflowRhCPL.rechercherParId(wf.getIdWorkflow(), c);
             return ResponseEntity.ok(detail);
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
-        }
+        });
     }
 
     // =========================================================================
     // CRON SCHEDULER DELEGATION
     // =========================================================================
 
-    public static void autoAppliquerMouvementsEchus(Connection c) {
+    public static void autoAppliquerMouvementsEchus(java.sql.Connection c) {
         WorkflowRhService.autoAppliquerMouvementsEchus(c);
     }
 

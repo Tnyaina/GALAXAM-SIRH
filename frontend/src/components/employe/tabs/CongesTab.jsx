@@ -267,7 +267,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
                       </Td>
                       <Td align="right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {canWrite && Boolean(d.isModifiable ?? (d.codeStatutDemande === 'EN_ATTENTE' || d.codeStatutDemande === 'BROUILLON')) && (
+                          {canWrite && d.availableActions?.EDIT?.allowed === true && (
                             <Button
                               variant="ghost"
                               size="xs"
@@ -277,7 +277,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
                               Modifier
                             </Button>
                           )}
-                          {canWrite && Boolean(d.isAnnulable ?? (d.codeStatutDemande === 'EN_ATTENTE' || d.codeStatutDemande === 'BROUILLON')) && (
+                          {canWrite && d.availableActions?.CANCEL?.allowed === true && (
                             <Button
                               variant="ghost"
                               size="xs"
