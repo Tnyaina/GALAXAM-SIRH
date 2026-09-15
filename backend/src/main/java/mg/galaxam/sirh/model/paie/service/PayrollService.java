@@ -34,11 +34,9 @@ import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.model.paie.dto.PayrollAttendanceInput;
 import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
-import mg.galaxam.sirh.model.paieconfig.RefTauxMajoration;
-import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
 import mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche;
-import mg.galaxam.sirh.model.paie.engine.IrsaBracketResolver;
 import mg.galaxam.sirh.model.paie.engine.TaxConfigurationResolver;
+import mg.galaxam.sirh.common.transaction.TransactionRunner;
 
 /**
  * Service d'orchestration de paie.
@@ -53,6 +51,12 @@ public class PayrollService {
 
     @Autowired
     private PayrollExecutionEngine payrollExecutionEngine;
+
+    @Autowired
+    private PayrollLegalContextResolver payrollLegalContextResolver;
+
+    @Autowired
+    private TransactionRunner transactionRunner;
 
     // Cache local des id_rubrique par code (thread-safe)
     private final Map<String, Integer> cacheRubriques = new ConcurrentHashMap<>();
@@ -145,15 +149,11 @@ public class PayrollService {
         BulletinPaie bp = complet.getBulletin();
 
         // Les métadonnées techniques et le workflow sont appliqués hors du moteur pur.
-        bp.setStatut(simulation ? "CALCULE" : "VALIDE");
+        bp.setStatut("CALCULE");
         bp.setDateCalcul(new Timestamp(System.currentTimeMillis()));
 
         if (idUtilisateur != null) {
             bp.setCalculePar(idUtilisateur);
-            if (!simulation) {
-                bp.setValidePar(idUtilisateur);
-                bp.setDateValidation(new Timestamp(System.currentTimeMillis()));
-            }
         }
 
         // La simulation est sans effet de bord. Le même résultat pourra être persisté
@@ -172,17 +172,8 @@ public class PayrollService {
      */
     public BulletinPaieComplet calculerBulletinEmploye(Integer idEmploye, Integer idPeriodePaie,
                                                       boolean simulation, Integer idUtilisateur) throws Exception {
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                BulletinPaieComplet res = calculerBulletinEmploye(idEmploye, idPeriodePaie, simulation, idUtilisateur, c);
-                c.commit();
-                return res;
-            } catch (Exception ex) {
-                c.rollback();
-                throw ex;
-            }
-        }
+        return transactionRunner.required(c ->
+                calculerBulletinEmploye(idEmploye, idPeriodePaie, simulation, idUtilisateur, c));
     }
 
     /**
@@ -303,10 +294,11 @@ public class PayrollService {
                     hono.setCinOuNif(cin != null ? cin : "NIF-A-PRECISER");
                     hono.setIntitulePrestation(fonction != null ? fonction : "Prestation de Conseil / Expertise");
                     hono.setNatureService("PRESTATIONS DE SERVICES");
-                    hono.setDatePrestation(dateFin != null ? dateFin : new Date(System.currentTimeMillis()));
-                    hono.setDatePaiement(dateFin != null ? dateFin : new Date(System.currentTimeMillis()));
+                    if (dateFin == null) throw new IllegalStateException("La date de fin de période est obligatoire.");
+                    hono.setDatePrestation(dateFin);
+                    hono.setDatePaiement(dateFin);
                     hono.setMontantBrut(brut != null ? brut : BigDecimal.ZERO);
-                    BigDecimal tauxIsi = chargerTauxIsiApplicable(c, dateFin != null ? dateFin.toLocalDate() : java.time.LocalDate.now());
+                    BigDecimal tauxIsi = chargerTauxIsiApplicable(c, dateFin.toLocalDate());
                     hono.setTauxIsi(tauxIsi);
                     hono.setAdresse(adr != null ? adr : "Antananarivo");
                     hono.setCommune(ville != null ? ville : "ANTANANARIVO RENIVOHITRA C.U");
@@ -329,17 +321,7 @@ public class PayrollService {
     }
 
     public List<PaieHonorairePrestation> genererHonorairesPeriode(Integer idPeriodePaie, Integer idUtilisateur) throws Exception {
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                List<PaieHonorairePrestation> list = genererHonorairesPeriode(idPeriodePaie, idUtilisateur, c);
-                c.commit();
-                return list;
-            } catch (Exception ex) {
-                c.rollback();
-                throw ex;
-            }
-        }
+        return transactionRunner.required(c -> genererHonorairesPeriode(idPeriodePaie, idUtilisateur, c));
     }
 
     /**
@@ -347,17 +329,7 @@ public class PayrollService {
      */
     public PayrollBatchResult calculerPaiePeriode(Integer idPeriodePaie, boolean simulation,
                                                  Integer idUtilisateur) throws Exception {
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                PayrollBatchResult res = calculerPaiePeriode(idPeriodePaie, simulation, idUtilisateur, c);
-                c.commit();
-                return res;
-            } catch (Exception ex) {
-                c.rollback();
-                throw ex;
-            }
-        }
+        return transactionRunner.required(c -> calculerPaiePeriode(idPeriodePaie, simulation, idUtilisateur, c));
     }
 
     /**
@@ -386,6 +358,10 @@ public class PayrollService {
             }
         }
         return batch;
+    }
+
+    public PayrollBatchResult validerPaiePeriode(Integer idPeriodePaie, Integer idUtilisateur) {
+        return transactionRunner.required(c -> validerPaiePeriode(idPeriodePaie, idUtilisateur, c));
     }
 
     /**
@@ -500,10 +476,7 @@ public class PayrollService {
                 "mcp.code AS mode_calcul_code, " +
                 "fil.raison_sociale AS filiale_nom, " +
                 "tri.code AS regime_code, " +
-                "COALESCE(tri.soumis_cnaps, TRUE) AS soumis_cnaps, " +
-                "COALESCE(tri.soumis_sante, TRUE) AS soumis_sante, " +
-                "COALESCE(tri.soumis_irsa, TRUE) AS soumis_irsa, " +
-                "COALESCE(tri.soumis_isi_5, FALSE) AS soumis_isi_5, " +
+                "tri.soumis_cnaps, tri.soumis_sante, tri.soumis_irsa, tri.soumis_isi_5, " +
                 "COALESCE(c_emb.date_embauche_initiale, ct.date_debut, e.date_declaration) AS date_embauche_resolue " +
                 "FROM employe e " +
                 "LEFT JOIN (SELECT id_employe, MIN(date_debut) AS date_embauche_initiale FROM contrat_travail GROUP BY id_employe) c_emb ON e.id_employe = c_emb.id_employe " +
@@ -543,11 +516,15 @@ public class PayrollService {
                     in.setNomSite(rs.getString("site_nom") != null ? rs.getString("site_nom") : "Antananarivo - Siège");
                     in.setCodeSite(rs.getString("code_site") != null ? rs.getString("code_site") : "TNR");
                     in.setNomFiliale(rs.getString("filiale_nom") != null ? rs.getString("filiale_nom") : "GALAXAM LOGISTICS");
-                    in.setRegimeIntervenant(rs.getString("regime_code") != null ? rs.getString("regime_code") : "PERMANENT");
-                    in.setSoumisCnaps(rs.getBoolean("soumis_cnaps"));
-                    in.setSoumisSante(rs.getBoolean("soumis_sante"));
-                    in.setSoumisIrsa(rs.getBoolean("soumis_irsa"));
-                    in.setSoumisIsi5(rs.getBoolean("soumis_isi_5"));
+                    String regimeCode = rs.getString("regime_code");
+                    if (regimeCode == null || regimeCode.isBlank()) {
+                        throw PayrollConfigurationGuard.missing("TYPE_INTERVENANT", idEmploye, null);
+                    }
+                    in.setRegimeIntervenant(regimeCode);
+                    in.setSoumisCnaps(PayrollConfigurationGuard.requireFlag(rs, "soumis_cnaps", "TYPE_INTERVENANT", idEmploye));
+                    in.setSoumisSante(PayrollConfigurationGuard.requireFlag(rs, "soumis_sante", "TYPE_INTERVENANT", idEmploye));
+                    in.setSoumisIrsa(PayrollConfigurationGuard.requireFlag(rs, "soumis_irsa", "TYPE_INTERVENANT", idEmploye));
+                    in.setSoumisIsi5(PayrollConfigurationGuard.requireFlag(rs, "soumis_isi_5", "TYPE_INTERVENANT", idEmploye));
                     in.setCategorieProfessionnelle(rs.getString("categorie_code") != null ? rs.getString("categorie_code") : "AGENT");
                     in.setModeCalculPaie(rs.getString("mode_calcul_code") != null ? rs.getString("mode_calcul_code") : "MENSUEL");
                     in.setSalaireBaseContractuel(rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO);
@@ -629,7 +606,7 @@ public class PayrollService {
         }
 
         // 6. Paramètres légaux et fiscaux (LF 2026 par défaut)
-        chargerParametresLegaux(in, c);
+        payrollLegalContextResolver.resolve(in, c);
 
         // 7. Variables de paie, Primes, Extras et Retenues (paie_avance_acompte & ref_type_mouvement_paie)
         String sqlMouvements = "SELECT paa.*, " +
@@ -637,8 +614,9 @@ public class PayrollService {
                 "COALESCE(rtmp.sens, paa.sens) AS sens_effectif, " +
                 "rtmp.libelle AS libelle_type, " +
                 "COALESCE(rtmp.categorie, 'PRIME') AS categorie_type, " +
-                "COALESCE(pr.soumis_irsa, TRUE) AS est_imposable, " +
-                "COALESCE(pr.soumis_cnaps, TRUE) AS est_soumis_cotisation " +
+                "pr.soumis_irsa AS est_imposable, " +
+                "pr.soumis_cnaps AS est_soumis_cotisation, " +
+                "pr.code AS rubrique_code " +
                 "FROM paie_avance_acompte paa " +
                 "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement " +
                 "LEFT JOIN paie_rubrique pr ON rtmp.id_rubrique = pr.id_rubrique " +
@@ -687,8 +665,13 @@ public class PayrollService {
                             // Variable / Prime dynamique configurée en base de données
                             String libelleType = rs.getString("libelle_type");
                             String catType = rs.getString("categorie_type");
-                            boolean imposable = rs.getBoolean("est_imposable");
-                            boolean soumisCotis = rs.getBoolean("est_soumis_cotisation");
+                            if (rs.getString("rubrique_code") == null) {
+                                throw PayrollConfigurationGuard.missing("RUBRIQUE_PAIE", idEmploye, codeType);
+                            }
+                            boolean imposable = PayrollConfigurationGuard.requireFlag(
+                                    rs, "est_imposable", "RUBRIQUE_PAIE", idEmploye);
+                            boolean soumisCotis = PayrollConfigurationGuard.requireFlag(
+                                    rs, "est_soumis_cotisation", "RUBRIQUE_PAIE", idEmploye);
                             String libelleFinal = motif != null && !motif.isBlank() ? motif : (libelleType != null ? libelleType : codeType);
 
                             PayrollCalculationInput.GainVariable gv = new PayrollCalculationInput.GainVariable(
@@ -739,112 +722,6 @@ public class PayrollService {
         }
 
         return in;
-    }
-
-    private void chargerParametresLegaux(PayrollCalculationInput in, Connection c) throws Exception {
-        java.time.LocalDate dateRef = in.getDateFinPeriode() != null
-                ? in.getDateFinPeriode().toLocalDate()
-                : java.time.LocalDate.now();
-        PaieConfigLegale cfg = PaieConfigLegale.findActiveAt(c, dateRef);
-        if (cfg == null) {
-            throw new IllegalStateException("Aucune configuration légale applicable à la date du " + dateRef + ".");
-        }
-        int idConfig = cfg.getIdConfigLegale();
-        in.setSmeNational(cfg.getSmeNational());
-        in.setMinimumPerceptionIrsa(cfg.getMinimumPerceptionIrsa());
-        in.setDeductionParEnfant(cfg.getDeductionChargeFamille());
-        if (cfg.getDiviseurMensuelHeures() != null && cfg.getDiviseurMensuelHeures().compareTo(BigDecimal.ZERO) > 0) {
-            in.setDiviseurMensuelHeures(cfg.getDiviseurMensuelHeures());
-        }
-
-        in.setIdConfigLegale(idConfig);
-        if (in.isSoumisIsi5()) {
-            in.setTauxIsi(TaxConfigurationResolver.resolveIsiRate(dateRef, c));
-        }
-
-        // Les majorations sont résolues une seule fois, avant le calcul pur.
-        try {
-            java.time.LocalDate d = dateRef;
-            in.setMajorationHs30(RefTauxMajoration.resolveApplicable(idConfig, "HS_30", d, c).getTaux());
-            in.setMajorationHs50(RefTauxMajoration.resolveApplicable(idConfig, "HS_50", d, c).getTaux());
-            in.setMajorationNuit(RefTauxMajoration.resolveApplicable(idConfig, "NUIT", d, c).getTaux());
-            RefTauxMajoration ferie = RefTauxMajoration.resolveApplicable(idConfig, "FERIE", d, c);
-            in.setMajorationFerie(ferie.getTaux());
-        } catch (IllegalStateException ex) {
-            throw new IllegalStateException("Configuration de majoration incomplète pour " + dateRef + ": " + ex.getMessage(), ex);
-        }
-
-        // Tranches IRSA
-        in.setTranchesIrsa(IrsaBracketResolver.resolve(idConfig, dateRef, c));
-
-        // Paramètres Santé & Cotisations selon site (depuis site_cotisation)
-        String sqlCotisSante = "SELECT tc.code, tc.taux_salarial, tc.taux_patronal, sc.est_plafonne_sante " +
-                "FROM site_cotisation sc " +
-                "JOIN ref_site s ON sc.id_site = s.id_site " +
-                "JOIN ref_type_cotisation tc ON sc.id_type_cotisation = tc.id_type_cotisation " +
-                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) AND tc.code != 'CNAPS' AND sc.est_actif = true LIMIT 1";
-        boolean santeFound = false;
-        try (PreparedStatement ps = c.prepareStatement(sqlCotisSante)) {
-            ps.setString(1, in.getCodeSite() != null ? in.getCodeSite() : "");
-            ps.setString(2, "%" + (in.getNomSite() != null ? in.getNomSite().toUpperCase() : "") + "%");
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    in.setCodeSanteOrgane(rs.getString("code"));
-                    BigDecimal tauxSalPct = rs.getBigDecimal("taux_salarial");
-                    BigDecimal tauxPatPct = rs.getBigDecimal("taux_patronal");
-                    in.setTauxSanteSalarial(tauxSalPct == null ? null : tauxSalPct.movePointLeft(2));
-                    in.setTauxSantePatronal(tauxPatPct == null ? null : tauxPatPct.movePointLeft(2));
-                    in.setEstPlafonneSante(rs.getBoolean("est_plafonne_sante"));
-                    santeFound = true;
-                }
-            }
-        }
-        if (!santeFound) {
-            // Compatibilité des environnements ne possédant pas encore la table de configuration;
-            // le domaine reçoit néanmoins des BigDecimal, jamais un double.
-            in.setCodeSanteOrgane("OSTIE");
-            in.setTauxSanteSalarial(new BigDecimal("0.01"));
-            in.setTauxSantePatronal(new BigDecimal("0.05"));
-            in.setEstPlafonneSante(true);
-        }
-
-        // Forfaits Indemnités de référence selon site (depuis site_indemnite_config)
-        BigDecimal forfaitTransport = BigDecimal.ZERO;
-        BigDecimal forfaitRepas = BigDecimal.ZERO;
-        String sqlIndemConfig = "SELECT i.code, sc.montant_reference " +
-                "FROM site_indemnite_config sc " +
-                "JOIN ref_site s ON sc.id_site = s.id_site " +
-                "JOIN ref_indemnite i ON sc.id_indemnite = i.id_indemnite " +
-                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) AND sc.est_actif = true";
-        try (PreparedStatement ps = c.prepareStatement(sqlIndemConfig)) {
-            ps.setString(1, in.getCodeSite() != null ? in.getCodeSite() : "");
-            ps.setString(2, "%" + (in.getNomSite() != null ? in.getNomSite().toUpperCase() : "") + "%");
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    String codeInd = rs.getString("code");
-                    BigDecimal mnt = rs.getBigDecimal("montant_reference");
-                    if ("DEPLACEMENT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd)) {
-                        forfaitTransport = mnt != null ? mnt : BigDecimal.ZERO;
-                    } else if ("REPAS".equalsIgnoreCase(codeInd)) {
-                        forfaitRepas = mnt != null ? mnt : BigDecimal.ZERO;
-                    }
-                }
-            }
-        }
-        in.setForfaitTransportSite(forfaitTransport);
-        in.setForfaitRepasSite(forfaitRepas);
-
-        // Paramètres dynamiques des Primes & Assiduité (100% configurables depuis parametre_global)
-        Map<String, String> pgMap = ParametreGlobal.loadActiveMap(c);
-        in.setSeuilRetardAssiduiteMinutes(ParametreGlobal.getInt(pgMap, "SEUIL_RETARD_ASSIDUITE_MIN", 45));
-        in.setSeuilRetardMalusPerformanceMinutes(ParametreGlobal.getInt(pgMap, "SEUIL_RETARD_PENALITE_PP_MIN", 70));
-        in.setSeuilCongesMalusPerformanceJours(new BigDecimal(pgMap.getOrDefault("SEUIL_CONGES_PENALITE_PP_JOURS", "1.0")));
-        String tauxMalusStr = pgMap.getOrDefault("TAUX_PENALITE_PP", "0.25");
-        try {
-            in.setTauxMalusPerformance(new BigDecimal(tauxMalusStr));
-        } catch (Exception ignored) {
-            in.setTauxMalusPerformance(new BigDecimal("0.25"));
-        }
     }
 
     private void sauvegarderBulletinEtLignes(BulletinPaieComplet complet, Connection c) throws Exception {

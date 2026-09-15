@@ -29,8 +29,7 @@ public class IrsaController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération du barème IRSA.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -41,13 +40,12 @@ public class IrsaController {
             BaremeIrsa b = new BaremeIrsa();
             BaremeIrsa found = (BaremeIrsa) b.rechercherParId(id, c);
             if (found == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Tranche IRSA non trouvée.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Tranche IRSA non trouvée.");
             }
             return ResponseEntity.ok(found);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la recherche de la tranche IRSA.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -72,11 +70,11 @@ public class IrsaController {
                 return ResponseEntity.status(HttpStatus.CREATED).body(b);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -90,10 +88,10 @@ public class IrsaController {
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> revaloriserBareme(@RequestBody IrsaRevalorisationRequest request) {
         if (request.getNouvelleDateDebut() == null) {
-            return ResponseEntity.badRequest().body("La date d'application est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "La date d'application est obligatoire.");
         }
         if (request.getTranches() == null || request.getTranches().isEmpty()) {
-            return ResponseEntity.badRequest().body("Le nouveau barème doit contenir au moins une tranche.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le nouveau barème doit contenir au moins une tranche.");
         }
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -118,11 +116,11 @@ public class IrsaController {
                 return ResponseEntity.ok(updated);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -135,7 +133,7 @@ public class IrsaController {
                 BaremeIrsa b = new BaremeIrsa();
                 BaremeIrsa existing = (BaremeIrsa) b.rechercherParId(id, c);
                 if (existing == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Tranche IRSA non trouvée.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Tranche IRSA non trouvée.");
                 }
 
                 existing.setNumeroTranche(request.getNumeroTranche());
@@ -152,11 +150,11 @@ public class IrsaController {
                 return ResponseEntity.ok(existing);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

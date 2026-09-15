@@ -41,8 +41,7 @@ public class PaieConfigLegaleController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des configurations légales.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -52,13 +51,14 @@ public class PaieConfigLegaleController {
         try (Connection c = dataSource.getConnection()) {
             PaieConfigLegale config = PaieConfigLegale.findActiveAt(c, LocalDate.now());
             if (config == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Aucune configuration légale active trouvée.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Aucune configuration légale active trouvée.");
             }
             return ResponseEntity.ok(config);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -69,13 +69,14 @@ public class PaieConfigLegaleController {
             LocalDate date = LocalDate.parse(dateStr);
             PaieConfigLegale config = PaieConfigLegale.findActiveAt(c, date);
             if (config == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Aucune configuration légale active pour la date " + dateStr);
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Aucune configuration légale active pour la date " + dateStr + ".");
             }
             return ResponseEntity.ok(config);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -110,11 +111,11 @@ public class PaieConfigLegaleController {
                 return ResponseEntity.status(HttpStatus.CREATED).body(config);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -126,7 +127,7 @@ public class PaieConfigLegaleController {
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> revaloriser(@RequestBody PaieConfigLegaleRequest request) {
         if (request.getDateDebut() == null) {
-            return ResponseEntity.badRequest().body("La date d'effet est obligatoire pour une revalorisation.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "La date d'effet est obligatoire pour une revalorisation.");
         }
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -160,11 +161,11 @@ public class PaieConfigLegaleController {
                 return ResponseEntity.status(HttpStatus.CREATED).body(result);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -176,7 +177,7 @@ public class PaieConfigLegaleController {
             try {
                 PaieConfigLegale existing = PaieConfigLegale.findById(id, c);
                 if (existing == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Exercice fiscal introuvable.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Exercice fiscal introuvable.");
                 }
                 PaieConfigLegale updated = mapFromRequest(request);
                 updated.setIdConfigLegale(id);
@@ -218,11 +219,11 @@ public class PaieConfigLegaleController {
                 return ResponseEntity.ok(reloaded != null ? reloaded : updated);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -239,7 +240,7 @@ public class PaieConfigLegaleController {
             try {
                 PaieConfigLegale cible = PaieConfigLegale.findById(id, c);
                 if (cible == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Exercice fiscal introuvable.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Exercice fiscal introuvable.");
                 }
                 PaieConfigLegale.annulerProgramme(id, c);
                 AuditLog.audit(c, "ANNULATION_PROGRAMME", "paie_config_legale",
@@ -248,14 +249,14 @@ public class PaieConfigLegaleController {
                 return ResponseEntity.ok("L'exercice programmé \"" + cible.getCodeVersion() + "\" a été annulé et l'exercice précédent a été réactivé.");
             } catch (IllegalStateException ex) {
                 c.rollback();
-                return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED, ex.getMessage());
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 

@@ -11,6 +11,8 @@ import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.api.dto.paie.PaieAjustementRequest;
 import mg.galaxam.sirh.api.dto.paie.StatutAjustementRequest;
+import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
 import mg.galaxam.sirh.model.paieconfig.RefTypeMouvementPaie;
 import mg.galaxam.sirh.securite.AuditLog;
@@ -43,7 +45,7 @@ public class PaieAjustementController {
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> listerAjustements(
             @RequestParam(name = "idPeriode", required = false) Integer idPeriode,
-            @RequestParam(name = "idEmploye", required = false) Integer idEmploye) {
+            @RequestParam(name = "idEmploye", required = false) Integer idEmploye) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             StringBuilder sql = new StringBuilder(
                     "SELECT paa.*, " +
@@ -99,9 +101,6 @@ public class PaieAjustementController {
                 }
             }
             return ResponseEntity.ok(resultats);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("Erreur lors de la récupération des ajustements : " + e.getMessage()));
         }
     }
 
@@ -110,13 +109,10 @@ public class PaieAjustementController {
      */
     @GetMapping("/types-mouvements")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> listerTypesMouvements() {
+    public ResponseEntity<?> listerTypesMouvements() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             List<RefTypeMouvementPaie> types = RefTypeMouvementPaie.listerActifs(c);
             return ResponseEntity.ok(types);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("Erreur lors de la récupération des types de mouvements : " + e.getMessage()));
         }
     }
 
@@ -125,7 +121,7 @@ public class PaieAjustementController {
      */
     @PostMapping
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> creerAjustement(@Valid @RequestBody PaieAjustementRequest req) {
+    public ResponseEntity<?> creerAjustement(@Valid @RequestBody PaieAjustementRequest req) throws Exception {
         Integer userId = getCurrentUserId();
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -176,11 +172,8 @@ public class PaieAjustementController {
                 return ResponseEntity.status(HttpStatus.CREATED).body(resp);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(createErrorResponse("Erreur de création : " + ex.getMessage()));
+                throw ex;
             }
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("Erreur de connexion : " + e.getMessage()));
         }
     }
 
@@ -189,18 +182,21 @@ public class PaieAjustementController {
      */
     @PutMapping("/{id}/statut")
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> changerStatut(@PathVariable("id") int id, @Valid @RequestBody StatutAjustementRequest req) {
+    public ResponseEntity<?> changerStatut(@PathVariable("id") int id, @Valid @RequestBody StatutAjustementRequest req)
+            throws Exception {
         Integer userId = getCurrentUserId();
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
                 PaieAvanceAcompte entity = PaieAvanceAcompte.trouverParId(id, c);
                 if (entity == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(createErrorResponse("Ajustement introuvable."));
+                    throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
+                            "Ajustement de paie introuvable.");
                 }
 
                 if ("IMPUTE_PAIE".equalsIgnoreCase(entity.getStatut())) {
-                    return ResponseEntity.badRequest().body(createErrorResponse("Impossible de modifier un mouvement déjà imputé sur un bulletin de paie clôturé ou validé."));
+                    throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
+                            "Impossible de modifier un mouvement déjà imputé sur un bulletin de paie clôturé ou validé.");
                 }
 
                 entity.setStatut(req.getStatut().toUpperCase());
@@ -219,11 +215,8 @@ public class PaieAjustementController {
                 return ResponseEntity.ok(Map.of("success", true, "idAvance", id, "statut", entity.getStatut()));
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(createErrorResponse("Erreur lors du changement de statut : " + ex.getMessage()));
+                throw ex;
             }
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("Erreur de connexion : " + e.getMessage()));
         }
     }
 
@@ -232,17 +225,19 @@ public class PaieAjustementController {
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> supprimerAjustement(@PathVariable("id") int id) {
+    public ResponseEntity<?> supprimerAjustement(@PathVariable("id") int id) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
                 PaieAvanceAcompte entity = PaieAvanceAcompte.trouverParId(id, c);
                 if (entity == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(createErrorResponse("Ajustement introuvable."));
+                    throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
+                            "Ajustement de paie introuvable.");
                 }
 
                 if ("IMPUTE_PAIE".equalsIgnoreCase(entity.getStatut())) {
-                    return ResponseEntity.badRequest().body(createErrorResponse("Impossible de supprimer un mouvement déjà imputé sur un bulletin de paie."));
+                    throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
+                            "Impossible de supprimer un mouvement déjà imputé sur un bulletin de paie.");
                 }
 
                 entity.delete(c);
@@ -252,11 +247,8 @@ public class PaieAjustementController {
                 return ResponseEntity.ok(Map.of("success", true, "message", "Ajustement supprimé avec succès."));
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(createErrorResponse("Erreur lors de la suppression : " + ex.getMessage()));
+                throw ex;
             }
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("Erreur de connexion : " + e.getMessage()));
         }
     }
 
@@ -268,10 +260,4 @@ public class PaieAjustementController {
         return 1;
     }
 
-    private Map<String, Object> createErrorResponse(String message) {
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("success", false);
-        resp.put("error", message);
-        return resp;
-    }
 }

@@ -93,9 +93,9 @@ CREATE TABLE paie_rubrique (
     categorie VARCHAR(40) NOT NULL,
     type_valeur VARCHAR(20) NOT NULL DEFAULT 'MONTANT',
     sens VARCHAR(10) NOT NULL,
-    soumis_cnaps BOOLEAN NOT NULL DEFAULT TRUE,
-    soumis_sante BOOLEAN NOT NULL DEFAULT TRUE,
-    soumis_irsa BOOLEAN NOT NULL DEFAULT TRUE,
+    soumis_cnaps BOOLEAN NOT NULL,
+    soumis_sante BOOLEAN NOT NULL,
+    soumis_irsa BOOLEAN NOT NULL,
     est_fixe BOOLEAN NOT NULL DEFAULT FALSE,
     ordre_affichage INT NOT NULL DEFAULT 10,
     est_actif BOOLEAN NOT NULL DEFAULT TRUE,
@@ -527,19 +527,6 @@ CREATE TRIGGER trg_bulletin_paie_ligne_immutabilite
     BEFORE INSERT OR UPDATE OR DELETE ON bulletin_paie_ligne
     FOR EACH ROW
     EXECUTE FUNCTION fn_bulletin_paie_ligne_immutabilite();
-
--- =====================================================================
--- VUES DU MODULE PAIE
--- =====================================================================
-
-CREATE OR REPLACE VIEW v_config_legale_active AS
-SELECT
-    pcl.*,
-    ROUND(pcl.sme_national * pcl.plafond_cotisation_nb_sme, 2) AS plafond_cotisation_mensuel
-FROM paie_config_legale pcl
-WHERE CURRENT_DATE BETWEEN pcl.date_debut AND COALESCE(pcl.date_fin, '9999-12-31'::DATE)
-ORDER BY pcl.date_debut DESC
-LIMIT 1;
 
 -- =====================================================================
 -- DONNÉES DE RÉFÉRENCE DE BASE (INITIAL SEEDS DES ARCHIVES)

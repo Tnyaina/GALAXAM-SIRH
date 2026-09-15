@@ -26,8 +26,7 @@ public class BanqueController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des banques.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -43,11 +42,11 @@ public class BanqueController {
                 return ResponseEntity.status(HttpStatus.CREATED).body(request);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -59,7 +58,7 @@ public class BanqueController {
             try {
                 RefBanque existing = (RefBanque) new RefBanque().rechercherParId(id, c);
                 if (existing == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Banque non trouvée.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Banque non trouvée.");
                 }
 
                 existing.setCodeBanque(request.getCodeBanque());
@@ -74,11 +73,11 @@ public class BanqueController {
                 return ResponseEntity.ok(existing);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -90,7 +89,7 @@ public class BanqueController {
             try {
                 RefBanque existing = (RefBanque) new RefBanque().rechercherParId(id, c);
                 if (existing == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Banque non trouvée.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Banque non trouvée.");
                 }
 
                 existing.setEstActif(false);
@@ -101,11 +100,11 @@ public class BanqueController {
                 return ResponseEntity.ok(existing);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -117,7 +116,7 @@ public class BanqueController {
             try {
                 RefBanque existing = (RefBanque) new RefBanque().rechercherParId(id, c);
                 if (existing == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Banque non trouvée.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Banque non trouvée.");
                 }
 
                 existing.setEstActif(true);
@@ -128,11 +127,11 @@ public class BanqueController {
                 return ResponseEntity.ok(existing);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

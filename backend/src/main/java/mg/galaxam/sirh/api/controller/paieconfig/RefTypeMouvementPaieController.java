@@ -29,8 +29,7 @@ public class RefTypeMouvementPaieController {
             List<RefTypeMouvementPaie> list = tous ? RefTypeMouvementPaie.listerTous(c) : RefTypeMouvementPaie.listerActifs(c);
             return ResponseEntity.ok(list);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des types de mouvement de paie : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -40,12 +39,11 @@ public class RefTypeMouvementPaieController {
         try (Connection c = dataSource.getConnection()) {
             RefTypeMouvementPaie found = RefTypeMouvementPaie.trouverParId(id, c);
             if (found == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Type de mouvement introuvable.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Type de mouvement introuvable.");
             }
             return ResponseEntity.ok(found);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la recherche du type de mouvement : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -75,11 +73,12 @@ public class RefTypeMouvementPaieController {
                 return ResponseEntity.status(HttpStatus.CREATED).body(entity);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body("Erreur lors de la création : " + ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                        "Impossible de créer ce type de mouvement de paie.");
             }
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur de connexion : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -91,7 +90,7 @@ public class RefTypeMouvementPaieController {
             try {
                 RefTypeMouvementPaie found = RefTypeMouvementPaie.trouverParId(id, c);
                 if (found == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Type de mouvement introuvable.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Type de mouvement introuvable.");
                 }
 
                 found.setCode(req.getCode());
@@ -113,11 +112,12 @@ public class RefTypeMouvementPaieController {
                 return ResponseEntity.ok(found);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body("Erreur lors de la mise à jour : " + ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                        "Impossible de modifier ce type de mouvement de paie.");
             }
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur de connexion : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

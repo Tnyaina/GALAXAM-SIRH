@@ -32,8 +32,7 @@ public class ServiceController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des services.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -44,13 +43,12 @@ public class ServiceController {
             RefService s = new RefService();
             RefService found = (RefService) s.rechercherParId(id, c);
             if (found == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Service non trouvé.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Service non trouvé.");
             }
             return ResponseEntity.ok(found);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la recherche du service.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -72,11 +70,11 @@ public class ServiceController {
                 return ResponseEntity.status(HttpStatus.CREATED).body(s);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -89,7 +87,7 @@ public class ServiceController {
                 RefService s = new RefService();
                 RefService existing = (RefService) s.rechercherParId(id, c);
                 if (existing == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Service non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Service non trouvé.");
                 }
 
                 existing.setCodeService(request.getCodeService());
@@ -103,11 +101,11 @@ public class ServiceController {
                 return ResponseEntity.ok(existing);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -120,7 +118,7 @@ public class ServiceController {
                 RefService s = new RefService();
                 RefService existing = (RefService) s.rechercherParId(id, c);
                 if (existing == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Service non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Service non trouvé.");
                 }
 
                 existing.setEstActif(false);
@@ -131,11 +129,11 @@ public class ServiceController {
                 return ResponseEntity.ok(existing);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -148,7 +146,7 @@ public class ServiceController {
                 RefService s = new RefService();
                 RefService existing = (RefService) s.rechercherParId(id, c);
                 if (existing == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Service non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Service non trouvé.");
                 }
 
                 existing.setEstActif(true);
@@ -159,11 +157,11 @@ public class ServiceController {
                 return ResponseEntity.ok(existing);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur système.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

@@ -1,5 +1,8 @@
 package mg.galaxam.sirh.api.dto.pointage;
 
+import java.util.Map;
+import mg.galaxam.sirh.api.dto.common.ActionCapability;
+
 public class PeriodePaieDTO {
     private Integer idPeriodePaie;
     private String code;
@@ -13,6 +16,7 @@ public class PeriodePaieDTO {
     private Integer nbJoursCalendaires;
     private Integer nbJoursFeries;
     private Integer version;
+    private Map<String, ActionCapability> availableActions = Map.of();
 
     public PeriodePaieDTO() {
     }
@@ -111,6 +115,14 @@ public class PeriodePaieDTO {
 
     public void setVersion(Integer version) {
         this.version = version;
+    }
+
+    public Map<String, ActionCapability> getAvailableActions() {
+        return availableActions;
+    }
+
+    public void setAvailableActions(Map<String, ActionCapability> availableActions) {
+        this.availableActions = availableActions == null ? Map.of() : Map.copyOf(availableActions);
     }
 
     private String motifRejet;

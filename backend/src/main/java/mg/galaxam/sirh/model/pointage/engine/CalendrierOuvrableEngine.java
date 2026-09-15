@@ -9,8 +9,13 @@ import java.time.temporal.ChronoUnit;
 import java.math.BigDecimal;
 import mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy;
 import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Component;
+import mg.galaxam.sirh.api.dto.common.BusinessIssue;
+import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.common.exception.SirhErrorCode;
 
 /**
  * Moteur autoritaire et centralisé de calcul du calendrier de paie et de pointage.
@@ -180,22 +185,60 @@ public class CalendrierOuvrableEngine {
      * Récupère l'ensemble des dates fériées ou exceptionnellement chômées pour un employé en fonction de son site actif.
      */
     public Set<LocalDate> getDatesFeriesEtChomeesEmploye(LocalDate debut, LocalDate fin, Integer idEmploye, Connection c) {
-        Integer idSite = null;
-        if (idEmploye != null && c != null) {
-            String sql = "SELECT id_site FROM employe_affectation_carriere WHERE id_employe = ? ORDER BY id_affectation DESC LIMIT 1";
-            try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setInt(1, idEmploye);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        int s = rs.getInt("id_site");
-                        if (!rs.wasNull()) idSite = s;
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("[CalendrierOuvrableEngine] Impossible de récupérer le site de l'employé {}: {}", idEmploye, e.getMessage());
-            }
+        if (debut == null || fin == null || fin.isBefore(debut) || idEmploye == null || c == null) {
+            return Set.of();
         }
-        return getDatesFeriesEtChomees(debut, fin, idSite, c);
+        Map<Integer, Set<LocalDate>> chomesParSite = new HashMap<>();
+        Set<LocalDate> result = new HashSet<>();
+        for (LocalDate date = debut; !date.isAfter(fin); date = date.plusDays(1)) {
+            Integer idSite = resolveSiteAt(idEmploye, date, c);
+            Set<LocalDate> chomes = chomesParSite.computeIfAbsent(
+                    idSite, site -> getDatesFeriesEtChomees(debut, fin, site, c));
+            if (chomes.contains(date)) result.add(date);
+        }
+        return result;
+    }
+
+    /** Résout l'unique site applicable à une date métier, sans fallback « dernier id ». */
+    public Integer resolveSiteAt(Integer idEmploye, LocalDate targetDate, Connection c) {
+        if (idEmploye == null || targetDate == null || c == null) {
+            throw affectationInvalide(idEmploye, targetDate, "AFFECTATION_CONTEXT_REQUIRED");
+        }
+        String sql = "SELECT id_site FROM employe_affectation_carriere "
+                + "WHERE id_employe = ? AND date_debut <= ? "
+                + "AND (date_fin IS NULL OR date_fin >= ?) "
+                + "ORDER BY date_debut DESC, id_affectation DESC LIMIT 2";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            ps.setDate(2, java.sql.Date.valueOf(targetDate));
+            ps.setDate(3, java.sql.Date.valueOf(targetDate));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw affectationInvalide(idEmploye, targetDate, "AFFECTATION_GAP");
+                int idSite = rs.getInt("id_site");
+                if (rs.wasNull()) throw affectationInvalide(idEmploye, targetDate, "AFFECTATION_SITE_MISSING");
+                if (rs.next()) throw affectationInvalide(idEmploye, targetDate, "AFFECTATION_OVERLAP");
+                return idSite;
+            }
+        } catch (SirhBusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Impossible de résoudre l'affectation datée.", e);
+        }
+    }
+
+    private static SirhBusinessException affectationInvalide(
+            Integer idEmploye, LocalDate targetDate, String issueCode) {
+        Map<String, Object> details = new HashMap<>();
+        if (idEmploye != null) details.put("employeeId", idEmploye);
+        if (targetDate != null) details.put("targetDate", targetDate.toString());
+        details.put("configurationType", "AFFECTATION_SITE");
+        BusinessIssue issue = new BusinessIssue(
+                issueCode,
+                "Une affectation unique avec site est obligatoire à la date métier.",
+                details);
+        return new SirhBusinessException(
+                SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
+                issue.message(), details, java.util.List.of(issue));
     }
 
     /**

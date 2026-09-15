@@ -3,14 +3,14 @@ package mg.galaxam.sirh.api.controller.paie;
 import jakarta.validation.Valid;
 import java.sql.Connection;
 import java.sql.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.api.dto.paie.stc.StcCalculRequest;
 import mg.galaxam.sirh.api.dto.paie.stc.StcCalculResultDTO;
 import mg.galaxam.sirh.api.dto.paie.stc.StcPreparationDTO;
 import mg.galaxam.sirh.api.dto.paie.stc.StcRecuDTO;
+import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.model.paie.PaieStc;
 import mg.galaxam.sirh.model.paie.service.StcService;
 import mg.galaxam.sirh.securite.CustomUserDetails;
@@ -47,16 +47,11 @@ public class StcController {
     public ResponseEntity<?> preparerStc(
             @PathVariable("idEmploye") Integer idEmploye,
             @RequestParam(name = "dateDepart", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate dateDepart,
-            @RequestParam(name = "motif", required = false, defaultValue = "DEMISSION") String motif) {
+            @RequestParam(name = "motif", required = false, defaultValue = "DEMISSION") String motif) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             Date dateSql = dateDepart != null ? Date.valueOf(dateDepart) : new Date(System.currentTimeMillis());
             StcPreparationDTO prep = stcService.preparerStc(idEmploye, dateSql, motif, c);
             return ResponseEntity.ok(prep);
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(createErrorResponse(ex.getMessage()));
-        } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("Erreur lors de la préparation du STC : " + ex.getMessage()));
         }
     }
 
@@ -65,16 +60,11 @@ public class StcController {
      */
     @PostMapping("/calculer")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> simulerStc(@Valid @RequestBody StcCalculRequest req) {
+    public ResponseEntity<?> simulerStc(@Valid @RequestBody StcCalculRequest req) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             req.setSimulation(true);
             StcCalculResultDTO result = stcService.simulerStc(req, c);
             return ResponseEntity.ok(result);
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(createErrorResponse(ex.getMessage()));
-        } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("Erreur lors de la simulation du STC : " + ex.getMessage()));
         }
     }
 
@@ -87,7 +77,7 @@ public class StcController {
      */
     @PostMapping("/valider")
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> validerStc(@Valid @RequestBody StcCalculRequest req) {
+    public ResponseEntity<?> validerStc(@Valid @RequestBody StcCalculRequest req) throws Exception {
         Integer userId = getCurrentUserId();
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -97,11 +87,8 @@ public class StcController {
                 return ResponseEntity.status(HttpStatus.CREATED).body(result);
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(createErrorResponse("Échec de validation du STC : " + ex.getMessage()));
+                throw ex;
             }
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("Erreur de connexion : " + e.getMessage()));
         }
     }
 
@@ -110,13 +97,10 @@ public class StcController {
      */
     @GetMapping("/liste")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> listerStc() {
+    public ResponseEntity<?> listerStc() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             List<PaieStc> list = stcService.listerStc(c);
             return ResponseEntity.ok(list);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("Erreur de liste : " + e.getMessage()));
         }
     }
 
@@ -125,16 +109,14 @@ public class StcController {
      */
     @GetMapping("/{idStc}/recu")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> obtenirRecuStc(@PathVariable("idStc") Integer idStc) {
+    public ResponseEntity<?> obtenirRecuStc(@PathVariable("idStc") Integer idStc) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             StcRecuDTO recu = stcService.obtenirRecuStc(idStc, c);
             if (recu == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(createErrorResponse("STC introuvable pour l'id: " + idStc));
+                throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "STC introuvable pour l'identifiant " + idStc + ".");
             }
             return ResponseEntity.ok(recu);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("Erreur de génération du reçu : " + e.getMessage()));
         }
     }
 
@@ -146,10 +128,4 @@ public class StcController {
         return 1;
     }
 
-    private Map<String, Object> createErrorResponse(String message) {
-        Map<String, Object> err = new HashMap<>();
-        err.put("error", true);
-        err.put("message", message);
-        return err;
-    }
 }

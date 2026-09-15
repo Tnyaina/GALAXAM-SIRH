@@ -104,10 +104,10 @@ CREATE TABLE ref_type_intervenant (
     id_type_intervenant SERIAL PRIMARY KEY,
     code VARCHAR(20) NOT NULL UNIQUE,
     libelle VARCHAR(100) NOT NULL,
-    soumis_irsa BOOLEAN DEFAULT TRUE,
-    soumis_isi_5 BOOLEAN DEFAULT FALSE,
-    soumis_cnaps BOOLEAN DEFAULT TRUE,
-    soumis_sante BOOLEAN DEFAULT TRUE,
+    soumis_irsa BOOLEAN NOT NULL,
+    soumis_isi_5 BOOLEAN NOT NULL,
+    soumis_cnaps BOOLEAN NOT NULL,
+    soumis_sante BOOLEAN NOT NULL,
     est_actif BOOLEAN DEFAULT TRUE
 );
 

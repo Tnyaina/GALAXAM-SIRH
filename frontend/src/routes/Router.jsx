@@ -96,6 +96,8 @@ export default function Router() {
                     <Route element={<ProtectedRoute requiredPermission="PAIE_READ" allowedRoles={["ROLE_ADMIN"]} />}>
                         <Route path="/paie" element={<GestionPaiePage />} />
                         <Route path="/paie/periodes" element={<Navigate to="/paie?tab=periodes" replace />} />
+                        <Route path="/paie/periods/:periodId/:step" element={<GestionPaiePage />} />
+                        <Route path="/paie/periods/:periodId/results/:employeeId" element={<GestionPaiePage />} />
                     </Route>
 
                     <Route element={<ProtectedRoute />}>

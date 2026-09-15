@@ -33,14 +33,13 @@ public class PointageParametreController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des tolérances d'arrivée.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
     @PostMapping("/tolerances")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> saveTolerance(@RequestBody ToleranceRequest request) {
+    public ResponseEntity<?> saveTolerance(@RequestBody ToleranceRequest request) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -62,9 +61,6 @@ public class PointageParametreController {
                 c.rollback();
                 throw e;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
@@ -79,14 +75,13 @@ public class PointageParametreController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des dérogations d'indemnités.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
     @PostMapping("/derogations")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> createDerogation(@RequestBody DerogationRequest request) {
+    public ResponseEntity<?> createDerogation(@RequestBody DerogationRequest request) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -107,22 +102,20 @@ public class PointageParametreController {
                 c.rollback();
                 throw e;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
     @PutMapping("/derogations/{id}")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> updateDerogation(@PathVariable int id, @RequestBody DerogationRequest request) {
+    public ResponseEntity<?> updateDerogation(@PathVariable int id, @RequestBody DerogationRequest request)
+            throws Exception {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
                 EmployeIndemniteDerogation d = new EmployeIndemniteDerogation();
                 EmployeIndemniteDerogation existing = d.rechercherParId(id, c);
                 if (existing == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Dérogation non trouvée.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Dérogation non trouvée.");
                 }
 
                 existing.setIdEmploye(request.getIdEmploye());
@@ -141,9 +134,6 @@ public class PointageParametreController {
                 c.rollback();
                 throw e;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
@@ -156,7 +146,7 @@ public class PointageParametreController {
                 EmployeIndemniteDerogation d = new EmployeIndemniteDerogation();
                 EmployeIndemniteDerogation existing = d.rechercherParId(id, c);
                 if (existing == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Dérogation non trouvée.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Dérogation non trouvée.");
                 }
 
                 existing.delete(c);
@@ -170,7 +160,7 @@ public class PointageParametreController {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur lors de la suppression de la dérogation.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

@@ -12,6 +12,8 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import mg.galaxam.sirh.BaseIntegrationTest;
 import mg.galaxam.sirh.api.dto.pointage.SaisiePointageJourDTO;
@@ -175,7 +177,15 @@ public class PointageSaisieServiceIntegrationTest extends BaseIntegrationTest {
                 ps.setDate(2, Date.valueOf(datePtg));
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
-                        assertEquals(2418.18, rs.getDouble("montant_calcule"), 0.01, "A TMM, transport = 2418.18 Ar");
+                        LocalDate debut = LocalDate.now().minusDays(15);
+                        LocalDate fin = LocalDate.now().plusDays(15);
+                        int joursOuvrables = new mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine()
+                                .compterJoursOuvrables(debut, fin, empTmm.idSite, c);
+                        double montantAttendu = new BigDecimal("53200")
+                                .divide(BigDecimal.valueOf(joursOuvrables), 2, RoundingMode.HALF_UP)
+                                .doubleValue();
+                        assertEquals(montantAttendu, rs.getDouble("montant_calcule"), 0.01,
+                                "Le transport TMM doit utiliser les jours ouvrables réels de la période.");
                     }
                 }
             }
@@ -455,4 +465,3 @@ public class PointageSaisieServiceIntegrationTest extends BaseIntegrationTest {
         }
     }
 }
-

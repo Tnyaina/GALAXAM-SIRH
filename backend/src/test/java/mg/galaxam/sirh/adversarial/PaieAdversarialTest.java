@@ -105,8 +105,8 @@ class PaieAdversarialTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(req)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.success", is(false)))
-                .andExpect(jsonPath("$.error", containsString("clôturé et strictement immuable")));
+                .andExpect(jsonPath("$.code", is("STATE_CONFLICT")))
+                .andExpect(jsonPath("$.message", containsString("clôturé et strictement immuable")));
     }
 
     @Test
@@ -121,7 +121,7 @@ class PaieAdversarialTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(req)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success", is(false)));
+                .andExpect(jsonPath("$.code", is("VALIDATION_ERROR")));
     }
 
     @Test
@@ -138,8 +138,56 @@ class PaieAdversarialTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(req)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success", is(false)))
-                .andExpect(jsonPath("$.error", containsString("affectation active introuvable")));
+                .andExpect(jsonPath("$.code", is("VALIDATION_ERROR")))
+                .andExpect(jsonPath("$.message", containsString("affectation active introuvable")));
+    }
+
+    @Test
+    @DisplayName("CONFIGURATION: Une variable de paie sans rubrique explicite bloque le calcul")
+    void testVariableSansRubriqueBloqueCalcul() throws Exception {
+        String sql = "INSERT INTO paie_avance_acompte "
+                + "(id_employe, id_periode_paie, type_mouvement, sens, montant, date_demande, motif, statut) "
+                + "VALUES (?, ?, 'VARIABLE_SANS_CONFIG', 'GAIN', 10000, '2026-01-10', "
+                + "'Variable sans rubrique', 'APPROUVE')";
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, employe.idEmploye);
+            ps.setInt(2, idPeriode);
+            ps.executeUpdate();
+        }
+
+        CalculEmployeRequest req = new CalculEmployeRequest();
+        req.setIdEmploye(employe.idEmploye);
+        req.setIdPeriodePaie(idPeriode);
+        req.setSimulation(true);
+
+        mockMvc.perform(post("/paie/calculer-employe")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(req)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code", is("BLOCKING_CONFIGURATION_ERROR")))
+                .andExpect(jsonPath("$.details.configurationType", is("RUBRIQUE_PAIE")))
+                .andExpect(jsonPath("$.issues[0].code", is("PAYROLL_CONFIGURATION_MISSING")));
+    }
+
+    @Test
+    @DisplayName("CONFIGURATION: La création d'une rubrique exige tous les assujettissements")
+    void testCreationRubriqueSansAssujettissementsRejetee() throws Exception {
+        String payload = """
+                {
+                  "code": "CFG_MANQUANTE",
+                  "libelle": "Configuration manquante",
+                  "categorie": "PRIME",
+                  "sens": "GAIN"
+                }
+                """;
+
+        mockMvc.perform(post("/api/paie/rubriques")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code", is("BLOCKING_CONFIGURATION_ERROR")));
     }
 
     @Test
@@ -173,7 +221,7 @@ class PaieAdversarialTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(req)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is(true)))
+                .andExpect(jsonPath("$.code", is("VALIDATION_ERROR")))
                 .andExpect(jsonPath("$.message", containsString("introuvable")));
     }
 

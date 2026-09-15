@@ -74,8 +74,7 @@ public class DocumentRhController {
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des documents RH.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -96,18 +95,20 @@ public class DocumentRhController {
             c.setAutoCommit(false);
             try {
                 if (file.isEmpty()) {
-                    return ResponseEntity.badRequest().body("Aucun fichier sélectionné.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Aucun fichier sélectionné.");
                 }
 
                 // 1. Vérification du type de document
                 RefTypeDocument typeDoc = new RefTypeDocument().rechercherParId(idTypeDocument, c);
                 if (typeDoc == null || !typeDoc.isActif()) {
-                    return ResponseEntity.badRequest().body("Type de document invalide ou inactif.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Type de document invalide ou inactif.");
                 }
 
                 // 2. Vérification de la taille max
                 if (typeDoc.getTailleMaxMo() != null && file.getSize() > (long) typeDoc.getTailleMaxMo() * 1024 * 1024) {
-                    return ResponseEntity.badRequest().body("La taille du fichier dépasse la limite autorisée (" + typeDoc.getTailleMaxMo() + " Mo).");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.FILE_TOO_LARGE,
+                            "La taille du fichier dépasse la limite autorisée (" + typeDoc.getTailleMaxMo() + " Mo).");
                 }
 
                 // 3. Stockage sur le disque
@@ -130,7 +131,9 @@ public class DocumentRhController {
                         .map(String::trim)
                         .toList();
                 if (extension.isEmpty() || !allowedList.contains(extension)) {
-                    return ResponseEntity.badRequest().body("Format de fichier non autorisé (." + extension + "). Formats acceptés : " + allowedExtensions);
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                            "Format de fichier non autorisé (." + extension + "). Formats acceptés : " + allowedExtensions);
                 }
 
                 String uniqueFilename = UUID.randomUUID().toString() + "." + extension;
@@ -164,12 +167,11 @@ public class DocumentRhController {
 
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de l'upload du document RH.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -182,12 +184,12 @@ public class DocumentRhController {
         try (Connection c = dataSource.getConnection()) {
             DocumentRh doc = new DocumentRh().rechercherParId(idDocument, c);
             if (doc == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Document non trouvé.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Document non trouvé.");
             }
 
             Path filePath = Paths.get(docUploadDir).resolve(doc.getNomStockage());
             if (!Files.exists(filePath)) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Le fichier physique n'existe plus sur le serveur.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Le fichier physique n'existe plus sur le serveur.");
             }
 
             Resource resource = new UrlResource(filePath.toUri());
@@ -204,8 +206,7 @@ public class DocumentRhController {
 
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors du téléchargement du document.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -220,7 +221,7 @@ public class DocumentRhController {
             try {
                 DocumentRh doc = new DocumentRh().rechercherParId(idDocument, c);
                 if (doc == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Document non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Document non trouvé.");
                 }
 
                 // Suppression physique du fichier
@@ -239,12 +240,11 @@ public class DocumentRhController {
                 return ResponseEntity.ok(Map.of("message", "Document supprimé avec succès."));
             } catch (Exception ex) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la suppression du document.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

@@ -14,18 +14,14 @@ public class RefTypeIntervenant extends ClassMere {
     private Integer idTypeIntervenant;
     private String code;
     private String libelle;
-    private boolean soumisIrsa;
-    private boolean soumisIsi5;
-    private boolean soumisCnaps;
-    private boolean soumisSante;
+    private Boolean soumisIrsa;
+    private Boolean soumisIsi5;
+    private Boolean soumisCnaps;
+    private Boolean soumisSante;
     private boolean estActif;
 
     public RefTypeIntervenant() {
         this.setNomTable("REF_TYPE_INTERVENANT");
-        this.soumisIrsa = true;
-        this.soumisIsi5 = false;
-        this.soumisCnaps = true;
-        this.soumisSante = true;
         this.estActif = true;
     }
 
@@ -46,6 +42,10 @@ public class RefTypeIntervenant extends ClassMere {
         }
         if (libelle == null || libelle.isBlank()) {
             throw new IllegalArgumentException("Le libellé du type d'intervenant est obligatoire.");
+        }
+        if (soumisIrsa == null || soumisIsi5 == null || soumisCnaps == null || soumisSante == null) {
+            throw new IllegalArgumentException(
+                    "Les assujettissements IRSA, ISI, CNaPS et santé doivent être renseignés explicitement.");
         }
         this.code = this.code.trim().toUpperCase();
 
@@ -170,17 +170,17 @@ public class RefTypeIntervenant extends ClassMere {
     public String getLibelle() { return libelle; }
     public void setLibelle(String libelle) { this.libelle = libelle; }
 
-    public boolean isSoumisIrsa() { return soumisIrsa; }
-    public void setSoumisIrsa(boolean soumisIrsa) { this.soumisIrsa = soumisIrsa; }
+    public Boolean isSoumisIrsa() { return soumisIrsa; }
+    public void setSoumisIrsa(Boolean soumisIrsa) { this.soumisIrsa = soumisIrsa; }
 
-    public boolean isSoumisIsi5() { return soumisIsi5; }
-    public void setSoumisIsi5(boolean soumisIsi5) { this.soumisIsi5 = soumisIsi5; }
+    public Boolean isSoumisIsi5() { return soumisIsi5; }
+    public void setSoumisIsi5(Boolean soumisIsi5) { this.soumisIsi5 = soumisIsi5; }
 
-    public boolean isSoumisCnaps() { return soumisCnaps; }
-    public void setSoumisCnaps(boolean soumisCnaps) { this.soumisCnaps = soumisCnaps; }
+    public Boolean isSoumisCnaps() { return soumisCnaps; }
+    public void setSoumisCnaps(Boolean soumisCnaps) { this.soumisCnaps = soumisCnaps; }
 
-    public boolean isSoumisSante() { return soumisSante; }
-    public void setSoumisSante(boolean soumisSante) { this.soumisSante = soumisSante; }
+    public Boolean isSoumisSante() { return soumisSante; }
+    public void setSoumisSante(Boolean soumisSante) { this.soumisSante = soumisSante; }
 
     public boolean isEstActif() { return estActif; }
     public void setEstActif(boolean estActif) { this.estActif = estActif; }

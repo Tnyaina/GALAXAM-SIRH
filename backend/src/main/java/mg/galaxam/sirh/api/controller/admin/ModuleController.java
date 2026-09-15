@@ -27,8 +27,7 @@ public class ModuleController {
             return ResponseEntity.ok(modules);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des modules.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -39,13 +38,12 @@ public class ModuleController {
             RefModule module = new RefModule();
             RefModule found = (RefModule) module.findById(String.valueOf(id), c);
             if (found == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Module non trouvé.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Module non trouvé.");
             }
             return ResponseEntity.ok(found);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération du module.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -53,10 +51,10 @@ public class ModuleController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createModule(@RequestBody ModuleRequest request) {
         if (request.getCodeModule() == null || request.getCodeModule().isBlank()) {
-            return ResponseEntity.badRequest().body("Le code du module est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le code du module est obligatoire.");
         }
         if (request.getLibelle() == null || request.getLibelle().isBlank()) {
-            return ResponseEntity.badRequest().body("Le libellé du module est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le libellé du module est obligatoire.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -75,16 +73,15 @@ public class ModuleController {
                 return ResponseEntity.status(HttpStatus.CREATED).body(module);
             } catch (IllegalArgumentException e) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(e.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la création du module.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -98,7 +95,7 @@ public class ModuleController {
                 RefModule existing = (RefModule) module.findById(String.valueOf(id), c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Module non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Module non trouvé.");
                 }
 
                 RefModule oldState = new RefModule();
@@ -122,16 +119,15 @@ public class ModuleController {
                 return ResponseEntity.ok(existing);
             } catch (IllegalArgumentException e) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(e.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la modification du module.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -145,12 +141,12 @@ public class ModuleController {
                 RefModule existing = (RefModule) module.findById(String.valueOf(id), c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Module non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Module non trouvé.");
                 }
 
                 if (!existing.isEstActif()) {
                     c.rollback();
-                    return ResponseEntity.badRequest().body("Le module est déjà désactivé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le module est déjà désactivé.");
                 }
 
                 RefModule oldState = new RefModule();
@@ -170,12 +166,11 @@ public class ModuleController {
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la désactivation du module.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -189,12 +184,12 @@ public class ModuleController {
                 RefModule existing = (RefModule) module.findById(String.valueOf(id), c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Module non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Module non trouvé.");
                 }
 
                 if (existing.isEstActif()) {
                     c.rollback();
-                    return ResponseEntity.badRequest().body("Le module est déjà actif.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le module est déjà actif.");
                 }
 
                 RefModule oldState = new RefModule();
@@ -214,12 +209,11 @@ public class ModuleController {
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de l'activation du module.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

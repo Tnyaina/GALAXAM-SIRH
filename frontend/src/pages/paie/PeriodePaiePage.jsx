@@ -57,6 +57,13 @@ const STATUT_CONFIG = {
     }
 };
 
+const WORKFLOW_ACTIONS = {
+    OPEN: { targetState: 'EN_COURS', label: 'Ouvrir la saisie', title: 'Ouvrir la période à la saisie', variant: 'outline', Icon: Play },
+    SUBMIT: { targetState: 'A_VALIDER', label: 'Transmettre pour validation', title: 'Transmettre la période pour validation', variant: 'outline', Icon: ArrowRight },
+    APPROVE: { targetState: 'VALIDEE', label: 'Valider', title: 'Validation de la période & gel des données Paie', variant: 'primary', Icon: CheckCircle },
+    CLOSE: { targetState: 'CLOTUREE', label: 'Clôturer', title: 'Clôture définitive de la période', variant: 'danger', Icon: Archive }
+};
+
 const MOIS_FR = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
@@ -332,7 +339,7 @@ export default function PeriodePaiePage() {
     const [confirmAction, setConfirmAction] = useState({
         isOpen: false,
         periode: null,
-        targetStatut: null,
+        command: null,
         title: '',
         message: '',
         variant: 'primary',
@@ -371,77 +378,21 @@ export default function PeriodePaiePage() {
         }
     };
 
-    const triggerStatutChange = async (periode, nextStatutCode) => {
-        if (nextStatutCode === 'EN_COURS') {
-            if (periode.statutCode === 'BROUILLON') {
-                // Brouillon -> En cours
-                setConfirmAction({
-                    isOpen: true,
-                    periode,
-                    targetStatut: nextStatutCode,
-                    title: 'Ouvrir la période à la saisie',
-                    message: `Souhaitez-vous ouvrir la période "${periode.libelle}" (${periode.dateDebut} au ${periode.dateFin}) ? Les agents de pointage pourront immédiatement débuter la saisie quotidienne.`,
-                    variant: 'primary',
-                    confirmLabel: 'Ouvrir la saisie'
-                });
-            } else {
-                // Validée/Clôturée -> En cours (Réouverture)
-                setConfirmAction({
-                    isOpen: true,
-                    periode,
-                    targetStatut: nextStatutCode,
-                    title: 'Rouvrir et déverrouiller la période',
-                    message: `Attention : La réouverture de la période "${periode.libelle}" réactivera les droits de saisie et de modification des pointages pour les agents et débloquera le gel des données. Confirmez-vous le déverrouillage exceptionnel ?`,
-                    variant: 'warning',
-                    confirmLabel: 'Oui, rouvrir la saisie'
-                });
-            }
-        } else if (nextStatutCode === 'A_VALIDER') {
-            // En cours -> À valider
-            setConfirmAction({
-                isOpen: true,
-                periode,
-                targetStatut: nextStatutCode,
-                title: 'Transmettre la période pour validation',
-                message: `Confirmez-vous la fin de saisie pour la période "${periode.libelle}" ? Le statut passera à "À valider" pour vérification finale.`,
-                variant: 'warning',
-                confirmLabel: 'Transmettre pour validation'
-            });
-        } else if (nextStatutCode === 'VALIDEE') {
-            // À valider -> Validée
-            setConfirmAction({
-                isOpen: true,
-                periode,
-                targetStatut: nextStatutCode,
-                title: 'Validation de la période & Gel des données Paie',
-                message: `Vous êtes sur le point de valider la période "${periode.libelle}". Tous les cumuls légaux seront validés définitivement pour la Paie.`,
-                variant: 'primary',
-                confirmLabel: 'Valider et figer les données'
-            });
-        } else if (nextStatutCode === 'CLOTUREE') {
-            // Validée -> Clôturée
-            setConfirmAction({
-                isOpen: true,
-                periode,
-                targetStatut: nextStatutCode,
-                title: 'Clôture définitive de la période',
-                message: `La clôture marque l'archivage final pour "${periode.libelle}". Confirmez-vous la clôture définitive de cette période de paie ?`,
-                variant: 'danger',
-                confirmLabel: 'Clôturer définitivement'
-            });
-        }
+    const triggerWorkflowAction = (periode, command) => {
+        const config = WORKFLOW_ACTIONS[command];
+        setConfirmAction({
+            isOpen: true,
+            periode,
+            command,
+            title: config.title,
+            message: `Confirmez-vous l'action « ${config.label} » pour la période "${periode.libelle}" ?`,
+            variant: config.variant,
+            confirmLabel: config.label
+        });
     };
 
-    const handleExecuteStatut = async (periode, targetStatut) => {
-        const commandByTransition = {
-            'BROUILLON:EN_COURS': 'OPEN',
-            'EN_COURS:A_VALIDER': 'SUBMIT',
-            'A_VALIDER:VALIDEE': 'APPROVE',
-            'TRANSMIS_DAF:VALIDEE': 'APPROVE',
-            'VALIDEE:CLOTUREE': 'CLOSE'
-        };
-        const command = commandByTransition[`${periode.statutCode}:${targetStatut}`];
-        if (!command) return;
+    const handleExecuteWorkflow = async (periode, command) => {
+        const config = WORKFLOW_ACTIONS[command];
         setSubmitting(true);
         const success = await executeCommand(periode, command);
         setSubmitting(false);
@@ -449,7 +400,7 @@ export default function PeriodePaiePage() {
         if (success) {
             toast({
                 title: 'Statut mis à jour',
-                message: `La période est désormais au statut : ${STATUT_CONFIG[targetStatut]?.label || targetStatut}`,
+                message: `La période est désormais au statut : ${STATUT_CONFIG[config.targetState]?.label || config.targetState}`,
                 type: 'success'
             });
         } else {
@@ -621,46 +572,21 @@ export default function PeriodePaiePage() {
                                                 </Badge>
                                             </Td>
                                             <Td className="text-right space-x-2">
-                                                {p.statutCode === 'BROUILLON' && (
+                                                {Object.entries(WORKFLOW_ACTIONS).map(([command, config]) => {
+                                                    if (p.availableActions?.[command]?.allowed !== true) return null;
+                                                    const ActionIcon = config.Icon;
+                                                    return (
                                                     <Button
+                                                        key={command}
                                                         size="xs"
-                                                        variant="outline"
-                                                        icon={<Play size={13} />}
-                                                        onClick={() => triggerStatutChange(p, 'EN_COURS')}
+                                                        variant={config.variant}
+                                                        icon={<ActionIcon size={13} />}
+                                                        onClick={() => triggerWorkflowAction(p, command)}
                                                     >
-                                                        Ouvrir la saisie
+                                                        {config.label}
                                                     </Button>
-                                                )}
-                                                {p.statutCode === 'EN_COURS' && (
-                                                    <Button
-                                                        size="xs"
-                                                        variant="outline"
-                                                        icon={<ArrowRight size={13} />}
-                                                        onClick={() => triggerStatutChange(p, 'A_VALIDER')}
-                                                    >
-                                                        Transmettre pour validation
-                                                    </Button>
-                                                )}
-                                                {p.statutCode === 'A_VALIDER' && (
-                                                    <Button
-                                                        size="xs"
-                                                        variant="primary"
-                                                        icon={<CheckCircle size={13} />}
-                                                        onClick={() => triggerStatutChange(p, 'VALIDEE')}
-                                                    >
-                                                        Valider
-                                                    </Button>
-                                                )}
-                                                {p.statutCode === 'VALIDEE' && (
-                                                    <Button
-                                                        size="xs"
-                                                        variant="danger"
-                                                        icon={<Archive size={13} />}
-                                                        onClick={() => triggerStatutChange(p, 'CLOTUREE')}
-                                                    >
-                                                        Clôturer
-                                                    </Button>
-                                                )}
+                                                    );
+                                                })}
                                             </Td>
                                         </Tr>
                                     );
@@ -809,7 +735,7 @@ export default function PeriodePaiePage() {
             <ConfirmDialog
                 isOpen={confirmAction.isOpen}
                 onClose={() => setConfirmAction(prev => ({ ...prev, isOpen: false }))}
-                onConfirm={() => handleExecuteStatut(confirmAction.periode, confirmAction.targetStatut)}
+                onConfirm={() => handleExecuteWorkflow(confirmAction.periode, confirmAction.command)}
                 title={confirmAction.title}
                 message={confirmAction.message}
                 confirmLabel={confirmAction.confirmLabel}

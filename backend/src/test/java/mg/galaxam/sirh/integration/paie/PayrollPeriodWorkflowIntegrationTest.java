@@ -2,6 +2,7 @@ package mg.galaxam.sirh.integration.paie;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -144,6 +145,31 @@ class PayrollPeriodWorkflowIntegrationTest extends BaseIntegrationTest {
                 "SELECT statut_snapshot FROM pointage_cumul_periode "
                         + "WHERE id_employe=? AND id_periode_paie=?", employeeId, periodId))
                 .isEqualTo("CONSOMME");
+    }
+
+    @Test
+    @DisplayName("Le contexte explicite fournit la période sélectionnée et les capacités backend")
+    void explicitContextProvidesBackendCapabilities() throws Exception {
+        int periodId = createPeriod("WF-CONTEXT", "VALIDEE");
+
+        mockMvc.perform(get("/periodes/context")
+                        .param("periodId", String.valueOf(periodId))
+                        .header("Authorization", "Bearer " + getAdminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.selectedPeriod.id").value(periodId))
+                .andExpect(jsonPath("$.selectedPeriod.state").value("VALIDEE"))
+                .andExpect(jsonPath("$.availableActions.CALCULATE.allowed").value(false))
+                .andExpect(jsonPath("$.availableActions.CALCULATE.reasonCodes[0]").value("POINTAGE_NOT_FROZEN"));
+
+        int employeeId = employeFixtures.createActiveEmploye(
+                "WF-CONTEXT-EMP", "Workflow", "Context", 1, LocalDate.now().minusYears(1)).idEmploye;
+        insertConsumedSnapshot(employeeId, periodId);
+
+        mockMvc.perform(get("/periodes/context")
+                        .param("periodId", String.valueOf(periodId))
+                        .header("Authorization", "Bearer " + getAdminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.availableActions.CALCULATE.allowed").value(true));
     }
 
     private int createPeriod(String code, String state) {

@@ -235,22 +235,31 @@ public class ParametreGlobal extends ClassMere {
     }
 
     public static java.util.Map<String, String> loadActiveMapAtDate(Date dateRef, Connection c) {
+        if (dateRef == null) {
+            throw new IllegalArgumentException("La date métier des paramètres globaux est obligatoire.");
+        }
         java.util.Map<String, String> map = new java.util.HashMap<>();
-        Date d = (dateRef != null) ? dateRef : new Date(System.currentTimeMillis());
+        java.util.Set<String> seen = new java.util.HashSet<>();
         String sql = "SELECT code_parametre, valeur FROM parametre_global " +
                      "WHERE date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) " +
                      "AND COALESCE(est_actif, TRUE) = TRUE " +
-                     "ORDER BY date_debut ASC, id_parametre ASC";
+                     "ORDER BY code_parametre, date_debut DESC, id_parametre DESC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setDate(1, d);
-            ps.setDate(2, d);
+            ps.setDate(1, dateRef);
+            ps.setDate(2, dateRef);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    map.put(rs.getString("code_parametre").toUpperCase(), rs.getString("valeur"));
+                    String code = rs.getString("code_parametre").toUpperCase();
+                    if (!seen.add(code)) {
+                        throw new IllegalStateException(
+                                "Plusieurs valeurs du paramètre " + code + " sont applicables au " + dateRef + ".");
+                    }
+                    map.put(code, rs.getString("valeur"));
                 }
             }
         } catch (Exception e) {
-            System.err.println("[PARAMETRE GLOBAL] Erreur de chargement: " + e.getMessage());
+            if (e instanceof RuntimeException runtime) throw runtime;
+            throw new IllegalStateException("Impossible de charger les paramètres au " + dateRef + ".", e);
         }
         return map;
     }

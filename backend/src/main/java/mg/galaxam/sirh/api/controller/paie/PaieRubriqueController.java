@@ -32,8 +32,7 @@ public class PaieRubriqueController {
             List<PaieRubrique> list = tous ? PaieRubrique.listerTous(c) : PaieRubrique.listerActifs(c);
             return ResponseEntity.ok(list);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des rubriques de paie : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -43,12 +42,11 @@ public class PaieRubriqueController {
         try (Connection c = dataSource.getConnection()) {
             PaieRubrique found = PaieRubrique.trouverParId(id, c);
             if (found == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Rubrique introuvable.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rubrique introuvable.");
             }
             return ResponseEntity.ok(found);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la recherche de la rubrique : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -56,16 +54,21 @@ public class PaieRubriqueController {
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> creerRubrique(@RequestBody PaieRubriqueRequest req) {
         if (req.getCode() == null || req.getCode().isBlank()) {
-            return ResponseEntity.badRequest().body("Le code de la rubrique est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le code de la rubrique est obligatoire.");
         }
         if (req.getLibelle() == null || req.getLibelle().isBlank()) {
-            return ResponseEntity.badRequest().body("Le libellé de la rubrique est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le libellé de la rubrique est obligatoire.");
         }
         if (req.getCategorie() == null || req.getCategorie().isBlank()) {
-            return ResponseEntity.badRequest().body("La catégorie de la rubrique est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "La catégorie de la rubrique est obligatoire.");
         }
         if (req.getSens() == null || req.getSens().isBlank()) {
-            return ResponseEntity.badRequest().body("Le sens de la rubrique (GAIN / RETENUE) est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le sens de la rubrique (GAIN / RETENUE) est obligatoire.");
+        }
+        if (req.getSoumisCnaps() == null || req.getSoumisSante() == null || req.getSoumisIrsa() == null) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
+                    "Les assujettissements CNaPS, santé et IRSA doivent être renseignés explicitement.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -73,8 +76,9 @@ public class PaieRubriqueController {
             try {
                 PaieRubrique existing = PaieRubrique.trouverParCode(req.getCode().trim().toUpperCase(), c);
                 if (existing != null) {
-                    return ResponseEntity.status(HttpStatus.CONFLICT)
-                            .body("Une rubrique avec le code '" + req.getCode() + "' existe déjà.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.DATA_DUPLICATE,
+                            "Une rubrique avec le code '" + req.getCode() + "' existe déjà.");
                 }
 
                 PaieRubrique entity = new PaieRubrique();
@@ -83,9 +87,9 @@ public class PaieRubriqueController {
                 entity.setCategorie(req.getCategorie().trim().toUpperCase());
                 entity.setTypeValeur(req.getTypeValeur() != null ? req.getTypeValeur() : "MONTANT");
                 entity.setSens(req.getSens().trim().toUpperCase());
-                entity.setSoumisCnaps(req.getSoumisCnaps() != null ? req.getSoumisCnaps() : true);
-                entity.setSoumisSante(req.getSoumisSante() != null ? req.getSoumisSante() : true);
-                entity.setSoumisIrsa(req.getSoumisIrsa() != null ? req.getSoumisIrsa() : true);
+                entity.setSoumisCnaps(req.getSoumisCnaps());
+                entity.setSoumisSante(req.getSoumisSante());
+                entity.setSoumisIrsa(req.getSoumisIrsa());
                 entity.setEstFixe(req.getEstFixe() != null ? req.getEstFixe() : false);
                 entity.setOrdreAffichage(req.getOrdreAffichage() != null ? req.getOrdreAffichage() : 10);
                 entity.setEstActif(req.getEstActif() != null ? req.getEstActif() : true);
@@ -107,8 +111,7 @@ public class PaieRubriqueController {
                 throw e;
             }
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la création de la rubrique : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -120,7 +123,7 @@ public class PaieRubriqueController {
             try {
                 PaieRubrique found = PaieRubrique.trouverParId(id, c);
                 if (found == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Rubrique introuvable.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rubrique introuvable.");
                 }
 
                 if (req.getCode() != null && !req.getCode().isBlank()) {
@@ -176,8 +179,7 @@ public class PaieRubriqueController {
                 throw e;
             }
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la modification de la rubrique : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -189,7 +191,7 @@ public class PaieRubriqueController {
             try {
                 PaieRubrique found = PaieRubrique.trouverParId(id, c);
                 if (found == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Rubrique introuvable.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rubrique introuvable.");
                 }
 
                 // Vérification de l'intégrité référentielle comptable avant suppression physique
@@ -231,8 +233,7 @@ public class PaieRubriqueController {
                 throw e;
             }
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la suppression de la rubrique : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

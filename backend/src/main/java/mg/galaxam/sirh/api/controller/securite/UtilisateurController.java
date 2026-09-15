@@ -52,8 +52,7 @@ public class UtilisateurController {
             return ResponseEntity.ok(responses);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des utilisateurs.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -80,13 +79,12 @@ public class UtilisateurController {
                     res.setMotifDesactivation(rs.getString("motif_desactivation"));
                     return ResponseEntity.ok(res);
                 } else {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Utilisateur non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Utilisateur non trouvé.");
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération de l'utilisateur.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -94,13 +92,13 @@ public class UtilisateurController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createUser(@RequestBody UtilisateurRequest request) {
         if (request.getIdentifiant() == null || request.getIdentifiant().isBlank()) {
-            return ResponseEntity.badRequest().body("L'identifiant est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'identifiant est obligatoire.");
         }
         if (request.getMotDePasse() == null || request.getMotDePasse().isBlank()) {
-            return ResponseEntity.badRequest().body("Le mot de passe est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le mot de passe est obligatoire.");
         }
         if (request.getIdRole() == null) {
-            return ResponseEntity.badRequest().body("Le rôle est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le rôle est obligatoire.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -111,11 +109,11 @@ public class UtilisateurController {
                 RefRole r = (RefRole) role.findById(String.valueOf(request.getIdRole()), c);
                 if (r == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Rôle assigné non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rôle assigné non trouvé.");
                 }
                 if (!r.isEstActif()) {
                     c.rollback();
-                    return ResponseEntity.badRequest().body("Le rôle assigné est désactivé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le rôle assigné est désactivé.");
                 }
 
                 // Créer l'utilisateur
@@ -144,16 +142,15 @@ public class UtilisateurController {
 
             } catch (IllegalArgumentException e) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(e.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la création de l'utilisateur.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -167,7 +164,7 @@ public class UtilisateurController {
                 Utilisateur existing = (Utilisateur) user.findById(String.valueOf(id), c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Utilisateur non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Utilisateur non trouvé.");
                 }
 
                 // Pour l'audit
@@ -188,11 +185,11 @@ public class UtilisateurController {
                     RefRole r = (RefRole) new RefRole().findById(String.valueOf(request.getIdRole()), c);
                     if (r == null) {
                         c.rollback();
-                        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Rôle assigné non trouvé.");
+                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rôle assigné non trouvé.");
                     }
                     if (!r.isEstActif()) {
                         c.rollback();
-                        return ResponseEntity.badRequest().body("Le rôle assigné est désactivé.");
+                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le rôle assigné est désactivé.");
                     }
                     existing.setIdRole(request.getIdRole());
                 }
@@ -225,16 +222,15 @@ public class UtilisateurController {
 
             } catch (IllegalArgumentException e) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(e.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la modification de l'utilisateur.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -243,7 +239,7 @@ public class UtilisateurController {
     public ResponseEntity<?> deactivateUser(@PathVariable int id, @RequestBody(required = false) UtilisateurRequest request) {
         String motif = (request != null) ? request.getMotifDesactivation() : null;
         if (motif == null || motif.isBlank()) {
-            return ResponseEntity.badRequest().body("Le motif de désactivation est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le motif de désactivation est obligatoire.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -253,12 +249,12 @@ public class UtilisateurController {
                 Utilisateur existing = (Utilisateur) user.findById(String.valueOf(id), c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Utilisateur non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Utilisateur non trouvé.");
                 }
 
                 if (!existing.isEstActif()) {
                     c.rollback();
-                    return ResponseEntity.badRequest().body("L'utilisateur est déjà désactivé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'utilisateur est déjà désactivé.");
                 }
 
                 Utilisateur oldState = new Utilisateur();
@@ -299,12 +295,11 @@ public class UtilisateurController {
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la désactivation de l'utilisateur.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -318,12 +313,12 @@ public class UtilisateurController {
                 Utilisateur existing = (Utilisateur) user.findById(String.valueOf(id), c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Utilisateur non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Utilisateur non trouvé.");
                 }
 
                 if (existing.isEstActif()) {
                     c.rollback();
-                    return ResponseEntity.badRequest().body("L'utilisateur est déjà actif.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'utilisateur est déjà actif.");
                 }
 
                 Utilisateur oldState = new Utilisateur();
@@ -364,12 +359,11 @@ public class UtilisateurController {
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de l'activation de l'utilisateur.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

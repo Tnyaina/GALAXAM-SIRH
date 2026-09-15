@@ -45,8 +45,7 @@ public class CongeRefController {
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des référentiels congés : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -58,8 +57,7 @@ public class CongeRefController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des types de congés : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -71,8 +69,7 @@ public class CongeRefController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des motifs d'événements familiaux : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -84,8 +81,7 @@ public class CongeRefController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des pools de congés : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -97,8 +93,7 @@ public class CongeRefController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des statuts de demande de congé : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -114,11 +109,10 @@ public class CongeRefController {
             typeConge.save(c);
             return ResponseEntity.status(HttpStatus.CREATED).body(typeConge);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la création du type de congé : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -128,18 +122,17 @@ public class CongeRefController {
         try (Connection c = dataSource.getConnection()) {
             RefTypeConge existant = RefTypeConge.rechercherParId(id, c);
             if (existant == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Type de congé introuvable.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Type de congé introuvable.");
             }
             typeConge.setIdTypeConge(id);
             typeConge.controler(c);
             typeConge.update(c);
             return ResponseEntity.ok(typeConge);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la modification du type de congé : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -149,15 +142,14 @@ public class CongeRefController {
         try (Connection c = dataSource.getConnection()) {
             RefTypeConge existant = RefTypeConge.rechercherParId(id, c);
             if (existant == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Type de congé introuvable.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Type de congé introuvable.");
             }
             existant.setEstActif(false);
             existant.update(c); // On fait une désactivation logique (soft delete)
             return ResponseEntity.ok(existant);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la désactivation du type de congé : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -167,15 +159,14 @@ public class CongeRefController {
         try (Connection c = dataSource.getConnection()) {
             RefTypeConge existant = RefTypeConge.rechercherParId(id, c);
             if (existant == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Type de congé introuvable.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Type de congé introuvable.");
             }
             existant.setEstActif(true);
             existant.update(c);
             return ResponseEntity.ok(existant);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de l'activation du type de congé : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -191,11 +182,10 @@ public class CongeRefController {
             motif.save(c);
             return ResponseEntity.status(HttpStatus.CREATED).body(motif);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la création du motif familial : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -205,18 +195,17 @@ public class CongeRefController {
         try (Connection c = dataSource.getConnection()) {
             RefMotifEvenementFamilial existant = RefMotifEvenementFamilial.rechercherParId(id, c);
             if (existant == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Motif familial introuvable.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Motif familial introuvable.");
             }
             motif.setIdMotif(id);
             motif.controler(c);
             motif.update(c);
             return ResponseEntity.ok(motif);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la modification du motif familial : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -226,15 +215,14 @@ public class CongeRefController {
         try (Connection c = dataSource.getConnection()) {
             RefMotifEvenementFamilial existant = RefMotifEvenementFamilial.rechercherParId(id, c);
             if (existant == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Motif familial introuvable.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Motif familial introuvable.");
             }
             existant.setEstActif(false);
             existant.update(c); // Désactivation logique
             return ResponseEntity.ok(existant);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la désactivation du motif familial : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -244,15 +232,14 @@ public class CongeRefController {
         try (Connection c = dataSource.getConnection()) {
             RefMotifEvenementFamilial existant = RefMotifEvenementFamilial.rechercherParId(id, c);
             if (existant == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Motif familial introuvable.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Motif familial introuvable.");
             }
             existant.setEstActif(true);
             existant.update(c);
             return ResponseEntity.ok(existant);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de l'activation du motif familial : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

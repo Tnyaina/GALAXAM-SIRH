@@ -13,6 +13,14 @@ const periodePaieService = {
         return response.data;
     },
 
+    getContext: async (periodId = null, date = null) => {
+        const params = {};
+        if (periodId) params.periodId = periodId;
+        if (date) params.date = date;
+        const response = await apiClient.get('/periodes/context', { params });
+        return response.data;
+    },
+
     /**
      * Crée une nouvelle période de paie
      */

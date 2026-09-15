@@ -32,8 +32,7 @@ public class MenuController {
             return ResponseEntity.ok(tree);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération de l'arborescence des menus.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -45,8 +44,7 @@ public class MenuController {
             return ResponseEntity.ok(flatMenus);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération de la liste à plat des menus.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -56,13 +54,12 @@ public class MenuController {
         try (Connection c = dataSource.getConnection()) {
             RefMenu found = RefMenu.rechercherParIdMenu(id, c);
             if (found == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Menu non trouvé.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Menu non trouvé.");
             }
             return ResponseEntity.ok(found);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération du menu.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -70,10 +67,10 @@ public class MenuController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createMenu(@RequestBody MenuRequest request) {
         if (request.getIdMenu() == null || request.getIdMenu().isBlank()) {
-            return ResponseEntity.badRequest().body("L'identifiant du menu est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'identifiant du menu est obligatoire.");
         }
         if (request.getLibelle() == null || request.getLibelle().isBlank()) {
-            return ResponseEntity.badRequest().body("Le libellé du menu est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le libellé du menu est obligatoire.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -83,7 +80,7 @@ public class MenuController {
                 RefMenu existing = RefMenu.rechercherParIdMenu(request.getIdMenu(), c);
                 if (existing != null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.CONFLICT).body("Ce code de menu existe déjà.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED, "Ce code de menu existe déjà.");
                 }
 
                 RefMenu menu = new RefMenu();
@@ -110,16 +107,15 @@ public class MenuController {
                 return ResponseEntity.status(HttpStatus.CREATED).body(menu);
             } catch (IllegalArgumentException e) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(e.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la création du menu.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -132,7 +128,7 @@ public class MenuController {
                 RefMenu existing = RefMenu.rechercherParIdMenu(id, c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Menu non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Menu non trouvé.");
                 }
 
                 RefMenu oldState = new RefMenu();
@@ -171,16 +167,15 @@ public class MenuController {
                 return ResponseEntity.ok(existing);
             } catch (IllegalArgumentException e) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(e.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la modification du menu.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -193,7 +188,7 @@ public class MenuController {
                 RefMenu existing = RefMenu.rechercherParIdMenu(id, c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Menu non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Menu non trouvé.");
                 }
 
                 existing.delete(c);
@@ -205,12 +200,11 @@ public class MenuController {
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la suppression du menu.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 

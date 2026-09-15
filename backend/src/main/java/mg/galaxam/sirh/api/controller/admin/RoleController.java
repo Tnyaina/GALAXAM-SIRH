@@ -34,8 +34,7 @@ public class RoleController {
             return ResponseEntity.ok(roles);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des rôles.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -46,13 +45,12 @@ public class RoleController {
             RefRole role = new RefRole();
             RefRole found = (RefRole) role.findById(String.valueOf(id), c);
             if (found == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Rôle non trouvé.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rôle non trouvé.");
             }
             return ResponseEntity.ok(found);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération du rôle.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -60,10 +58,10 @@ public class RoleController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createRole(@RequestBody RoleRequest request) {
         if (request.getCodeRole() == null || request.getCodeRole().isBlank()) {
-            return ResponseEntity.badRequest().body("Le code du rôle est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le code du rôle est obligatoire.");
         }
         if (request.getLibelle() == null || request.getLibelle().isBlank()) {
-            return ResponseEntity.badRequest().body("Le libellé du rôle est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le libellé du rôle est obligatoire.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -82,16 +80,15 @@ public class RoleController {
                 return ResponseEntity.status(HttpStatus.CREATED).body(role);
             } catch (IllegalArgumentException e) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(e.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la création du rôle.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -105,7 +102,7 @@ public class RoleController {
                 RefRole existing = (RefRole) role.findById(String.valueOf(id), c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Rôle non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rôle non trouvé.");
                 }
 
                 // Pour l'audit
@@ -131,16 +128,15 @@ public class RoleController {
                 return ResponseEntity.ok(existing);
             } catch (IllegalArgumentException e) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(e.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la modification du rôle.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -154,12 +150,12 @@ public class RoleController {
                 RefRole existing = (RefRole) role.findById(String.valueOf(id), c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Rôle non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rôle non trouvé.");
                 }
 
                 if (!existing.isEstActif()) {
                     c.rollback();
-                    return ResponseEntity.badRequest().body("Le rôle est déjà désactivé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le rôle est déjà désactivé.");
                 }
 
                 RefRole oldState = new RefRole();
@@ -181,12 +177,11 @@ public class RoleController {
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la désactivation du rôle.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -200,12 +195,12 @@ public class RoleController {
                 RefRole existing = (RefRole) role.findById(String.valueOf(id), c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Rôle non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rôle non trouvé.");
                 }
 
                 if (existing.isEstActif()) {
                     c.rollback();
-                    return ResponseEntity.badRequest().body("Le rôle est déjà actif.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le rôle est déjà actif.");
                 }
 
                 RefRole oldState = new RefRole();
@@ -227,12 +222,11 @@ public class RoleController {
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de l'activation du rôle.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -244,8 +238,7 @@ public class RoleController {
             return ResponseEntity.ok(permissions);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des permissions du rôle.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -253,7 +246,7 @@ public class RoleController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateRolePermissions(@PathVariable int id, @RequestBody RolePermissionsRequest request) {
         if (request.getPermissions() == null) {
-            return ResponseEntity.badRequest().body("La liste des permissions est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "La liste des permissions est obligatoire.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -263,7 +256,7 @@ public class RoleController {
                 RefRole existing = (RefRole) role.findById(String.valueOf(id), c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Rôle non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rôle non trouvé.");
                 }
 
                 List<RolePermission> oldPermissions = RolePermission.rechercherParRole(id, c);
@@ -290,16 +283,15 @@ public class RoleController {
                 return ResponseEntity.ok(newPermissions);
             } catch (IllegalArgumentException e) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(e.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de la mise à jour des permissions du rôle.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -311,8 +303,7 @@ public class RoleController {
             return ResponseEntity.ok(roleMenus);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des menus associés au rôle.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -320,7 +311,7 @@ public class RoleController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateRoleMenus(@PathVariable int id, @RequestBody RoleMenusRequest request) {
         if (request.getIdMenus() == null) {
-            return ResponseEntity.badRequest().body("La liste des identifiants de menus est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "La liste des identifiants de menus est obligatoire.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -330,7 +321,7 @@ public class RoleController {
                 RefRole existing = (RefRole) role.findById(String.valueOf(id), c);
                 if (existing == null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Rôle non trouvé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Rôle non trouvé.");
                 }
 
                 List<RoleMenu> oldMenus = RoleMenu.listerParRole(id, c);
@@ -354,12 +345,11 @@ public class RoleController {
             } catch (Exception e) {
                 c.rollback();
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Erreur lors de l'association des menus au rôle.");
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de connexion base de données.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

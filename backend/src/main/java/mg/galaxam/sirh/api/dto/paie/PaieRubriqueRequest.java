@@ -10,9 +10,9 @@ public class PaieRubriqueRequest {
     private String categorie;
     private String typeValeur = "MONTANT";
     private String sens;
-    private Boolean soumisCnaps = true;
-    private Boolean soumisSante = true;
-    private Boolean soumisIrsa = true;
+    private Boolean soumisCnaps;
+    private Boolean soumisSante;
+    private Boolean soumisIrsa;
     private Boolean estFixe = false;
     private Integer ordreAffichage = 10;
     private Boolean estActif = true;

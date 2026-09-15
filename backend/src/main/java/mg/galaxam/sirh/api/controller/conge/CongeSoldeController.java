@@ -55,7 +55,8 @@ public class CongeSoldeController {
                     search, filterMode, page, size, c);
             return ResponseEntity.ok(planning);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Erreur chargement planning : " + e.getMessage());
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.INTERNAL_ERROR);
         }
     }
 
@@ -66,8 +67,7 @@ public class CongeSoldeController {
             purgeCongeScheduler.purgerCongesExpires();
             return ResponseEntity.ok(Map.of("success", true, "message", "Purge triennale des congés exécutée avec succès."));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la purge : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -79,8 +79,7 @@ public class CongeSoldeController {
             return ResponseEntity.ok(solde);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération du solde de congé : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -92,8 +91,7 @@ public class CongeSoldeController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des mouvements de solde : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -107,8 +105,7 @@ public class CongeSoldeController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération de la consommation du pool : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -116,7 +113,7 @@ public class CongeSoldeController {
     @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> creerAjustementManuel(@RequestBody Map<String, Object> req) {
         if (!req.containsKey("idEmploye") || !req.containsKey("nbJours") || !req.containsKey("commentaire")) {
-            return ResponseEntity.badRequest().body("L'idEmploye, le nbJours et le commentaire explicatif sont obligatoires pour un ajustement.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'idEmploye, le nbJours et le commentaire explicatif sont obligatoires pour un ajustement.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -146,8 +143,9 @@ public class CongeSoldeController {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Erreur lors de l'enregistrement de l'ajustement de solde : " + e.getMessage());
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "Impossible d'enregistrer cet ajustement de solde.");
         }
     }
 

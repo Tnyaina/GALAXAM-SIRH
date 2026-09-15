@@ -15,6 +15,7 @@ import mg.galaxam.sirh.model.contrat.ContratTravail;
 import mg.galaxam.sirh.model.contrat.EmployeAffectationCarriere;
 import mg.galaxam.sirh.model.contrat.WorkflowRh;
 import mg.galaxam.sirh.model.contrat.WorkflowRhCPL;
+import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -38,6 +39,9 @@ public class ContratTravailController {
 
     @Autowired
     private DataSource dataSource;
+
+    @Autowired
+    private TransactionRunner transactionRunner;
 
     // =========================================================================
     // CONSULTATIONS
@@ -64,7 +68,7 @@ public class ContratTravailController {
             return ResponseEntity.ok(contratsEnrichis);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -85,7 +89,7 @@ public class ContratTravailController {
             return ResponseEntity.ok(map);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -224,7 +228,7 @@ public class ContratTravailController {
 
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -238,12 +242,12 @@ public class ContratTravailController {
         try (Connection c = dataSource.getConnection()) {
             ContratTravail contrat = new ContratTravail().rechercherParId(idContrat, c);
             if (contrat == null || !contrat.getIdEmploye().equals(idEmploye)) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Contrat introuvable.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Contrat introuvable.");
             }
             return ResponseEntity.ok(enrichirContrat(contrat, c));
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -268,22 +272,20 @@ public class ContratTravailController {
             @PathVariable Integer idContrat,
             @RequestBody ContratModificationRequest req) {
 
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
+        return transactionRunner.required(c -> {
                 // Vérifier que le contrat appartient à cet employé
                 ContratTravail contrat = new ContratTravail().rechercherParId(idContrat, c);
                 if (contrat == null || !contrat.getIdEmploye().equals(idEmploye)) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Contrat introuvable.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Contrat introuvable.");
                 }
 
                 // Vérifier que c'est un BROUILLON
                 String statutCode = resolveCodeStatutContrat(contrat.getIdStatutRh(), c);
                 if (!"BROUILLON".equals(statutCode)) {
-                    return ResponseEntity.badRequest()
-                            .body("Seul un contrat en statut BROUILLON peut être modifié. " +
-                                    "Statut actuel : " + statutCode
-                                    + ". Utilisez un avenant ou un workflow de transition.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.CONTRAT_TRANSITION_INTERDITE,
+                            "Seul un contrat en statut BROUILLON peut être modifié. Statut actuel : "
+                                    + statutCode + ". Utilisez un avenant ou un workflow de transition.");
                 }
 
                 // Mettre à jour les champs modifiables
@@ -348,23 +350,13 @@ public class ContratTravailController {
 
                 AuditLog.audit(c, "MODIFICATION_BROUILLON_CONTRAT", "contrat_travail",
                         String.valueOf(idContrat), null, contrat);
-                c.commit();
-
                 // Retourner le workflow CPL mis à jour (pour rafraîchir le récapitulatif)
                 if (wf != null) {
                     WorkflowRhCPL recap = WorkflowRhCPL.rechercherParId(wf.getIdWorkflow(), c);
                     return ResponseEntity.ok(recap);
                 }
                 return ResponseEntity.ok(enrichirContrat(contrat, c));
-
-            } catch (Exception ex) {
-                c.rollback();
-                return ResponseEntity.badRequest().body(ex.getMessage());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
-        }
+        });
     }
 
     // =========================================================================
@@ -383,7 +375,7 @@ public class ContratTravailController {
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -403,7 +395,7 @@ public class ContratTravailController {
             return ResponseEntity.ok(enrichirAffectation(affectation, c));
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -428,7 +420,7 @@ public class ContratTravailController {
         try (Connection c = dataSource.getConnection()) {
             ContratTravail contrat = new ContratTravail().rechercherParId(idContrat, c);
             if (contrat == null || !contrat.getIdEmploye().equals(idEmploye)) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Contrat introuvable.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Contrat introuvable.");
             }
             EmployeAffectationCarriere affectation = EmployeAffectationCarriere.rechercherParContrat(idContrat, c);
             if (affectation == null) {
@@ -437,7 +429,7 @@ public class ContratTravailController {
             return ResponseEntity.ok(enrichirAffectation(affectation, c));
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur serveur.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 

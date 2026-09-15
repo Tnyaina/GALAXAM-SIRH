@@ -36,8 +36,7 @@ public class DashboardController {
             return ResponseEntity.ok(summary);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors du chargement du dashboard : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

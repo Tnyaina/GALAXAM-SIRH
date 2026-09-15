@@ -569,9 +569,6 @@ public class PointageSyntheseService {
         List<PointageSyntheseMensuelleDTO> list = new ArrayList<>();
         if (idPeriode <= 0) return list;
 
-        // 0. Charger l'ensemble des paramètres globaux dynamiques
-        Map<String, String> params = ParametreGlobal.loadActiveMap(c);
-
         // 1. Charger les dates de la période de paie
         LocalDate dateDebut = null;
         LocalDate dateFin = null;
@@ -599,6 +596,7 @@ public class PointageSyntheseService {
         if (dateDebut == null || dateFin == null) {
             return list;
         }
+        Map<String, String> params = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateDebut), c);
 
         // Calcul des jours ouvrables réels de la période via le moteur centralisé
         int nbJoursOuvrablesPeriode = calendrierEngine.compterJoursOuvrables(dateDebut, dateFin, idSite, c);
@@ -959,7 +957,7 @@ public class PointageSyntheseService {
                 log.warn("Erreur chargement siteDeplacementRefMap: {}", e.getMessage());
             }
 
-            Map<String, String> params = ParametreGlobal.loadActiveMap(c);
+            Map<String, String> params = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateDebut), c);
 
             try (PreparedStatement psD = c.prepareStatement(dataSql)) {
                 int idx = 1;
@@ -1358,11 +1356,11 @@ public class PointageSyntheseService {
         List<PointageSyntheseMensuelleDTO> list = new ArrayList<>();
         if (idPeriode <= 0 || dateDebutTroncon == null || dateFinTroncon == null) return list;
 
-        Map<String, String> params = ParametreGlobal.loadActiveMap(c);
+        Map<String, String> params = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateDebutTroncon), c);
         BigDecimal seuilHeuresJour = ParametreGlobal.getBigDecimal(params, "SEUIL_HEURES_JOUR", new BigDecimal("8"));
         BigDecimal seuilHsTranche1 = new BigDecimal("8");
         try {
-            mg.galaxam.sirh.model.paieconfig.PaieConfigLegale leg = mg.galaxam.sirh.model.paieconfig.PaieConfigLegale.findActiveAt(c, dateDebutTroncon != null ? dateDebutTroncon : LocalDate.now());
+            mg.galaxam.sirh.model.paieconfig.PaieConfigLegale leg = mg.galaxam.sirh.model.paieconfig.PaieConfigLegale.findActiveAt(c, dateDebutTroncon);
             if (leg != null && leg.getSeuilHsTranche1() != null) {
                 seuilHsTranche1 = leg.getSeuilHsTranche1();
             }

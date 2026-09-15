@@ -285,28 +285,6 @@ CREATE INDEX idx_cumul_indemnite_periode ON pointage_cumul_indemnite(id_periode_
 CREATE INDEX idx_pointage_cumul_indemnite_emp ON pointage_cumul_indemnite(id_employe);
 CREATE INDEX idx_pointage_cumul_indemnite_ind ON pointage_cumul_indemnite(id_indemnite);
 
--- =====================================================================
--- FONCTIONS & VUES DU MODULE POINTAGE
--- =====================================================================
-
-CREATE OR REPLACE FUNCTION fn_jours_ouvrables(
-    p_date_debut DATE, p_date_fin DATE, p_id_site INT
-) RETURNS INTEGER AS $$
-DECLARE
-    v_count INTEGER;
-BEGIN
-    SELECT COUNT(*) INTO v_count
-    FROM generate_series(p_date_debut, p_date_fin, '1 day') AS d
-    WHERE EXTRACT(ISODOW FROM d) < 6
-      AND NOT EXISTS (
-          SELECT 1 FROM site_calendrier_ferie scf
-          JOIN ref_calendrier_ferie f ON scf.id_ferie = f.id_ferie
-          WHERE scf.id_site = p_id_site AND f.date_ferie = d AND f.est_chome = TRUE
-      );
-    RETURN v_count;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
 CREATE OR REPLACE VIEW v_pointage_indemnites AS
 SELECT 
     pij.id_pointage_indemnite,

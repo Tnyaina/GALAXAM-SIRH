@@ -127,7 +127,8 @@ class SingleEmployeePayrollVerificationTest extends BaseIntegrationTest {
         assertEquals("MENSUEL", bp.getTypeBulletin());
         assertEquals("EMP-TEST-01", bp.getMatricule());
         assertEquals(new BigDecimal("1500000.00"), bp.getSalaireBase());
-        assertEquals("VALIDE", bp.getStatut());
+        assertEquals("CALCULE", bp.getStatut(),
+                "Le calcul prépare le bulletin ; seule la commande de validation le passe à VALIDE.");
 
         // Total gains bruts : Salaire base (1.5M) + HS 30% (2h) + HS 50% (1h)
         assertTrue(bp.getTotalGainsBruts().compareTo(new BigDecimal("1500000.00")) > 0, "Les gains bruts doivent inclure les heures supplémentaires");

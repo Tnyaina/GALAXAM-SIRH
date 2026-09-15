@@ -59,7 +59,7 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         
         if (request.getIdentifiant() == null || request.getMotDePasse() == null) {
-            return ResponseEntity.badRequest().body("L'identifiant et le mot de passe sont requis.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'identifiant et le mot de passe sont requis.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -77,8 +77,8 @@ public class AuthController {
                         journal.setStatut("COMPTE_DESACTIVE");
                         journal.save(c);
                         c.commit();
-                        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                .body("Votre compte utilisateur est actuellement désactivé. Veuillez contacter le service RH pour le réactiver.");
+                        throw new org.springframework.security.access.AccessDeniedException(
+                                "Votre compte utilisateur est actuellement désactivé.");
                     }
                     
                     if (u.verifierMotDePasse(request.getMotDePasse())) {
@@ -122,8 +122,9 @@ public class AuthController {
                 }
                 
                 c.commit(); 
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body("Identifiant ou mot de passe incorrect. Veuillez vérifier votre saisie ou vous rapprocher du service RH si vous n'avez pas encore d'accès.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.AUTHENTICATION_REQUIRED,
+                        "Identifiant ou mot de passe incorrect.");
                 
             } catch (Exception e) {
                 c.rollback(); 
@@ -131,8 +132,9 @@ public class AuthController {
             }
             
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Une erreur technique temporaire est survenue sur le serveur. Veuillez réessayer dans quelques instants.");
+            if (e instanceof mg.galaxam.sirh.common.exception.SirhBusinessException business) throw business;
+            if (e instanceof org.springframework.security.access.AccessDeniedException denied) throw denied;
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -142,18 +144,24 @@ public class AuthController {
             HttpServletRequest httpRequest
     ) {
         if (refreshToken == null || refreshToken.isBlank()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Refresh token manquant.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.AUTHENTICATION_REQUIRED,
+                    "Refresh token manquant.");
         }
 
         try {
             if (!jwtService.isRefreshTokenValid(refreshToken)) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Refresh token invalide ou expiré.");
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.AUTHENTICATION_REQUIRED,
+                        "Refresh token invalide ou expiré.");
             }
 
             try (Connection c = dataSource.getConnection()) {
                 Utilisateur u = Utilisateur.rechercherParRefreshToken(refreshToken, c);
                 if (u == null) {
-                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session révoquée ou introuvable.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.AUTHENTICATION_REQUIRED,
+                            "Session révoquée ou introuvable.");
                 }
 
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(u.getIdentifiant());
@@ -180,7 +188,9 @@ public class AuthController {
                         .body(responseBody);
             }
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Erreur lors du rafraîchissement du token.");
+            if (e instanceof mg.galaxam.sirh.common.exception.SirhBusinessException business) throw business;
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.AUTHENTICATION_REQUIRED);
         }
     }
 
@@ -211,14 +221,15 @@ public class AuthController {
     public ResponseEntity<?> getMenu() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof CustomUserDetails)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Non authentifié.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.AUTHENTICATION_REQUIRED);
         }
         CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
 
         try (Connection c = dataSource.getConnection()) {
             Utilisateur u = Utilisateur.rechercherParIdentifiant(userDetails.getUsername(), c);
             if (u == null || u.getIdRole() == null) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Utilisateur sans rôle assigné.");
+                throw new org.springframework.security.access.AccessDeniedException("Utilisateur sans rôle assigné.");
             }
 
             List<RefMenu> flatMenus = RefMenu.rechercherParRole(u.getIdRole(), c);
@@ -227,7 +238,8 @@ public class AuthController {
             return ResponseEntity.ok(menuTree);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur de récupération du menu.");
+            if (e instanceof org.springframework.security.access.AccessDeniedException denied) throw denied;
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -261,7 +273,7 @@ public class AuthController {
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
 
         if (request.getIdentifiant() == null || request.getMotDePasse() == null || request.getIdRole() == null) {
-            return ResponseEntity.badRequest().body("L'identifiant, le mot de passe et l'ID du rôle sont requis.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'identifiant, le mot de passe et l'ID du rôle sont requis.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -272,7 +284,7 @@ public class AuthController {
                 Utilisateur existant = Utilisateur.rechercherParIdentifiant(request.getIdentifiant(), c);
                 if (existant != null) {
                     c.rollback();
-                    return ResponseEntity.status(HttpStatus.CONFLICT).body("Cet identifiant est déjà utilisé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED, "Cet identifiant est déjà utilisé.");
                 }
 
                 Utilisateur u = new Utilisateur();
@@ -293,7 +305,7 @@ public class AuthController {
 
             } catch (IllegalArgumentException e) {
                 c.rollback();
-                return ResponseEntity.badRequest().body(e.getMessage());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
                 
             } catch (Exception e) {
                 c.rollback();
@@ -302,7 +314,7 @@ public class AuthController {
 
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erreur interne du serveur lors de l'inscription.");
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

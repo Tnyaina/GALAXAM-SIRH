@@ -39,6 +39,10 @@ public enum SirhErrorCode {
             HttpStatus.FORBIDDEN,
             "Vous ne disposez pas des autorisations nécessaires."),
 
+    AUTHENTICATION_REQUIRED(
+            HttpStatus.UNAUTHORIZED,
+            "Votre session n'est plus valide. Veuillez vous reconnecter."),
+
     PERSISTENCE_ERROR(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "Une erreur est survenue lors de l'enregistrement des données."),
@@ -46,6 +50,18 @@ public enum SirhErrorCode {
     INTERNAL_ERROR(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "Une anomalie temporaire est survenue lors du traitement."),
+
+    RESOURCE_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "La ressource demandée n'existe pas."),
+
+    BUSINESS_STATE_TRANSITION_BLOCKED(
+            HttpStatus.CONFLICT,
+            "Cette action n'est pas autorisée dans l'état courant."),
+
+    STATE_CONFLICT(
+            HttpStatus.CONFLICT,
+            "La ressource est verrouillée dans son état courant."),
 
     PAYROLL_PERIOD_NOT_FOUND(
             HttpStatus.NOT_FOUND,
@@ -66,6 +82,10 @@ public enum SirhErrorCode {
     PAYROLL_PERIOD_PREREQUISITE_BLOCKED(
             HttpStatus.CONFLICT,
             "Un prérequis de la période n'est pas satisfait."),
+
+    BLOCKING_CONFIGURATION_ERROR(
+            HttpStatus.CONFLICT,
+            "Une configuration métier obligatoire est absente ou incomplète."),
 
     // =========================================================================
     // POINTAGE & PAIE
@@ -89,6 +109,14 @@ public enum SirhErrorCode {
     POINTAGE_EMPLOYE_INACTIF(
             HttpStatus.CONFLICT,
             "L'employé est inactif ou ne dispose d'aucun contrat actif pour la date sélectionnée."),
+
+    POINTAGE_PERIOD_CONTEXT_REQUIRED(
+            HttpStatus.BAD_REQUEST,
+            "Une période de paie ou une date de pointage explicite est obligatoire."),
+
+    POINTAGE_PERIOD_CONTEXT_AMBIGUOUS(
+            HttpStatus.CONFLICT,
+            "Plusieurs périodes de paie couvrent la date demandée."),
 
     POINTAGE_HORAIRES_INVALIDES(
             HttpStatus.BAD_REQUEST,

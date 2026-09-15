@@ -96,28 +96,23 @@ public class PointageAnomalieService {
         try (Connection c = dataSource.getConnection()) {
             Integer effectivePeriodeId = idPeriode;
             if (effectivePeriodeId == null || effectivePeriodeId <= 0) {
-                String sqlFindPer = (datePointage != null && !datePointage.trim().isEmpty()) ?
-                    "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin ORDER BY date_debut DESC LIMIT 1" :
-                    "SELECT p.id_periode_paie FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE s.code = 'OUVERTE' ORDER BY p.date_debut DESC LIMIT 1";
+                if (datePointage == null || datePointage.isBlank()) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.POINTAGE_PERIOD_CONTEXT_REQUIRED);
+                }
+                String sqlFindPer = "SELECT id_periode_paie FROM periode_paie "
+                        + "WHERE ? BETWEEN date_debut AND date_fin "
+                        + "ORDER BY date_debut DESC, id_periode_paie DESC LIMIT 2";
                 try (PreparedStatement psF = c.prepareStatement(sqlFindPer)) {
-                    if (datePointage != null && !datePointage.trim().isEmpty()) {
-                        psF.setDate(1, Date.valueOf(datePointage));
-                    }
+                    psF.setDate(1, Date.valueOf(datePointage));
                     try (ResultSet rsF = psF.executeQuery()) {
-                        if (rsF.next()) {
-                            effectivePeriodeId = rsF.getInt(1);
-                        }
+                        if (!rsF.next()) throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                                mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                                "Aucune période ne couvre la date de pointage demandée.");
+                        effectivePeriodeId = rsF.getInt(1);
+                        if (rsF.next()) throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                                mg.galaxam.sirh.common.exception.SirhErrorCode.POINTAGE_PERIOD_CONTEXT_AMBIGUOUS);
                     }
-                } catch (Exception ignored) {}
-
-                if (effectivePeriodeId == null || effectivePeriodeId <= 0) {
-                    try (PreparedStatement psF2 = c.prepareStatement("SELECT id_periode_paie FROM periode_paie ORDER BY date_debut DESC LIMIT 1")) {
-                        try (ResultSet rsF2 = psF2.executeQuery()) {
-                            if (rsF2.next()) {
-                                effectivePeriodeId = rsF2.getInt(1);
-                            }
-                        }
-                    } catch (Exception ignored) {}
                 }
             }
 
@@ -149,9 +144,10 @@ public class PointageAnomalieService {
                 }
             }
 
-            if (periodeDebut == null) {
-                periodeDebut = LocalDate.now().withDayOfMonth(1);
-                periodeFin = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
+            if (periodeDebut == null || periodeFin == null) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "La période de paie demandée est introuvable ou incomplète.");
             }
 
             StringBuilder sql = new StringBuilder(

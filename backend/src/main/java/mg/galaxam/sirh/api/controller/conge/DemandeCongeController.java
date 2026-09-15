@@ -43,11 +43,14 @@ public class DemandeCongeController {
     @Autowired
     private mg.galaxam.sirh.model.conge.service.CongeService congeService;
 
+    @Autowired
+    private mg.galaxam.sirh.common.transaction.TransactionRunner transactionRunner;
+
     @PostMapping("/simuler")
     @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> simulerDemande(@RequestBody Map<String, String> req) {
         if (!req.containsKey("dateDebut") || !req.containsKey("dateFin")) {
-            return ResponseEntity.badRequest().body("Les dates dateDebut et dateFin sont requises pour la simulation.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Les dates dateDebut et dateFin sont requises pour la simulation.");
         }
 
         try {
@@ -65,7 +68,7 @@ public class DemandeCongeController {
             return ResponseEntity.ok(resp);
         } catch (Exception e) {
             log.warn("Erreur simulation congé : {}", e.getMessage());
-            return ResponseEntity.badRequest().body("Erreur lors de la simulation : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -73,7 +76,7 @@ public class DemandeCongeController {
     @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> verifierConflits(@RequestBody Map<String, Object> req) {
         if (!req.containsKey("dateDebut") || !req.containsKey("dateFin") || req.get("dateDebut") == null || req.get("dateFin") == null) {
-            return ResponseEntity.badRequest().body("Les dates dateDebut et dateFin sont requises.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Les dates dateDebut et dateFin sont requises.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -91,7 +94,7 @@ public class DemandeCongeController {
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.warn("Erreur vérification conflits congés : {}", e.getMessage());
-            return ResponseEntity.badRequest().body("Erreur vérification conflits : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -100,17 +103,15 @@ public class DemandeCongeController {
     public ResponseEntity<?> creerDemande(@RequestBody Map<String, Object> req) {
         if (!req.containsKey("idEmploye") || req.get("idEmploye") == null
                 || req.get("idEmploye").toString().isBlank()) {
-            return ResponseEntity.badRequest().body("L'employé (idEmploye) est obligatoirement requis.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'employé (idEmploye) est obligatoirement requis.");
         }
         if (!req.containsKey("idTypeConge") || req.get("idTypeConge") == null ||
                 !req.containsKey("dateDebut") || req.get("dateDebut") == null ||
                 !req.containsKey("dateFin") || req.get("dateFin") == null) {
-            return ResponseEntity.badRequest().body("Le type de congé, la dateDebut et la dateFin sont obligatoires.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le type de congé, la dateDebut et la dateFin sont obligatoires.");
         }
 
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
+        return transactionRunner.required(c -> {
                 DemandeConge d = new DemandeConge();
                 d.setIdEmploye(Integer.parseInt(req.get("idEmploye").toString()));
                 d.setIdTypeConge(Integer.parseInt(req.get("idTypeConge").toString()));
@@ -161,27 +162,15 @@ public class DemandeCongeController {
                 }
 
                 congeService.creerDemande(d, getCurrentUserId(), c);
-                c.commit();
-
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(d.getIdDemandeConge(), c);
                 return ResponseEntity.status(HttpStatus.CREATED).body(cpl);
-            } catch (Exception e) {
-                c.rollback();
-                throw e;
-            }
-        } catch (Exception e) {
-            log.error("Erreur création demande congé : {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Erreur lors de la création de la demande : " + e.getMessage());
-        }
+        });
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> modifierDemande(@PathVariable Integer id, @RequestBody Map<String, Object> req) {
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
+        return transactionRunner.required(c -> {
                 String statutCode;
                 Date dateDebutCourante = null;
                 String sqlLock = "SELECT s.code, dc.id_statut_demande_conge, dc.date_debut FROM demande_conge dc " +
@@ -191,7 +180,7 @@ public class DemandeCongeController {
                     psLock.setInt(1, id);
                     try (ResultSet rsLock = psLock.executeQuery()) {
                         if (!rsLock.next()) {
-                            return ResponseEntity.notFound().build();
+                            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
                         }
                         statutCode = rsLock.getString("code");
                         dateDebutCourante = rsLock.getDate("date_debut");
@@ -206,29 +195,32 @@ public class DemandeCongeController {
 
                 if (!"EN_ATTENTE".equals(statutCode) && !"BROUILLON".equals(statutCode)) {
                     if (!etaitValide) {
-                        return ResponseEntity.badRequest()
-                                .body("Seules les demandes en attente, en brouillon ou validées futures peuvent être modifiées.");
+                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                                mg.galaxam.sirh.common.exception.SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                                "Seules les demandes en attente, en brouillon ou validées futures peuvent être modifiées.");
                     }
                     if (!isAdminOrRh) {
-                        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                .body("Seul un responsable RH ou Administrateur peut modifier un congé déjà validé.");
+                        throw new org.springframework.security.access.AccessDeniedException(
+                                "Seul un responsable RH ou Administrateur peut modifier un congé déjà validé.");
                     }
                     if (dateDebutCourante != null && !dateDebutCourante.toLocalDate().isAfter(java.time.LocalDate.now())) {
-                        return ResponseEntity.badRequest()
-                                .body("Ce congé validé a déjà commencé ou est passé (date de début : " + dateDebutCourante + "). Il ne peut plus être modifié directement.");
+                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                                mg.galaxam.sirh.common.exception.SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                                "Ce congé validé a déjà commencé ou est passé. Il ne peut plus être modifié directement.");
                     }
                     if (req.containsKey("dateDebut")) {
                         Date newD = Date.valueOf(req.get("dateDebut").toString());
                         if (newD.toLocalDate().isBefore(java.time.LocalDate.now())) {
-                            return ResponseEntity.badRequest()
-                                    .body("La nouvelle date de début ne peut pas être dans le passé.");
+                            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                                    mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_DATES_INVALIDES,
+                                    "La nouvelle date de début ne peut pas être dans le passé.");
                         }
                     }
                 }
 
                 DemandeConge d = DemandeConge.rechercherParId(id, c);
                 if (d == null)
-                    return ResponseEntity.notFound().build();
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
 
                 d.setIdDemandeConge(id); // Garantie d'exclusion de son propre ID pour l'anti-overlap
 
@@ -305,17 +297,9 @@ public class DemandeCongeController {
                             d.getIdEmploye());
                 }
 
-                c.commit();
-
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(d.getIdDemandeConge(), c);
                 return ResponseEntity.ok(cpl);
-            } catch (Exception e) {
-                c.rollback();
-                return ResponseEntity.badRequest().body(e.getMessage());
-            }
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Erreur serveur : " + e.getMessage());
-        }
+        });
     }
 
     @GetMapping("/employe/{idEmploye}")
@@ -332,8 +316,7 @@ public class DemandeCongeController {
             return ResponseEntity.ok(pageDto);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des demandes : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -343,12 +326,11 @@ public class DemandeCongeController {
         try (Connection c = dataSource.getConnection()) {
             VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
             if (cpl == null)
-                return ResponseEntity.notFound().build();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
             return ResponseEntity.ok(cpl);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération de la demande : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -366,8 +348,7 @@ public class DemandeCongeController {
             return ResponseEntity.ok(pageDto);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération des demandes à valider : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -387,8 +368,7 @@ public class DemandeCongeController {
             return ResponseEntity.ok(pageDto);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors de la récupération de toutes les demandes : " + e.getMessage());
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -398,12 +378,10 @@ public class DemandeCongeController {
             @RequestParam(required = false, defaultValue = "false") boolean justificatifFourni,
             @RequestParam(required = false) Boolean estRemunere,
             @RequestParam(required = false, defaultValue = "false") boolean derogationSoldeNegatif) {
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
+        return transactionRunner.required(c -> {
                 DemandeConge d = DemandeConge.rechercherParId(id, c);
                 if (d == null)
-                    return ResponseEntity.notFound().build();
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
 
                 if (justificatifFourni) {
                     d.setJustificatifFourni(true);
@@ -437,34 +415,22 @@ public class DemandeCongeController {
                         "/conges",
                         d.getIdEmploye());
 
-                c.commit();
-
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
                 return ResponseEntity.ok(cpl);
-            } catch (Exception e) {
-                c.rollback();
-                throw e;
-            }
-        } catch (Exception e) {
-            log.error("Erreur validation demande congé : {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Erreur lors de la validation de la demande : " + e.getMessage());
-        }
+        });
     }
 
     @PostMapping("/{id}/refuser")
     @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> refuserDemande(@PathVariable Integer id, @RequestBody Map<String, String> req) {
         if (!req.containsKey("motifRefus") || req.get("motifRefus").isBlank()) {
-            return ResponseEntity.badRequest().body("Le motif de refus est obligatoire.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le motif de refus est obligatoire.");
         }
 
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
+        return transactionRunner.required(c -> {
                 DemandeConge d = DemandeConge.rechercherParId(id, c);
                 if (d == null)
-                    return ResponseEntity.notFound().build();
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
 
                 Integer currentUserId = getCurrentUserId();
                 congeService.refuserDemande(id, currentUserId, req.get("motifRefus"), c);
@@ -487,19 +453,9 @@ public class DemandeCongeController {
                         "/conges",
                         d.getIdEmploye());
 
-                c.commit();
-
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
                 return ResponseEntity.ok(cpl);
-            } catch (Exception e) {
-                c.rollback();
-                throw e;
-            }
-        } catch (Exception e) {
-            log.error("Erreur refus demande congé : {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Erreur lors du refus de la demande : " + e.getMessage());
-        }
+        });
     }
 
     @PostMapping("/{id}/annuler")
@@ -507,12 +463,10 @@ public class DemandeCongeController {
     public ResponseEntity<?> annulerDemande(
             @PathVariable Integer id,
             @RequestBody(required = false) Map<String, String> payload) {
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
+        return transactionRunner.required(c -> {
                 DemandeConge d = DemandeConge.rechercherParId(id, c);
                 if (d == null)
-                    return ResponseEntity.notFound().build();
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
 
                 String motif = payload != null ? payload.get("motif") : null;
                 if (motif == null || motif.trim().isEmpty()) {
@@ -556,19 +510,9 @@ public class DemandeCongeController {
                         "/conges",
                         d.getIdEmploye());
 
-                c.commit();
-
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
                 return ResponseEntity.ok(cpl);
-            } catch (Exception e) {
-                c.rollback();
-                throw e;
-            }
-        } catch (Exception e) {
-            log.error("Erreur annulation demande congé : {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Erreur lors de l'annulation de la demande : " + e.getMessage());
-        }
+        });
     }
 
     private Integer getCurrentUserId() {

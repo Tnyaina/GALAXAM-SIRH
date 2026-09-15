@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import mg.galaxam.sirh.model.paie.workflow.PayrollPeriodCommand;
 import mg.galaxam.sirh.model.paie.workflow.PayrollPeriodCommandRequest;
 import mg.galaxam.sirh.api.dto.common.BusinessDecision;
+import mg.galaxam.sirh.api.dto.paie.PayrollPeriodContextView;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.model.paie.workflow.PayrollPeriodUserContext;
@@ -40,7 +41,7 @@ public class PeriodePaieController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<List<PeriodePaieDTO>> getAllPeriodes() throws SQLException {
+    public ResponseEntity<List<PeriodePaieDTO>> getAllPeriodes(Authentication authentication) throws SQLException {
         List<PeriodePaieDTO> list = new ArrayList<>();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
                      "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle, p.motif_rejet, p.version " +
@@ -66,6 +67,9 @@ public class PeriodePaieController {
                 dto.setStatutLibelle(rs.getString("statut_libelle"));
                 dto.setMotifRejet(rs.getString("motif_rejet"));
                 dto.setVersion(rs.getInt("version"));
+                dto.setAvailableActions(payrollPeriodWorkflowService.describeActions(
+                        dto.getIdPeriodePaie(), dto.getStatutCode(),
+                        PayrollPeriodUserContext.from(authentication), c));
 
                 if (dDeb != null && dFin != null) {
                     dto.setNbJoursOuvrables(calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
@@ -121,6 +125,19 @@ public class PeriodePaieController {
             }
         }
         throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_NOT_FOUND);
+    }
+
+    @GetMapping("/context")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public PayrollPeriodContextView getPeriodContext(
+            @RequestParam(required = false) Integer periodId,
+            @RequestParam(required = false) String date,
+            Authentication authentication) throws Exception {
+        java.time.LocalDate businessDate = date == null || date.isBlank()
+                ? null
+                : java.time.LocalDate.parse(date);
+        return payrollPeriodWorkflowService.describeContext(
+                periodId, businessDate, PayrollPeriodUserContext.from(authentication));
     }
 
     @GetMapping("/simuler")

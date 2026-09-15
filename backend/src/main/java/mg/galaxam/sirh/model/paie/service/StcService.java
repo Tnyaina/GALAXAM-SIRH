@@ -69,7 +69,10 @@ public class StcService {
         if (idEmploye == null) {
             throw new IllegalArgumentException("L'identifiant de l'employé est obligatoire.");
         }
-        Date dateDepartEffective = dateDepart != null ? dateDepart : new Date(System.currentTimeMillis());
+        if (dateDepart == null) {
+            throw new IllegalArgumentException("La date de départ métier est obligatoire.");
+        }
+        Date dateDepartEffective = dateDepart;
 
         StcPreparationDTO prep = new StcPreparationDTO();
         prep.setIdEmploye(idEmploye);
@@ -82,14 +85,15 @@ public class StcService {
                 "cat.code AS cat_code, COALESCE(c_emb.date_embauche_initiale, ct.date_debut) AS date_embauche " +
                 "FROM employe e " +
                 "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
-                "JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
                 "LEFT JOIN (SELECT id_employe, MIN(date_debut) AS date_embauche_initiale FROM contrat_travail GROUP BY id_employe) c_emb ON e.id_employe = c_emb.id_employe " +
                 "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
                 "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
                 "LEFT JOIN ref_departement d ON eac.id_departement = d.id_departement " +
                 "LEFT JOIN ref_site s ON eac.id_site = s.id_site " +
                 "LEFT JOIN ref_categorie_professionnelle cat ON eac.id_categorie_professionnelle = cat.id_categorie_professionnelle " +
-                "WHERE e.id_employe = ?";
+                "WHERE e.id_employe = ? AND eac.date_debut <= ? " +
+                "AND (eac.date_fin IS NULL OR eac.date_fin >= ?) " +
+                "ORDER BY eac.date_debut DESC, eac.id_affectation DESC LIMIT 2";
 
         Date dateEmbauche = null;
         BigDecimal salaireBase = BigDecimal.ZERO;
@@ -98,6 +102,8 @@ public class StcService {
         boolean foundEmp = false;
         try (PreparedStatement ps = c.prepareStatement(sqlEmp)) {
             ps.setInt(1, idEmploye);
+            ps.setDate(2, dateDepartEffective);
+            ps.setDate(3, dateDepartEffective);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     foundEmp = true;
@@ -120,50 +126,8 @@ public class StcService {
                     prep.setSalaireBase(salaireBase);
                     dateEmbauche = rs.getDate("date_embauche");
                     prep.setDateEmbauche(dateEmbauche);
-                }
-            }
-        }
-
-        if (!foundEmp) {
-            // Fallback : Si l'employé a déjà été clôturé administrativement (ex: workflow RH de rupture exécuté au préalable),
-            // on récupère sa dernière affectation connue pour permettre le calcul et la régularisation du STC.
-            String sqlFallback = "SELECT e.matricule, e.nom, e.prenom, e.cin_numero, e.cin_date_delivrance, e.cin_lieu_delivrance, e.num_affiliation_cnaps, " +
-                    "eac.salaire_base, f.libelle AS fonction_nom, d.libelle AS dept_nom, s.libelle AS site_nom, s.code_site, " +
-                    "cat.code AS cat_code, COALESCE(c_emb.date_embauche_initiale, ct.date_debut) AS date_embauche " +
-                    "FROM employe e " +
-                    "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
-                    "LEFT JOIN (SELECT id_employe, MIN(date_debut) AS date_embauche_initiale FROM contrat_travail GROUP BY id_employe) c_emb ON e.id_employe = c_emb.id_employe " +
-                    "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
-                    "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
-                    "LEFT JOIN ref_departement d ON eac.id_departement = d.id_departement " +
-                    "LEFT JOIN ref_site s ON eac.id_site = s.id_site " +
-                    "LEFT JOIN ref_categorie_professionnelle cat ON eac.id_categorie_professionnelle = cat.id_categorie_professionnelle " +
-                    "WHERE e.id_employe = ? " +
-                    "ORDER BY eac.date_debut DESC, eac.id_affectation DESC LIMIT 1";
-            try (PreparedStatement ps = c.prepareStatement(sqlFallback)) {
-                ps.setInt(1, idEmploye);
-                try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
-                        foundEmp = true;
-                        prep.setMatricule(rs.getString("matricule"));
-                        String nom = rs.getString("nom");
-                        String prenom = rs.getString("prenom");
-                        prep.setNomComplet(((nom != null ? nom : "") + " " + (prenom != null ? prenom : "")).trim());
-                        prep.setCinNumero(rs.getString("cin_numero"));
-                        prep.setCinDateDelivrance(rs.getDate("cin_date_delivrance"));
-                        prep.setCinLieuDelivrance(rs.getString("cin_lieu_delivrance"));
-                        prep.setNumeroCnaps(rs.getString("num_affiliation_cnaps"));
-                        prep.setIntitulePoste(rs.getString("fonction_nom") != null ? rs.getString("fonction_nom") : "Collaborateur");
-                        prep.setDepartement(rs.getString("dept_nom"));
-                        prep.setSite(rs.getString("site_nom"));
-                        prep.setCodeSite(rs.getString("code_site"));
-                        catPro = rs.getString("cat_code") != null ? rs.getString("cat_code") : "AGENT";
-                        prep.setCategorieProfessionnelle(catPro);
-                        prep.setRegimeFiscal(catPro != null && catPro.toUpperCase().contains("CONSULT") ? "ISI" : "IRSA");
-                        salaireBase = rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO;
-                        prep.setSalaireBase(salaireBase);
-                        dateEmbauche = rs.getDate("date_embauche");
-                        prep.setDateEmbauche(dateEmbauche);
+                        throw new IllegalStateException("Plusieurs affectations couvrent la date de départ " + dateDepartEffective + ".");
                     }
                 }
             }
@@ -207,23 +171,18 @@ public class StcService {
 
         // 3. Période de paie correspondante
         String sqlPer = "SELECT id_periode_paie, code FROM periode_paie " +
-                "WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
+                "WHERE ? BETWEEN date_debut AND date_fin ORDER BY date_debut DESC, id_periode_paie DESC LIMIT 2";
         try (PreparedStatement psPer = c.prepareStatement(sqlPer)) {
             psPer.setDate(1, dateDepartEffective);
             try (ResultSet rsPer = psPer.executeQuery()) {
                 if (rsPer.next()) {
                     prep.setIdPeriodePaie(rsPer.getInt("id_periode_paie"));
                     prep.setCodePeriodePaie(rsPer.getString("code"));
-                } else {
-                    // Fallback sur la dernière période ouverte
-                    String sqlLastPer = "SELECT id_periode_paie, code FROM periode_paie ORDER BY date_debut DESC LIMIT 1";
-                    try (PreparedStatement psL = c.prepareStatement(sqlLastPer);
-                         ResultSet rsL = psL.executeQuery()) {
-                        if (rsL.next()) {
-                            prep.setIdPeriodePaie(rsL.getInt("id_periode_paie"));
-                            prep.setCodePeriodePaie(rsL.getString("code"));
-                        }
+                    if (rsPer.next()) {
+                        throw new IllegalStateException("Plusieurs périodes de paie couvrent la date de départ " + dateDepartEffective + ".");
                     }
+                } else {
+                    throw new IllegalStateException("Aucune période de paie ne couvre la date de départ " + dateDepartEffective + ".");
                 }
             }
         }
@@ -481,7 +440,7 @@ public class StcService {
         BigDecimal irsaNet = BigDecimal.ZERO;
         // Régime fiscal résolu une seule fois dans la préparation STC.
         if ("ISI".equalsIgnoreCase(prep.getRegimeFiscal())) {
-            BigDecimal tauxIsi = TaxConfigurationResolver.resolveIsiRate(req.getDateDepart() != null ? req.getDateDepart().toLocalDate() : LocalDate.now(), c);
+            BigDecimal tauxIsi = TaxConfigurationResolver.resolveIsiRate(req.getDateDepart().toLocalDate(), c);
             BigDecimal isi = new IsiCalculator().calculate(assietteSociale, tauxIsi);
             irsaNet = isi;
             res.setIrsaNet(BigDecimal.ZERO);
@@ -490,7 +449,7 @@ public class StcService {
 
         // Calcul IRSA selon barème progressif dynamique unifié
         if (!"ISI".equalsIgnoreCase(prep.getRegimeFiscal())) {
-        LocalDate dateRefIrsa = req.getDateDepart() != null ? req.getDateDepart().toLocalDate() : LocalDate.now();
+        LocalDate dateRefIrsa = req.getDateDepart().toLocalDate();
         List<Tranche> tranches = chargerTranchesIrsa(configLegale, dateRefIrsa, c);
         int nbEnfants = prep.getNbEnfantsACharge();
         BigDecimal deducParEnfant = (configLegale != null && configLegale.getDeductionChargeFamille() != null)
@@ -929,33 +888,20 @@ public class StcService {
      * lors des recalculs historiques (STC rétroactifs).
      */
     private List<Tranche> chargerTranchesIrsa(PaieConfigLegale configLegale, LocalDate dateRef, Connection c) throws Exception {
+        if (dateRef == null) throw new IllegalArgumentException("La date métier IRSA est obligatoire.");
         return IrsaBracketResolver.resolve(configLegale != null ? configLegale.getIdConfigLegale() : null,
-                dateRef != null ? dateRef : LocalDate.now(), c);
-    }
-
-    private List<Tranche> chargerTranchesIrsa(PaieConfigLegale configLegale, Connection c) throws Exception {
-        return chargerTranchesIrsa(configLegale, LocalDate.now(), c);
-    }
-
-    private List<Tranche> chargerTranchesIrsa(Connection c) throws Exception {
-        return chargerTranchesIrsa(null, LocalDate.now(), c);
+                dateRef, c);
     }
 
     private PaieConfigLegale chargerConfigLegale(Date dateDepart, Connection c) {
-        if (dateDepart != null) {
-            try {
-                PaieConfigLegale cfg = PaieConfigLegale.findActiveAt(c, dateDepart.toLocalDate());
-                if (cfg != null) return cfg;
-            } catch (Exception e) {
-                log.warn("[StcService] Erreur recherche config légale à date {}: {}", dateDepart, e.getMessage());
-            }
-        }
+        if (dateDepart == null) throw new IllegalArgumentException("La date métier de la configuration légale est obligatoire.");
         try {
-            return PaieConfigLegale.findActiveAt(c, LocalDate.now());
+            PaieConfigLegale config = PaieConfigLegale.findActiveAt(c, dateDepart.toLocalDate());
+            if (config == null) throw new IllegalStateException("Aucune configuration légale applicable au " + dateDepart + ".");
+            return config;
         } catch (Exception e) {
-            log.warn("[StcService] Erreur recherche config légale active actuelle: {}", e.getMessage());
+            throw new IllegalStateException("Impossible de résoudre la configuration légale au " + dateDepart + ".", e);
         }
-        return null;
     }
 
     public static BigDecimal getTauxJournalierDernier(int idEmploye, BigDecimal salaireBaseFallback, Connection c) {
@@ -981,7 +927,8 @@ public class StcService {
     }
 
     private AncienneteEngine.AncienneteBilan calculerAncienneteEmploye(int idEmploye, Date dateDepart, Connection c) {
-        LocalDate refDate = dateDepart != null ? dateDepart.toLocalDate() : LocalDate.now();
+        if (dateDepart == null) throw new IllegalArgumentException("La date métier d'ancienneté est obligatoire.");
+        LocalDate refDate = dateDepart.toLocalDate();
         return this.ancienneteEngine.calculerAncienneteEmploye(idEmploye, refDate, c);
     }
 

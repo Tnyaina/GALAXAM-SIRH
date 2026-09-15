@@ -22,6 +22,7 @@ export function usePointageAnomalies(initialFilters = {}) {
     const [error, setError] = useState(null);
 
     const loadAnomalies = useCallback(async (signal) => {
+        if (!(Number(filters.idPeriodePaie) > 0) && !filters.datePointage) return;
         setLoading(true);
         setError(null);
         try {

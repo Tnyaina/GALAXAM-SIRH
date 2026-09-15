@@ -15,6 +15,8 @@ import mg.galaxam.sirh.api.dto.common.BusinessDecision;
 import mg.galaxam.sirh.api.dto.common.BusinessIssue;
 import mg.galaxam.sirh.api.dto.common.DecisionStatus;
 import mg.galaxam.sirh.api.dto.common.RuleResult;
+import mg.galaxam.sirh.api.dto.paie.PayrollPeriodContextView;
+import mg.galaxam.sirh.api.dto.paie.PayrollPeriodSummary;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
@@ -85,7 +87,7 @@ public class PayrollPeriodWorkflowService {
                         List.of(RuleResult.pass("TRANSITION_ALLOWED")),
                         List.of(),
                         List.of(),
-                        availableActions(targetState, user),
+                        availableActions(current.id(), targetState, user, connection),
                         targetVersion);
             } catch (Exception exception) {
                 connection.rollback();
@@ -94,9 +96,60 @@ public class PayrollPeriodWorkflowService {
         }
     }
 
+    public PayrollPeriodContextView describeContext(
+            Integer selectedPeriodId, LocalDate businessDate, PayrollPeriodUserContext user) throws Exception {
+        LocalDate targetDate = businessDate != null ? businessDate : LocalDate.now(BUSINESS_ZONE);
+        try (Connection connection = dataSource.getConnection()) {
+            PeriodState current = loadAtDate(targetDate, connection);
+            PeriodState selected = selectedPeriodId != null
+                    ? load(selectedPeriodId, connection, false)
+                    : current;
+            if (selected == null) {
+                return new PayrollPeriodContextView(targetDate, null, null, Map.of(),
+                        List.of(new BusinessIssue("PAYROLL_PERIOD_CONTEXT_REQUIRED",
+                                "Sélectionnez explicitement une période de paie.", Map.of())), List.of());
+            }
+            return new PayrollPeriodContextView(
+                    targetDate,
+                    toSummary(current),
+                    toSummary(selected),
+                    availableActions(selected.id(), selected.state(), user, connection),
+                    contextIssues(selected.id(), selected.state(), connection),
+                    List.of());
+        }
+    }
+
+    public void requirePayrollAction(
+            int periodId, PayrollAction action, PayrollPeriodUserContext user) throws Exception {
+        try (Connection connection = dataSource.getConnection()) {
+            PeriodState period = load(periodId, connection, false);
+            ActionCapability capability = payrollCapability(periodId, period.state(), action, user, connection);
+            if (!capability.allowed()) {
+                SirhErrorCode errorCode = capability.reasonCodes().contains("PERIOD_CLOSED")
+                        ? SirhErrorCode.STATE_CONFLICT
+                        : SirhErrorCode.PAYROLL_PERIOD_PREREQUISITE_BLOCKED;
+                String message = capability.reasonCodes().contains("PERIOD_CLOSED")
+                        ? "Le calcul est clôturé et strictement immuable."
+                        : "Action " + action + " indisponible pour cette période.";
+                throw failure(errorCode, message,
+                        Map.of("periodId", periodId, "action", action.name(),
+                                "reasonCodes", capability.reasonCodes()));
+            }
+        }
+    }
+
+    public Map<String, ActionCapability> describeActions(
+            int periodId, String state, PayrollPeriodUserContext user, Connection connection) throws SQLException {
+        return availableActions(periodId, state, user, connection);
+    }
+
     private PeriodState loadForUpdate(int periodId, Connection connection) throws SQLException {
-        String sql = "SELECT id_periode_paie, libelle, date_debut, date_fin, version, id_statut_periode "
-                + "FROM periode_paie WHERE id_periode_paie = ? FOR UPDATE";
+        return load(periodId, connection, true);
+    }
+
+    private PeriodState load(int periodId, Connection connection, boolean forUpdate) throws SQLException {
+        String sql = "SELECT id_periode_paie, code, libelle, date_debut, date_fin, version, id_statut_periode "
+                + "FROM periode_paie WHERE id_periode_paie = ?" + (forUpdate ? " FOR UPDATE" : "");
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, periodId);
             try (ResultSet result = statement.executeQuery()) {
@@ -107,12 +160,36 @@ public class PayrollPeriodWorkflowService {
                 int statusId = result.getInt("id_statut_periode");
                 return new PeriodState(
                         result.getInt("id_periode_paie"),
+                        result.getString("code"),
                         result.getString("libelle"),
                         result.getDate("date_debut").toLocalDate(),
                         result.getDate("date_fin").toLocalDate(),
                         statusId,
                         loadStatusCode(statusId, connection),
                         result.getInt("version"));
+            }
+        }
+    }
+
+    private PeriodState loadAtDate(LocalDate date, Connection connection) throws SQLException {
+        String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, p.version, "
+                + "p.id_statut_periode, s.code AS state FROM periode_paie p "
+                + "JOIN ref_statut_periode_paie s ON s.id_statut_periode = p.id_statut_periode "
+                + "WHERE ? BETWEEN p.date_debut AND p.date_fin ORDER BY p.date_debut DESC LIMIT 2";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setDate(1, java.sql.Date.valueOf(date));
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) return null;
+                PeriodState period = new PeriodState(
+                        result.getInt("id_periode_paie"), result.getString("code"), result.getString("libelle"),
+                        result.getDate("date_debut").toLocalDate(), result.getDate("date_fin").toLocalDate(),
+                        result.getInt("id_statut_periode"), result.getString("state"), result.getInt("version"));
+                if (result.next()) {
+                    throw failure(SirhErrorCode.PAYROLL_PERIOD_PREREQUISITE_BLOCKED,
+                            "Plusieurs périodes couvrent la date métier " + date + ".",
+                            Map.of("businessDate", date, "reasonCode", "PAYROLL_PERIOD_CONTEXT_AMBIGUOUS"));
+                }
+                return period;
             }
         }
     }
@@ -335,7 +412,7 @@ public class PayrollPeriodWorkflowService {
     }
 
     private Map<String, ActionCapability> availableActions(
-            String state, PayrollPeriodUserContext user) {
+            int periodId, String state, PayrollPeriodUserContext user, Connection connection) throws SQLException {
         Map<String, ActionCapability> actions = new java.util.LinkedHashMap<>();
         for (PayrollPeriodCommand command : PayrollPeriodCommand.values()) {
             boolean transitionAllowed = switch (command) {
@@ -351,7 +428,87 @@ public class PayrollPeriodWorkflowService {
                     : ActionCapability.denied(
                             authorized ? "INVALID_STATE" : "FORBIDDEN"));
         }
+        for (PayrollAction action : PayrollAction.values()) {
+            actions.put(action.name(), payrollCapability(periodId, state, action, user, connection));
+        }
         return Map.copyOf(actions);
+    }
+
+    private ActionCapability payrollCapability(
+            int periodId,
+            String state,
+            PayrollAction action,
+            PayrollPeriodUserContext user,
+            Connection connection) throws SQLException {
+        boolean authorized = switch (action) {
+            case SIMULATE, CALCULATE, ADD_VARIABLE -> user.hasAny("PAIE_WRITE");
+            case VALIDATE -> user.hasAny("PAIE_VALIDATE");
+        };
+        if (!authorized) return ActionCapability.denied("FORBIDDEN");
+        if (action == PayrollAction.SIMULATE) return ActionCapability.permit();
+        if ("CLOTUREE".equals(state)) return ActionCapability.denied("PERIOD_CLOSED");
+        if (action == PayrollAction.ADD_VARIABLE) {
+            return ActionCapability.permit();
+        }
+        if (!"VALIDEE".equals(state)) return ActionCapability.denied("POINTAGE_NOT_FROZEN");
+
+        if (action == PayrollAction.CALCULATE) {
+            return count(connection,
+                    "SELECT COUNT(*) FROM pointage_cumul_periode WHERE id_periode_paie = ? "
+                            + "AND statut_snapshot IN ('GELE','CONSOMME')",
+                    periodId) > 0
+                    ? ActionCapability.permit()
+                    : ActionCapability.denied("POINTAGE_NOT_FROZEN");
+        }
+
+        int calculated = count(connection,
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut = 'CALCULE'", periodId);
+        return calculated > 0
+                ? ActionCapability.permit()
+                : ActionCapability.denied("PAYROLL_NOT_CALCULATED");
+    }
+
+    private List<BusinessIssue> contextIssues(int periodId, String state, Connection connection) throws SQLException {
+        List<BusinessIssue> issues = new java.util.ArrayList<>();
+        if (!"VALIDEE".equals(state)) {
+            issues.add(new BusinessIssue("POINTAGE_NOT_FROZEN",
+                    "Le pointage doit être validé et figé avant le calcul réel.", Map.of("periodId", periodId)));
+        } else if (count(connection,
+                "SELECT COUNT(*) FROM pointage_cumul_periode WHERE id_periode_paie = ? "
+                        + "AND statut_snapshot IN ('GELE','CONSOMME')", periodId) == 0) {
+            issues.add(new BusinessIssue("POINTAGE_NOT_FROZEN",
+                    "Aucun snapshot de pointage figé n'est disponible.", Map.of("periodId", periodId)));
+        }
+        if ("VALIDEE".equals(state)) {
+            int total = count(connection,
+                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ?", periodId);
+            int calculated = count(connection,
+                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut = 'CALCULE'", periodId);
+            if (total == 0) {
+                issues.add(new BusinessIssue("PAYROLL_NOT_CALCULATED",
+                        "La paie doit être calculée avant validation.", Map.of("periodId", periodId)));
+            } else if (calculated == 0) {
+                issues.add(new BusinessIssue("PAYROLL_ALREADY_VALIDATED",
+                        "Aucun bulletin calculé ne reste à valider.", Map.of("periodId", periodId)));
+            }
+        }
+        return List.copyOf(issues);
+    }
+
+    private int count(Connection connection, String sql, int periodId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, periodId);
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return result.getInt(1);
+            }
+        }
+    }
+
+    private PayrollPeriodSummary toSummary(PeriodState period) {
+        if (period == null) return null;
+        return new PayrollPeriodSummary(period.id(), period.code(), period.label(), period.startDate(),
+                period.endDate(), period.state(), period.version());
     }
 
     private void requireAuthority(PayrollPeriodCommand command, PayrollPeriodUserContext user) {
@@ -401,6 +558,7 @@ public class PayrollPeriodWorkflowService {
 
     private record PeriodState(
             int id,
+            String code,
             String label,
             LocalDate startDate,
             LocalDate endDate,

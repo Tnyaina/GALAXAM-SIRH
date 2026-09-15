@@ -261,6 +261,15 @@ class PaieControllerIntegrationTest extends BaseIntegrationTest {
                         .content(toJson(reqAction)))
                 .andExpect(status().isOk());
 
+        // Une seconde validation n'est pas un succès silencieux : le backend explique le blocage.
+        mockMvc.perform(post("/paie/valider-periode")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(reqAction)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code", is("PAYROLL_PERIOD_PREREQUISITE_BLOCKED")))
+                .andExpect(jsonPath("$.details.reasonCodes[0]", is("PAYROLL_NOT_CALCULATED")));
+
         // 3. Clôture de la période
         mockMvc.perform(post("/periodes/" + idPeriode + "/actions/CLOSE")
                         .header("Authorization", "Bearer " + getAdminToken())

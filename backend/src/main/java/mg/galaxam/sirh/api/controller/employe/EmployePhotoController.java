@@ -48,10 +48,9 @@ public class EmployePhotoController {
             Files.copy(file.getInputStream(), safeResolve(uniqueFilename), StandardCopyOption.REPLACE_EXISTING);
             return ResponseEntity.ok(Map.of("photoUrl", "/employes/photos/" + uniqueFilename));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors du stockage sécurisé de la photo.");
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.INTERNAL_ERROR);
         }
     }
 
@@ -61,7 +60,9 @@ public class EmployePhotoController {
         try {
             Path filePath = safeResolve(filename);
             if (!Files.isRegularFile(filePath)) {
-                return ResponseEntity.notFound().build();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Photo RH introuvable.");
             }
             String contentType = Files.probeContentType(filePath);
             if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
@@ -74,9 +75,10 @@ public class EmployePhotoController {
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
                     .body(resource);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.INTERNAL_ERROR);
         }
     }
 

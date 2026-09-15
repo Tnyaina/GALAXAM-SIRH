@@ -22,6 +22,7 @@ import paieService from '@/api/paie/paieService';
 import periodePaieService from '@/api/pointage/periodePaieService';
 import employeService from '@/api/employe/employeService';
 import BulletinPaieDrawer from './BulletinPaieDrawer';
+import { getErrorMessage } from '@/api/apiClient';
 
 /**
  * Cockpit Principal de Paie DAF (GALAXAM LOGISTICS)
@@ -31,7 +32,8 @@ export default function CockpitPaieTab({
     idPeriodeActive, 
     setIdPeriodeActive, 
     periodes = [], 
-    onReloadPeriodes 
+    onReloadPeriodes,
+    periodContext
 }) {
     const [cockpit, setCockpit] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -68,7 +70,7 @@ export default function CockpitPaieTab({
         } catch (err) {
             setFeedback({
                 type: 'error',
-                text: err.response?.data?.error || err.message || 'Erreur lors du chargement du cockpit de paie.'
+                text: getErrorMessage(err, 'Erreur lors du chargement du cockpit de paie.')
             });
         } finally {
             setLoading(false);
@@ -131,7 +133,7 @@ export default function CockpitPaieTab({
             setFeedback({ type: 'success', text: 'Variable enregistrée avec succès. Recalculez la paie pour l\'appliquer.' });
             await chargerCockpit();
         } catch (err) {
-            alert(err.response?.data?.error || 'Erreur lors de la création de la variable.');
+            alert(getErrorMessage(err, 'Erreur lors de la création de la variable.'));
         } finally {
             setSubmittingVariable(false);
         }
@@ -154,7 +156,7 @@ export default function CockpitPaieTab({
         } catch (err) {
             setFeedback({
                 type: 'error',
-                text: err.response?.data?.error || err.message || 'Erreur lors du calcul de la paie.'
+                text: getErrorMessage(err, 'Erreur lors du calcul de la paie.')
             });
         } finally {
             setActionLoading(null);
@@ -175,7 +177,7 @@ export default function CockpitPaieTab({
         } catch (err) {
             setFeedback({
                 type: 'error',
-                text: err.response?.data?.error || err.message || 'Erreur lors de la validation.'
+                text: getErrorMessage(err, 'Erreur lors de la validation.')
             });
         } finally {
             setActionLoading(null);
@@ -198,7 +200,7 @@ export default function CockpitPaieTab({
         } catch (err) {
             setFeedback({
                 type: 'error',
-                text: err.response?.data?.error || err.message || 'Erreur lors de la clôture.'
+                text: getErrorMessage(err, 'Erreur lors de la clôture.')
             });
         } finally {
             setActionLoading(null);
@@ -224,7 +226,7 @@ export default function CockpitPaieTab({
             await chargerCockpit();
             if (onReloadPeriodes) onReloadPeriodes();
         } catch (err) {
-            alert(err.response?.data?.error || 'Erreur lors de la réouverture.');
+            alert(getErrorMessage(err, 'Erreur lors de la réouverture.'));
         } finally {
             setActionLoading(null);
         }
@@ -240,9 +242,12 @@ export default function CockpitPaieTab({
     const periode = cockpit?.periode || {};
     const bulletins = useMemo(() => Array.isArray(cockpit?.bulletins) ? cockpit.bulletins : [], [cockpit]);
 
-    const isCloture = periode.statut === 'CLOTUREE';
-    const isValide = periode.statut === 'VALIDEE';
     const pointageScelle = readiness.pointageScelle === true;
+    const availableActions = periodContext?.availableActions || {};
+    const actionAllowed = (action) => availableActions[action]?.allowed === true;
+    const actionReason = (action) => (availableActions[action]?.reasonCodes || [])
+        .map(code => periodContext?.issues?.find(issue => issue.code === code)?.message || code)
+        .join(' · ');
 
     // Liste unique des sites pour le filtre
     const sites = useMemo(() => {
@@ -352,6 +357,8 @@ export default function CockpitPaieTab({
                             variant="outline"
                             size="sm"
                             onClick={handleOpenVariableModal}
+                            disabled={actionLoading !== null || !actionAllowed('ADD_VARIABLE')}
+                            title={actionReason('ADD_VARIABLE')}
                             className="flex items-center gap-1.5 text-xs"
                         >
                             <Plus size={13} className="text-[var(--color-brand-500)]" />
@@ -362,7 +369,8 @@ export default function CockpitPaieTab({
                             variant="secondary"
                             size="sm"
                             onClick={() => handleCalculerPaie(true)}
-                            disabled={actionLoading !== null}
+                            disabled={actionLoading !== null || !actionAllowed('SIMULATE')}
+                            title={actionReason('SIMULATE')}
                             className="flex items-center gap-1.5 text-xs"
                         >
                             <Play size={13} className="text-blue-500" />
@@ -373,50 +381,48 @@ export default function CockpitPaieTab({
                             variant="primary"
                             size="sm"
                             onClick={() => handleCalculerPaie(false)}
-                            disabled={actionLoading !== null || isCloture || !pointageScelle}
-                            title={!pointageScelle ? 'Pointage non scellé : calcul réel bloqué' : 'Recalculer la paie de tous les collaborateurs'}
+                            disabled={actionLoading !== null || !actionAllowed('CALCULATE')}
+                            title={actionReason('CALCULATE') || 'Recalculer la paie de tous les collaborateurs'}
                             className="flex items-center gap-1.5 text-xs"
                         >
                             <RefreshCw size={13} className={actionLoading === 'calculer' ? 'animate-spin' : ''} />
                             {actionLoading === 'calculer' ? 'Calcul en cours...' : '⟳ Recalculer tout'}
                         </Button>
 
-                        {!isCloture && (
-                            <Button
+                        <Button
                                 variant="primary"
                                 size="sm"
                                 onClick={handleValiderPaie}
-                                disabled={actionLoading !== null || isValide || bulletins.length === 0}
+                                disabled={actionLoading !== null || !actionAllowed('VALIDATE')}
+                                title={actionReason('VALIDATE')}
                                 className="flex items-center gap-1.5 text-xs bg-emerald-700 hover:bg-emerald-800 border-emerald-800"
                             >
                                 <CheckCheck size={14} />
                                 {actionLoading === 'valider' ? 'Validation...' : 'VALIDER LA PAIE →'}
-                            </Button>
-                        )}
+                        </Button>
 
-                        {!isCloture ? (
-                            <Button
+                        <Button
                                 variant="danger"
                                 size="sm"
                                 onClick={handleCloturerPaie}
-                                disabled={actionLoading !== null || bulletins.length === 0}
+                                disabled={actionLoading !== null || !actionAllowed('CLOSE')}
+                                title={actionReason('CLOSE')}
                                 className="flex items-center gap-1.5 text-xs"
                             >
                                 <Lock size={13} />
                                 Clôturer
-                            </Button>
-                        ) : (
-                            <Button
+                        </Button>
+                        <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setIsReopenModalOpen(true)}
-                                disabled={actionLoading !== null}
+                                disabled={actionLoading !== null || !actionAllowed('REOPEN')}
+                                title={actionReason('REOPEN')}
                                 className="flex items-center gap-1.5 text-xs text-amber-600 border-amber-300"
                             >
                                 <RotateCcw size={13} />
                                 Réouvrir (Audit)
-                            </Button>
-                        )}
+                        </Button>
                     </div>
                 </div>
 
