@@ -24,6 +24,7 @@ import DatePicker from '@/components/ui/forms/DatePicker';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Card, { CardBody } from '@/components/ui/data-display/Card';
+import StatCard from '@/components/ui/data-display/StatCard';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import HasPermission from '@/components/auth/HasPermission';
@@ -461,65 +462,46 @@ export default function PeriodePaiePage() {
 
             {/* Cartes KPI / Statistiques */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                <Card bordered shadow="sm">
-                    <CardBody className="p-3.5 sm:p-4 flex items-center gap-3.5">
-                        <div className="w-9 h-9 bg-brand-50 dark:bg-brand-900/30 text-brand-500 flex items-center justify-center shrink-0">
-                            <CalendarRange size={18} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400">Total Périodes</p>
-                            <p className="text-xl font-bold font-data text-ink-800 dark:text-white">{stats.total}</p>
-                        </div>
-                    </CardBody>
-                </Card>
-
-                <Card bordered shadow="sm">
-                    <CardBody className="p-3.5 sm:p-4 flex items-center gap-3.5">
-                        <div className="w-9 h-9 bg-[var(--color-info-500)]/10 text-[var(--color-info-500)] flex items-center justify-center shrink-0">
-                            <Clock size={18} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400">En cours (Active)</p>
-                            <p className="text-xl font-bold font-data text-[var(--color-info-500)]">{stats.enCours}</p>
-                        </div>
-                    </CardBody>
-                </Card>
-
-                <Card bordered shadow="sm">
-                    <CardBody className="p-3.5 sm:p-4 flex items-center gap-3.5">
-                        <div className="w-9 h-9 bg-warning-500/10 text-warning-500 flex items-center justify-center shrink-0">
-                            <CheckCheck size={18} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400">À Valider (Fin de mois)</p>
-                            <p className="text-xl font-bold font-data text-warning-500">{stats.aValider}</p>
-                        </div>
-                    </CardBody>
-                </Card>
-
-                <Card bordered shadow="sm">
-                    <CardBody className="p-3.5 sm:p-4 flex items-center gap-3.5">
-                        <div className="w-9 h-9 bg-success-500/10 text-success-500 flex items-center justify-center shrink-0">
-                            <ShieldCheck size={18} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-ink-400">Verrouillées / Clôturées</p>
-                            <p className="text-xl font-bold font-data text-success-500">{stats.verrouillees}</p>
-                        </div>
-                    </CardBody>
-                </Card>
+                <StatCard
+                    title="Total Périodes"
+                    value={stats.total}
+                    subtext="Exercices enregistrés"
+                    icon={<CalendarRange size={18} />}
+                    color="neutral"
+                />
+                <StatCard
+                    title="En cours (Active)"
+                    value={stats.enCours}
+                    subtext="Pointages ouverts aux agents"
+                    icon={<Clock size={18} />}
+                    color="info"
+                />
+                <StatCard
+                    title="À Valider (Fin de mois)"
+                    value={stats.aValider}
+                    subtext="En attente arbitrage DAF"
+                    icon={<CheckCheck size={18} />}
+                    color="warning"
+                />
+                <StatCard
+                    title="Verrouillées / Clôturées"
+                    value={stats.verrouillees}
+                    subtext="Scellées et archivées"
+                    icon={<ShieldCheck size={18} />}
+                    color="success"
+                />
             </div>
 
             {error && <Alert type="danger" message={error} onClose={() => setError(null)} />}
 
             {/* Table des Périodes */}
-            <div className="bg-[var(--color-surface)] dark:bg-[var(--color-surface)] border border-ink-150 dark:border-[var(--color-border)] shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-ink-150 dark:border-[var(--color-border)] flex items-center justify-between">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
+                <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
                     <div>
-                        <h2 className="text-sm font-bold uppercase tracking-wider text-ink-800 dark:text-white">
+                        <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--color-fg)]">
                             Historique et Statut des Périodes de Paie
                         </h2>
-                        <p className="text-xs text-ink-400 dark:text-[var(--color-fg-muted)] mt-0.5">
+                        <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
                             Le verrouillage bloque instantanément toute modification dans la Saisie Quotidienne.
                         </p>
                     </div>

@@ -1420,7 +1420,7 @@ public class PointageSaisieService {
                 boolean siteEstContinu = siteHoraireContinuMap.getOrDefault(idSiteRow, true);
                 BigDecimal fractionDep = (depM ? new BigDecimal("0.5") : BigDecimal.ZERO)
                         .add(depA ? new BigDecimal("0.5") : BigDecimal.ZERO);
-                boolean doitReduireTransport = (!siteEstContinu && (isJourneeContinue || (dto.isIndemniteRepasRecue() && mntRepasJour.signum() > 0)));
+                boolean doitReduireTransport = (!siteEstContinu && dto.isIndemniteRepasRecue() && mntRepasJour.signum() > 0);
                 BigDecimal mntDepJour = MoneyRoundingPolicy.amount(dailyAttendanceCalculator.calculateTravelAmount(
                         fractionDep, montantDeplacementJour,
                         doitReduireTransport, reductionDeplactRepasConfig));

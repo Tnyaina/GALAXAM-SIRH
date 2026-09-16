@@ -164,7 +164,7 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 ('GESTION_PERSONNEL', 'Gestion du Personnel',        'Users',           NULL,        2, 1, NULL),
 ('CONGES_MODULE',     'Congés & Absences',           'Palmtree',        '/conges',   3, 1, NULL),
 ('POINTAGE',          'Pointage & Présences',        'Clock',           '/pointages',4, 1, NULL),
-('PAIE_MODULE',       'Paie & Rémunération',         'Banknote',        '/paie',     5, 1, NULL),
+('PAIE_MODULE',       'Paie & Rémunération',         'Banknote',        NULL,        5, 1, NULL),
 ('ADMIN_MODULE',      'Administration & Paramétrage', 'Settings',        NULL,        6, 1, NULL);
 
 -- Menus Niveau 2 (Archives 26-07-31-sp0.sql)
@@ -191,11 +191,13 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 ('POINTAGE_SUIVI',       'Suivi & Anomalies',     'CalendarCheck', '/pointages?tab=suivi',      2, 2, 'POINTAGE'),
 ('POINTAGE_VALIDATION',  'Contrôle & Validation', 'ShieldCheck',   '/pointages?tab=validation', 3, 2, 'POINTAGE');
 
--- Paie
+-- Paie (Consolidé Sprint 2B : sous-menus majeurs de gestion de paie)
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-('PAIE_PERIODES',        'Périodes de Paie & Clôture',      'CalendarRange',  '/paie?tab=periodes',        1, 2, 'PAIE_MODULE'),
-('PAIE_VARIABLES',       'Variables & Ajustements',         'Sliders',        '/paie?tab=variables',       2, 2, 'PAIE_MODULE'),
-('PAIE_BULLETINS',       'Bulletins de Paie',               'FileSpreadsheet','/paie?tab=bulletins',       3, 2, 'PAIE_MODULE');
+('PAIE_CAMPAGNE',  'Campagne Active',         'LayoutDashboard',   '/paie?tab=campagne', 1, 2, 'PAIE_MODULE'),
+('PAIE_VARIABLES', 'Variables & Primes',       'SlidersHorizontal', '/paie?tab=variables',2, 2, 'PAIE_MODULE'),
+('PAIE_REVUE',     'Revue des Bulletins',      'Banknote',          '/paie?tab=cockpit',  3, 2, 'PAIE_MODULE'),
+('PAIE_PERIODES',  'Historique des Périodes',  'CalendarRange',     '/paie?tab=periodes', 4, 2, 'PAIE_MODULE'),
+('PAIE_EXPORTS',   'Déclarations & Sorties',   'FileText',          '/paie?tab=exports',  5, 2, 'PAIE_MODULE');
 
 -- Habilitations Menus (Role x Menu) (Archives Finales Sprint 11)
 -- ROLE_ADMIN (id_role = 1) : Accès complet
@@ -212,9 +214,11 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'POINTAGE_SUIVI'),
 (1, 'POINTAGE_VALIDATION'),
 (1, 'PAIE_MODULE'),
-(1, 'PAIE_PERIODES'),
+(1, 'PAIE_CAMPAGNE'),
 (1, 'PAIE_VARIABLES'),
-(1, 'PAIE_BULLETINS'),
+(1, 'PAIE_REVUE'),
+(1, 'PAIE_PERIODES'),
+(1, 'PAIE_EXPORTS'),
 (1, 'ADMIN_MODULE'),
 (1, 'ADMIN_SECURITE'),
 (1, 'ADMIN_ORGANISATION'),

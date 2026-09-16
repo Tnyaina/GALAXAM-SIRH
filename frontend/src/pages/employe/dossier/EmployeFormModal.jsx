@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { User, CreditCard, Phone, Users, ShieldAlert, Building, Check, ArrowRight, ArrowLeft } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import employeService from '@/api/employe/employeService';
+import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
 import Alert from '@/components/ui/feedback/Alert';
@@ -359,7 +360,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
             });
         } catch (err) {
             console.error("Erreur soumission formulaire employé:", err);
-            const msg = err?.response?.data?.message || err?.response?.data?.error || (typeof err?.response?.data === 'string' ? err?.response?.data : null) || err?.message || "Erreur lors de l'enregistrement de la fiche.";
+            const msg = getErrorMessage(err, "Erreur lors de l'enregistrement de la fiche.");
             setErrorMsg(msg);
         }
     };

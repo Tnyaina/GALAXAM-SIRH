@@ -5,6 +5,7 @@ import { getMenuIcon } from '@/utils/iconRegistry';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import Button from '@/components/ui/forms/Button';
+import { findActiveLeafId, hasActiveDescendant } from '@/utils/sidebarUtils';
 
 const COLLAPSE_STORAGE_KEY = 'galaxam-sidebar-collapsed';
 
@@ -12,92 +13,22 @@ function sortByRang(items) {
     return [...items].sort((a, b) => (a.rang ?? 0) - (b.rang ?? 0));
 }
 
-const normalizePath = (p) => {
-    return (p || '').split('?')[0].replace(/\/+$/, '');
-};
-
-const getAllMenuHrefs = (items = []) => {
-    let hrefs = [];
-    for (const item of items) {
-        if (item.href) hrefs.push(item.href);
-        if (item.sousMenus?.length) {
-            hrefs = hrefs.concat(getAllMenuHrefs(item.sousMenus));
-        }
-    }
-    return hrefs;
-};
-
-const isUrlMatch = (href, location, allHrefs = []) => {
-    if (!href || href === '#') return false;
-
-    const targetBase = normalizePath(href);
-    const currentBase = normalizePath(location.pathname);
-
-    if (targetBase !== currentBase) {
-        // Gérer les sous-routes (ex: /employes/42 correspond au menu /employes)
-        if (targetBase !== '' && targetBase !== '/' && currentBase.startsWith(targetBase + '/')) {
-            return true;
-        }
-        return false;
-    }
-
-    // Si le lien du menu a des paramètres d'URL (ex: ?tab=validation),
-    // vérifier que tous les paramètres définis dans le href sont présents avec la même valeur
-    if (href.includes('?')) {
-        const targetParams = new URLSearchParams(href.split('?')[1]);
-        const currentParams = new URLSearchParams(location.search);
-        for (const [key, val] of targetParams.entries()) {
-            if (currentParams.get(key) !== val) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // Si le lien n'a pas de paramètres d'URL, mais que l'URL courante a des query params :
-    // Ne désactiver ce lien QUE s'il existe dans le menu un AUTRE lien configuré sur la même
-    // route de base avec des paramètres qui correspondent exactement à l'URL courante.
-    if (location.search && allHrefs.length > 0) {
-        const currentParams = new URLSearchParams(location.search);
-        const hasSpecializedSibling = allHrefs.some(otherHref => {
-            if (!otherHref || otherHref === href || !otherHref.includes('?')) return false;
-            if (normalizePath(otherHref) !== currentBase) return false;
-            const otherParams = new URLSearchParams(otherHref.split('?')[1]);
-            let matches = true;
-            for (const [key, val] of otherParams.entries()) {
-                if (currentParams.get(key) !== val) {
-                    matches = false;
-                    break;
-                }
-            }
-            return matches;
-        });
-        if (hasSpecializedSibling) {
-            return false;
-        }
-    }
-
-    return true;
-};
-
-const isChildActive = (node, location, allHrefs = []) => {
-    if (!node.sousMenus) return false;
-    return node.sousMenus.some(child => (child.href && isUrlMatch(child.href, location, allHrefs)) || isChildActive(child, location, allHrefs));
-};
-
-function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar, allHrefs = [] }) {
-    const location = useLocation();
+function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar, activeLeafId }) {
     const hasChildren = item.sousMenus?.length > 0;
     const paddingLeft = `${16 + depth * 16}px`;
 
-    const [expanded, setExpanded] = useState(() => hasChildren && isChildActive(item, location, allHrefs));
+    const isDescendantActive = useMemo(
+        () => hasChildren && hasActiveDescendant(item, activeLeafId),
+        [hasChildren, item, activeLeafId]
+    );
+
+    const [expanded, setExpanded] = useState(() => isDescendantActive);
 
     useEffect(() => {
-        if (hasChildren && isChildActive(item, location, allHrefs)) {
-            setExpanded(prev => (prev ? prev : true));
+        if (isDescendantActive) {
+            setExpanded(true);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location.pathname, location.search, hasChildren, item, allHrefs]);
+    }, [isDescendantActive]);
 
     const handleParentClick = () => {
         if (collapsed) {
@@ -112,10 +43,11 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar, 
         return (
             <li>
                 <button
+                    type="button"
                     onClick={handleParentClick}
                     style={{
                         paddingLeft,
-                        color: expanded ? 'var(--color-sidebar-fg-active)' : 'var(--color-sidebar-fg)'
+                        color: 'var(--color-sidebar-fg)'
                     }}
                     title={collapsed ? item.libelle : undefined}
                     className="
@@ -155,7 +87,7 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar, 
                                 depth={depth + 1}
                                 collapsed={collapsed}
                                 onRequestExpandSidebar={onRequestExpandSidebar}
-                                allHrefs={allHrefs}
+                                activeLeafId={activeLeafId}
                             />
                         ))}
                     </ul>
@@ -164,7 +96,7 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar, 
         );
     }
 
-    const isActive = isUrlMatch(item.href, location, allHrefs);
+    const isActive = item.idMenu === activeLeafId;
 
     return (
         <li>
@@ -198,8 +130,9 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar, 
 }
 
 export default function Sidebar({ open, onClose, menu = [], loading, error }) {
+    const location = useLocation();
     const sorted = sortByRang(menu);
-    const allHrefs = useMemo(() => getAllMenuHrefs(menu), [menu]);
+    const activeLeafId = useMemo(() => findActiveLeafId(menu, location), [menu, location]);
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
@@ -302,7 +235,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                                     onClose={onClose}
                                     collapsed={collapsed}
                                     onRequestExpandSidebar={() => setCollapsed(false)}
-                                    allHrefs={allHrefs}
+                                    activeLeafId={activeLeafId}
                                 />
                             ))}
                         </ul>

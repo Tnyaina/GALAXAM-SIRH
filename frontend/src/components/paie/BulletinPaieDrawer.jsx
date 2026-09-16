@@ -15,6 +15,7 @@ import SlideOver from '@/components/ui/overlays/SlideOver';
 import Button from '@/components/ui/forms/Button';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import paieService from '@/api/paie/paieService';
+import { getErrorMessage } from '@/api/apiClient';
 import BulletinPaiePrintView from './BulletinPaiePrintView';
 
 /**
@@ -49,7 +50,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
             const res = await paieService.getBulletinComplet(idBulletin);
             setData(res);
         } catch (err) {
-            setError(err.response?.data?.error || err.message || 'Impossible de charger le bulletin.');
+            setError(getErrorMessage(err, 'Impossible de charger le bulletin.'));
         } finally {
             setLoading(false);
         }
@@ -126,7 +127,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         } catch (err) {
             setFeedbackMsg({ 
                 type: 'error', 
-                text: err.response?.data?.error || 'Erreur lors de la création de la variable.' 
+                text: getErrorMessage(err, 'Erreur lors de la création de la variable.') 
             });
         } finally {
             setSubmittingAjustement(false);
@@ -151,7 +152,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         } catch (err) {
             setFeedbackMsg({ 
                 type: 'error', 
-                text: err.response?.data?.error || 'Erreur lors du recalcul.' 
+                text: getErrorMessage(err, 'Erreur lors du recalcul.') 
             });
         } finally {
             setRecalculating(false);

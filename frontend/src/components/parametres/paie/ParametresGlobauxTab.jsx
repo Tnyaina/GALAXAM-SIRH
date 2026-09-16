@@ -19,6 +19,7 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
 import Modal from '@/components/ui/overlays/Modal';
 import { useToast } from '@/components/ui/feedback/Toast';
+import { getErrorMessage } from '@/api/apiClient';
 
 // Métadonnées métier enrichies pour libellés humains, icônes et explications claires
 const PARAMETRE_METADATA = {
@@ -485,7 +486,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
             await loadParametres();
         } catch (err) {
             console.error('Erreur sauvegarde paramètre global:', err);
-            const msg = err.response?.data?.message || err.response?.data?.error || "Erreur lors de la sauvegarde du paramètre.";
+            const msg = getErrorMessage(err, "Erreur lors de la sauvegarde du paramètre.");
             setModalError(msg);
         } finally {
             setSubmitting(false);

@@ -10,6 +10,19 @@ export const paieService = {
         return response.data;
     },
 
+    /**
+     * Sprint 2B : Récupère le contexte enrichi d'une période, incluant :
+     * - campaignSteps : liste ordonnée des étapes avec leur état (CURRENT, COMPLETED, BLOCKED...)
+     * - currentStep : code de l'étape courante calculée par le backend
+     * - recalculationRequired : indique si un recalcul est nécessaire
+     * - availableActions : map des actions autorisées
+     * Le frontend utilise ces données directement pour afficher le stepper sans logique métier.
+     */
+    getWorkflowContext: async (idPeriode) => {
+        const response = await apiClient.get('/periodes/context', { params: { periodId: idPeriode } });
+        return response.data;
+    },
+
     calculerBulletinEmploye: async (idEmploye, idPeriodePaie, simulation = false) => {
         const response = await apiClient.post('paie/calculer-employe', {
             idEmploye,

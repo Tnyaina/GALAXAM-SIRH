@@ -25,6 +25,15 @@ const GestionCongesPage = lazy(() => import("@/pages/conges/GestionCongesPage"))
 // Module Paie & Rémunération
 const GestionPaiePage = lazy(() => import("@/pages/paie/GestionPaiePage"));
 
+// Sprint 2B — Pages d'étapes de campagne de paie
+const PreparationStepPage  = lazy(() => import("@/pages/paie/PreparationStepPage"));
+const PopulationStepPage   = lazy(() => import("@/pages/paie/PopulationStepPage"));
+const VariablesStepPage    = lazy(() => import("@/pages/paie/VariablesStepPage"));
+const CalculStepPage       = lazy(() => import("@/pages/paie/CalculStepPage"));
+const ControleStepPage     = lazy(() => import("@/pages/paie/ControleStepPage"));
+const ValidationStepPage   = lazy(() => import("@/pages/paie/ValidationStepPage"));
+const SortiesStepPage      = lazy(() => import("@/pages/paie/SortiesStepPage"));
+
 // Module Employés
 const EmployeList = lazy(() => import("@/pages/employe/EmployeList"));
 const EmployeFicheDetailPage = lazy(() => import("@/pages/employe/EmployeFicheDetailPage"));
@@ -94,8 +103,21 @@ export default function Router() {
                     {/* Module Paie & Rémunération (Admin DAF)              */}
                     {/* ---------------------------------------------------- */}
                     <Route element={<ProtectedRoute requiredPermission="PAIE_READ" allowedRoles={["ROLE_ADMIN"]} />}>
+                        {/* Page d'accueil paie (sélecteur de période) */}
                         <Route path="/paie" element={<GestionPaiePage />} />
                         <Route path="/paie/periodes" element={<Navigate to="/paie?tab=periodes" replace />} />
+
+                        {/* Sprint 2B — Pages d'étapes de campagne */}
+                        <Route path="/paie/periodes/:periodId/preparation"  element={<PreparationStepPage />} />
+                        <Route path="/paie/periodes/:periodId/population"   element={<PopulationStepPage />} />
+                        <Route path="/paie/periodes/:periodId/variables"    element={<VariablesStepPage />} />
+                        <Route path="/paie/periodes/:periodId/calcul"       element={<CalculStepPage />} />
+                        <Route path="/paie/periodes/:periodId/controle"     element={<ControleStepPage />} />
+                        <Route path="/paie/periodes/:periodId"              element={<Navigate to="preparation" replace />} />
+                        <Route path="/paie/periodes/:periodId/validation"   element={<ValidationStepPage />} />
+                        <Route path="/paie/periodes/:periodId/sorties"      element={<SortiesStepPage />} />
+
+                        {/* Redirections de compatibilité (anciennes URLs) */}
                         <Route path="/paie/periods/:periodId/:step" element={<GestionPaiePage />} />
                         <Route path="/paie/periods/:periodId/results/:employeeId" element={<GestionPaiePage />} />
                     </Route>

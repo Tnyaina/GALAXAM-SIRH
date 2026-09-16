@@ -30,6 +30,7 @@ import organisationService from '@/api/admin/organisationService';
 import periodePaieService from '@/services/periodePaieService';
 import usePointageAnomalies from '@/hooks/pointage/usePointageAnomalies';
 import Pagination from '@/components/ui/navigation/Pagination';
+import { getErrorMessage } from '@/api/apiClient';
 
 const AnomalieRegularisationModal = lazy(() => import('@/components/pointage/AnomalieRegularisationModal'));
 
@@ -252,7 +253,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             }
         } catch (err) {
             console.error('Erreur transmission validation:', err);
-            toast.error(err?.response?.data?.error || 'Impossible de transmettre la période pour validation.');
+            toast.error(getErrorMessage(err, 'Impossible de transmettre la période pour validation.'));
         } finally {
             setTransmitting(false);
         }

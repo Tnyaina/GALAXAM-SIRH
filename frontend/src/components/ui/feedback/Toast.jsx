@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
+import { cleanUserFacingMessage, getErrorMessage } from '@/api/apiClient';
 
 const ToastContext = createContext(null);
 
@@ -21,19 +22,48 @@ export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
   const toastFn = useCallback(({ title, message, type = 'info', duration = 4000 }) => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, title, message, type }]);
+    let cleanMsg = '';
+    if (typeof message === 'string') {
+      cleanMsg = cleanUserFacingMessage(message, type === 'error' ? 'Une erreur est survenue.' : undefined);
+    } else if (message instanceof Error || (message && (message.response || message.userMessage || message.message))) {
+      cleanMsg = getErrorMessage(message, 'Une erreur est survenue.');
+    } else if (message && typeof message === 'object') {
+      cleanMsg = cleanUserFacingMessage(message.message || '', 'Une notification est disponible.');
+    }
+
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, title, message: cleanMsg, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
   }, []);
 
   const toast = useMemo(() => {
+    const normalizePayload = (msg, title, type) => {
+      let resolvedMsg = msg;
+      let resolvedTitle = title;
+      if (typeof msg === 'string') {
+        resolvedMsg = cleanUserFacingMessage(msg);
+      } else if (msg instanceof Error || (msg && (msg.response || msg.userMessage))) {
+        resolvedMsg = getErrorMessage(msg);
+        resolvedTitle = title || (type === 'error' ? 'Erreur' : undefined);
+      } else if (msg && typeof msg === 'object') {
+        resolvedMsg = msg.message;
+        resolvedTitle = title || msg.title;
+      }
+      return { type, message: resolvedMsg, title: resolvedTitle };
+    };
+
     const t = Object.assign(
-      (args) => toastFn(args),
+      (args) => {
+        if (typeof args === 'string') {
+          return toastFn({ message: args, type: 'info' });
+        }
+        return toastFn(args || {});
+      },
       {
-        success: (msg, title) => toastFn({ type: 'success', message: typeof msg === 'string' ? msg : msg?.message, title: title || (typeof msg === 'object' ? msg?.title : undefined) }),
-        error: (msg, title) => toastFn({ type: 'error', message: typeof msg === 'string' ? msg : msg?.message, title: title || (typeof msg === 'object' ? msg?.title : undefined) }),
-        warning: (msg, title) => toastFn({ type: 'warning', message: typeof msg === 'string' ? msg : msg?.message, title: title || (typeof msg === 'object' ? msg?.title : undefined) }),
-        info: (msg, title) => toastFn({ type: 'info', message: typeof msg === 'string' ? msg : msg?.message, title: title || (typeof msg === 'object' ? msg?.title : undefined) })
+        success: (msg, title) => toastFn(normalizePayload(msg, title, 'success')),
+        error: (msg, title) => toastFn(normalizePayload(msg, title, 'error')),
+        warning: (msg, title) => toastFn(normalizePayload(msg, title, 'warning')),
+        info: (msg, title) => toastFn(normalizePayload(msg, title, 'info'))
       }
     );
     t.toast = t;

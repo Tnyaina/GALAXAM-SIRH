@@ -7,6 +7,13 @@ import java.util.Map;
 import mg.galaxam.sirh.api.dto.common.ActionCapability;
 import mg.galaxam.sirh.api.dto.common.BusinessIssue;
 
+/**
+ * Contexte complet d'une période de paie retourné au frontend.
+ *
+ * <p>Sprint 2B : Enrichi avec les étapes de campagne résolues côté backend
+ * ({@code campaignSteps}, {@code currentStep}, {@code recalculationRequired})
+ * pour alimenter le stepper wizard du frontend sans logique de décision côté client.
+ */
 public record PayrollPeriodContextView(
         LocalDate businessDate,
         PayrollPeriodSummary currentPeriod,
@@ -20,13 +27,42 @@ public record PayrollPeriodContextView(
          * Le frontend utilise {@code nextStep.destination} pour la navigation et ne reconstruit pas cette logique.
          * Peut être {@code null} si aucune action n'est disponible.
          */
-        NextStep nextStep) {
+        NextStep nextStep,
+
+        /**
+         * Sprint 2B : Code de l'étape courante dans le workflow de campagne.
+         * Exemples : "PREPARATION", "POPULATION", "VARIABLES", "CALCULATION",
+         *            "CONTROL", "VALIDATION", "OUTPUTS".
+         * Peut être {@code null} si la période n'est pas encore active (pointage non gelé).
+         */
+        String currentStep,
+
+        /**
+         * Sprint 2B : Liste ordonnée des étapes du workflow de campagne avec leur état calculé.
+         * Chaque élément contient : code, label, state, destination, issues, warnings.
+         * Le frontend affiche ces étapes dans le PayrollPeriodStepper sans recalculer.
+         */
+        List<PayrollCampaignStep> campaignSteps,
+
+        /**
+         * Sprint 2B : Vrai si des variables ont été modifiées ou ajoutées depuis le dernier
+         * calcul de paie, ou si le snapshot de pointage a changé. Dans ce cas, le frontend
+         * doit afficher un avertissement invitant à recalculer.
+         */
+        boolean recalculationRequired,
+
+        /**
+         * Sprint 2B : Message explicatif en français pour la DAF si {@code recalculationRequired == true}.
+         * Ex : "3 variables ont été modifiées depuis le dernier calcul."
+         */
+        String recalculationReason) {
 
     public PayrollPeriodContextView {
         availableActions = availableActions == null ? Map.of() : Map.copyOf(availableActions);
         issues = issues == null ? List.of() : List.copyOf(issues);
         warnings = warnings == null ? List.of() : List.copyOf(warnings);
         outputs = outputs == null ? List.of() : List.copyOf(outputs);
+        campaignSteps = campaignSteps == null ? List.of() : List.copyOf(campaignSteps);
         // nextStep peut être null (aucune action disponible)
     }
 

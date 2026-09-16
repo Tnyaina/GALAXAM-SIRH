@@ -19,6 +19,7 @@ import mg.galaxam.sirh.api.dto.common.BusinessDecision;
 import mg.galaxam.sirh.api.dto.common.BusinessIssue;
 import mg.galaxam.sirh.api.dto.common.DecisionStatus;
 import mg.galaxam.sirh.api.dto.common.RuleResult;
+import mg.galaxam.sirh.api.dto.paie.PayrollCampaignStep;
 import mg.galaxam.sirh.api.dto.paie.PayrollPeriodContextView;
 import mg.galaxam.sirh.api.dto.paie.PayrollPeriodSummary;
 import mg.galaxam.sirh.api.dto.paie.PayrollOutputView;
@@ -117,9 +118,18 @@ public class PayrollPeriodWorkflowService {
                 return new PayrollPeriodContextView(targetDate, null, null, Map.of(),
                         List.of(new BusinessIssue("PAYROLL_PERIOD_CONTEXT_REQUIRED",
                                 "Sélectionnez explicitement une période de paie.", Map.of())),
-                        List.of(), List.of(), null);
+                        List.of(), List.of(), null,
+                        null, List.of(), false, null);
             }
             Map<String, ActionCapability> actions = availableActions(selected.id(), selected.state(), user, connection);
+            // Sprint 2B : champs enrichis pour le stepper wizard frontend
+            String currentStep = computeCurrentStep(selected, connection);
+            List<PayrollCampaignStep> campaignSteps = computeCampaignSteps(selected, actions, connection);
+            int recalcCount = computeRecalculationCount(selected.id(), selected.state(), connection);
+            boolean recalcRequired = recalcCount > 0;
+            String recalcReason = recalcRequired
+                    ? recalcCount + " variable(s) modifiée(s) depuis le dernier calcul de la campagne."
+                    : null;
             return new PayrollPeriodContextView(
                     targetDate,
                     toSummary(current),
@@ -129,7 +139,11 @@ public class PayrollPeriodWorkflowService {
                     List.of(),
                     outputViews(selected, user, connection),
                     // P1-02 : nextStep calculé par le backend selon statut + actions disponibles
-                    computeNextStep(selected.id(), selected.state(), actions));
+                    computeNextStep(selected.id(), selected.state(), actions),
+                    currentStep,
+                    campaignSteps,
+                    recalcRequired,
+                    recalcReason);
         }
     }
 
@@ -249,6 +263,159 @@ public class PayrollPeriodWorkflowService {
         }
         // Période clôturée ou sans action disponible
         return new PayrollPeriodContextView.NextStep("COCKPIT", "/paie/periods/" + periodId + "/overview");
+    }
+
+    /**
+     * Sprint 2B : Calcule le code de l'étape courante dans le workflow de campagne.
+     * <p>Retourne {@code null} si le pointage n'est pas encore figé.
+     */
+    private String computeCurrentStep(PeriodState period, Connection connection) throws SQLException {
+        String state = period.state();
+        if (!List.of("VALIDEE", "CLOTUREE").contains(state)) return null;
+        if ("CLOTUREE".equals(state)) return "OUTPUTS";
+
+        int total = count(connection, "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ?", period.id());
+        if (total == 0) return "PREPARATION";
+
+        int valide = count(connection,
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('VALIDE','CLOTURE')", period.id());
+        if (valide == total) return "VALIDATION";
+
+        int calcule = count(connection,
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut = 'CALCULE'", period.id());
+        return calcule > 0 ? "CONTROL" : "CALCULATION";
+    }
+
+    /**
+     * Sprint 2B : Construit la liste ordonnée des étapes du workflow de campagne avec leur état.
+     * Le frontend utilise cette liste directement pour le stepper — aucune logique côté client.
+     */
+    private List<PayrollCampaignStep> computeCampaignSteps(
+            PeriodState period, Map<String, ActionCapability> actions, Connection connection) throws SQLException {
+        String state = period.state();
+        int periodId = period.id();
+
+        boolean paieOk = List.of("VALIDEE", "CLOTUREE").contains(state);
+        boolean cloturee = "CLOTUREE".equals(state);
+
+        int total = paieOk ? count(connection,
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ?", periodId) : 0;
+        int calcule = paieOk && total > 0 ? count(connection,
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut = 'CALCULE'", periodId) : 0;
+        int valide = paieOk && total > 0 ? count(connection,
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('VALIDE','CLOTURE')", periodId) : 0;
+        boolean hasSnapshot = paieOk && count(connection,
+                "SELECT COUNT(*) FROM pointage_cumul_periode WHERE id_periode_paie = ? "
+                + "AND statut_snapshot IN ('GELE','CONSOMME')", periodId) > 0;
+
+        boolean hasBulletins = total > 0;
+        boolean allValidated = hasBulletins && valide == total;
+        boolean someCalcOrValid = calcule > 0 || valide > 0;
+
+        int recalcCount = computeRecalculationCount(periodId, state, connection);
+        boolean recalcNeeded = recalcCount > 0;
+
+        String base = "/paie/periodes/" + periodId;
+        List<String> noIssues = List.of();
+        List<String> frozenIssue = List.of("Pointage non figé — en attente de validation DAF.");
+
+        List<PayrollCampaignStep> steps = new java.util.ArrayList<>();
+
+        // 1. PREPARATION — vérification des prérequis
+        steps.add(new PayrollCampaignStep("PREPARATION", "Préparation",
+                !paieOk ? "BLOCKED" : cloturee ? "LOCKED" : hasBulletins ? "COMPLETED" : "CURRENT",
+                base + "/preparation",
+                !paieOk ? frozenIssue : noIssues, noIssues));
+
+        // 2. POPULATION — liste des salariés à payer
+        steps.add(new PayrollCampaignStep("POPULATION", "Population",
+                !paieOk ? "BLOCKED" : cloturee ? "LOCKED" : hasBulletins ? "COMPLETED" : "AVAILABLE",
+                base + "/population",
+                !paieOk ? frozenIssue : noIssues, noIssues));
+
+        // 3. VARIABLES — saisie des éléments variables
+        String varState;
+        if (!paieOk) varState = "BLOCKED";
+        else if (cloturee) varState = "LOCKED";
+        else if (recalcNeeded && hasBulletins) varState = "WARNING";
+        else if (hasBulletins) varState = "COMPLETED";
+        else varState = "AVAILABLE";
+        steps.add(new PayrollCampaignStep("VARIABLES", "Variables", varState, base + "/variables",
+                !paieOk ? frozenIssue : noIssues,
+                recalcNeeded && hasBulletins ? List.of(recalcCount + " variable(s) modifiée(s) après calcul.") : noIssues));
+
+        // 4. CALCULATION — lancement du moteur de calcul
+        String calcState;
+        if (!paieOk || !hasSnapshot) calcState = "BLOCKED";
+        else if (cloturee) calcState = "LOCKED";
+        else if (recalcNeeded && hasBulletins) calcState = "WARNING";
+        else if (hasBulletins) calcState = "COMPLETED";
+        else calcState = "AVAILABLE";
+        steps.add(new PayrollCampaignStep("CALCULATION", "Calcul", calcState, base + "/calcul",
+                !paieOk ? frozenIssue : !hasSnapshot ? List.of("Aucun snapshot de pointage figé.") : noIssues,
+                recalcNeeded && hasBulletins ? List.of("Recalcul recommandé.") : noIssues));
+
+        // 5. CONTROL — revue des bulletins et anomalies
+        String ctrlState;
+        if (!paieOk || !hasBulletins) ctrlState = "BLOCKED";
+        else if (cloturee) ctrlState = "LOCKED";
+        else if (allValidated) ctrlState = "COMPLETED";
+        else if (someCalcOrValid) ctrlState = "CURRENT";
+        else ctrlState = "AVAILABLE";
+        steps.add(new PayrollCampaignStep("CONTROL", "Contrôle", ctrlState, base + "/controle",
+                !hasBulletins ? List.of("Aucun bulletin calculé.") : noIssues, noIssues));
+
+        // 6. VALIDATION — approbation des bulletins
+        String validState;
+        if (!paieOk || !hasBulletins) validState = "BLOCKED";
+        else if (cloturee) validState = "LOCKED";
+        else if (allValidated) validState = "CURRENT";
+        else if (someCalcOrValid) validState = "AVAILABLE";
+        else validState = "BLOCKED";
+        steps.add(new PayrollCampaignStep("VALIDATION", "Validation", validState, base + "/validation",
+                !hasBulletins ? List.of("Aucun bulletin calculé.") : noIssues, noIssues));
+
+        // 7. OUTPUTS — bulletins de paie et exports réglementaires
+        boolean outputAllowed = actions.getOrDefault("GENERATE_OUTPUT",
+                ActionCapability.denied("NA")).allowed();
+        String outState;
+        if (!paieOk) outState = "BLOCKED";
+        else if (cloturee) outState = "CURRENT";
+        else if (outputAllowed) outState = "AVAILABLE";
+        else outState = "BLOCKED";
+        steps.add(new PayrollCampaignStep("OUTPUTS", "Bulletins & Exports", outState, base + "/sorties",
+                !outputAllowed && !cloturee ? List.of("Bulletins non encore validés.") : noIssues, noIssues));
+
+        return List.copyOf(steps);
+    }
+
+    /**
+     * Sprint 2B : Compte le nombre de variables (paie_avance_acompte) ajoutées ou modifiées
+     * après le dernier calcul de bulletin pour la période donnée.
+     * Retourne 0 si le pointage n'est pas figé, si aucun bulletin n'existe, ou si aucune
+     * modification n'est détectée.
+     */
+    private int computeRecalculationCount(int periodId, String state, Connection connection) throws SQLException {
+        if (!List.of("VALIDEE", "CLOTUREE").contains(state)) return 0;
+        int bulletinCount = count(connection,
+                "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? "
+                + "AND statut IN ('CALCULE','VALIDE','CLOTURE')", periodId);
+        if (bulletinCount == 0) return 0;
+
+        String sql = "SELECT COUNT(*) FROM paie_avance_acompte a "
+                + "WHERE a.id_periode_paie = ? "
+                + "AND a.statut NOT IN ('ANNULE','REJETE') "
+                + "AND a.updated_at > ("
+                + "  SELECT COALESCE(MAX(b.updated_at), '1970-01-01'::timestamptz) "
+                + "  FROM bulletin_paie b WHERE b.id_periode_paie = ?)";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, periodId);
+            statement.setInt(2, periodId);
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return result.getInt(1);
+            }
+        }
     }
 
     private String targetState(String currentState, PayrollPeriodCommand command) {

@@ -164,14 +164,31 @@ apiClient.interceptors.response.use(
     }
 );
 
+const RAW_HTTP_ERRORS = {
+    'conflict': "Cette opération est en conflit avec l'état actuel des données (ex: période clôturée ou validée, contrainte métier).",
+    'bad request': "Les données transmises sont incomplètes ou invalides.",
+    'not found': "L'élément demandé est introuvable ou a été supprimé.",
+    'forbidden': "Vous ne disposez pas des autorisations nécessaires pour cette opération.",
+    'unauthorized': "Votre session a expiré ou vos identifiants sont invalides.",
+    'internal server error': "Une anomalie temporaire est survenue côté serveur. Veuillez réessayer dans quelques instants.",
+    'bad gateway': "Le serveur distant est momentanément indisponible.",
+    'service unavailable': "Le service est temporairement indisponible.",
+    'gateway timeout': "Le serveur a mis trop de temps à répondre."
+};
+
 /**
  * Compatibilité d'affichage : le backend fournit déjà un message utilisateur et un code stable.
- * Aucun texte technique n'est interprété dans React.
+ * Aucun texte technique ou code HTTP brut n'est affiché sans traduction.
  */
 export const cleanUserFacingMessage = (rawMsg, fallback = "Une erreur inattendue est survenue.") => {
     if (!rawMsg || typeof rawMsg !== 'string') return fallback;
     const msg = rawMsg.trim();
     if (!msg) return fallback;
+
+    const lower = msg.toLowerCase();
+    if (RAW_HTTP_ERRORS[lower]) {
+        return fallback !== "Une erreur inattendue est survenue." ? fallback : RAW_HTTP_ERRORS[lower];
+    }
 
     return msg;
 };
@@ -188,9 +205,13 @@ export const getErrorMessage = (error, fallback = "Une erreur inattendue est sur
         candidate = error.userMessage;
     } else if (error.response?.data) {
         const d = error.response.data;
-        if (typeof d === 'string' && d.trim() !== '') candidate = d;
-        else if (d.message && typeof d.message === 'string') candidate = d.message;
-        else if (d.error && typeof d.error === 'string') candidate = d.error;
+        if (typeof d === 'string' && d.trim() !== '') {
+            candidate = d;
+        } else if (d.message && typeof d.message === 'string') {
+            candidate = d.message;
+        } else if (d.error && typeof d.error === 'string' && !RAW_HTTP_ERRORS[d.error.toLowerCase()]) {
+            candidate = d.error;
+        }
     } else if (error.message && typeof error.message === 'string') {
         candidate = error.message;
     }
@@ -199,3 +220,4 @@ export const getErrorMessage = (error, fallback = "Une erreur inattendue est sur
 };
 
 export default apiClient;
+

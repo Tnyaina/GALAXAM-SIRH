@@ -27,6 +27,24 @@ class AttendanceCalculationPipelineTest {
     }
 
     @Test
+    void dayWithoutMealKeepsFullTravelAmountEvenOnDiscontinuousSiteWithContinuousSchedule() {
+        // Site normalement discontinu (deduction = true), journée continue (8h-17h), mais repas non reçu (mealGranted = false)
+        DailyAttendanceContext context = new DailyAttendanceContext(1, LocalDate.of(2026, 9, 14),
+                LocalTime.of(8, 0), null, null, LocalTime.of(17, 0),
+                LocalTime.of(8, 0), null, null, LocalTime.of(17, 0),
+                LocalTime.of(22, 0), LocalTime.of(5, 0), true, false, false,
+                DailyAttendanceContext.LeavePart.NONE, false, new BigDecimal("2000"),
+                BigDecimal.ONE, new BigDecimal("2400"), new BigDecimal("1000"), true);
+
+        DailyAttendanceResult result = daily.calculateDay(context);
+
+        assertThat(result.mealDays()).isZero();
+        assertThat(result.mealAmount()).isEqualByComparingTo("0");
+        // Aucune déduction de 1000 Ar car le repas n'est pas reçu : montant plein 2400 Ar
+        assertThat(result.travelAmount()).isEqualByComparingTo("2400");
+    }
+
+    @Test
     void incompleteDayIsAnomaly() {
         DailyAttendanceContext context = day(LocalDate.of(2026, 9, 14),
                 LocalTime.of(8, 0), null, false);

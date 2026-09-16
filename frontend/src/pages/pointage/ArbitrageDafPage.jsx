@@ -22,6 +22,7 @@ import pointageSyntheseService from '@/api/pointage/pointageSyntheseService';
 import pointageSaisieService from '@/api/pointage/pointageSaisieService';
 import { formatMonnaie, formatHeuresMinutes, formatHeuresDecimal } from '@/utils/pointageUtils';
 import { isDateInFuture } from '@/utils/dateUtils';
+import { getErrorMessage } from '@/api/apiClient';
 import useDebounce from '@/hooks/useDebounce';
 
 const DafAjustementPointageModal = lazy(() => import('@/components/pointage/DafAjustementPointageModal'));
@@ -146,6 +147,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         periodes.find(p => p.idPeriodePaie === Number(selectedPeriode)) || null,
         [periodes, selectedPeriode]);
 
+    const isPeriodLocked = useMemo(() => {
+        const st = (currentPeriodeObj?.statutCode || currentPeriodeObj?.state || currentPeriodeObj?.statut_code || '').toUpperCase();
+        return st === 'VALIDEE' || st === 'CLOTUREE';
+    }, [currentPeriodeObj]);
+
     const periodActions = currentPeriodeObj?.availableActions || {};
     const canDecide = periodActions.APPROVE?.allowed === true || periodActions.REJECT?.allowed === true;
 
@@ -245,7 +251,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 await loadData();
             }
         } catch (err) {
-            toast({ title: 'Erreur', message: err?.response?.data?.error || 'Impossible de valider la période.', type: 'error' });
+            toast({ title: 'Erreur', message: getErrorMessage(err, 'Impossible de valider la période.'), type: 'error' });
         } finally { setProcessing(false); }
     };
 
@@ -267,13 +273,13 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 await loadData();
             }
         } catch (err) {
-            toast({ title: 'Erreur', message: err?.response?.data?.error || 'Impossible de renvoyer la période.', type: 'error' });
+            toast({ title: 'Erreur', message: getErrorMessage(err, 'Impossible de renvoyer la période.'), type: 'error' });
         } finally { setProcessing(false); }
     };
 
     const [recalculating, setRecalculating] = useState(false);
     const handleRecalculerTout = async () => {
-        if (!selectedPeriode) return;
+        if (!selectedPeriode || isPeriodLocked) return;
         setRecalculating(true);
         try {
             const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
@@ -294,8 +300,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             }
         } catch (err) {
             toast({
-                title: 'Erreur',
-                message: err?.response?.data?.error || err?.message || 'Erreur lors du recalcul.',
+                title: 'Erreur de recalcul',
+                message: getErrorMessage(err, 'Erreur lors du recalcul des pointages.'),
                 type: 'error'
             });
         } finally {
@@ -372,19 +378,35 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0 ml-auto">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            loading={recalculating}
-                            onClick={handleRecalculerTout}
-                            icon={<RefreshCw size={13} className={recalculating ? 'animate-spin' : ''} />}
-                            className="text-xs h-[32px] font-semibold"
-                            title="Recalculer et actualiser l'ensemble des semaines et cumuls"
-                        >
-                            <span className="hidden md:inline">Actualiser les calculs</span>
-                            <span className="md:hidden">Actualiser</span>
-                        </Button>
+                        {isPeriodLocked ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                loading={loading}
+                                onClick={loadData}
+                                icon={<RefreshCw size={13} className={loading ? 'animate-spin' : ''} />}
+                                className="text-xs h-[32px] font-semibold"
+                                title="Rafraîchir l'affichage (la période est validée ou clôturée, les calculs sont figés)"
+                            >
+                                <span className="hidden md:inline">Rafraîchir l'affichage</span>
+                                <span className="md:hidden">Rafraîchir</span>
+                            </Button>
+                        ) : (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                loading={recalculating}
+                                onClick={handleRecalculerTout}
+                                icon={<RefreshCw size={13} className={recalculating ? 'animate-spin' : ''} />}
+                                className="text-xs h-[32px] font-semibold"
+                                title="Recalculer et actualiser l'ensemble des semaines et cumuls"
+                            >
+                                <span className="hidden md:inline">Actualiser les calculs</span>
+                                <span className="md:hidden">Actualiser</span>
+                            </Button>
+                        )}
                         {canDecide && (
                             <>
                                 <Button type="button" variant="danger" size="sm" onClick={() => setShowRejetModal(true)}
@@ -786,12 +808,21 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                             </button>
                                                             <button
                                                                 type="button"
+                                                                disabled={isPeriodLocked}
                                                                 onClick={() => {
+                                                                    if (isPeriodLocked) {
+                                                                        toast({
+                                                                            title: 'Période verrouillée',
+                                                                            message: 'La période est validée ou clôturée : les modifications de pointage ne sont plus autorisées.',
+                                                                            type: 'warning'
+                                                                        });
+                                                                        return;
+                                                                    }
                                                                     setAdjustInitialDate(null);
                                                                     setSelectedEmployeToAdjust(row);
                                                                 }}
-                                                                className="inline-flex items-center justify-center w-7 h-7 border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] transition-all cursor-pointer"
-                                                                title="Ajuster le pointage de ce collaborateur"
+                                                                className={`inline-flex items-center justify-center w-7 h-7 border border-[var(--color-border-subtle)] ${isPeriodLocked ? 'opacity-40 cursor-not-allowed' : 'hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer'} transition-all`}
+                                                                title={isPeriodLocked ? "Période validée/clôturée : modifications impossibles" : "Ajuster le pointage de ce collaborateur"}
                                                             >
                                                                 <Edit3 size={13} />
                                                             </button>
@@ -824,8 +855,16 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 onSelectSemaine={(sem) => setSelectedSemaine(sem)}
                                 ganttData={ganttData}
                                 loadingGantt={loadingGantt}
-                                isReadOnly={false}
+                                isReadOnly={isPeriodLocked}
                                 onCellClick={(emp, day, _cellData) => {
+                                    if (isPeriodLocked) {
+                                        toast({
+                                            title: 'Période verrouillée',
+                                            message: 'La période est validée ou clôturée : les modifications de pointage ne sont plus autorisées.',
+                                            type: 'warning'
+                                        });
+                                        return;
+                                    }
                                     if (isDateInFuture(day?.date)) {
                                         toast({
                                             title: 'Action impossible',

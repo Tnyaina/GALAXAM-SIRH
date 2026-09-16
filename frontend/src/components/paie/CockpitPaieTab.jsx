@@ -28,6 +28,9 @@ import Pagination from '@/components/ui/navigation/Pagination';
 import useDebounce from '@/hooks/useDebounce';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
+import StatCard from '@/components/ui/data-display/StatCard';
+import { Table, Thead, Th, Tbody, Tr, Td, TableEmpty } from '@/components/ui/data-display/Table';
+import Input from '@/components/ui/forms/Input';
 
 /**
  * Cockpit Principal de Paie DAF (GALAXAM LOGISTICS)
@@ -493,84 +496,47 @@ export default function CockpitPaieTab({
             </div>
 
             {/* KPIs DE LA PÉRIODE (Wireframe 1) */}
-            {(view === 'overview' || view === 'results' || view === 'validation') && <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
-                    <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider block">
-                        Masse Brute
-                    </span>
-                    <span className="text-sm font-bold font-mono text-[var(--color-fg)] block mt-1">
-                        {formatAr(kpis.totalBrut)}
-                    </span>
-                    <div className="flex items-center gap-1 text-[10px] mt-1 font-mono text-[var(--color-fg-muted)]">
-                        {kpis.ecartBrutM1Pct !== undefined && kpis.ecartBrutM1Pct !== null && (
-                            <span className={`flex items-center ${kpis.ecartBrutM1Pct >= 0 ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
-                                {kpis.ecartBrutM1Pct >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                                Écart M-1 : {kpis.ecartBrutM1Pct >= 0 ? '+' : ''}{Math.abs(kpis.ecartBrutM1Pct).toFixed(1)}%
-                            </span>
-                        )}
-                    </div>
+            {(view === 'overview' || view === 'results' || view === 'validation') && (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                    <StatCard
+                        title="Masse Brute"
+                        value={formatAr(kpis.totalBrut)}
+                        color="neutral"
+                        change={kpis.ecartBrutM1Pct}
+                        changeLabel="Écart M-1"
+                    />
+                    <StatCard
+                        title="Charges Patronales"
+                        value={formatAr(kpis.totalCotisationsPatronales)}
+                        subtext="CNaPS (13%) + Santé + FMFP"
+                        color="warning"
+                    />
+                    <StatCard
+                        title="Cotisations Salariales"
+                        value={`-${formatAr(kpis.totalCotisationsSalariales)}`}
+                        subtext="CNaPS (1%) + Santé (1%)"
+                        color="danger"
+                    />
+                    <StatCard
+                        title="Retenue IRSA DGI"
+                        value={`-${formatAr(kpis.totalIrsa)}`}
+                        subtext="Barème progressif 6 tranches"
+                        color="danger"
+                    />
+                    <StatCard
+                        title="Net à Virer"
+                        value={formatAr(kpis.totalNetAPayer)}
+                        subtext={`Effectif : ${kpis.effectifCalcule ?? 0} salariés`}
+                        color="brand"
+                    />
+                    <StatCard
+                        title="Coût Global Entreprise"
+                        value={formatAr((Number(kpis.totalBrut) || 0) + (Number(kpis.totalCotisationsPatronales) || 0))}
+                        subtext="Brut + Charges patronales"
+                        color="neutral"
+                    />
                 </div>
-
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
-                    <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider block">
-                        Charges Patronales
-                    </span>
-                    <span className="text-sm font-bold font-mono text-[var(--color-fg)] block mt-1">
-                        {formatAr(kpis.totalCotisationsPatronales)}
-                    </span>
-                    <span className="text-[10px] text-[var(--color-fg-muted)] block mt-1">
-                        CNaPS (13%) + Santé + FMFP
-                    </span>
-                </div>
-
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
-                    <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider block">
-                        Cotisations Salariales
-                    </span>
-                    <span className="text-sm font-bold font-mono text-[var(--color-danger-600)] block mt-1">
-                        -{formatAr(kpis.totalCotisationsSalariales)}
-                    </span>
-                    <span className="text-[10px] text-[var(--color-fg-muted)] block mt-1">
-                        CNaPS (1%) + Santé (1%)
-                    </span>
-                </div>
-
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
-                    <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider block">
-                        Retenue IRSA DGI
-                    </span>
-                    <span className="text-sm font-bold font-mono text-[var(--color-danger-600)] block mt-1">
-                        -{formatAr(kpis.totalIrsa)}
-                    </span>
-                    <span className="text-[10px] text-[var(--color-fg-muted)] block mt-1">
-                        Barème progressif 6 tranches
-                    </span>
-                </div>
-
-                <div className="bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/30 p-3">
-                    <span className="text-[10px] font-semibold text-[var(--color-brand-500)] uppercase tracking-wider block">
-                        Net à Virer
-                    </span>
-                    <span className="text-base font-black font-mono text-[var(--color-brand-500)] block mt-1">
-                        {formatAr(kpis.totalNetAPayer)}
-                    </span>
-                    <span className="text-[10px] text-[var(--color-brand-500)]/80 block mt-1">
-                        Effectif rémunéré : {kpis.effectifCalcule ?? 0}
-                    </span>
-                </div>
-
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
-                    <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider block">
-                        Coût Global Entreprise
-                    </span>
-                    <span className="text-sm font-bold font-mono text-[var(--color-fg)] block mt-1">
-                        {formatAr((Number(kpis.totalBrut) || 0) + (Number(kpis.totalCotisationsPatronales) || 0))}
-                    </span>
-                    <span className="text-[10px] text-[var(--color-fg-muted)] block mt-1">
-                        Brut + Charges patronales
-                    </span>
-                </div>
-            </div>}
+            )}
 
             {view === 'validation' && (
                 <section aria-label="Résumé avant validation" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4">
@@ -620,23 +586,22 @@ export default function CockpitPaieTab({
             {/* Barre de Recherche & Filtres (Wireframe 1) */}
             {(view === 'overview' || view === 'results' || view === 'validation') && <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                    <div className="relative flex-1 sm:w-64">
-                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
-                        <input
+                    <div className="w-full sm:w-64">
+                        <Input
                             type="text"
                             placeholder="Recherche : Matricule, nom, poste..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full text-xs pl-8 pr-3 py-1.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-none focus:outline-none"
+                            iconLeft={<Search size={14} />}
                         />
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-[var(--color-fg-muted)]">Filtre Site :</span>
+                        <span className="text-[11px] text-[var(--color-fg-muted)] font-medium">Site :</span>
                         <select
                             value={filterSite}
                             onChange={(e) => setFilterSite(e.target.value)}
-                            className="text-xs py-1.5 px-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-none focus:outline-none"
+                            className="text-xs py-1.5 px-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] rounded-none focus:outline-none focus:border-[var(--color-brand-500)]"
                         >
                             <option value="ALL">Tous les sites</option>
                             {sites.map((s, idx) => (
@@ -646,11 +611,11 @@ export default function CockpitPaieTab({
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-[var(--color-fg-muted)]">Filtre Statut :</span>
+                        <span className="text-[11px] text-[var(--color-fg-muted)] font-medium">Statut :</span>
                         <select
                             value={filterAlert}
                             onChange={(e) => setFilterAlert(e.target.value)}
-                            className="text-xs py-1.5 px-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-none focus:outline-none"
+                            className="text-xs py-1.5 px-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] rounded-none focus:outline-none focus:border-[var(--color-brand-500)]"
                         >
                             <option value="ALL">Tous les statuts</option>
                             <option value="ALERTS">⚠ Variations &gt; 20%</option>
@@ -670,54 +635,53 @@ export default function CockpitPaieTab({
             {(view === 'overview' || view === 'results' || view === 'validation') && (loading ? (
                 <SkeletonTable rows={8} cols={7} />
             ) : (
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                            <tr className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-muted)] uppercase tracking-wider">
-                                <th className="p-3 font-semibold">MATR.</th>
-                                <th className="p-3 font-semibold">SALARIÉ</th>
-                                <th className="p-3 font-semibold">POSTE & SITE</th>
-                                <th className="p-3 font-semibold text-right">BRUT (Ar)</th>
-                                <th className="p-3 font-semibold text-right bg-[var(--color-brand-500)]/5">NET (Ar)</th>
-                                <th className="p-3 font-semibold text-center">ÉCART M-1</th>
-                                <th className="p-3 font-semibold text-center">STATUT</th>
-                                <th className="p-3 font-semibold text-right">ACTIONS</th>
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
+                    <Table>
+                        <Thead>
+                            <tr>
+                                <Th>MATR.</Th>
+                                <Th>SALARIÉ</Th>
+                                <Th>POSTE & SITE</Th>
+                                <Th className="text-right">BRUT (Ar)</Th>
+                                <Th className="text-right">NET (Ar)</Th>
+                                <Th className="text-center">ÉCART M-1</Th>
+                                <Th className="text-center">STATUT</Th>
+                                <Th className="text-right">ACTIONS</Th>
                             </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                        </Thead>
+                        <Tbody>
                             {filteredBulletins.length === 0 ? (
-                                <tr>
-                                    <td colSpan={8} className="p-8 text-center text-xs text-[var(--color-fg-muted)] italic">
-                                        Aucun salarié calculé pour cette période. Cliquez sur « ⟳ Recalculer tout » ou « Simuler ».
-                                    </td>
-                                </tr>
+                                <TableEmpty
+                                    colSpan={8}
+                                    title="Aucun salarié calculé pour cette période."
+                                    description="Cliquez sur « ⟳ Recalculer tout » ou « Simuler » pour générer les bulletins."
+                                />
                             ) : (
                                 filteredBulletins.map((b) => (
-                                    <tr 
+                                    <Tr 
                                         key={b.idBulletin || b.idEmploye} 
-                                        className="hover:bg-[var(--color-bg-subtle)]/50 transition-colors"
                                     >
-                                        <td className="p-3 font-mono font-bold text-[var(--color-fg)]">
+                                        <Td isData className="font-bold">
                                             {b.matricule}
-                                        </td>
-                                        <td className="p-3 font-semibold text-[var(--color-fg)]">
+                                        </Td>
+                                        <Td className="font-semibold">
                                             {b.nomPrenom}
-                                        </td>
-                                        <td className="p-3 text-[var(--color-fg-muted)]">
+                                        </Td>
+                                        <Td>
                                             <span className="font-medium text-[var(--color-fg)] block">{b.intitulePoste || '-'}</span>
                                             <span className="text-[10px] text-[var(--color-fg-subtle)]">{b.nomSite || 'Siège'}</span>
-                                        </td>
-                                        <td className="p-3 text-right font-mono font-bold text-[var(--color-fg)]">
+                                        </Td>
+                                        <Td isData className="text-right font-bold">
                                             {formatAr(b.totalGainsBruts)}
-                                        </td>
-                                        <td className="p-3 text-right font-mono font-black text-[var(--color-brand-500)] bg-[var(--color-brand-500)]/5 text-[13px]">
+                                        </Td>
+                                        <Td isData className="text-right font-black text-[var(--color-brand-600)] text-[13px]">
                                             {formatAr(b.netAPayer)}
-                                        </td>
-                                        <td className="p-3 text-center font-mono">
+                                        </Td>
+                                        <Td className="text-center">
                                             {b.typeBulletin === 'STC' ? (
-                                                <span className="text-[10px] font-bold text-[var(--color-info-600)]">N/A</span>
+                                                <Badge size="xs" variant="info">N/A</Badge>
                                             ) : b.ecartM1Pct !== null && b.ecartM1Pct !== undefined ? (
-                                                <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-semibold border ${
+                                                <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-mono font-semibold border ${
                                                     b.aAlerte 
                                                         ? 'bg-[var(--color-warning-500)]/15 text-[var(--color-warning-700)] border-[var(--color-warning-500)]/30 font-bold'
                                                         : b.ecartM1Pct >= 0 
@@ -728,37 +692,37 @@ export default function CockpitPaieTab({
                                                     {b.aAlerte && ' ⚠️'}
                                                 </span>
                                             ) : (
-                                                <span className="text-[10px] text-[var(--color-fg-subtle)]">0.0%</span>
+                                                <span className="text-[10px] font-mono text-[var(--color-fg-subtle)]">0.0%</span>
                                             )}
-                                        </td>
-                                        <td className="p-3 text-center">
+                                        </Td>
+                                        <Td className="text-center">
                                             {b.typeBulletin === 'STC' ? (
-                                                <Badge variant="info">★ STC inclus</Badge>
+                                                <Badge size="xs" variant="info">★ STC inclus</Badge>
                                             ) : b.aAlerte ? (
-                                                <Badge variant="warning">⚠ Contrôle</Badge>
+                                                <Badge size="xs" variant="warning">⚠ Contrôle</Badge>
                                             ) : b.statut === 'CLOTURE' ? (
-                                                <Badge variant="neutral">✓ Clôturé</Badge>
+                                                <Badge size="xs" variant="neutral">✓ Clôturé</Badge>
                                             ) : b.statut === 'VALIDE' ? (
-                                                <Badge variant="success">✓ Validé</Badge>
+                                                <Badge size="xs" variant="success">✓ Validé</Badge>
                                             ) : (
-                                                <Badge variant="success">✓ Prêt</Badge>
+                                                <Badge size="xs" variant="success">✓ Prêt</Badge>
                                             )}
-                                        </td>
-                                        <td className="p-3 text-right">
+                                        </Td>
+                                        <Td className="text-right">
                                             <button
                                                 onClick={() => navigate(`/paie/periods/${idPeriodeActive}/results/${b.idEmploye}`)}
-                                                className="px-2.5 py-1 text-xs font-semibold bg-[var(--color-bg-subtle)] hover:bg-[var(--color-border)] text-[var(--color-fg)] border border-[var(--color-border)] cursor-pointer inline-flex items-center gap-1.5"
+                                                className="px-2.5 py-1 text-xs font-semibold bg-[var(--color-bg-subtle)] hover:bg-[var(--color-surface-hover)] text-[var(--color-fg)] border border-[var(--color-border-subtle)] cursor-pointer inline-flex items-center gap-1.5"
                                                 title="Consulter le bulletin détaillé"
                                             >
                                                 <Eye size={12} />
                                                 Détail
                                             </button>
-                                        </td>
-                                    </tr>
+                                        </Td>
+                                    </Tr>
                                 ))
                             )}
-                        </tbody>
-                    </table>
+                        </Tbody>
+                    </Table>
 
                     <div className="px-4 py-3 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex flex-col gap-2">
                         <Pagination

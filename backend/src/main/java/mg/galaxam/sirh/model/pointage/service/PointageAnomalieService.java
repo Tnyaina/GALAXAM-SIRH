@@ -853,7 +853,7 @@ public class PointageAnomalieService {
 
             BigDecimal mntDepJour = BigDecimal.ZERO;
             if (fractionDep.signum() > 0) {
-                BigDecimal reductionCeJour = (!siteEstContinu && (isJourneeContinue || repas))
+                BigDecimal reductionCeJour = (!siteEstContinu && repas)
                         ? reductionDeplactRepasConfig
                         : BigDecimal.ZERO;
                 mntDepJour = MoneyRoundingPolicy.amount(fractionDep.multiply(tarifJourDep.subtract(reductionCeJour)).max(BigDecimal.ZERO));

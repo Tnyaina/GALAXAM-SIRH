@@ -5,12 +5,13 @@ import {
     Download, 
     CreditCard, 
     Eye, 
-    AlertCircle, 
-    CheckCircle2,
     ShieldCheck
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
+import Badge from '@/components/ui/data-display/Badge';
+import { Table, Thead, Th, Tbody, Tr, Td, TableEmpty } from '@/components/ui/data-display/Table';
+import Alert from '@/components/ui/feedback/Alert';
 import paieService from '@/api/paie/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 
@@ -76,14 +77,11 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
     return (
         <div className="space-y-5">
             {feedback && (
-                <div className={`p-3 text-xs flex items-center gap-2 border ${
-                    feedback.type === 'success' 
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
-                        : 'bg-rose-50 border-rose-200 text-rose-800'
-                }`}>
-                    {feedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                    <span>{feedback.text}</span>
-                </div>
+                <Alert
+                    type={feedback.type === 'success' ? 'success' : 'error'}
+                    message={feedback.text}
+                    onClose={() => setFeedback(null)}
+                />
             )}
 
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 flex items-center justify-between">
@@ -97,36 +95,40 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-[var(--color-fg-muted)]">Période ciblée :</span>
-                    <span className="px-2.5 py-1 bg-[var(--color-bg-subtle)] font-mono font-bold text-xs border border-[var(--color-border)]">
+                    <span className="px-2.5 py-1 bg-[var(--color-bg-subtle)] font-mono font-bold text-xs border border-[var(--color-border)] text-[var(--color-fg)]">
                         {codePeriode || 'Aucune période'}
                     </span>
                 </div>
             </div>
 
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-x-auto">
-                <table className="w-full text-xs">
-                    <thead className="bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]">
+            {outputs && outputs.length > 0 && (
+                <Table>
+                    <Thead>
                         <tr>
-                            <th className="text-left p-2">Sortie</th>
-                            <th className="text-left p-2">Statut</th>
-                            <th className="text-left p-2">Version</th>
-                            <th className="text-left p-2">Campagne source</th>
-                            <th className="text-left p-2">Checksum source</th>
+                            <Th>Sortie</Th>
+                            <Th>Statut</Th>
+                            <Th>Version</Th>
+                            <Th>Campagne source</Th>
+                            <Th>Checksum source</Th>
                         </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                    </Thead>
+                    <Tbody>
                         {outputs.map(output => (
-                            <tr key={output.code}>
-                                <td className="p-2 font-semibold">{output.code}</td>
-                                <td className="p-2">{output.status}</td>
-                                <td className="p-2 font-mono">v{output.version}</td>
-                                <td className="p-2 font-mono">{output.sourceCampaign}</td>
-                                <td className="p-2 font-mono" title={output.checksum}>{output.checksum?.slice(0, 12)}…</td>
-                            </tr>
+                            <Tr key={output.code}>
+                                <Td className="font-semibold">{output.code}</Td>
+                                <Td>
+                                    <Badge size="xs" variant={output.status === 'READY' || output.status === 'GENERATED' ? 'success' : 'neutral'}>
+                                        {output.status}
+                                    </Badge>
+                                </Td>
+                                <Td className="font-mono">v{output.version}</Td>
+                                <Td className="font-mono">{output.sourceCampaign}</Td>
+                                <Td className="font-mono" title={output.checksum}>{output.checksum?.slice(0, 12)}…</Td>
+                            </Tr>
                         ))}
-                    </tbody>
-                </table>
-            </div>
+                    </Tbody>
+                </Table>
+            )}
 
             {/* Grille des formats d'export */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -135,16 +137,16 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
                     <div>
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 flex items-center justify-center bg-blue-500/10 text-blue-600 border border-blue-500/20">
+                                <div className="w-9 h-9 flex items-center justify-center bg-[var(--color-info-500)]/10 text-[var(--color-info-600)] border border-[var(--color-info-500)]/20">
                                     <FileSpreadsheet size={20} />
                                 </div>
                                 <div>
                                     <h4 className="text-sm font-bold text-[var(--color-fg)]">
                                         SAFI IRSA — État 301 (25 Colonnes)
                                     </h4>
-                                    <span className="text-[10px] uppercase font-mono tracking-wider text-blue-600 bg-blue-50 px-1.5 py-0.5 border border-blue-200">
+                                    <Badge variant="info" size="xs" className="mt-0.5">
                                         DGI Madagascar • Art. 01.03.01 CGI
-                                    </span>
+                                    </Badge>
                                 </div>
                             </div>
                         </div>
@@ -207,9 +209,9 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
                                     <h4 className="text-sm font-bold text-[var(--color-fg)]">
                                         EDI ISI — Télé-Déclaration XML
                                     </h4>
-                                    <span className="text-[10px] uppercase font-mono tracking-wider text-purple-600 bg-purple-50 px-1.5 py-0.5 border border-purple-200">
+                                    <Badge variant="purple" size="xs" className="mt-0.5">
                                         DGI Madagascar • Régime Prestataires 5%
-                                    </span>
+                                    </Badge>
                                 </div>
                             </div>
                         </div>
@@ -241,16 +243,16 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
                     <div>
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 flex items-center justify-center bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                <div className="w-9 h-9 flex items-center justify-center bg-[var(--color-success-500)]/10 text-[var(--color-success-600)] border border-[var(--color-success-500)]/20">
                                     <ShieldCheck size={20} />
                                 </div>
                                 <div>
                                     <h4 className="text-sm font-bold text-[var(--color-fg)]">
                                         DNTS — Cotisations Sociales CNaPS & FMFP
                                     </h4>
-                                    <span className="text-[10px] uppercase font-mono tracking-wider text-emerald-600 bg-emerald-50 px-1.5 py-0.5 border border-emerald-200">
+                                    <Badge variant="success" size="xs" className="mt-0.5">
                                         Déclaration Trimestrielle / Mensuelle
-                                    </span>
+                                    </Badge>
                                 </div>
                             </div>
                         </div>
@@ -293,16 +295,16 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
                     <div>
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 flex items-center justify-center bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                <div className="w-9 h-9 flex items-center justify-center bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] border border-[var(--color-warning-500)]/20">
                                     <CreditCard size={20} />
                                 </div>
                                 <div>
                                     <h4 className="text-sm font-bold text-[var(--color-fg)]">
                                         Ordre de Virement Bancaire Collectif
                                     </h4>
-                                    <span className="text-[10px] uppercase font-mono tracking-wider text-amber-600 bg-amber-50 px-1.5 py-0.5 border border-amber-200">
+                                    <Badge variant="warning" size="xs" className="mt-0.5">
                                         Télétransmission Interbancaire
-                                    </span>
+                                    </Badge>
                                 </div>
                             </div>
                         </div>
@@ -351,7 +353,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
                 size="full"
                 footer={
                     <div className="flex items-center justify-between w-full">
-                        <span className="text-xs text-[var(--color-fg-muted)]">
+                        <span className="text-xs text-[var(--color-fg-muted)] font-mono">
                             {previewData.length} ligne(s) dans le fichier
                         </span>
                         <Button variant="secondary" size="sm" onClick={() => setPreviewType(null)}>
@@ -365,37 +367,33 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
                         Chargement des données réglementaires...
                     </div>
                 ) : (
-                    <div className="overflow-x-auto max-h-[60vh]">
-                        <table className="w-full text-left text-xs border-collapse">
-                            <thead>
-                                <tr className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[10px] text-[var(--color-fg-muted)]">
+                    <div className="max-h-[60vh]">
+                        <Table>
+                            <Thead sticky>
+                                <tr>
                                     {previewData.length > 0 && Object.keys(previewData[0]).map((col, idx) => (
-                                        <th key={idx} className="p-2 font-semibold uppercase tracking-wider whitespace-nowrap">
+                                        <Th key={idx}>
                                             {col}
-                                        </th>
+                                        </Th>
                                     ))}
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--color-border-subtle)] font-mono text-[11px]">
+                            </Thead>
+                            <Tbody>
                                 {previewData.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={10} className="p-8 text-center text-[var(--color-fg-muted)] italic">
-                                            Aucune donnée disponible pour cette période.
-                                        </td>
-                                    </tr>
+                                    <TableEmpty colSpan={10} title="Aucune donnée disponible pour cette période." />
                                 ) : (
                                     previewData.map((row, rIdx) => (
-                                        <tr key={rIdx} className="hover:bg-[var(--color-bg-subtle)]/50">
+                                        <Tr key={rIdx}>
                                             {Object.values(row).map((val, cIdx) => (
-                                                <td key={cIdx} className="p-2 whitespace-nowrap">
+                                                <Td key={cIdx} isData className="whitespace-nowrap font-mono text-xs">
                                                     {val !== null && val !== undefined ? String(val) : '-'}
-                                                </td>
+                                                </Td>
                                             ))}
-                                        </tr>
+                                        </Tr>
                                     ))
                                 )}
-                            </tbody>
-                        </table>
+                            </Tbody>
+                        </Table>
                     </div>
                 )}
             </Modal>
